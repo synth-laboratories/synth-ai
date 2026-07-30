@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
 
 from synth_ai.sdk.research.contracts.dataset_revisions import (
     DatasetRevisionCreateRequest,
@@ -23,6 +23,7 @@ from synth_ai.sdk.research.contracts.project_runtime import ProjectComputerState
 from synth_ai.sdk.research.contracts.project_workspace_evidence import (
     ProjectComputerWorkspaceSnapshot,
 )
+from synth_ai.sdk.research.contracts.traces import TracePromotionReceipt
 
 
 class _StrictContract(BaseModel):
@@ -338,6 +339,71 @@ class ResearchInternEventResponse(_StrictContract):
     evidence_refs: list[str]
     created_at: datetime
 
+    @model_validator(mode="after")
+    def validate_state_generation_chain(self) -> ResearchInternEventResponse:
+        if self.state_generation != self.previous_state_generation + 1:
+            raise ValueError(
+                "event state_generation must immediately follow previous_state_generation"
+            )
+        return self
+
+
+class ResearchInternEventStreamCursor(_StrictContract):
+    """Exact durable event-log position carried by the Intern SSE API."""
+
+    schema_version: Literal["smr.research-intern-event-stream-cursor.v1"] = (
+        "smr.research-intern-event-stream-cursor.v1"
+    )
+    after_sequence: int = Field(ge=1)
+    event_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    state_generation: int = Field(ge=1)
+
+
+class ResearchInternEventStreamEvent(_StrictContract):
+    """One durable Research Intern event framed by the backend stream."""
+
+    schema_version: Literal["smr.research-intern-event-stream.v1"] = (
+        "smr.research-intern-event-stream.v1"
+    )
+    kind: Literal["event"] = "event"
+    session_id: str
+    cursor: ResearchInternEventStreamCursor
+    event: ResearchInternEventResponse
+
+    @model_validator(mode="after")
+    def validate_cursor_chain(self) -> ResearchInternEventStreamEvent:
+        if (
+            self.session_id != self.event.session_id
+            or self.cursor.after_sequence != self.event.sequence
+            or self.cursor.event_id != self.event.event_id
+            or self.cursor.state_generation != self.event.state_generation
+        ):
+            raise ValueError("event stream cursor must identify the framed event")
+        return self
+
+
+class ResearchInternEventStreamHeartbeat(_StrictContract):
+    """Non-durable liveness frame whose cursor names the last durable event."""
+
+    schema_version: Literal["smr.research-intern-event-stream.v1"] = (
+        "smr.research-intern-event-stream.v1"
+    )
+    kind: Literal["heartbeat"] = "heartbeat"
+    session_id: str
+    cursor: ResearchInternEventStreamCursor | None = None
+    reconnect_after_ms: int = Field(ge=1_000, le=30_000)
+    emitted_at: datetime
+
+
+ResearchInternEventStreamPayload = Annotated[
+    ResearchInternEventStreamEvent | ResearchInternEventStreamHeartbeat,
+    Field(discriminator="kind"),
+]
+
+
+class ResearchInternEventStreamEnvelope(RootModel[ResearchInternEventStreamPayload]):
+    """OpenAPI-visible discriminated union for Intern SSE data payloads."""
+
 
 class ResearchInternSessionCloseRequest(_StrictContract):
     idempotency_key: str = Field(min_length=1, max_length=512)
@@ -345,6 +411,51 @@ class ResearchInternSessionCloseRequest(_StrictContract):
     status: Literal["completed", "partial", "failed", "stopped", "canceled", "archived"]
     rationale: str = Field(min_length=1, max_length=20_000)
     evidence_refs: list[str] = Field(default_factory=list)
+
+
+class ResearchInternTracePublicationRequest(_StrictContract):
+    """Optimistic fence for publishing one terminal Intern event chain."""
+
+    schema_version: Literal["smr.research-intern-trace-publication-request.v1"] = (
+        "smr.research-intern-trace-publication-request.v1"
+    )
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_state_generation: int = Field(ge=1)
+
+
+class ResearchInternTracePublicationResponse(_StrictContract):
+    """Factory Trace Store receipt for one genuine terminal Intern Trace V5."""
+
+    schema_version: Literal["smr.research-intern-trace-publication.v1"] = (
+        "smr.research-intern-trace-publication.v1"
+    )
+    session_id: str
+    research_intern_id: str
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    org_id: str
+    factory_id: str
+    project_id: str
+    effort_id: str
+    run_id: str
+    state_generation: int = Field(ge=1)
+    event_count: int = Field(ge=1)
+    trace_id: str
+    trace_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    capture_id: str
+    bundle_id: str
+    manifest_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    promotion: TracePromotionReceipt
+
+    @model_validator(mode="after")
+    def validate_promotion_identity(self) -> ResearchInternTracePublicationResponse:
+        if (
+            self.factory_id != self.promotion.factory_id
+            or self.bundle_id != self.promotion.bundle_id
+            or self.manifest_digest != self.promotion.manifest_digest
+            or self.promotion.trace_digests != [self.trace_digest]
+        ):
+            raise ValueError("Research Intern trace response must match its promotion receipt")
+        return self
 
 
 class ResearchInternSessionSyncResponse(_StrictContract):

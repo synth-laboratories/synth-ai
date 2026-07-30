@@ -16,16 +16,20 @@ from synth_ai.mcp.research.request_models import optional_int, optional_string, 
 from synth_ai.sdk.research.client import Client as ResearchClient
 from synth_ai.sdk.research.contracts.research_intern import (
     MagiDecisionRequest,
+    MagiMode,
     ResearchInternAcceptanceReceiptPublicationRequest,
     ResearchInternEventAppendRequest,
     ResearchInternPatchRequest,
     ResearchInternProvisionRequest,
     ResearchInternSessionCloseRequest,
     ResearchInternSessionCreateRequest,
+    ResearchInternTracePublicationRequest,
     ResearchInternTurnRequest,
 )
+from synth_ai.sdk.research.research_intern import ResearchInternEventCursor
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
+_RESEARCH_INTERN_EVENT_SEQUENCE_MAX = 2**31 - 1
 
 
 def _request_payload(args: JSONDict, names: tuple[str, ...]) -> JSONDict:
@@ -34,6 +38,37 @@ def _request_payload(args: JSONDict, names: tuple[str, ...]) -> JSONDict:
 
 def _wire_list(values: tuple[Any, ...]) -> list[JSONDict]:
     return [value.to_wire() for value in values]
+
+
+def _optional_number_default(args: JSONDict, name: str, default: float) -> float:
+    value = args.get(name)
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"'{name}' must be a number when provided")
+    return float(value)
+
+
+def _event_cursor(args: JSONDict) -> ResearchInternEventCursor:
+    session_id = require_string(args, "session_id")
+    after_sequence = optional_int(args, "after_sequence") or 0
+    state_generation = optional_int(args, "state_generation") or 0
+    event_id = optional_string(args, "event_id")
+    if after_sequence == 0:
+        if state_generation != 0 or event_id is not None:
+            raise ValueError("the zero event cursor cannot include generation or event_id")
+        return ResearchInternEventCursor(session_id=session_id)
+    if state_generation < 1 or event_id is None:
+        raise ValueError(
+            "a nonzero event cursor requires state_generation and content-addressed event_id"
+        )
+    return ResearchInternEventCursor(
+        session_id=session_id,
+        after_sequence=after_sequence,
+        state_generation=state_generation,
+        event_id=event_id,
+        last_event_id=str(after_sequence),
+    )
 
 
 def build_research_intern_tools(
@@ -134,6 +169,22 @@ def build_research_intern_tools(
                 )
             )
 
+    def watch_events(args: JSONDict) -> JSONDict:
+        cursor = _event_cursor(args)
+        with client_from_args(args) as client:
+            return client.intern.sessions.watch(
+                cursor.session_id,
+                cursor=cursor,
+                event_count_max=optional_int(args, "event_count_max") or 1,
+                frame_count_max=optional_int(args, "frame_count_max") or 100,
+                reconnect_count_max=optional_int(args, "reconnect_count_max") or 3,
+                timeout_seconds=_optional_number_default(
+                    args,
+                    "timeout_seconds",
+                    30.0,
+                ),
+            ).to_wire()
+
     def sync_session(args: JSONDict) -> JSONDict:
         limit = optional_int(args, "limit")
         with client_from_args(args) as client:
@@ -167,6 +218,43 @@ def build_research_intern_tools(
                 request,
             ).to_wire()
 
+    def exchange_turn(args: JSONDict) -> JSONDict:
+        cursor = _event_cursor(args)
+        state_patch = args.get("state_patch")
+        if state_patch is not None and not isinstance(state_patch, dict):
+            raise ValueError("'state_patch' must be an object when provided")
+        evidence_refs = args.get("evidence_refs")
+        if evidence_refs is not None and (
+            not isinstance(evidence_refs, list)
+            or not all(isinstance(value, str) for value in evidence_refs)
+        ):
+            raise ValueError("'evidence_refs' must be an array of strings")
+        with client_from_args(args) as client:
+            reactive = client.intern.sessions.connect(
+                cursor.session_id,
+                cursor=cursor,
+            )
+            return reactive.exchange(
+                require_string(args, "body"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                mode=MagiMode(optional_string(args, "mode") or MagiMode.SYNC.value),
+                control=optional_string(args, "control"),
+                rationale=optional_string(args, "rationale"),
+                state_patch=state_patch,
+                evidence_refs=evidence_refs,
+                wait_timeout_seconds=_optional_number_default(
+                    args,
+                    "wait_timeout_seconds",
+                    15.0,
+                ),
+                poll_interval_ms=optional_int(args, "poll_interval_ms") or 250,
+                recovery_timeout_seconds=_optional_number_default(
+                    args,
+                    "recovery_timeout_seconds",
+                    60.0,
+                ),
+            ).to_wire()
+
     def close_session(args: JSONDict) -> JSONDict:
         request = ResearchInternSessionCloseRequest.model_validate(
             _request_payload(
@@ -182,6 +270,19 @@ def build_research_intern_tools(
         )
         with client_from_args(args) as client:
             return client.intern.sessions.close(
+                require_string(args, "session_id"),
+                request,
+            ).to_wire()
+
+    def publish_trace(args: JSONDict) -> JSONDict:
+        request = ResearchInternTracePublicationRequest.model_validate(
+            _request_payload(
+                args,
+                ("idempotency_key", "expected_state_generation"),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.sessions.publish_trace(
                 require_string(args, "session_id"),
                 request,
             ).to_wire()
@@ -261,6 +362,19 @@ def build_research_intern_tools(
         "additionalProperties": False,
     }
     session_selector = {"session_id": {"type": "string", "minLength": 1}}
+    event_cursor_properties: JSONDict = {
+        **session_selector,
+        "after_sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": _RESEARCH_INTERN_EVENT_SEQUENCE_MAX,
+        },
+        "state_generation": {"type": "integer", "minimum": 0},
+        "event_id": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+        },
+    }
     event_properties: JSONDict = {
         **session_selector,
         "event_kind": {
@@ -423,12 +537,51 @@ def build_research_intern_tools(
             input_schema=tool_schema(
                 {
                     **session_selector,
-                    "after_sequence": {"type": "integer", "minimum": 0},
+                    "after_sequence": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": _RESEARCH_INTERN_EVENT_SEQUENCE_MAX,
+                    },
                     "limit": {"type": "integer", "minimum": 1, "maximum": 500},
                 },
                 required=["session_id"],
             ),
             handler=list_events,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_watch_research_intern_events",
+            description=(
+                "Wait for typed Intern SSE frames with explicit event, frame, "
+                "reconnect, and time bounds."
+            ),
+            input_schema=tool_schema(
+                {
+                    **event_cursor_properties,
+                    "event_count_max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                    },
+                    "frame_count_max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5000,
+                    },
+                    "reconnect_count_max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                    },
+                    "timeout_seconds": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                    },
+                },
+                required=["session_id"],
+            ),
+            handler=watch_events,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
@@ -498,6 +651,60 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
+            name="smr_exchange_research_intern_turn",
+            description=(
+                "Submit one Intern turn and recover only its exact terminal "
+                "agent/error event over the canonical stream."
+            ),
+            input_schema=tool_schema(
+                {
+                    **event_cursor_properties,
+                    "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000,
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["sync", "async", "seraph"],
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                    },
+                    "control": {
+                        "type": "string",
+                        "enum": ["pause", "intervene", "resume"],
+                    },
+                    "rationale": {"type": "string", "maxLength": 20000},
+                    "state_patch": {"type": "object"},
+                    "evidence_refs": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "wait_timeout_seconds": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 30,
+                    },
+                    "poll_interval_ms": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 2000,
+                    },
+                    "recovery_timeout_seconds": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                    },
+                },
+                required=["session_id", "body", "idempotency_key"],
+            ),
+            handler=exchange_turn,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_close_research_intern_session",
             description="Close one exact Intern session generation without deleting evidence.",
             input_schema=tool_schema(
@@ -528,6 +735,34 @@ def build_research_intern_tools(
                 ],
             ),
             handler=close_session,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_publish_research_intern_session_trace",
+            description=(
+                "Publish one terminal Intern event chain through backend-owned "
+                "Factory Trace V5 authority."
+            ),
+            input_schema=tool_schema(
+                {
+                    **session_selector,
+                    "idempotency_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                    },
+                    "expected_state_generation": {
+                        "type": "integer",
+                        "minimum": 1,
+                    },
+                },
+                required=[
+                    "session_id",
+                    "idempotency_key",
+                    "expected_state_generation",
+                ],
+            ),
+            handler=publish_trace,
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(

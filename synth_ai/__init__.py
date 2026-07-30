@@ -40,6 +40,7 @@ except _PackageNotFoundError:
 
 
 __all__ = [
+    "AsyncResearchInternReactiveSession",
     "AsyncSynthClient",
     "DataBindingCreateRequest",
     "DatasetRevisionCreateRequest",
@@ -80,10 +81,15 @@ __all__ = [
     "ResearchProjectCreateRequest",
     "ResearchInternProvisionRequest",
     "ResearchInternReactiveSession",
+    "ResearchInternEventStreamCursor",
+    "ResearchInternEventStreamEvent",
+    "ResearchInternEventStreamHeartbeat",
     "ResearchInternResponse",
     "ResearchInternSessionCreateRequest",
     "ResearchInternSessionResponse",
     "ResearchInternStatus",
+    "ResearchInternTracePublicationRequest",
+    "ResearchInternTracePublicationResponse",
     "ResearchInternTurnControl",
     "ResearchInternTurnRequest",
     "ResearchInternTurnResponse",
@@ -99,6 +105,10 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "AsyncResearchInternReactiveSession": (
+        "synth_ai.sdk.research.research_intern",
+        "AsyncResearchInternReactiveSession",
+    ),
     "DataBindingCreateRequest": (
         "synth_ai.sdk.research.contracts",
         "DataBindingCreateRequest",
@@ -257,6 +267,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.sdk.research.research_intern",
         "ResearchInternReactiveSession",
     ),
+    "ResearchInternEventStreamCursor": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternEventStreamCursor",
+    ),
+    "ResearchInternEventStreamEvent": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternEventStreamEvent",
+    ),
+    "ResearchInternEventStreamHeartbeat": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternEventStreamHeartbeat",
+    ),
     "ResearchInternResponse": (
         "synth_ai.sdk.research.contracts",
         "ResearchInternResponse",
@@ -272,6 +294,14 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ResearchInternStatus": (
         "synth_ai.sdk.research.contracts",
         "ResearchInternStatus",
+    ),
+    "ResearchInternTracePublicationRequest": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTracePublicationRequest",
+    ),
+    "ResearchInternTracePublicationResponse": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTracePublicationResponse",
     ),
     "ResearchInternTurnControl": (
         "synth_ai.sdk.research.contracts",

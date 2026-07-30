@@ -164,6 +164,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_attach_research_intern_factory",
         "research_close_research_intern_session",
         "research_create_research_intern_session",
+        "research_exchange_research_intern_turn",
         "research_get_research_intern",
         "research_get_research_intern_acceptance_receipt",
         "research_get_research_intern_decision",
@@ -175,10 +176,12 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_list_research_intern_sessions",
         "research_provision_research_intern",
         "research_publish_research_intern_acceptance_receipt",
+        "research_publish_research_intern_session_trace",
         "research_record_research_intern_decision",
         "research_run_research_intern_turn",
         "research_sync_research_intern_session",
         "research_update_research_intern",
+        "research_watch_research_intern_events",
     }
 )
 

@@ -8063,6 +8063,524 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/decisions/{receipt_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Magi Decision
+      operationId: get_magi_decision
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/decision-receipts/{digest_hex}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Public Magi Decision
+      operationId: get_public_magi_decision
+      parameters:
+      - name: digest_hex
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Digest Hex
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Research Intern Session
+      operationId: create_research_intern_session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternSessionCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Sessions
+      operationId: list_research_intern_sessions
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchInternSessionResponse'
+                title: Response List Research Intern Sessions Smr Research Intern
+                  Sessions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Research Intern Session
+      operationId: get_research_intern_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/events:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Append Research Intern Session Event
+      operationId: append_research_intern_session_event
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternEventAppendRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternEventResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Session Events
+      operationId: list_research_intern_session_events
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchInternEventResponse'
+                title: Response List Research Intern Session Events Smr Research Intern
+                  Sessions  Session Id  Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/events/stream:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Stream Research Intern Session Events
+      description: Read-only stream; the durable writer pushes projection and `/sync`
+        reconciles.
+      operationId: stream_research_intern_session_events
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last-Event-Id
+      responses:
+        '200':
+          description: Replay-then-tail SSE stream over durable Research Intern events.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ResearchInternEventStreamEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/sync:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Sync Research Intern Session
+      operationId: sync_research_intern_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 200
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionSyncResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/turns:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Research Intern Session Turn
+      operationId: create_research_intern_session_turn
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternTurnRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternTurnResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/close:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Close Research Intern Session
+      operationId: close_research_intern_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternSessionCloseRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/trace:publish:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Publish Research Intern Session Trace
+      description: Promote a terminal Intern event chain through Factory Trace Store
+        authority.
+      operationId: publish_research_intern_session_trace
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternTracePublicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternTracePublicationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/acceptance-receipts/{digest_hex}:
+    put:
+      tags:
+      - smr
+      - research-intern
+      summary: Publish Research Intern Acceptance Receipt
+      operationId: publish_research_intern_acceptance_receipt
+      parameters:
+      - name: digest_hex
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Digest Hex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Public Research Intern Acceptance Receipt
+      operationId: get_public_research_intern_acceptance_receipt
+      parameters:
+      - name: digest_hex
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Digest Hex
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/acceptance-receipts:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Acceptance Receipts
+      operationId: list_research_intern_acceptance_receipts
+      parameters:
+      - name: candidate_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Candidate Id
+      - name: lane
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
+          - type: 'null'
+          title: Lane
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationResponse'
+                title: Response List Research Intern Acceptance Receipts Smr Research
+                  Intern Acceptance Receipts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects/{project_id}/computer:
     post:
       tags:
@@ -45978,9 +46496,23 @@ components:
       title: MagiDecisionKind
     MagiDecisionReceiptResponse:
       properties:
+        schema_version:
+          type: string
+          const: smr.magi-decision-receipt.v2
+          title: Schema Version
+          default: smr.magi-decision-receipt.v2
         receipt_id:
           type: string
           title: Receipt Id
+        content_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Content Digest
+        receipt_url:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          title: Receipt Url
         research_intern_id:
           type: string
           title: Research Intern Id
@@ -45997,6 +46529,21 @@ components:
           - type: string
           - type: 'null'
           title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
         experiment_id:
           anyOf:
           - type: string
@@ -46011,6 +46558,14 @@ components:
         idempotency_key:
           type: string
           title: Idempotency Key
+        expected_state_generation:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expected State Generation
+        previous_state_generation:
+          type: integer
+          title: Previous State Generation
         state_generation:
           type: integer
           title: State Generation
@@ -46036,6 +46591,8 @@ components:
           - type: number
           - type: 'null'
           title: Uncertainty
+        actuation:
+          $ref: '#/components/schemas/MagiDecisionActuationReceipt'
         decided_by_user_id:
           anyOf:
           - type: string
@@ -46049,16 +46606,20 @@ components:
       type: object
       required:
       - receipt_id
+      - content_digest
+      - receipt_url
       - research_intern_id
       - org_id
       - mode
       - canonical_user
       - decision_kind
       - idempotency_key
+      - previous_state_generation
       - state_generation
       - evidence_refs
       - state_patch
       - rationale
+      - actuation
       - created_at
       title: MagiDecisionReceiptResponse
     MagiDecisionRequest:
@@ -46082,6 +46643,27 @@ components:
           - type: string
           - type: 'null'
           title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        expected_state_generation:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Expected State Generation
         experiment_id:
           anyOf:
           - type: string
@@ -46129,6 +46711,84 @@ components:
       - async
       - seraph
       title: MagiMode
+    MagiActuationStatus:
+      type: string
+      enum:
+      - not_requested
+      - applied
+      - noop
+      title: MagiActuationStatus
+    MagiDecisionActuationReceipt:
+      properties:
+        status:
+          $ref: '#/components/schemas/MagiActuationStatus'
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        scheduler_action:
+          anyOf:
+          - type: string
+            enum:
+            - pause
+            - resume
+          - type: 'null'
+          title: Scheduler Action
+        scheduler_decision:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scheduler Decision
+        factory_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Status
+        run_action:
+          anyOf:
+          - type: string
+            enum:
+            - pause
+            - intervene
+            - resume
+          - type: 'null'
+          title: Run Action
+        run_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run State
+        runtime_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runtime Message Id
+        detail:
+          additionalProperties: true
+          type: object
+          title: Detail
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      title: MagiDecisionActuationReceipt
+      description: Durable proof that a control decision reached its runtime authority.
     ManderqueueAckRequest:
       properties:
         message_id:
@@ -50352,6 +51012,819 @@ components:
       - paused
       - archived
       title: ResearchInternStatus
+    ResearchInternAcceptanceReceiptPublicationRequest:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-acceptance-receipt-publication.v1
+          title: Schema Version
+          default: smr.research-intern-acceptance-receipt-publication.v1
+        receipt_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Receipt Id
+        lane:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
+          title: Lane
+        candidate_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Candidate Id
+        receipt:
+          additionalProperties: true
+          type: object
+          title: Receipt
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - lane
+      - candidate_id
+      - receipt
+      title: ResearchInternAcceptanceReceiptPublicationRequest
+    ResearchInternAcceptanceReceiptPublicationResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-acceptance-receipt-publication.v1
+          title: Schema Version
+          default: smr.research-intern-acceptance-receipt-publication.v1
+        receipt_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Receipt Id
+        receipt_url:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          title: Receipt Url
+        content_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Content Digest
+        org_id:
+          type: string
+          title: Org Id
+        lane:
+          type: string
+          title: Lane
+        candidate_id:
+          type: string
+          title: Candidate Id
+        receipt:
+          additionalProperties: true
+          type: object
+          title: Receipt
+        replayed:
+          type: boolean
+          title: Replayed
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - receipt_url
+      - content_digest
+      - org_id
+      - lane
+      - candidate_id
+      - receipt
+      - replayed
+      - created_at
+      title: ResearchInternAcceptanceReceiptPublicationResponse
+    ResearchInternEventActorKind:
+      type: string
+      enum:
+      - operator
+      - research_intern
+      - magi
+      - system
+      title: ResearchInternEventActorKind
+    ResearchInternEventAppendRequest:
+      properties:
+        event_kind:
+          $ref: '#/components/schemas/ResearchInternEventKind'
+        mode:
+          anyOf:
+          - $ref: '#/components/schemas/MagiMode'
+          - type: 'null'
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected State Generation
+        body:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Body
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+      additionalProperties: false
+      type: object
+      required:
+      - event_kind
+      - idempotency_key
+      - expected_state_generation
+      title: ResearchInternEventAppendRequest
+    ResearchInternEventKind:
+      type: string
+      enum:
+      - objective
+      - operator_message
+      - agent_message
+      - progress
+      - magi_decision
+      - state_snapshot
+      - error
+      - closed
+      title: ResearchInternEventKind
+    ResearchInternEventResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event.v1
+          title: Schema Version
+          default: smr.research-intern-event.v1
+        event_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Event Id
+        session_id:
+          type: string
+          title: Session Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        sequence:
+          type: integer
+          title: Sequence
+        previous_state_generation:
+          type: integer
+          title: Previous State Generation
+        state_generation:
+          type: integer
+          title: State Generation
+        event_kind:
+          $ref: '#/components/schemas/ResearchInternEventKind'
+        actor_kind:
+          $ref: '#/components/schemas/ResearchInternEventActorKind'
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        mode:
+          anyOf:
+          - $ref: '#/components/schemas/MagiMode'
+          - type: 'null'
+        canonical_user:
+          anyOf:
+          - $ref: '#/components/schemas/MagiCanonicalUser'
+          - type: 'null'
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Id
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        body:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Body
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - session_id
+      - research_intern_id
+      - org_id
+      - sequence
+      - previous_state_generation
+      - state_generation
+      - event_kind
+      - actor_kind
+      - idempotency_key
+      - payload
+      - evidence_refs
+      - created_at
+      title: ResearchInternEventResponse
+    ResearchInternEventStreamCursor:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event-stream-cursor.v1
+          title: Schema Version
+          default: smr.research-intern-event-stream-cursor.v1
+        after_sequence:
+          type: integer
+          minimum: 1.0
+          title: After Sequence
+        event_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Event Id
+        state_generation:
+          type: integer
+          minimum: 1.0
+          title: State Generation
+      additionalProperties: false
+      type: object
+      required:
+      - after_sequence
+      - event_id
+      - state_generation
+      title: ResearchInternEventStreamCursor
+      description: Exact durable event-log position used by Intern SSE consumers.
+    ResearchInternEventStreamEnvelope:
+      oneOf:
+      - $ref: '#/components/schemas/ResearchInternEventStreamEvent'
+      - $ref: '#/components/schemas/ResearchInternEventStreamHeartbeat'
+      title: ResearchInternEventStreamEnvelope
+      description: OpenAPI-visible discriminated union for Intern SSE data payloads.
+      discriminator:
+        propertyName: kind
+        mapping:
+          event: '#/components/schemas/ResearchInternEventStreamEvent'
+          heartbeat: '#/components/schemas/ResearchInternEventStreamHeartbeat'
+    ResearchInternEventStreamEvent:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event-stream.v1
+          title: Schema Version
+          default: smr.research-intern-event-stream.v1
+        kind:
+          type: string
+          const: event
+          title: Kind
+          default: event
+        session_id:
+          type: string
+          title: Session Id
+        cursor:
+          $ref: '#/components/schemas/ResearchInternEventStreamCursor'
+        event:
+          $ref: '#/components/schemas/ResearchInternEventResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - cursor
+      - event
+      title: ResearchInternEventStreamEvent
+      description: One durable ResearchInternEventResponse framed for SSE transport.
+    ResearchInternEventStreamHeartbeat:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event-stream.v1
+          title: Schema Version
+          default: smr.research-intern-event-stream.v1
+        kind:
+          type: string
+          const: heartbeat
+          title: Kind
+          default: heartbeat
+        session_id:
+          type: string
+          title: Session Id
+        cursor:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternEventStreamCursor'
+          - type: 'null'
+        reconnect_after_ms:
+          type: integer
+          maximum: 30000.0
+          minimum: 1000.0
+          title: Reconnect After Ms
+        emitted_at:
+          type: string
+          format: date-time
+          title: Emitted At
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - reconnect_after_ms
+      - emitted_at
+      title: ResearchInternEventStreamHeartbeat
+      description: Non-durable liveness frame; cursor is the last durable emitted
+        event.
+    ResearchInternSessionCloseRequest:
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected State Generation
+        status:
+          type: string
+          enum:
+          - completed
+          - partial
+          - failed
+          - stopped
+          - canceled
+          - archived
+          title: Status
+        rationale:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Rationale
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      - expected_state_generation
+      - status
+      - rationale
+      title: ResearchInternSessionCloseRequest
+    ResearchInternSessionCreateRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        effort_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Run Id
+        objective:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Objective
+        objective_bounds:
+          additionalProperties: true
+          type: object
+          title: Objective Bounds
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - project_id
+      - effort_id
+      - objective
+      - idempotency_key
+      title: ResearchInternSessionCreateRequest
+    ResearchInternSessionResponse:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        effort_id:
+          type: string
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        objective:
+          type: string
+          title: Objective
+        objective_bounds:
+          additionalProperties: true
+          type: object
+          title: Objective Bounds
+        status:
+          $ref: '#/components/schemas/ResearchInternSessionStatus'
+        state_generation:
+          type: integer
+          title: State Generation
+        last_event_sequence:
+          type: integer
+          title: Last Event Sequence
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_by_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By User Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Closed At
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - research_intern_id
+      - org_id
+      - factory_id
+      - project_id
+      - effort_id
+      - objective
+      - objective_bounds
+      - status
+      - state_generation
+      - last_event_sequence
+      - metadata
+      - created_at
+      - updated_at
+      title: ResearchInternSessionResponse
+    ResearchInternSessionStatus:
+      type: string
+      enum:
+      - active
+      - completed
+      - partial
+      - failed
+      - stopped
+      - canceled
+      - archived
+      title: ResearchInternSessionStatus
+    ResearchInternSessionSyncResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-session-sync.v1
+          title: Schema Version
+          default: smr.research-intern-session-sync.v1
+        session:
+          $ref: '#/components/schemas/ResearchInternSessionResponse'
+        events:
+          items:
+            $ref: '#/components/schemas/ResearchInternEventResponse'
+          type: array
+          title: Events
+        source_run_id:
+          type: string
+          title: Source Run Id
+        projected_count:
+          type: integer
+          title: Projected Count
+        has_more:
+          type: boolean
+          title: Has More
+      additionalProperties: false
+      type: object
+      required:
+      - session
+      - events
+      - source_run_id
+      - projected_count
+      - has_more
+      title: ResearchInternSessionSyncResponse
+    ResearchInternTracePublicationRequest:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-trace-publication-request.v1
+          title: Schema Version
+          default: smr.research-intern-trace-publication-request.v1
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_state_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected State Generation
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      - expected_state_generation
+      title: ResearchInternTracePublicationRequest
+      description: Optimistic fence for publishing one terminal Intern event chain.
+    ResearchInternTracePublicationResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-trace-publication.v1
+          title: Schema Version
+          default: smr.research-intern-trace-publication.v1
+        session_id:
+          type: string
+          title: Session Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        effort_id:
+          type: string
+          title: Effort Id
+        run_id:
+          type: string
+          title: Run Id
+        state_generation:
+          type: integer
+          minimum: 1.0
+          title: State Generation
+        event_count:
+          type: integer
+          minimum: 1.0
+          title: Event Count
+        trace_id:
+          type: string
+          title: Trace Id
+        trace_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Trace Digest
+        capture_id:
+          type: string
+          title: Capture Id
+        bundle_id:
+          type: string
+          title: Bundle Id
+        manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Manifest Digest
+        promotion:
+          $ref: '#/components/schemas/TracePromotionReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - research_intern_id
+      - idempotency_key
+      - org_id
+      - factory_id
+      - project_id
+      - effort_id
+      - run_id
+      - state_generation
+      - event_count
+      - trace_id
+      - trace_digest
+      - capture_id
+      - bundle_id
+      - manifest_digest
+      - promotion
+      title: ResearchInternTracePublicationResponse
+      description: Factory Trace Store receipt for one genuine terminal Intern Trace
+        V5.
+    ResearchInternTurnControl:
+      type: string
+      enum:
+      - pause
+      - intervene
+      - resume
+      title: ResearchInternTurnControl
+    ResearchInternTurnError:
+      properties:
+        error_code:
+          type: string
+          title: Error Code
+        message:
+          type: string
+          title: Message
+        retryable:
+          type: boolean
+          title: Retryable
+        detail:
+          additionalProperties: true
+          type: object
+          title: Detail
+      additionalProperties: false
+      type: object
+      required:
+      - error_code
+      - message
+      - retryable
+      title: ResearchInternTurnError
+    ResearchInternTurnRequest:
+      properties:
+        body:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Body
+        mode:
+          $ref: '#/components/schemas/MagiMode'
+          default: sync
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_session_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Session State Generation
+        expected_intern_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Intern State Generation
+        control:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternTurnControl'
+          - type: 'null'
+        rationale:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Rationale
+        state_patch:
+          additionalProperties: true
+          type: object
+          title: State Patch
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        wait_timeout_seconds:
+          type: number
+          maximum: 30.0
+          minimum: 0.0
+          title: Wait Timeout Seconds
+          default: 15.0
+        poll_interval_ms:
+          type: integer
+          maximum: 2000.0
+          minimum: 100.0
+          title: Poll Interval Ms
+          default: 250
+      additionalProperties: false
+      type: object
+      required:
+      - body
+      - idempotency_key
+      - expected_session_state_generation
+      - expected_intern_state_generation
+      title: ResearchInternTurnRequest
+      description: One browser-callable operator turn against the bound real runtime.
+    ResearchInternTurnResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-turn.v1
+          title: Schema Version
+          default: smr.research-intern-turn.v1
+        turn_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Turn Id
+        status:
+          $ref: '#/components/schemas/ResearchInternTurnStatus'
+        session:
+          $ref: '#/components/schemas/ResearchInternSessionResponse'
+        run_id:
+          type: string
+          title: Run Id
+        operator_event:
+          $ref: '#/components/schemas/ResearchInternEventResponse'
+        decision_receipt:
+          anyOf:
+          - $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+          - type: 'null'
+        agent_event:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternEventResponse'
+          - type: 'null'
+        projected_events:
+          items:
+            $ref: '#/components/schemas/ResearchInternEventResponse'
+          type: array
+          title: Projected Events
+        reconnect_after_sequence:
+          type: integer
+          minimum: 0.0
+          title: Reconnect After Sequence
+        waited_seconds:
+          type: number
+          minimum: 0.0
+          title: Waited Seconds
+        replayed:
+          type: boolean
+          title: Replayed
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternTurnError'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - turn_id
+      - status
+      - session
+      - run_id
+      - operator_event
+      - reconnect_after_sequence
+      - waited_seconds
+      - replayed
+      title: ResearchInternTurnResponse
+    ResearchInternTurnStatus:
+      type: string
+      enum:
+      - accepted
+      - completed
+      - timed_out
+      - failed
+      title: ResearchInternTurnStatus
     ResolveCredentialRequest:
       properties:
         org_id:
