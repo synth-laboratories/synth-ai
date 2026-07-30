@@ -1,6 +1,6 @@
 """Typed durable evidence contracts for Research swarms.
 
-# See: specifications/sdk/core_research_migration.md
+# See: testing/specifications/sdk/core_research_migration.md
 """
 
 from __future__ import annotations

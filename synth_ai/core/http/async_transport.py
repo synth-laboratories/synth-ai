@@ -1,6 +1,6 @@
 """Native asynchronous HTTP transport with parity to the sync substrate.
 
-# See: specifications/sdk/core_research_migration.md
+# See: testing/specifications/sdk/core_research_migration.md
 """
 
 from __future__ import annotations

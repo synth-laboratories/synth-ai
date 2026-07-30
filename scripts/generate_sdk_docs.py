@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Generate Mintlify SDK reference under synth-ai/docs/ from docstrings.
 
-See: specifications/sdk/docstrings.md
+See: testing/specifications/sdk/docstrings.md
+
+The manifest moved to the sibling `testing` repo alongside the rest of
+`specifications/`.  This generator stayed here: it writes into this repo's
+`docs/` and drives mdxify over the *working tree*, which only resolves to the
+right code inside this repo's venv.  Set `TESTING_DIR` if the checkout is not
+beside this one.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -21,7 +28,23 @@ from sdk_docs_postprocess import postprocess_mdx_files  # noqa: E402
 DOCS_DIR = ROOT / "docs"
 OUTPUT_DIR = DOCS_DIR / "reference" / "sdk"
 DOCS_JSON = DOCS_DIR / "docs.json"
-MANIFEST_PATH = ROOT / "specifications" / "sdk" / "public_api_manifest.json"
+
+
+def _manifest_path() -> Path:
+    """Find `public_api_manifest.json` in the sibling testing checkout."""
+    override = (os.environ.get("TESTING_DIR") or "").strip()
+    candidates = [Path(override).expanduser()] if override else [ROOT.parent / "testing"]
+    for candidate in candidates:
+        manifest = candidate / "specifications" / "sdk" / "public_api_manifest.json"
+        if manifest.is_file():
+            return manifest
+    raise SystemExit(
+        "public_api_manifest.json not found; clone synth-laboratories/testing "
+        "beside synth-ai or set TESTING_DIR to its root"
+    )
+
+
+MANIFEST_PATH = _manifest_path()
 REPO_URL = "https://github.com/synth-laboratories/synth-ai"
 
 GENERATED_RENAMES: dict[str, str] = {

@@ -162,7 +162,7 @@ synth_ai/learning/prompts/**/*.json
 !**/agents.md
 !docs/*.md
 !docs/**/*.md
-!specifications/**/*.md
+# specifications/ moved to the sibling testing repo; no un-ignore rule needed here.
 # Local Mintlify preview output (regenerate with make docs-gen)
 docs/reference/
 docs/docs.json

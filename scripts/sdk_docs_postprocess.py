@@ -1,6 +1,6 @@
 """Shared MDX post-processing for mdxify-generated SDK reference pages.
 
-See: specifications/sdk/docstrings.md
+See: testing/specifications/sdk/docstrings.md
 """
 
 from __future__ import annotations

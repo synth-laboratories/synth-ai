@@ -6,7 +6,7 @@ repo; preview there with `npm run dev`.
 
 Generated output (`reference/sdk/`, `docs.json`, `overview.mdx`) is produced by
 `scripts/generate_sdk_docs.py` from Python docstrings. See
-`specifications/sdk/docstrings.md` for the full spec.
+`testing/specifications/sdk/docstrings.md` for the full spec.
 
 ## Prerequisites
 
