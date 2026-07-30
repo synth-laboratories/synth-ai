@@ -192,14 +192,10 @@ from synth_ai.sdk.research.session.cloud_deployments import (
     CloudDeploymentWorkspace,
     CloudDeploymentWorkspaceMaterialization,
 )
-from synth_ai.sdk.research.session.compat import ResearchControlSessionMixin
 from synth_ai.sdk.research.session.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
     DEFAULT_TIMEOUT_SECONDS,
     DEFAULT_WORKSPACE_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS,
-    OPENAI_TRANSPORT_MODE_AUTO,
-    OPENAI_TRANSPORT_MODE_BACKEND_BFF,
-    OPENAI_TRANSPORT_MODE_DIRECT_HP,
 )
 from synth_ai.sdk.research.session.config import (
     resolve_api_key as _resolve_api_key,
@@ -268,11 +264,7 @@ __all__ = [
     "ACTIVE_RUN_STATES",
     "DEFAULT_TIMEOUT_SECONDS",
     "DEFAULT_MISC_PROJECT_ALIAS",
-    "OPENAI_TRANSPORT_MODE_AUTO",
-    "OPENAI_TRANSPORT_MODE_BACKEND_BFF",
-    "OPENAI_TRANSPORT_MODE_DIRECT_HP",
     "ResearchSession",
-    "ResearchControlSession",
     "first_id",
 ]
 
@@ -6061,38 +6053,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             return RunExecutionProjection.from_wire(payload)
         except ValueError as exc:
             raise SmrApiError(f"Invalid run execution projection payload: {exc}") from exc
-
-
-class ResearchControlSession(ResearchControlSessionMixin, ResearchSession):
-    """Compatibility alias; retired managed-agents bridge attributes raise.
-
-    `ResearchSession` is the canonical public name. `ResearchControlSession`
-    remains as a one-release alias but requires callers to pass the selected
-    backend explicitly so default construction cannot silently target prod.
-    """
-
-    def __init__(
-        self,
-        api_key: str | None = None,
-        backend_base: str | None = None,
-        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-    ) -> None:
-        explicit_backend_base = str(backend_base or "").strip()
-        if not explicit_backend_base:
-            raise ValueError(
-                "ResearchControlSession requires an explicit backend_base. "
-                "Pass backend_base from the selected environment instead of "
-                "relying on SYNTH_BACKEND_URL or the prod SDK default."
-            )
-        super().__init__(
-            api_key=api_key,
-            backend_base=explicit_backend_base,
-            timeout_seconds=timeout_seconds,
-        )
-
-    def close(self) -> None:
-        self.close_openai_bridge()
-        super().close()
 
 
 def first_id(items: Iterable[dict[str, Any]], key: str) -> str | None:

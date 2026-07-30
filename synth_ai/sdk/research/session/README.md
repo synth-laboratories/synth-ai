@@ -52,7 +52,8 @@ reads such as `get_run(...)`, `get_project_workspace(...)`,
 `list_objectives(...)`, `list_run_objective_events(...)`,
 `get_run_work_graph(...)`, and `list_run_questions(...)`.
 
-Wire-shaped helpers remain on `ResearchControlSession` where MCP and lower-level callers need backend-shaped payloads.
+Wire-shaped helpers that MCP and other lower-level callers need live on
+`ResearchSession` itself; there is no second session class.
 
 Noun-first namespaces now mirror the customer surface:
 

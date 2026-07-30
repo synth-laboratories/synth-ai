@@ -229,8 +229,6 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_work_datasets_list": READ_SCOPES,
     "research_work_datasets_download": READ_SCOPES,
     "research_work_datasets_upload": WRITE_SCOPES,
-    "research_work_files_list": READ_SCOPES,
-    "research_work_files_upload": WRITE_SCOPES,
     "research_work_repos_list": READ_SCOPES,
     "research_work_repos_attach": WRITE_SCOPES,
     "research_work_repos_detach": WRITE_SCOPES,

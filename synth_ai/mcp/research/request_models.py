@@ -96,26 +96,10 @@ def parse_branch_run_request(payload: JSONDict) -> SmrRunBranchRequest:
     )
 
 
-def require_smr_work_mode(payload: JSONDict, key: str) -> str:
-    value = require_string(payload, key)
-    work_mode = coerce_smr_work_mode(value, field_name=key)
-    if work_mode is None:
-        raise ValueError(f"'{key}' is required")
-    return work_mode.value
-
-
 def optional_smr_work_mode(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     work_mode = coerce_smr_work_mode(value, field_name=key)
     return work_mode.value if work_mode is not None else None
-
-
-def require_smr_host_kind(payload: JSONDict, key: str) -> str:
-    value = require_string(payload, key)
-    host_kind = coerce_smr_host_kind(value, field_name=key)
-    if host_kind is None:
-        raise ValueError(f"'{key}' is required")
-    return host_kind.value
 
 
 def optional_smr_host_kind(payload: JSONDict, key: str) -> str | None:
@@ -171,11 +155,6 @@ def optional_smr_run_policy(payload: JSONDict, key: str) -> dict[str, Any] | Non
     if not isinstance(value, dict):
         raise ValueError(f"'{key}' must be an object when provided")
     return coerce_smr_run_policy(value, field_name=key)
-
-
-def require_provider_bindings(payload: JSONDict, key: str) -> list[dict[str, Any]]:
-    value = payload.get(key)
-    return [binding.to_wire() for binding in coerce_provider_bindings(value, field_name=key)]
 
 
 def optional_provider_bindings(payload: JSONDict, key: str) -> list[dict[str, Any]] | None:

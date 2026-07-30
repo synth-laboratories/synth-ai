@@ -14,15 +14,12 @@ from synth_ai.mcp.research.objective_tools import (
     objective_tool_operation_from_wire,
 )
 from synth_ai.mcp.research.registry import (
-    READ_SCOPES,
-    WRITE_SCOPES,
     JSONDict,
     ToolDefinition,
     build_tool_registry,
     call_tool,
     list_tool_payload,
     resolve_tool,
-    tool_schema,
 )
 from synth_ai.mcp.research.request_models import (
     OneOffRunLaunchRequest,
@@ -76,7 +73,6 @@ from synth_ai.sdk.research.contracts.factory_operations import FactoryWakeDueReq
 from synth_ai.sdk.research.contracts.promotions import (
     SmrPromotionDiscountPreviewRequest,
 )
-from synth_ai.sdk.research.contracts.run_control import ManagedResearchActorControlAction
 from synth_ai.sdk.research.contracts.transcript import TranscriptView
 from synth_ai.sdk.research.errors import SmrApiError
 from synth_ai.sdk.research.session.client import ResearchSession
@@ -434,229 +430,6 @@ class ResearchMcpServer:
             *build_integration_tools(self),
             *build_usage_tools(self),
             *build_trained_model_tools(self),
-            *self._build_hosted_compat_tools(),
-        ]
-
-    def _build_hosted_compat_tools(self) -> list[ToolDefinition]:
-        """Hosted-MCP compatibility aliases kept until clients move to noun-first names."""
-
-        project_id_schema = {
-            "project_id": {
-                "type": "string",
-                "description": "SMR project ID.",
-            }
-        }
-        changeset_payload_schema = {
-            "project_id": {"type": "string", "description": "SMR project ID."},
-            "title": {"type": "string"},
-            "summary": {"type": "string"},
-            "run_id": {"type": "string"},
-            "source": {"type": "string"},
-            "author_ref": {"type": "string"},
-            "review_policy": {"type": "string"},
-            "items": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "target_kind": {"type": "string"},
-                        "target_id": {"type": "string"},
-                        "operation": {"type": "string"},
-                        "proposed_payload": {"type": "object"},
-                        "evidence_refs": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                    "required": ["target_kind", "operation"],
-                },
-            },
-            "idempotency_key": {"type": "string"},
-            "metadata": {"type": "object"},
-        }
-        return [
-            ToolDefinition(
-                name="smr_capabilities_get",
-                description="Read SMR capability metadata for the authenticated organization.",
-                input_schema=tool_schema({}, required=[]),
-                handler=self._tool_get_capabilities,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_projects_list",
-                description="List managed research projects for the authenticated organization.",
-                input_schema=tool_schema({}, required=[]),
-                handler=self._tool_list_projects,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_status_get",
-                description="Get high-level status and active run summary for a project.",
-                input_schema=tool_schema(project_id_schema, required=["project_id"]),
-                handler=self._tool_get_project_status,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_workspace_get",
-                description=(
-                    "Read the backend-owned project workspace projection: objectives, runs, "
-                    "experiments, knowledge, review queue, reports, and launch risks. Runs "
-                    "propose material; review or policy promotion owns durable project truth."
-                ),
-                input_schema=tool_schema(project_id_schema, required=["project_id"]),
-                handler=self._tool_get_project_workspace,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changesets_list",
-                description="List review-gated project ChangeSets for a managed research project.",
-                input_schema=tool_schema(
-                    {
-                        **project_id_schema,
-                        "status": {
-                            "type": "string",
-                            "description": "Optional ChangeSet status filter.",
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum ChangeSets to return.",
-                        },
-                    },
-                    required=["project_id"],
-                ),
-                handler=self._tool_list_project_changesets,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changeset_create",
-                description=(
-                    "Create a proposed project ChangeSet. This stages project mutations; "
-                    "it does not directly write durable project truth."
-                ),
-                input_schema=tool_schema(
-                    changeset_payload_schema,
-                    required=["project_id", "title", "items"],
-                ),
-                handler=self._tool_create_project_changeset,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changeset_get",
-                description="Fetch one review-gated project ChangeSet.",
-                input_schema=tool_schema(
-                    {
-                        **project_id_schema,
-                        "changeset_id": {"type": "string"},
-                    },
-                    required=["project_id", "changeset_id"],
-                ),
-                handler=self._tool_get_project_changeset,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changeset_decide",
-                description="Accept, promote, reject, supersede, or invalidate a proposed project ChangeSet.",
-                input_schema=tool_schema(
-                    {
-                        **project_id_schema,
-                        "changeset_id": {"type": "string"},
-                        "decision": {
-                            "type": "string",
-                            "enum": [
-                                "accepted",
-                                "promoted",
-                                "rejected",
-                                "superseded",
-                                "invalidated",
-                            ],
-                        },
-                        "decided_by_ref": {"type": "string"},
-                        "decision_reason": {"type": "string"},
-                    },
-                    required=["project_id", "changeset_id", "decision", "decided_by_ref"],
-                ),
-                handler=self._tool_decide_project_changeset,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_jobs_list",
-                description="List SMR runs (jobs feed), optionally filtered by project, state, and active-only mode.",
-                input_schema=tool_schema(
-                    {
-                        "project_id": {"type": "string"},
-                        "state": {"type": "string"},
-                        "active_only": {"type": "boolean"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 200},
-                    },
-                    required=[],
-                ),
-                handler=self._tool_jobs_list,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_trigger_run",
-                description="Trigger a managed research run for a project.",
-                input_schema=tool_schema(
-                    {
-                        "project_id": {"type": "string"},
-                        "run_config": {
-                            "type": "object",
-                            "description": (
-                                "Optional trigger body fields such as timebox_seconds, "
-                                "agent_model, agent_kind, workflow, and "
-                                "idempotency_key_run_create."
-                            ),
-                            "additionalProperties": True,
-                        },
-                    },
-                    required=["project_id"],
-                ),
-                handler=self._tool_project_trigger_run,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_run_get",
-                description="Get details for a specific SMR run by run_id.",
-                input_schema=tool_schema(
-                    {"run_id": {"type": "string"}},
-                    required=["run_id"],
-                ),
-                handler=self._tool_get_run,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_run_actor_control",
-                description=(
-                    "Pause or resume one actor inside a project-scoped managed research run. "
-                    "This is operator control, not project-truth promotion."
-                ),
-                input_schema=tool_schema(
-                    {
-                        "project_id": {"type": "string"},
-                        "run_id": {"type": "string"},
-                        "actor_id": {"type": "string"},
-                        "action": {
-                            "type": "string",
-                            "enum": [item.value for item in ManagedResearchActorControlAction],
-                        },
-                        "reason": {"type": "string"},
-                        "idempotency_key": {"type": "string"},
-                    },
-                    required=["project_id", "run_id", "actor_id", "action"],
-                ),
-                handler=self._tool_control_project_run_actor,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_run_stop",
-                description="Stop a running SMR run.",
-                input_schema=tool_schema(
-                    {"run_id": {"type": "string"}},
-                    required=["run_id"],
-                ),
-                handler=self._tool_stop_run,
-                required_scopes=WRITE_SCOPES,
-            ),
         ]
 
     def _tool_health_check(self, args: JSONDict) -> Any:
@@ -791,11 +564,6 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.download_project_dataset(project_id, dataset_id)
 
-    def _tool_results_outputs_list(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            return client.list_project_outputs(project_id)
-
     def _tool_list_run_work_products(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         run_id = require_string(args, "run_id")
@@ -900,12 +668,6 @@ class ResearchMcpServer:
         request = RunnableProjectCreateRequest.from_payload(args)
         with self._client_from_args(args) as client:
             return client.create_runnable_project(request.request)
-
-    def _tool_create_project(self, args: JSONDict) -> Any:
-        config = args.get("config")
-        if config is not None and not isinstance(config, dict):
-            raise ValueError("'config' must be an object when provided")
-        return self._tool_create_runnable_project(args)
 
     def _tool_list_projects(self, args: JSONDict) -> Any:
         include_archived = optional_bool(args, "include_archived", default=False)
@@ -1359,39 +1121,6 @@ class ResearchMcpServer:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             return client.get_project_workspace(project_id)
-
-    def _tool_list_project_experiments(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment list")
-
-    def _tool_create_project_experiment(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment creation")
-
-    def _tool_get_project_experiment(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment read")
-
-    def _tool_patch_project_experiment(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment patch")
-
-    def _tool_link_project_experiment_run(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment run link")
-
-    def _tool_list_project_experiment_runs(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment run list")
-
-    def _tool_attach_project_experiment_container_run(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment container-run attachment")
-
-    def _tool_list_project_experiment_container_runs(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment container-run list")
-
-    def _tool_attach_project_experiment_result(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment result attachment")
-
-    def _tool_list_project_experiment_results(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment result list")
-
-    def _tool_rank_project_experiment_results(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment result ranking")
 
     def _tool_list_project_changesets(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2552,25 +2281,6 @@ class ResearchMcpServer:
         except SmrApiError as exc:
             _raise_mcp_tool_denial(exc)
 
-    def _tool_get_run_start_blockers(self, args: JSONDict) -> Any:
-        request = RunLaunchRequest.from_payload(args)
-        with self._client_from_args(args) as client:
-            if request.project_id is None:
-                return client.get_one_off_launch_preflight(**request.client_kwargs())
-            if hasattr(client, "get_run_start_blockers"):
-                return client.get_run_start_blockers(
-                    request.project_id,
-                    **request.client_kwargs(),
-                )
-            return client.get_launch_preflight(
-                request.project_id,
-                **request.client_kwargs(),
-            )
-
-    def _tool_list_runbook_presets(self, args: JSONDict) -> Any:
-        with self._client_from_args(args) as client:
-            return [preset.to_wire() for preset in client.list_runbook_presets()]
-
     def _tool_list_runs(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         active_only = optional_bool(args, "active_only", default=False)
@@ -2583,25 +2293,6 @@ class ResearchMcpServer:
                 public_state=public_state,
                 limit=limit,
             )
-
-    def _tool_jobs_list(self, args: JSONDict) -> Any:
-        active_only = optional_bool(args, "active_only") if "active_only" in args else None
-        with self._client_from_args(args) as client:
-            return client.list_jobs(
-                project_id=optional_string(args, "project_id"),
-                state=optional_string(args, "state"),
-                active_only=active_only,
-                limit=optional_int(args, "limit"),
-            )
-
-    def _tool_project_trigger_run(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        run_config = args.get("run_config")
-        if run_config is None:
-            run_config = {}
-        if not isinstance(run_config, dict):
-            raise ValueError("'run_config' must be an object when provided")
-        return self._tool_trigger_run({"project_id": project_id, **run_config})
 
     def _tool_get_run(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
@@ -2662,12 +2353,6 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             result = client.runs.get_run_contract(project_id, run_id)
             return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_run_primary_parent(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Run primary-parent read")
-
-    def _tool_run_objective_scopes(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Run objective-scope management")
 
     def _tool_stop_run(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
@@ -3349,9 +3034,6 @@ class ResearchMcpServer:
                 **request.client_kwargs(),
             )
 
-    def _tool_open_ended_questions(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project open-ended-question management")
-
     def _tool_objectives(self, args: JSONDict) -> Any:
         operation = objective_tool_operation_from_wire(require_string(args, "operation"))
         project_id = require_string(args, "project_id")
@@ -3434,9 +3116,6 @@ class ResearchMcpServer:
         raise ValueError(
             "smr_milestones.operation must be one of: list, create, get, patch, transition"
         )
-
-    def _tool_directed_effort_outcomes(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project directed-effort-outcome management")
 
     def serve_stdio(self) -> None:
         framing = "jsonl"
