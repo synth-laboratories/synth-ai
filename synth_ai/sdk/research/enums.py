@@ -8,6 +8,12 @@
 
 from __future__ import annotations
 
+from synth_ai.sdk.research.contracts.failure import (
+    ActorFailureReason,
+    ManagedResearchFailureFamily,
+    ManagedResearchFailureScope,
+    ManagedResearchFailureSeverity,
+)
 from synth_ai.sdk.research.contracts.smr_host_kinds import SmrHostKind
 from synth_ai.sdk.research.contracts.smr_work_modes import SmrWorkMode
 
@@ -22,4 +28,8 @@ __all__ = [
     "ResearchWorkMode",
     "SmrHostKind",
     "SmrWorkMode",
+    "ActorFailureReason",
+    "ManagedResearchFailureFamily",
+    "ManagedResearchFailureScope",
+    "ManagedResearchFailureSeverity",
 ]

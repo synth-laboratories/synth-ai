@@ -312,12 +312,10 @@ class RunHandle:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
                     failure = contract.diagnostics.failure_classification
                     if (
-                        isinstance(failure, Mapping)
-                        and str(failure.get("code") or "").strip()
-                        == "inference_provider_unavailable"
+                        failure is not None
+                        and failure.code == "inference_provider_unavailable"
                     ):
-                        detail = dict(failure)
-                        message = str(detail.get("detail") or "").strip() or (
+                        message = str(failure.detail or "").strip() or (
                             f"run {self.run_id} ended because its inference provider "
                             "was temporarily unavailable"
                         )
@@ -1769,17 +1767,13 @@ class RunsAPI(_ClientNamespace):
             return detail or code or "run lifecycle invariant failed"
         failure = contract.diagnostics.failure_classification
         if failure is not None:
-            code = str(failure.get("code") or "").strip()
-            detail = str(failure.get("detail") or "").strip()
-            route = failure.get("route")
-            route_mapping = cast(Mapping[str, Any], route) if isinstance(route, Mapping) else {}
-            model = str(route_mapping.get("model") or "").strip()
-            suffix = f" model={model}" if model else ""
+            code = failure.code.strip()
+            detail = str(failure.detail or "").strip()
             if detail:
                 return detail
             if code:
-                return f"{code}{suffix}"
-            return f"run failure{suffix}"
+                return code
+            return "run failure"
         if contract.incidents.unresolved:
             return (
                 f"{contract.incidents.unresolved} unresolved incident(s); "
