@@ -178,6 +178,7 @@ from synth_ai.sdk.research.contracts.factory_role_receipts import (
     FactoryRoleReceiptRuntimeEvidence,
 )
 from synth_ai.sdk.research.contracts.image_releases import (
+    ActorImageCapability,
     ActorRuntimeImageMaterialization,
     ActorRuntimeImageRelease,
     ActorRuntimeImageReleaseArchive,
@@ -530,6 +531,7 @@ __all__ = [
     "ActiveActorModel",
     "ActorHarness",
     "ActorImageBinding",
+    "ActorImageCapability",
     "ActorModel",
     "ActorModelAssignment",
     "ActorSubtype",
