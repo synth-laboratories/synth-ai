@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, List, cast
+from typing import Any, List
 
 import httpx
 
@@ -313,20 +313,15 @@ class RunHandle:
             if contract.terminal:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
                     failure = contract.diagnostics.failure_classification
-                    if (
-                        isinstance(failure, Mapping)
-                        and str(failure.get("code") or "").strip()
-                        == "inference_provider_unavailable"
-                    ):
-                        detail = dict(failure)
-                        message = str(detail.get("detail") or "").strip() or (
+                    if failure is not None and failure.code == "inference_provider_unavailable":
+                        message = str(failure.detail or "").strip() or (
                             f"run {self.run_id} ended because its inference provider "
                             "was temporarily unavailable"
                         )
                         raise ResearchInferenceProviderUnavailableError(
                             message,
                             status_code=None,
-                            detail=detail,
+                            detail=failure.to_wire(),
                         )
                     msg = self.explain_blocker() or (
                         f"run {self.run_id} ended in state {contract.public_state.value}"
@@ -1771,10 +1766,10 @@ class RunsAPI(_ClientNamespace):
             return detail or code or "run lifecycle invariant failed"
         failure = contract.diagnostics.failure_classification
         if failure is not None:
-            code = str(failure.get("code") or "").strip()
-            detail = str(failure.get("detail") or "").strip()
-            route = failure.get("route")
-            route_mapping = cast(Mapping[str, Any], route) if isinstance(route, Mapping) else {}
+            code = failure.code.strip()
+            detail = str(failure.detail or "").strip()
+            route = failure.to_wire().get("route")
+            route_mapping = route if isinstance(route, Mapping) else {}
             model = str(route_mapping.get("model") or "").strip()
             suffix = f" model={model}" if model else ""
             if detail:

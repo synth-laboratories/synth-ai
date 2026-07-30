@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from synth_ai.sdk.research.contracts.failure import ManagedResearchFailureClassification
 from synth_ai.sdk.research.contracts.run_state import (
     ManagedResearchRun,
     ManagedResearchRunLivenessPhase,
@@ -1307,7 +1308,7 @@ class ManagedResearchRunContractIncidents:
 class ManagedResearchRunContractDiagnostics:
     lifecycle_invariants: list[dict[str, object]] = field(default_factory=list)
     resource_wait: dict[str, object] | None = None
-    failure_classification: dict[str, object] | None = None
+    failure_classification: ManagedResearchFailureClassification | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> ManagedResearchRunContractDiagnostics:
@@ -1327,10 +1328,12 @@ class ManagedResearchRunContractDiagnostics:
             )
             if resource_wait is not None
             else None,
-            failure_classification=dict(
-                _require_mapping(
-                    failure_classification,
-                    label="run_contract.diagnostics.failure_classification",
+            failure_classification=ManagedResearchFailureClassification.from_wire(
+                dict(
+                    _require_mapping(
+                        failure_classification,
+                        label="run_contract.diagnostics.failure_classification",
+                    )
                 )
             )
             if failure_classification is not None
@@ -1509,6 +1512,7 @@ __all__ = [
     "ManagedResearchRunContractArtifacts",
     "ManagedResearchRunContractContainerEvalPackages",
     "ManagedResearchRunContractDiagnostics",
+    "ManagedResearchFailureClassification",
     "ManagedResearchRunContractExecutionRoute",
     "ManagedResearchRunContractFinalization",
     "ManagedResearchRunContractIncidents",
