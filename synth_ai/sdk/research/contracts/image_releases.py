@@ -697,11 +697,13 @@ class ActorRuntimeImageMaterialization:
         object.__setattr__(
             self, "daytona_pullable", required_bool({"value": self.daytona_pullable}, "value")
         )
-        expected = (
-            ("org_registry", "wasabi_artifact") if self.daytona_pullable else ("wasabi_artifact",)
+        allowed = (
+            (("org_registry",), ("org_registry", "wasabi_artifact"))
+            if self.daytona_pullable
+            else (("wasabi_artifact",),)
         )
-        if self.image_substrates != expected:
-            raise ValueError("image_substrates must exactly describe the admitted execution path")
+        if self.image_substrates not in allowed:
+            raise ValueError("image_substrates must exactly describe the admitted execution paths")
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> ActorRuntimeImageMaterialization:
@@ -1170,6 +1172,63 @@ class ImageReleaseFinalize:
 
 
 @dataclass(frozen=True, slots=True)
+class RegistryActorRuntimeImageRegistrationRequest:
+    declaration: ActorRuntimeImageReleaseDeclaration
+    image_config_digest: str
+    package_release_timestamps: TimestampMap = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.declaration, ActorRuntimeImageReleaseDeclaration):
+            raise ValueError("declaration must be ActorRuntimeImageReleaseDeclaration")
+        object.__setattr__(
+            self,
+            "image_config_digest",
+            digest(self.image_config_digest, field="image_config_digest"),
+        )
+        object.__setattr__(
+            self,
+            "package_release_timestamps",
+            _timestamp_map(self.package_release_timestamps),
+        )
+        _check_packages(self.declaration, self.package_release_timestamps)
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "declaration": self.declaration.to_wire(),
+            "image_config_digest": self.image_config_digest,
+            "package_release_timestamps": _timestamp_wire(self.package_release_timestamps),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RegistryActorRuntimeImageRegistration:
+    schema_version: str
+    runtime_image_release: ActorRuntimeImageMaterialization
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> RegistryActorRuntimeImageRegistration:
+        payload = _obj(
+            value,
+            "registry actor runtime image registration",
+            frozenset({"schema_version", "runtime_image_release"}),
+        )
+        return cls(
+            _const(
+                payload["schema_version"],
+                "schema_version",
+                "smr-actor-image-registry-registration-v1",
+            ),
+            ActorRuntimeImageMaterialization.from_wire(payload["runtime_image_release"]),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "schema_version": self.schema_version,
+            "runtime_image_release": self.runtime_image_release.to_wire(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ActorRuntimeImageReleaseList:
     schema_version: str
     releases: tuple[ActorRuntimeImageMaterialization, ...]
@@ -1229,6 +1288,8 @@ __all__ = [
     "ActorRuntimeImageReleaseArchive",
     "ActorRuntimeImageReleaseDeclaration",
     "ActorRuntimeImageReleaseList",
+    "RegistryActorRuntimeImageRegistration",
+    "RegistryActorRuntimeImageRegistrationRequest",
     "ActorImageCapability",
     "CraftaxScorerImageRelease",
     "CraftaxScorerImageReleaseDeclaration",

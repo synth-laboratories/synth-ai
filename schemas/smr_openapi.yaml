@@ -216,6 +216,270 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/dashboard/auth/introspect:
+    post:
+      tags:
+      - internal-dashboard-auth
+      summary: Introspect Dashboard Auth
+      description: 'Attest a current Synth owner/admin in an allowlisted internal
+        org.
+
+
+        The caller must present the dedicated monitor workload secret and exactly
+
+        one candidate principal: a Synth API key or a previously JWT-verified
+
+        Clerk subject. Errors intentionally avoid differentiating a non-member,
+
+        customer organization, stale key, or malformed candidate key.'
+      operationId: introspect_dashboard_auth_api_v1_internal_dashboard_auth_introspect_post
+      parameters:
+      - name: X-Synth-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Synth-Api-Key
+      - name: X-Clerk-Subject
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Clerk-Subject
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardAuthIntrospectionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/dashboard/growth/summary:
+    get:
+      tags:
+      - internal-dashboard-growth
+      summary: Growth Summary
+      description: Return a minimal growth view for approved internal operators.
+      operationId: growth_summary_api_v1_internal_dashboard_growth_summary_get
+      parameters:
+      - name: window
+        in: query
+        required: false
+        schema:
+          type: string
+          default: 30d
+          title: Window
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Growth Summary Api V1 Internal Dashboard Growth Summary
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/dashboard/logs/search:
+    get:
+      tags:
+      - internal-dashboard-logs
+      summary: Search Internal Dashboard Logs
+      description: Return one bounded structured log page to the monitoring workload.
+      operationId: search_internal_dashboard_logs_api_v1_internal_dashboard_logs_search_get
+      parameters:
+      - name: start
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Start
+      - name: end
+        in: query
+        required: true
+        schema:
+          type: string
+          title: End
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 200
+          title: Limit
+      - name: severity
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+          title: Severity
+      - name: service
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Service
+      - name: release
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Release
+      - name: event
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Event
+      - name: fingerprint
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Fingerprint
+      - name: route
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Route
+      - name: request_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Request Id
+      - name: trace_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Trace Id
+      - name: org_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Org Id
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: User Id
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Project Id
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Run Id
+      - name: task_key
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Task Key
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Search Internal Dashboard Logs Api V1 Internal Dashboard
+                  Logs Search Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/auth/keys:
     get:
       tags:
@@ -17550,8 +17814,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                anyOf:
+                - $ref: '#/components/schemas/AlreadyPublishedPrepareResponse'
+                - $ref: '#/components/schemas/PendingPrepareResponse'
                 title: Response Prepare Eval Dataset Smr Eval Datasets  Eval Slug  Prepare
                   Post
         '422':
@@ -17586,10 +17851,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Finalize Eval Dataset Smr Eval Datasets  Eval Slug  Finalize
-                  Post
+                $ref: '#/components/schemas/FinalizeResponse'
         '422':
           description: Validation Error
           content:
@@ -19242,6 +19504,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RuntimeImageReleaseListResponse'
+  /smr/v1/image-releases/register-registry:
+    post:
+      tags:
+      - smr
+      summary: Register Customer Actor Registry Image
+      description: Register a digest-pinned org image already published to the configured
+        registry.
+      operationId: register_customer_actor_registry_image
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistryActorRuntimeImageRegistrationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryActorRuntimeImageRegistrationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/v1/image-releases/{runtime_image_release_id}/archive:
     post:
       tags:
@@ -38734,6 +39023,34 @@ components:
       - created_at
       title: AgentSessionResponse
       description: Response model for agent session.
+    AlreadyPublishedPrepareResponse:
+      properties:
+        preparation_id:
+          type: 'null'
+          title: Preparation Id
+        already_published:
+          type: boolean
+          const: true
+          title: Already Published
+          default: true
+        revision:
+          type: integer
+          minimum: 1.0
+          title: Revision
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        uploads:
+          items:
+            $ref: '#/components/schemas/UploadInstructionResponse'
+          type: array
+          title: Uploads
+      type: object
+      required:
+      - revision
+      - content_digest
+      title: AlreadyPublishedPrepareResponse
     ApiKeyDeactivated:
       properties:
         key_id:
@@ -40608,11 +40925,14 @@ components:
       properties:
         logical_path:
           type: string
+          maxLength: 1024
           minLength: 1
           title: Logical Path
         content_digest:
           type: string
-          minLength: 7
+          maxLength: 71
+          minLength: 64
+          pattern: ^(?:sha256:)?[0-9a-f]{64}$
           title: Content Digest
         size_bytes:
           type: integer
@@ -40620,6 +40940,7 @@ components:
           title: Size Bytes
         media_type:
           type: string
+          maxLength: 255
           minLength: 1
           title: Media Type
       type: object
@@ -41040,6 +41361,58 @@ components:
       - org_id
       - organization_balance
       title: CreditsBalanceResponse
+    DashboardAuthIntrospectionResponse:
+      properties:
+        active:
+          type: boolean
+          const: true
+          title: Active
+          default: true
+        principal:
+          $ref: '#/components/schemas/DashboardAuthPrincipal'
+      type: object
+      required:
+      - principal
+      title: DashboardAuthIntrospectionResponse
+      description: Successful, non-PII result of dashboard API-key introspection.
+    DashboardAuthPrincipal:
+      properties:
+        principal_kind:
+          type: string
+          enum:
+          - api_key
+          - clerk_subject
+          title: Principal Kind
+        key_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Key Id
+        org_id:
+          type: string
+          title: Org Id
+        user_id:
+          type: string
+          title: User Id
+        org_role:
+          type: string
+          enum:
+          - owner
+          - admin
+          title: Org Role
+        key_type:
+          type: string
+          const: synth
+          title: Key Type
+      type: object
+      required:
+      - principal_kind
+      - org_id
+      - user_id
+      - org_role
+      - key_type
+      title: DashboardAuthPrincipal
+      description: The minimum principal data the dashboard needs for authorization.
     DataBindingCreateRequest:
       properties:
         factory_id:
@@ -43537,12 +43910,49 @@ components:
       properties:
         preparation_id:
           type: string
-          minLength: 1
+          maxLength: 64
+          minLength: 32
+          pattern: ^(?:[0-9a-f]{32}|[0-9a-f]{64})$
           title: Preparation Id
       type: object
       required:
       - preparation_id
       title: FinalizeRequest
+    FinalizeResponse:
+      properties:
+        eval_slug:
+          type: string
+          minLength: 1
+          title: Eval Slug
+        revision:
+          type: integer
+          minimum: 1.0
+          title: Revision
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        manifest_digest:
+          type: string
+          minLength: 7
+          title: Manifest Digest
+        file_count:
+          type: integer
+          minimum: 1.0
+          title: File Count
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+      type: object
+      required:
+      - eval_slug
+      - revision
+      - content_digest
+      - manifest_digest
+      - file_count
+      - size_bytes
+      title: FinalizeResponse
     FlushSSEStreamsResponse:
       properties:
         flushed_keys:
@@ -46381,6 +46791,37 @@ components:
       - failed
       - withdrawn
       title: ParentObjectiveStatus
+    PendingPrepareResponse:
+      properties:
+        preparation_id:
+          type: string
+          minLength: 1
+          title: Preparation Id
+        already_published:
+          type: boolean
+          const: false
+          title: Already Published
+          default: false
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        bucket:
+          type: string
+          minLength: 1
+          title: Bucket
+        uploads:
+          items:
+            $ref: '#/components/schemas/UploadInstructionResponse'
+          type: array
+          title: Uploads
+      type: object
+      required:
+      - preparation_id
+      - content_digest
+      - bucket
+      - uploads
+      title: PendingPrepareResponse
     PeriodResponse:
       properties:
         daily_start:
@@ -46518,21 +46959,25 @@ components:
       properties:
         title:
           type: string
+          maxLength: 200
           minLength: 1
           title: Title
         schema_version:
           type: string
+          maxLength: 64
           minLength: 1
           title: Schema Version
         contents:
           items:
             $ref: '#/components/schemas/ContentDeclaration'
           type: array
+          maxItems: 25000
           minItems: 1
           title: Contents
         asset_base_url:
           anyOf:
           - type: string
+            maxLength: 2048
           - type: 'null'
           title: Asset Base Url
       type: object
@@ -49275,6 +49720,40 @@ components:
       - method
       - tinker_path
       title: RegisterTrainedModelBody
+    RegistryActorRuntimeImageRegistrationRequest:
+      properties:
+        declaration:
+          $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+        image_config_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Config Digest
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+            format: date-time
+          type: object
+          title: Package Release Timestamps
+      additionalProperties: false
+      type: object
+      required:
+      - declaration
+      - image_config_digest
+      title: RegistryActorRuntimeImageRegistrationRequest
+    RegistryActorRuntimeImageRegistrationResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-actor-image-registry-registration-v1
+          title: Schema Version
+        runtime_image_release:
+          $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - runtime_image_release
+      title: RegistryActorRuntimeImageRegistrationResponse
     ReleaseResponse:
       properties:
         lease_id:
@@ -51167,6 +51646,9 @@ components:
       - gpt-5.3-codex-spark
       - gpt-5.5
       - gpt-5.6-luna
+      - gpt-5.6-sol
+      - gpt-5.6-terra
+      - cursor/grok-4.5
       - gpt-5.4
       - gpt-5.4-mini
       - nemotron-super
@@ -51197,9 +51679,6 @@ components:
         display_name:
           type: string
           title: Display Name
-        display_group:
-          type: string
-          title: Display Group
         public:
           type: boolean
           title: Public
@@ -51307,7 +51786,6 @@ components:
       required:
       - id
       - display_name
-      - display_group
       - public
       - provider
       - provider_model_id
@@ -76486,6 +76964,37 @@ components:
           title: Status
       type: object
       title: UpdateTrainedModelBody
+    UploadInstructionResponse:
+      properties:
+        logical_path:
+          type: string
+          minLength: 1
+          title: Logical Path
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        upload_url:
+          type: string
+          minLength: 1
+          title: Upload Url
+        required_headers:
+          additionalProperties:
+            type: string
+          type: object
+          title: Required Headers
+      type: object
+      required:
+      - logical_path
+      - content_digest
+      - size_bytes
+      - upload_url
+      - required_headers
+      title: UploadInstructionResponse
     UpsertEnvKeyRequest:
       properties:
         environment_api_key:

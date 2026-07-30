@@ -24,6 +24,8 @@ from synth_ai.sdk.research.contracts.image_releases import (
     ImageReleaseId,
     ImageReleaseUpload,
     ImageReleaseUploadRequest,
+    RegistryActorRuntimeImageRegistration,
+    RegistryActorRuntimeImageRegistrationRequest,
     RuntimeImageReleaseId,
     image_release_from_wire,
 )
@@ -165,6 +167,29 @@ class ImageReleasesAPI:
         )
         return _finalize(value, request=request)
 
+    def register_registry_image(
+        self,
+        request: RegistryActorRuntimeImageRegistrationRequest,
+    ) -> RegistryActorRuntimeImageRegistration:
+        """Register an org-scoped digest already published to the Synth registry."""
+
+        if not isinstance(request, RegistryActorRuntimeImageRegistrationRequest):
+            raise ValueError("request must be RegistryActorRuntimeImageRegistrationRequest")
+        value = self._transport.execute(
+            _request(
+                "register_customer_actor_registry_image",
+                "/smr/v1/image-releases/register-registry",
+                body=request.to_wire(),
+            )
+        )
+        result = RegistryActorRuntimeImageRegistration.from_wire(cast(JsonValue, value))
+        if (
+            result.runtime_image_release.resolved_digest
+            != request.declaration.image_manifest_digest
+        ):
+            raise ValueError("registry image response changed its manifest digest")
+        return result
+
     def upload_archive(
         self,
         archive_path: str | Path,
@@ -283,6 +308,29 @@ class AsyncImageReleasesAPI:
             )
         )
         return _finalize(value, request=request)
+
+    async def register_registry_image(
+        self,
+        request: RegistryActorRuntimeImageRegistrationRequest,
+    ) -> RegistryActorRuntimeImageRegistration:
+        """Register an org-scoped digest already published to the Synth registry."""
+
+        if not isinstance(request, RegistryActorRuntimeImageRegistrationRequest):
+            raise ValueError("request must be RegistryActorRuntimeImageRegistrationRequest")
+        value = await self._transport.execute(
+            _request(
+                "register_customer_actor_registry_image",
+                "/smr/v1/image-releases/register-registry",
+                body=request.to_wire(),
+            )
+        )
+        result = RegistryActorRuntimeImageRegistration.from_wire(cast(JsonValue, value))
+        if (
+            result.runtime_image_release.resolved_digest
+            != request.declaration.image_manifest_digest
+        ):
+            raise ValueError("registry image response changed its manifest digest")
+        return result
 
     async def upload_archive(
         self,
