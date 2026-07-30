@@ -316,6 +316,20 @@ class SwarmState(StrEnum):
         }
 
 
+class SwarmTerminalOutcome(StrEnum):
+    """Proof-backed terminal result vocabulary owned by the SMR backend."""
+
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    PARTIAL = "partial"
+    STOPPED = "stopped"
+    CANCELED = "canceled"
+
+
+class SwarmTerminalOutcomeMissingError(ValueError):
+    """A terminal swarm was returned without its durable terminal outcome."""
+
+
 class BranchMode(StrEnum):
     EXACT = "exact"
     WITH_MESSAGE = "with_message"
@@ -1256,7 +1270,7 @@ class Swarm:
     effort_id: EffortId | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
-    terminal_outcome: str | None = None
+    terminal_outcome: SwarmTerminalOutcome | None = None
     work_completed: bool = False
 
     @classmethod
@@ -1264,6 +1278,7 @@ class Swarm:
         payload = object_value(value, operation_id="swarm")
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
+        terminal_outcome = optional_text(payload, "terminal_outcome")
         return cls(
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
@@ -1277,8 +1292,21 @@ class Swarm:
             effort_id=EffortId(effort_id) if effort_id is not None else None,
             started_at=_optional_datetime(payload, "started_at"),
             finished_at=_optional_datetime(payload, "finished_at"),
-            terminal_outcome=optional_text(payload, "terminal_outcome"),
+            terminal_outcome=(
+                SwarmTerminalOutcome(terminal_outcome) if terminal_outcome is not None else None
+            ),
             work_completed=optional_bool(payload, "work_completed"),
+        )
+
+    def require_terminal_outcome(self) -> SwarmTerminalOutcome:
+        """Return the backend-authored durable outcome or fail explicitly."""
+
+        if self.terminal_outcome is not None:
+            return self.terminal_outcome
+        raise SwarmTerminalOutcomeMissingError(
+            "terminal_outcome_missing:"
+            f"run_id={self.swarm_id}:public_state={self.state.value}:"
+            f"is_terminal={str(self.state.is_terminal).lower()}"
         )
 
 
