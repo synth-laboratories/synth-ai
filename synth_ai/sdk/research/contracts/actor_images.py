@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TypeAlias
+from uuid import UUID
 
 ACTOR_IMAGE_ROLES: tuple[str, ...] = (
     "orchestrator",
@@ -28,14 +29,21 @@ class ActorImageBinding:
     notes: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.release_id, str) or not self.release_id.strip():
-            raise ValueError("ActorImageBinding.release_id must be a nonempty string")
+        if not isinstance(self.release_id, str):
+            raise ValueError("ActorImageBinding.release_id must be a UUID string")
+        try:
+            release_id = str(UUID(self.release_id.strip()))
+        except (AttributeError, ValueError) as exc:
+            raise ValueError("ActorImageBinding.release_id must be a UUID string") from exc
+        object.__setattr__(self, "release_id", release_id)
         for field_name in ("reason", "notes"):
             value = getattr(self, field_name)
             if value is not None and (not isinstance(value, str) or not value.strip()):
                 raise ValueError(
                     f"ActorImageBinding.{field_name} must be a nonempty string when set"
                 )
+            if value is not None:
+                object.__setattr__(self, field_name, value.strip())
 
     def to_wire(self) -> dict[str, object]:
         payload: dict[str, object] = {"release_id": self.release_id.strip()}
@@ -60,10 +68,14 @@ class ActorImageBinding:
                 raise ValueError("actor image binding release_id must be a string")
             reason = payload.get("reason")
             notes = payload.get("notes")
+            if reason is not None and not isinstance(reason, str):
+                raise ValueError("actor image binding reason must be a string when set")
+            if notes is not None and not isinstance(notes, str):
+                raise ValueError("actor image binding notes must be a string when set")
             return cls(
                 release_id=release_id,
-                reason=reason if isinstance(reason, str) or reason is None else None,
-                notes=notes if isinstance(notes, str) or notes is None else None,
+                reason=reason,
+                notes=notes,
             )
         raise ValueError(
             "actor image binding must be an ActorImageBinding, release id string, or mapping"
@@ -83,10 +95,14 @@ def actor_image_overrides_payload(
         raise ValueError("actor_image_overrides must map actor roles to bindings")
     payload: dict[str, dict[str, object]] = {}
     for raw_role, raw_binding in overrides.items():
-        role = str(raw_role or "").strip().lower()
+        if not isinstance(raw_role, str):
+            raise ValueError("actor_image_overrides roles must be strings")
+        role = raw_role.strip().lower()
         if role not in ACTOR_IMAGE_ROLES:
             allowed = ", ".join(ACTOR_IMAGE_ROLES)
             raise ValueError(f"actor_image_overrides role must be one of: {allowed}")
+        if role in payload:
+            raise ValueError(f"actor_image_overrides repeats role: {role}")
         payload[role] = ActorImageBinding.from_wire(raw_binding).to_wire()
     return payload or None
 
