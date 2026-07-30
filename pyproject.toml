@@ -1,7 +1,7 @@
 [project]
 name = "synth-ai"
-version = "0.17.5"
-description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
+version = "0.18.0"
+description = "Python SDK and CLI for Synth Managed Research and Research Factory"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
 license-files = ["LICENSE"]

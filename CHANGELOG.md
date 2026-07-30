@@ -4,6 +4,50 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.18.0 — 2026-07-29
+
+A minor release rather than a patch because modules were removed, not moved: the
+infrastructure and managed-agent surfaces below have no alias and no successor
+import path in this package.
+
+### Removed
+
+- **Managed Agents.** `synth_ai.sdk.managed_agents`, `sdk.managed_agents_anthropic`,
+  `sdk.openai_agents_sdk`, and `sdk.openai_tools` are gone. The package is a
+  Research SDK; a second agent-authoring framework inside it was a second product.
+- **Containers, tunnels, and pools.** `synth_ai.sdk.pools`, `sdk.containers`,
+  `sdk.container`, `sdk.base`, `sdk.horizons_private`, `cli.pools`, `cli.tunnels`,
+  and `cli.containers` are gone, along with `openapi/container-contract-v1.yaml`.
+  `SynthClient` is Research-only.
+
+### Fixed
+
+- **`synth_ai.core.research.*` no longer breaks packaged data files.** The
+  deprecation alias returns the real module, and CPython was stamping the alias's
+  origin-less spec onto it. Any process that imported through the old path lost
+  `importlib.resources` for the target: `files()` returned an empty listing and
+  reading a built-in Factory plan raised `FileNotFoundError: Can't open orphan
+  path`, which broke `--plan builtin:…`. The alias now restores the module's own
+  identity after loading.
+- **The sdist ships its runtime data again.** `MANIFEST.in` re-included
+  `synth_ai/managed_research/*`, a path deleted in 0.17.5, so the blanket `*.json`
+  exclude won and `--no-binary` installs shipped without
+  `factory_plans/rsi_synth_on_synth.plan.json` or `schemas/public_models.json`.
+- **`synth_ai.sdk.research.public.AsyncResearchClient`** resolved to a name that
+  does not exist and raised `AttributeError` on access.
+- **MCP tool scopes fail closed.** A tool missing from the scope table silently
+  got `required_scopes=()`; 48 of 311 tools were unscoped, including
+  `research_pause_run`, `research_resume_run`, and `research_start_one_off_run`.
+  The table is now keyed on advertised names and a missing entry raises at
+  registry build.
+
+### Added
+
+- `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` makes `synth-ai-research-mcp` advertise
+  the full tool tree. Previously `main()` hardcoded the stable subset with no
+  override, and because `call_tool` resolves against the advertised set, the
+  other 247 tools were not merely hidden but uncallable.
+
 ## 0.17.5 — 2026-07-29
 
 A patch release even though module paths moved, because nothing breaks: the old

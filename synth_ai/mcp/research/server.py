@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import asdict, is_dataclass
 from typing import Any
@@ -84,6 +85,12 @@ from synth_ai.sdk.research.version import __version__
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "synth-research"
+
+# The stdio entrypoint advertises the stable subset. Set this to 1/true/yes to
+# advertise the full built tree instead; without it the advanced tools are not
+# just hidden but uncallable, since `call_tool` resolves against the advertised
+# set.
+ADVANCED_TOOLS_ENV = "SYNTH_RESEARCH_MCP_ADVANCED_TOOLS"
 
 
 def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
@@ -3530,12 +3537,17 @@ class ResearchMcpServer:
             }
 
 
+def _advanced_tools_requested() -> bool:
+    return str(os.getenv(ADVANCED_TOOLS_ENV) or "").strip().lower() in {"1", "true", "yes"}
+
+
 def main() -> None:
     """CLI entrypoint for the stdio MCP server."""
-    ResearchMcpServer().serve_stdio()
+    ResearchMcpServer(include_advanced_tools=_advanced_tools_requested()).serve_stdio()
 
 
 __all__ = [
+    "ADVANCED_TOOLS_ENV",
     "DEFAULT_PROTOCOL_VERSION",
     "ResearchMcpServer",
     "SERVER_NAME",
