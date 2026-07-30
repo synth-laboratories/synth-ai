@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Synth API (Canonical SDK Surface)
   version: 1.0.0
-  x-sdk-package-version: 0.9.7
+  x-sdk-package-version: 0.18.0
   description: |
     Canonical HTTP contract for synth-ai SDK namespaces, including OpenAI-compatible
     chat completions for inference.
@@ -1721,7 +1721,7 @@ paths:
       tags: [Tunnels]
       summary: Create SynthTunnel lease
       x-internal: true
-      x-surface-note: "Internal tunnel control-plane. Use SDK tunnel abstractions instead of calling directly."
+      x-surface-note: "Internal tunnel control-plane. synth-ai ships no tunnel client as of 0.18.0; see old/sdk/tunnels.py in the SDK repo."
       operationId: createSynthTunnelLease
       requestBody:
         required: true
@@ -1742,7 +1742,7 @@ paths:
       tags: [Tunnels]
       summary: Close SynthTunnel lease
       x-internal: true
-      x-surface-note: "Internal tunnel control-plane. Use SDK tunnel abstractions instead of calling directly."
+      x-surface-note: "Internal tunnel control-plane. synth-ai ships no tunnel client as of 0.18.0; see old/sdk/tunnels.py in the SDK repo."
       operationId: closeSynthTunnelLease
       parameters:
         - $ref: '#/components/parameters/LeaseId'

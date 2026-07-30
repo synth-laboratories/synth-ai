@@ -1,6 +1,6 @@
 # MCP
 
-This package owns the canonical MCP surface for `managed-research`.
+This package owns the canonical MCP surface for Managed Research.
 
 Surface note: MCP tools call the authenticated private-beta Managed Research
 API. When tool or schema descriptions say public, they mean the stable API
@@ -10,7 +10,7 @@ the MCP tool list.
 
 What belongs here:
 - tool registration, schemas, and scope metadata
-- shared tool-list / call-tool primitives used by both stdio and hosted transport
+- shared tool-list / call-tool primitives
 - stdio JSON-RPC/MCP transport handling
 - MCP-specific request parsing at the boundary
 - translation from MCP tool calls into SDK client calls
@@ -31,31 +31,52 @@ Boundary rule:
 - pass normalized typed values or request objects into handlers
 - do not carry ad hoc `.get()` / `isinstance()` branching deep into tool logic
 
+## Tool names
+
+Tool builders in `tools/` still spell names `smr_*`, but nothing is advertised
+under that prefix: `build_tool_registry` rewrites every `smr_` to `research_`
+before discovery. `resolve_tool` keeps accepting the `smr_` spelling from
+callers, so both work on the wire and only `research_*` appears in `tools/list`.
+
+Every tool must declare required scopes, either on the `ToolDefinition` or in
+`registry._DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME`, keyed on the advertised
+`research_*` name. A tool with neither raises at registry build rather than
+becoming callable without a scope.
+
+## What the entrypoint advertises
+
+`synth-ai-research-mcp` advertises the stable subset (64 of 296 tools). The rest
+are built but hidden, and because `call_tool` resolves against the advertised
+set they are also uncallable. Set `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` to
+advertise the full tree.
+
 Stability rule:
-- keep MCP tool names and wire payload shapes stable unless a deliberate migration is planned
-- fail loudly on malformed input instead of silently defaulting to success-shaped values
-- tool names retain the stable `smr_` wire prefix; descriptions and docs should
-  call the product Managed Research.
+- keep advertised tool names and wire payload shapes stable unless a deliberate
+  migration is planned
+- fail loudly on malformed input instead of silently defaulting to
+  success-shaped values
 
-Canonical launch flow:
-- `smr_create_runnable_project`
-- `smr_get_project_setup`
-- `smr_prepare_project_setup`
-- `smr_get_launch_preflight`
-- `smr_trigger_run`
-- `smr_get_run`
-- noun reads such as `smr_get_project_workspace`, `smr_objectives` with
-  `operation=list`, `smr_list_run_objective_events`, `smr_list_run_questions`,
-  `smr_get_run_work_graph`, and `smr_get_run_traces`
+Canonical launch flow, all in the stable subset:
+- `research_create_runnable_project`
+- `research_get_project_setup`
+- `research_prepare_project_setup`
+- `research_get_launch_preflight`
+- `research_trigger_run`
+- `research_get_run`
 
-Legacy readiness/blocker aliases are intentionally removed from the maintained surface.
+Noun reads and run-control tools below need
+`SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1`:
+- `research_get_project_workspace`, `research_objectives` with `operation=list`,
+  `research_list_run_objective_events`, `research_list_run_questions`,
+  `research_get_run_work_graph`, `research_get_run_traces`
+- `research_get_run_logical_timeline` for operator-facing
+  checkpoint/message/branch chronology
+- `research_get_run_actor_usage` for truthful per-actor usage attribution
+- `research_runtime_message_queue`, the live steering tool, deliberately
+  separate from branching
 
-Run-control additions:
-- `smr_get_run_logical_timeline` for operator-facing checkpoint/message/branch chronology
-- `smr_get_run_actor_usage` for truthful per-actor usage attribution
-- `smr_get_run_traces` for persisted downloadable run traces
-- `smr_branch_run_from_checkpoint` for exact branches and branch-with-message
-- `smr_runtime_message_queue` remains the live steering tool and is intentionally separate from branching
+`research_branch_run_from_checkpoint`, for exact branches and
+branch-with-message, is in the stable subset.
 
 Provider-wrapper note:
 - OpenRouter, Tinker, and Modal wrapper usage should still be read through canonical

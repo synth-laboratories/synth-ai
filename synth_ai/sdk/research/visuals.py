@@ -1,7 +1,4 @@
-"""Synchronous and asynchronous first-class Research Visual operations.
-
-# See: Jstack/.jstack/daily_notes/2026-07-27/SPEC_visuals_resource.md
-"""
+"""Synchronous and asynchronous first-class Research Visual operations."""
 
 from __future__ import annotations
 

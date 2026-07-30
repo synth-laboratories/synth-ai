@@ -265,7 +265,10 @@ def _raise_for_decode_error(
 
 
 class SmrHttpTransport(HttpTransport):
-    """Deprecated compatibility adapter over the shared core transport."""
+    """The Research transport: core's HttpTransport wired to Research error mapping.
+
+    Every ``ResearchSession`` request goes through this.
+    """
 
     def __init__(self, *, base_url: str, headers: dict[str, str], timeout: float) -> None:
         super().__init__(

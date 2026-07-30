@@ -19,6 +19,37 @@ import path in this package.
   `sdk.container`, `sdk.base`, `sdk.horizons_private`, `cli.pools`, `cli.tunnels`,
   and `cli.containers` are gone, along with `openapi/container-contract-v1.yaml`.
   `SynthClient` is Research-only.
+- **`synth-ai dev-envs`.** The dev-environment CLI was the control-plane worker's
+  side of the materialization protocol — `claim-materialization --worker-id`,
+  `seed-topology-manifest`, `materialize` — not a customer surface. Nothing is
+  lost: `SynthClient().research.dev_environments` and the MCP
+  `research_*_dev_environment*` tools call the same routes.
+- **The `synth-ai-research-factory-standup` console script**, along with
+  `sdk/research/factory_plans/`. It hardcoded `factory.name == "synth-rsi"`,
+  seven internal milestone IDs, and Synth's private repo remotes as an
+  allowlist, and its one built-in plan was Synth's own `kind: internal` Factory.
+  A customer could not run it. Use `research.factories.standup()` instead.
+- **The vendored backend schemas left the wheel.**
+  `synth_ai/sdk/research/schemas/{smr_openapi.yaml,public_models.json}` moved to
+  a top-level `schemas/` directory. No module ever read them; they are drift-gate
+  inputs for CI. This removes ~2.1MB per wheel and stops a Research-only package
+  from shipping the backend's `/v1/tunnels` and `/v1/pools` route definitions.
+
+### Added
+
+- **`research.factories.standup(plan)`** creates a Factory, links its project,
+  and seeds its efforts from a single plan mapping, returning a typed
+  `FactoryStandupResult`. `research.factories.plan_standup(plan)` is the dry run:
+  it resolves and validates every request payload without sending one. This is
+  the portable half of the removed stand-up script.
+- `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` makes `synth-ai-research-mcp` advertise
+  the full tool tree. Previously `main()` hardcoded the stable subset with no
+  override, and because `call_tool` resolves against the advertised set, the
+  other 247 tools were not merely hidden but uncallable.
+- **`verify_cloud_s0_evidence(payload, ...)`** in
+  `sdk.research.session.dev_environments` checks a dev-environment evidence
+  packet for run binding, receipt readiness, work-product and trace counts, and
+  git branch/sha proof. Lifted out of the removed `dev-envs` CLI.
 
 ### Fixed
 
@@ -26,13 +57,12 @@ import path in this package.
   deprecation alias returns the real module, and CPython was stamping the alias's
   origin-less spec onto it. Any process that imported through the old path lost
   `importlib.resources` for the target: `files()` returned an empty listing and
-  reading a built-in Factory plan raised `FileNotFoundError: Can't open orphan
-  path`, which broke `--plan builtin:…`. The alias now restores the module's own
-  identity after loading.
+  reading any packaged data file raised `FileNotFoundError: Can't open orphan
+  path`. The alias now restores the module's own identity after loading.
 - **The sdist ships its runtime data again.** `MANIFEST.in` re-included
   `synth_ai/managed_research/*`, a path deleted in 0.17.5, so the blanket `*.json`
-  exclude won and `--no-binary` installs shipped without
-  `factory_plans/rsi_synth_on_synth.plan.json` or `schemas/public_models.json`.
+  exclude won and `--no-binary` installs shipped without the JSON data files under
+  `sdk/research/`.
 - **`synth_ai.sdk.research.public.AsyncResearchClient`** resolved to a name that
   does not exist and raised `AttributeError` on access.
 - **MCP tool scopes fail closed.** A tool missing from the scope table silently
@@ -40,13 +70,6 @@ import path in this package.
   `research_pause_run`, `research_resume_run`, and `research_start_one_off_run`.
   The table is now keyed on advertised names and a missing entry raises at
   registry build.
-
-### Added
-
-- `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` makes `synth-ai-research-mcp` advertise
-  the full tool tree. Previously `main()` hardcoded the stable subset with no
-  override, and because `call_tool` resolves against the advertised set, the
-  other 247 tools were not merely hidden but uncallable.
 
 ## 0.17.5 — 2026-07-29
 

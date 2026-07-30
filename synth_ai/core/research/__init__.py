@@ -58,8 +58,8 @@ def _warn_once(name: str) -> None:
 # and what it returns here is a module that is already fully imported. Left
 # alone, the real module ends up carrying the alias's origin-less spec, which
 # costs it `importlib.resources`: `files()` yields an orphan path, so reading
-# `factory_plans/*.json` raises FileNotFoundError for any process that touched
-# the deprecated path first. Snapshot these before the stamp, restore after.
+# any packaged data file raises FileNotFoundError for a process that touched the
+# deprecated path first. Snapshot these before the stamp, restore after.
 _IDENTITY_ATTRS = (
     "__spec__",
     "__loader__",

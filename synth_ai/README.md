@@ -9,9 +9,6 @@ The public first-mile surface is intentionally small:
 - `client.research`
 - `synth-ai` CLI
 
-Infrastructure clients (containers, tunnels, pools) are archived under `old/`
-for later restoration.
-
 Public docs live at https://docs.usesynth.ai/sdk/overview.
 
 ## Package Structure

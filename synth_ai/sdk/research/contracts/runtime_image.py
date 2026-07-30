@@ -1,6 +1,5 @@
 """Typed runtime image selection for Managed Research launches.
 
-# See: Jstack/.jstack/daily_notes/2026-06-12/managed_research_sdk_dataclass_surface_2026-06-12.md
 # See: backend/packages/smr/environments/models.py (ImageRecipe authority)
 """
 

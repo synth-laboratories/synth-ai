@@ -8,8 +8,6 @@ include = [
     "synth_ai",
 ]
 exclude = [
-    "synth_ai/cli/dev_envs.py",
-    "synth_ai/cli/research_factory_standup.py",
     "synth_ai/mcp/research/server.py",
     "synth_ai/mcp/research/tools/workspace_inputs.py",
     "synth_ai/mcp/research/request_models.py",

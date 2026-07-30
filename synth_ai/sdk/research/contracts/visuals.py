@@ -1,7 +1,4 @@
-"""Typed public contracts for first-class Research Visuals.
-
-# See: Jstack/.jstack/daily_notes/2026-07-27/SPEC_visuals_resource.md
-"""
+"""Typed public contracts for first-class Research Visuals."""
 
 from __future__ import annotations
 

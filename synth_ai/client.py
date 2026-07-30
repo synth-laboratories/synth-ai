@@ -24,9 +24,8 @@ def _resolve_base_url(base_url: str | None) -> str:
 class SynthClient:
     """Sync client for Managed Research.
 
-    Use ``research`` for hosted projects, swarms, and Factory lifecycles.
-    Infrastructure clients (containers, tunnels, pools) are archived under
-    ``old/sdk/`` and are not composed here.
+    Use ``research`` for hosted projects, swarms, and Factory lifecycles. That
+    is the whole client: there is no container, tunnel, or pool namespace.
     """
 
     def __init__(

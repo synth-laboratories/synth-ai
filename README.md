@@ -49,7 +49,7 @@ The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.core.research.public import SwarmSpec
+from synth_ai.sdk.research.public import SwarmSpec
 
 with SynthClient() as client:
     swarm = client.research.swarms.create(
@@ -90,7 +90,7 @@ Create a durable project when work needs reusable configuration:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.core.research.public import EnvironmentKind, ProjectSpec, RuntimeKind, SwarmSpec
+from synth_ai.sdk.research.public import EnvironmentKind, ProjectSpec, RuntimeKind, SwarmSpec
 
 with SynthClient() as client:
     project = client.research.projects.create(
@@ -115,7 +115,7 @@ parity:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.core.research.public import EffortSpec, FactorySpec, ProjectId
+from synth_ai.sdk.research.public import EffortSpec, FactorySpec, ProjectId
 
 with SynthClient() as client:
     factory = client.research.factories.create(
