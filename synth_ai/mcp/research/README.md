@@ -47,7 +47,7 @@ becoming callable without a scope.
 
 ## What the entrypoint advertises
 
-`synth-ai-research-mcp` advertises the stable subset (64 of 296 tools). The rest
+`synth-ai-research-mcp` advertises the stable subset (64 of 254 tools). The rest
 are built but hidden, and because `call_tool` resolves against the advertised
 set they are also uncallable. Set `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` to
 advertise the full tree.
