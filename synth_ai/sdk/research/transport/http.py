@@ -25,9 +25,13 @@ from synth_ai.sdk.research.errors import (
     SmrInferenceProviderUnavailableError,
     SmrInsufficientCreditsError,
     SmrLimitExceededError,
+    SmrLimitExtensionGuardedResumeBlockedError,
+    SmrLimitExtensionIdempotencyConflictError,
+    SmrLimitRevisionConflictError,
     SmrManagedInferenceUnavailableError,
     SmrProjectMonthlyBudgetExhaustedError,
     SmrStructuredDenialError,
+    SmrUnsafeLimitExtensionError,
 )
 
 # Backend billing-admission blocker codes for the wallet/allowance family
@@ -202,6 +206,23 @@ def _raise_for_error_response(
                     )
                 if stripped == "checkpoint_storage_quota_exceeded":
                     raise SmrCheckpointQuotaExceededError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                    )
+                limit_extension_error = {
+                    "limit_revision_conflict": SmrLimitRevisionConflictError,
+                    "limit_extension_idempotency_conflict": (
+                        SmrLimitExtensionIdempotencyConflictError
+                    ),
+                    "limit_extension_guarded_action_not_enabled": (
+                        SmrLimitExtensionGuardedResumeBlockedError
+                    ),
+                    "limit_extension_not_safe": SmrUnsafeLimitExtensionError,
+                }.get(stripped)
+                if limit_extension_error is not None:
+                    raise limit_extension_error(
                         message,
                         status_code=status_code,
                         response_text=response_text,

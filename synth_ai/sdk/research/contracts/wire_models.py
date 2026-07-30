@@ -172,6 +172,17 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     PublicationPolicy,
     RecurrencePolicy,
 )
+from synth_ai.sdk.research.contracts.limit_evidence import (
+    SmrRunLimitDecisionEvidence,
+    SmrRunLimitEvidenceItem,
+    SmrRunLimitEvidencePage,
+    SmrRunLimitExtensionEvidence,
+    SmrRunLimitInterruptEvidence,
+    SmrRunLimitLaunchCapEvidence,
+    SmrRunLimitLaunchEvidence,
+    SmrRunLimitWarningDelivery,
+    SmrRunLimitWarningEvidence,
+)
 from synth_ai.sdk.research.contracts.local_execution_profile import (
     LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION,
     LOCAL_EVAL_CONTRACT_ENV_VARS,
@@ -983,6 +994,15 @@ __all__ = [
     "SmrRunTraceItem",
     "SmrRunTraces",
     "SmrRunUsage",
+    "SmrRunLimitDecisionEvidence",
+    "SmrRunLimitEvidenceItem",
+    "SmrRunLimitEvidencePage",
+    "SmrRunLimitExtensionEvidence",
+    "SmrRunLimitInterruptEvidence",
+    "SmrRunLimitLaunchCapEvidence",
+    "SmrRunLimitLaunchEvidence",
+    "SmrRunLimitWarningDelivery",
+    "SmrRunLimitWarningEvidence",
     "SmrWorkMode",
     "SmrWorkerSubtype",
     "WorkerRolePalette",

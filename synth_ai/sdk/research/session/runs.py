@@ -18,6 +18,7 @@ from synth_ai.sdk.research.contracts.canonical_usage import (
 )
 from synth_ai.sdk.research.contracts.checkpoints import Checkpoint
 from synth_ai.sdk.research.contracts.factory_operations import Effort, FactoryResult
+from synth_ai.sdk.research.contracts.limit_evidence import SmrRunLimitEvidencePage
 from synth_ai.sdk.research.contracts.operator_evidence import SmrRunOperatorEvidence
 from synth_ai.sdk.research.contracts.run_authority import (
     ManagedResearchAuthorityTask,
@@ -944,6 +945,19 @@ class RunHandle:
     def resource_limits(self) -> SmrResourceLimits:
         return self._client.get_project_run_resource_limits(self.project_id, self.run_id)
 
+    def limit_evidence(
+        self,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SmrRunLimitEvidencePage:
+        return self._client.get_project_run_limit_evidence(
+            self.project_id,
+            self.run_id,
+            limit=limit,
+            cursor=cursor,
+        )
+
     def progress_toward_resource_limits(self) -> SmrResourceLimitProgress:
         return self._client.get_project_run_progress_toward_resource_limits(
             self.project_id,
@@ -953,6 +967,7 @@ class RunHandle:
     def extend_resource_limit(
         self,
         *,
+        expected_revision: int,
         limit_value: float | None = None,
         additional_value: float | None = None,
         reason: str | None = None,
@@ -960,13 +975,14 @@ class RunHandle:
         resource_limit_id: str | None = None,
         metric: str = "spend_usd",
         unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
+        resolve_blockers: bool = False,
+        resume: bool = False,
         idempotency_key: str | None = None,
     ) -> SmrResourceLimitExtension:
         return self._client.extend_project_run_resource_limit(
             self.project_id,
             self.run_id,
+            expected_revision=expected_revision,
             limit_value=limit_value,
             additional_value=additional_value,
             reason=reason,
@@ -1453,6 +1469,27 @@ class RunsAPI(_ClientNamespace):
             return self._client.get_project_run_resource_limits(project_id, run_id)
         return self._client.get_run_resource_limits(run_id)
 
+    def get_limit_evidence(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SmrRunLimitEvidencePage:
+        if project_id:
+            return self._client.get_project_run_limit_evidence(
+                project_id,
+                run_id,
+                limit=limit,
+                cursor=cursor,
+            )
+        return self._client.get_run_limit_evidence(
+            run_id,
+            limit=limit,
+            cursor=cursor,
+        )
+
     def get_progress_toward_resource_limits(
         self,
         run_id: str,
@@ -1471,6 +1508,7 @@ class RunsAPI(_ClientNamespace):
         run_id: str,
         *,
         project_id: str | None = None,
+        expected_revision: int,
         limit_value: float | None = None,
         additional_value: float | None = None,
         reason: str | None = None,
@@ -1478,14 +1516,15 @@ class RunsAPI(_ClientNamespace):
         resource_limit_id: str | None = None,
         metric: str = "spend_usd",
         unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
+        resolve_blockers: bool = False,
+        resume: bool = False,
         idempotency_key: str | None = None,
     ) -> SmrResourceLimitExtension:
         if project_id:
             return self._client.extend_project_run_resource_limit(
                 project_id,
                 run_id,
+                expected_revision=expected_revision,
                 limit_value=limit_value,
                 additional_value=additional_value,
                 reason=reason,
@@ -1499,6 +1538,7 @@ class RunsAPI(_ClientNamespace):
             )
         return self._client.extend_run_resource_limit(
             run_id,
+            expected_revision=expected_revision,
             limit_value=limit_value,
             additional_value=additional_value,
             reason=reason,

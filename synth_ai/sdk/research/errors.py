@@ -312,6 +312,69 @@ class ResearchStructuredDenialError(ResearchApiError):
         self.detail = dict(detail) if detail else {}
 
 
+class ResearchLimitExtensionError(ResearchApiError):
+    """Base class for durable run-limit extension refusals."""
+
+    error_code = "limit_extension_error"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        response_text: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        exact_detail = dict(detail) if detail else {}
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            failure_class=self.error_code,
+            body=exact_detail,
+        )
+        self.detail = exact_detail
+        self._limit_extension_retryable = bool(
+            exact_detail.get("retryable", False)
+        )
+        self.refusal_receipt_id = exact_detail.get("refusal_receipt_id")
+
+    @property
+    def retryable(self) -> bool:
+        """Whether the durable refusal says a fresh attempt may succeed."""
+
+        return self._limit_extension_retryable
+
+
+class ResearchLimitRevisionConflictError(ResearchLimitExtensionError):
+    """Raised when ``expected_revision`` no longer names the current cap."""
+
+    error_code = "limit_revision_conflict"
+
+    def __init__(self, message: str, **kwargs: Any) -> None:
+        super().__init__(message, **kwargs)
+        self.expected_revision = _optional_int(self.detail.get("expected_revision"))
+        self.current_revision = _optional_int(self.detail.get("current_revision"))
+
+
+class ResearchLimitExtensionIdempotencyConflictError(ResearchLimitExtensionError):
+    """Raised when an idempotency key is replayed with different inputs."""
+
+    error_code = "limit_extension_idempotency_conflict"
+
+
+class ResearchLimitExtensionGuardedResumeBlockedError(ResearchLimitExtensionError):
+    """Raised when a requested guarded blocker release or resume is unavailable."""
+
+    error_code = "limit_extension_guarded_action_not_enabled"
+
+
+class ResearchUnsafeLimitExtensionError(ResearchLimitExtensionError):
+    """Raised when extending the selected cap would not be safe."""
+
+    error_code = "limit_extension_not_safe"
+
+
 class CloudDeploymentClaimError(ResearchApiError):
     """Base for typed CloudDeployment claim/fencing denials (named 409/410 reasons).
 
@@ -448,6 +511,15 @@ SmrFundingLaneInvariantError = ResearchFundingLaneInvariantError
 SmrHostedModelOverridesError = ResearchHostedModelOverridesError
 SmrInsufficientCreditsError = ResearchInsufficientCreditsError
 SmrLimitExceededError = ResearchLimitExceededError
+SmrLimitExtensionError = ResearchLimitExtensionError
+SmrLimitRevisionConflictError = ResearchLimitRevisionConflictError
+SmrLimitExtensionIdempotencyConflictError = (
+    ResearchLimitExtensionIdempotencyConflictError
+)
+SmrLimitExtensionGuardedResumeBlockedError = (
+    ResearchLimitExtensionGuardedResumeBlockedError
+)
+SmrUnsafeLimitExtensionError = ResearchUnsafeLimitExtensionError
 SmrInferenceProviderUnavailableError = ResearchInferenceProviderUnavailableError
 SmrManagedInferenceUnavailableError = ResearchManagedInferenceUnavailableError
 SmrProjectMonthlyBudgetExhaustedError = ResearchProjectMonthlyBudgetExhaustedError
@@ -475,10 +547,15 @@ __all__ = [
     "ResearchInsufficientCreditsError",
     "ResearchInferenceProviderUnavailableError",
     "ResearchLimitExceededError",
+    "ResearchLimitExtensionError",
+    "ResearchLimitExtensionGuardedResumeBlockedError",
+    "ResearchLimitExtensionIdempotencyConflictError",
+    "ResearchLimitRevisionConflictError",
     "ResearchManagedInferenceUnavailableError",
     "ResearchOperationError",
     "ResearchProjectMonthlyBudgetExhaustedError",
     "ResearchStructuredDenialError",
+    "ResearchUnsafeLimitExtensionError",
     "ResourceExhaustedError",
     "RetryDirective",
     "SmrApiError",
@@ -489,9 +566,14 @@ __all__ = [
     "SmrInsufficientCreditsError",
     "SmrInferenceProviderUnavailableError",
     "SmrLimitExceededError",
+    "SmrLimitExtensionError",
+    "SmrLimitExtensionGuardedResumeBlockedError",
+    "SmrLimitExtensionIdempotencyConflictError",
+    "SmrLimitRevisionConflictError",
     "SmrManagedInferenceUnavailableError",
     "SmrProjectMonthlyBudgetExhaustedError",
     "SmrStructuredDenialError",
+    "SmrUnsafeLimitExtensionError",
     "SynthError",
     "SynthErrorCategory",
     "SynthErrorCode",

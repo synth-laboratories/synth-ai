@@ -216,6 +216,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/dashboard/auth/introspect:
+    post:
+      tags:
+      - internal-dashboard-auth
+      summary: Introspect Dashboard Auth
+      description: 'Attest a current Synth owner/admin in an allowlisted internal
+        org.
+
+
+        The caller must present the dedicated monitor workload secret and exactly
+
+        one candidate principal: a Synth API key or a previously JWT-verified
+
+        Clerk subject. Errors intentionally avoid differentiating a non-member,
+
+        customer organization, stale key, or malformed candidate key.'
+      operationId: introspect_dashboard_auth_api_v1_internal_dashboard_auth_introspect_post
+      parameters:
+      - name: X-Synth-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Synth-Api-Key
+      - name: X-Clerk-Subject
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Clerk-Subject
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardAuthIntrospectionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/dashboard/growth/summary:
+    get:
+      tags:
+      - internal-dashboard-growth
+      summary: Growth Summary
+      description: Return a minimal growth view for approved internal operators.
+      operationId: growth_summary_api_v1_internal_dashboard_growth_summary_get
+      parameters:
+      - name: window
+        in: query
+        required: false
+        schema:
+          type: string
+          default: 30d
+          title: Window
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Growth Summary Api V1 Internal Dashboard Growth Summary
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/auth/keys:
     get:
       tags:
@@ -2942,6 +3036,8 @@ paths:
           - enum:
             - gepa
             - go-ex
+            - mapo
+            - online-reflexion
             type: string
           - type: 'null'
           title: Algorithm
@@ -4222,6 +4318,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrAgentModelsResponse'
+  /smr/usage-source-providers:
+    get:
+      tags:
+      - smr
+      summary: Get Usage Source Providers
+      operationId: get_usage_source_providers_smr_usage_source_providers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrUsageSourceProvidersResponse'
   /smr/limits:
     get:
       tags:
@@ -7778,6 +7887,487 @@ paths:
                   $ref: '#/components/schemas/MagiDecisionReceiptResponse'
                 title: Response List Magi Decisions Smr Research Intern Decisions
                   Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/decisions/{receipt_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Magi Decision
+      operationId: get_magi_decision
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/decision-receipts/{digest_hex}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Public Magi Decision
+      operationId: get_public_magi_decision
+      parameters:
+      - name: digest_hex
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Digest Hex
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Research Intern Session
+      operationId: create_research_intern_session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternSessionCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Sessions
+      operationId: list_research_intern_sessions
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchInternSessionResponse'
+                title: Response List Research Intern Sessions Smr Research Intern
+                  Sessions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Research Intern Session
+      operationId: get_research_intern_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/events:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Append Research Intern Session Event
+      operationId: append_research_intern_session_event
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternEventAppendRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternEventResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Session Events
+      operationId: list_research_intern_session_events
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchInternEventResponse'
+                title: Response List Research Intern Session Events Smr Research Intern
+                  Sessions  Session Id  Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/events/stream:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Stream Research Intern Session Events
+      description: Read-only stream; the durable writer pushes projection and `/sync`
+        reconciles.
+      operationId: stream_research_intern_session_events
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last-Event-Id
+      responses:
+        '200':
+          description: Replay-then-tail SSE stream over durable Research Intern events.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ResearchInternEventStreamEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/sync:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Sync Research Intern Session
+      operationId: sync_research_intern_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 200
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionSyncResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/turns:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Research Intern Session Turn
+      operationId: create_research_intern_session_turn
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternTurnRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternTurnResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sessions/{session_id}/close:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Close Research Intern Session
+      operationId: close_research_intern_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternSessionCloseRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/acceptance-receipts/{digest_hex}:
+    put:
+      tags:
+      - smr
+      - research-intern
+      summary: Publish Research Intern Acceptance Receipt
+      operationId: publish_research_intern_acceptance_receipt
+      parameters:
+      - name: digest_hex
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Digest Hex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Public Research Intern Acceptance Receipt
+      operationId: get_public_research_intern_acceptance_receipt
+      parameters:
+      - name: digest_hex
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Digest Hex
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/acceptance-receipts:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Acceptance Receipts
+      operationId: list_research_intern_acceptance_receipts
+      parameters:
+      - name: candidate_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Candidate Id
+      - name: lane
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
+          - type: 'null'
+          title: Lane
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchInternAcceptanceReceiptPublicationResponse'
+                title: Response List Research Intern Acceptance Receipts Smr Research
+                  Intern Acceptance Receipts Get
         '422':
           description: Validation Error
           content:
@@ -14553,6 +15143,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      summary: Get Run Limit Evidence
+      description: Return allow-listed durable warning, enforcement, and extension
+        evidence.
+      operationId: list_run_limit_evidence
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/progress-toward-resource-limits:
     get:
       tags:
@@ -14584,7 +15219,7 @@ paths:
       tags:
       - smr
       summary: Extend Run Resource Limit
-      operationId: extend_run_resource_limit_smr_runs__run_id__resource_limit_extensions_post
+      operationId: extend_run_resource_limit
       parameters:
       - name: run_id
         in: path
@@ -14643,6 +15278,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/runs/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      summary: Get Project Run Limit Evidence
+      description: Return durable limit evidence constrained to one tenant project.
+      operationId: list_project_run_limit_evidence
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects/{project_id}/runs/{run_id}/progress-toward-resource-limits:
     get:
       tags:
@@ -14680,7 +15365,7 @@ paths:
       tags:
       - smr
       summary: Extend Project Run Resource Limit
-      operationId: extend_project_run_resource_limit_smr_projects__project_id__runs__run_id__resource_limit_extensions_post
+      operationId: extend_project_run_resource_limit
       parameters:
       - name: project_id
         in: path
@@ -17503,6 +18188,76 @@ paths:
                 additionalProperties: true
                 title: Response Assign Hosted Artifact Reviewer Smr Hosted Artifacts  Hosted
                   Artifact Id  Assign Reviewer Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/eval-datasets/{eval_slug}/prepare:
+    post:
+      tags:
+      - smr
+      - eval-datasets
+      summary: Prepare Eval Dataset
+      operationId: prepare_eval_dataset_smr_eval_datasets__eval_slug__prepare_post
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/AlreadyPublishedPrepareResponse'
+                - $ref: '#/components/schemas/PendingPrepareResponse'
+                title: Response Prepare Eval Dataset Smr Eval Datasets  Eval Slug  Prepare
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/eval-datasets/{eval_slug}/finalize:
+    post:
+      tags:
+      - smr
+      - eval-datasets
+      summary: Finalize Eval Dataset
+      operationId: finalize_eval_dataset_smr_eval_datasets__eval_slug__finalize_post
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalizeResponse'
         '422':
           description: Validation Error
           content:
@@ -23112,6 +23867,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/metered-inference/actors/{actor_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      summary: Metered Responses For Actor
+      operationId: metered_responses_for_actor_smr_runs__run_id__metered_inference_actors__actor_id__v1_responses_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Actor Smr Runs  Run Id  Metered
+                  Inference Actors  Actor Id  V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/metered-inference/actors/{actor_id}/tasks/{task_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      summary: Metered Responses For Task Actor
+      operationId: metered_responses_for_task_actor_smr_runs__run_id__metered_inference_actors__actor_id__tasks__task_id__v1_responses_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Task Actor Smr Runs  Run Id  Metered
+                  Inference Actors  Actor Id  Tasks  Task Id  V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/metered-inference/actors/{actor_id}/v1/models:
     get:
       tags:
@@ -25381,6 +26224,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Run Limit Evidence
+      description: Return allow-listed durable warning, enforcement, and extension
+        evidence.
+      operationId: get_run_limit_evidence_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/swarms/{run_id}/progress-toward-resource-limits:
     get:
       tags:
@@ -25468,6 +26357,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrResourceLimitsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/swarms/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Project Run Limit Evidence
+      description: Return durable limit evidence constrained to one tenant project.
+      operationId: get_project_run_limit_evidence_get_swarm_alias
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
         '422':
           description: Validation Error
           content:
@@ -30684,6 +31624,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/metered-inference/actors/{actor_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Metered Responses For Actor
+      operationId: metered_responses_for_actor_post_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Actor Post Swarm Alias
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/metered-inference/actors/{actor_id}/tasks/{task_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Metered Responses For Task Actor
+      operationId: metered_responses_for_task_actor_post_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Task Actor Post Swarm Alias
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/swarms/{run_id}/metered-inference/actors/{actor_id}/v1/models:
     get:
       tags:
@@ -30754,6 +31782,71 @@ paths:
                 type: object
                 additionalProperties: true
                 title: Response List Metered Models For Task Actor Get Swarm Alias
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /public/v1/eval-datasets/{eval_slug}:
+    get:
+      tags:
+      - public
+      - eval-datasets
+      summary: Get Public Eval Dataset
+      description: "Return the live manifest for an eval.\n\n``X-Synth-Eval-Asset-Base``\
+        \ names the backend asset route prefix the\nfrontend should call next \u2014\
+        \ never a storage URL."
+      operationId: get_public_eval_dataset_public_v1_eval_datasets__eval_slug__get
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /public/v1/eval-datasets/{eval_slug}/assets/{logical_path}:
+    get:
+      tags:
+      - public
+      - eval-datasets
+      summary: Get Public Eval Dataset Asset
+      description: "One published file, resolved through the manifest.\n\nThe browser\
+        \ hits this route. The handler fetches from private object\nstorage with server\
+        \ credentials. The request names a logical path only \u2014\nnever a storage\
+        \ key."
+      operationId: get_public_eval_dataset_asset_public_v1_eval_datasets__eval_slug__assets__logical_path__get
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      - name: logical_path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Logical Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -38582,6 +39675,34 @@ components:
       - created_at
       title: AgentSessionResponse
       description: Response model for agent session.
+    AlreadyPublishedPrepareResponse:
+      properties:
+        preparation_id:
+          type: 'null'
+          title: Preparation Id
+        already_published:
+          type: boolean
+          const: true
+          title: Already Published
+          default: true
+        revision:
+          type: integer
+          minimum: 1.0
+          title: Revision
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        uploads:
+          items:
+            $ref: '#/components/schemas/UploadInstructionResponse'
+          type: array
+          title: Uploads
+      type: object
+      required:
+      - revision
+      - content_digest
+      title: AlreadyPublishedPrepareResponse
     ApiKeyDeactivated:
       properties:
         key_id:
@@ -39194,6 +40315,12 @@ components:
           - type: 'null'
           title: Stream
           default: false
+        stream_options:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Stream Options
         n:
           anyOf:
           - type: integer
@@ -40446,6 +41573,35 @@ components:
       - status
       - validation_status
       title: ContainerEvalPackageResponse
+    ContentDeclaration:
+      properties:
+        logical_path:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Logical Path
+        content_digest:
+          type: string
+          maxLength: 71
+          minLength: 64
+          pattern: ^(?:sha256:)?[0-9a-f]{64}$
+          title: Content Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Media Type
+      type: object
+      required:
+      - logical_path
+      - content_digest
+      - size_bytes
+      - media_type
+      title: ContentDeclaration
     CraftaxScorerImageReleaseDeclaration:
       properties:
         archive_sha256:
@@ -40650,13 +41806,15 @@ components:
           $ref: '#/components/schemas/LimitDimension'
         cap_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Cap Amount
         policy:
-          additionalProperties: true
-          type: object
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
           title: Policy
       type: object
       required:
@@ -40857,6 +42015,58 @@ components:
       - org_id
       - organization_balance
       title: CreditsBalanceResponse
+    DashboardAuthIntrospectionResponse:
+      properties:
+        active:
+          type: boolean
+          const: true
+          title: Active
+          default: true
+        principal:
+          $ref: '#/components/schemas/DashboardAuthPrincipal'
+      type: object
+      required:
+      - principal
+      title: DashboardAuthIntrospectionResponse
+      description: Successful, non-PII result of dashboard API-key introspection.
+    DashboardAuthPrincipal:
+      properties:
+        principal_kind:
+          type: string
+          enum:
+          - api_key
+          - clerk_subject
+          title: Principal Kind
+        key_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Key Id
+        org_id:
+          type: string
+          title: Org Id
+        user_id:
+          type: string
+          title: User Id
+        org_role:
+          type: string
+          enum:
+          - owner
+          - admin
+          title: Org Role
+        key_type:
+          type: string
+          const: synth
+          title: Key Type
+      type: object
+      required:
+      - principal_kind
+      - org_id
+      - user_id
+      - org_role
+      - key_type
+      title: DashboardAuthPrincipal
+      description: The minimum principal data the dashboard needs for authorization.
     DataBindingCreateRequest:
       properties:
         factory_id:
@@ -43350,6 +44560,53 @@ components:
       - s3
       - turso
       title: FactoryStorageTechnology
+    FinalizeRequest:
+      properties:
+        preparation_id:
+          type: string
+          maxLength: 64
+          minLength: 32
+          pattern: ^(?:[0-9a-f]{32}|[0-9a-f]{64})$
+          title: Preparation Id
+      type: object
+      required:
+      - preparation_id
+      title: FinalizeRequest
+    FinalizeResponse:
+      properties:
+        eval_slug:
+          type: string
+          minLength: 1
+          title: Eval Slug
+        revision:
+          type: integer
+          minimum: 1.0
+          title: Revision
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        manifest_digest:
+          type: string
+          minLength: 7
+          title: Manifest Digest
+        file_count:
+          type: integer
+          minimum: 1.0
+          title: File Count
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+      type: object
+      required:
+      - eval_slug
+      - revision
+      - content_digest
+      - manifest_digest
+      - file_count
+      - size_bytes
+      title: FinalizeResponse
     FlushSSEStreamsResponse:
       properties:
         flushed_keys:
@@ -44884,20 +46141,20 @@ components:
           title: Dimension
         cap_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Cap Amount
         used_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           title: Used Amount
           default: 0
         remaining_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Remaining Amount
         fraction_used:
@@ -44908,6 +46165,25 @@ components:
         unit:
           type: string
           title: Unit
+        cap_revision:
+          type: integer
+          title: Cap Revision
+          default: 1
+        cap_source:
+          type: string
+          title: Cap Source
+        alert_at_fraction:
+          type: number
+          title: Alert At Fraction
+        enforce_at_fraction:
+          type: number
+          title: Enforce At Fraction
+        exhaustion_action:
+          type: string
+          title: Exhaustion Action
+        notify_audience:
+          type: string
+          title: Notify Audience
         policy:
           additionalProperties: true
           type: object
@@ -44929,6 +46205,11 @@ components:
       - scope_id
       - dimension
       - unit
+      - cap_source
+      - alert_at_fraction
+      - enforce_at_fraction
+      - exhaustion_action
+      - notify_audience
       title: LimitResponse
     ListKeysResponse:
       properties:
@@ -44961,6 +46242,13 @@ components:
       required:
       - port
       title: LocalTarget
+    MagiActuationStatus:
+      type: string
+      enum:
+      - not_requested
+      - applied
+      - noop
+      title: MagiActuationStatus
     MagiCanonicalUser:
       type: string
       enum:
@@ -44968,6 +46256,77 @@ components:
       - Melchior
       - Balthasar
       title: MagiCanonicalUser
+    MagiDecisionActuationReceipt:
+      properties:
+        status:
+          $ref: '#/components/schemas/MagiActuationStatus'
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        scheduler_action:
+          anyOf:
+          - type: string
+            enum:
+            - pause
+            - resume
+          - type: 'null'
+          title: Scheduler Action
+        scheduler_decision:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scheduler Decision
+        factory_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Status
+        run_action:
+          anyOf:
+          - type: string
+            enum:
+            - pause
+            - intervene
+            - resume
+          - type: 'null'
+          title: Run Action
+        run_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run State
+        runtime_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runtime Message Id
+        detail:
+          additionalProperties: true
+          type: object
+          title: Detail
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      title: MagiDecisionActuationReceipt
+      description: Durable proof that a control decision reached its runtime authority.
     MagiDecisionKind:
       type: string
       enum:
@@ -44981,9 +46340,23 @@ components:
       title: MagiDecisionKind
     MagiDecisionReceiptResponse:
       properties:
+        schema_version:
+          type: string
+          const: smr.magi-decision-receipt.v2
+          title: Schema Version
+          default: smr.magi-decision-receipt.v2
         receipt_id:
           type: string
           title: Receipt Id
+        content_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Content Digest
+        receipt_url:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          title: Receipt Url
         research_intern_id:
           type: string
           title: Research Intern Id
@@ -45000,6 +46373,21 @@ components:
           - type: string
           - type: 'null'
           title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
         experiment_id:
           anyOf:
           - type: string
@@ -45014,6 +46402,14 @@ components:
         idempotency_key:
           type: string
           title: Idempotency Key
+        expected_state_generation:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expected State Generation
+        previous_state_generation:
+          type: integer
+          title: Previous State Generation
         state_generation:
           type: integer
           title: State Generation
@@ -45039,6 +46435,8 @@ components:
           - type: number
           - type: 'null'
           title: Uncertainty
+        actuation:
+          $ref: '#/components/schemas/MagiDecisionActuationReceipt'
         decided_by_user_id:
           anyOf:
           - type: string
@@ -45052,16 +46450,20 @@ components:
       type: object
       required:
       - receipt_id
+      - content_digest
+      - receipt_url
       - research_intern_id
       - org_id
       - mode
       - canonical_user
       - decision_kind
       - idempotency_key
+      - previous_state_generation
       - state_generation
       - evidence_refs
       - state_patch
       - rationale
+      - actuation
       - created_at
       title: MagiDecisionReceiptResponse
     MagiDecisionRequest:
@@ -45085,6 +46487,27 @@ components:
           - type: string
           - type: 'null'
           title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        expected_state_generation:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Expected State Generation
         experiment_id:
           anyOf:
           - type: string
@@ -45974,6 +47397,8 @@ components:
           enum:
           - gepa
           - go-ex
+          - mapo
+          - online-reflexion
           title: Algorithm
           default: gepa
         run_id:
@@ -46043,6 +47468,8 @@ components:
           enum:
           - gepa
           - go-ex
+          - mapo
+          - online-reflexion
           title: Algorithm
         event_name:
           type: string
@@ -46184,6 +47611,37 @@ components:
       - failed
       - withdrawn
       title: ParentObjectiveStatus
+    PendingPrepareResponse:
+      properties:
+        preparation_id:
+          type: string
+          minLength: 1
+          title: Preparation Id
+        already_published:
+          type: boolean
+          const: false
+          title: Already Published
+          default: false
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        bucket:
+          type: string
+          minLength: 1
+          title: Bucket
+        uploads:
+          items:
+            $ref: '#/components/schemas/UploadInstructionResponse'
+          type: array
+          title: Uploads
+      type: object
+      required:
+      - preparation_id
+      - content_digest
+      - bucket
+      - uploads
+      title: PendingPrepareResponse
     PeriodResponse:
       properties:
         daily_start:
@@ -46317,6 +47775,37 @@ components:
       - required_gpu_hours
       title: PreflightResponse
       description: Response model for preflight checks.
+    PrepareRequest:
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        schema_version:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Schema Version
+        contents:
+          items:
+            $ref: '#/components/schemas/ContentDeclaration'
+          type: array
+          maxItems: 25000
+          minItems: 1
+          title: Contents
+        asset_base_url:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+          title: Asset Base Url
+      type: object
+      required:
+      - title
+      - schema_version
+      - contents
+      title: PrepareRequest
     PricingConfigResponse:
       properties:
         gating_strict:
@@ -47096,6 +48585,9 @@ components:
         adapter_kind:
           type: string
           title: Adapter Kind
+        provider_kind:
+          type: string
+          title: Provider Kind
         source_repository_id:
           type: string
           title: Source Repository Id
@@ -47134,6 +48626,7 @@ components:
       - project_id
       - cloud_deployment_id
       - adapter_kind
+      - provider_kind
       - source_repository_id
       - source_revision
       - lifecycle
@@ -49070,6 +50563,341 @@ components:
       - released_at
       title: ReleaseResponse
       description: Response for lease release.
+    ResearchInternAcceptanceReceiptPublicationRequest:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-acceptance-receipt-publication.v1
+          title: Schema Version
+          default: smr.research-intern-acceptance-receipt-publication.v1
+        receipt_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Receipt Id
+        lane:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
+          title: Lane
+        candidate_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Candidate Id
+        receipt:
+          additionalProperties: true
+          type: object
+          title: Receipt
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - lane
+      - candidate_id
+      - receipt
+      title: ResearchInternAcceptanceReceiptPublicationRequest
+    ResearchInternAcceptanceReceiptPublicationResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-acceptance-receipt-publication.v1
+          title: Schema Version
+          default: smr.research-intern-acceptance-receipt-publication.v1
+        receipt_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Receipt Id
+        receipt_url:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          title: Receipt Url
+        content_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Content Digest
+        org_id:
+          type: string
+          title: Org Id
+        lane:
+          type: string
+          title: Lane
+        candidate_id:
+          type: string
+          title: Candidate Id
+        receipt:
+          additionalProperties: true
+          type: object
+          title: Receipt
+        replayed:
+          type: boolean
+          title: Replayed
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - receipt_url
+      - content_digest
+      - org_id
+      - lane
+      - candidate_id
+      - receipt
+      - replayed
+      - created_at
+      title: ResearchInternAcceptanceReceiptPublicationResponse
+    ResearchInternEventActorKind:
+      type: string
+      enum:
+      - operator
+      - research_intern
+      - magi
+      - system
+      title: ResearchInternEventActorKind
+    ResearchInternEventAppendRequest:
+      properties:
+        event_kind:
+          $ref: '#/components/schemas/ResearchInternEventKind'
+        mode:
+          anyOf:
+          - $ref: '#/components/schemas/MagiMode'
+          - type: 'null'
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected State Generation
+        body:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Body
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+      additionalProperties: false
+      type: object
+      required:
+      - event_kind
+      - idempotency_key
+      - expected_state_generation
+      title: ResearchInternEventAppendRequest
+    ResearchInternEventKind:
+      type: string
+      enum:
+      - objective
+      - operator_message
+      - agent_message
+      - progress
+      - magi_decision
+      - state_snapshot
+      - error
+      - closed
+      title: ResearchInternEventKind
+    ResearchInternEventResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event.v1
+          title: Schema Version
+          default: smr.research-intern-event.v1
+        event_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Event Id
+        session_id:
+          type: string
+          title: Session Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        sequence:
+          type: integer
+          title: Sequence
+        previous_state_generation:
+          type: integer
+          title: Previous State Generation
+        state_generation:
+          type: integer
+          title: State Generation
+        event_kind:
+          $ref: '#/components/schemas/ResearchInternEventKind'
+        actor_kind:
+          $ref: '#/components/schemas/ResearchInternEventActorKind'
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        mode:
+          anyOf:
+          - $ref: '#/components/schemas/MagiMode'
+          - type: 'null'
+        canonical_user:
+          anyOf:
+          - $ref: '#/components/schemas/MagiCanonicalUser'
+          - type: 'null'
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Id
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        body:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Body
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - session_id
+      - research_intern_id
+      - org_id
+      - sequence
+      - previous_state_generation
+      - state_generation
+      - event_kind
+      - actor_kind
+      - idempotency_key
+      - payload
+      - evidence_refs
+      - created_at
+      title: ResearchInternEventResponse
+    ResearchInternEventStreamCursor:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event-stream-cursor.v1
+          title: Schema Version
+          default: smr.research-intern-event-stream-cursor.v1
+        after_sequence:
+          type: integer
+          minimum: 1.0
+          title: After Sequence
+        event_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Event Id
+        state_generation:
+          type: integer
+          minimum: 1.0
+          title: State Generation
+      additionalProperties: false
+      type: object
+      required:
+      - after_sequence
+      - event_id
+      - state_generation
+      title: ResearchInternEventStreamCursor
+      description: Exact durable event-log position used by Intern SSE consumers.
+    ResearchInternEventStreamEnvelope:
+      oneOf:
+      - $ref: '#/components/schemas/ResearchInternEventStreamEvent'
+      - $ref: '#/components/schemas/ResearchInternEventStreamHeartbeat'
+      title: ResearchInternEventStreamEnvelope
+      description: OpenAPI-visible discriminated union for Intern SSE data payloads.
+      discriminator:
+        propertyName: kind
+        mapping:
+          event: '#/components/schemas/ResearchInternEventStreamEvent'
+          heartbeat: '#/components/schemas/ResearchInternEventStreamHeartbeat'
+    ResearchInternEventStreamEvent:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event-stream.v1
+          title: Schema Version
+          default: smr.research-intern-event-stream.v1
+        kind:
+          type: string
+          const: event
+          title: Kind
+          default: event
+        session_id:
+          type: string
+          title: Session Id
+        cursor:
+          $ref: '#/components/schemas/ResearchInternEventStreamCursor'
+        event:
+          $ref: '#/components/schemas/ResearchInternEventResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - cursor
+      - event
+      title: ResearchInternEventStreamEvent
+      description: One durable ResearchInternEventResponse framed for SSE transport.
+    ResearchInternEventStreamHeartbeat:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-event-stream.v1
+          title: Schema Version
+          default: smr.research-intern-event-stream.v1
+        kind:
+          type: string
+          const: heartbeat
+          title: Kind
+          default: heartbeat
+        session_id:
+          type: string
+          title: Session Id
+        cursor:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternEventStreamCursor'
+          - type: 'null'
+        reconnect_after_ms:
+          type: integer
+          maximum: 30000.0
+          minimum: 1000.0
+          title: Reconnect After Ms
+        emitted_at:
+          type: string
+          format: date-time
+          title: Emitted At
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - reconnect_after_ms
+      - emitted_at
+      title: ResearchInternEventStreamHeartbeat
+      description: Non-durable liveness frame; cursor is the last durable emitted
+        event.
     ResearchInternFactoryMembershipResponse:
       properties:
         research_intern_id:
@@ -49248,6 +51076,219 @@ components:
       - created_at
       - updated_at
       title: ResearchInternResponse
+    ResearchInternSessionCloseRequest:
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected State Generation
+        status:
+          type: string
+          enum:
+          - completed
+          - partial
+          - failed
+          - stopped
+          - canceled
+          - archived
+          title: Status
+        rationale:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Rationale
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      - expected_state_generation
+      - status
+      - rationale
+      title: ResearchInternSessionCloseRequest
+    ResearchInternSessionCreateRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        effort_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Run Id
+        objective:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Objective
+        objective_bounds:
+          additionalProperties: true
+          type: object
+          title: Objective Bounds
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - project_id
+      - effort_id
+      - objective
+      - idempotency_key
+      title: ResearchInternSessionCreateRequest
+    ResearchInternSessionResponse:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        effort_id:
+          type: string
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        objective:
+          type: string
+          title: Objective
+        objective_bounds:
+          additionalProperties: true
+          type: object
+          title: Objective Bounds
+        status:
+          $ref: '#/components/schemas/ResearchInternSessionStatus'
+        state_generation:
+          type: integer
+          title: State Generation
+        last_event_sequence:
+          type: integer
+          title: Last Event Sequence
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_by_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By User Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Closed At
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - research_intern_id
+      - org_id
+      - factory_id
+      - project_id
+      - effort_id
+      - objective
+      - objective_bounds
+      - status
+      - state_generation
+      - last_event_sequence
+      - metadata
+      - created_at
+      - updated_at
+      title: ResearchInternSessionResponse
+    ResearchInternSessionStatus:
+      type: string
+      enum:
+      - active
+      - completed
+      - partial
+      - failed
+      - stopped
+      - canceled
+      - archived
+      title: ResearchInternSessionStatus
+    ResearchInternSessionSyncResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-session-sync.v1
+          title: Schema Version
+          default: smr.research-intern-session-sync.v1
+        session:
+          $ref: '#/components/schemas/ResearchInternSessionResponse'
+        events:
+          items:
+            $ref: '#/components/schemas/ResearchInternEventResponse'
+          type: array
+          title: Events
+        source_run_id:
+          type: string
+          title: Source Run Id
+        projected_count:
+          type: integer
+          title: Projected Count
+        has_more:
+          type: boolean
+          title: Has More
+      additionalProperties: false
+      type: object
+      required:
+      - session
+      - events
+      - source_run_id
+      - projected_count
+      - has_more
+      title: ResearchInternSessionSyncResponse
     ResearchInternStatus:
       type: string
       enum:
@@ -49255,6 +51296,166 @@ components:
       - paused
       - archived
       title: ResearchInternStatus
+    ResearchInternTurnControl:
+      type: string
+      enum:
+      - pause
+      - intervene
+      - resume
+      title: ResearchInternTurnControl
+    ResearchInternTurnError:
+      properties:
+        error_code:
+          type: string
+          title: Error Code
+        message:
+          type: string
+          title: Message
+        retryable:
+          type: boolean
+          title: Retryable
+        detail:
+          additionalProperties: true
+          type: object
+          title: Detail
+      additionalProperties: false
+      type: object
+      required:
+      - error_code
+      - message
+      - retryable
+      title: ResearchInternTurnError
+    ResearchInternTurnRequest:
+      properties:
+        body:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Body
+        mode:
+          $ref: '#/components/schemas/MagiMode'
+          default: sync
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_session_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Session State Generation
+        expected_intern_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Intern State Generation
+        control:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternTurnControl'
+          - type: 'null'
+        rationale:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Rationale
+        state_patch:
+          additionalProperties: true
+          type: object
+          title: State Patch
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        wait_timeout_seconds:
+          type: number
+          maximum: 30.0
+          minimum: 0.0
+          title: Wait Timeout Seconds
+          default: 15.0
+        poll_interval_ms:
+          type: integer
+          maximum: 2000.0
+          minimum: 100.0
+          title: Poll Interval Ms
+          default: 250
+      additionalProperties: false
+      type: object
+      required:
+      - body
+      - idempotency_key
+      - expected_session_state_generation
+      - expected_intern_state_generation
+      title: ResearchInternTurnRequest
+      description: One browser-callable operator turn against the bound real runtime.
+    ResearchInternTurnResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.research-intern-turn.v1
+          title: Schema Version
+          default: smr.research-intern-turn.v1
+        turn_id:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Turn Id
+        status:
+          $ref: '#/components/schemas/ResearchInternTurnStatus'
+        session:
+          $ref: '#/components/schemas/ResearchInternSessionResponse'
+        run_id:
+          type: string
+          title: Run Id
+        operator_event:
+          $ref: '#/components/schemas/ResearchInternEventResponse'
+        decision_receipt:
+          anyOf:
+          - $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+          - type: 'null'
+        agent_event:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternEventResponse'
+          - type: 'null'
+        projected_events:
+          items:
+            $ref: '#/components/schemas/ResearchInternEventResponse'
+          type: array
+          title: Projected Events
+        reconnect_after_sequence:
+          type: integer
+          minimum: 0.0
+          title: Reconnect After Sequence
+        waited_seconds:
+          type: number
+          minimum: 0.0
+          title: Waited Seconds
+        replayed:
+          type: boolean
+          title: Replayed
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternTurnError'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - turn_id
+      - status
+      - session
+      - run_id
+      - operator_event
+      - reconnect_after_sequence
+      - waited_seconds
+      - replayed
+      title: ResearchInternTurnResponse
+    ResearchInternTurnStatus:
+      type: string
+      enum:
+      - accepted
+      - completed
+      - timed_out
+      - failed
+      title: ResearchInternTurnStatus
     ResolveCredentialRequest:
       properties:
         org_id:
@@ -50255,7 +52456,8 @@ components:
           $ref: '#/components/schemas/SmrActorSubtype'
           description: Actor subtype. Supported values are main, engineer, researcher,
             artifact_builder, artifact_reviewer, task_completion, run_completion,
-            safety, objective, adjudicator, gardener; valid combinations depend on actor_type.
+            safety, objective, adjudicator, gardener; valid combinations depend on
+            actor_type.
         agent_model:
           $ref: '#/components/schemas/SmrAgentModel'
           description: Actor-scoped agent model override. Engineer-only models such
@@ -50942,6 +53144,9 @@ components:
       - gpt-5.3-codex-spark
       - gpt-5.5
       - gpt-5.6-luna
+      - gpt-5.6-sol
+      - gpt-5.6-terra
+      - cursor/grok-4.5
       - gpt-5.4
       - gpt-5.4-mini
       - nemotron-super
@@ -61460,9 +63665,9 @@ components:
                 platform_resolved: '#/components/schemas/SmrPlatformResolvedTargetRequest'
           - type: 'null'
           title: Execution Target
-          description: Explicit placement authority. Platform-resolved targets delegate
-            all placement to Synth; bound-runtime targets carry one signed CloudDev
-            binding and cannot restate host, pool, or source fields elsewhere.
+          description: Deprecated compatibility field scheduled for removal in synth-ai
+            0.18.0. Placement is resolved by the backend; callers must omit this field.
+          deprecated: true
         runbook:
           $ref: '#/components/schemas/RunbookKind'
           description: Typed orchestration posture for this run. Runbooks control
@@ -62888,14 +65093,20 @@ components:
           type: string
           title: Metric
           default: spend_usd
+        expected_revision:
+          type: integer
+          minimum: 1.0
+          title: Expected Revision
         limit_value:
           anyOf:
+          - type: integer
           - type: number
           - type: 'null'
           title: Limit Value
           description: New absolute limit value in the request unit.
         additional_value:
           anyOf:
+          - type: integer
           - type: number
           - type: 'null'
           title: Additional Value
@@ -62912,17 +65123,20 @@ components:
         resolve_blockers:
           type: boolean
           title: Resolve Blockers
-          default: true
+          default: false
         resume:
           type: boolean
           title: Resume
-          default: true
+          default: false
         idempotency_key:
           anyOf:
           - type: string
           - type: 'null'
           title: Idempotency Key
+      additionalProperties: false
       type: object
+      required:
+      - expected_revision
       title: SmrResourceLimitExtensionRequest
     SmrResourceLimitExtensionResponse:
       properties:
@@ -62960,17 +65174,48 @@ components:
         new_limit_value:
           type: number
           title: New Limit Value
+        expected_revision:
+          type: integer
+          title: Expected Revision
+        previous_revision:
+          type: integer
+          title: Previous Revision
+        new_revision:
+          type: integer
+          title: New Revision
         unit:
           type: string
           title: Unit
         source:
           type: string
           title: Source
+        request_fingerprint:
+          type: string
+          title: Request Fingerprint
+        idempotent_replay:
+          type: boolean
+          title: Idempotent Replay
+          default: false
+        safe_to_release:
+          type: boolean
+          title: Safe To Release
+          default: false
+        extension_error:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Extension Error
         resolved_blocker_ids:
           items:
             type: string
           type: array
           title: Resolved Blocker Ids
+        released_pause_gate_ids:
+          items:
+            type: string
+          type: array
+          title: Released Pause Gate Ids
         resumed:
           type: boolean
           title: Resumed
@@ -62992,8 +65237,12 @@ components:
       - selector
       - metric
       - new_limit_value
+      - expected_revision
+      - previous_revision
+      - new_revision
       - unit
       - source
+      - request_fingerprint
       title: SmrResourceLimitExtensionResponse
     SmrResourceLimitProgressItemResponse:
       properties:
@@ -63062,7 +65311,28 @@ components:
           - type: number
           - type: 'null'
           title: Warning Threshold Percent
-          default: 80.0
+        enforcement_threshold_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Enforcement Threshold Percent
+        cap_revision:
+          type: integer
+          title: Cap Revision
+          default: 1
+        cap_source:
+          type: string
+          title: Cap Source
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        exhaustion_action:
+          type: string
+          title: Exhaustion Action
+        notify_audience:
+          type: string
+          title: Notify Audience
         source:
           type: string
           title: Source
@@ -63074,6 +65344,9 @@ components:
       - metric
       - unit
       - state
+      - cap_source
+      - exhaustion_action
+      - notify_audience
       - source
       title: SmrResourceLimitProgressItemResponse
     SmrResourceLimitProgressResponse:
@@ -63161,7 +65434,28 @@ components:
           - type: number
           - type: 'null'
           title: Warning Threshold Percent
-          default: 80.0
+        enforcement_threshold_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Enforcement Threshold Percent
+        cap_revision:
+          type: integer
+          title: Cap Revision
+          default: 1
+        cap_source:
+          type: string
+          title: Cap Source
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        exhaustion_action:
+          type: string
+          title: Exhaustion Action
+        notify_audience:
+          type: string
+          title: Notify Audience
         source:
           type: string
           title: Source
@@ -63172,6 +65466,9 @@ components:
       - selector
       - metric
       - unit
+      - cap_source
+      - exhaustion_action
+      - notify_audience
       - source
       title: SmrResourceLimitResponse
     SmrResourceLimitSelectorResponse:
@@ -63209,6 +65506,7 @@ components:
           - type: string
           - type: 'null'
           title: Resource Id
+      additionalProperties: false
       type: object
       required:
       - kind
@@ -65777,6 +68075,488 @@ components:
       - terminal_phase
       - dispatch
       title: SmrRunLifecycleResponse
+    SmrRunLimitDecisionEvidenceResponse:
+      properties:
+        decision_id:
+          type: string
+          title: Decision Id
+        dimension:
+          type: string
+          title: Dimension
+        action:
+          type: string
+          title: Action
+        binding:
+          type: boolean
+          title: Binding
+        reason:
+          type: string
+          title: Reason
+        cap_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cap Revision
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Cap Amount
+        used_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Used Amount
+        threshold:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Threshold
+        unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit
+        remaining_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Remaining Amount
+        accounting_completeness:
+          type: string
+          enum:
+          - complete
+          - incomplete
+          - unknown
+          title: Accounting Completeness
+        usage_sources:
+          items:
+            type: string
+          type: array
+          title: Usage Sources
+        missing_accounting_sources:
+          items:
+            type: string
+          type: array
+          title: Missing Accounting Sources
+        trigger_source:
+          type: string
+          title: Trigger Source
+        enforcement_granularity:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Enforcement Granularity
+        possible_overshoot:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Possible Overshoot
+      additionalProperties: false
+      type: object
+      required:
+      - decision_id
+      - dimension
+      - action
+      - binding
+      - reason
+      - accounting_completeness
+      - trigger_source
+      title: SmrRunLimitDecisionEvidenceResponse
+    SmrRunLimitEvidenceItemResponse:
+      properties:
+        evidence_id:
+          type: string
+          title: Evidence Id
+        kind:
+          type: string
+          enum:
+          - decision
+          - warning
+          - interrupt
+          - extension
+          title: Kind
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+        decision:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitDecisionEvidenceResponse'
+          - type: 'null'
+        warning:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitWarningEvidenceResponse'
+          - type: 'null'
+        interrupt:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitInterruptEvidenceResponse'
+          - type: 'null'
+        extension:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitExtensionEvidenceResponse'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - evidence_id
+      - kind
+      - occurred_at
+      title: SmrRunLimitEvidenceItemResponse
+    SmrRunLimitEvidencePageResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.run_limit_evidence.v1
+          title: Schema Version
+          default: smr.run_limit_evidence.v1
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          type: string
+          title: Run Id
+        launch:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitLaunchEvidenceResponse'
+          - type: 'null'
+        items:
+          items:
+            $ref: '#/components/schemas/SmrRunLimitEvidenceItemResponse'
+          type: array
+          title: Items
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - project_id
+      - run_id
+      title: SmrRunLimitEvidencePageResponse
+    SmrRunLimitExtensionEvidenceResponse:
+      properties:
+        receipt_id:
+          type: string
+          title: Receipt Id
+        extension_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Extension Id
+        dimension:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dimension
+        previous_cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Previous Cap Amount
+        new_cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: New Cap Amount
+        previous_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Previous Revision
+        new_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: New Revision
+        requested_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Requested By
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        safe_to_release:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Safe To Release
+        resolved_blocker_ids:
+          items:
+            type: string
+          type: array
+          title: Resolved Blocker Ids
+        released_pause_gate_ids:
+          items:
+            type: string
+          type: array
+          title: Released Pause Gate Ids
+        resumed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Resumed
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      title: SmrRunLimitExtensionEvidenceResponse
+    SmrRunLimitInterruptEvidenceResponse:
+      properties:
+        operation_id:
+          type: string
+          title: Operation Id
+        control_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Control Id
+        control_seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Control Seq
+        signal:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Signal
+        issued_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Issued By
+        status:
+          type: string
+          title: Status
+        attempt_count:
+          type: integer
+          title: Attempt Count
+        max_attempts:
+          type: integer
+          title: Max Attempts
+        external_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: External Ref
+        failure_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failure Code
+        next_retry_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Retry At
+      additionalProperties: false
+      type: object
+      required:
+      - operation_id
+      - status
+      - attempt_count
+      - max_attempts
+      title: SmrRunLimitInterruptEvidenceResponse
+    SmrRunLimitLaunchCapEvidenceResponse:
+      properties:
+        dimension:
+          type: string
+          title: Dimension
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Cap Amount
+        cap_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cap Revision
+        cap_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cap Source
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+      additionalProperties: false
+      type: object
+      required:
+      - dimension
+      title: SmrRunLimitLaunchCapEvidenceResponse
+    SmrRunLimitLaunchEvidenceResponse:
+      properties:
+        schema_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Schema Version
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        rollout_mode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rollout Mode
+        enforcement_enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enforcement Enabled
+        refusal_disposition:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Refusal Disposition
+        funding_lane:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Funding Lane
+        owner_slot_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Slot Id
+        backend_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backend Url
+        enforcement_granularity:
+          additionalProperties:
+            type: string
+          type: object
+          title: Enforcement Granularity
+        strict_inference_admission:
+          additionalProperties: true
+          type: object
+          title: Strict Inference Admission
+        limits:
+          items:
+            $ref: '#/components/schemas/SmrRunLimitLaunchCapEvidenceResponse'
+          type: array
+          title: Limits
+      additionalProperties: false
+      type: object
+      title: SmrRunLimitLaunchEvidenceResponse
+    SmrRunLimitWarningDeliveryResponse:
+      properties:
+        delivery_job_id:
+          type: string
+          title: Delivery Job Id
+        status:
+          type: string
+          title: Status
+        attempt_count:
+          type: integer
+          title: Attempt Count
+        max_attempts:
+          type: integer
+          title: Max Attempts
+        deliver_after:
+          type: string
+          format: date-time
+          title: Deliver After
+        last_error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Error Code
+      additionalProperties: false
+      type: object
+      required:
+      - delivery_job_id
+      - status
+      - attempt_count
+      - max_attempts
+      - deliver_after
+      title: SmrRunLimitWarningDeliveryResponse
+    SmrRunLimitWarningEvidenceResponse:
+      properties:
+        message_id:
+          type: string
+          title: Message Id
+        decision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Id
+        dimension:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dimension
+        cap_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cap Revision
+        threshold:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Threshold
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Cap Amount
+        used_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Used Amount
+        remaining_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Remaining Amount
+        unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit
+        exhaustion_action:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exhaustion Action
+        audience:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Audience
+        status:
+          type: string
+          title: Status
+        deliveries:
+          items:
+            $ref: '#/components/schemas/SmrRunLimitWarningDeliveryResponse'
+          type: array
+          title: Deliveries
+      additionalProperties: false
+      type: object
+      required:
+      - message_id
+      - status
+      title: SmrRunLimitWarningEvidenceResponse
     SmrRunLineageResponse:
       properties:
         parent_run_id:
@@ -66929,6 +69709,12 @@ components:
             type: object
           type: array
           title: Limits
+        limit_launch_receipt:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Limit Launch Receipt
         execution_metadata:
           additionalProperties: true
           type: object
@@ -71617,6 +74403,57 @@ components:
       - per_run
       - stored_rollup_count
       title: SmrUsageRollupsResponse
+    SmrUsageSourceProvider:
+      type: string
+      enum:
+      - synth
+      - openai
+      - openrouter
+      - anthropic
+      - cursor
+      - deepseek
+      - groq
+      - google
+      - baseten
+      - xai
+      - daytona
+      - exe_dev
+      - docker
+      - runpod
+      - modal
+      - tinker
+      - other
+      title: SmrUsageSourceProvider
+    SmrUsageSourceProviderCatalogEntry:
+      properties:
+        id:
+          $ref: '#/components/schemas/SmrUsageSourceProvider'
+        display_name:
+          type: string
+          title: Display Name
+        aliases:
+          items:
+            type: string
+          type: array
+          title: Aliases
+      type: object
+      required:
+      - id
+      - display_name
+      title: SmrUsageSourceProviderCatalogEntry
+    SmrUsageSourceProvidersResponse:
+      properties:
+        version:
+          type: integer
+          title: Version
+          default: 1
+        providers:
+          items:
+            $ref: '#/components/schemas/SmrUsageSourceProviderCatalogEntry'
+          type: array
+          title: Providers
+      type: object
+      title: SmrUsageSourceProvidersResponse
     SmrVisualEvidencePayload:
       properties:
         source_run_ids:
@@ -76164,8 +79001,8 @@ components:
       properties:
         cap_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Cap Amount
         policy:
@@ -76206,6 +79043,37 @@ components:
           title: Status
       type: object
       title: UpdateTrainedModelBody
+    UploadInstructionResponse:
+      properties:
+        logical_path:
+          type: string
+          minLength: 1
+          title: Logical Path
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        upload_url:
+          type: string
+          minLength: 1
+          title: Upload Url
+        required_headers:
+          additionalProperties:
+            type: string
+          type: object
+          title: Required Headers
+      type: object
+      required:
+      - logical_path
+      - content_digest
+      - size_bytes
+      - upload_url
+      - required_headers
+      title: UploadInstructionResponse
     UpsertEnvKeyRequest:
       properties:
         environment_api_key:

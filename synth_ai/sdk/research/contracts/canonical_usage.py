@@ -349,6 +349,12 @@ class SmrResourceLimit:
     unit: str
     blocks_at_limit: bool
     warning_threshold_percent: float | None
+    enforcement_threshold_percent: float | None
+    cap_revision: int
+    cap_source: str
+    policy: dict[str, object]
+    exhaustion_action: str
+    notify_audience: str
     source: str
 
     @classmethod
@@ -374,6 +380,27 @@ class SmrResourceLimit:
                 mapping,
                 "warning_threshold_percent",
             ),
+            enforcement_threshold_percent=_optional_float_value(
+                mapping,
+                "enforcement_threshold_percent",
+            ),
+            cap_revision=_int_value(mapping, "cap_revision"),
+            cap_source=_require_string(
+                mapping,
+                "cap_source",
+                label="resource limit.cap_source",
+            ),
+            policy=_optional_object_dict(mapping.get("policy")),
+            exhaustion_action=_require_string(
+                mapping,
+                "exhaustion_action",
+                label="resource limit.exhaustion_action",
+            ),
+            notify_audience=_require_string(
+                mapping,
+                "notify_audience",
+                label="resource limit.notify_audience",
+            ),
             source=_require_string(mapping, "source", label="resource limit.source"),
         )
 
@@ -389,6 +416,14 @@ class SmrResourceLimitBlocker:
     selector: SmrResourceLimitSelector | None
     metric: str | None
     summary: str | None
+
+    @property
+    def run_limit_decision_id(self) -> str | None:
+        """Return the decision correlation carried by a limit blocker."""
+
+        if self.target_kind != "run_limit_decision":
+            return None
+        return self.target_id
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrResourceLimitBlocker:
@@ -453,6 +488,12 @@ class SmrResourceLimitProgressItem:
     last_action_error: str | None
     last_pause_gate_id: str | None
     warning_threshold_percent: float | None
+    enforcement_threshold_percent: float | None
+    cap_revision: int
+    cap_source: str
+    policy: dict[str, object]
+    exhaustion_action: str
+    notify_audience: str
     source: str
 
     @classmethod
@@ -502,6 +543,27 @@ class SmrResourceLimitProgressItem:
                 mapping,
                 "warning_threshold_percent",
             ),
+            enforcement_threshold_percent=_optional_float_value(
+                mapping,
+                "enforcement_threshold_percent",
+            ),
+            cap_revision=_int_value(mapping, "cap_revision"),
+            cap_source=_require_string(
+                mapping,
+                "cap_source",
+                label="resource limit progress item.cap_source",
+            ),
+            policy=_optional_object_dict(mapping.get("policy")),
+            exhaustion_action=_require_string(
+                mapping,
+                "exhaustion_action",
+                label="resource limit progress item.exhaustion_action",
+            ),
+            notify_audience=_require_string(
+                mapping,
+                "notify_audience",
+                label="resource limit progress item.notify_audience",
+            ),
             source=_require_string(
                 mapping,
                 "source",
@@ -523,6 +585,12 @@ class SmrResourceLimitProgressItem:
             unit=self.unit,
             blocks_at_limit=self.blocks_at_limit,
             warning_threshold_percent=self.warning_threshold_percent,
+            enforcement_threshold_percent=self.enforcement_threshold_percent,
+            cap_revision=self.cap_revision,
+            cap_source=self.cap_source,
+            policy=dict(self.policy),
+            exhaustion_action=self.exhaustion_action,
+            notify_audience=self.notify_audience,
             source=self.source,
         )
 
@@ -592,15 +660,19 @@ class SmrResourceLimitExtension:
     metric: str
     previous_limit_value: float | None
     new_limit_value: float
+    expected_revision: int
+    previous_revision: int
+    new_revision: int
     unit: str
     source: str
+    request_fingerprint: str
+    idempotent_replay: bool
+    safe_to_release: bool
+    extension_error: dict[str, object] | None
     resolved_blocker_ids: list[str]
-    resume_requested: bool
-    resume_attempted: bool
+    released_pause_gate_ids: list[str]
     resumed: bool
     resume_error: dict[str, object] | None
-    pause_gate_released: bool
-    released_pause_gate_id: str | None
     progress: SmrResourceLimitProgress | None
 
     @classmethod
@@ -608,6 +680,7 @@ class SmrResourceLimitExtension:
         mapping = _require_mapping(payload, label="resource limit extension")
         progress_payload = mapping.get("progress")
         resume_error = mapping.get("resume_error")
+        extension_error = mapping.get("extension_error")
         return cls(
             resource_limit_extension_id=_require_string(
                 mapping,
@@ -637,6 +710,9 @@ class SmrResourceLimitExtension:
                 "new_limit_value",
                 label="resource limit extension.new_limit_value",
             ),
+            expected_revision=_int_value(mapping, "expected_revision"),
+            previous_revision=_int_value(mapping, "previous_revision"),
+            new_revision=_int_value(mapping, "new_revision"),
             unit=_require_string(
                 mapping,
                 "unit",
@@ -647,21 +723,29 @@ class SmrResourceLimitExtension:
                 "source",
                 label="resource limit extension.source",
             ),
+            request_fingerprint=_require_string(
+                mapping,
+                "request_fingerprint",
+                label="resource limit extension.request_fingerprint",
+            ),
+            idempotent_replay=bool(mapping.get("idempotent_replay", False)),
+            safe_to_release=bool(mapping.get("safe_to_release", False)),
+            extension_error=(
+                {str(key): value for key, value in extension_error.items()}
+                if isinstance(extension_error, Mapping)
+                else None
+            ),
             resolved_blocker_ids=[
                 str(item) for item in _optional_array(mapping, "resolved_blocker_ids")
             ],
-            resume_requested=bool(mapping.get("resume_requested", False)),
-            resume_attempted=bool(mapping.get("resume_attempted", False)),
+            released_pause_gate_ids=[
+                str(item) for item in _optional_array(mapping, "released_pause_gate_ids")
+            ],
             resumed=bool(mapping.get("resumed", False)),
             resume_error=(
                 {str(key): value for key, value in resume_error.items()}
                 if isinstance(resume_error, Mapping)
                 else None
-            ),
-            pause_gate_released=bool(mapping.get("pause_gate_released", False)),
-            released_pause_gate_id=_optional_string(
-                mapping,
-                "released_pause_gate_id",
             ),
             progress=(
                 SmrResourceLimitProgress.from_wire(progress_payload)

@@ -74,6 +74,9 @@ __all__ = [
     "ResearchConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
+    "ResearchLimitExtensionGuardedResumeBlockedError",
+    "ResearchLimitExtensionIdempotencyConflictError",
+    "ResearchLimitRevisionConflictError",
     "ResearchProjectCreateRequest",
     "ResearchInternProvisionRequest",
     "ResearchInternReactiveSession",
@@ -88,6 +91,7 @@ __all__ = [
     "ResearchSwarmState",
     "ResearchVisual",
     "ResearchVisualPage",
+    "ResearchUnsafeLimitExtensionError",
     "ResearchVisualPatchRequest",
     "ResearchVisualPromotionRequest",
     "ResearchVisualVersions",
@@ -214,6 +218,22 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "ResearchInsufficientCreditsError",
     ),
     "ResearchLimitExceededError": ("synth_ai.sdk.research.errors", "ResearchLimitExceededError"),
+    "ResearchLimitExtensionGuardedResumeBlockedError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchLimitExtensionGuardedResumeBlockedError",
+    ),
+    "ResearchLimitExtensionIdempotencyConflictError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchLimitExtensionIdempotencyConflictError",
+    ),
+    "ResearchLimitRevisionConflictError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchLimitRevisionConflictError",
+    ),
+    "ResearchUnsafeLimitExtensionError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchUnsafeLimitExtensionError",
+    ),
     "SmrApiError": ("synth_ai.sdk.research.errors", "ResearchApiError"),
     "SmrConcurrentRunLimitExceededError": (
         "synth_ai.sdk.research.errors",

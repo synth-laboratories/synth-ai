@@ -157,6 +157,7 @@ from synth_ai.sdk.research.contracts.wire_models import (
     SmrResourceLimitProgress,
     SmrResourceLimits,
     SmrResourceLimitSelector,
+    SmrRunLimitEvidencePage,
     SmrRunUsage,
 )
 from synth_ai.sdk.research.errors import (
@@ -1526,6 +1527,19 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     def get_run_resource_limits(self, run_id: str) -> SmrResourceLimits:
         return self.usage.get_run_resource_limits(run_id)
 
+    def get_run_limit_evidence(
+        self,
+        run_id: str,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SmrRunLimitEvidencePage:
+        return self.usage.get_run_limit_evidence(
+            run_id,
+            limit=limit,
+            cursor=cursor,
+        )
+
     def get_run_progress_toward_resource_limits(
         self,
         run_id: str,
@@ -1536,6 +1550,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         self,
         run_id: str,
         *,
+        expected_revision: int,
         limit_value: float | None = None,
         additional_value: float | None = None,
         reason: str | None = None,
@@ -1543,12 +1558,13 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         resource_limit_id: str | None = None,
         metric: str = "spend_usd",
         unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
+        resolve_blockers: bool = False,
+        resume: bool = False,
         idempotency_key: str | None = None,
     ) -> SmrResourceLimitExtension:
         return self.usage.extend_run_resource_limit(
             run_id,
+            expected_revision=expected_revision,
             limit_value=limit_value,
             additional_value=additional_value,
             reason=reason,
@@ -1568,6 +1584,21 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     ) -> SmrResourceLimits:
         return self.usage.get_project_run_resource_limits(project_id, run_id)
 
+    def get_project_run_limit_evidence(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SmrRunLimitEvidencePage:
+        return self.usage.get_project_run_limit_evidence(
+            project_id,
+            run_id,
+            limit=limit,
+            cursor=cursor,
+        )
+
     def get_project_run_progress_toward_resource_limits(
         self,
         project_id: str,
@@ -1583,6 +1614,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         project_id: str,
         run_id: str,
         *,
+        expected_revision: int,
         limit_value: float | None = None,
         additional_value: float | None = None,
         reason: str | None = None,
@@ -1590,13 +1622,14 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         resource_limit_id: str | None = None,
         metric: str = "spend_usd",
         unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
+        resolve_blockers: bool = False,
+        resume: bool = False,
         idempotency_key: str | None = None,
     ) -> SmrResourceLimitExtension:
         return self.usage.extend_project_run_resource_limit(
             project_id,
             run_id,
+            expected_revision=expected_revision,
             limit_value=limit_value,
             additional_value=additional_value,
             reason=reason,

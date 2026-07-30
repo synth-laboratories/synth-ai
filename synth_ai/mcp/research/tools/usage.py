@@ -111,6 +111,11 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
                         "type": "string",
                         "description": "Run id when scope is run.",
                     },
+                    "expected_revision": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Current cap revision used to guard the extension.",
+                    },
                     "project_id": {
                         "type": "string",
                         "description": "Optional project id for project-scoped run lookup.",
@@ -145,18 +150,20 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "resolve_blockers": {
                         "type": "boolean",
-                        "description": "Resolve matching active budget blockers after extending.",
+                        "default": False,
+                        "description": "Explicitly resolve matching system limit blockers after a safe extension.",
                     },
                     "resume": {
                         "type": "boolean",
-                        "description": "Resume the run or unpause the project after extending.",
+                        "default": False,
+                        "description": "Explicitly attempt guarded run resume after a safe extension.",
                     },
                     "idempotency_key": {
                         "type": "string",
                         "description": "Optional caller-supplied idempotency key.",
                     },
                 },
-                required=["scope"],
+                required=["scope", "run_id", "expected_revision"],
             ),
             handler=server._tool_request_resource_limit_extension,
         ),
