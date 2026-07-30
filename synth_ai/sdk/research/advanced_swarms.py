@@ -1,11 +1,12 @@
-"""``client.research.runs`` — launch and lifecycle for Managed Research runs.
+"""``research.advanced.runs`` — operator run readouts and eval launch path.
 
-**Status:** alpha
+**Status:** alpha. ``research.swarms`` is the public launch surface; this
+namespace serves eval harnesses and operators that need the raw run handle,
+readouts, and list projections over the same backend authority.
 """
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, List, Protocol, cast
@@ -277,25 +278,6 @@ class ResearchRunsAPI:
             **_research_run_kwargs(kwargs),
         )
 
-    def launch_preflight(
-        self,
-        project_id: str | None = None,
-        *,
-        project: ProjectSelector | str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Deprecated alias for ``check_preflight``."""
-        warnings.warn(
-            "runs.launch_preflight is deprecated; use runs.check_preflight instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.check_preflight(
-            project_id,
-            project=_session_project(project),
-            **kwargs,
-        )
-
     def create(
         self,
         project_id: str | None = None,
@@ -354,87 +336,6 @@ class ResearchRunsAPI:
         )
         run = ResearchRun.from_wire(wire)
         return ResearchRunHandle(self._session.run(run.project_id, run.run_id))
-
-    def start(
-        self,
-        objective: str,
-        *,
-        project_id: str | None = None,
-        project: ProjectSelector | str | None = None,
-        **kwargs: Any,
-    ) -> ResearchRunHandle:
-        """Start a run with a primary objective message (deprecated — use ``create``)."""
-        warnings.warn(
-            "runs.start is deprecated; use runs.create instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        handle = self._session.runs.start(
-            objective,
-            project_id=project_id,
-            project=_session_project(project),
-            **_research_run_kwargs(kwargs),
-        )
-        return ResearchRunHandle(handle)
-
-    def launch(
-        self,
-        objective: str,
-        *,
-        project_id: str | None = None,
-        project: ProjectSelector | str | None = None,
-        **kwargs: Any,
-    ) -> ResearchRunHandle:
-        """Deprecated alias for ``create`` with a required objective."""
-        warnings.warn(
-            "runs.launch is deprecated; use runs.create instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start(
-            objective,
-            project_id=project_id,
-            project=_session_project(project),
-            **kwargs,
-        )
-
-    def trigger(
-        self,
-        project_id: str | None = None,
-        *,
-        project: ProjectSelector | str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Compatibility alias for existing ReportBench drivers."""
-        warnings.warn(
-            "runs.trigger is deprecated; use runs.create instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._session.runs.trigger(
-            project_id,
-            project=_session_project(project),
-            **_research_run_kwargs(kwargs),
-        )
-
-    def start_run(
-        self,
-        project_id: str | None = None,
-        *,
-        project: ProjectSelector | str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Deprecated alias for configured-run launch (prefer ``create``)."""
-        warnings.warn(
-            "runs.start_run is deprecated; use runs.create instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._session.runs.start_run(
-            project_id,
-            project=_session_project(project),
-            **_research_run_kwargs(kwargs),
-        )
 
     def get(
         self,

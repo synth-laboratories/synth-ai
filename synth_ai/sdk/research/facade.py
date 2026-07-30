@@ -28,6 +28,10 @@ if TYPE_CHECKING:
         ResearchAdvancedAPI,
         ResearchSession,
     )
+    from synth_ai.sdk.research.contracts.factory_operations import FactoryStatus
+    from synth_ai.sdk.research.session.factories import (
+        FactoryResultsAPI as SessionFactoryResultsAPI,
+    )
     from synth_ai.sdk.research.session.factories import (
         FactoryStandupPlan,
         FactoryStandupResult,
@@ -72,6 +76,23 @@ class ResearchFactoriesFacade(FactoriesAPI):
             wake_due=wake_due,
             wake_due_launch=wake_due_launch,
         )
+
+    @property
+    def results(self) -> SessionFactoryResultsAPI:
+        """Factory Results — the public objects a Factory produces.
+
+        A Result is anything directly valuable a Factory produces: a report,
+        prompt, policy, dataset, model, artifact, or draft code change.
+        """
+        return self._open_session().factories.results
+
+    def status(self, factory_id: str) -> FactoryStatus:
+        """The backend-owned Factory workflow projection.
+
+        Experiments, outputs, decisions, limits, health, and next wake all come
+        from the backend rather than being reconstructed by each client.
+        """
+        return self._open_session().factories.status(factory_id)
 
 
 class Client:
