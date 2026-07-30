@@ -212,6 +212,7 @@ class MagiDecisionReceiptResponse(_StrictContract):
     canonical_user: MagiCanonicalUser
     decision_kind: MagiDecisionKind
     idempotency_key: str
+    expected_state_generation: int | None = Field(default=None, ge=0)
     previous_state_generation: int = Field(ge=0)
     state_generation: int = Field(ge=0)
     evidence_refs: list[str]
