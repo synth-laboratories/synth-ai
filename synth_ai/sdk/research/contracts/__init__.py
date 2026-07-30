@@ -177,6 +177,13 @@ from synth_ai.sdk.research.contracts.factory_role_receipts import (
     FactoryRoleReceiptResponse,
     FactoryRoleReceiptRuntimeEvidence,
 )
+from synth_ai.sdk.research.contracts.failure import (
+    ActorFailureReason,
+    ManagedResearchFailureClassification,
+    ManagedResearchFailureFamily,
+    ManagedResearchFailureScope,
+    ManagedResearchFailureSeverity,
+)
 from synth_ai.sdk.research.contracts.image_releases import (
     ActorImageCapability,
     ActorRuntimeImageMaterialization,
@@ -476,6 +483,7 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "ActorFailureReason",
     "DataBindingCreateRequest",
     "DataBindingResponse",
     "DatasetRevisionContent",
@@ -513,6 +521,10 @@ __all__ = [
     "MagiDecisionReceiptResponse",
     "MagiDecisionRequest",
     "MagiMode",
+    "ManagedResearchFailureClassification",
+    "ManagedResearchFailureFamily",
+    "ManagedResearchFailureScope",
+    "ManagedResearchFailureSeverity",
     "ActivityActor",
     "ActivityActorState",
     "ActivityCursor",
