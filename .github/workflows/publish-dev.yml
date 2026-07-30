@@ -7,10 +7,15 @@ name: Auto-publish to PyPI
 #   push to main  ->  <base>                   stable release
 #
 # So a version bump is a single edit that flows dev -> main without being touched
-# again. Installing a dev build takes an explicit opt-in:
+# again. Installing a dev build takes an explicit opt-in -- use an exact pin:
 #
-#   pip install --pre synth-ai            # newest prerelease
-#   pip install synth-ai==0.17.5.dev42    # exact pin
+#   pip install synth-ai==0.17.5.dev42
+#
+# Not `pip install --pre synth-ai`. `--pre` is not scoped to this package: it lets
+# pip take prereleases of every dependency too. Doing that on 2026-07-30 pulled
+# httpx 1.0.dev3, which has no `httpx.HTTPError`, and `from synth_ai import
+# SynthClient` failed with an AttributeError that looked like a broken release. An
+# exact `==` pin needs no `--pre` and leaves dependency resolution alone.
 #
 # This split is enforced in the check-version job, not by convention: main refuses
 # a .dev version, and dev synthesizes one rather than publishing pyproject's
