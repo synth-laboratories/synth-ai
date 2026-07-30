@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import asdict, is_dataclass
+from datetime import date, datetime, time
+from enum import Enum
 from typing import Any
 
 from synth_ai.core.errors import SynthError
@@ -60,6 +62,7 @@ from synth_ai.mcp.research.tools.projects import build_project_tools
 from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
 from synth_ai.mcp.research.tools.repos import build_repo_tools
+from synth_ai.mcp.research.tools.research_intern import build_research_intern_tools
 from synth_ai.mcp.research.tools.resources import build_resource_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
 from synth_ai.mcp.research.tools.tag import build_tag_tools
@@ -93,6 +96,7 @@ def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
 
 _STABLE_TOOL_NAMES = frozenset(
     {
+        "research_append_research_intern_event",
         "research_archive_factory",
         "research_archive_project",
         "research_branch_run_from_checkpoint",
@@ -157,6 +161,24 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_upload_workspace_files",
         "research_watch_run_events",
         "research_attach_source_repo",
+        "research_attach_research_intern_factory",
+        "research_close_research_intern_session",
+        "research_create_research_intern_session",
+        "research_get_research_intern",
+        "research_get_research_intern_acceptance_receipt",
+        "research_get_research_intern_decision",
+        "research_get_research_intern_session",
+        "research_list_research_intern_acceptance_receipts",
+        "research_list_research_intern_decisions",
+        "research_list_research_intern_events",
+        "research_list_research_intern_factories",
+        "research_list_research_intern_sessions",
+        "research_provision_research_intern",
+        "research_publish_research_intern_acceptance_receipt",
+        "research_record_research_intern_decision",
+        "research_run_research_intern_turn",
+        "research_sync_research_intern_session",
+        "research_update_research_intern",
     }
 )
 
@@ -286,13 +308,26 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
 
 def _mcp_jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return asdict(value)
-    if isinstance(value, list):
-        return [_mcp_jsonable(item) for item in value]
-    if isinstance(value, tuple):
+        return _mcp_jsonable(asdict(value))
+    if isinstance(value, Enum):
+        return _mcp_jsonable(value.value)
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
         return [_mcp_jsonable(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _mcp_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        normalized = [_mcp_jsonable(item) for item in value]
+        return sorted(
+            normalized,
+            key=lambda item: json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
     return value
 
 
@@ -413,6 +448,7 @@ class ResearchMcpServer:
             *build_model_tools(self),
             *build_output_tools(self),
             *build_readiness_tools(self),
+            *build_research_intern_tools(self._core_client_from_args),
             *build_resource_tools(self),
             *build_run_tools(self),
             *build_tag_tools(self),
@@ -3475,7 +3511,7 @@ class ResearchMcpServer:
                 arguments = params.get("arguments")
                 if arguments is not None and not isinstance(arguments, dict):
                     raise RpcError(-32602, "tools/call arguments must be an object")
-                result = self.call_tool(tool_name, arguments)
+                result = _mcp_jsonable(self.call_tool(tool_name, arguments))
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
