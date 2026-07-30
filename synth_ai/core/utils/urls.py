@@ -127,21 +127,6 @@ def normalize_backend_base(url: str) -> str:
     return urlunparse(normalized)
 
 
-def normalize_inference_base(url: str) -> str:
-    parsed = urlparse(str(url).strip())
-    path = parsed.path.rstrip("/")
-    for suffix in ("/chat/completions", "/completions", "/chat"):
-        if path.endswith(suffix):
-            path = _strip_terminal_segment(path, suffix)
-            break
-    normalized = parsed._replace(path=path.rstrip("/"), fragment="")
-    return urlunparse(normalized)
-
-
-def normalize_base_url(url: str) -> str:
-    return normalize_backend_base(url)
-
-
 def resolve_synth_backend_url(override: str | None = None) -> str:
     if override and override.strip():
         coerced = _coerce_backend_override(override)
@@ -150,26 +135,6 @@ def resolve_synth_backend_url(override: str | None = None) -> str:
         if _looks_like_url(override):
             return normalize_backend_base(override)
     return BACKEND_URL_BASE
-
-
-def resolve_synth_interceptor_base_url(override: str | None = None) -> str:
-    return join_url(resolve_synth_backend_url(override), "/api/interceptor/v1").rstrip("/")
-
-
-def local_backend_url(host: str = "localhost", port: int = 8000) -> str:
-    return f"http://{host}:{port}"
-
-
-def backend_health_url(base_url: str) -> str:
-    return join_url(base_url, "/health")
-
-
-def backend_me_url(base_url: str) -> str:
-    return join_url(base_url, "/api/v1/me")
-
-
-def backend_demo_keys_url(base_url: str) -> str:
-    return join_url(base_url, "/api/demo/keys")
 
 
 def is_local_hostname(host: str | None) -> bool:
@@ -186,122 +151,16 @@ def is_local_backend_base_url(url: str | None) -> bool:
     return is_local_hostname(parsed.hostname)
 
 
-def _host_matches_pattern(host: str, pattern: str) -> bool:
-    if not pattern:
-        return False
-    if pattern.startswith("*."):
-        suffix = pattern[1:]
-        return host.endswith(suffix) and len(host) > len(suffix)
-    if pattern.startswith("."):
-        return host.endswith(pattern)
-    return host == pattern
-
-
-def is_cloudflare_tunnel_url(url: str) -> bool:
-    try:
-        hostname = (urlparse(url).hostname or "").lower()
-    except Exception:
-        return False
-    return hostname.endswith(".trycloudflare.com") or hostname.endswith(".cfargotunnel.com")
-
-
-def is_free_ngrok_url(url: str) -> bool:
-    try:
-        hostname = (urlparse(url).hostname or "").lower()
-    except Exception:
-        return False
-    return hostname.endswith(".ngrok-free.app") or hostname.endswith(".ngrok-free.dev")
-
-
-def is_local_http_container_url(url: str) -> bool:
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return False
-    if parsed.scheme.lower() != "http":
-        return False
-    return is_local_hostname(parsed.hostname)
-
-
-def is_synth_managed_ngrok_url(url: str) -> bool:
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return False
-    if parsed.scheme.lower() != "https":
-        return False
-    hostname = (parsed.hostname or "").lower()
-    if not hostname or is_cloudflare_tunnel_url(url) or is_free_ngrok_url(url):
-        return False
-    patterns = ["usesynth.ai", "*.usesynth.ai"]
-    extra = (os.getenv("SYNTH_MANAGED_TUNNEL_TRUSTED_HOSTS") or "").strip().lower()
-    if extra:
-        for raw in extra.split(","):
-            value = raw.strip()
-            if value and value not in patterns:
-                patterns.append(value)
-    return any(_host_matches_pattern(hostname, pattern) for pattern in patterns)
-
-
-def is_synthtunnel_url(url: str) -> bool:
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return False
-    if not parsed.path.startswith("/s/"):
-        return False
-    hostname = (parsed.hostname or "").lower()
-    if not hostname:
-        return False
-    patterns = [
-        "st.usesynth.ai",
-        "*.st.usesynth.ai",
-        "api-dev.usesynth.ai",
-        "api.usesynth.ai",
-        "localhost",
-        "127.0.0.1",
-        "::1",
-    ]
-    extra = (os.getenv("SYNTH_TUNNEL_TRUSTED_HOSTS") or "").strip().lower()
-    if extra:
-        for raw in extra.split(","):
-            value = raw.strip()
-            if value and value not in patterns:
-                patterns.append(value)
-    return any(_host_matches_pattern(hostname, pattern) for pattern in patterns)
-
-
 BACKEND_URL_BASE = normalize_backend_base(_resolve_backend_url())
-BACKEND_URL_API = join_url(BACKEND_URL_BASE, "/api")
 BACKEND_URL_SYNTH_RESEARCH_BASE = join_url(BACKEND_URL_BASE, "/api/synth-research")
-BACKEND_URL_SYNTH_RESEARCH_OPENAI = join_url(BACKEND_URL_SYNTH_RESEARCH_BASE, "/v1")
-BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC = BACKEND_URL_SYNTH_RESEARCH_BASE
-FRONTEND_URL_BASE = _env_or_default("SYNTH_FRONTEND_URL", "https://usesynth.ai")
-
 
 __all__ = [
-    "BACKEND_URL_API",
     "BACKEND_URL_BASE",
-    "BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC",
     "BACKEND_URL_SYNTH_RESEARCH_BASE",
-    "BACKEND_URL_SYNTH_RESEARCH_OPENAI",
-    "FRONTEND_URL_BASE",
     "LOCAL_HTTP_HOSTS",
-    "backend_demo_keys_url",
-    "backend_health_url",
-    "backend_me_url",
-    "is_cloudflare_tunnel_url",
-    "is_free_ngrok_url",
     "is_local_backend_base_url",
     "is_local_hostname",
-    "is_local_http_container_url",
-    "is_synth_managed_ngrok_url",
-    "is_synthtunnel_url",
     "join_url",
-    "local_backend_url",
     "normalize_backend_base",
-    "normalize_base_url",
-    "normalize_inference_base",
     "resolve_synth_backend_url",
-    "resolve_synth_interceptor_base_url",
 ]

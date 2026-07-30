@@ -21,12 +21,6 @@ synth-ai-research-mcp = "synth_ai.mcp.research.server:main"
 synth-ai-research-factory-standup = "synth_ai.cli.research_factory_standup:main"
 
 [project.optional-dependencies]
-schemas = []
-providers = [
-    # Optional LLM providers (lazy-loaded when used)
-    "anthropic>=0.42.0",
-    "google-genai>=1.26.0",
-]
 dev = [
     "build>=1.2.2.post1",
     "twine>=4.0.0",
@@ -35,14 +29,6 @@ dev = [
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
     "mdxify>=0.2.0",
-]
-all = [
-    # Include providers
-    "anthropic>=0.42.0",
-    "google-genai>=1.26.0",
-]
-analytics = [
-    "pandas>=2.2.3",
 ]
 research = [
     # Compatibility extra retained so `synth-ai[research]` remains valid.
@@ -73,8 +59,6 @@ include-package-data = true
 
 [tool.setuptools.exclude-package-data]
 "synth_ai" = [
-    # Exclude heavy data inside agent_demos/old/tests
-    "**/agent_demos/**",
     "**/tests/**",
     "**/units/**",
 ]
@@ -124,19 +108,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"synth_ai/http.py" = ["F403"]
 "**/__init__.py" = ["N999"]
 "**/__main__.py" = ["N999"]
 
-[tool.ty.src]
-include = ["synth_ai"]
-
-# The _legacy tree this override named was deleted when the compatibility
-# packages were retired; check_research_migration_boundaries.py now asserts its
-# absence. Nothing to override.
-
-[tool.ty.rules]
-possibly-missing-attribute = "ignore"
+# Type-check configuration lives in ty.toml, which takes precedence over any
+# [tool.ty.*] here.
 
 [dependency-groups]
 dev = [
