@@ -40,16 +40,7 @@ except _PackageNotFoundError:
 
 
 __all__ = [
-    "AsyncContainerPoolsClient",
-    "AsyncContainersClient",
-    "AsyncHorizonsPrivateClient",
-    "AsyncManagedAgentsAnthropicClient",
-    "AsyncOpenAIAgentsSdkClient",
     "AsyncSynthClient",
-    "AsyncSynthManagedAgents",
-    "AsyncTunnelsClient",
-    "ContainerPoolsClient",
-    "ContainersClient",
     "DataBindingCreateRequest",
     "DatasetRevisionCreateRequest",
     "DatasetRevisionFinalizeRequest",
@@ -63,11 +54,7 @@ __all__ = [
     "FactoryRoleReceiptResponse",
     "FactoryRoleReceiptRuntimeEvidence",
     "FactoryStorageAuthorityResponse",
-    "HorizonsPrivateClient",
     "ResearchApiError",
-    "ManagedAgentsAnthropicClient",
-    "ManagedAgentRun",
-    "OpenAIAgentsSdkClient",
     "MagiDecisionRequest",
     "MagiMode",
     "ProjectComputerCleanupReceiptResponse",
@@ -97,10 +84,6 @@ __all__ = [
     "ResearchVisualPromotionRequest",
     "ResearchVisualVersions",
     "SynthClient",
-    "SynthManagedAgents",
-    "TunnelsClient",
-    "function_tool",
-    "mcp_tool",
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
@@ -266,47 +249,6 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
-    "ContainersClient": ("synth_ai.sdk.containers", "ContainersClient"),
-    "AsyncContainersClient": ("synth_ai.sdk.containers", "AsyncContainersClient"),
-    "ContainerPoolsClient": ("synth_ai.sdk.pools", "ContainerPoolsClient"),
-    "AsyncContainerPoolsClient": ("synth_ai.sdk.pools", "AsyncContainerPoolsClient"),
-    "HorizonsPrivateClient": ("synth_ai.sdk.horizons_private", "HorizonsPrivateClient"),
-    "AsyncHorizonsPrivateClient": (
-        "synth_ai.sdk.horizons_private",
-        "AsyncHorizonsPrivateClient",
-    ),
-    "ManagedAgentsAnthropicClient": (
-        "synth_ai.sdk.managed_agents_anthropic",
-        "ManagedAgentsAnthropicClient",
-    ),
-    "ManagedAgentRun": (
-        "synth_ai.sdk.managed_agents_anthropic",
-        "ManagedAgentRun",
-    ),
-    "AsyncManagedAgentsAnthropicClient": (
-        "synth_ai.sdk.managed_agents_anthropic",
-        "AsyncManagedAgentsAnthropicClient",
-    ),
-    "SynthManagedAgents": (
-        "synth_ai.sdk.managed_agents",
-        "SynthManagedAgents",
-    ),
-    "AsyncSynthManagedAgents": (
-        "synth_ai.sdk.managed_agents",
-        "AsyncSynthManagedAgents",
-    ),
-    "OpenAIAgentsSdkClient": (
-        "synth_ai.sdk.openai_agents_sdk",
-        "OpenAIAgentsSdkClient",
-    ),
-    "AsyncOpenAIAgentsSdkClient": (
-        "synth_ai.sdk.openai_agents_sdk",
-        "AsyncOpenAIAgentsSdkClient",
-    ),
-    "TunnelsClient": ("synth_ai.sdk.tunnels", "TunnelsClient"),
-    "AsyncTunnelsClient": ("synth_ai.sdk.tunnels", "AsyncTunnelsClient"),
-    "function_tool": ("synth_ai.sdk.openai_tools", "function_tool"),
-    "mcp_tool": ("synth_ai.sdk.openai_tools", "mcp_tool"),
 }
 
 

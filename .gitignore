@@ -165,6 +165,7 @@ synth_ai/learning/prompts/**/*.json
 # testing/scripts/check_sdk_layering.py all cite it by name; ignored, every one
 # of those references dangles for anyone who clones the repo.
 !unify_sdk_layering.md
+!HANDOFF_SDK_SURFACES.md
 # Moved to sibling repos on 2026-07-29, so no rules are needed for them here:
 #   specifications/, guardrails/, scripts/  -> ../testing
 #   docs/, reference/                       -> ../docs

@@ -62,7 +62,7 @@
         "low",
         "medium",
         "high",
-        "max"
+        "xhigh"
       ],
       "default_reasoning_effort": "medium",
       "context_window_tokens": null,

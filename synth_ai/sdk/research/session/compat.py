@@ -9,10 +9,8 @@ class ResearchControlSessionMixin:
     @staticmethod
     def _retired_bridge_error(surface: str) -> RuntimeError:
         return RuntimeError(
-            f"{surface} was retired with the backend managed-agents proxy. "
-            "Use the explicit synth-ai Horizons Private client only when you have a "
-            "Horizons Private base URL and credential; a Synth API key is not a "
-            "replacement service credential."
+            f"{surface} was retired with the backend managed-agents proxy and is "
+            "no longer available in synth-ai."
         )
 
     def close_openai_bridge(self) -> None:

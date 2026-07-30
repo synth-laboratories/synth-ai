@@ -88,8 +88,7 @@ def resolve_openai_transport_mode(value: str | None) -> str:
     }:
         raise ValueError(
             f"openai_transport_mode={normalized!r} was retired with the backend "
-            "managed-agents proxy; direct_hp requires an explicit Horizons Private "
-            "base URL and credential"
+            "managed-agents proxy and is no longer available"
         )
     if normalized not in OPENAI_VALID_TRANSPORT_MODES:
         raise ValueError(

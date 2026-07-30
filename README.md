@@ -6,8 +6,7 @@
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Managed Research, Research Factory, and the infrastructure
-surfaces that support them.
+Python SDK and CLI for Managed Research and Research Factory.
 
 **Documentation:** https://docs.usesynth.ai/sdk/overview
 
@@ -147,9 +146,7 @@ synth-ai research --help
 
 ```bash
 synth-ai --help
-synth-ai containers list
-synth-ai tunnels health
-synth-ai pools list
+synth-ai research --help
 ```
 
 ## Public Surface
@@ -159,10 +156,10 @@ Use `SynthClient` as the front door:
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
 | **Research / Factory** | `client.research` | Typed hosted projects, swarms, Factory lifecycles, and Efforts. |
-| Containers | `client.containers` | Hosted container records and lifecycle operations. |
-| Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
-| Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
-| CLI | `synth-ai` | Terminal access to containers, tunnels, and pools. |
+| CLI | `synth-ai` | Terminal access to Research commands. |
+
+Infrastructure clients (containers, tunnels, pools) are parked under `old/` for
+later restoration and are not composed on `SynthClient` right now.
 
 Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
 want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
@@ -189,9 +186,6 @@ recompute discounts in the client.
 
 - [Install and authenticate](https://docs.usesynth.ai/sdk/install-and-auth)
 - [SynthClient guide](https://docs.usesynth.ai/sdk/synth-client)
-- [Tunnels](https://docs.usesynth.ai/sdk/tunnels)
-- [Pools](https://docs.usesynth.ai/sdk/pools)
-- [Containers](https://docs.usesynth.ai/sdk/containers)
 - [SDK reference](https://docs.usesynth.ai/reference/sdk)
 - [OpenAPI contracts](https://docs.usesynth.ai/reference/openapi)
 

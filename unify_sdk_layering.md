@@ -98,8 +98,8 @@ synth_ai/core/          # plumbing only: auth, http, errors, utils, shared contr
     |
     v
 synth_ai/sdk/           # ALL public HTTP clients + domain contracts
-  ├── containers, tunnels, pools, managed_agents, ...
   └── research/         # moved from core/research
+                        # (containers/tunnels/pools archived under old/sdk/)
     |
     v
 synth_ai/client.py      # SynthClient / AsyncSynthClient composition

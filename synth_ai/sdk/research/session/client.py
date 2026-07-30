@@ -6064,7 +6064,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
 
 
 class ResearchControlSession(ResearchControlSessionMixin, ResearchSession):
-    """Compatibility alias with retired managed-agents bridge surfaces.
+    """Compatibility alias; retired managed-agents bridge attributes raise.
 
     `ResearchSession` is the canonical public name. `ResearchControlSession`
     remains as a one-release alias but requires callers to pass the selected

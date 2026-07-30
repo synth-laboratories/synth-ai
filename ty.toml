@@ -9,12 +9,9 @@ include = [
 ]
 exclude = [
     "synth_ai/v0",
-    "synth_ai/cli/containers.py",
     "synth_ai/demos",
     "synth_ai/environments",
     "synth_ai/utils/container_discovery.py",
-    "synth_ai/sdk/managed_agents_anthropic.py",
-    "synth_ai/sdk/managed_agents",
     "synth_ai/cli/dev_envs.py",
     "synth_ai/cli/research_factory_standup.py",
     "synth_ai/mcp/research/server.py",
