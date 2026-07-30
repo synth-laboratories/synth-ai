@@ -158,8 +158,8 @@ Use `SynthClient` as the front door:
 | **Research / Factory** | `client.research` | Typed hosted projects, swarms, Factory lifecycles, and Efforts. |
 | CLI | `synth-ai` | Terminal access to Research commands. |
 
-Infrastructure clients (containers, tunnels, pools) are parked under `old/` for
-later restoration and are not composed on `SynthClient` right now.
+There are no infrastructure client namespaces (containers, tunnels, pools) on
+`SynthClient`; the package is Research-only as of 0.18.0.
 
 Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
 want hosted research workers, repo runs, evidence, checkpoints, MCP, or final

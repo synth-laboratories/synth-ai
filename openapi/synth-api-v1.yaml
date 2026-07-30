@@ -1721,7 +1721,7 @@ paths:
       tags: [Tunnels]
       summary: Create SynthTunnel lease
       x-internal: true
-      x-surface-note: "Internal tunnel control-plane. synth-ai ships no tunnel client as of 0.18.0; see old/sdk/tunnels.py in the SDK repo."
+      x-surface-note: "Internal tunnel control-plane. synth-ai ships no tunnel client as of 0.18.0; call the route directly if you are an internal operator."
       operationId: createSynthTunnelLease
       requestBody:
         required: true
@@ -1742,7 +1742,7 @@ paths:
       tags: [Tunnels]
       summary: Close SynthTunnel lease
       x-internal: true
-      x-surface-note: "Internal tunnel control-plane. synth-ai ships no tunnel client as of 0.18.0; see old/sdk/tunnels.py in the SDK repo."
+      x-surface-note: "Internal tunnel control-plane. synth-ai ships no tunnel client as of 0.18.0; call the route directly if you are an internal operator."
       operationId: closeSynthTunnelLease
       parameters:
         - $ref: '#/components/parameters/LeaseId'

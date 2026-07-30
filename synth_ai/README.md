@@ -35,15 +35,19 @@ core/ -> sdk/ -> client.py -> cli/
 
 ## Supported Imports
 
-Prefer the front-door client:
+Prefer the front-door client and the hero nouns:
 
 ```python
 from synth_ai import SynthClient
 
 research = SynthClient().research
-catalog = research.advanced.economics.billing_catalog()
-plan = research.advanced.economics.billing_plan()
+project = research.projects.create(request)
+swarm = research.swarms.create(project.project_id, request=launch)
+swarm.wait()
 ```
+
+`research.advanced.*` exists but is explicitly unstable operator surface; do
+not build against it as if it were the public story.
 
 ## Layering
 
@@ -54,7 +58,7 @@ See `unify_sdk_layering.md` for the rationale.
 core/      plumbing only: auth, http, errors, utils, generic contracts
   |
   v
-sdk/       Research + pagination (infra clients archived under old/)
+sdk/       Research + pagination
   |
   v
 client.py  SynthClient / AsyncSynthClient composition

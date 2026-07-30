@@ -57,7 +57,7 @@ Wire-shaped helpers that MCP and other lower-level callers need live on
 
 Noun-first namespaces now mirror the customer surface:
 
-- org-scoped setup: `client.github`, `client.credentials`, `client.exports`
+- org-scoped setup: `client.github`, `client.secrets`, `client.exports`
 - project-scoped work/results/status: `client.project(id).repos`, `.datasets`,
   `.files`, `.prs`, `.models`, `.outputs`, and `.readiness()`
 
