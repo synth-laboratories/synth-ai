@@ -160,13 +160,13 @@ synth_ai/learning/prompts/**/*.json
 !README.md
 !**/README.md
 !**/agents.md
-!docs/*.md
-!docs/**/*.md
-# specifications/ moved to the sibling testing repo; no un-ignore rule needed here.
-# Local Mintlify preview output (regenerate with make docs-gen)
-docs/reference/
-docs/docs.json
-docs/overview.mdx
+# Moved to sibling repos on 2026-07-29, so no rules are needed for them here:
+#   specifications/, guardrails/, scripts/  -> ../testing
+#   docs/, reference/                       -> ../docs
+# docs/ is still ignored outright in case a stray local Mintlify build lands here;
+# `make docs-gen` now writes into ../docs/docs/reference/sdk/ instead.
+docs/
+reference/
 !synth_ai/tui/opencode_config/**/*.md
 !contracts/**/*.md
 !skills/**/*.md
