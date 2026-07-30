@@ -52,6 +52,8 @@ __all__ = [
     "FactoryRoleReceiptRuntimeEvidence",
     "FactoryStorageAuthorityResponse",
     "ResearchApiError",
+    "MagiDecisionKind",
+    "MagiDecisionReceiptResponse",
     "MagiDecisionRequest",
     "MagiMode",
     "ProjectComputerCleanupReceiptResponse",
@@ -71,8 +73,14 @@ __all__ = [
     "ResearchLimitExceededError",
     "ResearchProjectCreateRequest",
     "ResearchInternProvisionRequest",
+    "ResearchInternReactiveSession",
     "ResearchInternResponse",
+    "ResearchInternSessionCreateRequest",
+    "ResearchInternSessionResponse",
     "ResearchInternStatus",
+    "ResearchInternTurnControl",
+    "ResearchInternTurnRequest",
+    "ResearchInternTurnResponse",
     "ResearchSwarmLaunchRequest",
     "ResearchSwarmState",
     "ResearchVisual",
@@ -139,6 +147,14 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "MagiDecisionRequest": (
         "synth_ai.sdk.research.contracts",
         "MagiDecisionRequest",
+    ),
+    "MagiDecisionKind": (
+        "synth_ai.sdk.research.contracts",
+        "MagiDecisionKind",
+    ),
+    "MagiDecisionReceiptResponse": (
+        "synth_ai.sdk.research.contracts",
+        "MagiDecisionReceiptResponse",
     ),
     "MagiMode": ("synth_ai.sdk.research.contracts", "MagiMode"),
     "ProjectComputerCleanupReceiptResponse": (
@@ -214,13 +230,37 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.sdk.research.contracts",
         "ResearchInternProvisionRequest",
     ),
+    "ResearchInternReactiveSession": (
+        "synth_ai.sdk.research.research_intern",
+        "ResearchInternReactiveSession",
+    ),
     "ResearchInternResponse": (
         "synth_ai.sdk.research.contracts",
         "ResearchInternResponse",
     ),
+    "ResearchInternSessionCreateRequest": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternSessionCreateRequest",
+    ),
+    "ResearchInternSessionResponse": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternSessionResponse",
+    ),
     "ResearchInternStatus": (
         "synth_ai.sdk.research.contracts",
         "ResearchInternStatus",
+    ),
+    "ResearchInternTurnControl": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTurnControl",
+    ),
+    "ResearchInternTurnRequest": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTurnRequest",
+    ),
+    "ResearchInternTurnResponse": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTurnResponse",
     ),
     "ResearchSwarmLaunchRequest": (
         "synth_ai.sdk.research.contracts",

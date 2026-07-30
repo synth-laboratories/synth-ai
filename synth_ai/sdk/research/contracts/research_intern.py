@@ -71,6 +71,29 @@ class MagiDecisionKind(StrEnum):
     REVISE = "revise"
 
 
+class MagiActuationStatus(StrEnum):
+    NOT_REQUESTED = "not_requested"
+    APPLIED = "applied"
+    NOOP = "noop"
+
+
+class MagiDecisionActuationReceipt(_StrictContract):
+    """Durable proof that a control decision reached its runtime authority."""
+
+    status: MagiActuationStatus
+    factory_id: str | None = None
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    scheduler_action: Literal["pause", "resume"] | None = None
+    scheduler_decision: str | None = None
+    factory_status: str | None = None
+    run_action: Literal["pause", "intervene", "resume"] | None = None
+    run_state: str | None = None
+    runtime_message_id: str | None = None
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+
 class ResearchInternPolicySet(_StrictContract):
     organization: dict[str, Any] = Field(default_factory=dict)
     team: dict[str, Any] = Field(default_factory=dict)
@@ -135,6 +158,10 @@ class MagiDecisionRequest(_StrictContract):
     idempotency_key: str = Field(min_length=1, max_length=512)
     factory_id: str | None = None
     project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    session_id: str | None = None
+    expected_state_generation: int | None = Field(default=None, ge=0)
     experiment_id: str | None = None
     evidence_refs: list[str] = Field(default_factory=list)
     state_patch: dict[str, Any] = Field(default_factory=dict)
@@ -148,26 +175,51 @@ class MagiDecisionRequest(_StrictContract):
             self.mode is not MagiMode.SERAPH or not self.verdict
         ):
             raise ValueError("verdict decisions require Seraph mode and verdict")
+        if self.decision_kind in {
+            MagiDecisionKind.PAUSE,
+            MagiDecisionKind.INTERVENE,
+            MagiDecisionKind.RESUME,
+        }:
+            missing = [
+                name
+                for name in ("factory_id", "project_id", "effort_id", "run_id")
+                if not getattr(self, name)
+            ]
+            if missing:
+                raise ValueError(
+                    "control decisions require exact factory/project/effort/run "
+                    f"bindings; missing {', '.join(missing)}"
+                )
+        if self.decision_kind is MagiDecisionKind.INTERVENE and not self.state_patch:
+            raise ValueError("intervene decisions require a non-empty state_patch")
         return self
 
 
 class MagiDecisionReceiptResponse(_StrictContract):
+    schema_version: Literal["smr.magi-decision-receipt.v2"] = "smr.magi-decision-receipt.v2"
     receipt_id: str
+    content_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    receipt_url: str = Field(min_length=1, max_length=4096)
     research_intern_id: str
     org_id: str
     factory_id: str | None = None
     project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    session_id: str | None = None
     experiment_id: str | None = None
     mode: MagiMode
     canonical_user: MagiCanonicalUser
     decision_kind: MagiDecisionKind
     idempotency_key: str
+    previous_state_generation: int = Field(ge=0)
     state_generation: int = Field(ge=0)
     evidence_refs: list[str]
     state_patch: dict[str, Any]
     rationale: str
     verdict: str | None = None
     uncertainty: float | None = Field(default=None, ge=0.0, le=1.0)
+    actuation: MagiDecisionActuationReceipt
     decided_by_user_id: str | None = None
     created_at: datetime
 
@@ -176,6 +228,220 @@ class MagiDecisionReceiptResponse(_StrictContract):
         if self.canonical_user != MAGI_CANONICAL_USER_BY_MODE[self.mode]:
             raise ValueError("canonical_user does not match Magi mode")
         return self
+
+
+class ResearchInternSessionStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    STOPPED = "stopped"
+    CANCELED = "canceled"
+    ARCHIVED = "archived"
+
+
+class ResearchInternEventKind(StrEnum):
+    OBJECTIVE = "objective"
+    OPERATOR_MESSAGE = "operator_message"
+    AGENT_MESSAGE = "agent_message"
+    PROGRESS = "progress"
+    MAGI_DECISION = "magi_decision"
+    STATE_SNAPSHOT = "state_snapshot"
+    ERROR = "error"
+    CLOSED = "closed"
+
+
+class ResearchInternEventActorKind(StrEnum):
+    OPERATOR = "operator"
+    RESEARCH_INTERN = "research_intern"
+    MAGI = "magi"
+    SYSTEM = "system"
+
+
+class ResearchInternSessionCreateRequest(_StrictContract):
+    factory_id: str = Field(min_length=1, max_length=255)
+    project_id: str = Field(min_length=1, max_length=255)
+    effort_id: str = Field(min_length=1, max_length=255)
+    run_id: str | None = Field(default=None, max_length=255)
+    objective: str = Field(min_length=1, max_length=20_000)
+    objective_bounds: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchInternSessionResponse(_StrictContract):
+    session_id: str
+    research_intern_id: str
+    org_id: str
+    factory_id: str
+    project_id: str
+    effort_id: str
+    run_id: str | None = None
+    objective: str
+    objective_bounds: dict[str, Any]
+    status: ResearchInternSessionStatus
+    state_generation: int = Field(ge=0)
+    last_event_sequence: int = Field(ge=0)
+    metadata: dict[str, Any]
+    created_by_user_id: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    closed_at: datetime | None = None
+
+
+class ResearchInternEventAppendRequest(_StrictContract):
+    event_kind: ResearchInternEventKind
+    mode: MagiMode | None = None
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_state_generation: int = Field(ge=0)
+    body: str | None = Field(default=None, max_length=20_000)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    evidence_refs: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_public_event(self) -> ResearchInternEventAppendRequest:
+        if self.event_kind in {
+            ResearchInternEventKind.OBJECTIVE,
+            ResearchInternEventKind.AGENT_MESSAGE,
+            ResearchInternEventKind.MAGI_DECISION,
+            ResearchInternEventKind.CLOSED,
+        }:
+            raise ValueError(f"{self.event_kind.value} is emitted by the server")
+        if self.event_kind is ResearchInternEventKind.OPERATOR_MESSAGE and self.mode is not None:
+            raise ValueError("operator_message does not accept mode")
+        if self.event_kind is ResearchInternEventKind.OPERATOR_MESSAGE and not self.body:
+            raise ValueError("operator_message requires body")
+        if not self.body and not self.payload:
+            raise ValueError("event requires body or payload")
+        return self
+
+
+class ResearchInternEventResponse(_StrictContract):
+    schema_version: Literal["smr.research-intern-event.v1"] = "smr.research-intern-event.v1"
+    event_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    session_id: str
+    research_intern_id: str
+    org_id: str
+    sequence: int = Field(ge=1)
+    previous_state_generation: int = Field(ge=0)
+    state_generation: int = Field(ge=0)
+    event_kind: ResearchInternEventKind
+    actor_kind: ResearchInternEventActorKind
+    actor_id: str | None = None
+    mode: MagiMode | None = None
+    canonical_user: MagiCanonicalUser | None = None
+    receipt_id: str | None = None
+    idempotency_key: str
+    body: str | None = None
+    payload: dict[str, Any]
+    evidence_refs: list[str]
+    created_at: datetime
+
+
+class ResearchInternSessionCloseRequest(_StrictContract):
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_state_generation: int = Field(ge=0)
+    status: Literal["completed", "partial", "failed", "stopped", "canceled", "archived"]
+    rationale: str = Field(min_length=1, max_length=20_000)
+    evidence_refs: list[str] = Field(default_factory=list)
+
+
+class ResearchInternSessionSyncResponse(_StrictContract):
+    schema_version: Literal["smr.research-intern-session-sync.v1"] = (
+        "smr.research-intern-session-sync.v1"
+    )
+    session: ResearchInternSessionResponse
+    events: list[ResearchInternEventResponse]
+    source_run_id: str
+    projected_count: int = Field(ge=0)
+    has_more: bool
+
+
+class ResearchInternTurnControl(StrEnum):
+    PAUSE = "pause"
+    INTERVENE = "intervene"
+    RESUME = "resume"
+
+
+class ResearchInternTurnStatus(StrEnum):
+    ACCEPTED = "accepted"
+    COMPLETED = "completed"
+    TIMED_OUT = "timed_out"
+    FAILED = "failed"
+
+
+class ResearchInternTurnRequest(_StrictContract):
+    """One browser-callable operator turn against the bound real runtime."""
+
+    body: str = Field(min_length=1, max_length=20_000)
+    mode: MagiMode = MagiMode.SYNC
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_session_state_generation: int = Field(ge=0)
+    expected_intern_state_generation: int = Field(ge=0)
+    control: ResearchInternTurnControl | None = None
+    rationale: str | None = Field(default=None, max_length=20_000)
+    state_patch: dict[str, Any] = Field(default_factory=dict)
+    evidence_refs: list[str] = Field(default_factory=list)
+    wait_timeout_seconds: float = Field(default=15.0, ge=0.0, le=30.0)
+    poll_interval_ms: int = Field(default=250, ge=100, le=2_000)
+
+    @model_validator(mode="after")
+    def validate_turn_control(self) -> ResearchInternTurnRequest:
+        if self.control is not None and not str(self.rationale or "").strip():
+            raise ValueError("controlled turns require rationale")
+        if self.control is ResearchInternTurnControl.INTERVENE and not self.state_patch:
+            raise ValueError("intervene turns require a non-empty state_patch")
+        if self.control is None and self.state_patch:
+            raise ValueError("state_patch requires a controlled turn")
+        return self
+
+
+class ResearchInternTurnError(_StrictContract):
+    error_code: str
+    message: str
+    retryable: bool
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchInternTurnResponse(_StrictContract):
+    schema_version: Literal["smr.research-intern-turn.v1"] = "smr.research-intern-turn.v1"
+    turn_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    status: ResearchInternTurnStatus
+    session: ResearchInternSessionResponse
+    run_id: str
+    operator_event: ResearchInternEventResponse
+    decision_receipt: MagiDecisionReceiptResponse | None = None
+    agent_event: ResearchInternEventResponse | None = None
+    projected_events: list[ResearchInternEventResponse] = Field(default_factory=list)
+    reconnect_after_sequence: int = Field(ge=0)
+    waited_seconds: float = Field(ge=0)
+    replayed: bool
+    error: ResearchInternTurnError | None = None
+
+
+class ResearchInternAcceptanceReceiptPublicationRequest(_StrictContract):
+    schema_version: Literal["smr.research-intern-acceptance-receipt-publication.v1"] = (
+        "smr.research-intern-acceptance-receipt-publication.v1"
+    )
+    receipt_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    lane: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,127}$")
+    candidate_id: str = Field(min_length=1, max_length=255)
+    receipt: dict[str, Any]
+
+
+class ResearchInternAcceptanceReceiptPublicationResponse(_StrictContract):
+    schema_version: Literal["smr.research-intern-acceptance-receipt-publication.v1"] = (
+        "smr.research-intern-acceptance-receipt-publication.v1"
+    )
+    receipt_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    receipt_url: str = Field(min_length=1, max_length=4096)
+    content_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    org_id: str
+    lane: str
+    candidate_id: str
+    receipt: dict[str, Any]
+    replayed: bool
+    created_at: datetime
 
 
 ProjectComputerLifecycle = ProjectComputerState
@@ -213,6 +479,7 @@ class ProjectComputerResponse(_StrictContract):
     project_id: str
     cloud_deployment_id: str
     adapter_kind: str
+    provider_kind: str
     source_repository_id: str
     source_revision: str
     snapshot_digest: str | None = None
@@ -370,7 +637,9 @@ __all__ = [
     "DatasetRevisionLifecycleRequest",
     "DatasetRevisionResponse",
     "MAGI_CANONICAL_USER_BY_MODE",
+    "MagiActuationStatus",
     "MagiCanonicalUser",
+    "MagiDecisionActuationReceipt",
     "MagiDecisionKind",
     "MagiDecisionReceiptResponse",
     "MagiDecisionRequest",
@@ -385,10 +654,26 @@ __all__ = [
     "ProjectComputerRestorationReceipt",
     "ProjectComputerRetirementReceipt",
     "ProjectComputerWorkspaceSnapshot",
+    "ResearchInternAcceptanceReceiptPublicationRequest",
+    "ResearchInternAcceptanceReceiptPublicationResponse",
+    "ResearchInternEventActorKind",
+    "ResearchInternEventAppendRequest",
+    "ResearchInternEventKind",
+    "ResearchInternEventResponse",
     "ResearchInternFactoryMembershipResponse",
     "ResearchInternPatchRequest",
     "ResearchInternPolicySet",
     "ResearchInternProvisionRequest",
     "ResearchInternResponse",
+    "ResearchInternSessionCloseRequest",
+    "ResearchInternSessionCreateRequest",
+    "ResearchInternSessionResponse",
+    "ResearchInternSessionSyncResponse",
+    "ResearchInternSessionStatus",
     "ResearchInternStatus",
+    "ResearchInternTurnControl",
+    "ResearchInternTurnError",
+    "ResearchInternTurnRequest",
+    "ResearchInternTurnResponse",
+    "ResearchInternTurnStatus",
 ]

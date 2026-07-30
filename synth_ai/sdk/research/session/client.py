@@ -162,6 +162,7 @@ from synth_ai.sdk.research.errors import (
     ResearchApiError,
     raise_cloud_deployment_claim_error,
 )
+from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.session._client_helpers import (
     _coerce_dict,
     _coerce_dict_list,
@@ -1107,6 +1108,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     _transport: ResearchHttpTransport = field(init=False, repr=False)
     _projects_api: ProjectsAPI | None = field(init=False, default=None, repr=False)
     _factories_api: FactoriesAPI | None = field(init=False, default=None, repr=False)
+    _intern_api: ResearchInternAPI | None = field(init=False, default=None, repr=False)
     _factory_evidence_api: FactoryEvidenceAPI | None = field(init=False, default=None, repr=False)
     _efforts_api: EffortsAPI | None = field(init=False, default=None, repr=False)
     _runs_api: RunsAPI | None = field(init=False, default=None, repr=False)
@@ -1194,6 +1196,13 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         if self._factories_api is None:
             self._factories_api = FactoriesAPI(self)
         return self._factories_api
+
+    @property
+    def intern(self) -> ResearchInternAPI:
+        """Return the typed Research Intern control-plane client."""
+        if self._intern_api is None:
+            self._intern_api = ResearchInternAPI(self._transport)
+        return self._intern_api
 
     @property
     def factory_evidence(self) -> FactoryEvidenceAPI:
