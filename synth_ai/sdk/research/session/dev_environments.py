@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any, List, Mapping
 
 from synth_ai.sdk.research.contracts.billing import (
@@ -907,12 +908,63 @@ def _string_list(value: object) -> list[str]:
     return [text for item in value if (text := str(item or "").strip())]
 
 
+@dataclass(frozen=True, slots=True)
+class CloudS0GitProof:
+    """One run receipt's git branch/SHA proof, extracted from the evidence payload."""
+
+    run_id: str
+    branch: str
+    commit_sha: str
+    source: str
+    last_push_confirmed: object
+    project_git_status: object
+    run_git: object
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0EvidenceActuals:
+    """What the evidence payload actually contained."""
+
+    dev_environment_id: str | None
+    project_id: str | None
+    host_kind: str | None
+    bound_run_ids: tuple[str, ...]
+    git_proofs: tuple[CloudS0GitProof, ...]
+    work_product_count: object
+    trace_count: object
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0EvidenceExpectations:
+    """What the caller asked the evidence to prove."""
+
+    dev_environment_id: str | None
+    project_id: str | None
+    host_kind: str | None
+    run_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0EvidenceReport:
+    """Typed verdict of :func:`verify_cloud_s0_evidence`.
+
+    ``ok`` is True only when every required check passed; ``missing`` names the
+    failed checks so operators can act without diffing ``checks`` by hand.
+    """
+
+    ok: bool
+    checks: dict[str, bool]
+    missing: tuple[str, ...]
+    actual: CloudS0EvidenceActuals
+    expected: CloudS0EvidenceExpectations
+
+
 def _git_proofs_from_evidence(
     payload: dict[str, Any],
     *,
     expected_run_ids: set[str],
-) -> list[dict[str, Any]]:
-    proofs: list[dict[str, Any]] = []
+) -> tuple[CloudS0GitProof, ...]:
+    proofs: list[CloudS0GitProof] = []
     for item in _list_at(payload, "receipts", "items"):
         if not isinstance(item, dict):
             continue
@@ -936,17 +988,17 @@ def _git_proofs_from_evidence(
         )
         if branch and commit_sha:
             proofs.append(
-                {
-                    "run_id": run_id,
-                    "branch": branch,
-                    "commit_sha": commit_sha,
-                    "source": run_git.get("source") or "unknown",
-                    "last_push_confirmed": run_git.get("last_push_confirmed"),
-                    "project_git_status": source_refs.get("project_git_status"),
-                    "run_git": source_refs.get("run_git"),
-                }
+                CloudS0GitProof(
+                    run_id=run_id,
+                    branch=branch,
+                    commit_sha=commit_sha,
+                    source=str(run_git.get("source") or "unknown"),
+                    last_push_confirmed=run_git.get("last_push_confirmed"),
+                    project_git_status=source_refs.get("project_git_status"),
+                    run_git=source_refs.get("run_git"),
+                )
             )
-    return proofs
+    return tuple(proofs)
 
 
 def verify_cloud_s0_evidence(
@@ -956,7 +1008,7 @@ def verify_cloud_s0_evidence(
     expected_project_id: str | None = None,
     expected_run_ids: tuple[str, ...] = (),
     expected_host_kind: str | None = "daytona",
-) -> dict[str, Any]:
+) -> CloudS0EvidenceReport:
     summary = _mapping_at(payload, "summary")
     run_binding_summary = _mapping_at(payload, "summary", "run_binding_summary")
     cloud_s0_proof = _mapping_at(payload, "summary", "cloud_s0_proof")
@@ -1044,26 +1096,33 @@ def verify_cloud_s0_evidence(
             expected_run_id_set.issubset(set(bound_run_ids)),
         )
 
-    return {
-        "ok": not missing,
-        "checks": checks,
-        "missing": missing,
-        "actual": {
-            "dev_environment_id": actual_dev_environment_id,
-            "project_id": actual_project_id,
-            "host_kind": actual_host_kind,
-            "bound_run_ids": bound_run_ids,
-            "git_proofs": git_proofs,
-            "work_product_count": cloud_s0_proof.get("work_product_count"),
-            "trace_count": cloud_s0_proof.get("trace_count"),
-        },
-        "expected": {
-            "dev_environment_id": expected_dev_environment_id,
-            "project_id": expected_project_id,
-            "host_kind": expected_host_kind,
-            "run_ids": sorted(expected_run_id_set),
-        },
-    }
+    return CloudS0EvidenceReport(
+        ok=not missing,
+        checks=checks,
+        missing=tuple(missing),
+        actual=CloudS0EvidenceActuals(
+            dev_environment_id=actual_dev_environment_id,
+            project_id=actual_project_id,
+            host_kind=actual_host_kind,
+            bound_run_ids=tuple(bound_run_ids),
+            git_proofs=git_proofs,
+            work_product_count=cloud_s0_proof.get("work_product_count"),
+            trace_count=cloud_s0_proof.get("trace_count"),
+        ),
+        expected=CloudS0EvidenceExpectations(
+            dev_environment_id=expected_dev_environment_id,
+            project_id=expected_project_id,
+            host_kind=expected_host_kind,
+            run_ids=tuple(sorted(expected_run_id_set)),
+        ),
+    )
 
 
-__all__ = ["DevEnvironmentsAPI", "verify_cloud_s0_evidence"]
+__all__ = [
+    "CloudS0EvidenceActuals",
+    "CloudS0EvidenceExpectations",
+    "CloudS0EvidenceReport",
+    "CloudS0GitProof",
+    "DevEnvironmentsAPI",
+    "verify_cloud_s0_evidence",
+]

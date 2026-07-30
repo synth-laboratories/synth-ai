@@ -33,11 +33,11 @@ class SynthClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float = 30.0,
+        timeout_seconds: float = 30.0,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
-        self.timeout = timeout
+        self.timeout_seconds = timeout_seconds
         self._research_client: ResearchClient | None = None
 
     @property
@@ -49,7 +49,7 @@ class SynthClient:
             self._research_client = ResearchClient(
                 api_key=self.api_key,
                 base_url=self.base_url,
-                timeout_seconds=self.timeout,
+                timeout_seconds=self.timeout_seconds,
             )
         return self._research_client
 
@@ -57,6 +57,7 @@ class SynthClient:
         """Close all lazily opened SDK transports."""
         if self._research_client is not None:
             self._research_client.close()
+            self._research_client = None
 
     def __enter__(self) -> SynthClient:
         return self
@@ -73,11 +74,11 @@ class AsyncSynthClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float = 30.0,
+        timeout_seconds: float = 30.0,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
-        self.timeout = timeout
+        self.timeout_seconds = timeout_seconds
         self._async_research_client: AsyncResearchClient | None = None
 
     @property
@@ -89,7 +90,7 @@ class AsyncSynthClient:
             self._async_research_client = AsyncResearchClient(
                 api_key=self.api_key,
                 base_url=self.base_url,
-                timeout_seconds=self.timeout,
+                timeout_seconds=self.timeout_seconds,
             )
         return self._async_research_client
 
@@ -107,6 +108,7 @@ class AsyncSynthClient:
         """Close all asynchronous Research transports."""
         if self._async_research_client is not None:
             await self._async_research_client.close()
+            self._async_research_client = None
 
     async def __aenter__(self) -> AsyncSynthClient:
         return self
