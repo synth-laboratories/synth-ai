@@ -4,6 +4,22 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Project and Swarm hero list methods now return typed `SyncPage` values with an
+  accepted continuation cursor, including for the backend's legacy array response.
+- The session compatibility surface uses `repositories` consistently; the
+  duplicate `repos` namespace and its second DTO family were removed.
+- Raw-trace downloads now use the shared transport, including its timeout and
+  typed error mapping, without forwarding backend credentials to presigned URLs.
+- Dev-environment proof collection now fails on incomplete work-product or trace
+  evidence instead of encoding exceptions as apparent proof fields.
+
+### Removed
+
+- Six unadvertised `tag_*` MCP tools were parked. The typed
+  `SynthClient().research.tag` SDK remains available.
+
 ## 0.18.0 — 2026-07-29
 
 A minor release rather than a patch because modules were removed, not moved: the

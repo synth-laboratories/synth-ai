@@ -8,7 +8,7 @@ from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.sdk.research.contracts._wire import array_value
+from synth_ai.sdk.pagination import SyncPage, page_from_wire
 from synth_ai.sdk.research.contracts.common import ProjectId
 from synth_ai.sdk.research.contracts.projects import (
     Project,
@@ -56,10 +56,18 @@ def _request(
     )
 
 
-def _projects(value: object) -> tuple[Project, ...]:
-    return tuple(
-        Project.from_wire(item)
-        for item in array_value(cast(JsonValue, value), operation_id="list_projects")
+def _projects_page(value: object, *, limit: int) -> SyncPage[Project]:
+    if not isinstance(value, (dict, list)):
+        raise ValueError("list_projects response must be an array or page object")
+    items, next_cursor, has_more = page_from_wire(value)
+    projects = [Project.from_wire(cast(JsonValue, item)) for item in items]
+    if next_cursor is None and len(projects) == limit and projects:
+        next_cursor = str(projects[-1].project_id)
+        has_more = True
+    return SyncPage(
+        items=projects,
+        next_cursor=next_cursor,
+        has_more=has_more,
     )
 
 
@@ -137,7 +145,7 @@ class ProjectsAPI:
         include_archived: bool = False,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[Project, ...]:
+    ) -> SyncPage[Project]:
         """List Projects visible to the authenticated organization.
 
         Args:
@@ -146,13 +154,13 @@ class ProjectsAPI:
             cursor: Optional pagination cursor returned by the backend.
 
         Returns:
-            The Projects returned by the backend.
+            A typed page containing Projects and any continuation cursor.
         """
         query: JsonObject = {"include_archived": include_archived, "limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
         value = self._transport.execute(_request("list_projects", "/smr/projects", query=query))
-        return _projects(value)
+        return _projects_page(value, limit=limit)
 
     def retrieve(self, project_id: ProjectId) -> Project:
         """Retrieve a Project.
@@ -290,7 +298,7 @@ class AsyncProjectsAPI:
         include_archived: bool = False,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[Project, ...]:
+    ) -> SyncPage[Project]:
         """List Projects visible to the authenticated organization.
 
         Args:
@@ -299,7 +307,7 @@ class AsyncProjectsAPI:
             cursor: Optional pagination cursor returned by the backend.
 
         Returns:
-            The Projects returned by the backend.
+            A typed page containing Projects and any continuation cursor.
         """
         query: JsonObject = {"include_archived": include_archived, "limit": limit}
         if cursor is not None:
@@ -307,7 +315,7 @@ class AsyncProjectsAPI:
         value = await self._transport.execute(
             _request("list_projects", "/smr/projects", query=query)
         )
-        return _projects(value)
+        return _projects_page(value, limit=limit)
 
     async def retrieve(self, project_id: ProjectId) -> Project:
         """Retrieve a Project.

@@ -179,40 +179,34 @@ class DevEnvironmentsAPI(_ClientNamespace):
                 "project_id": environment.project_id,
                 "run_id": run_id_text,
             }
-            try:
-                work_products = self._client.list_run_work_products(
-                    environment.project_id,
-                    run_id_text,
-                )
-                proof["work_products"] = work_products
-                proof["work_product_count"] = len(work_products)
-                proof["ready_work_product_count"] = sum(
-                    1
-                    for item in work_products
-                    if isinstance(item, Mapping)
-                    and str(item.get("status") or "").strip().lower() == "ready"
-                )
-            except Exception as exc:
-                proof["work_products_error"] = f"{type(exc).__name__}: {exc}"
-            try:
-                traces = self._client.get_project_run_traces(
-                    environment.project_id,
-                    run_id_text,
-                )
-                proof["trace_count"] = int(getattr(traces, "count", 0) or 0)
-                proof["traces"] = [
-                    {
-                        "trace_id": trace.trace_id,
-                        "artifact_id": trace.artifact_id,
-                        "event_count": trace.event_count,
-                        "storage_uri": trace.artifact_uri,
-                        "participant_session_id": trace.participant_session_id,
-                        "participant_role": trace.participant_role,
-                    }
-                    for trace in getattr(traces, "traces", ()) or ()
-                ]
-            except Exception as exc:
-                proof["traces_error"] = f"{type(exc).__name__}: {exc}"
+            work_products = self._client.list_run_work_products(
+                environment.project_id,
+                run_id_text,
+            )
+            proof["work_products"] = work_products
+            proof["work_product_count"] = len(work_products)
+            proof["ready_work_product_count"] = sum(
+                1
+                for item in work_products
+                if isinstance(item, Mapping)
+                and str(item.get("status") or "").strip().lower() == "ready"
+            )
+            traces = self._client.get_project_run_traces(
+                environment.project_id,
+                run_id_text,
+            )
+            proof["trace_count"] = int(getattr(traces, "count", 0) or 0)
+            proof["traces"] = [
+                {
+                    "trace_id": trace.trace_id,
+                    "artifact_id": trace.artifact_id,
+                    "event_count": trace.event_count,
+                    "storage_uri": trace.artifact_uri,
+                    "participant_session_id": trace.participant_session_id,
+                    "participant_role": trace.participant_role,
+                }
+                for trace in getattr(traces, "traces", ()) or ()
+            ]
             proofs.append(proof)
         return proofs
 

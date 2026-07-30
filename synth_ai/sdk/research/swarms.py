@@ -11,7 +11,7 @@ from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.sdk.research.contracts._wire import array_value
+from synth_ai.sdk.pagination import SyncPage, page_from_wire
 from synth_ai.sdk.research.contracts.activity import ActivityWindow, SwarmActivity
 from synth_ai.sdk.research.contracts.common import (
     ArtifactId,
@@ -62,8 +62,19 @@ def _request(
     )
 
 
-def _swarms(value: JsonValue, *, operation_id: str) -> tuple[Swarm, ...]:
-    return tuple(Swarm.from_wire(item) for item in array_value(value, operation_id=operation_id))
+def _swarms_page(value: JsonValue, *, limit: int) -> SyncPage[Swarm]:
+    if not isinstance(value, (dict, list)):
+        raise ValueError("list_project_runs response must be an array or page object")
+    items, next_cursor, has_more = page_from_wire(value)
+    swarms = [Swarm.from_wire(item) for item in items]
+    if next_cursor is None and len(swarms) == limit and swarms:
+        next_cursor = str(swarms[-1].swarm_id)
+        has_more = True
+    return SyncPage(
+        items=swarms,
+        next_cursor=next_cursor,
+        has_more=has_more,
+    )
 
 
 def _wait_arguments(timeout_seconds: float, poll_interval_seconds: float) -> None:
@@ -327,7 +338,7 @@ class SwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[Swarm, ...]:
+    ) -> SyncPage[Swarm]:
         """List Swarms for a Project.
 
         Args:
@@ -336,7 +347,7 @@ class SwarmsAPI:
             cursor: Optional pagination cursor returned by the backend.
 
         Returns:
-            The Swarms returned by the backend.
+            A typed page containing Swarms and any continuation cursor.
         """
         query: JsonObject = {"limit": limit}
         if cursor is not None:
@@ -348,7 +359,7 @@ class SwarmsAPI:
                 query=query,
             )
         )
-        return _swarms(value, operation_id="list_project_runs")
+        return _swarms_page(value, limit=limit)
 
     def retrieve(self, swarm_id: SwarmId) -> Swarm:
         """Retrieve a Swarm.
@@ -889,7 +900,7 @@ class AsyncSwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[Swarm, ...]:
+    ) -> SyncPage[Swarm]:
         """List Swarms for a Project.
 
         Args:
@@ -898,7 +909,7 @@ class AsyncSwarmsAPI:
             cursor: Optional pagination cursor returned by the backend.
 
         Returns:
-            The Swarms returned by the backend.
+            A typed page containing Swarms and any continuation cursor.
         """
         query: JsonObject = {"limit": limit}
         if cursor is not None:
@@ -906,7 +917,7 @@ class AsyncSwarmsAPI:
         value = await self._transport.execute(
             _request("list_project_runs", f"/smr/projects/{project_id}/runs", query=query)
         )
-        return _swarms(value, operation_id="list_project_runs")
+        return _swarms_page(value, limit=limit)
 
     async def retrieve(self, swarm_id: SwarmId) -> Swarm:
         """Retrieve a Swarm.

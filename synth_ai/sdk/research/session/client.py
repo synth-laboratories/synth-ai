@@ -231,7 +231,6 @@ from synth_ai.sdk.research.session.project import ManagedResearchProjectClient
 from synth_ai.sdk.research.session.projects import ProjectsAPI
 from synth_ai.sdk.research.session.prs import PrsAPI
 from synth_ai.sdk.research.session.readiness import ReadinessAPI
-from synth_ai.sdk.research.session.repos import ReposAPI
 from synth_ai.sdk.research.session.repositories import RepositoriesAPI
 from synth_ai.sdk.research.session.runs import RunsAPI
 from synth_ai.sdk.research.session.secrets import SecretsAPI
@@ -1120,7 +1119,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     _outputs_api: OutputsAPI | None = field(init=False, default=None, repr=False)
     _prs_api: PrsAPI | None = field(init=False, default=None, repr=False)
     _readiness_api: ReadinessAPI | None = field(init=False, default=None, repr=False)
-    _repos_api: ReposAPI | None = field(init=False, default=None, repr=False)
     _datasets_api: DatasetsAPI | None = field(init=False, default=None, repr=False)
     _models_api: ModelsAPI | None = field(init=False, default=None, repr=False)
     _repositories_api: RepositoriesAPI | None = field(init=False, default=None, repr=False)
@@ -1273,12 +1271,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         if self._readiness_api is None:
             self._readiness_api = ReadinessAPI(self)
         return self._readiness_api
-
-    @property
-    def repos(self) -> ReposAPI:
-        if self._repos_api is None:
-            self._repos_api = ReposAPI(self)
-        return self._repos_api
 
     @property
     def datasets(self) -> DatasetsAPI:

@@ -9,8 +9,6 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-import httpx
-
 from synth_ai.sdk.research.contracts.operator_evidence import SmrRunOperatorEvidence
 from synth_ai.sdk.research.contracts.run_authority import ManagedResearchRunTask
 from synth_ai.sdk.research.contracts.run_control import ManagedResearchRunControlError
@@ -52,7 +50,6 @@ from synth_ai.sdk.research.session._client_helpers import (
     _optional_mapping,
     _require_non_empty_string,
 )
-from synth_ai.sdk.research.transport.http import _raise_for_error_response
 from synth_ai.sdk.research.transport.pagination import build_query_params
 
 
@@ -1354,15 +1351,17 @@ class ManagedResearchRunAuthorityMixin:
         url = str(url_payload.get("url") or "").strip()
         if not url:
             raise ValueError("download URL response did not include url")
-        response = httpx.get(url, timeout=self.timeout_seconds, follow_redirects=True)
-        if response.is_error:
-            _raise_for_error_response(response)
+        content = self._transport.request_external_bytes(
+            url,
+            timeout_seconds=self.timeout_seconds,
+            operation_id="download_project_run_raw_trace",
+        )
         destination_path = Path(destination)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
-        destination_path.write_bytes(response.content)
+        destination_path.write_bytes(content)
         result = dict(url_payload)
         result["destination"] = str(destination_path)
-        result["size_bytes"] = len(response.content)
+        result["size_bytes"] = len(content)
         return result
 
     def get_run_actor_usage(self, run_id: str) -> SmrRunActorUsage:

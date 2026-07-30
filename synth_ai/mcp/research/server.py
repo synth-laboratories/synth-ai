@@ -56,7 +56,6 @@ from synth_ai.mcp.research.tools.readiness import build_readiness_tools
 from synth_ai.mcp.research.tools.repos import build_repo_tools
 from synth_ai.mcp.research.tools.resources import build_resource_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
-from synth_ai.mcp.research.tools.tag import build_tag_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
@@ -77,6 +76,7 @@ from synth_ai.sdk.research.version import __version__
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "synth-research"
+MCP_CLIENT_TIMEOUT_SECONDS = 30.0
 
 # The stdio entrypoint advertises the stable subset. Set this to 1/true/yes to
 # advertise the full built tree instead; without it the advanced tools are not
@@ -375,6 +375,7 @@ class ResearchMcpServer:
         return ResearchSession(
             api_key=resolved_api_key,
             backend_base=resolved_backend_base,
+            timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
         )
 
     def _core_client_from_args(self, args: JSONDict) -> CoreResearchClient:
@@ -382,6 +383,7 @@ class ResearchMcpServer:
         return CoreResearchClient(
             api_key=optional_string(args, "api_key") or self._default_api_key,
             base_url=(optional_string(args, "backend_base") or self._default_backend_base),
+            timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
         )
 
     @staticmethod
@@ -411,7 +413,6 @@ class ResearchMcpServer:
             *build_readiness_tools(self),
             *build_resource_tools(self),
             *build_run_tools(self),
-            *build_tag_tools(self),
             *build_progress_tools(self),
             *build_project_data_tools(self._core_client_from_args),
             *build_environment_tools(self._core_client_from_args),

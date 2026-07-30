@@ -374,7 +374,6 @@ from synth_ai.sdk.research.session.project import ManagedResearchProjectClient
 from synth_ai.sdk.research.session.projects import ProjectsAPI
 from synth_ai.sdk.research.session.prs import PrsAPI
 from synth_ai.sdk.research.session.readiness import ReadinessAPI
-from synth_ai.sdk.research.session.repos import ReposAPI
 from synth_ai.sdk.research.session.repositories import RepositoriesAPI
 from synth_ai.sdk.research.session.runs import (
     MISC_PROJECT_ID,
@@ -596,7 +595,6 @@ __all__ = [
     "ReadinessAPI",
     "RecurrencePolicy",
     "ReportBenchWitnessEvidence",
-    "ReposAPI",
     "RepositoriesAPI",
     "Repository",
     "RequiredWorkProductSpec",
