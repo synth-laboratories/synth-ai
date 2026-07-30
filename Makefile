@@ -11,11 +11,17 @@
 # of whatever synth-ai happens to sit beside the sibling repo.
 TESTING ?= ../testing
 DOCS ?= ../docs
+# Consumer roots for the migration ratchet. Resolved before the recipe cds into
+# $(TESTING), so they mean "beside synth-ai" regardless of where TESTING points.
+# The gate skips a root that is not a directory, so a missing sibling degrades to
+# a narrower check rather than an error.
+BACKEND ?= $(abspath ../backend)
+EVALS ?= $(abspath ../evals)
 
 docs-gen:
-	@if [ -f $(DOCS)/scripts/generate_sdk_docs.py ]; then \
-		cd $(DOCS) && SYNTH_AI_DIR=$(CURDIR) TESTING_DIR=$(abspath $(TESTING)) \
-			uv run python scripts/generate_sdk_docs.py; \
+	@if [ -f $(DOCS)/scripts/generate_sdk_reference.py ]; then \
+		cd $(DOCS) && TESTING_DIR=$(abspath $(TESTING)) \
+			uv run python scripts/generate_sdk_reference.py $(CURDIR); \
 	else \
 		echo "Missing $(DOCS) checkout; clone synth-laboratories/docs beside synth-ai"; \
 		exit 1; \
@@ -41,7 +47,8 @@ test test-unit:
 		uv run python scripts/check_sdk_architecture.py && \
 		uv run python scripts/check_no_rust_sdk.py && \
 		uv run python scripts/check_research_openapi_contract.py && \
-		uv run python scripts/check_research_migration_boundaries.py && \
+		uv run python scripts/check_research_migration_boundaries.py \
+			--backend-root $(BACKEND) --evals-root $(EVALS) && \
 		uv run python scripts/validate_synth_ai_contract.py && \
 		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \
 	else \

@@ -1,7 +1,10 @@
 # Unify synth-ai onto one layering DAG
 
-- **Status:** phases 0–3 done; phase 4 partial; phase 5 not started
+- **Status:** phases 0–4 done and shipped in 0.17.5; phase 5 deliberately deferred
 - **Date:** 2026-07-29 (implemented same day)
+- **Scope:** `synth-ai` package layering refactor (sibling repos only for import updates)
+- **Kind:** refactor — package placement only
+- **Public entrypoint unchanged:** `SynthClient().research`
 
 ## Implementation record
 
@@ -11,8 +14,8 @@
 | 1 Boundary ratchet | done | `check_sdk_layering.py`, in **`testing/scripts/`** — not synth-ai/scripts, which no longer exists. Caught the 3 documented `core → sdk.pagination` sites before the move and passes after |
 | 2 Mechanical relocate | done | 178 files `core/research` → `sdk/research`, 858 import sites rewritten; alias shim left behind |
 | 3 Rewire adapters | done | Imports repointed. The plan's central worry — MCP running "a second ad hoc HTTP path" — did not exist: neither `cli/` nor `mcp/` imports httpx or requests at all |
-| 4 Cross-repo callers | partial | `testing` and `docs` swept. **`evals` (~160 refs) and `backend` (1 ref) deliberately not swept** — see below |
-| 5 Shim retirement | not started | Blocked on phase 4 finishing |
+| 4 Cross-repo callers | **done** | `testing`, `docs`, `evals` (160 refs / 48 files, incl. `old/`), `backend` (1 ref, committed on its `dev`) |
+| 5 Shim retirement | deferred on purpose | Phase 4 is done, so it is now *possible* — but see below |
 
 ### Deviations from the plan as written
 
@@ -23,23 +26,31 @@
   registers it under both names, so `synth_ai.core.research.X` and
   `synth_ai.sdk.research.X` are the *same object* — `isinstance` across the two
   paths works, which per-file stubs would not guarantee.
-- `evals` and `backend` were left alone. Both are mid-flight in other people's
-  work — evals had 250+ dirty files and moved `containers/common/pool_runner.py`
-  to `containers/nonsensitive/common/` *between two checks in one session*;
-  backend has 326 dirty files on a feature branch. The sweep was applied to evals
-  and then reverted by inverse substitution (160 references restored exactly),
-  because a rewrite spanning 48 files cannot be cleanly separated from that churn.
-  The alias shim keeps both working. Finishing these two is what stands between
-  phase 4 and phase 5, and each should be done when its repo is quiet:
-
-      evals:   ~160 refs across ~48 files (excluding old/, which has 12 more)
-      backend: 1 ref, app/api/v1/routes_mcp.py
+- `evals` and `backend` were swept on the second attempt, not the first. Both were
+  mid-flight in other people's work — evals had 250+ dirty files and moved
+  `containers/common/pool_runner.py` to `containers/nonsensitive/common/` *between
+  two checks in one session*. The sweep was applied, reverted by inverse
+  substitution (160 references restored exactly), and redone once evals came clean.
+  `evals/old/` was included: the alias is scheduled for deletion, and a reference
+  left in a deprecated tree breaks as loudly as one in live code.
 - Adapter discipline's remaining item is a *preference*, not a violation: MCP
   reaches `sdk.research` directly rather than through `SynthClient().research`.
   The import table marks `mcp → client` "preferred yes", and the plan explicitly
   permits deep contract imports for request parsing.
 
-### Two things the move nearly shipped
+### Why phase 5 is deferred even though phase 4 is done
+
+Deleting the alias now would give external consumers **no deprecation window at
+all**. 0.17.4 is on PyPI with `synth_ai.core.research` as the documented path;
+0.17.5 introduces the alias. Removing it in the same release that introduces it
+makes the deprecation theatre. Our own repos are clean, which is what the plan
+meant by "once siblings are clean" — but pip installers are not a sibling repo.
+
+Remove it in a later release, and when that happens add `core/research` to the
+retired-tree absence assertions in `check_research_migration_boundaries.py`
+(which already names both spellings in preparation).
+
+### Three things the move nearly shipped
 
 - `pyproject.toml` package-data still globbed `core/research/factory_plans/*.json`
   and `core/research/schemas/*`. Those globs are the only thing putting the data
@@ -48,9 +59,11 @@
 - A stale `build/` directory caused `python -m build` to package **169**
   pre-move modules alongside the new ones. `build/` is gitignored, so nothing
   flagged it. Any release must clean `build/` first.
-- **Scope:** `synth-ai` package layering refactor (sibling repos only for import updates)
-- **Kind:** refactor — package placement only
-- **Public entrypoint unchanged:** `SynthClient().research`
+- The docs repo's production generator named `synth_ai.research` — a package
+  retired *before* this refactor — so the published reference documented code
+  nobody could import. Fixed there; regenerating is a separate editorial job
+  because 6 links have no valid target. See
+  `docs/misc/synth-ai-sdk/REGENERATE-BEFORE-YOU-DO.md`.
 
 ## Why
 

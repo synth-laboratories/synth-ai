@@ -4,6 +4,12 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.5 — 2026-07-29
+
+A patch release even though module paths moved, because nothing breaks: the old
+paths still import, resolve to the same objects, and only add a
+`DeprecationWarning`.
+
 ### Changed
 
 - **Research moved from `synth_ai.core.research` to `synth_ai.sdk.research`.**

@@ -94,7 +94,7 @@ jobs:
       - name: Detect sibling checkouts
         id: siblings
         run: |
-          if [ -f docs/scripts/generate_sdk_docs.py ] && [ -d testing/specifications/sdk ]; then
+          if [ -f docs/scripts/generate_sdk_reference.py ] && [ -d testing/specifications/sdk ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
