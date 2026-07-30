@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_readiness_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_status_readiness",
+            name="research_status_readiness",
             description="Get the derived readiness checklist for a project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},

@@ -2,23 +2,21 @@
 
 - Spec files:
   - `synth-api-v1.yaml` (canonical SDK HTTP transport)
-  - `container-contract-v1.yaml` (container rollout/health/info contract)
+  - `research-v1.json` (Research / SMR contract)
 - Version: OpenAPI 3.1
 
-## Canonical Product APIs
+Hosted-container and related infra OpenAPI fragments may live under `old/openapi/`
+while those Python clients are archived.
 
-- Hosted containers (`/v1/containers/*`)
-- Managed tunnels (`/v1/tunnels/*`)
-- Container pools and pool-scoped rollouts (`/v1/pools/*`)
-- Global rollouts (`/v1/rollouts/*`)
-- Container runtime endpoints:
-  - Core: `/health`, `/task_info`, `/rollouts` (with `/rollout` compatibility alias)
-  - Long-horizon/multi-agent: `/rollouts/{rollout_id}/checkpoints*`, `/rollouts/{rollout_id}/resume`, `/rollouts/{rollout_id}/actors*`
-  - Validation: `/candidates/validate` (with `/validate-candidate` compatibility alias)
+## Canonical Product APIs (Research-first SDK)
+
+The live Python SDK composes Research via `SynthClient().research`. Backend
+routes for tunnels/pools/containers may still appear in `synth-api-v1.yaml`;
+the corresponding clients are archived under `old/sdk/` until restored.
 
 ## Internal (de-exposed from user docs)
 
-- SynthTunnel leases (`/api/v1/synthtunnel/leases*`) -- marked `x-internal`. Use SDK tunnel abstractions (`SynthClient().tunnels.*`) instead of calling directly.
+- SynthTunnel leases (`/api/v1/synthtunnel/leases*`) -- marked `x-internal`.
 
 ## Codegen examples
 

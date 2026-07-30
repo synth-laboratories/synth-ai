@@ -28,7 +28,7 @@ _FILE_ITEM_SCHEMA: dict[str, Any] = {
 def build_resource_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_list_project_files",
+            name="research_list_project_files",
             description="List project-scoped Phase 3 stored files.",
             input_schema=tool_schema(
                 {
@@ -41,7 +41,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_project_files,
         ),
         ToolDefinition(
-            name="smr_create_project_files",
+            name="research_create_project_files",
             description="Create project-scoped Phase 3 stored files.",
             input_schema=tool_schema(
                 {
@@ -57,7 +57,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_project_files,
         ),
         ToolDefinition(
-            name="smr_get_project_file",
+            name="research_get_project_file",
             description="Fetch one project-scoped stored file record.",
             input_schema=tool_schema(
                 {
@@ -69,7 +69,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_file,
         ),
         ToolDefinition(
-            name="smr_get_file_content",
+            name="research_get_file_content",
             description="Fetch stored file content as utf-8 text or base64 payload.",
             input_schema=tool_schema(
                 {"file_id": {"type": "string"}},
@@ -78,7 +78,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_file_content,
         ),
         ToolDefinition(
-            name="smr_list_run_file_mounts",
+            name="research_list_run_file_mounts",
             description="List run file mounts, including auto-bound project files.",
             input_schema=tool_schema(
                 {"run_id": {"type": "string"}},
@@ -87,7 +87,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_file_mounts,
         ),
         ToolDefinition(
-            name="smr_upload_run_files",
+            name="research_upload_run_files",
             description="Upload run-scoped files and mount model-visible ones into the active run.",
             input_schema=tool_schema(
                 {
@@ -103,7 +103,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_upload_run_files,
         ),
         ToolDefinition(
-            name="smr_list_project_external_repositories",
+            name="research_list_project_external_repositories",
             description="List project-scoped external repository resources.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},
@@ -112,7 +112,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_project_external_repositories,
         ),
         ToolDefinition(
-            name="smr_create_project_external_repository",
+            name="research_create_project_external_repository",
             description="Create or upsert a project-scoped external repository resource.",
             input_schema=tool_schema(
                 {
@@ -128,7 +128,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_project_external_repository,
         ),
         ToolDefinition(
-            name="smr_patch_project_external_repository",
+            name="research_patch_project_external_repository",
             description="Patch an existing project-scoped external repository resource.",
             input_schema=tool_schema(
                 {
@@ -144,7 +144,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_patch_project_external_repository,
         ),
         ToolDefinition(
-            name="smr_list_run_repository_mounts",
+            name="research_list_run_repository_mounts",
             description="List external repositories mounted onto a run.",
             input_schema=tool_schema(
                 {"run_id": {"type": "string"}},
@@ -153,7 +153,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_repository_mounts,
         ),
         ToolDefinition(
-            name="smr_create_run_repository_mount",
+            name="research_create_run_repository_mount",
             description="Bind one existing external repository resource onto a run.",
             input_schema=tool_schema(
                 {
@@ -166,7 +166,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_run_repository_mount,
         ),
         ToolDefinition(
-            name="smr_list_project_credential_refs",
+            name="research_list_project_credential_refs",
             description="List project-scoped credential refs.",
             input_schema=tool_schema(
                 {
@@ -178,7 +178,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_project_credential_refs,
         ),
         ToolDefinition(
-            name="smr_create_project_credential_ref",
+            name="research_create_project_credential_ref",
             description="Create or upsert a project-scoped credential ref.",
             input_schema=tool_schema(
                 {
@@ -195,7 +195,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_project_credential_ref,
         ),
         ToolDefinition(
-            name="smr_patch_project_credential_ref",
+            name="research_patch_project_credential_ref",
             description="Patch an existing project-scoped credential ref.",
             input_schema=tool_schema(
                 {
@@ -211,7 +211,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_patch_project_credential_ref,
         ),
         ToolDefinition(
-            name="smr_list_run_credential_bindings",
+            name="research_list_run_credential_bindings",
             description="List credential refs bound onto a run.",
             input_schema=tool_schema(
                 {"run_id": {"type": "string"}},
@@ -220,7 +220,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_credential_bindings,
         ),
         ToolDefinition(
-            name="smr_create_run_credential_binding",
+            name="research_create_run_credential_binding",
             description="Bind one existing credential ref onto a run.",
             input_schema=tool_schema(
                 {

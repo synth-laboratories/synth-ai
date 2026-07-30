@@ -4,13 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.image_releases import (
-    ImageReleaseFinalizeRequest,
-    ImageReleaseId,
-    ImageReleaseUploadRequest,
-    RuntimeImageReleaseId,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -19,6 +12,13 @@ from synth_ai.mcp.research.registry import (
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import require_string
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.image_releases import (
+    ImageReleaseFinalizeRequest,
+    ImageReleaseId,
+    ImageReleaseUploadRequest,
+    RuntimeImageReleaseId,
+)
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 
@@ -79,7 +79,7 @@ def build_image_release_tools(
     }
     return [
         ToolDefinition(
-            name="smr_create_image_release_upload",
+            name="research_create_image_release_upload",
             description="Create a presigned upload URL for one image release declaration.",
             input_schema=tool_schema(
                 {
@@ -92,7 +92,7 @@ def build_image_release_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_finalize_image_release",
+            name="research_finalize_image_release",
             description="Finalize one uploaded image release and return its receipt.",
             input_schema=tool_schema(
                 {"upload_id": upload_id_schema, "declaration": declaration_schema},
@@ -102,14 +102,14 @@ def build_image_release_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_customer_actor_images",
+            name="research_list_customer_actor_images",
             description="List customer actor runtime image materializations.",
             input_schema=tool_schema({}, required=[]),
             handler=list_actor_images,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_archive_customer_actor_image",
+            name="research_archive_customer_actor_image",
             description="Archive one customer actor runtime image materialization.",
             input_schema=tool_schema(
                 {"runtime_image_release_id": runtime_id_schema},
@@ -119,7 +119,7 @@ def build_image_release_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_retrieve_image_release",
+            name="research_retrieve_image_release",
             description="Retrieve one immutable image-release receipt.",
             input_schema=tool_schema({"release_id": release_id_schema}, required=["release_id"]),
             handler=retrieve,

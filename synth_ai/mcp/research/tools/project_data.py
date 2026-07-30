@@ -5,20 +5,6 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.common import (
-    ProjectDatasetId,
-    ProjectId,
-    ProjectRepositoryId,
-)
-from synth_ai.core.research.contracts.project_data import (
-    ProjectDatasetEncoding,
-    ProjectDatasetUpload,
-    ProjectRepositoryPatch,
-    ProjectRepositoryRole,
-    ProjectRepositorySpec,
-    ResourceMetadata,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -30,6 +16,20 @@ from synth_ai.mcp.research.request_models import (
     optional_int,
     optional_string,
     require_string,
+)
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.common import (
+    ProjectDatasetId,
+    ProjectId,
+    ProjectRepositoryId,
+)
+from synth_ai.sdk.research.contracts.project_data import (
+    ProjectDatasetEncoding,
+    ProjectDatasetUpload,
+    ProjectRepositoryPatch,
+    ProjectRepositoryRole,
+    ProjectRepositorySpec,
+    ResourceMetadata,
 )
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
@@ -152,7 +152,7 @@ def build_project_data_tools(
     }
     return [
         ToolDefinition(
-            name="smr_list_project_repositories",
+            name="research_list_project_repositories",
             description="List typed external repositories attached to a project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},
@@ -162,7 +162,7 @@ def build_project_data_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_create_project_repository",
+            name="research_create_project_repository",
             description="Attach one typed external repository to a project.",
             input_schema=tool_schema(
                 {
@@ -179,7 +179,7 @@ def build_project_data_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_update_project_repository",
+            name="research_update_project_repository",
             description="Update one typed external project repository.",
             input_schema=tool_schema(
                 {
@@ -196,7 +196,7 @@ def build_project_data_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_delete_project_repository",
+            name="research_delete_project_repository",
             description="Delete one typed external project repository.",
             input_schema=tool_schema(
                 {
@@ -209,7 +209,7 @@ def build_project_data_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_project_datasets",
+            name="research_list_project_datasets",
             description="List typed datasets attached to a project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},
@@ -219,7 +219,7 @@ def build_project_data_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_upload_project_dataset",
+            name="research_upload_project_dataset",
             description="Upload one binary-safe dataset to a project.",
             input_schema=tool_schema(
                 {
@@ -238,7 +238,7 @@ def build_project_data_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_project_dataset_content",
+            name="research_get_project_dataset_content",
             description="Fetch raw dataset bytes as an explicit base64 MCP payload.",
             input_schema=tool_schema(
                 {

@@ -17,15 +17,6 @@ class SyncPage(Generic[ItemT]):
     has_more: bool = False
 
 
-@dataclass(frozen=True)
-class AsyncPage(Generic[ItemT]):
-    """Async list page (same wire shape as ``SyncPage``)."""
-
-    items: list[ItemT]
-    next_cursor: str | None = None
-    has_more: bool = False
-
-
 def page_from_wire(
     payload: dict[str, object] | list[object],
 ) -> tuple[list[object], str | None, bool]:
@@ -41,4 +32,4 @@ def page_from_wire(
     return list(items), cursor_text or None, has_more
 
 
-__all__ = ["AsyncPage", "SyncPage", "page_from_wire"]
+__all__ = ["SyncPage", "page_from_wire"]

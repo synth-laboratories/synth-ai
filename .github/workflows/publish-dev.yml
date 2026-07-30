@@ -1,10 +1,29 @@
 name: Auto-publish to PyPI
 
+# pyproject.toml always holds the STABLE version. The branch decides what is
+# actually published:
+#
+#   push to dev   ->  <base>.dev<run_number>   prerelease, pip ignores it by default
+#   push to main  ->  <base>                   stable release
+#
+# So a version bump is a single edit that flows dev -> main without being touched
+# again. Installing a dev build takes an explicit opt-in -- use an exact pin:
+#
+#   pip install synth-ai==0.17.5.dev42
+#
+# Not `pip install --pre synth-ai`. `--pre` is not scoped to this package: it lets
+# pip take prereleases of every dependency too. Doing that on 2026-07-30 pulled
+# httpx 1.0.dev3, which has no `httpx.HTTPError`, and `from synth_ai import
+# SynthClient` failed with an AttributeError that looked like a broken release. An
+# exact `==` pin needs no `--pre` and leaves dependency resolution alone.
+#
+# This split is enforced in the check-version job, not by convention: main refuses
+# a .dev version, and dev synthesizes one rather than publishing pyproject's
+# number verbatim. Until 2026-07-29 it did publish verbatim, so a push to dev
+# shipped a stable release to PyPI while this comment claimed otherwise.
 on:
   workflow_dispatch:
   push:
-    # main publishes stable versions; dev publishes .dev prereleases so the
-    # latest fixes are installable (with --pre / an exact pin) before promotion.
     branches: [main, dev]
 
 permissions:
@@ -19,7 +38,7 @@ concurrency:
 
 jobs:
   check-version:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       needs_publish: ${{ steps.check.outputs.needs_publish }}
       version: ${{ steps.local.outputs.version }}
@@ -36,17 +55,48 @@ jobs:
             sudo apt-get install -y jq
           fi
 
-      - name: Get local version
+      - name: Resolve the version to publish
         id: local
+        env:
+          BRANCH: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          VERSION=$(grep '^version = ' pyproject.toml | head -1 | sed -E 's/^version = "(.*)"/\1/')
+          BASE=$(grep '^version = ' pyproject.toml | head -1 | sed -E 's/^version = "(.*)"/\1/')
+          echo "base=$BASE" >> $GITHUB_OUTPUT
+
+          # pyproject holds the *stable* number. What gets published depends on the
+          # branch, and the difference is not cosmetic: before this, a push to dev
+          # published pyproject's version verbatim, so dev shipped stable releases
+          # to PyPI. The header has always claimed dev publishes prereleases; this
+          # is that claim implemented.
+          case "$BRANCH" in
+            main)
+              if printf '%s' "$BASE" | grep -q '\.dev'; then
+                echo "::error::main publishes stable versions only, but pyproject says $BASE"
+                exit 1
+              fi
+              VERSION="$BASE"
+              ;;
+            *)
+              if printf '%s' "$BASE" | grep -q '\.dev'; then
+                VERSION="$BASE"
+              else
+                # PEP 440 orders X.Y.Z.devN before X.Y.Z, so promoting the same
+                # number to stable from main later is still an increase. run_number
+                # is monotonic per workflow, which is what PyPI needs: it refuses a
+                # re-upload of a filename, so each dev push needs a fresh N.
+                VERSION="${BASE}.dev${RUN_NUMBER}"
+              fi
+              ;;
+          esac
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Local version: $VERSION"
+          echo "Branch $BRANCH -> publishing $VERSION (pyproject base $BASE)"
 
       - name: Check if publish needed
         id: check
         run: |
           LOCAL="${{ steps.local.outputs.version }}"
+          BASE="${{ steps.local.outputs.base }}"
           # Fail closed: a metadata lookup failure must fail this job, never
           # be read as "version absent" (which would publish on a PyPI blip).
           # Bounded retry distinguishes a transient outage from real absence.
@@ -63,6 +113,19 @@ jobs:
             echo "::error::PyPI metadata unavailable after 3 attempts; refusing to decide publish"
             exit 1
           fi
+          if ! printf '%s' "$META" | jq -e \
+               'type == "object" and (.releases | type == "object")' >/dev/null; then
+            echo "::error::PyPI metadata is malformed; refusing to decide publish"
+            exit 1
+          fi
+          # A dev build whose base is already released sorts *below* that release,
+          # so it would be a prerelease of something that already shipped. That is
+          # a stale pyproject, not something to paper over with a higher run number.
+          if [ "$LOCAL" != "$BASE" ] \
+             && printf '%s' "$META" | jq -e --arg v "$BASE" '.releases | has($v)' >/dev/null; then
+            echo "::error::$BASE is already on PyPI, so $LOCAL would be a prerelease of a released version. Bump the version in pyproject.toml (and both README pins)."
+            exit 1
+          fi
           # Check the EXACT release, not .info.version (latest stable): exact
           # lookup is correct for both stable and .dev versions.
           if printf '%s' "$META" | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null; then
@@ -76,22 +139,56 @@ jobs:
   build-distributions:
     needs: check-version
     if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
+
+      # This is a separate job with its own checkout, so pyproject here still
+      # holds the stable base. Stamp the resolved version in before building or
+      # the artifacts carry the wrong number -- and on dev that means publishing a
+      # stable release. Not committed; it exists only for this build.
+      - name: Stamp the resolved version into pyproject
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          version = os.environ["VERSION"]
+          if not version:
+              raise SystemExit("no version resolved by check-version")
+          path = pathlib.Path("pyproject.toml")
+          text = path.read_text(encoding="utf-8")
+          stamped, count = re.subn(
+              r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1
+          )
+          if count != 1:
+              raise SystemExit(f"expected one version line in pyproject.toml, found {count}")
+          path.write_text(stamped, encoding="utf-8")
+          print(f"building {version}")
+          PY
+
       - name: Build wheel and sdist
         run: |
           uv sync --group dev
           uv run python -m build
+
       - name: Verify distributions
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           ls -1 dist
           ls dist/*.whl
           ls dist/*.tar.gz
+          # The filename is the only place the published version is visible before
+          # upload. Check it, so a stamping failure cannot ship the wrong number.
+          if ! ls dist/synth_ai-"$VERSION"-py3-none-any.whl >/dev/null 2>&1; then
+            echo "::error::built artifacts are not version $VERSION:"; ls -1 dist
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions
@@ -100,7 +197,7 @@ jobs:
   publish:
     needs: [check-version, build-distributions]
     if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/project/synth-ai/
@@ -118,7 +215,7 @@ jobs:
   create-release:
     needs: [check-version, publish]
     if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:

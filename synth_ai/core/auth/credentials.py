@@ -1,6 +1,6 @@
 """Explicit API credential resolution.
 
-# See: specifications/sdk/core_research_migration.md
+# See: testing/specifications/sdk/core_research_migration.md
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ class ApiCredential:
             raise AuthenticationError("Synth API credential must not be empty")
 
     def authorization_headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self.value}",
-            "Content-Type": "application/json",
-        }
+        # The request body encoder owns Content-Type. A client-wide JSON header
+        # overrides httpx's multipart boundary and makes Visual uploads arrive
+        # as an empty body.
+        return {"Authorization": f"Bearer {self.value}"}
 
 
 def resolve_api_credential(api_key: str | None = None) -> ApiCredential:

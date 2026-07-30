@@ -4,6 +4,227 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Project and Swarm hero list methods now return typed `SyncPage` values with an
+  accepted continuation cursor, including for the backend's legacy array response.
+- The session compatibility surface uses `repositories` consistently; the
+  duplicate `repos` namespace and its second DTO family were removed.
+- Raw-trace downloads now use the shared transport, including its timeout and
+  typed error mapping, without forwarding backend credentials to presigned URLs.
+- Dev-environment proof collection now fails on incomplete work-product or trace
+  evidence instead of encoding exceptions as apparent proof fields.
+
+### Removed
+
+- Six unadvertised `tag_*` MCP tools were parked. The typed
+  `SynthClient().research.tag` SDK remains available.
+
+## 0.18.0 — 2026-07-29
+
+A minor release rather than a patch because modules were removed, not moved: the
+infrastructure and managed-agent surfaces below have no alias and no successor
+import path in this package.
+
+### Removed
+
+- **Managed Agents.** `synth_ai.sdk.managed_agents`, `sdk.managed_agents_anthropic`,
+  `sdk.openai_agents_sdk`, and `sdk.openai_tools` are gone. The package is a
+  Research SDK; a second agent-authoring framework inside it was a second product.
+- **Containers, tunnels, and pools.** `synth_ai.sdk.pools`, `sdk.containers`,
+  `sdk.container`, `sdk.base`, `sdk.horizons_private`, `cli.pools`, `cli.tunnels`,
+  and `cli.containers` are gone, along with `openapi/container-contract-v1.yaml`.
+  `SynthClient` is Research-only.
+- **`synth-ai dev-envs`.** The dev-environment CLI was the control-plane worker's
+  side of the materialization protocol — `claim-materialization --worker-id`,
+  `seed-topology-manifest`, `materialize` — not a customer surface. Nothing is
+  lost: `SynthClient().research.dev_environments` and the MCP
+  `research_*_dev_environment*` tools call the same routes.
+- **The `synth-ai-research-factory-standup` console script**, along with
+  `sdk/research/factory_plans/`. It hardcoded `factory.name == "synth-rsi"`,
+  seven internal milestone IDs, and Synth's private repo remotes as an
+  allowlist, and its one built-in plan was Synth's own `kind: internal` Factory.
+  A customer could not run it. Use `research.factories.standup()` instead.
+- **The vendored backend schemas left the wheel.**
+  `synth_ai/sdk/research/schemas/{smr_openapi.yaml,public_models.json}` moved to
+  a top-level `schemas/` directory. No module ever read them; they are drift-gate
+  inputs for CI. This removes ~2.1MB per wheel and stops a Research-only package
+  from shipping the backend's `/v1/tunnels` and `/v1/pools` route definitions.
+
+### Added
+
+- **`research.factories.standup(plan)`** creates a Factory, links its project,
+  and seeds its efforts from a single plan mapping, returning a typed
+  `FactoryStandupResult`. `research.factories.plan_standup(plan)` is the dry run:
+  it resolves and validates every request payload without sending one. This is
+  the portable half of the removed stand-up script.
+- `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` makes `synth-ai-research-mcp` advertise
+  the full tool tree. Previously `main()` hardcoded the stable subset with no
+  override, and because `call_tool` resolves against the advertised set, the
+  other 247 tools were not merely hidden but uncallable.
+- **`verify_cloud_s0_evidence(payload, ...)`** in
+  `sdk.research.session.dev_environments` checks a dev-environment evidence
+  packet for run binding, receipt readiness, work-product and trace counts, and
+  git branch/sha proof. Lifted out of the removed `dev-envs` CLI.
+
+### Fixed
+
+- **`synth_ai.core.research.*` no longer breaks packaged data files.** The
+  deprecation alias returns the real module, and CPython was stamping the alias's
+  origin-less spec onto it. Any process that imported through the old path lost
+  `importlib.resources` for the target: `files()` returned an empty listing and
+  reading any packaged data file raised `FileNotFoundError: Can't open orphan
+  path`. The alias now restores the module's own identity after loading.
+- **The sdist ships its runtime data again.** `MANIFEST.in` re-included
+  `synth_ai/managed_research/*`, a path deleted in 0.17.5, so the blanket `*.json`
+  exclude won and `--no-binary` installs shipped without the JSON data files under
+  `sdk/research/`.
+- **`synth_ai.sdk.research.public.AsyncResearchClient`** resolved to a name that
+  does not exist and raised `AttributeError` on access.
+- **MCP tool scopes fail closed.** A tool missing from the scope table silently
+  got `required_scopes=()`; 48 of 311 tools were unscoped, including
+  `research_pause_run`, `research_resume_run`, and `research_start_one_off_run`.
+  The table is now keyed on advertised names and a missing entry raises at
+  registry build.
+
+## 0.17.5 — 2026-07-29
+
+A patch release even though module paths moved, because nothing breaks: the old
+paths still import, resolve to the same objects, and only add a
+`DeprecationWarning`.
+
+### Changed
+
+- **Research moved from `synth_ai.core.research` to `synth_ai.sdk.research`.**
+  `SynthClient().research` is unchanged and remains the supported entrypoint —
+  only module paths moved. `core/` had come to mean two things at once, shared
+  plumbing and the Research SDK, and the package README documented a layering
+  DAG that Research did not follow. Now `core/` is plumbing, `sdk/` is every
+  public client including Research, and a checker enforces it.
+
+  **Old paths still work.** `synth_ai.core.research.*` resolves through an import
+  alias that emits a `DeprecationWarning` once per module. The alias returns the
+  *same module object*, so classes are identical across both paths and
+  `isinstance` works either way. Migrate at your convenience:
+
+  ```python
+  # before
+  from synth_ai.core.research.contracts.status import SwarmStatus
+  # after
+  from synth_ai.sdk.research.contracts.status import SwarmStatus
+  ```
+
+  The alias is scheduled for removal in a later release; see
+  `unify_sdk_layering.md`.
+
+- The `core → sdk.pagination` import that violated the package's own layering is
+  gone. It was never fixed directly: relocating Research under `sdk/` made it a
+  legal peer import.
+
+### Fixed
+
+- Wheel packaging followed the move. `package-data` still globbed
+  `core/research/factory_plans/*.json` and `core/research/schemas/*`, which are
+  the only thing that puts those data files in the wheel — a stale glob ships a
+  package that imports and then fails at runtime looking for them.
+
+## 0.17.4 — 2026-07-29
+
+### Changed
+
+- **An unconfigured client resolves to production again.** `SynthClient()` with
+  no `base_url` and no backend environment variables had been resolving to
+  `http://localhost:8000` since 2026-02-13, so the pip-install path failed
+  against a port nobody was serving. The documented default is production, and
+  local development is the case that says so — via `base_url`, `ENVIRONMENT`,
+  `SYNTH_BACKEND_URL_OVERRIDE`, or the `DEV_*`/`LOCAL_*` variables, all
+  unchanged. If you relied on the bare default reaching localhost, set
+  `SYNTH_BACKEND_URL_OVERRIDE=local` or `ENVIRONMENT=dev`.
+- `synth_ai.core.research._internal.urls` no longer resolves separately. It
+  hardcoded `https://api.usesynth.ai` and read only `SYNTH_BACKEND_URL`, so it
+  ignored `SYNTH_BACKEND_URL_OVERRIDE`, `ENVIRONMENT`, and the dev chain —
+  anything reaching `core.research.auth` could target a different backend than
+  the rest of the SDK. It now delegates to `core.utils.urls`.
+- **The public model catalog is now eight models**: `gpt-5.6-luna`,
+  `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-mini`, `cursor/grok-4.5`,
+  `cursor/composer-2.5`, `modal/moonshotai/Kimi-K3`, and
+  `synth_internal/laguna-s-2.1-nvfp4`. `gpt-5.3-codex`, `gpt-5.3-codex-spark`,
+  `gpt-5.4`, `gpt-5.5`, `x-ai/grok-4.3`, `x-ai/grok-build`, and
+  `moonshotai/kimi-k2.6` are no longer listed publicly. They remain in the
+  supported catalog and stay usable; only their public listing changes.
+- **`ActorModel.KIMI_K3` now routes to Modal**, not Baseten. `ActorModel` is
+  split into `ActiveActorModel` (first-class shared selection) and
+  `DeprecatedActorModel` (legacy actor-specific overrides), with `ActorModel`
+  kept as a wire-compatible union of both. The Baseten route is still
+  reachable as `KIMI_K3_BASETEN`. Callers pinned to `ActorModel.KIMI_K3` change
+  inference provider without changing code — check that before upgrading.
+- **`display_group` is gone from the agent-model catalog response** and from the
+  vendored public-model snapshot. It was internal catalog taxonomy that no
+  backend, SDK, or frontend code read. The unrelated `display_group` on project
+  resource files is unaffected.
+- `SYNTH_BACKEND_URL_OVERRIDE=railway` is no longer accepted as an alias for the
+  dev backend, and environment detection no longer reads hosting-provider
+  variables. Use `dev`, `development`, or `staging`, and set `ENVIRONMENT`
+  explicitly where a platform used to be inferred.
+
+### Added
+
+- `SYNTH_INTERNAL` on `CredentialProvider` and `InferenceProvider`, so the
+  `synth_internal` route the Laguna model already used can be named. `swarms.py`
+  shipped a `synth_internal/...` model with no matching provider value.
+
+### Fixed
+
+- `Any`, `Path`, `PackageNotFoundError`, and `install_log_filter` no longer leak
+  into the `synth_ai` namespace. They were reachable as `synth_ai.Path` and
+  friends while absent from `__all__`.
+
+## 0.17.3 — 2026-07-29
+
+### Added
+
+- Typed model contracts for Laguna S 2.1 NVFP4 and Kimi K3, including the
+  Modal Shared API K3 route used by the release acceptance run.
+- Typed recurring Factory budgets, recurrence, Result authority selection,
+  live-acceptance consumers, Visual publication and account-library reads,
+  and Factory adjudicator and cleanup receipts.
+- `ResearchFacade.files`, exposing the existing typed Files API from the
+  stable `SynthClient().research` surface.
+
+### Fixed
+
+- Swarm provider selection now admits the typed `modal` provider used by the
+  Kimi K3 release route.
+- Multipart requests now let their body codec supply the correct content type.
+- Bound runtime attestations accept the declared provider set.
+- Trace capture and local bundle validation are no longer packaged as a
+  `synth-ai` extra. Those implementation surfaces remain owned by
+  `synth-containers`; this SDK retains typed backend transfer/read contracts.
+
+## 0.17.3.dev1 — 2026-07-26
+
+Prerelease development line following `0.17.2`.
+
+### Added
+
+- A canonical typed Effort recurrence contract now covers cadence, timezone,
+  concurrency, completion-triggered launches, success delay, bounded failure
+  backoff, metadata, and an exact typed `SwarmSpec` launch request.
+- `ResearchFactoriesAPI.create_effort` and the lower Research session Factory
+  facade accept the typed recurrence without changing its provider, profile,
+  model, or role selections.
+- `FactoryBudgetPolicy` exposes a typed recurring accounting period so
+  always-on internal Factories can use a resettable code-owned spend envelope
+  instead of an eventual all-time stop.
+- `FactorySpec` can select the native Result authority at creation, allowing a
+  new optimization Factory to define evaluation lenses without an operator
+  backfill or compatibility cutover.
+
+### Changed
+
+- The advanced/session `RecurrencePolicy` name is now a compatibility re-export
+  of the stable `EffortRecurrence` contract instead of a second wire model.
+
 ## 0.17.2 — 2026-07-25
 
 ### Removed

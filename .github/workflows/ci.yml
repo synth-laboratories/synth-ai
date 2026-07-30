@@ -18,7 +18,7 @@ concurrency:
 jobs:
   check-version:
     name: Check README Version
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Extract version from pyproject.toml
@@ -62,21 +62,55 @@ jobs:
 
   docs:
     name: Docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: synth-ai
+      # The reference build lives in the docs repo and the docstring manifest in
+      # testing, both since 2026-07-29. Neither is public, so both checkouts are
+      # best-effort and the job skips rather than failing when they are absent.
+      - name: Checkout docs repo
+        id: checkout_docs
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: synth-laboratories/docs
+          path: docs
+      - name: Checkout testing repo
+        id: checkout_testing
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: synth-laboratories/testing
+          path: testing
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
       - name: Sync dev dependencies
+        working-directory: synth-ai
         run: uv sync --group dev
+      - name: Detect sibling checkouts
+        id: siblings
+        run: |
+          if [ -f docs/scripts/generate_sdk_reference.py ] && [ -d testing/specifications/sdk ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Generate SDK reference and check docstrings
+        if: steps.siblings.outputs.available == 'true'
+        working-directory: synth-ai
         run: make docs-check
+      - name: Skip unavailable docs build
+        if: steps.siblings.outputs.available != 'true'
+        run: |
+          echo "Docs build needs the private docs and testing checkouts; unavailable here."
 
   lint:
     name: Lint
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -85,8 +119,8 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - name: Sync dev dependencies
         run: uv sync --group dev
-      - name: Check Python-only SDK guard
-        run: python scripts/check_no_rust_sdk.py
+      # check_no_rust_sdk.py moved to the testing repo with the other SDK gates
+      # on 2026-07-29; the tests job runs it there, where that checkout exists.
       - name: Run ruff format check
         run: uv run ruff format --check
       - name: Run ruff check
@@ -94,7 +128,7 @@ jobs:
 
   tests:
     name: Tests
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Checkout private SDK pytest suite
@@ -120,7 +154,13 @@ jobs:
           fi
       - name: Run SDK pytest suite
         if: steps.sdk_tests.outputs.available == 'true'
+        env:
+          SYNTH_AI_DIR: ${{ github.workspace }}
         run: |
+          uv run python testing/scripts/check_sdk_architecture.py
+          uv run python testing/scripts/check_no_rust_sdk.py
+          uv run python testing/scripts/check_research_openapi_contract.py
+          uv run python testing/scripts/check_research_migration_boundaries.py
           uv run python testing/scripts/validate_synth_ai_contract.py
           uv run --group dev pytest --confcutdir=testing/backend/unit/synth_ai_sdk testing/backend/unit/synth_ai_sdk -v --maxfail=1
       - name: Skip unavailable private SDK pytest suite
@@ -130,7 +170,7 @@ jobs:
 
   type-check:
     name: Type Check
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

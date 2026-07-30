@@ -35,7 +35,7 @@ def _client(api_key: str | None, backend_url: str | None):
 
 
 def _manifest(path: Path):
-    from synth_ai.core.research.public import EnvironmentManifest
+    from synth_ai.sdk.research.public import EnvironmentManifest
 
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -107,7 +107,7 @@ def environments_get(
     backend_url: str | None,
 ) -> None:
     """Retrieve one Environment manifest version by NAME."""
-    from synth_ai.core.research.public import EnvironmentDigest, EnvironmentName
+    from synth_ai.sdk.research.public import EnvironmentDigest, EnvironmentName
 
     digest_value = EnvironmentDigest(manifest_digest) if manifest_digest is not None else None
     with _client(api_key, backend_url) as client:
@@ -129,7 +129,7 @@ def environments_preflight(
     backend_url: str | None,
 ) -> None:
     """Run backend-owned preflight for one Environment version."""
-    from synth_ai.core.research.public import EnvironmentDigest, EnvironmentName
+    from synth_ai.sdk.research.public import EnvironmentDigest, EnvironmentName
 
     digest_value = EnvironmentDigest(manifest_digest) if manifest_digest is not None else None
     with _client(api_key, backend_url) as client:

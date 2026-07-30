@@ -2,24 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Generic, Mapping, TypeVar
+from typing import Mapping
 
 from synth_ai.core.contracts.json_value import JsonValue
-
-ItemT = TypeVar("ItemT")
 
 
 class PageCursor(str):
     """Opaque cursor returned by the backend."""
-
-
-@dataclass(frozen=True, slots=True)
-class Page(Generic[ItemT]):
-    """One immutable page of typed resources."""
-
-    items: tuple[ItemT, ...]
-    next_cursor: PageCursor | None = None
 
 
 def build_query_params(**values: JsonValue) -> dict[str, JsonValue]:
@@ -43,4 +32,4 @@ def extract_next_cursor(payload: Mapping[str, object]) -> PageCursor | None:
     return PageCursor(value.strip())
 
 
-__all__ = ["Page", "PageCursor", "build_query_params", "extract_next_cursor"]
+__all__ = ["PageCursor", "build_query_params", "extract_next_cursor"]

@@ -5,32 +5,32 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from synth_ai.core.research.contracts.smr_actor_models import normalize_actor_model_assignments
-from synth_ai.core.research.contracts.smr_agent_harnesses import coerce_smr_agent_harness
-from synth_ai.core.research.contracts.smr_agent_kinds import coerce_smr_agent_kind
-from synth_ai.core.research.contracts.smr_agent_models import coerce_smr_agent_model
-from synth_ai.core.research.contracts.smr_branching import SmrBranchMode, SmrRunBranchRequest
-from synth_ai.core.research.contracts.smr_credential_providers import (
+from synth_ai.mcp.research.registry import JSONDict
+from synth_ai.sdk.research.contracts.smr_actor_models import normalize_actor_model_assignments
+from synth_ai.sdk.research.contracts.smr_agent_harnesses import coerce_smr_agent_harness
+from synth_ai.sdk.research.contracts.smr_agent_kinds import coerce_smr_agent_kind
+from synth_ai.sdk.research.contracts.smr_agent_models import coerce_smr_agent_model
+from synth_ai.sdk.research.contracts.smr_branching import SmrBranchMode, SmrRunBranchRequest
+from synth_ai.sdk.research.contracts.smr_credential_providers import (
     coerce_smr_credential_provider,
 )
-from synth_ai.core.research.contracts.smr_evidence_obligations import (
+from synth_ai.sdk.research.contracts.smr_evidence_obligations import (
     EvidenceObligations,
     coerce_evidence_obligations,
 )
-from synth_ai.core.research.contracts.smr_funding_sources import coerce_smr_funding_source
-from synth_ai.core.research.contracts.smr_horizons import coerce_intended_horizon_hours
-from synth_ai.core.research.contracts.smr_host_kinds import coerce_smr_host_kind
-from synth_ai.core.research.contracts.smr_providers import (
+from synth_ai.sdk.research.contracts.smr_funding_sources import coerce_smr_funding_source
+from synth_ai.sdk.research.contracts.smr_horizons import coerce_intended_horizon_hours
+from synth_ai.sdk.research.contracts.smr_host_kinds import coerce_smr_host_kind
+from synth_ai.sdk.research.contracts.smr_providers import (
     coerce_provider_bindings,
     coerce_usage_limit,
 )
-from synth_ai.core.research.contracts.smr_roles import coerce_smr_role_bindings
-from synth_ai.core.research.contracts.smr_run_policy import coerce_smr_run_policy
-from synth_ai.core.research.contracts.smr_runbooks import coerce_smr_runbook_kind
-from synth_ai.core.research.contracts.smr_runnable_project import SmrRunnableProjectRequest
-from synth_ai.core.research.contracts.smr_work_modes import coerce_smr_work_mode
-from synth_ai.core.research.contracts.swarms import normalize_provider_selection
-from synth_ai.mcp.research.registry import JSONDict
+from synth_ai.sdk.research.contracts.smr_roles import coerce_smr_role_bindings
+from synth_ai.sdk.research.contracts.smr_run_policy import coerce_smr_run_policy
+from synth_ai.sdk.research.contracts.smr_runbooks import coerce_smr_runbook_kind
+from synth_ai.sdk.research.contracts.smr_runnable_project import SmrRunnableProjectRequest
+from synth_ai.sdk.research.contracts.smr_work_modes import coerce_smr_work_mode
+from synth_ai.sdk.research.contracts.swarms import normalize_provider_selection
 
 
 def require_string(payload: JSONDict, key: str) -> str:
@@ -96,41 +96,25 @@ def parse_branch_run_request(payload: JSONDict) -> SmrRunBranchRequest:
     )
 
 
-def require_smr_work_mode(payload: JSONDict, key: str) -> str:
-    value = require_string(payload, key)
-    work_mode = coerce_smr_work_mode(value, field_name=key)
-    if work_mode is None:
-        raise ValueError(f"'{key}' is required")
-    return work_mode.value
-
-
-def optional_smr_work_mode(payload: JSONDict, key: str) -> str | None:
+def optional_research_work_mode(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     work_mode = coerce_smr_work_mode(value, field_name=key)
     return work_mode.value if work_mode is not None else None
 
 
-def require_smr_host_kind(payload: JSONDict, key: str) -> str:
-    value = require_string(payload, key)
-    host_kind = coerce_smr_host_kind(value, field_name=key)
-    if host_kind is None:
-        raise ValueError(f"'{key}' is required")
-    return host_kind.value
-
-
-def optional_smr_host_kind(payload: JSONDict, key: str) -> str | None:
+def optional_research_host_kind(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     host_kind = coerce_smr_host_kind(value, field_name=key)
     return host_kind.value if host_kind is not None else None
 
 
-def optional_smr_runbook_kind(payload: JSONDict, key: str) -> str | None:
+def optional_research_runbook_kind(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     runbook = coerce_smr_runbook_kind(value, field_name=key)
     return runbook.value if runbook is not None else None
 
 
-def require_smr_credential_provider(payload: JSONDict, key: str) -> str:
+def require_research_credential_provider(payload: JSONDict, key: str) -> str:
     value = require_string(payload, key)
     provider = coerce_smr_credential_provider(value, field_name=key)
     if provider is None:
@@ -138,7 +122,7 @@ def require_smr_credential_provider(payload: JSONDict, key: str) -> str:
     return provider.value
 
 
-def require_smr_funding_source(payload: JSONDict, key: str) -> str:
+def require_research_funding_source(payload: JSONDict, key: str) -> str:
     value = require_string(payload, key)
     funding_source = coerce_smr_funding_source(value, field_name=key)
     if funding_source is None:
@@ -146,36 +130,31 @@ def require_smr_funding_source(payload: JSONDict, key: str) -> str:
     return funding_source.value
 
 
-def optional_smr_agent_model(payload: JSONDict, key: str) -> str | None:
+def optional_research_agent_model(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     model = coerce_smr_agent_model(value, field_name=key)
     return model.value if model is not None else None
 
 
-def optional_smr_agent_kind(payload: JSONDict, key: str) -> str | None:
+def optional_research_agent_kind(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     agent_kind = coerce_smr_agent_kind(value, field_name=key)
     return agent_kind.value if agent_kind is not None else None
 
 
-def optional_smr_agent_harness(payload: JSONDict, key: str) -> str | None:
+def optional_research_agent_harness(payload: JSONDict, key: str) -> str | None:
     value = optional_string(payload, key)
     agent_harness = coerce_smr_agent_harness(value, field_name=key)
     return agent_harness.value if agent_harness is not None else None
 
 
-def optional_smr_run_policy(payload: JSONDict, key: str) -> dict[str, Any] | None:
+def optional_research_run_policy(payload: JSONDict, key: str) -> dict[str, Any] | None:
     value = payload.get(key)
     if value is None:
         return None
     if not isinstance(value, dict):
         raise ValueError(f"'{key}' must be an object when provided")
     return coerce_smr_run_policy(value, field_name=key)
-
-
-def require_provider_bindings(payload: JSONDict, key: str) -> list[dict[str, Any]]:
-    value = payload.get(key)
-    return [binding.to_wire() for binding in coerce_provider_bindings(value, field_name=key)]
 
 
 def optional_provider_bindings(payload: JSONDict, key: str) -> list[dict[str, Any]] | None:
@@ -361,8 +340,8 @@ class ProviderKeyRequest:
     def from_payload(cls, payload: JSONDict) -> ProviderKeyRequest:
         return cls(
             project_id=require_string(payload, "project_id"),
-            provider=require_smr_credential_provider(payload, "provider"),
-            funding_source=require_smr_funding_source(payload, "funding_source"),
+            provider=require_research_credential_provider(payload, "provider"),
+            funding_source=require_research_funding_source(payload, "funding_source"),
             api_key=optional_string(payload, "api_key"),
             encrypted_key_b64=optional_string(payload, "encrypted_key_b64"),
         )
@@ -423,9 +402,9 @@ class RunLaunchRequest:
             runbook_preset=runbook_preset,
             runbook_config_id=runbook_config_id,
         )
-        host_kind = optional_smr_host_kind(payload, "host_kind")
-        work_mode = optional_smr_work_mode(payload, "work_mode")
-        mode = optional_smr_work_mode(payload, "mode")
+        host_kind = optional_research_host_kind(payload, "host_kind")
+        work_mode = optional_research_work_mode(payload, "work_mode")
+        mode = optional_research_work_mode(payload, "mode")
         if work_mode is not None and mode is not None and work_mode != mode:
             raise ValueError("work_mode and mode must match when both are provided")
         work_mode = work_mode or mode
@@ -449,16 +428,16 @@ class RunLaunchRequest:
             providers=providers,
             provider=_provider_selection(payload),
             objective=optional_string(payload, "objective"),
-            runbook=optional_smr_runbook_kind(payload, "runbook"),
+            runbook=optional_research_runbook_kind(payload, "runbook"),
             runbook_preset=runbook_preset,
             runbook_config_id=runbook_config_id,
             limit=optional_usage_limit(payload, "limit"),
             worker_pool_id=optional_string(payload, "worker_pool_id"),
             timebox_seconds=optional_int(payload, "timebox_seconds"),
             agent_profile=optional_string(payload, "agent_profile"),
-            agent_model=optional_smr_agent_model(payload, "agent_model"),
-            agent_harness=optional_smr_agent_harness(payload, "agent_harness"),
-            agent_kind=optional_smr_agent_kind(payload, "agent_kind"),
+            agent_model=optional_research_agent_model(payload, "agent_model"),
+            agent_harness=optional_research_agent_harness(payload, "agent_harness"),
+            agent_kind=optional_research_agent_kind(payload, "agent_kind"),
             agent_model_params=_optional_object(payload, "agent_model_params"),
             actor_model_overrides=optional_actor_model_assignments(
                 payload, "actor_model_overrides"
@@ -471,7 +450,7 @@ class RunLaunchRequest:
             dev_environment_id=optional_string(payload, "dev_environment_id"),
             local_execution=_optional_object(payload, "local_execution"),
             execution_profile=_optional_object(payload, "execution_profile"),
-            run_policy=optional_smr_run_policy(payload, "run_policy"),
+            run_policy=optional_research_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
             evidence_obligations=optional_evidence_obligations(payload),
@@ -590,9 +569,9 @@ class OneOffRunLaunchRequest:
             runbook_preset=runbook_preset,
             runbook_config_id=runbook_config_id,
         )
-        host_kind = optional_smr_host_kind(payload, "host_kind")
-        work_mode = optional_smr_work_mode(payload, "work_mode")
-        mode = optional_smr_work_mode(payload, "mode")
+        host_kind = optional_research_host_kind(payload, "host_kind")
+        work_mode = optional_research_work_mode(payload, "work_mode")
+        mode = optional_research_work_mode(payload, "mode")
         if work_mode is not None and mode is not None and work_mode != mode:
             raise ValueError("work_mode and mode must match when both are provided")
         work_mode = work_mode or mode
@@ -615,16 +594,16 @@ class OneOffRunLaunchRequest:
             providers=providers,
             provider=_provider_selection(payload),
             objective=optional_string(payload, "objective"),
-            runbook=optional_smr_runbook_kind(payload, "runbook"),
+            runbook=optional_research_runbook_kind(payload, "runbook"),
             runbook_preset=runbook_preset,
             runbook_config_id=runbook_config_id,
             limit=optional_usage_limit(payload, "limit"),
             worker_pool_id=optional_string(payload, "worker_pool_id"),
             timebox_seconds=optional_int(payload, "timebox_seconds"),
             agent_profile=optional_string(payload, "agent_profile"),
-            agent_model=optional_smr_agent_model(payload, "agent_model"),
-            agent_harness=optional_smr_agent_harness(payload, "agent_harness"),
-            agent_kind=optional_smr_agent_kind(payload, "agent_kind"),
+            agent_model=optional_research_agent_model(payload, "agent_model"),
+            agent_harness=optional_research_agent_harness(payload, "agent_harness"),
+            agent_kind=optional_research_agent_kind(payload, "agent_kind"),
             agent_model_params=_optional_object(payload, "agent_model_params"),
             actor_model_overrides=optional_actor_model_assignments(
                 payload, "actor_model_overrides"
@@ -637,7 +616,7 @@ class OneOffRunLaunchRequest:
             dev_environment_id=optional_string(payload, "dev_environment_id"),
             local_execution=_optional_object(payload, "local_execution"),
             execution_profile=_optional_object(payload, "execution_profile"),
-            run_policy=optional_smr_run_policy(payload, "run_policy"),
+            run_policy=optional_research_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
             evidence_obligations=optional_evidence_obligations(payload),

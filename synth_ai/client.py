@@ -3,30 +3,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
-from synth_ai.sdk import (
-    AsyncContainerPoolsClient,
-    AsyncContainersClient,
-    AsyncHorizonsPrivateClient,
-    AsyncManagedAgentsAnthropicClient,
-    AsyncOpenAIAgentsSdkClient,
-    AsyncSynthManagedAgents,
-    AsyncTunnelsClient,
-    ContainerPoolsClient,
-    ContainersClient,
-    HorizonsPrivateClient,
-    ManagedAgentsAnthropicClient,
-    OpenAIAgentsSdkClient,
-    SynthManagedAgents,
-    TunnelsClient,
-)
 
 if TYPE_CHECKING:
-    from synth_ai.core.research import AsyncResearchClient
-    from synth_ai.core.research.facade import ResearchClient
+    from synth_ai.sdk.research import AsyncResearchClient
+    from synth_ai.sdk.research.facade import ResearchClient
 
 
 def _resolve_api_key(api_key: str | None) -> str:
@@ -38,10 +22,10 @@ def _resolve_base_url(base_url: str | None) -> str:
 
 
 class SynthClient:
-    """Sync client for containers, tunnels, pools, and Managed Research.
+    """Sync client for Managed Research.
 
-    Use ``research`` for hosted projects, swarms, and Factory lifecycles.
-    Infrastructure namespaces: ``containers``, ``tunnels``, ``pools``.
+    Use ``research`` for hosted projects, swarms, and Factory lifecycles. That
+    is the whole client: there is no container, tunnel, or pool namespace.
     """
 
     def __init__(
@@ -49,79 +33,31 @@ class SynthClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float = 30.0,
+        timeout_seconds: float = 30.0,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
-        self.timeout = timeout
-        self.containers = ContainersClient(
-            api_key=self.api_key,
-            backend_base=self.base_url,
-            timeout_seconds=self.timeout,
-        )
-        self.tunnels = TunnelsClient(
-            api_key=self.api_key,
-            backend_base=self.base_url,
-            timeout=self.timeout,
-        )
-        self.pools = ContainerPoolsClient(
-            api_key=self.api_key,
-            backend_base=self.base_url,
-            timeout=self.timeout,
-        )
+        self.timeout_seconds = timeout_seconds
         self._research_client: ResearchClient | None = None
-        self._horizons_private: HorizonsPrivateClient | None = None
-
-    def __getattr__(self, name: str) -> Any:
-        if name == "horizons_private":
-            warnings.warn(
-                "SynthClient.horizons_private is deprecated; use client.pools.rollouts instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if self._horizons_private is None:
-                self._horizons_private = HorizonsPrivateClient(self.pools)
-            return self._horizons_private
-        if name == "managed_agents":
-            raise AttributeError(
-                "SynthClient.managed_agents was retired with the backend managed-agents "
-                "proxy. Use ManagedAgentsAnthropicClient.from_horizons_private() only "
-                "with an explicit Horizons Private base URL and credential."
-            )
-        if name == "managed_agents_anthropic":
-            raise AttributeError(
-                "SynthClient.managed_agents_anthropic was retired with the backend "
-                "managed-agents proxy. Use SynthManagedAgents.from_horizons_private() "
-                "only with an explicit Horizons Private base URL and credential."
-            )
-        if name == "openai_agents_sdk":
-            raise AttributeError(
-                "SynthClient.openai_agents_sdk was retired with the backend managed-agents "
-                "proxy. Use OpenAIAgentsSdkClient.from_horizons_private() only with an "
-                "explicit Horizons Private base URL and credential."
-            )
-        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @property
     def research(self) -> ResearchClient:
         """Research hero namespace (projects, swarms, and factories)."""
         if self._research_client is None:
-            from synth_ai.core.research.facade import ResearchClient
+            from synth_ai.sdk.research.facade import ResearchClient
 
             self._research_client = ResearchClient(
                 api_key=self.api_key,
                 base_url=self.base_url,
-                timeout_seconds=self.timeout,
+                timeout_seconds=self.timeout_seconds,
             )
         return self._research_client
 
     def close(self) -> None:
-        """Close all lazily or eagerly opened SDK transports."""
-        self.containers.close()
-        self.tunnels.close()
-        self.pools.close()
+        """Close all lazily opened SDK transports."""
         if self._research_client is not None:
             self._research_client.close()
+            self._research_client = None
 
     def __enter__(self) -> SynthClient:
         return self
@@ -131,85 +67,30 @@ class SynthClient:
 
 
 class AsyncSynthClient:
-    """Async client for containers, tunnels, pools, and compat surfaces."""
+    """Async client for Managed Research."""
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float = 30.0,
+        timeout_seconds: float = 30.0,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
-        self.timeout = timeout
-        self.containers = AsyncContainersClient(
-            ContainersClient(
-                api_key=self.api_key,
-                backend_base=self.base_url,
-                timeout_seconds=self.timeout,
-            )
-        )
-        self.tunnels = AsyncTunnelsClient(
-            api_key=self.api_key,
-            backend_base=self.base_url,
-            timeout=self.timeout,
-        )
-        self.pools = AsyncContainerPoolsClient(
-            ContainerPoolsClient(
-                api_key=self.api_key,
-                backend_base=self.base_url,
-                timeout=self.timeout,
-            )
-        )
-        self._pools_sync = self.pools._sync_obj
+        self.timeout_seconds = timeout_seconds
         self._async_research_client: AsyncResearchClient | None = None
-        self._horizons_private: AsyncHorizonsPrivateClient | None = None
-
-    def __getattr__(self, name: str) -> Any:
-        if name == "horizons_private":
-            warnings.warn(
-                "AsyncSynthClient.horizons_private is deprecated; use client.pools.rollouts instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if self._horizons_private is None:
-                self._horizons_private = AsyncHorizonsPrivateClient(
-                    HorizonsPrivateClient(self._pools_sync)
-                )
-            return self._horizons_private
-        if name == "managed_agents":
-            raise AttributeError(
-                "AsyncSynthClient.managed_agents was retired with the backend managed-agents "
-                "proxy. Build AsyncManagedAgentsAnthropicClient around "
-                "ManagedAgentsAnthropicClient.from_horizons_private() with an explicit "
-                "Horizons Private base URL and credential."
-            )
-        if name == "managed_agents_anthropic":
-            raise AttributeError(
-                "AsyncSynthClient.managed_agents_anthropic was retired with the backend "
-                "managed-agents proxy. Use AsyncSynthManagedAgents.from_horizons_private() "
-                "only with an explicit Horizons Private base URL and credential."
-            )
-        if name == "openai_agents_sdk":
-            raise AttributeError(
-                "AsyncSynthClient.openai_agents_sdk was retired with the backend "
-                "managed-agents proxy. Build AsyncOpenAIAgentsSdkClient around "
-                "OpenAIAgentsSdkClient.from_horizons_private() with an explicit Horizons "
-                "Private base URL and credential."
-            )
-        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @property
     def research(self) -> AsyncResearchClient:
         """Native asynchronous Research namespace."""
         if self._async_research_client is None:
-            from synth_ai.core.research import AsyncResearchClient
+            from synth_ai.sdk.research import AsyncResearchClient
 
             self._async_research_client = AsyncResearchClient(
                 api_key=self.api_key,
                 base_url=self.base_url,
-                timeout_seconds=self.timeout,
+                timeout_seconds=self.timeout_seconds,
             )
         return self._async_research_client
 
@@ -224,12 +105,10 @@ class AsyncSynthClient:
         return self.research
 
     async def close(self) -> None:
-        """Close all asynchronous and wrapped infrastructure transports."""
-        await self.containers.close()
-        await self.tunnels.close()
-        await self.pools.close()
+        """Close all asynchronous Research transports."""
         if self._async_research_client is not None:
             await self._async_research_client.close()
+            self._async_research_client = None
 
     async def __aenter__(self) -> AsyncSynthClient:
         return self
@@ -244,20 +123,6 @@ class AsyncSynthClient:
 
 
 __all__ = [
-    "AsyncContainerPoolsClient",
-    "AsyncContainersClient",
-    "AsyncHorizonsPrivateClient",
-    "AsyncManagedAgentsAnthropicClient",
-    "AsyncOpenAIAgentsSdkClient",
     "AsyncSynthClient",
-    "AsyncSynthManagedAgents",
-    "AsyncTunnelsClient",
-    "ContainerPoolsClient",
-    "ContainersClient",
-    "HorizonsPrivateClient",
-    "ManagedAgentsAnthropicClient",
-    "OpenAIAgentsSdkClient",
     "SynthClient",
-    "SynthManagedAgents",
-    "TunnelsClient",
 ]

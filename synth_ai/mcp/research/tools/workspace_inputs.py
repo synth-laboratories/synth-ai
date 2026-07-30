@@ -4,17 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.common import ProjectId
-from synth_ai.core.research.contracts.workspaces import (
-    WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
-    WorkspaceFileEncoding,
-    WorkspaceFileKind,
-    WorkspaceFilesBatchUploadRequest,
-    WorkspaceFileUpload,
-    WorkspaceMetadata,
-    WorkspaceSourceRepositorySpec,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -23,6 +12,17 @@ from synth_ai.mcp.research.registry import (
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import optional_string, require_string
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.common import ProjectId
+from synth_ai.sdk.research.contracts.workspaces import (
+    WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
+    WorkspaceFileEncoding,
+    WorkspaceFileKind,
+    WorkspaceFilesBatchUploadRequest,
+    WorkspaceFileUpload,
+    WorkspaceMetadata,
+    WorkspaceSourceRepositorySpec,
+)
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 
@@ -107,7 +107,7 @@ def build_workspace_input_tools(
 
     return [
         ToolDefinition(
-            name="smr_attach_source_repo",
+            name="research_attach_source_repo",
             description=(
                 "Set the public source repository used to bootstrap one Research project workspace."
             ),
@@ -137,7 +137,7 @@ def build_workspace_input_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_workspace_inputs",
+            name="research_get_workspace_inputs",
             description="Fetch the typed workspace bootstrap inputs for a project.",
             input_schema=tool_schema(
                 {
@@ -152,7 +152,7 @@ def build_workspace_input_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_upload_workspace_files",
+            name="research_upload_workspace_files",
             description=(
                 "Upload up to 10,000 project workspace files in deterministic, "
                 "retry-safe batches and return the complete ordered receipt."

@@ -15,14 +15,14 @@ from synth_ai.mcp.research.registry import (
 def build_integration_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_setup_github_status",
+            name="research_setup_github_status",
             description="Get the authenticated org's GitHub integration status.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_setup_github_status,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_setup_github_start_oauth",
+            name="research_setup_github_start_oauth",
             description="Start GitHub OAuth setup for the authenticated org.",
             input_schema=tool_schema(
                 {"redirect_uri": {"type": "string"}},
@@ -32,7 +32,7 @@ def build_integration_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_setup_github_list_repos",
+            name="research_setup_github_list_repos",
             description="List GitHub repositories available to the authenticated org.",
             input_schema=tool_schema(
                 {
@@ -45,7 +45,7 @@ def build_integration_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_setup_github_disconnect",
+            name="research_setup_github_disconnect",
             description="Disconnect the authenticated org's GitHub integration.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_setup_github_disconnect,

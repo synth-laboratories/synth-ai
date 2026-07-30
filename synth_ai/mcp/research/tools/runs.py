@@ -4,28 +4,28 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research.contracts.run_control import ManagedResearchActorControlAction
-from synth_ai.core.research.contracts.runtime_intent import (
+from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
+from synth_ai.mcp.research.tools.policy_schemas import run_policy_input_schema
+from synth_ai.sdk.research.contracts.run_control import ManagedResearchActorControlAction
+from synth_ai.sdk.research.contracts.runtime_intent import (
     RuntimeIntentKind,
     RuntimeIntentStatus,
     RuntimeMessageMode,
 )
-from synth_ai.core.research.contracts.smr_actor_models import (
+from synth_ai.sdk.research.contracts.smr_actor_models import (
     SMR_ACTOR_SUBTYPE_VALUES,
     SMR_ACTOR_TYPE_VALUES,
 )
-from synth_ai.core.research.contracts.smr_agent_kinds import SMR_AGENT_KIND_VALUES
-from synth_ai.core.research.contracts.smr_agent_models import SMR_AGENT_MODEL_VALUES
-from synth_ai.core.research.contracts.smr_evidence_obligations import (
+from synth_ai.sdk.research.contracts.smr_agent_kinds import SMR_AGENT_KIND_VALUES
+from synth_ai.sdk.research.contracts.smr_agent_models import SMR_AGENT_MODEL_VALUES
+from synth_ai.sdk.research.contracts.smr_evidence_obligations import (
     EVIDENCE_OBLIGATION_KIND_VALUES,
     EVIDENCE_OBLIGATIONS_SCHEMA,
 )
-from synth_ai.core.research.contracts.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
-from synth_ai.core.research.contracts.smr_host_kinds import SMR_HOST_KIND_VALUES
-from synth_ai.core.research.contracts.smr_providers import PROVIDER_VALUES
-from synth_ai.core.research.contracts.smr_work_modes import SMR_WORK_MODE_VALUES
-from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
-from synth_ai.mcp.research.tools.smr_policy_schemas import run_policy_input_schema
+from synth_ai.sdk.research.contracts.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
+from synth_ai.sdk.research.contracts.smr_host_kinds import SMR_HOST_KIND_VALUES
+from synth_ai.sdk.research.contracts.smr_providers import PROVIDER_VALUES
+from synth_ai.sdk.research.contracts.smr_work_modes import SMR_WORK_MODE_VALUES
 
 # Actor model overrides are local-only. Hosted launches resolve actor profiles on
 # the platform and reject these fields with 422 model_overrides_not_supported_on_hosted.
@@ -270,7 +270,7 @@ def _objective_launch_properties() -> dict[str, Any]:
 def build_run_tools(server: Any) -> list[ToolDefinition]:
     tools = [
         ToolDefinition(
-            name="smr_start_run",
+            name="research_start_run",
             description=(
                 "Start a Managed Research run with product launch fields. Omit "
                 "project_id to use the caller's default Miscellaneous project."
@@ -314,7 +314,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_start_run,
         ),
         ToolDefinition(
-            name="smr_get_launch_preflight_in_dev_environment",
+            name="research_get_launch_preflight_in_dev_environment",
             description=(
                 "Preflight a project-scoped Managed Research run inside an existing "
                 "Daytona DevEnvironment. Requires project_id and dev_environment_id; "
@@ -421,7 +421,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_launch_preflight_in_dev_environment,
         ),
         ToolDefinition(
-            name="smr_start_run_in_dev_environment",
+            name="research_start_run_in_dev_environment",
             description=(
                 "Start a project-scoped Managed Research run inside an existing "
                 "Daytona DevEnvironment. Requires project_id and dev_environment_id; "
@@ -533,7 +533,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_start_run_in_dev_environment,
         ),
         ToolDefinition(
-            name="smr_trigger_run",
+            name="research_trigger_run",
             description=(
                 "Trigger a managed research run. Omit project_id to use the "
                 "caller's default Miscellaneous project."
@@ -669,7 +669,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_trigger_run,
         ),
         ToolDefinition(
-            name="smr_start_one_off_run",
+            name="research_start_one_off_run",
             description=(
                 "Trigger a one-off managed research run using the caller's default "
                 "Miscellaneous project."
@@ -798,7 +798,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_start_one_off_run,
         ),
         ToolDefinition(
-            name="smr_list_runs",
+            name="research_list_runs",
             description="List runs for a project.",
             input_schema=tool_schema(
                 {
@@ -815,7 +815,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_runs,
         ),
         ToolDefinition(
-            name="smr_get_run",
+            name="research_get_run",
             description="Fetch a run by id.",
             input_schema=tool_schema(
                 {
@@ -830,7 +830,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run,
         ),
         ToolDefinition(
-            name="smr_get_swarm_configuration",
+            name="research_get_swarm_configuration",
             description=(
                 "Fetch the immutable, versioned, secret-redacted configuration "
                 "snapshot durably bound to a Research swarm."
@@ -847,7 +847,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_configuration,
         ),
         ToolDefinition(
-            name="smr_get_swarm_activity",
+            name="research_get_swarm_activity",
             description=(
                 "Fetch one bounded, typed snapshot of swarm actors, tasks, "
                 "messages, events, and WorkProduct references."
@@ -877,7 +877,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_activity,
         ),
         ToolDefinition(
-            name="smr_get_swarm_usage",
+            name="research_get_swarm_usage",
             description=(
                 "Fetch exact money, token, actor-attribution, and freshness "
                 "evidence for a Research swarm."
@@ -894,7 +894,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_usage,
         ),
         ToolDefinition(
-            name="smr_get_swarm_evidence",
+            name="research_get_swarm_evidence",
             description=(
                 "Fetch the durable artifact and WorkProduct evidence index for a Research swarm."
             ),
@@ -910,7 +910,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_evidence,
         ),
         ToolDefinition(
-            name="smr_get_swarm_status",
+            name="research_get_swarm_status",
             description=(
                 "Fetch the cheap authoritative swarm status projection: state, "
                 "liveness, terminal/finalization/recovery, progress, issues, "
@@ -928,7 +928,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_status,
         ),
         ToolDefinition(
-            name="smr_get_swarm_workspace_archive",
+            name="research_get_swarm_workspace_archive",
             description=("Download the run-owned workspace archive as base64 gzip bytes."),
             input_schema=tool_schema(
                 {
@@ -942,7 +942,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_workspace_archive,
         ),
         ToolDefinition(
-            name="smr_get_run_contract",
+            name="research_get_run_contract",
             description=(
                 "Fetch the strict run_contract for a run. Use this for terminality, "
                 "finalization, recovery, incident, artifact, and lifecycle-invariant status."
@@ -960,7 +960,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_contract,
         ),
         ToolDefinition(
-            name="smr_get_run_execution",
+            name="research_get_run_execution",
             description=(
                 "Read the high-level execution projection for a run: actors, "
                 "tasks/objectives, participant messages, timeline events, and output refs. "
@@ -1007,7 +1007,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_execution,
         ),
         ToolDefinition(
-            name="smr_list_run_task_events",
+            name="research_list_run_task_events",
             description=(
                 "List backend-owned task lifecycle events for a run. Use this for "
                 "normal task inspection before falling back to raw timelines or "
@@ -1025,7 +1025,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_task_events,
         ),
         ToolDefinition(
-            name="smr_list_run_objective_events",
+            name="research_list_run_objective_events",
             description=(
                 "List backend-owned objective lifecycle events for a run. Use this "
                 "for OEQ/DEO progress and review inspection before raw evidence."
@@ -1042,7 +1042,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_objective_events,
         ),
         ToolDefinition(
-            name="smr_get_run_work_graph",
+            name="research_get_run_work_graph",
             description=(
                 "Fetch the run work graph bundle: execution summary, task events, "
                 "and objective events."
@@ -1058,7 +1058,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_work_graph,
         ),
         ToolDefinition(
-            name="smr_list_tasks",
+            name="research_list_tasks",
             description="List task views for a run or objective.",
             input_schema=tool_schema(
                 {
@@ -1080,7 +1080,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_tasks,
         ),
         ToolDefinition(
-            name="smr_create_task",
+            name="research_create_task",
             description="Create or plan a task through the product task wrapper.",
             input_schema=tool_schema(
                 {
@@ -1095,7 +1095,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_task,
         ),
         ToolDefinition(
-            name="smr_update_task",
+            name="research_update_task",
             description="Update a task through the product task wrapper.",
             input_schema=tool_schema(
                 {
@@ -1111,7 +1111,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_update_task,
         ),
         ToolDefinition(
-            name="smr_cancel_task",
+            name="research_cancel_task",
             description="Stop a task through the product task wrapper.",
             input_schema=tool_schema(
                 {
@@ -1127,7 +1127,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_cancel_task,
         ),
         ToolDefinition(
-            name="smr_reassign_task",
+            name="research_reassign_task",
             description="Reassign a task through the product task wrapper.",
             input_schema=tool_schema(
                 {
@@ -1143,7 +1143,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_reassign_task,
         ),
         ToolDefinition(
-            name="smr_get_run_logical_timeline",
+            name="research_get_run_logical_timeline",
             description=(
                 "Read the operator-facing logical timeline for a run. "
                 "Use this for actors, checkpoints, branch provenance, and queue "
@@ -1159,7 +1159,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_logical_timeline,
         ),
         ToolDefinition(
-            name="smr_get_run_event_log",
+            name="research_get_run_event_log",
             description=(
                 "Read the typed run event log for a project-scoped run, with optional "
                 "source, kind, status, and limit filters."
@@ -1194,7 +1194,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_event_log,
         ),
         ToolDefinition(
-            name="smr_get_run_authority_readouts",
+            name="research_get_run_authority_readouts",
             description=(
                 "Read backend-owned authority/readout projections for a run. "
                 "Set include_runtime_authority only when privileged runtime-authority detail is needed."
@@ -1216,7 +1216,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_authority_readouts,
         ),
         ToolDefinition(
-            name="smr_get_run_operator_evidence",
+            name="research_get_run_operator_evidence",
             description=(
                 "Read the bundled operator evidence for a project-scoped run, "
                 "including runtime/logical timelines, transcript slices, and reconciliation evidence."
@@ -1251,7 +1251,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_operator_evidence,
         ),
         ToolDefinition(
-            name="smr_get_run_traces",
+            name="research_get_run_traces",
             description=(
                 "Read persisted run traces for a run. "
                 "Use this to inspect or download session-backed Codex traces and other persisted operator-facing trace artifacts."
@@ -1269,7 +1269,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_traces,
         ),
         ToolDefinition(
-            name="smr_get_run_actor_trace",
+            name="research_get_run_actor_trace",
             description=(
                 "Read privileged actor-scoped trace activity for one run actor. "
                 "Returns persisted transcript events, optional live transcript events "
@@ -1313,7 +1313,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_actor_trace,
         ),
         ToolDefinition(
-            name="smr_list_run_actor_traces",
+            name="research_list_run_actor_traces",
             description=(
                 "List privileged actor trace subjects for a run, or list raw trace "
                 "artifacts for one actor when actor_key is supplied. This is the "
@@ -1336,7 +1336,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_actor_traces,
         ),
         ToolDefinition(
-            name="smr_get_raw_trace_events",
+            name="research_get_raw_trace_events",
             description=(
                 "Page raw trace events for a privileged run trace artifact. Defaults "
                 "to summary redaction; use safe for short excerpts or raw only when "
@@ -1390,7 +1390,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_raw_trace_events,
         ),
         ToolDefinition(
-            name="smr_download_raw_trace",
+            name="research_download_raw_trace",
             description=(
                 "Create a short-lived privileged raw trace download URL, or download "
                 "it to destination. Requires confirm_raw_download=true so large or "
@@ -1430,7 +1430,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_download_raw_trace,
         ),
         ToolDefinition(
-            name="smr_get_run_actor_usage",
+            name="research_get_run_actor_usage",
             description=(
                 "Read actor-centric usage for a run. "
                 "Use this for truthful per-actor spend, provider, and model activity rather than guessing from worker config."
@@ -1448,7 +1448,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_actor_usage,
         ),
         ToolDefinition(
-            name="smr_control_project_run_actor",
+            name="research_control_project_run_actor",
             description=(
                 "Pause or resume one actor inside a project-scoped run. "
                 "This is operator control, not project-truth promotion."
@@ -1480,7 +1480,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_control_project_run_actor,
         ),
         ToolDefinition(
-            name="smr_list_run_participants",
+            name="research_list_run_participants",
             description=(
                 "List participant sessions for a run from actor/session records, including whether usage recording is present or missing."
             ),
@@ -1497,7 +1497,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_participants,
         ),
         ToolDefinition(
-            name="smr_get_run_artifact_progress",
+            name="research_get_run_artifact_progress",
             description="Read live required/optional artifact progress for a run.",
             input_schema=tool_schema(
                 {
@@ -1512,7 +1512,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_artifact_progress,
         ),
         ToolDefinition(
-            name="smr_list_run_actor_logs",
+            name="research_list_run_actor_logs",
             description="List redacted exec stdout/stderr actor log events for a run.",
             input_schema=tool_schema(
                 {
@@ -1536,7 +1536,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_actor_logs,
         ),
         ToolDefinition(
-            name="smr_stop_run",
+            name="research_stop_run",
             description=(
                 "Stop a queued or running run. Response includes "
                 "`control_intent_id` and `control_intent_ack_at` so a replay "
@@ -1555,7 +1555,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_stop_run,
         ),
         ToolDefinition(
-            name="smr_pause_run",
+            name="research_pause_run",
             description=(
                 "Pause a live run without stopping it. Response includes "
                 "`control_intent_id` and `control_intent_ack_at` for "
@@ -1574,7 +1574,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_pause_run,
         ),
         ToolDefinition(
-            name="smr_resume_run",
+            name="research_resume_run",
             description=(
                 "Resume a paused run. Response includes `control_intent_id` "
                 "and `control_intent_ack_at` for idempotent replay correlation."
@@ -1592,7 +1592,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_resume_run,
         ),
         ToolDefinition(
-            name="smr_branch_run_from_checkpoint",
+            name="research_branch_run_from_checkpoint",
             description=(
                 "Create a child run from a checkpoint. "
                 "Use mode=exact for a pure branch and mode=with_message to seed the child with one bootstrap message."
@@ -1637,7 +1637,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_branch_run_from_checkpoint,
         ),
         ToolDefinition(
-            name="smr_runtime_message_queue",
+            name="research_runtime_message_queue",
             description=(
                 "List or enqueue durable runtime messages for a run. "
                 "Use operation=list for inspection and operation=enqueue for live operator steering. "
@@ -1704,7 +1704,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_runtime_message_queue,
         ),
         ToolDefinition(
-            name="smr_list_messages",
+            name="research_list_messages",
             description="List product-level message queue messages for a run.",
             input_schema=tool_schema(
                 {
@@ -1718,7 +1718,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_messages,
         ),
         ToolDefinition(
-            name="smr_send_message",
+            name="research_send_message",
             description="Send a product-level message queue message to a run.",
             input_schema=tool_schema(
                 {
@@ -1751,7 +1751,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_send_message,
         ),
         ToolDefinition(
-            name="smr_edit_message",
+            name="research_edit_message",
             description="Edit a product-level message queue message for a run.",
             input_schema=tool_schema(
                 {
@@ -1766,7 +1766,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_edit_message,
         ),
         ToolDefinition(
-            name="smr_retract_message",
+            name="research_retract_message",
             description="Retract a product-level message queue message for a run.",
             input_schema=tool_schema(
                 {
@@ -1779,7 +1779,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_retract_message,
         ),
         ToolDefinition(
-            name="smr_runtime_intents",
+            name="research_runtime_intents",
             description=(
                 "Submit, list, or get typed runtime intents for operator steering. "
                 "Use this for approvals, questions, task/run state changes, spend records, "
@@ -1843,7 +1843,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_runtime_intents,
         ),
         ToolDefinition(
-            name="smr_list_active_runs",
+            name="research_list_active_runs",
             description="List active runs for a project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -1852,7 +1852,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_active_runs,
         ),
         ToolDefinition(
-            name="smr_get_run_transcript",
+            name="research_get_run_transcript",
             description=(
                 "Fetch transcript events for a run — what the agent said, did, and "
                 "produced, in chronological order. Returns one page of events with "
@@ -1887,7 +1887,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_transcript,
         ),
         ToolDefinition(
-            name="smr_watch_run_events",
+            name="research_watch_run_events",
             description=(
                 "Read a bounded batch from the live run SSE stream. Returns typed "
                 "snapshot/transcript events, including backend-redacted reasoning "
@@ -1924,7 +1924,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_watch_run_events,
         ),
         ToolDefinition(
-            name="smr_list_run_questions",
+            name="research_list_run_questions",
             description="List pending or historical questions for a run.",
             input_schema=tool_schema(
                 {
@@ -1944,7 +1944,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_questions,
         ),
         ToolDefinition(
-            name="smr_create_run_checkpoint",
+            name="research_create_run_checkpoint",
             description="Request a run checkpoint.",
             input_schema=tool_schema(
                 {
@@ -1964,7 +1964,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_run_checkpoint,
         ),
         ToolDefinition(
-            name="smr_list_run_checkpoints",
+            name="research_list_run_checkpoints",
             description=(
                 "List checkpoints for a run, including restorable/branchable flags "
                 "and any recoverable checkpoint quota failure details."
@@ -1982,10 +1982,10 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_checkpoints,
         ),
         ToolDefinition(
-            name="smr_restore_run_checkpoint",
+            name="research_restore_run_checkpoint",
             description=(
                 "Restore a run to a restorable checkpoint. "
-                "Use smr_branch_run_from_checkpoint for child-run branching; "
+                "Use research_branch_run_from_checkpoint for child-run branching; "
                 "checkpoint quota failures return a structured error with operator_action."
             ),
             input_schema=tool_schema(
@@ -2021,7 +2021,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_restore_run_checkpoint,
         ),
         ToolDefinition(
-            name="smr_list_runs_by_effort",
+            name="research_list_runs_by_effort",
             description=(
                 "List runs linked to a Factory Effort by effort_id. This is the "
                 "reverse index over runs that carry effort_id."
