@@ -2942,6 +2942,8 @@ paths:
           - enum:
             - gepa
             - go-ex
+            - mapo
+            - online-reflexion
             type: string
           - type: 'null'
           title: Algorithm
@@ -4222,6 +4224,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrAgentModelsResponse'
+  /smr/usage-source-providers:
+    get:
+      tags:
+      - smr
+      summary: Get Usage Source Providers
+      operationId: get_usage_source_providers_smr_usage_source_providers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrUsageSourceProvidersResponse'
   /smr/limits:
     get:
       tags:
@@ -17509,6 +17524,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/eval-datasets/{eval_slug}/prepare:
+    post:
+      tags:
+      - smr
+      - eval-datasets
+      summary: Prepare Eval Dataset
+      operationId: prepare_eval_dataset_smr_eval_datasets__eval_slug__prepare_post
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Prepare Eval Dataset Smr Eval Datasets  Eval Slug  Prepare
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/eval-datasets/{eval_slug}/finalize:
+    post:
+      tags:
+      - smr
+      - eval-datasets
+      summary: Finalize Eval Dataset
+      operationId: finalize_eval_dataset_smr_eval_datasets__eval_slug__finalize_post
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Finalize Eval Dataset Smr Eval Datasets  Eval Slug  Finalize
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects/{project_id}/runs/{run_id}/objectives:
     get:
       tags:
@@ -30760,6 +30847,71 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /public/v1/eval-datasets/{eval_slug}:
+    get:
+      tags:
+      - public
+      - eval-datasets
+      summary: Get Public Eval Dataset
+      description: "Return the live manifest for an eval.\n\n``X-Synth-Eval-Asset-Base``\
+        \ names the backend asset route prefix the\nfrontend should call next \u2014\
+        \ never a storage URL."
+      operationId: get_public_eval_dataset_public_v1_eval_datasets__eval_slug__get
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /public/v1/eval-datasets/{eval_slug}/assets/{logical_path}:
+    get:
+      tags:
+      - public
+      - eval-datasets
+      summary: Get Public Eval Dataset Asset
+      description: "One published file, resolved through the manifest.\n\nThe browser\
+        \ hits this route. The handler fetches from private object\nstorage with server\
+        \ credentials. The request names a logical path only \u2014\nnever a storage\
+        \ key."
+      operationId: get_public_eval_dataset_asset_public_v1_eval_datasets__eval_slug__assets__logical_path__get
+      parameters:
+      - name: eval_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Slug
+      - name: logical_path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Logical Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/internal/runtime/registrations:
     post:
       tags:
@@ -39194,6 +39346,12 @@ components:
           - type: 'null'
           title: Stream
           default: false
+        stream_options:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Stream Options
         n:
           anyOf:
           - type: integer
@@ -40446,6 +40604,31 @@ components:
       - status
       - validation_status
       title: ContainerEvalPackageResponse
+    ContentDeclaration:
+      properties:
+        logical_path:
+          type: string
+          minLength: 1
+          title: Logical Path
+        content_digest:
+          type: string
+          minLength: 7
+          title: Content Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          minLength: 1
+          title: Media Type
+      type: object
+      required:
+      - logical_path
+      - content_digest
+      - size_bytes
+      - media_type
+      title: ContentDeclaration
     CraftaxScorerImageReleaseDeclaration:
       properties:
         archive_sha256:
@@ -43350,6 +43533,16 @@ components:
       - s3
       - turso
       title: FactoryStorageTechnology
+    FinalizeRequest:
+      properties:
+        preparation_id:
+          type: string
+          minLength: 1
+          title: Preparation Id
+      type: object
+      required:
+      - preparation_id
+      title: FinalizeRequest
     FlushSSEStreamsResponse:
       properties:
         flushed_keys:
@@ -45974,6 +46167,8 @@ components:
           enum:
           - gepa
           - go-ex
+          - mapo
+          - online-reflexion
           title: Algorithm
           default: gepa
         run_id:
@@ -46043,6 +46238,8 @@ components:
           enum:
           - gepa
           - go-ex
+          - mapo
+          - online-reflexion
           title: Algorithm
         event_name:
           type: string
@@ -46317,6 +46514,33 @@ components:
       - required_gpu_hours
       title: PreflightResponse
       description: Response model for preflight checks.
+    PrepareRequest:
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Title
+        schema_version:
+          type: string
+          minLength: 1
+          title: Schema Version
+        contents:
+          items:
+            $ref: '#/components/schemas/ContentDeclaration'
+          type: array
+          minItems: 1
+          title: Contents
+        asset_base_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset Base Url
+      type: object
+      required:
+      - title
+      - schema_version
+      - contents
+      title: PrepareRequest
     PricingConfigResponse:
       properties:
         gating_strict:
@@ -50255,7 +50479,8 @@ components:
           $ref: '#/components/schemas/SmrActorSubtype'
           description: Actor subtype. Supported values are main, engineer, researcher,
             artifact_builder, artifact_reviewer, task_completion, run_completion,
-            safety, objective, adjudicator, gardener; valid combinations depend on actor_type.
+            safety, objective, adjudicator, gardener; valid combinations depend on
+            actor_type.
         agent_model:
           $ref: '#/components/schemas/SmrAgentModel'
           description: Actor-scoped agent model override. Engineer-only models such
@@ -50972,6 +51197,9 @@ components:
         display_name:
           type: string
           title: Display Name
+        display_group:
+          type: string
+          title: Display Group
         public:
           type: boolean
           title: Public
@@ -51079,6 +51307,7 @@ components:
       required:
       - id
       - display_name
+      - display_group
       - public
       - provider
       - provider_model_id
@@ -61460,9 +61689,9 @@ components:
                 platform_resolved: '#/components/schemas/SmrPlatformResolvedTargetRequest'
           - type: 'null'
           title: Execution Target
-          description: Explicit placement authority. Platform-resolved targets delegate
-            all placement to Synth; bound-runtime targets carry one signed CloudDev
-            binding and cannot restate host, pool, or source fields elsewhere.
+          description: Deprecated compatibility field scheduled for removal in synth-ai
+            0.18.0. Placement is resolved by the backend; callers must omit this field.
+          deprecated: true
         runbook:
           $ref: '#/components/schemas/RunbookKind'
           description: Typed orchestration posture for this run. Runbooks control
@@ -71617,6 +71846,57 @@ components:
       - per_run
       - stored_rollup_count
       title: SmrUsageRollupsResponse
+    SmrUsageSourceProvider:
+      type: string
+      enum:
+      - synth
+      - openai
+      - openrouter
+      - anthropic
+      - cursor
+      - deepseek
+      - groq
+      - google
+      - baseten
+      - xai
+      - daytona
+      - exe_dev
+      - docker
+      - runpod
+      - modal
+      - tinker
+      - other
+      title: SmrUsageSourceProvider
+    SmrUsageSourceProviderCatalogEntry:
+      properties:
+        id:
+          $ref: '#/components/schemas/SmrUsageSourceProvider'
+        display_name:
+          type: string
+          title: Display Name
+        aliases:
+          items:
+            type: string
+          type: array
+          title: Aliases
+      type: object
+      required:
+      - id
+      - display_name
+      title: SmrUsageSourceProviderCatalogEntry
+    SmrUsageSourceProvidersResponse:
+      properties:
+        version:
+          type: integer
+          title: Version
+          default: 1
+        providers:
+          items:
+            $ref: '#/components/schemas/SmrUsageSourceProviderCatalogEntry'
+          type: array
+          title: Providers
+      type: object
+      title: SmrUsageSourceProvidersResponse
     SmrVisualEvidencePayload:
       properties:
         source_run_ids:

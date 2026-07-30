@@ -13,10 +13,6 @@ from synth_ai.sdk.research.contracts.runtime_stream import (
     SwarmHeartbeat,
 )
 
-KnownSwarmEvent = SwarmEvent
-ResearchSwarmEvent = SwarmEvent
-ResearchSwarmEventKind = SwarmEventKind
-
 
 def decode_swarm_event(event: SseEvent) -> SwarmEvent:
     """Decode exactly one ``research.swarm_event.v1`` SSE frame."""
@@ -24,9 +20,6 @@ def decode_swarm_event(event: SseEvent) -> SwarmEvent:
 
 
 __all__ = [
-    "KnownSwarmEvent",
-    "ResearchSwarmEvent",
-    "ResearchSwarmEventKind",
     "SwarmEvent",
     "SwarmEventKind",
     "SwarmEventPayload",

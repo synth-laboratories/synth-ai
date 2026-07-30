@@ -63,14 +63,22 @@ class ResearchAdvancedAPI:
 
     @property
     def factories(self) -> AdvancedFactoriesAPI:
-        """Operator Factory projections not yet admitted to the stable contract."""
+        """Operator-only Factory capabilities: Tag, Efforts, status, wake.
+
+        Lifecycle CRUD, candidates, champions, lenses, and results live on
+        ``research.factories``.
+        """
         if self._factories is None:
             self._factories = AdvancedFactoriesAPI(self._open_session())
         return self._factories
 
     @property
     def runs(self) -> ResearchRunsAPI:
-        """Typed run readouts and operator lifecycle capabilities."""
+        """Operator run readouts and the eval launch path.
+
+        ``research.swarms`` is the public launch surface over the same backend
+        authority.
+        """
         if self._runs is None:
             self._runs = ResearchRunsAPI(self._open_session())
         return self._runs
@@ -96,4 +104,4 @@ class ResearchAdvancedAPI:
         return self._open_session().tag
 
 
-__all__ = ["ResearchAdvancedAPI"]
+__all__ = ["ResearchAdvancedAPI", "ResearchSession", "open_advanced_session"]

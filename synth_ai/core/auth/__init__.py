@@ -1,6 +1,4 @@
-"""Credential and tenant context contracts for Synth clients."""
+"""Credential contracts for Synth clients.
 
-from synth_ai.core.auth.context import OrganizationId, RequestContext
-from synth_ai.core.auth.credentials import ApiCredential, resolve_api_credential
-
-__all__ = ["ApiCredential", "OrganizationId", "RequestContext", "resolve_api_credential"]
+Import from the owning submodule; this package re-exports nothing.
+"""

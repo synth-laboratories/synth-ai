@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, List, cast
 
@@ -69,6 +70,7 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     GraduationProposal,
     RecurrencePolicy,
 )
+from synth_ai.sdk.research.contracts.types import SmrRunnableProjectRequest
 from synth_ai.sdk.research.session._base import _ClientNamespace
 
 
@@ -85,6 +87,190 @@ def _wire_mapping_payload(value: object, *, field_name: str) -> dict[str, Any]:
     if not isinstance(wire_value, Mapping):
         raise TypeError(f"{field_name} must be a mapping or support to_wire()")
     return dict(cast(Mapping[str, Any], wire_value))
+
+
+def _standup_mapping(value: object, *, field: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field} must be a JSON object")
+    return {str(key): item for key, item in value.items()}
+
+
+def _standup_required_mapping(parent: Mapping[str, Any], key: str) -> dict[str, Any]:
+    value = parent.get(key)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{key} must be a JSON object")
+    return {str(item_key): item_value for item_key, item_value in value.items()}
+
+
+def _standup_required_string(parent: Mapping[str, Any], key: str) -> str:
+    value = str(parent.get(key) or "").strip()
+    if not value:
+        raise ValueError(f"{key} is required")
+    return value
+
+
+def _standup_optional_string(value: object) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _factory_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
+    factory = _standup_required_mapping(plan, "factory")
+    return {
+        "name": _standup_required_string(factory, "name"),
+        "kind": str(factory.get("kind") or "customer"),
+        "description": _standup_optional_string(factory.get("description")),
+        "budget_policy": _standup_mapping(
+            factory.get("budget_policy"),
+            field="factory.budget_policy",
+        ),
+        "cap_policy": _standup_mapping(factory.get("cap_policy"), field="factory.cap_policy"),
+        "publication_policy": _standup_mapping(
+            factory.get("publication_policy"),
+            field="factory.publication_policy",
+        ),
+        "authorization_policy": _standup_mapping(
+            factory.get("authorization_policy"),
+            field="factory.authorization_policy",
+        ),
+        "metadata": _standup_mapping(factory.get("metadata"), field="factory.metadata"),
+    }
+
+
+def _project_link_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
+    project = _standup_mapping(plan.get("project"), field="project")
+    return {
+        "role": str(project.get("role") or "canonical"),
+        "status": str(project.get("status") or "active"),
+        "display_name": _standup_optional_string(project.get("display_name")),
+        "description": _standup_optional_string(project.get("description")),
+        "workspace_policy": _standup_mapping(
+            project.get("workspace_policy"),
+            field="project.workspace_policy",
+        ),
+        "resource_bindings": _standup_mapping(
+            project.get("resource_bindings"),
+            field="project.resource_bindings",
+        ),
+        "feed_health": _standup_mapping(project.get("feed_health"), field="project.feed_health"),
+        "default_launch_profile": _standup_mapping(
+            project.get("default_launch_profile"),
+            field="project.default_launch_profile",
+        ),
+        "metadata": _standup_mapping(project.get("metadata"), field="project.metadata"),
+    }
+
+
+def _effort_payloads(plan: Mapping[str, Any]) -> list[dict[str, Any]]:
+    efforts = plan.get("efforts")
+    if not isinstance(efforts, list) or not efforts:
+        raise ValueError("efforts must be a non-empty JSON array")
+    result: list[dict[str, Any]] = []
+    for index, item in enumerate(efforts):
+        if not isinstance(item, Mapping):
+            raise ValueError(f"efforts[{index}] must be a JSON object")
+        result.append({str(item_key): item_value for item_key, item_value in item.items()})
+    return result
+
+
+def _effort_kwargs(effort: Mapping[str, Any], *, default_project_id: str) -> dict[str, Any]:
+    return {
+        "name": _standup_required_string(effort, "name"),
+        "project_id": _standup_optional_string(effort.get("project_id")) or default_project_id,
+        "hypothesis_or_topic": _standup_optional_string(
+            effort.get("hypothesis_or_topic") or effort.get("topic")
+        ),
+        "effort_type": str(effort.get("effort_type") or effort.get("type") or "research"),
+        "status": str(effort.get("status") or "active"),
+        "recurrence_policy": _standup_mapping(
+            effort.get("recurrence_policy"),
+            field="effort.recurrence_policy",
+        ),
+        "next_wake_at": _standup_optional_string(effort.get("next_wake_at")),
+        "latest_run_id": _standup_optional_string(effort.get("latest_run_id")),
+        "latest_report_id": _standup_optional_string(effort.get("latest_report_id")),
+        "latest_work_product_id": _standup_optional_string(effort.get("latest_work_product_id")),
+        "decision_needed": bool(effort.get("decision_needed") or False),
+        "decision_note": _standup_optional_string(effort.get("decision_note")),
+        "budget_policy": _standup_mapping(
+            effort.get("budget_policy"),
+            field="effort.budget_policy",
+        ),
+        "publication_policy": _standup_mapping(
+            effort.get("publication_policy"),
+            field="effort.publication_policy",
+        ),
+        "authorization_policy": _standup_mapping(
+            effort.get("authorization_policy"),
+            field="effort.authorization_policy",
+        ),
+        "actor_notes": _standup_mapping(effort.get("actor_notes"), field="effort.actor_notes"),
+        "metadata": _standup_mapping(effort.get("metadata"), field="effort.metadata"),
+    }
+
+
+def _wake_due_preview_kwargs(plan: Mapping[str, Any]) -> dict[str, Any]:
+    wake_due = _standup_mapping(plan.get("wake_due"), field="wake_due")
+    return {
+        "launch_request": _standup_mapping(
+            wake_due.get("launch_request"),
+            field="wake_due.launch_request",
+        )
+        or None,
+        "limit": int(wake_due.get("limit") or 10),
+        "allow_overlap": bool(wake_due.get("allow_overlap") or False),
+        "continue_on_error": bool(wake_due.get("continue_on_error", True)),
+        "dry_run": True,
+    }
+
+
+def _project_id_from_response(payload: Mapping[str, Any]) -> str:
+    project_id = _standup_optional_string(payload.get("project_id") or payload.get("id"))
+    if project_id:
+        return project_id
+    project = payload.get("project")
+    if isinstance(project, Mapping):
+        project_id = _standup_optional_string(project.get("project_id") or project.get("id"))
+        if project_id:
+            return project_id
+    raise ValueError("create_project response did not include project_id")
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryStandupPlan:
+    """The resolved request payloads a stand-up would send, before it sends them."""
+
+    factory: dict[str, Any]
+    project_link: dict[str, Any]
+    efforts: list[dict[str, Any]]
+    project_id: str | None = None
+    create_project: dict[str, Any] | None = None
+    wake_due: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryStandupResult:
+    """What a stand-up created, with the plan it created it from."""
+
+    plan: FactoryStandupPlan
+    factory: Factory
+    project_id: str
+    link: FactoryProjectLink
+    efforts: list[Effort]
+    status: FactoryStatus
+    created_project: dict[str, Any] | None = None
+    wake_due_preview: FactoryWakeDueResult | None = None
+    wake_due_result: FactoryWakeDueResult | None = None
+
+    @property
+    def factory_id(self) -> str:
+        return self.factory.factory_id
+
+    @property
+    def effort_ids(self) -> list[str]:
+        return [effort.effort_id for effort in self.efforts]
 
 
 def _effort_recurrence_payload(
@@ -865,6 +1051,120 @@ class FactoriesAPI(_ClientNamespace):
     def list_open_decisions(self, factory_id: str) -> List[Effort]:
         return list(self.status(factory_id).open_decisions)
 
+    @staticmethod
+    def plan_standup(plan: Mapping[str, Any]) -> FactoryStandupPlan:
+        """Resolve a stand-up plan into request payloads without sending anything.
+
+        This is the dry run: every validation error a real ``standup`` would
+        raise, raised here first.
+        """
+
+        project = _standup_mapping(plan.get("project"), field="project")
+        create_project = _standup_mapping(plan.get("create_project"), field="create_project")
+        project_id = _standup_optional_string(project.get("project_id"))
+        if project_id is None and not create_project:
+            raise ValueError("project.project_id or create_project is required")
+        if create_project:
+            SmrRunnableProjectRequest.from_wire(create_project)
+        return FactoryStandupPlan(
+            factory=_factory_payload(plan),
+            project_link=_project_link_payload(plan),
+            efforts=_effort_payloads(plan),
+            project_id=project_id,
+            create_project=create_project or None,
+            wake_due=(_wake_due_preview_kwargs(plan) if plan.get("wake_due") else None),
+        )
+
+    def standup(
+        self,
+        plan: Mapping[str, Any],
+        *,
+        wake_due: bool = False,
+        wake_due_launch: bool = False,
+    ) -> FactoryStandupResult:
+        """Create a Factory, link its project, and seed its efforts from one plan.
+
+        ``wake_due`` previews due work; ``wake_due_launch`` additionally confirms
+        that exact preview, which is the only way to actually launch runs.
+        """
+
+        resolved = self.plan_standup(plan)
+        should_wake = wake_due or wake_due_launch or resolved.wake_due is not None
+
+        created_project: dict[str, Any] | None = None
+        project_id = resolved.project_id
+        if project_id is None:
+            created_project = self._client.create_runnable_project(resolved.create_project)
+            project_id = _project_id_from_response(created_project)
+
+        factory = self.create(resolved.factory)
+        link = self.link_project(factory.factory_id, project_id, **resolved.project_link)
+        efforts = [
+            self.create_effort(
+                factory.factory_id,
+                **_effort_kwargs(effort, default_project_id=project_id),
+            )
+            for effort in resolved.efforts
+        ]
+
+        preview: FactoryWakeDueResult | None = None
+        result: FactoryWakeDueResult | None = None
+        if should_wake:
+            preview = self.wake_due(
+                factory.factory_id,
+                **(resolved.wake_due or _wake_due_preview_kwargs({})),
+            )
+            if wake_due_launch and preview.ready > 0 and not preview.confirmation_required:
+                raise RuntimeError("wake preview has ready work but is not confirmation-ready")
+            result = (
+                self._confirm_wake_preview(factory_id=factory.factory_id, preview=preview)
+                if wake_due_launch and preview.confirmation_required
+                else preview
+            )
+
+        return FactoryStandupResult(
+            plan=resolved,
+            factory=factory,
+            project_id=project_id,
+            link=link,
+            efforts=efforts,
+            status=self.status(factory.factory_id),
+            created_project=created_project,
+            wake_due_preview=preview if wake_due_launch else None,
+            wake_due_result=result,
+        )
+
+    def _confirm_wake_preview(
+        self,
+        *,
+        factory_id: str,
+        preview: FactoryWakeDueResult,
+    ) -> FactoryWakeDueResult:
+        if preview.factory_id != factory_id:
+            raise RuntimeError("wake preview factory_id does not match the created Factory")
+        if not preview.dry_run or not preview.confirmation_required:
+            raise RuntimeError("wake preview is not confirmation-ready")
+        if preview.preview_id is None or preview.preview_token is None:
+            raise RuntimeError("wake preview omitted its preview_id or preview_token")
+        contract = preview.request_contract
+        if contract is None:
+            raise RuntimeError("wake preview omitted its resolved request_contract")
+        if contract.confirmed_preview_token is not None:
+            raise RuntimeError("wake preview request_contract is not confirmation-ready")
+        result = self.wake_due(
+            factory_id,
+            launch_request=contract.launch_request,
+            limit=contract.limit,
+            allow_overlap=contract.allow_overlap,
+            dry_run=False,
+            continue_on_error=contract.continue_on_error,
+            confirmed_preview_id=preview.preview_id,
+            confirmed_preview_token=preview.preview_token,
+        )
+        if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
+            raise RuntimeError("wake receipt is not durably bound to the confirmed preview")
+        return result
+
     def wake_due(
         self,
         factory_id: str,
@@ -1234,4 +1534,10 @@ class FactoryLensesAPI(_ClientNamespace):
         )
 
 
-__all__ = ["EffortsAPI", "FactoriesAPI", "FactoryResultsAPI"]
+__all__ = [
+    "EffortsAPI",
+    "FactoriesAPI",
+    "FactoryResultsAPI",
+    "FactoryStandupPlan",
+    "FactoryStandupResult",
+]

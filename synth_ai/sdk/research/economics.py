@@ -150,9 +150,7 @@ class AsyncEconomicsAPI:
 
 
 ResearchLimitsAPI = LimitsAPI
-AsyncResearchLimitsAPI = AsyncLimitsAPI
 ResearchEconomicsAPI = EconomicsAPI
-AsyncResearchEconomicsAPI = AsyncEconomicsAPI
 
 
 __all__ = [
@@ -160,8 +158,6 @@ __all__ = [
     "AsyncLimitsAPI",
     "EconomicsAPI",
     "LimitsAPI",
-    "AsyncResearchEconomicsAPI",
-    "AsyncResearchLimitsAPI",
     "ResearchEconomicsAPI",
     "ResearchLimitsAPI",
 ]

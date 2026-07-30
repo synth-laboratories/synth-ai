@@ -20,7 +20,7 @@ from typing import Any, List
 
 import httpx
 
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.session._base import _ClientNamespace
 
 ACTOR_RUNTIME_IMAGE_KIND = "actor_runtime"
@@ -437,7 +437,7 @@ class ImagesAPI(_ClientNamespace):
                 json_body={"upload_id": upload_id, "declaration": dict(declaration)},
                 timeout_seconds=timeout_seconds,
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             if exc.status_code is not None:
                 raise
             if isinstance(exc.__cause__, httpx.ConnectError):

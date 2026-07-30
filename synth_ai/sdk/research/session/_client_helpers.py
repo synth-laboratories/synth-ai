@@ -16,7 +16,7 @@ from synth_ai.sdk.research.contracts.smr_providers import (
     ResourceProvider,
 )
 from synth_ai.sdk.research.contracts.swarms import normalize_provider_selection
-from synth_ai.sdk.research.errors import SmrApiError, SmrHostedModelOverridesError
+from synth_ai.sdk.research.errors import ResearchApiError, ResearchHostedModelOverridesError
 
 
 class SmrLaunchMode(StrEnum):
@@ -128,7 +128,7 @@ def assert_hosted_launch_surface(
         if present
     ]
     if rejected:
-        raise SmrHostedModelOverridesError(
+        raise ResearchHostedModelOverridesError(
             "actor execution overrides require local_execution; rejected: " + ", ".join(rejected),
             rejected_fields=rejected,
             detail={"rejected_fields": rejected},
@@ -138,15 +138,17 @@ def assert_hosted_launch_surface(
 def _coerce_dict(payload: Any, *, label: str) -> dict[str, Any]:
     if isinstance(payload, dict):
         return payload
-    raise SmrApiError(f"Expected object response for {label}, received {type(payload).__name__}")
+    raise ResearchApiError(
+        f"Expected object response for {label}, received {type(payload).__name__}"
+    )
 
 
 def _coerce_dict_list(payload: Any, *, label: str) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         if not all(isinstance(item, dict) for item in payload):
-            raise SmrApiError(f"Expected {label} entries to be objects")
+            raise ResearchApiError(f"Expected {label} entries to be objects")
         return cast(list[dict[str, Any]], payload)
-    raise SmrApiError(f"Expected list response for {label}, received {type(payload).__name__}")
+    raise ResearchApiError(f"Expected list response for {label}, received {type(payload).__name__}")
 
 
 def _require_non_empty_string(value: str | None, *, field_name: str) -> str:

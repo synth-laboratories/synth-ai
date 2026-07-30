@@ -20,11 +20,79 @@ from synth_ai.sdk.research.visuals import VisualsAPI
 from synth_ai.sdk.research.wiki import ResearchWikiAPI
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+    from typing import Any
+
+    from synth_ai.core.http.transport import HttpTransport
     from synth_ai.sdk.research.advanced import (
         ResearchAdvancedAPI,
         ResearchSession,
     )
+    from synth_ai.sdk.research.contracts.factory_operations import FactoryStatus
+    from synth_ai.sdk.research.session.factories import (
+        FactoryResultsAPI as SessionFactoryResultsAPI,
+    )
+    from synth_ai.sdk.research.session.factories import (
+        FactoryStandupPlan,
+        FactoryStandupResult,
+    )
     from synth_ai.sdk.research.session.files import FilesAPI
+
+
+class ResearchFactoriesFacade(FactoriesAPI):
+    """The one Factory front door: stable lifecycle plus stand-up orchestration.
+
+    ``plan_standup``/``standup`` need the operator session (runnable-project
+    creation and the wake preview→confirm handshake), so this facade subclass
+    carries a lazy session opener on top of the typed transport surface.
+    """
+
+    def __init__(
+        self,
+        transport: HttpTransport,
+        *,
+        open_session: Callable[[], ResearchSession],
+    ) -> None:
+        super().__init__(transport)
+        self._open_session = open_session
+
+    @staticmethod
+    def plan_standup(plan: Mapping[str, Any]) -> FactoryStandupPlan:
+        """Resolve a stand-up plan into request payloads without sending anything."""
+        from synth_ai.sdk.research.session.factories import FactoriesAPI as SessionFactoriesAPI
+
+        return SessionFactoriesAPI.plan_standup(plan)
+
+    def standup(
+        self,
+        plan: Mapping[str, Any],
+        *,
+        wake_due: bool = False,
+        wake_due_launch: bool = False,
+    ) -> FactoryStandupResult:
+        """Create a Factory, link its project, and seed its efforts from one plan."""
+        return self._open_session().factories.standup(
+            plan,
+            wake_due=wake_due,
+            wake_due_launch=wake_due_launch,
+        )
+
+    @property
+    def results(self) -> SessionFactoryResultsAPI:
+        """Factory Results — the public objects a Factory produces.
+
+        A Result is anything directly valuable a Factory produces: a report,
+        prompt, policy, dataset, model, artifact, or draft code change.
+        """
+        return self._open_session().factories.results
+
+    def status(self, factory_id: str) -> FactoryStatus:
+        """The backend-owned Factory workflow projection.
+
+        Experiments, outputs, decisions, limits, health, and next wake all come
+        from the backend rather than being reconstructed by each client.
+        """
+        return self._open_session().factories.status(factory_id)
 
 
 class Client:
@@ -62,6 +130,7 @@ class Client:
         self._experiments: ResearchExperimentsAPI | None = None
         self._knowledge: ResearchKnowledgeAPI | None = None
         self._wiki: ResearchWikiAPI | None = None
+        self._factories: ResearchFactoriesFacade | None = None
 
     def _open_session(self) -> ResearchSession:
         if self._session is None:
@@ -116,9 +185,14 @@ class Client:
         return self._wiki
 
     @property
-    def factories(self) -> FactoriesAPI:
-        """Stable Factory lifecycle and typed Efforts."""
-        return self._core.factories
+    def factories(self) -> ResearchFactoriesFacade:
+        """Stable Factory lifecycle, typed Efforts, and plan-driven stand-up."""
+        if self._factories is None:
+            self._factories = ResearchFactoriesFacade(
+                self._core.transport,
+                open_session=self._open_session,
+            )
+        return self._factories
 
     @property
     def intern(self) -> ResearchInternAPI:

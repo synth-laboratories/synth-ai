@@ -2,8 +2,10 @@
 
 Thin Click adapters over `SynthClient` / `sdk.research`.
 
-Infrastructure commands (`containers`, `tunnels`, `pools`) are archived under
-`old/cli/` with their SDK counterparts.
+`synth-ai research` is the whole CLI. Infrastructure commands (`containers`,
+`tunnels`, `pools`) and the operator consoles (`dev-envs`, the
+`synth-ai-research-factory-standup` script) were removed in 0.18.0; see
+`CHANGELOG.md` for what replaced each one.
 
 ## Command Structure
 
@@ -31,4 +33,3 @@ from synth_ai.core.utils.env import get_api_key
 |--------|--------------|
 | `core/` | `cli/` imports shared env/error helpers |
 | `sdk/` / `client.py` | Business calls go through Research clients |
-| `old/cli/` | Archived infra commands (not registered) |

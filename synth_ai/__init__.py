@@ -13,14 +13,11 @@ from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
 from pathlib import Path as _Path
 from typing import Any as _Any
 
-try:
-    from synth_ai.core.utils.log_filter import (
-        install_log_filter as _install_log_filter,
-    )
+from synth_ai.core.utils.log_filter import (
+    install_log_filter as _install_log_filter,
+)
 
-    _install_log_filter()
-except Exception:
-    pass
+_install_log_filter()
 
 try:
     __version__ = _metadata.version("synth-ai")

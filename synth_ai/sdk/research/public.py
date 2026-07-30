@@ -478,11 +478,7 @@ __all__ = [
     "InferenceProvider",
     "LocalExecution",
     "OpenEndedQuestionSpec",
-    "ActorHarness",
     "ActorImageBinding",
-    "ActorModel",
-    "ActiveActorModel",
-    "DeprecatedActorModel",
     "KickoffArtifact",
     "KickoffMessage",
     "KickoffMessageMode",
@@ -674,7 +670,6 @@ __all__ = [
     "WorkspaceSourceRepositoryReceipt",
     "WorkspaceSourceRepositorySpec",
     "WorkspaceStoredFile",
-    "WorkMode",
     "WorkProductArtifactLink",
     "WorkProductArtifactRole",
     "WorkProductBlocker",
@@ -685,7 +680,7 @@ __all__ = [
 ]
 
 _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {
-    "AsyncResearchClient": ("synth_ai.sdk.research.client", "AsyncResearchClient"),
+    "AsyncResearchClient": ("synth_ai.sdk.research.client", "AsyncClient"),
     "ResearchApiError": ("synth_ai.sdk.research.errors", "ResearchApiError"),
     "ResearchArtifact": ("synth_ai.sdk.research.models", "ResearchArtifact"),
     "ResearchArtifactManifest": ("synth_ai.sdk.research.models", "ResearchArtifactManifest"),

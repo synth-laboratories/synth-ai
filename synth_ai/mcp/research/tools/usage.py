@@ -10,13 +10,13 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_usage_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_get_billing_entitlements",
+            name="research_get_billing_entitlements",
             description="Fetch the canonical org-level entitlement snapshot.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_get_billing_entitlements,
         ),
         ToolDefinition(
-            name="smr_preview_admin_promotion_discount",
+            name="research_preview_admin_promotion_discount",
             description=(
                 "Preview backend-authored draft promotion economics as an admin. "
                 "This read-scoped preview does not activate or enforce a campaign, "
@@ -48,7 +48,7 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_preview_admin_promotion_discount,
         ),
         ToolDefinition(
-            name="smr_get_run_usage",
+            name="research_get_run_usage",
             description="Fetch canonical nominal, billed, internal, token, and breakdown usage for a run.",
             input_schema=tool_schema(
                 {
@@ -62,7 +62,7 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_usage,
         ),
         ToolDefinition(
-            name="smr_get_run_resource_limits",
+            name="research_get_run_resource_limits",
             description="Fetch configured resource limits for a run.",
             input_schema=tool_schema(
                 {
@@ -80,7 +80,7 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_resource_limits,
         ),
         ToolDefinition(
-            name="smr_get_run_progress_toward_resource_limits",
+            name="research_get_run_progress_toward_resource_limits",
             description="Fetch current run progress toward resource limits, active blockers, and extension posture.",
             input_schema=tool_schema(
                 {
@@ -98,7 +98,7 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_progress_toward_resource_limits,
         ),
         ToolDefinition(
-            name="smr_request_resource_limit_extension",
+            name="research_request_resource_limit_extension",
             description="Request a run resource-limit extension, optionally resolving blockers and resuming work.",
             input_schema=tool_schema(
                 {
@@ -161,7 +161,7 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_request_resource_limit_extension,
         ),
         ToolDefinition(
-            name="smr_get_project_usage",
+            name="research_get_project_usage",
             description="Fetch canonical project usage rollups and budgets.",
             input_schema=tool_schema(
                 {
@@ -175,7 +175,7 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_usage,
         ),
         ToolDefinition(
-            name="smr_get_project_economics",
+            name="research_get_project_economics",
             description="Fetch canonical project economics rollups.",
             input_schema=tool_schema(
                 {

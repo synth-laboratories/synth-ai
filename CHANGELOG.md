@@ -4,6 +4,89 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Project and Swarm hero list methods now return typed `SyncPage` values with an
+  accepted continuation cursor, including for the backend's legacy array response.
+- The session compatibility surface uses `repositories` consistently; the
+  duplicate `repos` namespace and its second DTO family were removed.
+- Raw-trace downloads now use the shared transport, including its timeout and
+  typed error mapping, without forwarding backend credentials to presigned URLs.
+- Dev-environment proof collection now fails on incomplete work-product or trace
+  evidence instead of encoding exceptions as apparent proof fields.
+
+### Removed
+
+- Six unadvertised `tag_*` MCP tools were parked. The typed
+  `SynthClient().research.tag` SDK remains available.
+
+## 0.18.0 — 2026-07-29
+
+A minor release rather than a patch because modules were removed, not moved: the
+infrastructure and managed-agent surfaces below have no alias and no successor
+import path in this package.
+
+### Removed
+
+- **Managed Agents.** `synth_ai.sdk.managed_agents`, `sdk.managed_agents_anthropic`,
+  `sdk.openai_agents_sdk`, and `sdk.openai_tools` are gone. The package is a
+  Research SDK; a second agent-authoring framework inside it was a second product.
+- **Containers, tunnels, and pools.** `synth_ai.sdk.pools`, `sdk.containers`,
+  `sdk.container`, `sdk.base`, `sdk.horizons_private`, `cli.pools`, `cli.tunnels`,
+  and `cli.containers` are gone, along with `openapi/container-contract-v1.yaml`.
+  `SynthClient` is Research-only.
+- **`synth-ai dev-envs`.** The dev-environment CLI was the control-plane worker's
+  side of the materialization protocol — `claim-materialization --worker-id`,
+  `seed-topology-manifest`, `materialize` — not a customer surface. Nothing is
+  lost: `SynthClient().research.dev_environments` and the MCP
+  `research_*_dev_environment*` tools call the same routes.
+- **The `synth-ai-research-factory-standup` console script**, along with
+  `sdk/research/factory_plans/`. It hardcoded `factory.name == "synth-rsi"`,
+  seven internal milestone IDs, and Synth's private repo remotes as an
+  allowlist, and its one built-in plan was Synth's own `kind: internal` Factory.
+  A customer could not run it. Use `research.factories.standup()` instead.
+- **The vendored backend schemas left the wheel.**
+  `synth_ai/sdk/research/schemas/{smr_openapi.yaml,public_models.json}` moved to
+  a top-level `schemas/` directory. No module ever read them; they are drift-gate
+  inputs for CI. This removes ~2.1MB per wheel and stops a Research-only package
+  from shipping the backend's `/v1/tunnels` and `/v1/pools` route definitions.
+
+### Added
+
+- **`research.factories.standup(plan)`** creates a Factory, links its project,
+  and seeds its efforts from a single plan mapping, returning a typed
+  `FactoryStandupResult`. `research.factories.plan_standup(plan)` is the dry run:
+  it resolves and validates every request payload without sending one. This is
+  the portable half of the removed stand-up script.
+- `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` makes `synth-ai-research-mcp` advertise
+  the full tool tree. Previously `main()` hardcoded the stable subset with no
+  override, and because `call_tool` resolves against the advertised set, the
+  other 247 tools were not merely hidden but uncallable.
+- **`verify_cloud_s0_evidence(payload, ...)`** in
+  `sdk.research.session.dev_environments` checks a dev-environment evidence
+  packet for run binding, receipt readiness, work-product and trace counts, and
+  git branch/sha proof. Lifted out of the removed `dev-envs` CLI.
+
+### Fixed
+
+- **`synth_ai.core.research.*` no longer breaks packaged data files.** The
+  deprecation alias returns the real module, and CPython was stamping the alias's
+  origin-less spec onto it. Any process that imported through the old path lost
+  `importlib.resources` for the target: `files()` returned an empty listing and
+  reading any packaged data file raised `FileNotFoundError: Can't open orphan
+  path`. The alias now restores the module's own identity after loading.
+- **The sdist ships its runtime data again.** `MANIFEST.in` re-included
+  `synth_ai/managed_research/*`, a path deleted in 0.17.5, so the blanket `*.json`
+  exclude won and `--no-binary` installs shipped without the JSON data files under
+  `sdk/research/`.
+- **`synth_ai.sdk.research.public.AsyncResearchClient`** resolved to a name that
+  does not exist and raised `AttributeError` on access.
+- **MCP tool scopes fail closed.** A tool missing from the scope table silently
+  got `required_scopes=()`; 48 of 311 tools were unscoped, including
+  `research_pause_run`, `research_resume_run`, and `research_start_one_off_run`.
+  The table is now keyed on advertised names and a missing entry raises at
+  registry build.
+
 ## 0.17.5 — 2026-07-29
 
 A patch release even though module paths moved, because nothing breaks: the old
