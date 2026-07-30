@@ -4,13 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.common import EnvironmentDigest, EnvironmentName
-from synth_ai.core.research.contracts.environment_manifest import (
-    ENVIRONMENT_SCHEMA_VERSION,
-    EnvironmentManifest,
-    RuntimeImageKind,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -19,6 +12,13 @@ from synth_ai.mcp.research.registry import (
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import optional_int, optional_string, require_string
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.common import EnvironmentDigest, EnvironmentName
+from synth_ai.sdk.research.contracts.environment_manifest import (
+    ENVIRONMENT_SCHEMA_VERSION,
+    EnvironmentManifest,
+    RuntimeImageKind,
+)
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 

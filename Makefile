@@ -37,6 +37,7 @@ docs-dev:
 test test-unit:
 	@if [ -d $(TESTING)/backend/unit/synth_ai_sdk ]; then \
 		cd $(TESTING) && export SYNTH_AI_DIR=$(CURDIR) && \
+		uv run python scripts/check_sdk_layering.py && \
 		uv run python scripts/check_sdk_architecture.py && \
 		uv run python scripts/check_no_rust_sdk.py && \
 		uv run python scripts/check_research_openapi_contract.py && \

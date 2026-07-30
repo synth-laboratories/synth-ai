@@ -86,7 +86,7 @@ def image_releases_upload_url(
     backend_url: str | None,
 ) -> None:
     """Create a presigned upload URL from REQUEST_FILE."""
-    from synth_ai.core.research.public import ImageReleaseUploadRequest
+    from synth_ai.sdk.research.public import ImageReleaseUploadRequest
 
     with _client(api_key, backend_url) as client:
         request = ImageReleaseUploadRequest.from_wire(_json_file(request_file))
@@ -105,7 +105,7 @@ def image_releases_finalize(
     backend_url: str | None,
 ) -> None:
     """Finalize an uploaded image release from REQUEST_FILE."""
-    from synth_ai.core.research.public import ImageReleaseFinalizeRequest
+    from synth_ai.sdk.research.public import ImageReleaseFinalizeRequest
 
     with _client(api_key, backend_url) as client:
         request = ImageReleaseFinalizeRequest.from_wire(_json_file(request_file))
@@ -121,7 +121,7 @@ def image_releases_get(
     backend_url: str | None,
 ) -> None:
     """Retrieve one immutable image-release receipt."""
-    from synth_ai.core.research.public import ImageReleaseId
+    from synth_ai.sdk.research.public import ImageReleaseId
 
     with _client(api_key, backend_url) as client:
         _echo(client.research.image_releases.retrieve(ImageReleaseId(release_id)).to_wire())
@@ -136,7 +136,7 @@ def image_releases_archive(
     backend_url: str | None,
 ) -> None:
     """Archive one actor runtime image materialization."""
-    from synth_ai.core.research.public import RuntimeImageReleaseId
+    from synth_ai.sdk.research.public import RuntimeImageReleaseId
 
     with _client(api_key, backend_url) as client:
         _echo(

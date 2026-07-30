@@ -160,6 +160,11 @@ synth_ai/learning/prompts/**/*.json
 !README.md
 !**/README.md
 !**/agents.md
+# The authoritative layering plan. synth_ai/README.md, core/README.md,
+# sdk/README.md, the core/research alias shim, the CHANGELOG, and
+# testing/scripts/check_sdk_layering.py all cite it by name; ignored, every one
+# of those references dangles for anyone who clones the repo.
+!unify_sdk_layering.md
 # Moved to sibling repos on 2026-07-29, so no rules are needed for them here:
 #   specifications/, guardrails/, scripts/  -> ../testing
 #   docs/, reference/                       -> ../docs

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from synth_ai.core.research.contracts.smr_credential_providers import (
+from synth_ai.sdk.research.contracts.smr_credential_providers import (
     SMR_CREDENTIAL_PROVIDER_VALUES,
 )
-from synth_ai.core.research.contracts.smr_funding_sources import SMR_FUNDING_SOURCE_VALUES
-from synth_ai.core.research.contracts.smr_inference_providers import (
+from synth_ai.sdk.research.contracts.smr_funding_sources import SMR_FUNDING_SOURCE_VALUES
+from synth_ai.sdk.research.contracts.smr_inference_providers import (
     SMR_INFERENCE_PROVIDER_VALUES,
 )
-from synth_ai.core.research.contracts.smr_tool_providers import SMR_TOOL_PROVIDER_VALUES
+from synth_ai.sdk.research.contracts.smr_tool_providers import SMR_TOOL_PROVIDER_VALUES
 
 
 def run_policy_input_schema() -> dict[str, object]:

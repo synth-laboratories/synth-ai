@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research.contracts.tag import TagSessionCreateRequest
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
     ToolDefinition,
     tool_schema,
 )
+from synth_ai.sdk.research.contracts.tag import TagSessionCreateRequest
 
 
 def _client(server: Any, args: dict[str, Any]):

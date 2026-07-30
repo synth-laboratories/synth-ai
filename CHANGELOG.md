@@ -4,6 +4,41 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Changed
+
+- **Research moved from `synth_ai.core.research` to `synth_ai.sdk.research`.**
+  `SynthClient().research` is unchanged and remains the supported entrypoint —
+  only module paths moved. `core/` had come to mean two things at once, shared
+  plumbing and the Research SDK, and the package README documented a layering
+  DAG that Research did not follow. Now `core/` is plumbing, `sdk/` is every
+  public client including Research, and a checker enforces it.
+
+  **Old paths still work.** `synth_ai.core.research.*` resolves through an import
+  alias that emits a `DeprecationWarning` once per module. The alias returns the
+  *same module object*, so classes are identical across both paths and
+  `isinstance` works either way. Migrate at your convenience:
+
+  ```python
+  # before
+  from synth_ai.core.research.contracts.status import SwarmStatus
+  # after
+  from synth_ai.sdk.research.contracts.status import SwarmStatus
+  ```
+
+  The alias is scheduled for removal in a later release; see
+  `unify_sdk_layering.md`.
+
+- The `core → sdk.pagination` import that violated the package's own layering is
+  gone. It was never fixed directly: relocating Research under `sdk/` made it a
+  legal peer import.
+
+### Fixed
+
+- Wheel packaging followed the move. `package-data` still globbed
+  `core/research/factory_plans/*.json` and `core/research/schemas/*`, which are
+  the only thing that puts those data files in the wheel — a stale glob ships a
+  package that imports and then fails at runtime looking for them.
+
 ## 0.17.4 — 2026-07-29
 
 ### Changed

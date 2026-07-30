@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research.contracts.factory_lenses import (
+from synth_ai.mcp.research.registry import (
+    READ_SCOPES,
+    WRITE_SCOPES,
+    ToolDefinition,
+    tool_schema,
+)
+from synth_ai.sdk.research.contracts.factory_lenses import (
     FactoryEvaluationStatus,
     FactoryLensDirection,
     FactoryLensMissingPolicy,
@@ -20,12 +26,6 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryPreferenceRequest,
     FactoryResultEvaluationRequest,
     FactoryResultKind,
-)
-from synth_ai.mcp.research.registry import (
-    READ_SCOPES,
-    WRITE_SCOPES,
-    ToolDefinition,
-    tool_schema,
 )
 
 

@@ -1,6 +1,20 @@
 # SDK Modules
 
-Public HTTP clients and contracts for the Synth AI infrastructure SDK.
+Public HTTP clients and contracts — **all** of them, infrastructure and Research
+alike. `sdk/` is the single client layer: it may import `core/` and its own
+peers, and nothing above it. See `../README.md` for the DAG and
+`unify_sdk_layering.md` for why Research moved here from `core/research/`.
+
+```
+sdk/
+├── containers.py, tunnels.py, pools.py, managed_agents/   infrastructure
+├── pagination.py, base.py                                 shared client plumbing
+└── research/                                              Research implementation
+```
+
+Research callers should use `SynthClient().research`; `synth_ai.sdk.research.*`
+is the supported module path when a specific surface is needed.
+`synth_ai.core.research.*` still resolves through a deprecated alias.
 
 Prefer the top-level client in user-facing examples:
 

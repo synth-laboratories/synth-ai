@@ -1,15 +1,29 @@
 # Core Modules
 
-Shared runtime helpers for the Synth AI SDK.
+Shared runtime plumbing for the Synth AI SDK — and nothing else.
+
+`core/` is the bottom of the layering DAG (see `../README.md` and
+`unify_sdk_layering.md`). It may import only from `core/`. In particular it must
+not import `sdk/`: plumbing cannot depend on the clients built on top of it.
+`check_sdk_layering.py` in the sibling `testing` repo enforces this.
 
 ## Structure
 
 ```
 core/
 ├── __init__.py      # Internal exports
+├── auth/            # Credentials and auth context
+├── http/            # Transport, request, retry
 ├── errors.py        # Error types and handling
-└── utils/           # General utilities
+├── contracts/       # Generic JSON/error contracts only
+├── utils/           # General utilities
+└── research/        # DEPRECATED alias -> synth_ai.sdk.research
 ```
+
+`core/research/` is no longer an implementation tree. Research moved to
+`sdk/research/` so that `core/` means one thing; what remains is an import alias
+that forwards and warns, scheduled for deletion once sibling repos are clean.
+Do not add modules there.
 
 ## Guidelines for Additions
 

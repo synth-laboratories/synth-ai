@@ -25,8 +25,8 @@ from synth_ai.sdk import (
 )
 
 if TYPE_CHECKING:
-    from synth_ai.core.research import AsyncResearchClient
-    from synth_ai.core.research.facade import ResearchClient
+    from synth_ai.sdk.research import AsyncResearchClient
+    from synth_ai.sdk.research.facade import ResearchClient
 
 
 def _resolve_api_key(api_key: str | None) -> str:
@@ -106,7 +106,7 @@ class SynthClient:
     def research(self) -> ResearchClient:
         """Research hero namespace (projects, swarms, and factories)."""
         if self._research_client is None:
-            from synth_ai.core.research.facade import ResearchClient
+            from synth_ai.sdk.research.facade import ResearchClient
 
             self._research_client = ResearchClient(
                 api_key=self.api_key,
@@ -204,7 +204,7 @@ class AsyncSynthClient:
     def research(self) -> AsyncResearchClient:
         """Native asynchronous Research namespace."""
         if self._async_research_client is None:
-            from synth_ai.core.research import AsyncResearchClient
+            from synth_ai.sdk.research import AsyncResearchClient
 
             self._async_research_client = AsyncResearchClient(
                 api_key=self.api_key,

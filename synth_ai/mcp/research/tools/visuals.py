@@ -8,14 +8,6 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.common import (
-    ArtifactId,
-    EffortId,
-    FactoryId,
-    ProjectId,
-)
-from synth_ai.core.research.contracts.visuals import Visual, VisualVisibility
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     JSONDict,
@@ -28,6 +20,14 @@ from synth_ai.mcp.research.request_models import (
     optional_string,
     require_string,
 )
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.common import (
+    ArtifactId,
+    EffortId,
+    FactoryId,
+    ProjectId,
+)
+from synth_ai.sdk.research.contracts.visuals import Visual, VisualVisibility
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 _MCP_BINARY_CHUNK_BYTES_DEFAULT = 65_536

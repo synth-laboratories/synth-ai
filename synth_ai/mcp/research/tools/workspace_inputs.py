@@ -4,17 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.common import ProjectId
-from synth_ai.core.research.contracts.workspaces import (
-    WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
-    WorkspaceFileEncoding,
-    WorkspaceFileKind,
-    WorkspaceFilesBatchUploadRequest,
-    WorkspaceFileUpload,
-    WorkspaceMetadata,
-    WorkspaceSourceRepositorySpec,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -23,6 +12,17 @@ from synth_ai.mcp.research.registry import (
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import optional_string, require_string
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.common import ProjectId
+from synth_ai.sdk.research.contracts.workspaces import (
+    WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
+    WorkspaceFileEncoding,
+    WorkspaceFileKind,
+    WorkspaceFilesBatchUploadRequest,
+    WorkspaceFileUpload,
+    WorkspaceMetadata,
+    WorkspaceSourceRepositorySpec,
+)
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 

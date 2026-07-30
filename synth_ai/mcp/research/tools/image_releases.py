@@ -4,13 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.image_releases import (
-    ImageReleaseFinalizeRequest,
-    ImageReleaseId,
-    ImageReleaseUploadRequest,
-    RuntimeImageReleaseId,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -19,6 +12,13 @@ from synth_ai.mcp.research.registry import (
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import require_string
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.image_releases import (
+    ImageReleaseFinalizeRequest,
+    ImageReleaseId,
+    ImageReleaseUploadRequest,
+    RuntimeImageReleaseId,
+)
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 

@@ -8,19 +8,6 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from synth_ai.core.errors import SynthError
-from synth_ai.core.research.auth import get_api_key
-from synth_ai.core.research.client import Client as CoreResearchClient
-from synth_ai.core.research.contracts.activity import ActivityWindow
-from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
-from synth_ai.core.research.contracts.factory_operations import FactoryWakeDueRequest
-from synth_ai.core.research.contracts.promotions import (
-    SmrPromotionDiscountPreviewRequest,
-)
-from synth_ai.core.research.contracts.run_control import ManagedResearchActorControlAction
-from synth_ai.core.research.contracts.transcript import TranscriptView
-from synth_ai.core.research.errors import SmrApiError
-from synth_ai.core.research.session.client import ResearchSession
-from synth_ai.core.research.version import __version__
 from synth_ai.mcp.research.objective_tools import (
     ObjectiveToolOperation,
     objective_tool_operation_from_wire,
@@ -80,6 +67,19 @@ from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
+from synth_ai.sdk.research.auth import get_api_key
+from synth_ai.sdk.research.client import Client as CoreResearchClient
+from synth_ai.sdk.research.contracts.activity import ActivityWindow
+from synth_ai.sdk.research.contracts.common import ParticipantSessionId, SwarmId
+from synth_ai.sdk.research.contracts.factory_operations import FactoryWakeDueRequest
+from synth_ai.sdk.research.contracts.promotions import (
+    SmrPromotionDiscountPreviewRequest,
+)
+from synth_ai.sdk.research.contracts.run_control import ManagedResearchActorControlAction
+from synth_ai.sdk.research.contracts.transcript import TranscriptView
+from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.session.client import ResearchSession
+from synth_ai.sdk.research.version import __version__
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]

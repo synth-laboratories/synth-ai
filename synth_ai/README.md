@@ -72,12 +72,44 @@ catalog = research.advanced.economics.billing_catalog()
 plan = research.advanced.economics.billing_plan()
 ```
 
+## Layering
+
+One DAG, enforced by `check_sdk_layering.py` in the sibling `testing` repo.
+See `unify_sdk_layering.md` for the rationale.
+
+```text
+core/      plumbing only: auth, http, errors, utils, generic contracts
+  |
+  v
+sdk/       ALL public HTTP clients and domain contracts
+             containers, tunnels, pools, managed_agents, research/
+  |
+  v
+client.py  SynthClient / AsyncSynthClient composition
+  |
+  +--> cli/            thin terminal adapter
+  +--> mcp/research/   thin MCP adapter
+```
+
+| From \ To | `core` | `sdk` | `client` | `cli` | `mcp` |
+|-----------|--------|-------|----------|-------|-------|
+| `core` | yes | **no** | no | no | no |
+| `sdk` | yes | yes | no | no | no |
+| `client` | yes | yes | — | no | no |
+| `cli` | yes | yes | yes | — | no |
+| `mcp` | yes | yes | preferred yes | no | — |
+
+`core/` must not import `sdk/`: plumbing cannot depend on the clients built on
+top of it. Peer imports inside a layer are fine.
+
 ## Guidelines for New Code
 
 1. Put shared errors, URL handling, and environment helpers in `core/`.
 2. Put public HTTP clients and request/response contracts in `sdk/`.
-3. Put Research contracts, clients, and operator session surfaces in `core/research/`;
-   the Research MCP delivery adapter lives in `mcp/research/`.
+3. Put Research contracts, clients, and operator session surfaces in `sdk/research/`;
+   the Research MCP delivery adapter lives in `mcp/research/`. Research used to
+   live under `core/research/`, which made `core/` mean two things; that path is
+   now a deprecated alias.
 4. Put front-door composition in `client.py`.
 5. Put terminal commands in `cli/`.
 6. Keep unreleased or internal compatibility APIs out of public README examples and public-first docs.

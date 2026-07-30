@@ -17,9 +17,9 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, cast
 
-from synth_ai.core.research.contracts.factory_operations import FactoryWakeDueResult
-from synth_ai.core.research.contracts.types import SmrRunnableProjectRequest
-from synth_ai.core.research.session.client import ResearchSession
+from synth_ai.sdk.research.contracts.factory_operations import FactoryWakeDueResult
+from synth_ai.sdk.research.contracts.types import SmrRunnableProjectRequest
+from synth_ai.sdk.research.session.client import ResearchSession
 
 _BUILTIN_PLANS = {
     "rsi-synth-on-synth": "rsi_synth_on_synth.plan.json",
@@ -58,7 +58,7 @@ def _json_object(raw: str, *, field: str) -> dict[str, Any]:
             available = ", ".join(sorted(_BUILTIN_PLANS))
             raise ValueError(f"unknown built-in plan {plan_name!r}; available: {available}")
         value = (
-            resources.files("synth_ai.core.research.factory_plans")
+            resources.files("synth_ai.sdk.research.factory_plans")
             .joinpath(resource_name)
             .read_text(encoding="utf-8")
         )

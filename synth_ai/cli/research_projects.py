@@ -28,7 +28,7 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 
 def _metadata(value: str | None):
-    from synth_ai.core.research.public import ResourceMetadata
+    from synth_ai.sdk.research.public import ResourceMetadata
 
     if value is None:
         return ResourceMetadata()
@@ -85,7 +85,7 @@ def repositories_list(
     backend_url: str | None,
 ) -> None:
     """List external repositories attached to PROJECT_ID."""
-    from synth_ai.core.research.public import ProjectId
+    from synth_ai.sdk.research.public import ProjectId
 
     with _client(api_key, backend_url) as client:
         rows = client.research.projects.repositories.list(ProjectId(project_id))
@@ -116,7 +116,7 @@ def repositories_create(
     backend_url: str | None,
 ) -> None:
     """Attach one external repository to PROJECT_ID."""
-    from synth_ai.core.research.public import (
+    from synth_ai.sdk.research.public import (
         ProjectId,
         ProjectRepositoryRole,
         ProjectRepositorySpec,
@@ -156,7 +156,7 @@ def repositories_update(
     backend_url: str | None,
 ) -> None:
     """Update one external project repository."""
-    from synth_ai.core.research.public import (
+    from synth_ai.sdk.research.public import (
         ProjectId,
         ProjectRepositoryId,
         ProjectRepositoryPatch,
@@ -189,7 +189,7 @@ def repositories_delete(
     backend_url: str | None,
 ) -> None:
     """Delete one external project repository."""
-    from synth_ai.core.research.public import ProjectId, ProjectRepositoryId
+    from synth_ai.sdk.research.public import ProjectId, ProjectRepositoryId
 
     with _client(api_key, backend_url) as client:
         receipt = client.research.projects.repositories.delete(
@@ -213,7 +213,7 @@ def datasets_list(
     backend_url: str | None,
 ) -> None:
     """List datasets attached to PROJECT_ID."""
-    from synth_ai.core.research.public import ProjectId
+    from synth_ai.sdk.research.public import ProjectId
 
     with _client(api_key, backend_url) as client:
         rows = client.research.projects.datasets.list(ProjectId(project_id))
@@ -244,7 +244,7 @@ def datasets_upload(
     backend_url: str | None,
 ) -> None:
     """Upload SOURCE as a binary-safe project dataset."""
-    from synth_ai.core.research.public import ProjectDatasetUpload, ProjectId
+    from synth_ai.sdk.research.public import ProjectDatasetUpload, ProjectId
 
     request = ProjectDatasetUpload.from_bytes(
         name=name or source.name,
@@ -274,7 +274,7 @@ def datasets_download(
     backend_url: str | None,
 ) -> None:
     """Download one project dataset to DESTINATION without text coercion."""
-    from synth_ai.core.research.public import ProjectDatasetId, ProjectId
+    from synth_ai.sdk.research.public import ProjectDatasetId, ProjectId
 
     if destination.exists() and not force:
         raise click.ClickException(
@@ -303,7 +303,7 @@ def workspace_get(
     backend_url: str | None,
 ) -> None:
     """Print the exact workspace-input projection for PROJECT_ID."""
-    from synth_ai.core.research.public import ProjectId
+    from synth_ai.sdk.research.public import ProjectId
 
     with _client(api_key, backend_url) as client:
         receipt = client.research.projects.workspace.retrieve(ProjectId(project_id))
@@ -325,7 +325,7 @@ def workspace_source(
     backend_url: str | None,
 ) -> None:
     """Set the public source repository used to bootstrap PROJECT_ID."""
-    from synth_ai.core.research.public import ProjectId, WorkspaceSourceRepositorySpec
+    from synth_ai.sdk.research.public import ProjectId, WorkspaceSourceRepositorySpec
 
     request = WorkspaceSourceRepositorySpec(
         url=url,
@@ -364,7 +364,7 @@ def workspace_upload(
     backend_url: str | None,
 ) -> None:
     """Upload one or more binary-safe files in deterministic bounded batches."""
-    from synth_ai.core.research.public import (
+    from synth_ai.sdk.research.public import (
         ProjectId,
         WorkspaceFileEncoding,
         WorkspaceFileKind,

@@ -5,20 +5,6 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable
 
-from synth_ai.core.research.client import Client as ResearchClient
-from synth_ai.core.research.contracts.common import (
-    ProjectDatasetId,
-    ProjectId,
-    ProjectRepositoryId,
-)
-from synth_ai.core.research.contracts.project_data import (
-    ProjectDatasetEncoding,
-    ProjectDatasetUpload,
-    ProjectRepositoryPatch,
-    ProjectRepositoryRole,
-    ProjectRepositorySpec,
-    ResourceMetadata,
-)
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,
@@ -30,6 +16,20 @@ from synth_ai.mcp.research.request_models import (
     optional_int,
     optional_string,
     require_string,
+)
+from synth_ai.sdk.research.client import Client as ResearchClient
+from synth_ai.sdk.research.contracts.common import (
+    ProjectDatasetId,
+    ProjectId,
+    ProjectRepositoryId,
+)
+from synth_ai.sdk.research.contracts.project_data import (
+    ProjectDatasetEncoding,
+    ProjectDatasetUpload,
+    ProjectRepositoryPatch,
+    ProjectRepositoryRole,
+    ProjectRepositorySpec,
+    ResourceMetadata,
 )
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
