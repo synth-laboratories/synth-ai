@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from typing import Literal, cast
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.errors import TimeoutError as SynthTimeoutError
+from synth_ai.core.errors import TransientServiceError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
+from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.sdk.research.contracts._wire import array_value
 from synth_ai.sdk.research.contracts.common import FactoryId, ProjectId
@@ -53,6 +58,10 @@ from synth_ai.sdk.research.contracts.research_intern import (
     ResearchInternEventAppendRequest,
     ResearchInternEventKind,
     ResearchInternEventResponse,
+    ResearchInternEventStreamEnvelope,
+    ResearchInternEventStreamEvent,
+    ResearchInternEventStreamHeartbeat,
+    ResearchInternEventStreamPayload,
     ResearchInternFactoryMembershipResponse,
     ResearchInternPatchRequest,
     ResearchInternProvisionRequest,
@@ -61,6 +70,8 @@ from synth_ai.sdk.research.contracts.research_intern import (
     ResearchInternSessionCreateRequest,
     ResearchInternSessionResponse,
     ResearchInternSessionSyncResponse,
+    ResearchInternTracePublicationRequest,
+    ResearchInternTracePublicationResponse,
     ResearchInternTurnControl,
     ResearchInternTurnRequest,
     ResearchInternTurnResponse,
@@ -70,6 +81,9 @@ from synth_ai.sdk.research.operations import (
     dataset_revision_publication_operation,
     research_operation,
 )
+
+_MONOTONIC = time.monotonic
+_RESEARCH_INTERN_EVENT_SEQUENCE_MAX = 2**31 - 1
 
 
 def _request(
@@ -360,6 +374,39 @@ class ResearchInternDecisionsAPI:
             )
         )
 
+    def delegate(
+        self,
+        *,
+        factory_id: str,
+        project_id: str,
+        effort_id: str,
+        run_id: str,
+        expected_state_generation: int,
+        idempotency_key: str,
+        rationale: str,
+        session_id: str | None = None,
+        evidence_refs: list[str] | None = None,
+        state_patch: JsonObject | None = None,
+        mode: MagiMode = MagiMode.SYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Delegate one exact Factory/run target with Casper by default."""
+        return self.record(
+            MagiDecisionRequest(
+                mode=mode,
+                decision_kind=MagiDecisionKind.DELEGATE,
+                idempotency_key=idempotency_key,
+                factory_id=factory_id,
+                project_id=project_id,
+                effort_id=effort_id,
+                run_id=run_id,
+                session_id=session_id,
+                expected_state_generation=expected_state_generation,
+                evidence_refs=evidence_refs or [],
+                state_patch=state_patch or {},
+                rationale=rationale,
+            )
+        )
+
     def pause(
         self,
         *,
@@ -372,7 +419,7 @@ class ResearchInternDecisionsAPI:
         rationale: str,
         session_id: str | None = None,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Pause one exact Factory/run target through runtime authority."""
         return self.record(
@@ -404,7 +451,7 @@ class ResearchInternDecisionsAPI:
         state_patch: JsonObject,
         session_id: str | None = None,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Steer one paused target with an exact durable state patch."""
         return self.record(
@@ -436,7 +483,7 @@ class ResearchInternDecisionsAPI:
         rationale: str,
         session_id: str | None = None,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Resume one exact Factory/run target through runtime authority."""
         return self.record(
@@ -494,18 +541,208 @@ class ResearchInternDecisionsAPI:
 
 @dataclass(frozen=True, slots=True)
 class ResearchInternEventCursor:
-    """Reconnect position for one ordered Research Intern session event log."""
+    """Reconnect position for one ordered Research Intern session event log.
+
+    ``last_event_id`` is the numeric SSE id. ``event_id`` is the separate
+    content-addressed identity carried by the backend payload.
+    """
 
     session_id: str
     after_sequence: int = 0
     state_generation: int = 0
+    event_id: str | None = None
     last_event_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.session_id:
             raise ValueError("session_id must not be empty")
-        if self.after_sequence < 0 or self.state_generation < 0:
-            raise ValueError("event cursor sequence and state generation must be non-negative")
+        if (
+            self.after_sequence < 0
+            or self.after_sequence > _RESEARCH_INTERN_EVENT_SEQUENCE_MAX
+            or self.state_generation < 0
+        ):
+            raise ValueError(
+                "event cursor sequence must be between 0 and "
+                f"{_RESEARCH_INTERN_EVENT_SEQUENCE_MAX}; "
+                "state generation must be non-negative"
+            )
+        if self.after_sequence == 0 and (
+            self.event_id is not None or self.last_event_id is not None
+        ):
+            raise ValueError("the zero event cursor cannot carry a durable event identity")
+        if self.after_sequence > 0 and (
+            self.state_generation < 1 or self.event_id is None or self.last_event_id is None
+        ):
+            raise ValueError(
+                "a nonzero event cursor requires generation, event_id, and Last-Event-ID"
+            )
+        if self.last_event_id is not None and self.last_event_id != str(self.after_sequence):
+            raise ValueError("Last-Event-ID must equal the cursor's numeric sequence")
+        if self.event_id is not None and (
+            len(self.event_id) != 71
+            or not self.event_id.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in self.event_id[7:])
+        ):
+            raise ValueError("event_id must be a lowercase sha256 digest")
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchInternEventStreamObservation:
+    """One bounded stream watch with its exact durable reconnect cursor."""
+
+    session_id: str
+    frames: tuple[ResearchInternEventStreamPayload, ...]
+    events: tuple[ResearchInternEventResponse, ...]
+    cursor: ResearchInternEventCursor | None
+    timed_out: bool = False
+
+    def to_wire(self) -> JsonObject:
+        """Serialize a bounded watch result for MCP and other JSON consumers."""
+        return {
+            "session_id": self.session_id,
+            "frames": [cast(JsonObject, frame.model_dump(mode="json")) for frame in self.frames],
+            "events": [cast(JsonObject, event.to_wire()) for event in self.events],
+            "cursor": (
+                {
+                    "session_id": self.cursor.session_id,
+                    "after_sequence": self.cursor.after_sequence,
+                    "state_generation": self.cursor.state_generation,
+                    "event_id": self.cursor.event_id,
+                    "last_event_id": self.cursor.last_event_id,
+                }
+                if self.cursor is not None
+                else None
+            ),
+            "timed_out": self.timed_out,
+        }
+
+
+_RESEARCH_INTERN_EVENT_STREAM_EVENT_NAME = "research_intern_event"
+_RESEARCH_INTERN_EVENT_STREAM_HEARTBEAT_NAME = "research_intern_heartbeat"
+
+
+def _stream_timeout_seconds(value: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("timeout_seconds must be a number")
+    normalized = float(value)
+    if not 0 < normalized <= 300:
+        raise ValueError("timeout_seconds must be greater than zero and at most 300")
+    return normalized
+
+
+def _stream_bound(value: int, *, name: str, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
+        raise ValueError(f"{name} must be between 1 and {maximum}")
+    return value
+
+
+class _ResearchInternEventStreamValidator:
+    """Validate SSE framing and the durable event/cursor chain without synthesis."""
+
+    def __init__(
+        self,
+        session_id: str,
+        *,
+        cursor: ResearchInternEventCursor | None,
+        after_sequence: int,
+    ) -> None:
+        if not session_id:
+            raise ValueError("session_id must not be empty")
+        if (
+            isinstance(after_sequence, bool)
+            or not isinstance(after_sequence, int)
+            or after_sequence < 0
+            or after_sequence > _RESEARCH_INTERN_EVENT_SEQUENCE_MAX
+        ):
+            raise ValueError(
+                f"after_sequence must be between 0 and {_RESEARCH_INTERN_EVENT_SEQUENCE_MAX}"
+            )
+        if cursor is not None and cursor.session_id != session_id:
+            raise ValueError("stream cursor belongs to another Intern session")
+        if cursor is not None and after_sequence not in {0, cursor.after_sequence}:
+            raise ValueError("after_sequence conflicts with the supplied stream cursor")
+        self.session_id = session_id
+        self.after_sequence = cursor.after_sequence if cursor is not None else after_sequence
+        self.state_generation: int | None = (
+            cursor.state_generation if cursor is not None else (0 if after_sequence == 0 else None)
+        )
+        self.event_id = cursor.event_id if cursor is not None else None
+
+    @property
+    def cursor(self) -> ResearchInternEventCursor:
+        return ResearchInternEventCursor(
+            session_id=self.session_id,
+            after_sequence=self.after_sequence,
+            state_generation=self.state_generation or 0,
+            event_id=self.event_id,
+            last_event_id=(str(self.after_sequence) if self.after_sequence > 0 else None),
+        )
+
+    def decode(self, frame: SseEvent) -> ResearchInternEventStreamPayload:
+        try:
+            payload = ResearchInternEventStreamEnvelope.model_validate(frame.json_data()).root
+        except Exception as error:
+            raise ValueError("Research Intern SSE data violated its typed envelope") from error
+        if payload.session_id != self.session_id:
+            raise ValueError("Research Intern SSE frame crossed its requested session")
+        if isinstance(payload, ResearchInternEventStreamEvent):
+            self._accept_event_frame(frame, payload)
+        elif isinstance(payload, ResearchInternEventStreamHeartbeat):
+            self._accept_heartbeat_frame(frame, payload)
+        else:  # pragma: no cover - the discriminated union is exhaustive.
+            raise ValueError("Research Intern SSE envelope kind is unsupported")
+        return payload
+
+    def _accept_event_frame(
+        self,
+        frame: SseEvent,
+        payload: ResearchInternEventStreamEvent,
+    ) -> None:
+        event = payload.event
+        if frame.event != _RESEARCH_INTERN_EVENT_STREAM_EVENT_NAME:
+            raise ValueError("durable Intern event used the wrong SSE event name")
+        if frame.event_id != str(event.sequence):
+            raise ValueError("durable Intern SSE id must equal its numeric event sequence")
+        if event.sequence != self.after_sequence + 1:
+            raise ValueError("Research Intern SSE event sequence is not contiguous")
+        if (
+            self.state_generation is not None
+            and event.previous_state_generation != self.state_generation
+        ):
+            raise ValueError("Research Intern SSE event broke the state-generation chain")
+        if event.state_generation != event.previous_state_generation + 1:
+            raise ValueError("Research Intern SSE event broke the state-generation transition")
+        self.after_sequence = event.sequence
+        self.state_generation = event.state_generation
+        self.event_id = event.event_id
+
+    def _accept_heartbeat_frame(
+        self,
+        frame: SseEvent,
+        payload: ResearchInternEventStreamHeartbeat,
+    ) -> None:
+        if frame.event != _RESEARCH_INTERN_EVENT_STREAM_HEARTBEAT_NAME:
+            raise ValueError("Intern heartbeat used the wrong SSE event name")
+        if frame.event_id not in {None, str(self.after_sequence)}:
+            raise ValueError("Intern heartbeat attempted to advance the durable SSE id")
+        if (
+            frame.retry_milliseconds is not None
+            and frame.retry_milliseconds != payload.reconnect_after_ms
+        ):
+            raise ValueError("Intern heartbeat retry interval drifted from its payload")
+        cursor = payload.cursor
+        if self.after_sequence == 0:
+            if cursor is not None:
+                raise ValueError("zero-sequence Intern heartbeat carried a durable cursor")
+            return
+        if cursor is None or cursor.after_sequence != self.after_sequence:
+            raise ValueError("Intern heartbeat did not preserve the reconnect sequence")
+        if self.state_generation is not None and (cursor.state_generation != self.state_generation):
+            raise ValueError("Intern heartbeat changed the state-generation cursor")
+        if self.event_id is not None and cursor.event_id != self.event_id:
+            raise ValueError("Intern heartbeat changed the content-addressed event cursor")
+        self.state_generation = cursor.state_generation
+        self.event_id = cursor.event_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -535,6 +772,22 @@ class ResearchInternOperatorTurn:
         """Return the optional runtime-control decision receipt."""
         return self.response.decision_receipt
 
+    def to_wire(self) -> JsonObject:
+        """Serialize the exact response, observed chain, and reconnect cursor."""
+        return {
+            "response": cast(JsonObject, self.response.to_wire()),
+            "observed_events": [
+                cast(JsonObject, event.to_wire()) for event in self.observed_events
+            ],
+            "cursor": {
+                "session_id": self.cursor.session_id,
+                "after_sequence": self.cursor.after_sequence,
+                "state_generation": self.cursor.state_generation,
+                "event_id": self.cursor.event_id,
+                "last_event_id": self.cursor.last_event_id,
+            },
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class ResearchInternExchange:
@@ -544,6 +797,23 @@ class ResearchInternExchange:
     agent_event: ResearchInternEventResponse
     observed_events: tuple[ResearchInternEventResponse, ...]
     cursor: ResearchInternEventCursor
+
+    def to_wire(self) -> JsonObject:
+        """Serialize one exact-turn exchange for MCP and other JSON consumers."""
+        return {
+            "operator_turn": self.operator_turn.to_wire(),
+            "agent_event": cast(JsonObject, self.agent_event.to_wire()),
+            "observed_events": [
+                cast(JsonObject, event.to_wire()) for event in self.observed_events
+            ],
+            "cursor": {
+                "session_id": self.cursor.session_id,
+                "after_sequence": self.cursor.after_sequence,
+                "state_generation": self.cursor.state_generation,
+                "event_id": self.cursor.event_id,
+                "last_event_id": self.cursor.last_event_id,
+            },
+        }
 
 
 class ResearchInternPollingTimeoutError(TimeoutError):
@@ -562,14 +832,24 @@ class ResearchInternPollingTimeoutError(TimeoutError):
 class ResearchInternTurnFailedError(RuntimeError):
     """A canonical turn completed with a typed runtime failure payload."""
 
-    def __init__(self, response: ResearchInternTurnResponse) -> None:
+    def __init__(
+        self,
+        response: ResearchInternTurnResponse,
+        *,
+        terminal_event: ResearchInternEventResponse | None = None,
+    ) -> None:
         message = (
-            response.error.message
-            if response.error is not None
-            else f"Research Intern turn {response.turn_id} failed"
+            terminal_event.body
+            if terminal_event is not None and terminal_event.body
+            else (
+                response.error.message
+                if response.error is not None
+                else f"Research Intern turn {response.turn_id} failed"
+            )
         )
         super().__init__(message)
         self.response = response
+        self.terminal_event = terminal_event
 
 
 class ResearchInternSessionsAPI:
@@ -662,8 +942,11 @@ class ResearchInternSessionsAPI:
             isinstance(after_sequence, bool)
             or not isinstance(after_sequence, int)
             or after_sequence < 0
+            or after_sequence > _RESEARCH_INTERN_EVENT_SEQUENCE_MAX
         ):
-            raise ValueError("after_sequence must be a non-negative integer")
+            raise ValueError(
+                f"after_sequence must be between 0 and {_RESEARCH_INTERN_EVENT_SEQUENCE_MAX}"
+            )
         events = _events(
             self._transport.execute(
                 _request(
@@ -677,11 +960,135 @@ class ResearchInternSessionsAPI:
             )
         )
         previous_sequence = after_sequence
+        previous_generation: int | None = None
         for event in events:
-            if event.session_id != session_id or event.sequence != previous_sequence + 1:
+            if (
+                event.session_id != session_id
+                or event.sequence != previous_sequence + 1
+                or event.state_generation != event.previous_state_generation + 1
+                or (
+                    previous_generation is not None
+                    and event.previous_state_generation != previous_generation
+                )
+            ):
                 raise ValueError("Research Intern event page is not contiguous for its session")
             previous_sequence = event.sequence
+            previous_generation = event.state_generation
         return events
+
+    def stream_events(
+        self,
+        session_id: str,
+        *,
+        cursor: ResearchInternEventCursor | None = None,
+        after_sequence: int = 0,
+        timeout_seconds: float = 30.0,
+    ) -> Iterator[ResearchInternEventStreamPayload]:
+        """Stream typed backend-owned frames from one exact reconnect cursor."""
+        validator = _ResearchInternEventStreamValidator(
+            session_id,
+            cursor=cursor,
+            after_sequence=after_sequence,
+        )
+        resume_sequence = validator.after_sequence
+        for frame in self._transport.stream_sse(
+            f"/smr/research-intern/sessions/{session_id}/events/stream",
+            params={"after_sequence": resume_sequence},
+            last_event_id=(str(resume_sequence) if resume_sequence > 0 else None),
+            timeout_seconds=_stream_timeout_seconds(timeout_seconds),
+            operation_id="stream_research_intern_session_events",
+        ):
+            yield validator.decode(frame)
+
+    def watch(
+        self,
+        session_id: str,
+        *,
+        cursor: ResearchInternEventCursor | None = None,
+        after_sequence: int = 0,
+        event_count_max: int = 1,
+        frame_count_max: int = 100,
+        reconnect_count_max: int = 3,
+        timeout_seconds: float = 30.0,
+    ) -> ResearchInternEventStreamObservation:
+        """Wait with explicit bounds, reconnecting only from durable SSE cursors."""
+        _stream_bound(event_count_max, name="event_count_max", maximum=500)
+        _stream_bound(frame_count_max, name="frame_count_max", maximum=5_000)
+        _stream_bound(reconnect_count_max, name="reconnect_count_max", maximum=20)
+        timeout = _stream_timeout_seconds(timeout_seconds)
+        validator = _ResearchInternEventStreamValidator(
+            session_id,
+            cursor=cursor,
+            after_sequence=after_sequence,
+        )
+        current_cursor = cursor
+        if current_cursor is None and after_sequence == 0:
+            current_cursor = validator.cursor
+        frames: list[ResearchInternEventStreamPayload] = []
+        events: list[ResearchInternEventResponse] = []
+        deadline = _MONOTONIC() + timeout
+        timed_out = False
+        transient_error: TransientServiceError | None = None
+        for _ in range(reconnect_count_max):
+            remaining = deadline - _MONOTONIC()
+            if remaining <= 0:
+                timed_out = True
+                break
+            try:
+                for payload in self.stream_events(
+                    session_id,
+                    cursor=current_cursor,
+                    after_sequence=(after_sequence if current_cursor is None else 0),
+                    timeout_seconds=remaining,
+                ):
+                    if _MONOTONIC() >= deadline:
+                        timed_out = True
+                        break
+                    frames.append(payload)
+                    if isinstance(payload, ResearchInternEventStreamEvent):
+                        events.append(payload.event)
+                        current_cursor = ResearchInternEventCursor(
+                            session_id=session_id,
+                            after_sequence=payload.cursor.after_sequence,
+                            state_generation=payload.cursor.state_generation,
+                            event_id=payload.cursor.event_id,
+                            last_event_id=str(payload.cursor.after_sequence),
+                        )
+                    elif payload.cursor is not None:
+                        current_cursor = ResearchInternEventCursor(
+                            session_id=session_id,
+                            after_sequence=payload.cursor.after_sequence,
+                            state_generation=payload.cursor.state_generation,
+                            event_id=payload.cursor.event_id,
+                            last_event_id=str(payload.cursor.after_sequence),
+                        )
+                    if len(events) >= event_count_max or len(frames) >= frame_count_max:
+                        return ResearchInternEventStreamObservation(
+                            session_id=session_id,
+                            frames=tuple(frames),
+                            events=tuple(events),
+                            cursor=current_cursor,
+                        )
+                transient_error = None
+                if timed_out:
+                    break
+            except SynthTimeoutError:
+                timed_out = True
+                break
+            except TransientServiceError as error:
+                if not error.retryable:
+                    raise
+                transient_error = error
+                continue
+        if transient_error is not None and not timed_out:
+            raise transient_error
+        return ResearchInternEventStreamObservation(
+            session_id=session_id,
+            frames=tuple(frames),
+            events=tuple(events),
+            cursor=current_cursor,
+            timed_out=timed_out,
+        )
 
     def sync(
         self,
@@ -755,6 +1162,29 @@ class ResearchInternSessionsAPI:
         ):
             raise ValueError("Research Intern close response identity drifted")
         return session
+
+    def publish_trace(
+        self,
+        session_id: str,
+        request: ResearchInternTracePublicationRequest,
+    ) -> ResearchInternTracePublicationResponse:
+        """Publish the terminal event chain through backend Trace V5 authority."""
+        response = ResearchInternTracePublicationResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "publish_research_intern_session_trace",
+                    f"/smr/research-intern/sessions/{session_id}/trace:publish",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            response.session_id != session_id
+            or response.idempotency_key != request.idempotency_key
+            or response.state_generation != request.expected_state_generation
+        ):
+            raise ValueError("Research Intern trace publication identity drifted")
+        return response
 
     def create_reactive(
         self,
@@ -884,13 +1314,15 @@ class ResearchInternReactiveSession:
             event.session_id != self.session.session_id
             or event.sequence != self.cursor.after_sequence + 1
             or event.previous_state_generation != self.cursor.state_generation
+            or event.state_generation != event.previous_state_generation + 1
         ):
             raise ValueError("Research Intern event broke the reconnect cursor chain")
         self.cursor = ResearchInternEventCursor(
             session_id=event.session_id,
             after_sequence=event.sequence,
             state_generation=event.state_generation,
-            last_event_id=event.event_id,
+            event_id=event.event_id,
+            last_event_id=str(event.sequence),
         )
 
     def observe(self, *, limit: int = 100) -> ResearchInternEventObservation:
@@ -958,6 +1390,114 @@ class ResearchInternReactiveSession:
                 return tuple(projected)
         raise ValueError("Research Intern runtime synchronization exceeded page_count_max")
 
+    def watch(
+        self,
+        *,
+        event_count_max: int = 1,
+        frame_count_max: int = 100,
+        reconnect_count_max: int = 3,
+        timeout_seconds: float = 30.0,
+    ) -> ResearchInternEventStreamObservation:
+        """Consume the canonical event stream without invoking runtime sync."""
+        observation = self._api.sessions.watch(
+            self.session.session_id,
+            cursor=self.cursor,
+            event_count_max=event_count_max,
+            frame_count_max=frame_count_max,
+            reconnect_count_max=reconnect_count_max,
+            timeout_seconds=timeout_seconds,
+        )
+        for event in observation.events:
+            self._accept_event(event)
+        if observation.cursor is not None and observation.cursor != self.cursor:
+            raise ValueError("Intern stream observation cursor diverged from its event chain")
+        if observation.events:
+            self.session = self._api.sessions.retrieve(self.session.session_id)
+        return ResearchInternEventStreamObservation(
+            session_id=observation.session_id,
+            frames=observation.frames,
+            events=observation.events,
+            cursor=self.cursor,
+            timed_out=observation.timed_out,
+        )
+
+    @staticmethod
+    def _event_turn_id(event: ResearchInternEventResponse) -> str | None:
+        marker = event.payload.get("research_intern_turn")
+        if not isinstance(marker, dict):
+            return None
+        value = marker.get("turn_id")
+        return value if isinstance(value, str) and value else None
+
+    def _watch_through_sequence(
+        self,
+        sequence: int,
+        *,
+        timeout_seconds: float,
+    ) -> tuple[ResearchInternEventResponse, ...]:
+        if sequence < self.cursor.after_sequence:
+            return ()
+        deadline = time.monotonic() + _stream_timeout_seconds(timeout_seconds)
+        observed: list[ResearchInternEventResponse] = []
+        while self.cursor.after_sequence < sequence:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ResearchInternPollingTimeoutError(
+                    f"event stream did not reach sequence {sequence} for "
+                    f"session {self.session.session_id}"
+                )
+            observation = self.watch(
+                event_count_max=min(sequence - self.cursor.after_sequence, 500),
+                timeout_seconds=remaining,
+            )
+            observed.extend(observation.events)
+            if not observation.events:
+                raise ResearchInternPollingTimeoutError(
+                    f"event stream did not reach sequence {sequence} for "
+                    f"session {self.session.session_id}"
+                )
+        return tuple(observed)
+
+    def _wait_for_turn_terminal(
+        self,
+        turn_id: str,
+        *,
+        timeout_seconds: float,
+        already_observed: tuple[ResearchInternEventResponse, ...] = (),
+    ) -> tuple[ResearchInternEventResponse, tuple[ResearchInternEventResponse, ...]]:
+        deadline = time.monotonic() + _stream_timeout_seconds(timeout_seconds)
+        observed = list(already_observed)
+        while True:
+            terminal = next(
+                (
+                    event
+                    for event in observed
+                    if event.event_kind
+                    in {
+                        ResearchInternEventKind.AGENT_MESSAGE,
+                        ResearchInternEventKind.ERROR,
+                    }
+                    and self._event_turn_id(event) == turn_id
+                ),
+                None,
+            )
+            if terminal is not None:
+                return terminal, tuple(observed)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ResearchInternPollingTimeoutError(
+                    f"no terminal event observed for turn {turn_id}"
+                )
+            observation = self.watch(
+                event_count_max=1,
+                timeout_seconds=remaining,
+            )
+            observed.extend(observation.events)
+            if not observation.events:
+                raise ResearchInternPollingTimeoutError(
+                    f"no terminal event observed for turn {turn_id}"
+                )
+
     def append_event(
         self,
         *,
@@ -1011,13 +1551,38 @@ class ResearchInternReactiveSession:
     def _intern_generation(self) -> int:
         return self._api.retrieve().state_generation
 
+    def delegate(
+        self,
+        *,
+        idempotency_key: str,
+        rationale: str,
+        evidence_refs: list[str] | None = None,
+        state_patch: JsonObject | None = None,
+        mode: MagiMode = MagiMode.SYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Delegate this session's exact Factory/run target through Casper."""
+        self.synchronize()
+        return self._api.decisions.delegate(
+            factory_id=self.session.factory_id,
+            project_id=self.session.project_id,
+            effort_id=self.session.effort_id,
+            run_id=self._run_id(),
+            session_id=self.session.session_id,
+            expected_state_generation=self._intern_generation(),
+            idempotency_key=idempotency_key,
+            rationale=rationale,
+            evidence_refs=evidence_refs,
+            state_patch=state_patch,
+            mode=mode,
+        )
+
     def pause(
         self,
         *,
         idempotency_key: str,
         rationale: str,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Pause this session's exact Factory and run target."""
         self.synchronize()
@@ -1041,7 +1606,7 @@ class ResearchInternReactiveSession:
         rationale: str,
         state_patch: JsonObject,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Steer this session's exact paused Factory and run target."""
         self.synchronize()
@@ -1071,9 +1636,12 @@ class ResearchInternReactiveSession:
         evidence_refs: list[str] | None = None,
         wait_timeout_seconds: float = 15.0,
         poll_interval_ms: int = 250,
+        stream_timeout_seconds: float = 30.0,
     ) -> ResearchInternOperatorTurn:
-        """Submit one backend-owned turn against the bound real runtime."""
+        """Submit one turn and observe every durable response event over SSE."""
         self._run_id()
+        # /sync is reconciliation at the initial request boundary. Once the
+        # turn is accepted, only the canonical event stream advances the loop.
         self.synchronize_runtime()
         response = self._api.sessions.turn(
             self.session.session_id,
@@ -1091,11 +1659,12 @@ class ResearchInternReactiveSession:
                 poll_interval_ms=poll_interval_ms,
             ),
         )
-        observed = self.synchronize()
-        if self.cursor.after_sequence < response.reconnect_after_sequence:
-            observed = (*observed, *self.synchronize())
-        if self.cursor.after_sequence < response.reconnect_after_sequence:
-            raise ValueError("Research Intern turn response is ahead of its reconnect event log")
+        observed = self._watch_through_sequence(
+            response.reconnect_after_sequence,
+            timeout_seconds=stream_timeout_seconds,
+        )
+        if self.cursor.after_sequence != response.reconnect_after_sequence:
+            raise ValueError("Research Intern turn response skipped unseen event sequence")
         self.session = self._api.sessions.retrieve(self.session.session_id)
         return ResearchInternOperatorTurn(
             response=response,
@@ -1109,7 +1678,7 @@ class ResearchInternReactiveSession:
         idempotency_key: str,
         rationale: str,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Resume this session's exact Factory and run target."""
         self.synchronize()
@@ -1135,7 +1704,7 @@ class ResearchInternReactiveSession:
         timeout_seconds: float = 30.0,
         poll_interval_seconds: float = 0.5,
     ) -> tuple[ResearchInternEventResponse, ...]:
-        """Poll bounded event pages and return only requested event kinds."""
+        """Explicit degraded fallback when the canonical SSE path is unavailable."""
         _bounded_limit(max_events)
         if not 1 <= max_polls <= 1000:
             raise ValueError("max_polls must be between 1 and 1000")
@@ -1175,7 +1744,7 @@ class ResearchInternReactiveSession:
         timeout_seconds: float = 60.0,
         poll_interval_seconds: float = 1.0,
     ) -> ResearchInternEventResponse:
-        """Wait for one backend-projected agent message."""
+        """Use the explicit degraded polling fallback for any agent message."""
         events = self.poll(
             event_kinds={ResearchInternEventKind.AGENT_MESSAGE},
             max_events=1,
@@ -1215,8 +1784,9 @@ class ResearchInternReactiveSession:
         evidence_refs: list[str] | None = None,
         wait_timeout_seconds: float = 15.0,
         poll_interval_ms: int = 250,
+        recovery_timeout_seconds: float = 60.0,
     ) -> ResearchInternExchange:
-        """Submit one turn and require a canonical real-runtime agent reply."""
+        """Submit one turn and recover its exact terminal reply from SSE."""
         turn = self.send_operator_turn(
             body,
             idempotency_key=idempotency_key,
@@ -1227,19 +1797,34 @@ class ResearchInternReactiveSession:
             evidence_refs=evidence_refs,
             wait_timeout_seconds=wait_timeout_seconds,
             poll_interval_ms=poll_interval_ms,
+            stream_timeout_seconds=min(
+                _stream_timeout_seconds(recovery_timeout_seconds),
+                30.0,
+            ),
         )
         response = turn.response
         if response.status is ResearchInternTurnStatus.FAILED:
             raise ResearchInternTurnFailedError(response)
-        if response.agent_event is None:
-            raise ResearchInternPollingTimeoutError(
-                f"no agent message observed for turn {response.turn_id}",
-                response=response,
+        try:
+            terminal, observed = self._wait_for_turn_terminal(
+                response.turn_id,
+                timeout_seconds=recovery_timeout_seconds,
+                already_observed=turn.observed_events,
             )
+        except ResearchInternPollingTimeoutError as error:
+            error.response = response
+            raise
+        if terminal.event_kind is ResearchInternEventKind.ERROR:
+            raise ResearchInternTurnFailedError(
+                response,
+                terminal_event=terminal,
+            )
+        if response.agent_event is not None and response.agent_event.event_id != terminal.event_id:
+            raise ValueError("turn response agent event diverged from the canonical SSE event")
         return ResearchInternExchange(
             operator_turn=turn,
-            agent_event=response.agent_event,
-            observed_events=turn.observed_events,
+            agent_event=terminal,
+            observed_events=observed,
             cursor=self.cursor,
         )
 
@@ -1935,6 +2520,39 @@ class AsyncResearchInternDecisionsAPI:
             )
         )
 
+    async def delegate(
+        self,
+        *,
+        factory_id: str,
+        project_id: str,
+        effort_id: str,
+        run_id: str,
+        expected_state_generation: int,
+        idempotency_key: str,
+        rationale: str,
+        session_id: str | None = None,
+        evidence_refs: list[str] | None = None,
+        state_patch: JsonObject | None = None,
+        mode: MagiMode = MagiMode.SYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Delegate one exact Factory/run target with Casper by default."""
+        return await self.record(
+            MagiDecisionRequest(
+                mode=mode,
+                decision_kind=MagiDecisionKind.DELEGATE,
+                idempotency_key=idempotency_key,
+                factory_id=factory_id,
+                project_id=project_id,
+                effort_id=effort_id,
+                run_id=run_id,
+                session_id=session_id,
+                expected_state_generation=expected_state_generation,
+                evidence_refs=evidence_refs or [],
+                state_patch=state_patch or {},
+                rationale=rationale,
+            )
+        )
+
     async def pause(
         self,
         *,
@@ -1947,7 +2565,7 @@ class AsyncResearchInternDecisionsAPI:
         rationale: str,
         session_id: str | None = None,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Pause one exact Factory/run target through runtime authority."""
         return await self.record(
@@ -1979,7 +2597,7 @@ class AsyncResearchInternDecisionsAPI:
         state_patch: JsonObject,
         session_id: str | None = None,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Steer one paused target with an exact durable state patch."""
         return await self.record(
@@ -2011,7 +2629,7 @@ class AsyncResearchInternDecisionsAPI:
         rationale: str,
         session_id: str | None = None,
         evidence_refs: list[str] | None = None,
-        mode: MagiMode = MagiMode.SYNC,
+        mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Resume one exact Factory/run target through runtime authority."""
         return await self.record(
@@ -2070,8 +2688,13 @@ class AsyncResearchInternDecisionsAPI:
 class AsyncResearchInternSessionsAPI:
     """Native asynchronous Intern session and event-log operations."""
 
-    def __init__(self, transport: AsyncHttpTransport) -> None:
+    def __init__(
+        self,
+        transport: AsyncHttpTransport,
+        owner: AsyncResearchInternAPI,
+    ) -> None:
         self._transport = transport
+        self._owner = owner
 
     async def create(
         self,
@@ -2159,8 +2782,11 @@ class AsyncResearchInternSessionsAPI:
             isinstance(after_sequence, bool)
             or not isinstance(after_sequence, int)
             or after_sequence < 0
+            or after_sequence > _RESEARCH_INTERN_EVENT_SEQUENCE_MAX
         ):
-            raise ValueError("after_sequence must be a non-negative integer")
+            raise ValueError(
+                f"after_sequence must be between 0 and {_RESEARCH_INTERN_EVENT_SEQUENCE_MAX}"
+            )
         events = _events(
             await self._transport.execute(
                 _request(
@@ -2174,11 +2800,139 @@ class AsyncResearchInternSessionsAPI:
             )
         )
         previous_sequence = after_sequence
+        previous_generation: int | None = None
         for event in events:
-            if event.session_id != session_id or event.sequence != previous_sequence + 1:
+            if (
+                event.session_id != session_id
+                or event.sequence != previous_sequence + 1
+                or event.state_generation != event.previous_state_generation + 1
+                or (
+                    previous_generation is not None
+                    and event.previous_state_generation != previous_generation
+                )
+            ):
                 raise ValueError("Research Intern event page is not contiguous for its session")
             previous_sequence = event.sequence
+            previous_generation = event.state_generation
         return events
+
+    async def stream_events(
+        self,
+        session_id: str,
+        *,
+        cursor: ResearchInternEventCursor | None = None,
+        after_sequence: int = 0,
+        timeout_seconds: float = 30.0,
+    ) -> AsyncIterator[ResearchInternEventStreamPayload]:
+        """Stream typed backend-owned frames from one exact reconnect cursor."""
+        validator = _ResearchInternEventStreamValidator(
+            session_id,
+            cursor=cursor,
+            after_sequence=after_sequence,
+        )
+        resume_sequence = validator.after_sequence
+        async for frame in self._transport.stream_sse(
+            f"/smr/research-intern/sessions/{session_id}/events/stream",
+            params={"after_sequence": resume_sequence},
+            last_event_id=(str(resume_sequence) if resume_sequence > 0 else None),
+            timeout_seconds=_stream_timeout_seconds(timeout_seconds),
+            operation_id="stream_research_intern_session_events",
+        ):
+            yield validator.decode(frame)
+
+    async def watch(
+        self,
+        session_id: str,
+        *,
+        cursor: ResearchInternEventCursor | None = None,
+        after_sequence: int = 0,
+        event_count_max: int = 1,
+        frame_count_max: int = 100,
+        reconnect_count_max: int = 3,
+        timeout_seconds: float = 30.0,
+    ) -> ResearchInternEventStreamObservation:
+        """Wait with explicit bounds, reconnecting only from durable SSE cursors."""
+        _stream_bound(event_count_max, name="event_count_max", maximum=500)
+        _stream_bound(frame_count_max, name="frame_count_max", maximum=5_000)
+        _stream_bound(reconnect_count_max, name="reconnect_count_max", maximum=20)
+        timeout = _stream_timeout_seconds(timeout_seconds)
+        validator = _ResearchInternEventStreamValidator(
+            session_id,
+            cursor=cursor,
+            after_sequence=after_sequence,
+        )
+        current_cursor = cursor
+        if current_cursor is None and after_sequence == 0:
+            current_cursor = validator.cursor
+        frames: list[ResearchInternEventStreamPayload] = []
+        events: list[ResearchInternEventResponse] = []
+        deadline = _MONOTONIC() + timeout
+        timed_out = False
+        transient_error: TransientServiceError | None = None
+        for _ in range(reconnect_count_max):
+            remaining = deadline - _MONOTONIC()
+            if remaining <= 0:
+                timed_out = True
+                break
+            try:
+                async with asyncio.timeout(remaining):
+                    async for payload in self.stream_events(
+                        session_id,
+                        cursor=current_cursor,
+                        after_sequence=(after_sequence if current_cursor is None else 0),
+                        timeout_seconds=remaining,
+                    ):
+                        if _MONOTONIC() >= deadline:
+                            timed_out = True
+                            break
+                        frames.append(payload)
+                        if isinstance(payload, ResearchInternEventStreamEvent):
+                            events.append(payload.event)
+                            current_cursor = ResearchInternEventCursor(
+                                session_id=session_id,
+                                after_sequence=payload.cursor.after_sequence,
+                                state_generation=payload.cursor.state_generation,
+                                event_id=payload.cursor.event_id,
+                                last_event_id=str(payload.cursor.after_sequence),
+                            )
+                        elif payload.cursor is not None:
+                            current_cursor = ResearchInternEventCursor(
+                                session_id=session_id,
+                                after_sequence=payload.cursor.after_sequence,
+                                state_generation=payload.cursor.state_generation,
+                                event_id=payload.cursor.event_id,
+                                last_event_id=str(payload.cursor.after_sequence),
+                            )
+                        if len(events) >= event_count_max or len(frames) >= frame_count_max:
+                            return ResearchInternEventStreamObservation(
+                                session_id=session_id,
+                                frames=tuple(frames),
+                                events=tuple(events),
+                                cursor=current_cursor,
+                            )
+                transient_error = None
+                if timed_out:
+                    break
+            except TimeoutError:
+                timed_out = True
+                break
+            except SynthTimeoutError:
+                timed_out = True
+                break
+            except TransientServiceError as error:
+                if not error.retryable:
+                    raise
+                transient_error = error
+                continue
+        if transient_error is not None and not timed_out:
+            raise transient_error
+        return ResearchInternEventStreamObservation(
+            session_id=session_id,
+            frames=tuple(frames),
+            events=tuple(events),
+            cursor=current_cursor,
+            timed_out=timed_out,
+        )
 
     async def sync(
         self,
@@ -2252,6 +3006,63 @@ class AsyncResearchInternSessionsAPI:
         ):
             raise ValueError("Research Intern close response identity drifted")
         return session
+
+    async def publish_trace(
+        self,
+        session_id: str,
+        request: ResearchInternTracePublicationRequest,
+    ) -> ResearchInternTracePublicationResponse:
+        """Publish the terminal event chain through backend Trace V5 authority."""
+        response = ResearchInternTracePublicationResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "publish_research_intern_session_trace",
+                    f"/smr/research-intern/sessions/{session_id}/trace:publish",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            response.session_id != session_id
+            or response.idempotency_key != request.idempotency_key
+            or response.state_generation != request.expected_state_generation
+        ):
+            raise ValueError("Research Intern trace publication identity drifted")
+        return response
+
+    async def create_reactive(
+        self,
+        request: ResearchInternSessionCreateRequest,
+    ) -> AsyncResearchInternReactiveSession:
+        """Create an asynchronously reconnectable view over one backend session."""
+        session = await self.create(request)
+        return AsyncResearchInternReactiveSession(
+            self._owner,
+            session,
+            cursor=ResearchInternEventCursor(session_id=session.session_id),
+        )
+
+    async def connect(
+        self,
+        session_id: str,
+        *,
+        cursor: ResearchInternEventCursor | None = None,
+    ) -> AsyncResearchInternReactiveSession:
+        """Reconnect asynchronously from one exact previously returned cursor."""
+        session = await self.retrieve(session_id)
+        reconnect_cursor = cursor or ResearchInternEventCursor(session_id=session_id)
+        if reconnect_cursor.session_id != session_id:
+            raise ValueError("reconnect cursor belongs to another Intern session")
+        if (
+            reconnect_cursor.after_sequence > session.last_event_sequence
+            or reconnect_cursor.state_generation > session.state_generation
+        ):
+            raise ValueError("reconnect cursor is ahead of the authoritative session")
+        return AsyncResearchInternReactiveSession(
+            self._owner,
+            session,
+            cursor=reconnect_cursor,
+        )
 
 
 class AsyncResearchInternAcceptanceReceiptsAPI:
@@ -2339,7 +3150,7 @@ class AsyncResearchInternAPI:
         self._transport = transport
         self.factories = AsyncResearchInternFactoriesAPI(transport)
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
-        self.sessions = AsyncResearchInternSessionsAPI(transport)
+        self.sessions = AsyncResearchInternSessionsAPI(transport, self)
         self.acceptance_receipts = AsyncResearchInternAcceptanceReceiptsAPI(transport)
 
     async def provision(
@@ -2380,6 +3191,467 @@ class AsyncResearchInternAPI:
                 )
             )
         )
+
+
+class AsyncResearchInternReactiveSession:
+    """Native asynchronous peer of the event-driven Intern operator loop."""
+
+    def __init__(
+        self,
+        api: AsyncResearchInternAPI,
+        session: ResearchInternSessionResponse,
+        *,
+        cursor: ResearchInternEventCursor,
+    ) -> None:
+        self._api = api
+        self.session = session
+        self.cursor = cursor
+
+    def _accept_event(self, event: ResearchInternEventResponse) -> None:
+        if (
+            event.session_id != self.session.session_id
+            or event.sequence != self.cursor.after_sequence + 1
+            or event.previous_state_generation != self.cursor.state_generation
+            or event.state_generation != event.previous_state_generation + 1
+        ):
+            raise ValueError("Research Intern event broke the reconnect cursor chain")
+        self.cursor = ResearchInternEventCursor(
+            session_id=event.session_id,
+            after_sequence=event.sequence,
+            state_generation=event.state_generation,
+            event_id=event.event_id,
+            last_event_id=str(event.sequence),
+        )
+
+    @staticmethod
+    def _event_turn_id(event: ResearchInternEventResponse) -> str | None:
+        return ResearchInternReactiveSession._event_turn_id(event)
+
+    async def observe(self, *, limit: int = 100) -> ResearchInternEventObservation:
+        """Read one bounded page and advance the exact reconnect cursor."""
+        events = await self._api.sessions.list_events(
+            self.session.session_id,
+            after_sequence=self.cursor.after_sequence,
+            limit=limit,
+        )
+        for event in events:
+            self._accept_event(event)
+        self.session = await self._api.sessions.retrieve(self.session.session_id)
+        return ResearchInternEventObservation(
+            session=self.session,
+            events=events,
+            cursor=self.cursor,
+        )
+
+    async def synchronize(
+        self,
+        *,
+        page_limit: int = 100,
+        page_count_max: int = 20,
+    ) -> tuple[ResearchInternEventResponse, ...]:
+        """Drain unseen durable events with explicit page bounds."""
+        _bounded_limit(page_limit)
+        _stream_bound(page_count_max, name="page_count_max", maximum=100)
+        observed: list[ResearchInternEventResponse] = []
+        for _ in range(page_count_max):
+            observation = await self.observe(limit=page_limit)
+            observed.extend(observation.events)
+            if self.cursor.after_sequence >= observation.session.last_event_sequence:
+                return tuple(observed)
+            if not observation.events:
+                raise ValueError("Intern session reported unseen events without an event page")
+        raise ValueError("Intern session synchronization exceeded page_count_max")
+
+    async def synchronize_runtime(
+        self,
+        *,
+        page_limit: int = 200,
+        page_count_max: int = 20,
+    ) -> tuple[ResearchInternEventResponse, ...]:
+        """Reconcile runtime projection only at an initial/reconnect boundary."""
+        _bounded_limit(page_limit)
+        _stream_bound(page_count_max, name="page_count_max", maximum=100)
+        await self.synchronize(
+            page_limit=page_limit,
+            page_count_max=page_count_max,
+        )
+        projected: list[ResearchInternEventResponse] = []
+        for _ in range(page_count_max):
+            response = await self._api.sessions.sync(
+                self.session.session_id,
+                limit=page_limit,
+            )
+            projected.extend(response.events)
+            observed = await self.synchronize(
+                page_limit=page_limit,
+                page_count_max=page_count_max,
+            )
+            observed_ids = {event.event_id for event in observed}
+            if any(event.event_id not in observed_ids for event in response.events):
+                raise ValueError("runtime-projected events were absent from the event log")
+            if not response.has_more:
+                return tuple(projected)
+        raise ValueError("Research Intern runtime synchronization exceeded page_count_max")
+
+    async def watch(
+        self,
+        *,
+        event_count_max: int = 1,
+        frame_count_max: int = 100,
+        reconnect_count_max: int = 3,
+        timeout_seconds: float = 30.0,
+    ) -> ResearchInternEventStreamObservation:
+        """Consume the canonical SSE stream without runtime-sync polling."""
+        observation = await self._api.sessions.watch(
+            self.session.session_id,
+            cursor=self.cursor,
+            event_count_max=event_count_max,
+            frame_count_max=frame_count_max,
+            reconnect_count_max=reconnect_count_max,
+            timeout_seconds=timeout_seconds,
+        )
+        for event in observation.events:
+            self._accept_event(event)
+        if observation.cursor is not None and observation.cursor != self.cursor:
+            raise ValueError("Intern stream observation cursor diverged from its event chain")
+        if observation.events:
+            self.session = await self._api.sessions.retrieve(self.session.session_id)
+        return ResearchInternEventStreamObservation(
+            session_id=observation.session_id,
+            frames=observation.frames,
+            events=observation.events,
+            cursor=self.cursor,
+            timed_out=observation.timed_out,
+        )
+
+    async def _watch_through_sequence(
+        self,
+        sequence: int,
+        *,
+        timeout_seconds: float,
+    ) -> tuple[ResearchInternEventResponse, ...]:
+        if sequence < self.cursor.after_sequence:
+            return ()
+        deadline = time.monotonic() + _stream_timeout_seconds(timeout_seconds)
+        observed: list[ResearchInternEventResponse] = []
+        while self.cursor.after_sequence < sequence:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ResearchInternPollingTimeoutError(
+                    f"event stream did not reach sequence {sequence} for "
+                    f"session {self.session.session_id}"
+                )
+            observation = await self.watch(
+                event_count_max=min(sequence - self.cursor.after_sequence, 500),
+                timeout_seconds=remaining,
+            )
+            observed.extend(observation.events)
+            if not observation.events:
+                raise ResearchInternPollingTimeoutError(
+                    f"event stream did not reach sequence {sequence} for "
+                    f"session {self.session.session_id}"
+                )
+        return tuple(observed)
+
+    async def _wait_for_turn_terminal(
+        self,
+        turn_id: str,
+        *,
+        timeout_seconds: float,
+        already_observed: tuple[ResearchInternEventResponse, ...] = (),
+    ) -> tuple[ResearchInternEventResponse, tuple[ResearchInternEventResponse, ...]]:
+        deadline = time.monotonic() + _stream_timeout_seconds(timeout_seconds)
+        observed = list(already_observed)
+        while True:
+            terminal = next(
+                (
+                    event
+                    for event in observed
+                    if event.event_kind
+                    in {
+                        ResearchInternEventKind.AGENT_MESSAGE,
+                        ResearchInternEventKind.ERROR,
+                    }
+                    and self._event_turn_id(event) == turn_id
+                ),
+                None,
+            )
+            if terminal is not None:
+                return terminal, tuple(observed)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ResearchInternPollingTimeoutError(
+                    f"no terminal event observed for turn {turn_id}"
+                )
+            observation = await self.watch(
+                event_count_max=1,
+                timeout_seconds=remaining,
+            )
+            observed.extend(observation.events)
+            if not observation.events:
+                raise ResearchInternPollingTimeoutError(
+                    f"no terminal event observed for turn {turn_id}"
+                )
+
+    def _run_id(self) -> str:
+        if self.session.run_id is None:
+            raise ValueError("Magi actuation requires a session bound to a live run_id")
+        return self.session.run_id
+
+    async def _intern_generation(self) -> int:
+        return (await self._api.retrieve()).state_generation
+
+    async def delegate(
+        self,
+        *,
+        idempotency_key: str,
+        rationale: str,
+        evidence_refs: list[str] | None = None,
+        state_patch: JsonObject | None = None,
+        mode: MagiMode = MagiMode.SYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Delegate this exact target through Casper."""
+        await self.synchronize()
+        return await self._api.decisions.delegate(
+            factory_id=self.session.factory_id,
+            project_id=self.session.project_id,
+            effort_id=self.session.effort_id,
+            run_id=self._run_id(),
+            session_id=self.session.session_id,
+            expected_state_generation=await self._intern_generation(),
+            idempotency_key=idempotency_key,
+            rationale=rationale,
+            evidence_refs=evidence_refs,
+            state_patch=state_patch,
+            mode=mode,
+        )
+
+    async def pause(
+        self,
+        *,
+        idempotency_key: str,
+        rationale: str,
+        evidence_refs: list[str] | None = None,
+        mode: MagiMode = MagiMode.ASYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Pause this exact target through Melchior by default."""
+        await self.synchronize()
+        return await self._api.decisions.pause(
+            factory_id=self.session.factory_id,
+            project_id=self.session.project_id,
+            effort_id=self.session.effort_id,
+            run_id=self._run_id(),
+            session_id=self.session.session_id,
+            expected_state_generation=await self._intern_generation(),
+            idempotency_key=idempotency_key,
+            rationale=rationale,
+            evidence_refs=evidence_refs,
+            mode=mode,
+        )
+
+    async def intervene(
+        self,
+        *,
+        idempotency_key: str,
+        rationale: str,
+        state_patch: JsonObject,
+        evidence_refs: list[str] | None = None,
+        mode: MagiMode = MagiMode.ASYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Intervene on this paused target through Melchior by default."""
+        await self.synchronize()
+        return await self._api.decisions.intervene(
+            factory_id=self.session.factory_id,
+            project_id=self.session.project_id,
+            effort_id=self.session.effort_id,
+            run_id=self._run_id(),
+            session_id=self.session.session_id,
+            expected_state_generation=await self._intern_generation(),
+            idempotency_key=idempotency_key,
+            rationale=rationale,
+            state_patch=state_patch,
+            evidence_refs=evidence_refs,
+            mode=mode,
+        )
+
+    async def resume(
+        self,
+        *,
+        idempotency_key: str,
+        rationale: str,
+        evidence_refs: list[str] | None = None,
+        mode: MagiMode = MagiMode.ASYNC,
+    ) -> MagiDecisionReceiptResponse:
+        """Resume this target through Melchior by default."""
+        await self.synchronize()
+        return await self._api.decisions.resume(
+            factory_id=self.session.factory_id,
+            project_id=self.session.project_id,
+            effort_id=self.session.effort_id,
+            run_id=self._run_id(),
+            session_id=self.session.session_id,
+            expected_state_generation=await self._intern_generation(),
+            idempotency_key=idempotency_key,
+            rationale=rationale,
+            evidence_refs=evidence_refs,
+            mode=mode,
+        )
+
+    async def send_operator_turn(
+        self,
+        body: str,
+        *,
+        idempotency_key: str,
+        mode: MagiMode = MagiMode.SYNC,
+        control: ResearchInternTurnControl | None = None,
+        rationale: str | None = None,
+        state_patch: JsonObject | None = None,
+        evidence_refs: list[str] | None = None,
+        wait_timeout_seconds: float = 15.0,
+        poll_interval_ms: int = 250,
+        stream_timeout_seconds: float = 30.0,
+    ) -> ResearchInternOperatorTurn:
+        """Submit one turn and observe its entire durable response chain."""
+        self._run_id()
+        await self.synchronize_runtime()
+        response = await self._api.sessions.turn(
+            self.session.session_id,
+            ResearchInternTurnRequest(
+                body=body,
+                mode=mode,
+                idempotency_key=idempotency_key,
+                expected_session_state_generation=self.cursor.state_generation,
+                expected_intern_state_generation=await self._intern_generation(),
+                control=control,
+                rationale=rationale,
+                state_patch=state_patch or {},
+                evidence_refs=evidence_refs or [],
+                wait_timeout_seconds=wait_timeout_seconds,
+                poll_interval_ms=poll_interval_ms,
+            ),
+        )
+        observed = await self._watch_through_sequence(
+            response.reconnect_after_sequence,
+            timeout_seconds=stream_timeout_seconds,
+        )
+        if self.cursor.after_sequence != response.reconnect_after_sequence:
+            raise ValueError("Research Intern turn response skipped unseen event sequence")
+        self.session = await self._api.sessions.retrieve(self.session.session_id)
+        return ResearchInternOperatorTurn(
+            response=response,
+            observed_events=observed,
+            cursor=self.cursor,
+        )
+
+    async def exchange(
+        self,
+        body: str,
+        *,
+        idempotency_key: str,
+        mode: MagiMode = MagiMode.SYNC,
+        control: ResearchInternTurnControl | None = None,
+        rationale: str | None = None,
+        state_patch: JsonObject | None = None,
+        evidence_refs: list[str] | None = None,
+        wait_timeout_seconds: float = 15.0,
+        poll_interval_ms: int = 250,
+        recovery_timeout_seconds: float = 60.0,
+    ) -> ResearchInternExchange:
+        """Recover the exact turn terminal from the canonical async SSE stream."""
+        turn = await self.send_operator_turn(
+            body,
+            idempotency_key=idempotency_key,
+            mode=mode,
+            control=control,
+            rationale=rationale,
+            state_patch=state_patch,
+            evidence_refs=evidence_refs,
+            wait_timeout_seconds=wait_timeout_seconds,
+            poll_interval_ms=poll_interval_ms,
+            stream_timeout_seconds=min(
+                _stream_timeout_seconds(recovery_timeout_seconds),
+                30.0,
+            ),
+        )
+        response = turn.response
+        if response.status is ResearchInternTurnStatus.FAILED:
+            raise ResearchInternTurnFailedError(response)
+        try:
+            terminal, observed = await self._wait_for_turn_terminal(
+                response.turn_id,
+                timeout_seconds=recovery_timeout_seconds,
+                already_observed=turn.observed_events,
+            )
+        except ResearchInternPollingTimeoutError as error:
+            error.response = response
+            raise
+        if terminal.event_kind is ResearchInternEventKind.ERROR:
+            raise ResearchInternTurnFailedError(response, terminal_event=terminal)
+        if response.agent_event is not None and response.agent_event.event_id != terminal.event_id:
+            raise ValueError("turn response agent event diverged from canonical SSE")
+        return ResearchInternExchange(
+            operator_turn=turn,
+            agent_event=terminal,
+            observed_events=observed,
+            cursor=self.cursor,
+        )
+
+    async def verdict(
+        self,
+        *,
+        idempotency_key: str,
+        rationale: str,
+        verdict: str,
+        uncertainty: float,
+        evidence_refs: list[str],
+        state_patch: JsonObject | None = None,
+    ) -> MagiDecisionReceiptResponse:
+        """Record the evidence-linked final Balthasar verdict."""
+        await self.synchronize()
+        return await self._api.decisions.verdict(
+            idempotency_key=idempotency_key,
+            expected_state_generation=await self._intern_generation(),
+            rationale=rationale,
+            verdict=verdict,
+            uncertainty=uncertainty,
+            evidence_refs=evidence_refs,
+            factory_id=self.session.factory_id,
+            project_id=self.session.project_id,
+            effort_id=self.session.effort_id,
+            run_id=self.session.run_id,
+            session_id=self.session.session_id,
+            state_patch=state_patch,
+        )
+
+    async def close(
+        self,
+        *,
+        idempotency_key: str,
+        status: Literal[
+            "completed",
+            "partial",
+            "failed",
+            "stopped",
+            "canceled",
+            "archived",
+        ],
+        rationale: str,
+        evidence_refs: list[str] | None = None,
+    ) -> ResearchInternSessionResponse:
+        """Close this session at its exact durable generation."""
+        await self.synchronize()
+        self.session = await self._api.sessions.close(
+            self.session.session_id,
+            ResearchInternSessionCloseRequest(
+                idempotency_key=idempotency_key,
+                expected_state_generation=self.cursor.state_generation,
+                status=status,
+                rationale=rationale,
+                evidence_refs=evidence_refs or [],
+            ),
+        )
+        await self.synchronize()
+        return self.session
 
 
 class AsyncProjectComputerAPI:
@@ -2808,6 +4080,7 @@ __all__ = [
     "AsyncResearchInternAPI",
     "AsyncResearchInternDecisionsAPI",
     "AsyncResearchInternFactoriesAPI",
+    "AsyncResearchInternReactiveSession",
     "AsyncResearchInternSessionsAPI",
     "ProjectComputerAPI",
     "ProjectDataBindingsAPI",
@@ -2816,6 +4089,7 @@ __all__ = [
     "ResearchInternDecisionsAPI",
     "ResearchInternEventCursor",
     "ResearchInternEventObservation",
+    "ResearchInternEventStreamObservation",
     "ResearchInternExchange",
     "ResearchInternFactoriesAPI",
     "ResearchInternOperatorTurn",

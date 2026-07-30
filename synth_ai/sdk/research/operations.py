@@ -141,6 +141,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "stream_research_intern_session_events",
+            HttpMethod.GET,
+            "/smr/research-intern/sessions/{session_id}/events/stream",
+            idempotent=True,
+        ),
+        _operation(
             "sync_research_intern_session",
             HttpMethod.POST,
             "/smr/research-intern/sessions/{session_id}/sync",
@@ -157,6 +163,13 @@ RESEARCH_OPERATIONS = {
             "close_research_intern_session",
             HttpMethod.POST,
             "/smr/research-intern/sessions/{session_id}/close",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "publish_research_intern_session_trace",
+            HttpMethod.POST,
+            "/smr/research-intern/sessions/{session_id}/trace:publish",
             mutation=True,
             idempotent=True,
         ),
