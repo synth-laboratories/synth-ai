@@ -375,10 +375,7 @@ class AsyncProjectsAPI:
         return Project.from_wire(value)
 
 
-ResearchProjectSetupAPI = ProjectSetupAPI
 ResearchProjectsAPI = ProjectsAPI
-AsyncResearchProjectSetupAPI = AsyncProjectSetupAPI
-AsyncResearchProjectsAPI = AsyncProjectsAPI
 
 
 __all__ = [
@@ -392,8 +389,5 @@ __all__ = [
     "ProjectSetupAPI",
     "ProjectWorkspaceAPI",
     "ProjectsAPI",
-    "AsyncResearchProjectSetupAPI",
-    "AsyncResearchProjectsAPI",
-    "ResearchProjectSetupAPI",
     "ResearchProjectsAPI",
 ]

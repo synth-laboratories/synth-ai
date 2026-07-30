@@ -633,13 +633,7 @@ def _slug(value: str) -> str:
     return normalized
 
 
-ResearchVisualsAPI = VisualsAPI
-AsyncResearchVisualsAPI = AsyncVisualsAPI
-
-
 __all__ = [
-    "AsyncResearchVisualsAPI",
     "AsyncVisualsAPI",
-    "ResearchVisualsAPI",
     "VisualsAPI",
 ]

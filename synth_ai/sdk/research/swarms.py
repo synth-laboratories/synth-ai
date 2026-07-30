@@ -1198,8 +1198,6 @@ class AsyncSwarmsAPI:
 
 ResearchSwarmHandle = SwarmHandle
 ResearchSwarmsAPI = SwarmsAPI
-AsyncResearchSwarmHandle = AsyncSwarmHandle
-AsyncResearchSwarmsAPI = AsyncSwarmsAPI
 
 
 __all__ = [
@@ -1207,8 +1205,6 @@ __all__ = [
     "AsyncSwarmsAPI",
     "SwarmHandle",
     "SwarmsAPI",
-    "AsyncResearchSwarmHandle",
-    "AsyncResearchSwarmsAPI",
     "ResearchSwarmHandle",
     "ResearchSwarmsAPI",
 ]

@@ -367,7 +367,6 @@ from synth_ai.sdk.research.session.image_releases import (
     ImageReleaseUploadReconciliation,
     image_release_declaration,
 )
-from synth_ai.sdk.research.session.integrations import IntegrationsAPI
 from synth_ai.sdk.research.session.logs import LogsAPI
 from synth_ai.sdk.research.session.models import ModelsAPI
 from synth_ai.sdk.research.session.outputs import OutputsAPI
@@ -510,7 +509,6 @@ __all__ = [
     "ImageReleaseUpload",
     "ImageReleaseUploadReconciliation",
     "ImageReleasesAPI",
-    "IntegrationsAPI",
     "LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION",
     "LOCAL_EVAL_CONTRACT_ENV_VARS",
     "LOCAL_EVAL_CONTRACT_SCHEMA_VERSION",

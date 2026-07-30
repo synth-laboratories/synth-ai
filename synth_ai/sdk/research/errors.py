@@ -440,7 +440,6 @@ def raise_cloud_deployment_claim_error(exc: ResearchApiError) -> None:
             ) from exc
 
 
-ManagedResearchError = ResearchApiError
 SmrApiError = ResearchApiError
 SmrCheckpointQuotaExceededError = ResearchCheckpointQuotaExceededError
 SmrConcurrentRunLimitExceededError = ResearchConcurrentRunLimitExceededError
@@ -465,7 +464,6 @@ __all__ = [
     "FeatureGated",
     "FencingTokenRequiredError",
     "FencingTokenStaleError",
-    "ManagedResearchError",
     "RateLimitedError",
     "ResearchApiError",
     "ResearchCheckpointQuotaExceededError",
