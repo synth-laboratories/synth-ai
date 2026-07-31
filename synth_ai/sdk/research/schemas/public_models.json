@@ -32,12 +32,12 @@
       "pricing": {
         "currency": "USD",
         "unit": "token",
-        "input_usd": "0.000001",
-        "cached_input_usd": "1E-7",
-        "output_usd": "0.000006",
-        "reasoning_output_usd": "0.000006",
-        "source": "openai_gpt_5_6_preview",
-        "observed_at": "2026-07-09"
+        "input_usd": "0.0000002",
+        "cached_input_usd": "0.00000002",
+        "output_usd": "0.0000012",
+        "reasoning_output_usd": "0.0000012",
+        "source": "openai_api_pricing",
+        "observed_at": "2026-07-30"
       }
     },
     {
@@ -111,12 +111,12 @@
       "pricing": {
         "currency": "USD",
         "unit": "token",
-        "input_usd": "0.0000025",
-        "cached_input_usd": "2.5E-7",
-        "output_usd": "0.000015",
-        "reasoning_output_usd": "0.000015",
-        "source": "openai_gpt_5_6_preview",
-        "observed_at": "2026-07-09"
+        "input_usd": "0.000002",
+        "cached_input_usd": "0.0000002",
+        "output_usd": "0.000012",
+        "reasoning_output_usd": "0.000012",
+        "source": "openai_api_pricing",
+        "observed_at": "2026-07-30"
       }
     },
     {
