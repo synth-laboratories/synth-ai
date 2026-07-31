@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, time
@@ -15,15 +16,12 @@ from synth_ai.mcp.research.objective_tools import (
     objective_tool_operation_from_wire,
 )
 from synth_ai.mcp.research.registry import (
-    READ_SCOPES,
-    WRITE_SCOPES,
     JSONDict,
     ToolDefinition,
     build_tool_registry,
     call_tool,
     list_tool_payload,
     resolve_tool,
-    tool_schema,
 )
 from synth_ai.mcp.research.request_models import (
     OneOffRunLaunchRequest,
@@ -39,11 +37,7 @@ from synth_ai.mcp.research.request_models import (
 )
 from synth_ai.mcp.research.tools.approvals import build_approval_tools
 from synth_ai.mcp.research.tools.artifacts import build_artifact_tools
-from synth_ai.mcp.research.tools.cloud_deployments import (
-    build_cloud_deployment_tools,
-)
 from synth_ai.mcp.research.tools.datasets import build_dataset_tools
-from synth_ai.mcp.research.tools.dev_environments import build_dev_environment_tools
 from synth_ai.mcp.research.tools.environments import build_environment_tools
 from synth_ai.mcp.research.tools.exports import build_export_tools
 from synth_ai.mcp.research.tools.factories import build_factory_tools
@@ -65,7 +59,6 @@ from synth_ai.mcp.research.tools.repos import build_repo_tools
 from synth_ai.mcp.research.tools.research_intern import build_research_intern_tools
 from synth_ai.mcp.research.tools.resources import build_resource_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
-from synth_ai.mcp.research.tools.tag import build_tag_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
@@ -78,15 +71,21 @@ from synth_ai.sdk.research.contracts.factory_operations import FactoryWakeDueReq
 from synth_ai.sdk.research.contracts.promotions import (
     SmrPromotionDiscountPreviewRequest,
 )
-from synth_ai.sdk.research.contracts.run_control import ManagedResearchActorControlAction
 from synth_ai.sdk.research.contracts.transcript import TranscriptView
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.session.client import ResearchSession
 from synth_ai.sdk.research.version import __version__
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "synth-research"
+MCP_CLIENT_TIMEOUT_SECONDS = 30.0
+
+# The stdio entrypoint advertises the stable subset. Set this to 1/true/yes to
+# advertise the full built tree instead; without it the advanced tools are not
+# just hidden but uncallable, since `call_tool` resolves against the advertised
+# set.
+ADVANCED_TOOLS_ENV = "SYNTH_RESEARCH_MCP_ADVANCED_TOOLS"
 
 
 def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
@@ -186,8 +185,8 @@ _STABLE_TOOL_NAMES = frozenset(
 )
 
 
-def _mcp_structured_trigger_error_payload(exc: SmrApiError) -> dict[str, Any]:
-    """Shape every ``SmrApiError`` as structured MCP error data."""
+def _mcp_structured_trigger_error_payload(exc: ResearchApiError) -> dict[str, Any]:
+    """Shape every ``ResearchApiError`` as structured MCP error data."""
     detail = getattr(exc, "detail", None)
     detail_dict: dict[str, Any] = dict(detail) if isinstance(detail, dict) else {}
     code_raw = detail_dict.get("error_code")
@@ -230,7 +229,7 @@ def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
     return out
 
 
-def _raise_mcp_tool_denial(exc: SmrApiError) -> None:
+def _raise_mcp_tool_denial(exc: ResearchApiError) -> None:
     payload = _mcp_structured_trigger_error_payload(exc)
     raise RpcError(
         -32010,
@@ -393,9 +392,8 @@ class ResearchMcpServer:
     def available_tool_names(self) -> list[str]:
         names = sorted(self._advertised_tools())
         research_names = [name for name in names if name.startswith("research_")]
-        smr_names = [name for name in names if name.startswith("smr_")]
-        other_names = [name for name in names if not name.startswith(("research_", "smr_"))]
-        return research_names + other_names + smr_names
+        other_names = [name for name in names if not name.startswith("research_")]
+        return research_names + other_names
 
     def tool_definitions(self) -> list[ToolDefinition]:
         return list(self._advertised_tools().values())
@@ -415,6 +413,7 @@ class ResearchMcpServer:
         return ResearchSession(
             api_key=resolved_api_key,
             backend_base=resolved_backend_base,
+            timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
         )
 
     def _core_client_from_args(self, args: JSONDict) -> CoreResearchClient:
@@ -422,11 +421,12 @@ class ResearchMcpServer:
         return CoreResearchClient(
             api_key=optional_string(args, "api_key") or self._default_api_key,
             base_url=(optional_string(args, "backend_base") or self._default_backend_base),
+            timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
         )
 
     @staticmethod
     def _removed_backend_contract(surface: str) -> None:
-        raise SmrApiError(
+        raise ResearchApiError(
             f"{surface} is not available in the current Managed Research backend contract.",
             failure_class="unsupported_backend_contract",
             remediation=(
@@ -440,8 +440,6 @@ class ResearchMcpServer:
             *build_project_tools(self),
             *build_factory_tools(self),
             *build_factory_result_tools(self),
-            *build_dev_environment_tools(self),
-            *build_cloud_deployment_tools(self),
             *build_workspace_input_tools(self._core_client_from_args),
             *build_export_tools(self),
             *build_repo_tools(self),
@@ -454,7 +452,6 @@ class ResearchMcpServer:
             *build_research_intern_tools(self._core_client_from_args),
             *build_resource_tools(self),
             *build_run_tools(self),
-            *build_tag_tools(self),
             *build_progress_tools(self),
             *build_project_data_tools(self._core_client_from_args),
             *build_environment_tools(self._core_client_from_args),
@@ -466,229 +463,6 @@ class ResearchMcpServer:
             *build_integration_tools(self),
             *build_usage_tools(self),
             *build_trained_model_tools(self),
-            *self._build_hosted_compat_tools(),
-        ]
-
-    def _build_hosted_compat_tools(self) -> list[ToolDefinition]:
-        """Hosted-MCP compatibility aliases kept until clients move to noun-first names."""
-
-        project_id_schema = {
-            "project_id": {
-                "type": "string",
-                "description": "SMR project ID.",
-            }
-        }
-        changeset_payload_schema = {
-            "project_id": {"type": "string", "description": "SMR project ID."},
-            "title": {"type": "string"},
-            "summary": {"type": "string"},
-            "run_id": {"type": "string"},
-            "source": {"type": "string"},
-            "author_ref": {"type": "string"},
-            "review_policy": {"type": "string"},
-            "items": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "target_kind": {"type": "string"},
-                        "target_id": {"type": "string"},
-                        "operation": {"type": "string"},
-                        "proposed_payload": {"type": "object"},
-                        "evidence_refs": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                    "required": ["target_kind", "operation"],
-                },
-            },
-            "idempotency_key": {"type": "string"},
-            "metadata": {"type": "object"},
-        }
-        return [
-            ToolDefinition(
-                name="smr_capabilities_get",
-                description="Read SMR capability metadata for the authenticated organization.",
-                input_schema=tool_schema({}, required=[]),
-                handler=self._tool_get_capabilities,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_projects_list",
-                description="List managed research projects for the authenticated organization.",
-                input_schema=tool_schema({}, required=[]),
-                handler=self._tool_list_projects,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_status_get",
-                description="Get high-level status and active run summary for a project.",
-                input_schema=tool_schema(project_id_schema, required=["project_id"]),
-                handler=self._tool_get_project_status,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_workspace_get",
-                description=(
-                    "Read the backend-owned project workspace projection: objectives, runs, "
-                    "experiments, knowledge, review queue, reports, and launch risks. Runs "
-                    "propose material; review or policy promotion owns durable project truth."
-                ),
-                input_schema=tool_schema(project_id_schema, required=["project_id"]),
-                handler=self._tool_get_project_workspace,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changesets_list",
-                description="List review-gated project ChangeSets for a managed research project.",
-                input_schema=tool_schema(
-                    {
-                        **project_id_schema,
-                        "status": {
-                            "type": "string",
-                            "description": "Optional ChangeSet status filter.",
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum ChangeSets to return.",
-                        },
-                    },
-                    required=["project_id"],
-                ),
-                handler=self._tool_list_project_changesets,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changeset_create",
-                description=(
-                    "Create a proposed project ChangeSet. This stages project mutations; "
-                    "it does not directly write durable project truth."
-                ),
-                input_schema=tool_schema(
-                    changeset_payload_schema,
-                    required=["project_id", "title", "items"],
-                ),
-                handler=self._tool_create_project_changeset,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changeset_get",
-                description="Fetch one review-gated project ChangeSet.",
-                input_schema=tool_schema(
-                    {
-                        **project_id_schema,
-                        "changeset_id": {"type": "string"},
-                    },
-                    required=["project_id", "changeset_id"],
-                ),
-                handler=self._tool_get_project_changeset,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_changeset_decide",
-                description="Accept, promote, reject, supersede, or invalidate a proposed project ChangeSet.",
-                input_schema=tool_schema(
-                    {
-                        **project_id_schema,
-                        "changeset_id": {"type": "string"},
-                        "decision": {
-                            "type": "string",
-                            "enum": [
-                                "accepted",
-                                "promoted",
-                                "rejected",
-                                "superseded",
-                                "invalidated",
-                            ],
-                        },
-                        "decided_by_ref": {"type": "string"},
-                        "decision_reason": {"type": "string"},
-                    },
-                    required=["project_id", "changeset_id", "decision", "decided_by_ref"],
-                ),
-                handler=self._tool_decide_project_changeset,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_jobs_list",
-                description="List SMR runs (jobs feed), optionally filtered by project, state, and active-only mode.",
-                input_schema=tool_schema(
-                    {
-                        "project_id": {"type": "string"},
-                        "state": {"type": "string"},
-                        "active_only": {"type": "boolean"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 200},
-                    },
-                    required=[],
-                ),
-                handler=self._tool_jobs_list,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_trigger_run",
-                description="Trigger a managed research run for a project.",
-                input_schema=tool_schema(
-                    {
-                        "project_id": {"type": "string"},
-                        "run_config": {
-                            "type": "object",
-                            "description": (
-                                "Optional trigger body fields such as timebox_seconds, "
-                                "agent_model, agent_kind, workflow, and "
-                                "idempotency_key_run_create."
-                            ),
-                            "additionalProperties": True,
-                        },
-                    },
-                    required=["project_id"],
-                ),
-                handler=self._tool_project_trigger_run,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_run_get",
-                description="Get details for a specific SMR run by run_id.",
-                input_schema=tool_schema(
-                    {"run_id": {"type": "string"}},
-                    required=["run_id"],
-                ),
-                handler=self._tool_get_run,
-                required_scopes=READ_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_project_run_actor_control",
-                description=(
-                    "Pause or resume one actor inside a project-scoped managed research run. "
-                    "This is operator control, not project-truth promotion."
-                ),
-                input_schema=tool_schema(
-                    {
-                        "project_id": {"type": "string"},
-                        "run_id": {"type": "string"},
-                        "actor_id": {"type": "string"},
-                        "action": {
-                            "type": "string",
-                            "enum": [item.value for item in ManagedResearchActorControlAction],
-                        },
-                        "reason": {"type": "string"},
-                        "idempotency_key": {"type": "string"},
-                    },
-                    required=["project_id", "run_id", "actor_id", "action"],
-                ),
-                handler=self._tool_control_project_run_actor,
-                required_scopes=WRITE_SCOPES,
-            ),
-            ToolDefinition(
-                name="smr_run_stop",
-                description="Stop a running SMR run.",
-                input_schema=tool_schema(
-                    {"run_id": {"type": "string"}},
-                    required=["run_id"],
-                ),
-                handler=self._tool_stop_run,
-                required_scopes=WRITE_SCOPES,
-            ),
         ]
 
     def _tool_health_check(self, args: JSONDict) -> Any:
@@ -823,11 +597,6 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.download_project_dataset(project_id, dataset_id)
 
-    def _tool_results_outputs_list(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            return client.list_project_outputs(project_id)
-
     def _tool_list_run_work_products(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         run_id = require_string(args, "run_id")
@@ -932,12 +701,6 @@ class ResearchMcpServer:
         request = RunnableProjectCreateRequest.from_payload(args)
         with self._client_from_args(args) as client:
             return client.create_runnable_project(request.request)
-
-    def _tool_create_project(self, args: JSONDict) -> Any:
-        config = args.get("config")
-        if config is not None and not isinstance(config, dict):
-            raise ValueError("'config' must be an object when provided")
-        return self._tool_create_runnable_project(args)
 
     def _tool_list_projects(self, args: JSONDict) -> Any:
         include_archived = optional_bool(args, "include_archived", default=False)
@@ -1392,39 +1155,6 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_project_workspace(project_id)
 
-    def _tool_list_project_experiments(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment list")
-
-    def _tool_create_project_experiment(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment creation")
-
-    def _tool_get_project_experiment(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment read")
-
-    def _tool_patch_project_experiment(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment patch")
-
-    def _tool_link_project_experiment_run(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment run link")
-
-    def _tool_list_project_experiment_runs(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment run list")
-
-    def _tool_attach_project_experiment_container_run(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment container-run attachment")
-
-    def _tool_list_project_experiment_container_runs(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment container-run list")
-
-    def _tool_attach_project_experiment_result(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment result attachment")
-
-    def _tool_list_project_experiment_results(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment result list")
-
-    def _tool_rank_project_experiment_results(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project experiment result ranking")
-
     def _tool_list_project_changesets(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         status = optional_string(args, "status")
@@ -1471,439 +1201,6 @@ class ResearchMcpServer:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             return client.prepare_project_setup(project_id)
-
-    def _tool_list_dev_environment_topologies(self, args: JSONDict) -> Any:
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.topologies())
-
-    def _tool_get_dev_environment_topology(self, args: JSONDict) -> Any:
-        topology_id = require_string(args, "topology_id")
-        version = optional_string(args, "version")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.topology(topology_id, version=version))
-
-    def _tool_seed_dev_environment_topology_manifest(self, args: JSONDict) -> Any:
-        topology_id = optional_string(args, "topology_id") or "synth-dev"
-        version = optional_string(args, "version")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.seed_topology_environment(
-                    topology_id=topology_id,
-                    version=version,
-                )
-            )
-
-    def _tool_list_dev_environments(self, args: JSONDict) -> Any:
-        project_id = optional_string(args, "project_id")
-        limit = optional_int(args, "limit")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.list(project_id=project_id, limit=limit))
-
-    def _tool_list_dev_environment_materialization_queue(
-        self,
-        args: JSONDict,
-    ) -> Any:
-        project_id = optional_string(args, "project_id")
-        host_kind = optional_string(args, "host_kind")
-        backend_target = optional_string(args, "backend_target")
-        worker_id = optional_string(args, "worker_id")
-        include_leased = optional_bool(args, "include_leased")
-        limit = optional_int(args, "limit")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.materialization_queue(
-                    project_id=project_id,
-                    host_kind=host_kind,
-                    backend_target=backend_target,
-                    worker_id=worker_id,
-                    include_leased=include_leased,
-                    limit=limit,
-                )
-            )
-
-    def _tool_create_dev_environment(self, args: JSONDict) -> Any:
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.create(
-                    project_id=require_string(args, "project_id"),
-                    name=require_string(args, "name"),
-                    environment_name=require_string(args, "environment_name"),
-                    backend_target=optional_string(args, "backend_target") or "dev",
-                    topology_id=optional_string(args, "topology_id") or "synth-dev",
-                    topology_version=optional_string(args, "topology_version"),
-                    environment_digest=optional_string(args, "environment_digest"),
-                    host_kind=optional_string(args, "host_kind") or "daytona",
-                    quota_class=optional_string(args, "quota_class"),
-                    metadata=_object_arg(args, "metadata"),
-                    uptime_rate_microcents_per_hour=optional_int(
-                        args,
-                        "uptime_rate_microcents_per_hour",
-                    ),
-                    billing_model_class=optional_string(args, "billing_model_class"),
-                )
-            )
-
-    def _tool_create_dev_environment_from_topology(self, args: JSONDict) -> Any:
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.create_from_topology(
-                    project_id=require_string(args, "project_id"),
-                    name=require_string(args, "name"),
-                    backend_target=optional_string(args, "backend_target") or "dev",
-                    topology_id=optional_string(args, "topology_id") or "synth-dev",
-                    topology_version=optional_string(args, "topology_version"),
-                    host_kind=optional_string(args, "host_kind") or "daytona",
-                    quota_class=optional_string(args, "quota_class"),
-                    metadata=_object_arg(args, "metadata"),
-                    uptime_rate_microcents_per_hour=optional_int(
-                        args,
-                        "uptime_rate_microcents_per_hour",
-                    ),
-                    billing_model_class=optional_string(args, "billing_model_class"),
-                )
-            )
-
-    def _tool_get_dev_environment(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.get(dev_environment_id))
-
-    def _tool_claim_dev_environment_materialization(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        worker_id = require_string(args, "worker_id")
-        lease_seconds = optional_int(args, "lease_seconds")
-        metadata = _object_arg(args, "metadata")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.claim_materialization(
-                    dev_environment_id,
-                    worker_id=worker_id,
-                    lease_seconds=lease_seconds,
-                    metadata=metadata,
-                )
-            )
-
-    def _tool_preflight_dev_environment(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.preflight(dev_environment_id))
-
-    def _tool_dev_environment_action(
-        self,
-        args: JSONDict,
-        *,
-        action: str,
-    ) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        metadata = _object_arg(args, "metadata")
-        with self._client_from_args(args) as client:
-            namespace = client.dev_environments
-            if action == "deploy":
-                return _mcp_jsonable(namespace.deploy(dev_environment_id, metadata=metadata))
-            if action == "start":
-                return _mcp_jsonable(namespace.start(dev_environment_id, metadata=metadata))
-            if action == "snapshot":
-                return _mcp_jsonable(namespace.snapshot(dev_environment_id, metadata=metadata))
-        raise ValueError(f"unsupported DevEnvironment action: {action}")
-
-    def _tool_deploy_dev_environment(self, args: JSONDict) -> Any:
-        return self._tool_dev_environment_action(args, action="deploy")
-
-    def _tool_start_dev_environment(self, args: JSONDict) -> Any:
-        return self._tool_dev_environment_action(args, action="start")
-
-    def _tool_stop_dev_environment(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        decision = optional_string(args, "decision") or "retain"
-        metadata = _object_arg(args, "metadata")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.stop(
-                    dev_environment_id,
-                    decision=decision,
-                    metadata=metadata,
-                )
-            )
-
-    def _tool_snapshot_dev_environment(self, args: JSONDict) -> Any:
-        return self._tool_dev_environment_action(args, action="snapshot")
-
-    def _tool_report_dev_environment_materialization(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.materialize(
-                    dev_environment_id,
-                    result=optional_string(args, "result") or "succeeded",
-                    lifecycle_state=optional_string(args, "lifecycle_state"),
-                    service_summary=_object_arg(args, "service_summary"),
-                    log_entries=_object_list_arg(args, "log_entries"),
-                    receipt_refs=_object_list_arg(args, "receipt_refs"),
-                    metadata=_object_arg(args, "metadata"),
-                    error=_object_arg(args, "error"),
-                )
-            )
-
-    def _tool_destroy_dev_environment(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.destroy(dev_environment_id))
-
-    def _tool_get_dev_environment_services(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.services(dev_environment_id))
-
-    def _tool_get_dev_environment_attach(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.attach(dev_environment_id))
-
-    def _tool_get_dev_environment_logs(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.logs(dev_environment_id))
-
-    def _tool_get_dev_environment_runs(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.runs(dev_environment_id))
-
-    def _tool_get_dev_environment_usage(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        limit = optional_int(args, "limit")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.usage(dev_environment_id, limit=limit))
-
-    def _tool_preflight_dev_environment_billing(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        model_class = optional_string(args, "model_class") or "value"
-        estimated = optional_int(args, "estimated_customer_debit_microcents") or 0
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.billing_preflight(
-                    dev_environment_id,
-                    model_class=model_class,
-                    estimated_customer_debit_microcents=estimated,
-                )
-            )
-
-    def _tool_get_dev_environment_billing_drawdown(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.billing_drawdown(dev_environment_id))
-
-    def _tool_get_dev_environment_receipts(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.dev_environments.receipts(dev_environment_id))
-
-    def _tool_get_dev_environment_evidence(self, args: JSONDict) -> Any:
-        dev_environment_id = require_string(args, "dev_environment_id")
-        usage_limit = optional_int(args, "usage_limit")
-        include_preflight = optional_bool(args, "include_preflight", default=True)
-        include_logs = optional_bool(args, "include_logs")
-        include_billing = optional_bool(args, "include_billing", default=True)
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.evidence(
-                    dev_environment_id,
-                    usage_limit=usage_limit,
-                    include_preflight=include_preflight,
-                    include_logs=include_logs,
-                    include_billing=include_billing,
-                )
-            )
-
-    def _tool_list_cloud_deployments(self, args: JSONDict) -> Any:
-        project_id = optional_string(args, "project_id")
-        limit = optional_int(args, "limit")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.cloud_deployments.list(project_id=project_id, limit=limit))
-
-    def _tool_create_cloud_deployment(self, args: JSONDict) -> Any:
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.create(
-                    project_id=require_string(args, "project_id"),
-                    name=require_string(args, "name"),
-                    topology_id=require_string(args, "topology_id"),
-                    topology_version=optional_string(args, "topology_version"),
-                    host_kind=require_string(args, "host_kind"),
-                    metadata=_object_arg(args, "metadata"),
-                    source=_object_arg(args, "source"),
-                )
-            )
-
-    def _tool_get_cloud_deployment(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.cloud_deployments.get(deployment_id=deployment_id))
-
-    def _tool_get_cloud_deployment_services(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.cloud_deployments.services(deployment_id=deployment_id))
-
-    def _tool_get_cloud_deployment_workspace(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.cloud_deployments.workspace(deployment_id=deployment_id))
-
-    def _tool_materialize_cloud_deployment_workspace(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        fencing_token = optional_int(args, "fencing_token")
-        if fencing_token is None:
-            raise ValueError("fencing_token is required")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.materialize_workspace(
-                    deployment_id=deployment_id,
-                    repository=require_string(args, "repository"),
-                    branch=require_string(args, "branch"),
-                    source_commit_sha=require_string(args, "source_commit_sha"),
-                    fencing_token=fencing_token,
-                )
-            )
-
-    def _tool_exec_cloud_deployment(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        fencing_token = optional_int(args, "fencing_token")
-        if fencing_token is None:
-            raise ValueError("fencing_token is required")
-        timeout_seconds = optional_int(args, "timeout_seconds")
-        max_output_bytes = optional_int(args, "max_output_bytes")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.exec(
-                    deployment_id=deployment_id,
-                    argv=_required_string_list_arg(args, "argv"),
-                    fencing_token=fencing_token,
-                    cwd=optional_string(args, "cwd"),
-                    timeout_seconds=timeout_seconds if timeout_seconds is not None else 300,
-                    max_output_bytes=max_output_bytes if max_output_bytes is not None else 65_536,
-                )
-            )
-
-    def _tool_get_cloud_deployment_logs(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        tail = optional_int(args, "tail")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.logs(
-                    deployment_id=deployment_id,
-                    service_id=require_string(args, "service_id"),
-                    tail=tail if tail is not None else 200,
-                )
-            )
-
-    def _tool_get_cloud_deployment_artifacts(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        limit = optional_int(args, "limit")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.artifacts(
-                    deployment_id=deployment_id,
-                    root_id=optional_string(args, "root_id"),
-                    relative_prefix=optional_string(args, "relative_prefix"),
-                    after=optional_string(args, "after"),
-                    limit=limit if limit is not None else 100,
-                )
-            )
-
-    def _tool_get_cloud_deployment_artifact_content(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        offset = optional_int(args, "offset")
-        max_bytes = optional_int(args, "max_bytes")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.artifact_content(
-                    deployment_id=deployment_id,
-                    root_id=require_string(args, "root_id"),
-                    relative_path=require_string(args, "relative_path"),
-                    offset=offset if offset is not None else 0,
-                    max_bytes=max_bytes if max_bytes is not None else 65_536,
-                    include_sha256=optional_bool(args, "include_sha256") or False,
-                )
-            )
-
-    def _tool_observe_cloud_deployment(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.observe(
-                    deployment_id=deployment_id,
-                    fencing_token=optional_int(args, "fencing_token"),
-                )
-            )
-
-    def _tool_deploy_cloud_deployment(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.deploy(
-                    deployment_id=deployment_id,
-                    reason=optional_string(args, "reason"),
-                    fencing_token=optional_int(args, "fencing_token"),
-                )
-            )
-
-    def _tool_retire_cloud_deployment(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        delete_vm = optional_bool(args, "delete_vm", default=False)
-        confirm_vm_name = optional_string(args, "confirm_vm_name")
-        if delete_vm and not confirm_vm_name:
-            raise ValueError("confirm_vm_name is required when delete_vm is true")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.retire(
-                    deployment_id=deployment_id,
-                    reason=optional_string(args, "reason"),
-                    delete_vm=delete_vm,
-                    confirm_vm_name=confirm_vm_name,
-                    fencing_token=optional_int(args, "fencing_token"),
-                )
-            )
-
-    def _tool_acquire_cloud_deployment_claim(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        ttl_seconds = optional_int(args, "ttl_seconds")
-        if ttl_seconds is None:
-            raise ValueError("ttl_seconds is required")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.acquire_claim(
-                    deployment_id=deployment_id,
-                    holder=require_string(args, "holder"),
-                    purpose=require_string(args, "purpose"),
-                    ttl_seconds=ttl_seconds,
-                )
-            )
-
-    def _tool_heartbeat_cloud_deployment_claim(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.heartbeat_claim(
-                    deployment_id=deployment_id,
-                    claim_id=require_string(args, "claim_id"),
-                )
-            )
-
-    def _tool_release_cloud_deployment_claim(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.release_claim(
-                    deployment_id=deployment_id,
-                    claim_id=require_string(args, "claim_id"),
-                )
-            )
-
-    def _tool_get_cloud_deployment_claims(self, args: JSONDict) -> Any:
-        deployment_id = require_string(args, "deployment_id")
-        with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.cloud_deployments.get_claims(deployment_id=deployment_id))
 
     def _tool_get_project_notes(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2526,7 +1823,7 @@ class ResearchMcpServer:
                 if request.project_id is None:
                     return client.trigger_one_off_run(**request.client_kwargs())
                 return client.trigger_run(request.project_id, **request.client_kwargs())
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_start_run(self, args: JSONDict) -> Any:
@@ -2536,7 +1833,7 @@ class ResearchMcpServer:
                 if request.project_id is None:
                     return client.trigger_one_off_run(**request.client_kwargs())
                 return client.start_run(request.project_id, **request.client_kwargs())
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_get_launch_preflight_in_dev_environment(self, args: JSONDict) -> Any:
@@ -2577,7 +1874,7 @@ class ResearchMcpServer:
                     dev_environment_id=dev_environment_id,
                     **client_kwargs,
                 )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_start_one_off_run(self, args: JSONDict) -> Any:
@@ -2585,27 +1882,8 @@ class ResearchMcpServer:
         try:
             with self._client_from_args(args) as client:
                 return client.trigger_one_off_run(**request.client_kwargs())
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
-
-    def _tool_get_run_start_blockers(self, args: JSONDict) -> Any:
-        request = RunLaunchRequest.from_payload(args)
-        with self._client_from_args(args) as client:
-            if request.project_id is None:
-                return client.get_one_off_launch_preflight(**request.client_kwargs())
-            if hasattr(client, "get_run_start_blockers"):
-                return client.get_run_start_blockers(
-                    request.project_id,
-                    **request.client_kwargs(),
-                )
-            return client.get_launch_preflight(
-                request.project_id,
-                **request.client_kwargs(),
-            )
-
-    def _tool_list_runbook_presets(self, args: JSONDict) -> Any:
-        with self._client_from_args(args) as client:
-            return [preset.to_wire() for preset in client.list_runbook_presets()]
 
     def _tool_list_runs(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2619,25 +1897,6 @@ class ResearchMcpServer:
                 public_state=public_state,
                 limit=limit,
             )
-
-    def _tool_jobs_list(self, args: JSONDict) -> Any:
-        active_only = optional_bool(args, "active_only") if "active_only" in args else None
-        with self._client_from_args(args) as client:
-            return client.list_jobs(
-                project_id=optional_string(args, "project_id"),
-                state=optional_string(args, "state"),
-                active_only=active_only,
-                limit=optional_int(args, "limit"),
-            )
-
-    def _tool_project_trigger_run(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        run_config = args.get("run_config")
-        if run_config is None:
-            run_config = {}
-        if not isinstance(run_config, dict):
-            raise ValueError("'run_config' must be an object when provided")
-        return self._tool_trigger_run({"project_id": project_id, **run_config})
 
     def _tool_get_run(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
@@ -2698,12 +1957,6 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             result = client.runs.get_run_contract(project_id, run_id)
             return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_run_primary_parent(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Run primary-parent read")
-
-    def _tool_run_objective_scopes(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Run objective-scope management")
 
     def _tool_stop_run(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
@@ -3385,9 +2638,6 @@ class ResearchMcpServer:
                 **request.client_kwargs(),
             )
 
-    def _tool_open_ended_questions(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project open-ended-question management")
-
     def _tool_objectives(self, args: JSONDict) -> Any:
         operation = objective_tool_operation_from_wire(require_string(args, "operation"))
         project_id = require_string(args, "project_id")
@@ -3468,11 +2718,8 @@ class ResearchMcpServer:
                     payload=payload,
                 )
         raise ValueError(
-            "smr_milestones.operation must be one of: list, create, get, patch, transition"
+            "research_milestones.operation must be one of: list, create, get, patch, transition"
         )
-
-    def _tool_directed_effort_outcomes(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project directed-effort-outcome management")
 
     def serve_stdio(self) -> None:
         framing = "jsonl"
@@ -3538,9 +2785,9 @@ class ResearchMcpServer:
                 "id": request_id,
                 "error": {"code": exc.code, "message": exc.message, "data": exc.data},
             }
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             # Central denial mapping: any tool (not just the run-launch handlers)
-            # that raises a typed SmrApiError must surface the structured
+            # that raises a typed ResearchApiError must surface the structured
             # error_code / http_status / detail so SDK↔MCP denial parity holds.
             # Without this, non-launch tools flatten to a generic -32000 text
             # error and drop plan/cap/current-count fields.
@@ -3573,12 +2820,17 @@ class ResearchMcpServer:
             }
 
 
+def _advanced_tools_requested() -> bool:
+    return str(os.getenv(ADVANCED_TOOLS_ENV) or "").strip().lower() in {"1", "true", "yes"}
+
+
 def main() -> None:
     """CLI entrypoint for the stdio MCP server."""
-    ResearchMcpServer().serve_stdio()
+    ResearchMcpServer(include_advanced_tools=_advanced_tools_requested()).serve_stdio()
 
 
 __all__ = [
+    "ADVANCED_TOOLS_ENV",
     "DEFAULT_PROTOCOL_VERSION",
     "ResearchMcpServer",
     "SERVER_NAME",

@@ -39,8 +39,8 @@ def _factory_mutation_properties() -> dict[str, Any]:
             "enum": list(FACTORY_CREATE_STATUS_VALUES),
             "description": (
                 "Create-time status only (configured|active). Lifecycle after create "
-                "moves through smr_start_factory / smr_pause_factory / "
-                "smr_resume_factory / smr_archive_factory."
+                "moves through research_start_factory / research_pause_factory / "
+                "research_resume_factory / research_archive_factory."
             ),
         },
         "budget_policy": {"type": "object", "description": "Optional Factory budget policy."},
@@ -285,7 +285,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
 
     return [
         ToolDefinition(
-            name="smr_create_factory",
+            name="research_create_factory",
             description=(
                 "Create a persistent Research Factory: an R&D organization/workspace "
                 "for proving hypotheses, building prototypes, and improving applied AI systems."
@@ -295,14 +295,14 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factories",
+            name="research_list_factories",
             description="List Research Factories for the authenticated organization.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_list_factories,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory",
+            name="research_get_factory",
             description="Fetch one persistent Research Factory workspace by ID.",
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "description": "Factory ID."}},
@@ -312,7 +312,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_patch_factory",
+            name="research_patch_factory",
             description=(
                 "Update Factory policies, description, or metadata. "
                 "Lifecycle status is not patchable — use the named transition tools."
@@ -332,7 +332,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_start_factory",
+            name="research_start_factory",
             description=(
                 "Start a Configured Research Factory (Configured→Active). "
                 "Pass dry_run=true to preview without applying."
@@ -345,7 +345,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_pause_factory",
+            name="research_pause_factory",
             description=(
                 "Pause an Active Research Factory (Active→Paused; in-flight runs finish). "
                 "Pass dry_run=true to preview without applying."
@@ -358,7 +358,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_resume_factory",
+            name="research_resume_factory",
             description=(
                 "Resume a Paused Research Factory (Paused→Active). "
                 "Pass dry_run=true to preview without applying."
@@ -371,7 +371,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_archive_factory",
+            name="research_archive_factory",
             description=(
                 "Archive a Research Factory (terminal). "
                 "Pass dry_run=true to preview without applying."
@@ -384,7 +384,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_status",
+            name="research_get_factory_status",
             description=(
                 "Read the Factory status projection: canonical/auxiliary workspace Projects, Efforts, "
                 "Garden ideas, typed actor outputs, linked Projects, latest Runs, "
@@ -399,7 +399,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_experiment_history",
+            name="research_get_experiment_history",
             description=(
                 "Read owner-assembled experiment bundles with missing-evidence "
                 "alerts and accepted/incomplete cycle counts."
@@ -417,7 +417,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_compare_experiments",
+            name="research_compare_experiments",
             description=(
                 "Compare accepted experiments only when backend-owned cohort, "
                 "seed, scorer, taskset, and metric dimensions match."
@@ -440,7 +440,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_link_factory_project",
+            name="research_link_factory_project",
             description=(
                 "Link a Project to the Factory. Use canonical for the primary workspace "
                 "or auxiliary for additional active workspaces."
@@ -456,7 +456,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_link_factory_workspace_project",
+            name="research_link_factory_workspace_project",
             description="Link or replace the Factory's primary canonical workspace Project.",
             input_schema=tool_schema(
                 {
@@ -469,7 +469,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_link_factory_auxiliary_project",
+            name="research_link_factory_auxiliary_project",
             description="Link an additional active auxiliary Project workspace to a Factory.",
             input_schema=tool_schema(
                 {
@@ -482,7 +482,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_projects",
+            name="research_list_factory_projects",
             description=(
                 "List Factory Project links, including canonical, auxiliary, and archived history."
             ),
@@ -500,7 +500,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_project",
+            name="research_get_factory_project",
             description="Fetch one Factory workspace Project link by Factory and Project ID.",
             input_schema=tool_schema(
                 {
@@ -513,7 +513,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_patch_factory_project",
+            name="research_patch_factory_project",
             description=(
                 "Update a Factory workspace Project link status, workspace policy, "
                 "resource bindings, or launch defaults. Archive before replacement."
@@ -530,7 +530,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_workspace",
+            name="research_get_factory_workspace",
             description="Read the Factory workspace projection across canonical and auxiliary Projects.",
             input_schema=tool_schema(
                 {
@@ -546,7 +546,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_create_factory_idea",
+            name="research_create_factory_idea",
             description=(
                 "Add a Garden idea to a Research Factory. Ideas preserve optional "
                 "hypotheses, experiment leads, failures, or future topics before "
@@ -563,7 +563,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_ideas",
+            name="research_list_factory_ideas",
             description="List Garden ideas for a Research Factory.",
             input_schema=tool_schema(
                 {
@@ -590,7 +590,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_idea",
+            name="research_get_factory_idea",
             description="Fetch one Garden idea by Factory and idea ID.",
             input_schema=tool_schema(
                 {
@@ -603,7 +603,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_patch_factory_idea",
+            name="research_patch_factory_idea",
             description="Update, pause, reject, promote, or archive a Garden idea.",
             input_schema=tool_schema(
                 {
@@ -617,7 +617,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_factory_actor_output",
+            name="research_record_factory_actor_output",
             description=(
                 "Record a typed Research Factory actor output such as an Adjudicator brief, "
                 "Gardener digest, Architect feed-health note, finding report, or "
@@ -634,7 +634,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_adjudicator_brief",
+            name="research_record_adjudicator_brief",
             description=(
                 "Record an Adjudicator brief: priority, scope, escalation, or decision guidance."
             ),
@@ -650,7 +650,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_gardener_digest",
+            name="research_record_gardener_digest",
             description="Record a Gardener digest: preserved memory, cleanup, archival, or reusable cases.",
             input_schema=tool_schema(
                 {
@@ -664,7 +664,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_architect_feed_health",
+            name="research_record_architect_feed_health",
             description="Record an Architect feed-health note for connectors, resources, or evaluation feeds.",
             input_schema=tool_schema(
                 {
@@ -678,7 +678,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_actor_outputs",
+            name="research_list_factory_actor_outputs",
             description="List typed actor outputs for a Research Factory.",
             input_schema=tool_schema(
                 {
@@ -710,7 +710,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_actor_output",
+            name="research_get_factory_actor_output",
             description="Fetch one typed actor output by Factory and output ID.",
             input_schema=tool_schema(
                 {
@@ -726,7 +726,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_patch_factory_actor_output",
+            name="research_patch_factory_actor_output",
             description="Update status, links, payload, or metadata for a typed actor output.",
             input_schema=tool_schema(
                 {
@@ -743,7 +743,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_open_decisions",
+            name="research_list_factory_open_decisions",
             description="List Efforts in a Factory that need operator decisions.",
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "description": "Factory ID."}},
@@ -753,7 +753,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_preview_factory_wake",
+            name="research_preview_factory_wake",
             description=(
                 "Preview due Factory experiments without starting runs. Returns the "
                 "exact request_contract and opaque preview_token required to confirm."
@@ -784,28 +784,28 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_wake_due_factory_efforts",
+            name="research_wake_due_factory_efforts",
             description=(
                 "Launch the exact due Factory experiments bound to a reviewed "
-                "smr_preview_factory_wake result."
+                "research_preview_factory_wake result."
             ),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
                     "preview_id": {
                         "type": "string",
-                        "description": ("preview_id returned by smr_preview_factory_wake."),
+                        "description": ("preview_id returned by research_preview_factory_wake."),
                     },
                     "request_contract": {
                         "type": "object",
                         "description": (
-                            "Exact request_contract returned by smr_preview_factory_wake."
+                            "Exact request_contract returned by research_preview_factory_wake."
                         ),
                     },
                     "confirmed_preview_token": {
                         "type": "string",
                         "description": (
-                            "Opaque preview_token returned by smr_preview_factory_wake."
+                            "Opaque preview_token returned by research_preview_factory_wake."
                         ),
                     },
                 },
@@ -820,7 +820,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_efforts",
+            name="research_list_factory_efforts",
             description="List Efforts under one Research Factory.",
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "description": "Factory ID."}},
@@ -830,7 +830,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_create_effort",
+            name="research_create_effort",
             description=(
                 "Create a persistent R&D Effort under a Research Factory. The Effort "
                 "tracks a hypothesis, experiment, or topic across time and must use "
@@ -844,7 +844,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_effort",
+            name="research_get_effort",
             description="Fetch one Research Factory Effort by ID.",
             input_schema=tool_schema(
                 {"effort_id": {"type": "string", "description": "Effort ID."}},
@@ -854,7 +854,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_patch_effort",
+            name="research_patch_effort",
             description="Update an Effort status, wake metadata, links, or notes.",
             input_schema=tool_schema(
                 {
@@ -867,7 +867,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_pause_effort",
+            name="research_pause_effort",
             description="Pause a Factory Effort.",
             input_schema=tool_schema(
                 {"effort_id": {"type": "string", "description": "Effort ID."}},
@@ -877,7 +877,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_resume_effort",
+            name="research_resume_effort",
             description="Resume a paused, waiting, blocked, or review-ready Effort.",
             input_schema=tool_schema(
                 {"effort_id": {"type": "string", "description": "Effort ID."}},
@@ -887,7 +887,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_mark_effort_waiting",
+            name="research_mark_effort_waiting",
             description="Mark an Effort waiting, optionally with the next wake time.",
             input_schema=tool_schema(
                 {
@@ -904,7 +904,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_schedule_effort",
+            name="research_schedule_effort",
             description=(
                 "Schedule an Effort wake with recurrence policy and an optional "
                 "stored launch request."
@@ -931,7 +931,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_mark_effort_ready_for_review",
+            name="research_mark_effort_ready_for_review",
             description="Mark an Effort ready for operator review.",
             input_schema=tool_schema(
                 {
@@ -944,7 +944,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_resolve_effort_decision",
+            name="research_resolve_effort_decision",
             description="Resolve an Effort decision flag and optionally record the note.",
             input_schema=tool_schema(
                 {
@@ -957,7 +957,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_launch_effort",
+            name="research_launch_effort",
             description=(
                 "Launch a cloud research engineering Run from a persistent Effort. "
                 "The SDK resolves the Effort Project and links the Run with effort_id."
@@ -989,7 +989,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_graduation_proposals",
+            name="research_list_graduation_proposals",
             description=(
                 "List Gardener-authored graduation proposals for a Managed Research "
                 "project. Each proposal suggests promoting a set of related Runs into "
@@ -1008,7 +1008,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_graduate_runs_to_effort",
+            name="research_graduate_runs_to_effort",
             description=(
                 "Graduate a set of Runs into a persistent Research Factory Effort. "
                 "Creates the Effort under the runs' project and links the runs to it."

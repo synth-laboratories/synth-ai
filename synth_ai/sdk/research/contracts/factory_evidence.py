@@ -738,7 +738,6 @@ class ActorContainerRunBinding:
     """Verified binding from the launched run to its observed actor container."""
 
     run_id: str
-    slot_id: str
     container_id: str
     container_name: str
     expected_image_id: str
@@ -842,10 +841,6 @@ class ActorContainerRunBinding:
             run_id=_text(
                 labels.get("horizons.run_id"),
                 field_name="actor_container_binding.horizons.run_id",
-            ),
-            slot_id=_text(
-                labels.get("horizons.slot_id"),
-                field_name="actor_container_binding.horizons.slot_id",
             ),
             container_id=_text(
                 actor.get("container_id"),

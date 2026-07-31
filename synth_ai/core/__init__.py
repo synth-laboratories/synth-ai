@@ -1,61 +1,7 @@
-"""Shared runtime helpers for the narrowed Synth SDK.
+"""Shared plumbing: errors, HTTP, auth, and typed contracts.
 
-The live core surface is intentionally small and only exposes the pieces used by
-containers, tunnels, and pools.
+``core/`` is what every public client is built on and is not itself a public
+client -- Research lives in ``synth_ai/sdk/research``. Import from the owning
+submodule (``synth_ai.core.errors``, ``synth_ai.core.http.retry``, ...); this
+package re-exports nothing.
 """
-
-# Error types
-from synth_ai.core.errors import (
-    AuthenticationError,
-    AuthorizationError,
-    ConfigError,
-    ConflictError,
-    ContractMismatchError,
-    HTTPError,
-    JobError,
-    ModelNotSupportedError,
-    PaymentRequiredError,
-    RateLimitedError,
-    ResearchOperationError,
-    ResourceExhaustedError,
-    RetryDirective,
-    StorageError,
-    SynthError,
-    SynthErrorCategory,
-    SynthErrorCode,
-    SynthFailure,
-    TimeoutError,
-    TransientServiceError,
-    ValidationError,
-)
-from synth_ai.core.utils.env import get_api_key, mask_value
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
-
-__all__ = [
-    # Errors
-    "SynthError",
-    "ConfigError",
-    "AuthenticationError",
-    "AuthorizationError",
-    "ConflictError",
-    "ContractMismatchError",
-    "ValidationError",
-    "HTTPError",
-    "PaymentRequiredError",
-    "RateLimitedError",
-    "ResearchOperationError",
-    "ResourceExhaustedError",
-    "RetryDirective",
-    "SynthErrorCategory",
-    "SynthErrorCode",
-    "SynthFailure",
-    "TransientServiceError",
-    "JobError",
-    "TimeoutError",
-    "StorageError",
-    "ModelNotSupportedError",
-    # Environment
-    "get_api_key",
-    "mask_value",
-    "BACKEND_URL_BASE",
-]

@@ -359,19 +359,6 @@ def default_provider_policy() -> ResourceProviderPolicy:
     return ResourceProviderPolicy()
 
 
-def provider_policy_zdr_override(*, require_zdr: bool) -> ProviderPolicy:
-    """Partial ``provider_policy`` that overrides ZDR for a hosted launch.
-
-    Hosted prod/staging always enforces US domicile/regions on the backend.
-    Only ``require_zdr`` is intended to be overridden from the SDK; domicile
-    cannot be turned off.
-    """
-
-    return ProviderPolicy(
-        default=ProviderRoutingPolicy(require_zdr=require_zdr),
-    )
-
-
 def coerce_provider(
     value: Provider | str | None,
     *,
@@ -604,15 +591,6 @@ def coerce_provider_bindings(
     return normalized
 
 
-def provider_capabilities(
-    bindings: Sequence[ProviderBinding | Provider | str | Mapping[str, Any]],
-) -> frozenset[ActorResourceCapability]:
-    capabilities: set[ActorResourceCapability] = set()
-    for binding in coerce_provider_bindings(bindings):
-        capabilities.update(binding.capabilities)
-    return frozenset(capabilities)
-
-
 __all__ = [
     "DEFAULT_CONFIGS",
     "ACTOR_RESOURCE_CAPABILITIES",
@@ -641,6 +619,4 @@ __all__ = [
     "coerce_usage_limit",
     "default_provider_policy",
     "default_provider_routing_policy",
-    "provider_capabilities",
-    "provider_policy_zdr_override",
 ]

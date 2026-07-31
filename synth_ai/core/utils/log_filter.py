@@ -33,7 +33,7 @@ class FilteredStream:
         """Write text, filtering out noisy log lines."""
         # Check if entire text matches filter (for unbuffered writes)
         if should_filter_log_line(text.strip()):
-            return len(text)
+            return 0
 
         # Buffer incomplete lines
         self._buffer += text
@@ -45,7 +45,7 @@ class FilteredStream:
         for line in lines[:-1]:
             if not should_filter_log_line(line):
                 written += self._original_write(line + "\n")
-        return len(text)
+        return written
 
     def flush(self) -> None:
         """Flush any remaining buffered content."""

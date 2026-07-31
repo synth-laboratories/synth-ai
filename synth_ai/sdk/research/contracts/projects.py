@@ -51,6 +51,7 @@ class ProjectSpec:
     notes: str | None = None
     execution_policy: JsonObject = field(default_factory=dict)
     research: JsonObject = field(default_factory=dict)
+    metered_infra: JsonObject = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -78,6 +79,7 @@ class ProjectSpec:
             "timezone": self.timezone,
             "execution_policy": dict(self.execution_policy),
             "research": dict(self.research),
+            "metered_infra": dict(self.metered_infra),
         }
         for name, value in (
             ("reviewer_profile_id", self.reviewer_profile_id),

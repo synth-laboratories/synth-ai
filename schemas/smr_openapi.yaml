@@ -46476,6 +46476,13 @@ components:
       required:
       - port
       title: LocalTarget
+    MagiActuationStatus:
+      type: string
+      enum:
+      - not_requested
+      - applied
+      - noop
+      title: MagiActuationStatus
     MagiCanonicalUser:
       type: string
       enum:
@@ -46483,6 +46490,77 @@ components:
       - Melchior
       - Balthasar
       title: MagiCanonicalUser
+    MagiDecisionActuationReceipt:
+      properties:
+        status:
+          $ref: '#/components/schemas/MagiActuationStatus'
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        scheduler_action:
+          anyOf:
+          - type: string
+            enum:
+            - pause
+            - resume
+          - type: 'null'
+          title: Scheduler Action
+        scheduler_decision:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scheduler Decision
+        factory_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Status
+        run_action:
+          anyOf:
+          - type: string
+            enum:
+            - pause
+            - intervene
+            - resume
+          - type: 'null'
+          title: Run Action
+        run_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run State
+        runtime_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runtime Message Id
+        detail:
+          additionalProperties: true
+          type: object
+          title: Detail
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      title: MagiDecisionActuationReceipt
+      description: Durable proof that a control decision reached its runtime authority.
     MagiDecisionKind:
       type: string
       enum:
@@ -46711,84 +46789,6 @@ components:
       - async
       - seraph
       title: MagiMode
-    MagiActuationStatus:
-      type: string
-      enum:
-      - not_requested
-      - applied
-      - noop
-      title: MagiActuationStatus
-    MagiDecisionActuationReceipt:
-      properties:
-        status:
-          $ref: '#/components/schemas/MagiActuationStatus'
-        factory_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Factory Id
-        project_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Id
-        effort_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        scheduler_action:
-          anyOf:
-          - type: string
-            enum:
-            - pause
-            - resume
-          - type: 'null'
-          title: Scheduler Action
-        scheduler_decision:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Scheduler Decision
-        factory_status:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Factory Status
-        run_action:
-          anyOf:
-          - type: string
-            enum:
-            - pause
-            - intervene
-            - resume
-          - type: 'null'
-          title: Run Action
-        run_state:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run State
-        runtime_message_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Runtime Message Id
-        detail:
-          additionalProperties: true
-          type: object
-          title: Detail
-      additionalProperties: false
-      type: object
-      required:
-      - status
-      title: MagiDecisionActuationReceipt
-      description: Durable proof that a control decision reached its runtime authority.
     ManderqueueAckRequest:
       properties:
         message_id:
@@ -48819,6 +48819,9 @@ components:
         adapter_kind:
           type: string
           title: Adapter Kind
+        provider_kind:
+          type: string
+          title: Provider Kind
         source_repository_id:
           type: string
           title: Source Repository Id
@@ -48857,6 +48860,7 @@ components:
       - project_id
       - cloud_deployment_id
       - adapter_kind
+      - provider_kind
       - source_repository_id
       - source_revision
       - lifecycle
@@ -50827,191 +50831,6 @@ components:
       - released_at
       title: ReleaseResponse
       description: Response for lease release.
-    ResearchInternFactoryMembershipResponse:
-      properties:
-        research_intern_id:
-          type: string
-          title: Research Intern Id
-        org_id:
-          type: string
-          title: Org Id
-        factory_id:
-          type: string
-          title: Factory Id
-        role:
-          type: string
-          title: Role
-        attached_by_user_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Attached By User Id
-        attached_at:
-          type: string
-          format: date-time
-          title: Attached At
-      additionalProperties: false
-      type: object
-      required:
-      - research_intern_id
-      - org_id
-      - factory_id
-      - role
-      - attached_at
-      title: ResearchInternFactoryMembershipResponse
-    ResearchInternPatchRequest:
-      properties:
-        display_name:
-          anyOf:
-          - type: string
-            maxLength: 255
-            minLength: 1
-          - type: 'null'
-          title: Display Name
-        status:
-          anyOf:
-          - $ref: '#/components/schemas/ResearchInternStatus'
-          - type: 'null'
-        policies:
-          anyOf:
-          - $ref: '#/components/schemas/ResearchInternPolicySet'
-          - type: 'null'
-        attribution_team_id:
-          anyOf:
-          - type: string
-            maxLength: 255
-          - type: 'null'
-          title: Attribution Team Id
-        metadata:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Metadata
-      additionalProperties: false
-      type: object
-      title: ResearchInternPatchRequest
-    ResearchInternPolicySet:
-      properties:
-        organization:
-          additionalProperties: true
-          type: object
-          title: Organization
-        team:
-          additionalProperties: true
-          type: object
-          title: Team
-        user:
-          additionalProperties: true
-          type: object
-          title: User
-        organization_policy_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Organization Policy Ref
-        team_policy_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Team Policy Ref
-        user_policy_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: User Policy Ref
-      additionalProperties: false
-      type: object
-      title: ResearchInternPolicySet
-      description: Policy scopes remain attributable instead of being merged implicitly.
-    ResearchInternProvisionRequest:
-      properties:
-        display_name:
-          type: string
-          maxLength: 255
-          minLength: 1
-          title: Display Name
-          default: Research Intern
-        policies:
-          $ref: '#/components/schemas/ResearchInternPolicySet'
-        attribution_team_id:
-          anyOf:
-          - type: string
-            maxLength: 255
-          - type: 'null'
-          title: Attribution Team Id
-        metadata:
-          additionalProperties: true
-          type: object
-          title: Metadata
-      additionalProperties: false
-      type: object
-      title: ResearchInternProvisionRequest
-    ResearchInternResponse:
-      properties:
-        research_intern_id:
-          type: string
-          title: Research Intern Id
-        org_id:
-          type: string
-          title: Org Id
-        display_name:
-          type: string
-          title: Display Name
-        status:
-          $ref: '#/components/schemas/ResearchInternStatus'
-        policies:
-          $ref: '#/components/schemas/ResearchInternPolicySet'
-        attribution_user_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Attribution User Id
-        attribution_team_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Attribution Team Id
-        state_generation:
-          type: integer
-          title: State Generation
-        durable_state:
-          additionalProperties: true
-          type: object
-          title: Durable State
-        metadata:
-          additionalProperties: true
-          type: object
-          title: Metadata
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      additionalProperties: false
-      type: object
-      required:
-      - research_intern_id
-      - org_id
-      - display_name
-      - status
-      - policies
-      - state_generation
-      - durable_state
-      - metadata
-      - created_at
-      - updated_at
-      title: ResearchInternResponse
-    ResearchInternStatus:
-      type: string
-      enum:
-      - active
-      - paused
-      - archived
-      title: ResearchInternStatus
     ResearchInternAcceptanceReceiptPublicationRequest:
       properties:
         schema_version:
@@ -51347,6 +51166,184 @@ components:
       title: ResearchInternEventStreamHeartbeat
       description: Non-durable liveness frame; cursor is the last durable emitted
         event.
+    ResearchInternFactoryMembershipResponse:
+      properties:
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        role:
+          type: string
+          title: Role
+        attached_by_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attached By User Id
+        attached_at:
+          type: string
+          format: date-time
+          title: Attached At
+      additionalProperties: false
+      type: object
+      required:
+      - research_intern_id
+      - org_id
+      - factory_id
+      - role
+      - attached_at
+      title: ResearchInternFactoryMembershipResponse
+    ResearchInternPatchRequest:
+      properties:
+        display_name:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Display Name
+        status:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternStatus'
+          - type: 'null'
+        policies:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternPolicySet'
+          - type: 'null'
+        attribution_team_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Attribution Team Id
+        metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metadata
+      additionalProperties: false
+      type: object
+      title: ResearchInternPatchRequest
+    ResearchInternPolicySet:
+      properties:
+        organization:
+          additionalProperties: true
+          type: object
+          title: Organization
+        team:
+          additionalProperties: true
+          type: object
+          title: Team
+        user:
+          additionalProperties: true
+          type: object
+          title: User
+        organization_policy_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Organization Policy Ref
+        team_policy_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Team Policy Ref
+        user_policy_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Policy Ref
+      additionalProperties: false
+      type: object
+      title: ResearchInternPolicySet
+      description: Policy scopes remain attributable instead of being merged implicitly.
+    ResearchInternProvisionRequest:
+      properties:
+        display_name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Display Name
+          default: Research Intern
+        policies:
+          $ref: '#/components/schemas/ResearchInternPolicySet'
+        attribution_team_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Attribution Team Id
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      title: ResearchInternProvisionRequest
+    ResearchInternResponse:
+      properties:
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        display_name:
+          type: string
+          title: Display Name
+        status:
+          $ref: '#/components/schemas/ResearchInternStatus'
+        policies:
+          $ref: '#/components/schemas/ResearchInternPolicySet'
+        attribution_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attribution User Id
+        attribution_team_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attribution Team Id
+        state_generation:
+          type: integer
+          title: State Generation
+        durable_state:
+          additionalProperties: true
+          type: object
+          title: Durable State
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - research_intern_id
+      - org_id
+      - display_name
+      - status
+      - policies
+      - state_generation
+      - durable_state
+      - metadata
+      - created_at
+      - updated_at
+      title: ResearchInternResponse
     ResearchInternSessionCloseRequest:
       properties:
         idempotency_key:
@@ -51560,6 +51557,13 @@ components:
       - projected_count
       - has_more
       title: ResearchInternSessionSyncResponse
+    ResearchInternStatus:
+      type: string
+      enum:
+      - active
+      - paused
+      - archived
+      title: ResearchInternStatus
     ResearchInternTracePublicationRequest:
       properties:
         schema_version:

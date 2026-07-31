@@ -1,21 +1,6 @@
-"""Transport exports."""
+"""Research HTTP transport.
 
-from synth_ai.sdk.research.transport.http import SmrHttpTransport
-from synth_ai.sdk.research.transport.pagination import (
-    build_query_params,
-    extract_next_cursor,
-)
-from synth_ai.sdk.research.transport.retries import RetryPolicy
-from synth_ai.sdk.research.transport.streaming import (
-    BinaryPayloadPreview,
-    preview_binary_payload,
-)
-
-__all__ = [
-    "BinaryPayloadPreview",
-    "RetryPolicy",
-    "SmrHttpTransport",
-    "build_query_params",
-    "extract_next_cursor",
-    "preview_binary_payload",
-]
+Import from the owning submodule; this package re-exports nothing. Every
+consumer already deep-imports, and the aggregator was the only thing keeping a
+second ``RetryPolicy`` alive alongside the real one in ``core/http/retry.py``.
+"""

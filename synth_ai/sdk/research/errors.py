@@ -1,6 +1,10 @@
-"""Research API errors (public ``Research*`` names; ``Smr*`` aliases).
+"""Research API errors (public ``Research*`` names).
 
 Catch these typed exceptions from ``SynthClient().research`` call sites.
+
+The legacy ``Smr*`` names are deprecated aliases of the ``Research*`` classes.
+They remain importable for compatibility but emit a ``DeprecationWarning`` on
+first access and will be removed in a future release.
 
 | Exception | Typical cause |
 | --- | --- |
@@ -15,6 +19,7 @@ Catch these typed exceptions from ``SynthClient().research`` call sites.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -334,9 +339,7 @@ class ResearchLimitExtensionError(ResearchApiError):
             body=exact_detail,
         )
         self.detail = exact_detail
-        self._limit_extension_retryable = bool(
-            exact_detail.get("retryable", False)
-        )
+        self._limit_extension_retryable = bool(exact_detail.get("retryable", False))
         self.refusal_receipt_id = exact_detail.get("refusal_receipt_id")
 
     @property
@@ -503,27 +506,42 @@ def raise_cloud_deployment_claim_error(exc: ResearchApiError) -> None:
             ) from exc
 
 
-ManagedResearchError = ResearchApiError
-SmrApiError = ResearchApiError
-SmrCheckpointQuotaExceededError = ResearchCheckpointQuotaExceededError
-SmrConcurrentRunLimitExceededError = ResearchConcurrentRunLimitExceededError
-SmrFundingLaneInvariantError = ResearchFundingLaneInvariantError
-SmrHostedModelOverridesError = ResearchHostedModelOverridesError
-SmrInsufficientCreditsError = ResearchInsufficientCreditsError
-SmrLimitExceededError = ResearchLimitExceededError
-SmrLimitExtensionError = ResearchLimitExtensionError
-SmrLimitRevisionConflictError = ResearchLimitRevisionConflictError
-SmrLimitExtensionIdempotencyConflictError = (
-    ResearchLimitExtensionIdempotencyConflictError
-)
-SmrLimitExtensionGuardedResumeBlockedError = (
-    ResearchLimitExtensionGuardedResumeBlockedError
-)
-SmrUnsafeLimitExtensionError = ResearchUnsafeLimitExtensionError
-SmrInferenceProviderUnavailableError = ResearchInferenceProviderUnavailableError
-SmrManagedInferenceUnavailableError = ResearchManagedInferenceUnavailableError
-SmrProjectMonthlyBudgetExhaustedError = ResearchProjectMonthlyBudgetExhaustedError
-SmrStructuredDenialError = ResearchStructuredDenialError
+# Deprecated ``Smr*`` -> ``Research*`` aliases, resolved lazily via module
+# ``__getattr__`` so any access emits a DeprecationWarning (once per name).
+_DEPRECATED_SMR_ALIASES: dict[str, type[ResearchApiError]] = {
+    "SmrApiError": ResearchApiError,
+    "SmrCheckpointQuotaExceededError": ResearchCheckpointQuotaExceededError,
+    "SmrConcurrentRunLimitExceededError": ResearchConcurrentRunLimitExceededError,
+    "SmrFundingLaneInvariantError": ResearchFundingLaneInvariantError,
+    "SmrHostedModelOverridesError": ResearchHostedModelOverridesError,
+    "SmrInsufficientCreditsError": ResearchInsufficientCreditsError,
+    "SmrLimitExceededError": ResearchLimitExceededError,
+    "SmrLimitExtensionError": ResearchLimitExtensionError,
+    "SmrLimitExtensionGuardedResumeBlockedError": (ResearchLimitExtensionGuardedResumeBlockedError),
+    "SmrLimitExtensionIdempotencyConflictError": (ResearchLimitExtensionIdempotencyConflictError),
+    "SmrLimitRevisionConflictError": ResearchLimitRevisionConflictError,
+    "SmrUnsafeLimitExtensionError": ResearchUnsafeLimitExtensionError,
+    "SmrInferenceProviderUnavailableError": ResearchInferenceProviderUnavailableError,
+    "SmrManagedInferenceUnavailableError": ResearchManagedInferenceUnavailableError,
+    "SmrProjectMonthlyBudgetExhaustedError": ResearchProjectMonthlyBudgetExhaustedError,
+    "SmrStructuredDenialError": ResearchStructuredDenialError,
+}
+
+
+def __getattr__(name: str) -> type[ResearchApiError]:
+    try:
+        replacement = _DEPRECATED_SMR_ALIASES[name]
+    except KeyError:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
+    warnings.warn(
+        f"{name} is deprecated; use {replacement.__name__} instead; "
+        "Smr aliases will be removed in a future release",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Cache so the warning fires once per name and later lookups skip __getattr__.
+    globals()[name] = replacement
+    return replacement
 
 
 __all__ = [
@@ -537,7 +555,6 @@ __all__ = [
     "FeatureGated",
     "FencingTokenRequiredError",
     "FencingTokenStaleError",
-    "ManagedResearchError",
     "RateLimitedError",
     "ResearchApiError",
     "ResearchCheckpointQuotaExceededError",
@@ -558,22 +575,24 @@ __all__ = [
     "ResearchUnsafeLimitExtensionError",
     "ResourceExhaustedError",
     "RetryDirective",
-    "SmrApiError",
-    "SmrCheckpointQuotaExceededError",
-    "SmrConcurrentRunLimitExceededError",
-    "SmrFundingLaneInvariantError",
-    "SmrHostedModelOverridesError",
-    "SmrInsufficientCreditsError",
-    "SmrInferenceProviderUnavailableError",
-    "SmrLimitExceededError",
-    "SmrLimitExtensionError",
-    "SmrLimitExtensionGuardedResumeBlockedError",
-    "SmrLimitExtensionIdempotencyConflictError",
-    "SmrLimitRevisionConflictError",
-    "SmrManagedInferenceUnavailableError",
-    "SmrProjectMonthlyBudgetExhaustedError",
-    "SmrStructuredDenialError",
-    "SmrUnsafeLimitExtensionError",
+    # Deprecated aliases served by module __getattr__ (invisible to static
+    # analysis, hence the noqa markers).
+    "SmrApiError",  # noqa: F822
+    "SmrCheckpointQuotaExceededError",  # noqa: F822
+    "SmrConcurrentRunLimitExceededError",  # noqa: F822
+    "SmrFundingLaneInvariantError",  # noqa: F822
+    "SmrHostedModelOverridesError",  # noqa: F822
+    "SmrInsufficientCreditsError",  # noqa: F822
+    "SmrInferenceProviderUnavailableError",  # noqa: F822
+    "SmrLimitExceededError",  # noqa: F822
+    "SmrLimitExtensionError",  # noqa: F822
+    "SmrLimitExtensionGuardedResumeBlockedError",  # noqa: F822
+    "SmrLimitExtensionIdempotencyConflictError",  # noqa: F822
+    "SmrLimitRevisionConflictError",  # noqa: F822
+    "SmrManagedInferenceUnavailableError",  # noqa: F822
+    "SmrProjectMonthlyBudgetExhaustedError",  # noqa: F822
+    "SmrStructuredDenialError",  # noqa: F822
+    "SmrUnsafeLimitExtensionError",  # noqa: F822
     "SynthError",
     "SynthErrorCategory",
     "SynthErrorCode",

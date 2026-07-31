@@ -1,8 +1,4 @@
-"""Environment resolution utilities.
-
-This module provides non-interactive environment variable resolution
-for use by SDK and CLI. URL configuration is handled by urls.py.
-"""
+"""Non-interactive credential resolution. URL configuration lives in urls.py."""
 
 from __future__ import annotations
 
@@ -11,17 +7,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from synth_ai.core.errors import AuthenticationError
+from synth_ai.core.errors import AuthenticationError, ConfigError
 from synth_ai.core.utils.paths import SYNTH_HOME_DIR
-from synth_ai.core.utils.secure_files import write_private_json
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_local_backend_base_url
-
-# Backward-compatible alias for older callers.
-PROD_BASE_URL = BACKEND_URL_BASE
 
 
 def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | None:
-    """Get API key from environment.
+    """Read an API key from the process environment, then from ``~/.synth_ai``.
 
     Args:
         env_key: Environment variable name to check
@@ -32,6 +23,7 @@ def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | 
 
     Raises:
         AuthenticationError: If required and not found
+        ConfigurationError: If a config file exists but cannot be read
     """
     value = os.getenv(env_key) or _load_user_env().get(env_key)
     if not value and required:
@@ -43,206 +35,21 @@ def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | 
     return value
 
 
-def mask_value(value: str, visible_chars: int = 4) -> str:
-    """Mask a sensitive value for display.
-
-    Args:
-        value: The value to mask
-        visible_chars: Number of characters to show at start and end
-
-    Returns:
-        Masked string like "abc...xyz"
-    """
-    if len(value) <= visible_chars * 2:
-        return "***"
-    return f"{value[:visible_chars]}...{value[-visible_chars:]}"
-
-
-def get_backend_url() -> str:
-    """Return the configured backend URL base."""
-    return BACKEND_URL_BASE
-
-
-def mask_str(input: str, position: int = 3) -> str:
-    text = str(input)
-    if len(text) <= position * 2:
-        return "***"
-    return f"{text[:position]}...{text[-position:]}"
-
-
-def ensure_env_var(key: str, expected_value: str) -> None:
-    actual_value = os.getenv(key)
-    if expected_value != actual_value:
-        raise ValueError(f"Expected: {key}={expected_value}\nActual: {key}={actual_value}")
-
-
-def resolve_env_var(key: str, override_process_env: bool = False) -> str:
-    """Resolve an environment variable from available sources.
-
-    Non-interactive: uses first available option or raises error.
-    Never prompts - fails hard if value cannot be found.
-    """
-    import click
-
-    env_value = os.getenv(key)
-    if env_value is not None and not override_process_env:
-        click.echo(f"Using {key}={mask_str(env_value)} from process environment")
-        return env_value
-
-    applied = _load_user_env()
-    config_value = applied.get(key)
-
-    if override_process_env and config_value is not None:
-        value = config_value
-        source = "synth config"
-    elif env_value is not None:
-        value = env_value
-        source = "process environment"
-    elif config_value is not None:
-        value = config_value
-        source = "synth config"
-    else:
-        raise click.ClickException(
-            f"❌ Missing required environment variable: {key}\n\n"
-            f"  Options:\n"
-            f"  1. Set environment variable: export {key}=<value>\n"
-            f"  2. Run `synth-ai setup` to store credentials in {SYNTH_HOME_DIR}\n\n"
-            f"  Searched for {key} in:\n"
-            f"    - Process environment\n"
-            f"    - {SYNTH_HOME_DIR}/*.json config files"
-        )
-
-    os.environ[key] = value
-    ensure_env_var(key, value)
-    click.echo(f"Loaded {key}={mask_str(value)} from {source}")
-    return value
-
-
-def write_env_var_to_json(
-    key: str,
-    value: str,
-    output_file_path: str | Path,
-) -> None:
-    path = Path(output_file_path).expanduser()
-    if path.exists() and not path.is_file():
-        raise RuntimeError(f"{path} exists and is not a file")
-
-    data: dict[str, str] = {}
-
-    if path.is_file():
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                existing = json.load(handle)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Invalid JSON in {path}: {exc}") from exc
-        except OSError as exc:
-            raise RuntimeError(f"Failed to read {path}: {exc}") from exc
-
-        if not isinstance(existing, dict):
-            raise RuntimeError(f"Expected JSON object in {path}")
-
-        for existing_key, existing_value in existing.items():
-            if existing_key == key:
-                continue
-            data[str(existing_key)] = (
-                existing_value if isinstance(existing_value, str) else str(existing_value)
-            )
-
-    data[key] = value
-
-    try:
-        write_private_json(path, data, indent=2, sort_keys=True)
-    except OSError as exc:
-        raise RuntimeError(f"Failed to write {path}: {exc}") from exc
-
-    print(f"Wrote {key}={mask_str(value)} to {path}")
-
-
-def mint_demo_api_key(
-    backend_url: str | None = None,
-    ttl_hours: int = 4,
-    timeout: float = 30.0,
-) -> str:
-    """Mint a demo Synth API key from the backend.
-
-    Args:
-        backend_url: Backend URL (defaults to BACKEND_URL_BASE)
-        ttl_hours: Time-to-live in hours (default: 4)
-        timeout: Request timeout in seconds (default: 30.0)
-
-    Returns:
-        Demo API key string
-
-    Raises:
-        RuntimeError: If the request fails or returns invalid response
-    """
-    import httpx
-
-    base = backend_url or BACKEND_URL_BASE
-    url = f"{base.rstrip('/')}/api/demo/keys"
-    resp = httpx.post(url, json={"ttl_hours": ttl_hours}, timeout=timeout)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Failed to mint demo key: {resp.status_code} {resp.text}")
-    payload = resp.json()
-    key = payload.get("api_key") or payload.get("key") or payload.get("token")
-    if not key:
-        raise RuntimeError("Demo key response missing api_key.")
-    return str(key)
-
-
-# Local dev default (non-secret): synth-dev local stack seeds this key in the dev database.
-LOCAL_DEV_SYNTH_API_KEY = "sk_dev_00000000000000000000000000000001"
-
-
-def _is_local_backend_url(url: str | None) -> bool:
-    return is_local_backend_base_url(url)
-
-
-def ensure_synth_api_key(
-    *,
-    backend_url: str | None = None,
-    mint_demo_if_missing: bool = True,
-) -> str:
-    """Ensure SYNTH_API_KEY is set and return it.
-
-    Dev ergonomics:
-    - For local backends (localhost/127.0.0.1/host.docker.internal), default to the
-      seeded dev key if none is present in the environment.
-    - For non-local backends, optionally mint a demo key.
-    """
-    existing = (os.environ.get("SYNTH_API_KEY") or "").strip()
-    if existing:
-        return existing
-
-    resolved_backend = (
-        (backend_url or "").strip()
-        or (os.environ.get("SYNTH_BACKEND_URL") or "").strip()
-        or BACKEND_URL_BASE
-    )
-    if _is_local_backend_url(resolved_backend):
-        os.environ["SYNTH_API_KEY"] = LOCAL_DEV_SYNTH_API_KEY
-        return LOCAL_DEV_SYNTH_API_KEY
-
-    if not mint_demo_if_missing:
-        raise AuthenticationError("Missing required API key: SYNTH_API_KEY")
-
-    minted = mint_demo_api_key(backend_url=resolved_backend)
-    os.environ["SYNTH_API_KEY"] = minted
-    return minted
-
-
 def _load_user_env() -> dict[str, str]:
     values: dict[str, str] = {}
     for path in _candidate_config_paths():
         if not path.is_file():
             continue
+        # A config file that exists but will not parse is a broken machine, not
+        # a machine without credentials. Reporting it as "no API key" sends the
+        # reader to look for a key they already set.
         try:
             with path.open("r", encoding="utf-8") as handle:
                 payload: Any = json.load(handle)
-        except Exception:
-            continue
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ConfigError(f"Cannot read Synth config at {path}: {exc}") from exc
         if not isinstance(payload, dict):
-            continue
+            raise ConfigError(f"Synth config at {path} must contain a JSON object")
         for key, value in payload.items():
             if isinstance(value, str):
                 values[str(key)] = value
@@ -265,16 +72,4 @@ def _candidate_config_paths() -> list[Path]:
     return unique
 
 
-__all__ = [
-    "get_api_key",
-    "ensure_synth_api_key",
-    "LOCAL_DEV_SYNTH_API_KEY",
-    "mint_demo_api_key",
-    "mask_value",
-    "mask_str",
-    "ensure_env_var",
-    "resolve_env_var",
-    "write_env_var_to_json",
-    "get_backend_url",
-    "PROD_BASE_URL",
-]
+__all__ = ["get_api_key"]

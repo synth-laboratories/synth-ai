@@ -1206,7 +1206,6 @@ class AsyncFactoriesAPI:
 
 
 ResearchFactoriesAPI = FactoriesAPI
-AsyncResearchFactoriesAPI = AsyncFactoriesAPI
 
 
 __all__ = [
@@ -1215,7 +1214,6 @@ __all__ = [
     "AsyncFactoryChampionsAPI",
     "AsyncFactoryEffortsAPI",
     "AsyncFactoryLensesAPI",
-    "AsyncResearchFactoriesAPI",
     "FactoriesAPI",
     "FactoryCandidatesAPI",
     "FactoryChampionsAPI",

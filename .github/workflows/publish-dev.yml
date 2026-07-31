@@ -9,7 +9,7 @@ name: Auto-publish to PyPI
 # So a version bump is a single edit that flows dev -> main without being touched
 # again. Installing a dev build takes an explicit opt-in -- use an exact pin:
 #
-#   pip install synth-ai==0.17.5.dev42
+#   pip install synth-ai==0.18.1.dev42
 #
 # Not `pip install --pre synth-ai`. `--pre` is not scoped to this package: it lets
 # pip take prereleases of every dependency too. Doing that on 2026-07-30 pulled

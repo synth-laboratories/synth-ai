@@ -778,10 +778,6 @@ class ManagedResearchProjectClient:
         return self._repos_api
 
     @property
-    def repos(self) -> _BoundProjectReposAPI:
-        return self.repositories
-
-    @property
     def external_repositories(self) -> _BoundProjectExternalRepositoriesAPI:
         if self._external_repositories_api is None:
             self._external_repositories_api = _BoundProjectExternalRepositoriesAPI(

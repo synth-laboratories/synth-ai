@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_artifact_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_list_run_artifacts",
+            name="research_list_run_artifacts",
             description="List artifacts for a run from the stable API artifact contract.",
             input_schema=tool_schema(
                 {
@@ -25,7 +25,7 @@ def build_artifact_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_artifacts,
         ),
         ToolDefinition(
-            name="smr_get_run_artifact_manifest",
+            name="research_get_run_artifact_manifest",
             description="Fetch the stable manifest of run artifacts, outputs, reports, models, datasets, and archive links.",
             input_schema=tool_schema(
                 {
@@ -37,7 +37,7 @@ def build_artifact_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_artifact_manifest,
         ),
         ToolDefinition(
-            name="smr_get_artifact",
+            name="research_get_artifact",
             description="Fetch one artifact metadata record by artifact id.",
             input_schema=tool_schema(
                 {"artifact_id": {"type": "string"}},
@@ -46,7 +46,7 @@ def build_artifact_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_artifact,
         ),
         ToolDefinition(
-            name="smr_get_artifact_content",
+            name="research_get_artifact_content",
             description="Fetch artifact content as utf-8 text or base64 payload.",
             input_schema=tool_schema(
                 {
@@ -58,7 +58,7 @@ def build_artifact_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_artifact_content,
         ),
         ToolDefinition(
-            name="smr_download_artifact",
+            name="research_download_artifact",
             description="Download artifact content to a path on the machine running this MCP server.",
             input_schema=tool_schema(
                 {
@@ -71,7 +71,7 @@ def build_artifact_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_download_artifact,
         ),
         ToolDefinition(
-            name="smr_list_run_models",
+            name="research_list_run_models",
             description="List model resources produced by a run.",
             input_schema=tool_schema(
                 {
@@ -83,7 +83,7 @@ def build_artifact_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_models,
         ),
         ToolDefinition(
-            name="smr_list_run_datasets",
+            name="research_list_run_datasets",
             description="List dataset resources mounted or produced by a run.",
             input_schema=tool_schema(
                 {

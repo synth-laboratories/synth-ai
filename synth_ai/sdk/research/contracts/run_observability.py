@@ -6,13 +6,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from synth_ai.sdk.research.contracts.failure import ManagedResearchFailureClassification
 from synth_ai.sdk.research.contracts.run_state import (
     ManagedResearchRun,
     ManagedResearchRunLivenessPhase,
     ManagedResearchRunState,
     ManagedResearchRunTerminalOutcome,
 )
-from synth_ai.sdk.research.contracts.failure import ManagedResearchFailureClassification
 
 
 def _require_mapping(payload: object, *, label: str) -> Mapping[str, object]:
@@ -194,7 +194,6 @@ class RunObservationCursor:
 
 @dataclass(frozen=True)
 class RunLifecycleLocalExecution:
-    slot_id: str
     runtime_id: str
     dispatch_pool: str
     host_kind: str
@@ -204,7 +203,6 @@ class RunLifecycleLocalExecution:
     def from_wire(cls, payload: object) -> RunLifecycleLocalExecution:
         mapping = _require_mapping(payload, label="run lifecycle local execution")
         return cls(
-            slot_id=_require_string(mapping, "slot_id", label="local_execution.slot_id"),
             runtime_id=_require_string(mapping, "runtime_id", label="local_execution.runtime_id"),
             dispatch_pool=_require_string(
                 mapping, "dispatch_pool", label="local_execution.dispatch_pool"

@@ -50,6 +50,13 @@ RESEARCH_OPERATIONS = {
             "/smr/v1/image-releases/upload-url",
             mutation=True,
         ),
+        _operation(
+            "register_customer_actor_registry_image",
+            HttpMethod.POST,
+            "/smr/v1/image-releases/register-registry",
+            mutation=True,
+            idempotent=True,
+        ),
         _operation("create_factory", HttpMethod.POST, "/smr/factories", mutation=True),
         _operation(
             "provision_research_intern",
