@@ -550,7 +550,6 @@ class FactorySpec:
             "name": self.name,
             "kind": self.kind.value,
             "status": self.state.value,
-            "result_authority_generation": self.result_authority_generation.value,
             "budget_policy": self.budget.to_wire() if self.budget is not None else {},
             "cap_policy": self.capacity.to_wire() if self.capacity is not None else {},
             "homeostasis_policy": {},
@@ -558,6 +557,16 @@ class FactorySpec:
             "authorization_policy": {},
             "metadata": dict(self.metadata),
         }
+        # Older production backends predate this request field and reject
+        # unknown inputs. Omitting the legacy default preserves their existing
+        # behavior while still sending an explicit opt-in to result authority.
+        if (
+            self.result_authority_generation
+            is not FactoryResultAuthorityGeneration.LEGACY
+        ):
+            value["result_authority_generation"] = (
+                self.result_authority_generation.value
+            )
         if self.description is not None:
             value["description"] = self.description
         return value
