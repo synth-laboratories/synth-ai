@@ -108,6 +108,8 @@ class SmrRunLimitLaunchEvidence:
     funding_lane: str | None
     owner_slot_id: str | None
     backend_url: str | None
+    enforcement_granularity: dict[str, str]
+    strict_inference_admission: dict[str, object]
     limits: list[SmrRunLimitLaunchCapEvidence]
 
     @classmethod
@@ -116,6 +118,12 @@ class SmrRunLimitLaunchEvidence:
         raw_limits = value.get("limits", [])
         if not isinstance(raw_limits, list):
             raise ValueError("limits must be an array")
+        granularity = value.get("enforcement_granularity") or {}
+        if not isinstance(granularity, Mapping):
+            raise ValueError("enforcement_granularity must be an object")
+        strict_admission = value.get("strict_inference_admission") or {}
+        if not isinstance(strict_admission, Mapping):
+            raise ValueError("strict_inference_admission must be an object")
         return cls(
             schema_version=optional_text(value, "schema_version"),
             status=optional_text(value, "status"),
@@ -125,6 +133,10 @@ class SmrRunLimitLaunchEvidence:
             funding_lane=optional_text(value, "funding_lane"),
             owner_slot_id=optional_text(value, "owner_slot_id"),
             backend_url=optional_text(value, "backend_url"),
+            enforcement_granularity={
+                str(key): str(item) for key, item in granularity.items()
+            },
+            strict_inference_admission=dict(strict_admission),
             limits=[SmrRunLimitLaunchCapEvidence.from_wire(item) for item in raw_limits],
         )
 
@@ -146,6 +158,8 @@ class SmrRunLimitDecisionEvidence:
     usage_sources: list[str]
     missing_accounting_sources: list[str]
     trigger_source: str
+    enforcement_granularity: str | None
+    possible_overshoot: str | None
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrRunLimitDecisionEvidence:
@@ -171,6 +185,8 @@ class SmrRunLimitDecisionEvidence:
                 value, "missing_accounting_sources"
             ),
             trigger_source=required_text(value, "trigger_source"),
+            enforcement_granularity=optional_text(value, "enforcement_granularity"),
+            possible_overshoot=optional_text(value, "possible_overshoot"),
         )
 
 
