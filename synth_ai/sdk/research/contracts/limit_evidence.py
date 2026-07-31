@@ -106,7 +106,6 @@ class SmrRunLimitLaunchEvidence:
     enforcement_enabled: bool | None
     refusal_disposition: str | None
     funding_lane: str | None
-    owner_slot_id: str | None
     backend_url: str | None
     enforcement_granularity: dict[str, str]
     strict_inference_admission: dict[str, object]
@@ -131,7 +130,6 @@ class SmrRunLimitLaunchEvidence:
             enforcement_enabled=_optional_bool(value, "enforcement_enabled"),
             refusal_disposition=optional_text(value, "refusal_disposition"),
             funding_lane=optional_text(value, "funding_lane"),
-            owner_slot_id=optional_text(value, "owner_slot_id"),
             backend_url=optional_text(value, "backend_url"),
             enforcement_granularity={str(key): str(item) for key, item in granularity.items()},
             strict_inference_admission={str(key): item for key, item in strict_admission.items()},
