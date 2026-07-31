@@ -13,8 +13,8 @@ from synth_ai.mcp.research.tools.project_data import build_project_data_tools
 from synth_ai.mcp.research.tools.projects import build_project_tools
 from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
-from synth_ai.mcp.research.tools.research_intern import build_research_intern_tools
 from synth_ai.mcp.research.tools.repos import build_repo_tools
+from synth_ai.mcp.research.tools.research_intern import build_research_intern_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools

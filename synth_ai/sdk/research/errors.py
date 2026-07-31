@@ -339,9 +339,7 @@ class ResearchLimitExtensionError(ResearchApiError):
             body=exact_detail,
         )
         self.detail = exact_detail
-        self._limit_extension_retryable = bool(
-            exact_detail.get("retryable", False)
-        )
+        self._limit_extension_retryable = bool(exact_detail.get("retryable", False))
         self.refusal_receipt_id = exact_detail.get("refusal_receipt_id")
 
     @property
@@ -519,12 +517,8 @@ _DEPRECATED_SMR_ALIASES: dict[str, type[ResearchApiError]] = {
     "SmrInsufficientCreditsError": ResearchInsufficientCreditsError,
     "SmrLimitExceededError": ResearchLimitExceededError,
     "SmrLimitExtensionError": ResearchLimitExtensionError,
-    "SmrLimitExtensionGuardedResumeBlockedError": (
-        ResearchLimitExtensionGuardedResumeBlockedError
-    ),
-    "SmrLimitExtensionIdempotencyConflictError": (
-        ResearchLimitExtensionIdempotencyConflictError
-    ),
+    "SmrLimitExtensionGuardedResumeBlockedError": (ResearchLimitExtensionGuardedResumeBlockedError),
+    "SmrLimitExtensionIdempotencyConflictError": (ResearchLimitExtensionIdempotencyConflictError),
     "SmrLimitRevisionConflictError": ResearchLimitRevisionConflictError,
     "SmrUnsafeLimitExtensionError": ResearchUnsafeLimitExtensionError,
     "SmrInferenceProviderUnavailableError": ResearchInferenceProviderUnavailableError,
