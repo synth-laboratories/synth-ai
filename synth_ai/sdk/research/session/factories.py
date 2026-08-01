@@ -195,6 +195,29 @@ def _effort_payloads(plan: Mapping[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def _standup_recurrence_policy(value: object) -> dict[str, Any]:
+    policy = _standup_mapping(value, field="effort.recurrence_policy")
+    delay_fields = (
+        "delay_seconds",
+        "interval_seconds",
+        "success_delay_seconds",
+        "on_run_complete_delay_seconds",
+    )
+    supplied_delays = {
+        field: policy[field] for field in delay_fields if field in policy
+    }
+    if supplied_delays:
+        distinct_delays = set(supplied_delays.values())
+        if len(distinct_delays) != 1:
+            raise ValueError(
+                "effort.recurrence_policy delay aliases must have the same value"
+            )
+        policy["delay_seconds"] = next(iter(distinct_delays))
+        for field in delay_fields[1:]:
+            policy.pop(field, None)
+    return policy
+
+
 def _effort_kwargs(effort: Mapping[str, Any], *, default_project_id: str) -> dict[str, Any]:
     return {
         "name": _standup_required_string(effort, "name"),
@@ -204,9 +227,8 @@ def _effort_kwargs(effort: Mapping[str, Any], *, default_project_id: str) -> dic
         ),
         "effort_type": str(effort.get("effort_type") or effort.get("type") or "research"),
         "status": str(effort.get("status") or "active"),
-        "recurrence_policy": _standup_mapping(
-            effort.get("recurrence_policy"),
-            field="effort.recurrence_policy",
+        "recurrence_policy": _standup_recurrence_policy(
+            effort.get("recurrence_policy")
         ),
         "next_wake_at": _standup_optional_string(effort.get("next_wake_at")),
         "latest_run_id": _standup_optional_string(effort.get("latest_run_id")),
