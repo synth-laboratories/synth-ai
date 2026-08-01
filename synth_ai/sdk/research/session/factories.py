@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -61,6 +62,7 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     FactoryResultSelectionDecision,
     FactoryResultSelectionEvent,
     FactoryResultSelectRequest,
+    FactoryRuntimeCommandResponse,
     FactoryStatus,
     FactoryTransitionRequest,
     FactoryTransitionResponse,
@@ -69,6 +71,11 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     FactoryWorkspace,
     GraduationProposal,
     RecurrencePolicy,
+)
+from synth_ai.sdk.research.contracts.factory_runtime_policy import (
+    FactoryRuntimePolicy,
+    FactoryRuntimePolicyMutationReceipt,
+    FactoryRuntimePolicyReadback,
 )
 from synth_ai.sdk.research.contracts.types import SmrRunnableProjectRequest
 from synth_ai.sdk.research.session._base import _ClientNamespace
@@ -135,6 +142,11 @@ def _factory_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
             factory.get("authorization_policy"),
             field="factory.authorization_policy",
         ),
+        "runtime_policy": _standup_mapping(
+            factory.get("runtime_policy"),
+            field="factory.runtime_policy",
+        )
+        or None,
         "metadata": _standup_mapping(factory.get("metadata"), field="factory.metadata"),
     }
 
@@ -248,6 +260,8 @@ class FactoryStandupPlan:
     project_id: str | None = None
     create_project: dict[str, Any] | None = None
     wake_due: dict[str, Any] | None = None
+    idempotency_key: str | None = None
+    make_due: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,6 +277,11 @@ class FactoryStandupResult:
     created_project: dict[str, Any] | None = None
     wake_due_preview: FactoryWakeDueResult | None = None
     wake_due_result: FactoryWakeDueResult | None = None
+    idempotency_key: str | None = None
+    plan_sha256: str | None = None
+    replayed: bool = False
+    runnable: bool = False
+    audit_receipt_id: str | None = None
 
     @property
     def factory_id(self) -> str:
@@ -310,6 +329,85 @@ class FactoriesAPI(_ClientNamespace):
         request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
     ) -> Factory:
         return Factory.from_wire(self._client.patch_factory(factory_id, request))
+
+    def get_runtime_policy(self, factory_id: str) -> FactoryRuntimePolicyReadback:
+        """Read the canonical policy and optimistic-concurrency revision."""
+        return FactoryRuntimePolicyReadback.from_wire(
+            self._client.get_factory_runtime_policy(factory_id)
+        )
+
+    def replace_runtime_policy(
+        self,
+        factory_id: str,
+        *,
+        policy: FactoryRuntimePolicy | Mapping[str, Any],
+        if_revision: int,
+        reason: str,
+        source_surface: str = "sdk",
+        effective_at: datetime | None = None,
+        expires_at: datetime | None = None,
+        etag: str | None = None,
+    ) -> FactoryRuntimePolicyMutationReceipt:
+        payload: dict[str, Any] = {
+            "if_revision": if_revision,
+            "policy": _wire_mapping_payload(policy, field_name="policy"),
+            "source_surface": source_surface,
+            "reason": reason,
+        }
+        if effective_at is not None:
+            payload["effective_at"] = effective_at.isoformat()
+        if expires_at is not None:
+            payload["expires_at"] = expires_at.isoformat()
+        return FactoryRuntimePolicyMutationReceipt.from_wire(
+            self._client.mutate_factory_runtime_policy(
+                factory_id,
+                method="PUT",
+                payload=payload,
+                etag=etag,
+            )
+        )
+
+    def patch_runtime_policy(
+        self,
+        factory_id: str,
+        *,
+        patch: Mapping[str, Any],
+        if_revision: int,
+        reason: str,
+        source_surface: str = "sdk",
+        effective_at: datetime | None = None,
+        expires_at: datetime | None = None,
+        etag: str | None = None,
+    ) -> FactoryRuntimePolicyMutationReceipt:
+        payload: dict[str, Any] = {
+            "if_revision": if_revision,
+            "patch": dict(patch),
+            "source_surface": source_surface,
+            "reason": reason,
+        }
+        if effective_at is not None:
+            payload["effective_at"] = effective_at.isoformat()
+        if expires_at is not None:
+            payload["expires_at"] = expires_at.isoformat()
+        return FactoryRuntimePolicyMutationReceipt.from_wire(
+            self._client.mutate_factory_runtime_policy(
+                factory_id,
+                method="PATCH",
+                payload=payload,
+                etag=etag,
+            )
+        )
+
+    def runtime_policy_history(
+        self, factory_id: str, *, limit: int = 100
+    ) -> list[FactoryRuntimePolicyMutationReceipt]:
+        payload = self._client.list_factory_runtime_policy_history(
+            factory_id, limit=limit
+        )
+        return [
+            FactoryRuntimePolicyMutationReceipt.from_wire(item)
+            for item in payload.get("revisions", [])
+        ]
 
     def list_candidates(
         self,
@@ -651,6 +749,51 @@ class FactoriesAPI(_ClientNamespace):
                 reason=reason,
                 dry_run=dry_run,
             )
+        )
+
+    def runtime_command(
+        self,
+        factory_id: str,
+        *,
+        command: str,
+        reason: str,
+        dry_run: bool = False,
+    ) -> FactoryRuntimeCommandResponse:
+        return FactoryRuntimeCommandResponse.from_wire(
+            self._client.submit_factory_runtime_command(
+                factory_id,
+                command=command,
+                reason=reason,
+                dry_run=dry_run,
+            )
+        )
+
+    def drain(
+        self, factory_id: str, *, reason: str, dry_run: bool = False
+    ) -> FactoryRuntimeCommandResponse:
+        return self.runtime_command(
+            factory_id, command="drain", reason=reason, dry_run=dry_run
+        )
+
+    def pause_now(
+        self, factory_id: str, *, reason: str, dry_run: bool = False
+    ) -> FactoryRuntimeCommandResponse:
+        return self.runtime_command(
+            factory_id, command="pause", reason=reason, dry_run=dry_run
+        )
+
+    def emergency_stop(
+        self, factory_id: str, *, reason: str, dry_run: bool = False
+    ) -> FactoryRuntimeCommandResponse:
+        return self.runtime_command(
+            factory_id, command="stop", reason=reason, dry_run=dry_run
+        )
+
+    def resume_runtime(
+        self, factory_id: str, *, reason: str, dry_run: bool = False
+    ) -> FactoryRuntimeCommandResponse:
+        return self.runtime_command(
+            factory_id, command="resume", reason=reason, dry_run=dry_run
         )
 
     def status(self, factory_id: str) -> FactoryStatus:
@@ -1073,6 +1216,8 @@ class FactoriesAPI(_ClientNamespace):
             project_id=project_id,
             create_project=create_project or None,
             wake_due=(_wake_due_preview_kwargs(plan) if plan.get("wake_due") else None),
+            idempotency_key=_standup_optional_string(plan.get("idempotency_key")),
+            make_due=bool(plan.get("make_due") or False),
         )
 
     def standup(
@@ -1081,6 +1226,7 @@ class FactoriesAPI(_ClientNamespace):
         *,
         wake_due: bool = False,
         wake_due_launch: bool = False,
+        idempotency_key: str | None = None,
     ) -> FactoryStandupResult:
         """Create a Factory, link its project, and seed its efforts from one plan.
 
@@ -1097,14 +1243,42 @@ class FactoriesAPI(_ClientNamespace):
             created_project = self._client.create_runnable_project(resolved.create_project)
             project_id = _project_id_from_response(created_project)
 
-        factory = self.create(resolved.factory)
-        link = self.link_project(factory.factory_id, project_id, **resolved.project_link)
+        standup_idempotency_key = (
+            _standup_optional_string(idempotency_key)
+            or resolved.idempotency_key
+            or f"sdk-{uuid.uuid4()}"
+        )
+        project_link = {"project_id": project_id, **resolved.project_link}
+        make_due = bool(resolved.make_due or should_wake)
+        if make_due and not project_link.get("default_launch_profile"):
+            wake_launch_request = (resolved.wake_due or {}).get("launch_request")
+            if isinstance(wake_launch_request, Mapping) and wake_launch_request:
+                # A one-shot wake payload would leave the recurring Factory unable
+                # to launch tomorrow. Persist it as the canonical project default.
+                project_link["default_launch_profile"] = dict(wake_launch_request)
+        atomic_response = self._client.standup_factory(
+            {
+                "idempotency_key": standup_idempotency_key,
+                "factory": resolved.factory,
+                "project": project_link,
+                "efforts": [
+                    _effort_kwargs(effort, default_project_id=project_id)
+                    for effort in resolved.efforts
+                ],
+                "make_due": make_due,
+                "reason": _standup_optional_string(plan.get("reason")),
+            }
+        )
+        factory_payload = _standup_required_mapping(atomic_response, "factory")
+        project_payload = _standup_required_mapping(atomic_response, "project")
+        effort_payloads = atomic_response.get("efforts")
+        if not isinstance(effort_payloads, list):
+            raise ValueError("Factory stand-up response efforts must be an array")
+        factory = Factory.from_wire(factory_payload)
+        link = FactoryProjectLink.from_wire(project_payload)
         efforts = [
-            self.create_effort(
-                factory.factory_id,
-                **_effort_kwargs(effort, default_project_id=project_id),
-            )
-            for effort in resolved.efforts
+            Effort.from_wire(_standup_required_mapping({"effort": item}, "effort"))
+            for item in effort_payloads
         ]
 
         preview: FactoryWakeDueResult | None = None
@@ -1132,6 +1306,13 @@ class FactoriesAPI(_ClientNamespace):
             created_project=created_project,
             wake_due_preview=preview if wake_due_launch else None,
             wake_due_result=result,
+            idempotency_key=str(atomic_response.get("idempotency_key") or "") or None,
+            plan_sha256=str(atomic_response.get("plan_sha256") or "") or None,
+            replayed=bool(atomic_response.get("replayed") or False),
+            runnable=bool(atomic_response.get("runnable") or False),
+            audit_receipt_id=(
+                str(atomic_response.get("audit_receipt_id") or "") or None
+            ),
         )
 
     def _confirm_wake_preview(

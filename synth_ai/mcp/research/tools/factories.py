@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from synth_ai.mcp.research.registry import (
@@ -283,6 +284,76 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 continue_on_error=bool(args.get("continue_on_error", True)),
             ).raw
 
+    def runtime_policy_timestamp(args: dict[str, Any], field_name: str) -> datetime | None:
+        value = args.get(field_name)
+        return datetime.fromisoformat(str(value)) if value else None
+
+    def get_runtime_policy(args: dict[str, Any]) -> dict[str, Any]:
+        with server._client_from_args(args) as client:
+            return client.factories.get_runtime_policy(str(args["factory_id"])).raw
+
+    def list_runtime_policy_history(args: dict[str, Any]) -> list[dict[str, Any]]:
+        with server._client_from_args(args) as client:
+            return [
+                item.raw
+                for item in client.factories.runtime_policy_history(
+                    str(args["factory_id"]), limit=int(args.get("limit") or 100)
+                )
+            ]
+
+    def replace_runtime_policy(args: dict[str, Any]) -> dict[str, Any]:
+        with server._client_from_args(args) as client:
+            return client.factories.replace_runtime_policy(
+                str(args["factory_id"]),
+                policy=args["policy"],
+                if_revision=int(args["if_revision"]),
+                reason=str(args["reason"]),
+                source_surface="mcp",
+                effective_at=runtime_policy_timestamp(args, "effective_at"),
+                expires_at=runtime_policy_timestamp(args, "expires_at"),
+                etag=str(args["etag"]) if args.get("etag") else None,
+            ).raw
+
+    def patch_runtime_policy(args: dict[str, Any]) -> dict[str, Any]:
+        with server._client_from_args(args) as client:
+            return client.factories.patch_runtime_policy(
+                str(args["factory_id"]),
+                patch=args["patch"],
+                if_revision=int(args["if_revision"]),
+                reason=str(args["reason"]),
+                source_surface="mcp",
+                effective_at=runtime_policy_timestamp(args, "effective_at"),
+                expires_at=runtime_policy_timestamp(args, "expires_at"),
+                etag=str(args["etag"]) if args.get("etag") else None,
+            ).raw
+
+    runtime_policy_mutation_properties = {
+        "factory_id": {"type": "string", "description": "Factory ID."},
+        "if_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Revision returned by the canonical policy read.",
+        },
+        "reason": {
+            "type": "string",
+            "description": "Required human-readable audit reason.",
+        },
+        "etag": {
+            "type": "string",
+            "description": "Optional ETag returned by the canonical policy read.",
+        },
+        "effective_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Optional explicit policy effective time.",
+        },
+        "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Optional policy expiry time.",
+        },
+    }
+
     return [
         ToolDefinition(
             name="research_create_factory",
@@ -292,6 +363,50 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             ),
             input_schema=tool_schema(_factory_mutation_properties(), required=["name"]),
             handler=server._tool_create_factory,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_standup_factory",
+            description=(
+                "Atomically and idempotently create an active Factory, its canonical "
+                "project link, and one or more Efforts. Use this instead of issuing "
+                "separate create/link/create-effort calls."
+            ),
+            input_schema=tool_schema(
+                {
+                    "idempotency_key": {
+                        "type": "string",
+                        "description": "Stable retry key for this exact stand-up plan.",
+                    },
+                    "factory": {
+                        "type": "object",
+                        "description": "Factory create policy and metadata.",
+                    },
+                    "project": {
+                        "type": "object",
+                        "description": (
+                            "Canonical active project link including project_id and "
+                            "a default_launch_profile when Efforts are made due."
+                        ),
+                    },
+                    "efforts": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "minItems": 1,
+                        "description": "Efforts to create in the same transaction.",
+                    },
+                    "make_due": {
+                        "type": "boolean",
+                        "description": "Make active Efforts immediately due for admission.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional human-readable audit reason.",
+                    },
+                },
+                required=["idempotency_key", "factory", "project", "efforts"],
+            ),
+            handler=server._tool_standup_factory,
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
@@ -310,6 +425,66 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             ),
             handler=server._tool_get_factory,
             required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_get_factory_runtime_policy",
+            description="Read the canonical Factory runtime policy, revision, and ETag.",
+            input_schema=tool_schema(
+                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                required=["factory_id"],
+            ),
+            handler=get_runtime_policy,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_list_factory_runtime_policy_history",
+            description="List immutable runtime-policy revisions and audit receipts.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                        "default": 100,
+                    },
+                },
+                required=["factory_id"],
+            ),
+            handler=list_runtime_policy_history,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_replace_factory_runtime_policy",
+            description=(
+                "Atomically replace a Factory runtime policy using optimistic "
+                "concurrency and return its audit receipt."
+            ),
+            input_schema=tool_schema(
+                {
+                    **runtime_policy_mutation_properties,
+                    "policy": {"type": "object"},
+                },
+                required=["factory_id", "if_revision", "reason", "policy"],
+            ),
+            handler=replace_runtime_policy,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_patch_factory_runtime_policy",
+            description=(
+                "Atomically JSON-merge-patch the canonical Factory runtime policy "
+                "and return its effective-time and audit receipt."
+            ),
+            input_schema=tool_schema(
+                {
+                    **runtime_policy_mutation_properties,
+                    "patch": {"type": "object"},
+                },
+                required=["factory_id", "if_revision", "reason", "patch"],
+            ),
+            handler=patch_runtime_policy,
+            required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
             name="research_patch_factory",
@@ -383,6 +558,47 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_archive_factory,
             required_scopes=WRITE_SCOPES,
         ),
+        *[
+            ToolDefinition(
+                name=name,
+                description=description,
+                input_schema=tool_schema(
+                    {
+                        "factory_id": {"type": "string", "description": "Factory ID."},
+                        "reason": {
+                            "type": "string",
+                            "description": "Required audit reason.",
+                        },
+                        "dry_run": {"type": "boolean", "default": False},
+                    },
+                    required=["factory_id", "reason"],
+                ),
+                handler=handler,
+                required_scopes=WRITE_SCOPES,
+            )
+            for name, description, handler in (
+                (
+                    "research_drain_factory",
+                    "Stop new admissions and let active runs finish before the Factory remains paused.",
+                    server._tool_drain_factory,
+                ),
+                (
+                    "research_pause_factory_now",
+                    "Stop admissions and cooperatively pause active runs at their next safe point.",
+                    server._tool_pause_factory_now,
+                ),
+                (
+                    "research_emergency_stop_factory",
+                    "Stop admissions and immediately terminalize active runs; partial work may be lost.",
+                    server._tool_emergency_stop_factory,
+                ),
+                (
+                    "research_resume_factory_runtime",
+                    "Resume runs paused by the runtime command and reenter Factory admission.",
+                    server._tool_resume_factory_runtime,
+                ),
+            )
+        ],
         ToolDefinition(
             name="research_get_factory_status",
             description=(

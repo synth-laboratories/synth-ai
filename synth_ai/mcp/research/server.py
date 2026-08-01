@@ -102,6 +102,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_create_effort",
         "research_create_environment",
         "research_create_factory",
+        "research_standup_factory",
         "research_create_image_release_upload",
         "research_create_runnable_project",
         "research_create_project_repository",
@@ -111,6 +112,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_effort",
         "research_get_environment",
         "research_get_factory",
+        "research_get_factory_runtime_policy",
         "research_get_launch_preflight",
         "research_get_limits",
         "research_get_project",
@@ -133,6 +135,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_list_factories",
         "research_list_environments",
         "research_list_factory_efforts",
+        "research_list_factory_runtime_policy_history",
         "research_list_customer_actor_images",
         "research_list_projects",
         "research_list_project_datasets",
@@ -141,14 +144,20 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_list_visuals",
         "research_patch_effort",
         "research_patch_factory",
+        "research_patch_factory_runtime_policy",
         "research_patch_project",
         "research_archive_customer_actor_image",
+        "research_drain_factory",
+        "research_emergency_stop_factory",
         "research_pause_factory",
+        "research_pause_factory_now",
         "research_pause_run",
         "research_prepare_project_setup",
         "research_preflight_environment",
         "research_resume_factory",
+        "research_resume_factory_runtime",
         "research_resume_run",
+        "research_replace_factory_runtime_policy",
         "research_retrieve_image_release",
         "research_start_factory",
         "research_start_one_off_run",
@@ -726,6 +735,14 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.factories.create(_tool_body(args, exclude=set())).raw
 
+    def _tool_standup_factory(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            result = client.factories.standup(
+                _tool_body(args, exclude=set()),
+                idempotency_key=require_string(args, "idempotency_key"),
+            )
+            return asdict(result)
+
     def _tool_list_factories(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
             return [item.raw for item in client.factories.list()]
@@ -770,6 +787,29 @@ class ResearchMcpServer:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
             return client.factories.archive(factory_id, **self._factory_transition_kwargs(args)).raw
+
+    def _tool_factory_runtime_command(self, args: JSONDict, *, command: str) -> Any:
+        factory_id = require_string(args, "factory_id")
+        reason = require_string(args, "reason")
+        with self._client_from_args(args) as client:
+            return client.factories.runtime_command(
+                factory_id,
+                command=command,
+                reason=reason,
+                dry_run=bool(args.get("dry_run") or False),
+            ).raw
+
+    def _tool_drain_factory(self, args: JSONDict) -> Any:
+        return self._tool_factory_runtime_command(args, command="drain")
+
+    def _tool_pause_factory_now(self, args: JSONDict) -> Any:
+        return self._tool_factory_runtime_command(args, command="pause")
+
+    def _tool_emergency_stop_factory(self, args: JSONDict) -> Any:
+        return self._tool_factory_runtime_command(args, command="stop")
+
+    def _tool_resume_factory_runtime(self, args: JSONDict) -> Any:
+        return self._tool_factory_runtime_command(args, command="resume")
 
     def _tool_get_factory_status(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")

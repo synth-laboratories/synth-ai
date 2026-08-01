@@ -69,12 +69,14 @@ class ResearchFactoriesFacade(FactoriesAPI):
         *,
         wake_due: bool = False,
         wake_due_launch: bool = False,
+        idempotency_key: str | None = None,
     ) -> FactoryStandupResult:
         """Create a Factory, link its project, and seed its efforts from one plan."""
         return self._open_session().factories.standup(
             plan,
             wake_due=wake_due,
             wake_due_launch=wake_due_launch,
+            idempotency_key=idempotency_key,
         )
 
     @property

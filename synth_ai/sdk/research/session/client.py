@@ -1791,6 +1791,18 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             label="create_factory",
         )
 
+    def standup_factory(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """Create or replay one complete Factory graph transactionally."""
+
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/factories/standup",
+                json_body=dict(request),
+            ),
+            label="standup_factory",
+        )
+
     def list_factories(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
         return _coerce_dict_list(
             self._request_json(
@@ -1819,6 +1831,47 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 json_body=factory_patch_payload(request),
             ),
             label="patch_factory",
+        )
+
+    def get_factory_runtime_policy(self, factory_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET", f"/smr/factories/{factory_id}/runtime-policy"
+            ),
+            label="get_factory_runtime_policy",
+        )
+
+    def mutate_factory_runtime_policy(
+        self,
+        factory_id: str,
+        *,
+        method: str,
+        payload: dict[str, Any],
+        etag: str | None,
+    ) -> dict[str, Any]:
+        normalized_method = method.upper()
+        if normalized_method not in {"PUT", "PATCH"}:
+            raise ValueError("runtime policy mutation method must be PUT or PATCH")
+        return _coerce_dict(
+            self._request_json(
+                normalized_method,
+                f"/smr/factories/{factory_id}/runtime-policy",
+                json_body=payload,
+                headers={"If-Match": etag} if etag else None,
+            ),
+            label="mutate_factory_runtime_policy",
+        )
+
+    def list_factory_runtime_policy_history(
+        self, factory_id: str, *, limit: int = 100
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/runtime-policy/history",
+                params={"limit": limit},
+            ),
+            label="list_factory_runtime_policy_history",
         )
 
     def patch_factory_status_compat(
@@ -1909,6 +1962,25 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="archive_factory",
+        )
+
+    def submit_factory_runtime_command(
+        self,
+        factory_id: str,
+        *,
+        command: str,
+        reason: str,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        if command not in {"drain", "pause", "stop", "resume"}:
+            raise ValueError("factory runtime command must be drain, pause, stop, or resume")
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/commands/{command}",
+                json_body={"reason": reason, "dry_run": dry_run},
+            ),
+            label="submit_factory_runtime_command",
         )
 
     def list_factory_candidates(

@@ -59,6 +59,13 @@ RESEARCH_OPERATIONS = {
         ),
         _operation("create_factory", HttpMethod.POST, "/smr/factories", mutation=True),
         _operation(
+            "standup_factory",
+            HttpMethod.POST,
+            "/smr/factories/standup",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "provision_research_intern",
             HttpMethod.POST,
             "/smr/research-intern",

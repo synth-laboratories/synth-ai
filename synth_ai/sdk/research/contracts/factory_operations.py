@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from synth_ai.sdk.research.contracts.factories import (
     EffortMaintenanceRecurrencePolicy,
@@ -231,6 +231,7 @@ class FactoryCreateRequest:
     homeostasis_policy: dict[str, Any] = field(default_factory=dict)
     publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
     authorization_policy: AuthorizationPolicy | dict[str, Any] = field(default_factory=dict)
+    runtime_policy: Any | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_wire(self) -> dict[str, Any]:
@@ -245,6 +246,8 @@ class FactoryCreateRequest:
             "authorization_policy": _policy_payload(self.authorization_policy),
             "metadata": _policy_payload(self.metadata),
         }
+        if self.runtime_policy is not None:
+            payload["runtime_policy"] = _policy_payload(self.runtime_policy)
         if self.description is not None:
             payload["description"] = self.description
         return payload
@@ -330,6 +333,45 @@ class FactoryTransitionResponse:
             woken_efforts=_int_value(
                 mapping, "woken_efforts", label="factory transition.woken_efforts"
             ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryRuntimeCommandResponse:
+    factory_id: str
+    command: Literal["drain", "pause", "stop", "resume"]
+    transition: FactoryTransitionResponse
+    affected_run_ids: tuple[str, ...] = ()
+    run_receipts: tuple[dict[str, Any], ...] = ()
+    audit_receipt_id: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryRuntimeCommandResponse:
+        mapping = _require_mapping(payload, label="factory runtime command")
+        run_ids = mapping.get("affected_run_ids") or []
+        receipts = mapping.get("run_receipts") or []
+        if not isinstance(run_ids, list) or not isinstance(receipts, list):
+            raise ValueError("factory runtime command run fields must be lists")
+        command = _require_string(
+            mapping,
+            "command",
+            label="factory runtime command.command",
+        )
+        if command not in {"drain", "pause", "stop", "resume"}:
+            raise ValueError(f"unsupported factory runtime command: {command!r}")
+        return cls(
+            factory_id=_require_string(
+                mapping,
+                "factory_id",
+                label="factory runtime command.factory_id",
+            ),
+            command=command,
+            transition=FactoryTransitionResponse.from_wire(mapping.get("transition")),
+            affected_run_ids=tuple(str(item) for item in run_ids),
+            run_receipts=tuple(dict(item) for item in receipts if isinstance(item, Mapping)),
+            audit_receipt_id=_optional_string(mapping, "audit_receipt_id"),
             raw=dict(mapping),
         )
 
@@ -3066,6 +3108,7 @@ __all__ = [
     "FactoryPatchRequest",
     "FactoryTransitionRequest",
     "FactoryTransitionResponse",
+    "FactoryRuntimeCommandResponse",
     "FactoryProjectLink",
     "FactoryProjectLinkRequest",
     "FactoryProjectPatchRequest",

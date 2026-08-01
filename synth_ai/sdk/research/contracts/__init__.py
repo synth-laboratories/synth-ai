@@ -170,12 +170,29 @@ from synth_ai.sdk.research.contracts.factory_lenses import (
     FactoryResultEvaluationRequest,
     FactoryResultKind,
 )
+from synth_ai.sdk.research.contracts.factory_operations import (
+    FactoryRuntimeCommandResponse,
+)
 from synth_ai.sdk.research.contracts.factory_role_receipts import (
     FactoryLunaRole,
     FactoryRoleReceiptMintRequest,
     FactoryRoleReceiptProvenance,
     FactoryRoleReceiptResponse,
     FactoryRoleReceiptRuntimeEvidence,
+)
+from synth_ai.sdk.research.contracts.factory_runtime_policy import (
+    FactoryRuntimeCapacity,
+    FactoryRuntimeControllerAuthority,
+    FactoryRuntimeDuration,
+    FactoryRuntimeMaintenance,
+    FactoryRuntimePolicy,
+    FactoryRuntimePolicyMutationReceipt,
+    FactoryRuntimePolicyReadback,
+    FactoryRuntimeProfile,
+    FactoryRuntimeRenewal,
+    FactoryRuntimeScheduleWindow,
+    FactoryRuntimeSpendConstraint,
+    FactoryRuntimeWindowBudget,
 )
 from synth_ai.sdk.research.contracts.failure import (
     ActorFailureReason,
@@ -598,6 +615,18 @@ __all__ = [
     "BudgetPolicy",
     "BoundRuntimeExecutionTarget",
     "CapacityPolicy",
+    "FactoryRuntimeCapacity",
+    "FactoryRuntimeControllerAuthority",
+    "FactoryRuntimeDuration",
+    "FactoryRuntimeMaintenance",
+    "FactoryRuntimePolicy",
+    "FactoryRuntimePolicyMutationReceipt",
+    "FactoryRuntimePolicyReadback",
+    "FactoryRuntimeProfile",
+    "FactoryRuntimeRenewal",
+    "FactoryRuntimeScheduleWindow",
+    "FactoryRuntimeSpendConstraint",
+    "FactoryRuntimeWindowBudget",
     "ConfigurationVersionId",
     "ContentDisposition",
     "EnvironmentVariable",
@@ -703,6 +732,7 @@ __all__ = [
     "FactoryTransitionDecision",
     "FactoryTransitionRequest",
     "FactoryTransitionResponse",
+    "FactoryRuntimeCommandResponse",
     "FactoryTransitionResult",
     "EffortId",
     "EnvironmentKind",
