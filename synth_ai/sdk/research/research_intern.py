@@ -45,6 +45,13 @@ from synth_ai.sdk.research.contracts.research_intern import (
     DatasetRevisionCreateRequest,
     DatasetRevisionLifecycleRequest,
     DatasetRevisionResponse,
+    InternActorInvocationEvidenceResponse,
+    InternAsyncInstructionRequest,
+    InternAsyncRuntimeEnsureRequest,
+    InternAsyncRuntimeResponse,
+    InternMcpActionResponse,
+    InternRuntimeCommandReceipt,
+    InternRuntimeEventResponse,
     MagiDecisionKind,
     MagiDecisionReceiptResponse,
     MagiDecisionRequest,
@@ -1910,6 +1917,148 @@ class ResearchInternReactiveSession:
         )
 
 
+class ResearchInternAsyncRuntimeAPI:
+    """Organization-singleton durable Async Intern actor operations."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def ensure(self, request: InternAsyncRuntimeEnsureRequest) -> InternAsyncRuntimeResponse:
+        runtime = InternAsyncRuntimeResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "ensure_intern_async_runtime",
+                    "/smr/research-intern/async/ensure",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return runtime
+
+    def retrieve(self) -> InternAsyncRuntimeResponse:
+        return InternAsyncRuntimeResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_async_runtime",
+                    "/smr/research-intern/async",
+                )
+            )
+        )
+
+    def instruct(self, request: InternAsyncInstructionRequest) -> InternRuntimeCommandReceipt:
+        receipt = InternRuntimeCommandReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "message_intern_async_runtime",
+                    "/smr/research-intern/async/messages",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        runtime = self.retrieve()
+        if (
+            receipt.runtime_kind != "async"
+            or receipt.runtime_id != runtime.async_runtime_id
+            or receipt.command_id != request.command_id
+        ):
+            raise ValueError("Async Intern command receipt identity drifted")
+        return receipt
+
+    def list_events(
+        self, *, after_sequence: int = 0, limit: int = 100
+    ) -> tuple[InternRuntimeEventResponse, ...]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be nonnegative")
+        query: JsonObject = {
+            "after_sequence": after_sequence,
+            "limit": _bounded_limit(limit),
+        }
+        values = array_value(
+            self._transport.execute(
+                _request(
+                    "list_intern_async_runtime_events",
+                    "/smr/research-intern/async/events",
+                    query=query,
+                )
+            ),
+            operation_id="list_intern_async_runtime_events",
+        )
+        events = tuple(InternRuntimeEventResponse.from_wire(value) for value in values)
+        runtime_id = self.retrieve().async_runtime_id
+        if any(
+            event.runtime_kind != "async"
+            or event.runtime_id != runtime_id
+            or event.sequence <= after_sequence
+            for event in events
+        ):
+            raise ValueError("Async Intern event page crossed its runtime boundary")
+        return events
+
+    def list_mcp_actions(self, *, limit: int = 100) -> tuple[InternMcpActionResponse, ...]:
+        runtime_id = self.retrieve().async_runtime_id
+        values = array_value(
+            self._transport.execute(
+                _request(
+                    "list_intern_runtime_mcp_actions",
+                    f"/smr/research-intern/runtimes/async/{runtime_id}/mcp-actions",
+                    query={"limit": _bounded_limit(limit)},
+                )
+            ),
+            operation_id="list_intern_runtime_mcp_actions",
+        )
+        actions = tuple(InternMcpActionResponse.from_wire(value) for value in values)
+        if any(
+            action.runtime_kind != "async" or action.runtime_id != runtime_id for action in actions
+        ):
+            raise ValueError("Async Intern MCP action page crossed its runtime boundary")
+        return actions
+
+    def list_actor_invocations(
+        self, *, limit: int = 100
+    ) -> tuple[InternActorInvocationEvidenceResponse, ...]:
+        runtime_id = self.retrieve().async_runtime_id
+        values = array_value(
+            self._transport.execute(
+                _request(
+                    "list_intern_runtime_actor_invocations",
+                    f"/smr/research-intern/runtimes/async/{runtime_id}/actor-invocations",
+                    query={"limit": _bounded_limit(limit)},
+                )
+            ),
+            operation_id="list_intern_runtime_actor_invocations",
+        )
+        invocations = tuple(
+            InternActorInvocationEvidenceResponse.from_wire(value) for value in values
+        )
+        if any(
+            invocation.runtime_kind != "async"
+            or invocation.runtime_id != runtime_id
+            for invocation in invocations
+        ):
+            raise ValueError("Async Intern invocation page crossed its runtime boundary")
+        return invocations
+
+    def wait_for_generation(
+        self,
+        generation: int,
+        *,
+        timeout_seconds: float = 30.0,
+        poll_interval_seconds: float = 0.25,
+    ) -> InternAsyncRuntimeResponse:
+        if generation < 0 or timeout_seconds <= 0 or poll_interval_seconds <= 0:
+            raise ValueError("Async Intern wait bounds are invalid")
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            runtime = self.retrieve()
+            if runtime.state_generation >= generation:
+                return runtime
+            if time.monotonic() >= deadline:
+                raise ResearchInternPollingTimeoutError(
+                    f"Async Intern did not reach generation {generation}"
+                )
+            time.sleep(poll_interval_seconds)
+
+
 class ResearchInternAPI:
     """One durable organization Intern and its many Factory memberships."""
 
@@ -1919,6 +2068,7 @@ class ResearchInternAPI:
         self.decisions = ResearchInternDecisionsAPI(transport)
         self.sessions = ResearchInternSessionsAPI(transport, self)
         self.acceptance_receipts = ResearchInternAcceptanceReceiptsAPI(transport)
+        self.async_runtime = ResearchInternAsyncRuntimeAPI(transport)
 
     def provision(
         self,
@@ -3144,6 +3294,143 @@ class AsyncResearchInternAcceptanceReceiptsAPI:
         return receipts
 
 
+class AsyncResearchInternAsyncRuntimeAPI:
+    """Native asynchronous organization-singleton Intern actor operations."""
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def ensure(self, request: InternAsyncRuntimeEnsureRequest) -> InternAsyncRuntimeResponse:
+        return InternAsyncRuntimeResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "ensure_intern_async_runtime",
+                    "/smr/research-intern/async/ensure",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    async def retrieve(self) -> InternAsyncRuntimeResponse:
+        return InternAsyncRuntimeResponse.from_wire(
+            await self._transport.execute(
+                _request("get_intern_async_runtime", "/smr/research-intern/async")
+            )
+        )
+
+    async def instruct(self, request: InternAsyncInstructionRequest) -> InternRuntimeCommandReceipt:
+        receipt = InternRuntimeCommandReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "message_intern_async_runtime",
+                    "/smr/research-intern/async/messages",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        runtime = await self.retrieve()
+        if (
+            receipt.runtime_kind != "async"
+            or receipt.runtime_id != runtime.async_runtime_id
+            or receipt.command_id != request.command_id
+        ):
+            raise ValueError("Async Intern command receipt identity drifted")
+        return receipt
+
+    async def list_events(
+        self, *, after_sequence: int = 0, limit: int = 100
+    ) -> tuple[InternRuntimeEventResponse, ...]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be nonnegative")
+        values = array_value(
+            await self._transport.execute(
+                _request(
+                    "list_intern_async_runtime_events",
+                    "/smr/research-intern/async/events",
+                    query={
+                        "after_sequence": after_sequence,
+                        "limit": _bounded_limit(limit),
+                    },
+                )
+            ),
+            operation_id="list_intern_async_runtime_events",
+        )
+        events = tuple(InternRuntimeEventResponse.from_wire(value) for value in values)
+        runtime_id = (await self.retrieve()).async_runtime_id
+        if any(
+            event.runtime_kind != "async"
+            or event.runtime_id != runtime_id
+            or event.sequence <= after_sequence
+            for event in events
+        ):
+            raise ValueError("Async Intern event page crossed its runtime boundary")
+        return events
+
+    async def list_mcp_actions(self, *, limit: int = 100) -> tuple[InternMcpActionResponse, ...]:
+        runtime_id = (await self.retrieve()).async_runtime_id
+        values = array_value(
+            await self._transport.execute(
+                _request(
+                    "list_intern_runtime_mcp_actions",
+                    f"/smr/research-intern/runtimes/async/{runtime_id}/mcp-actions",
+                    query={"limit": _bounded_limit(limit)},
+                )
+            ),
+            operation_id="list_intern_runtime_mcp_actions",
+        )
+        actions = tuple(InternMcpActionResponse.from_wire(value) for value in values)
+        if any(
+            action.runtime_kind != "async" or action.runtime_id != runtime_id for action in actions
+        ):
+            raise ValueError("Async Intern MCP action page crossed its runtime boundary")
+        return actions
+
+    async def list_actor_invocations(
+        self, *, limit: int = 100
+    ) -> tuple[InternActorInvocationEvidenceResponse, ...]:
+        runtime_id = (await self.retrieve()).async_runtime_id
+        values = array_value(
+            await self._transport.execute(
+                _request(
+                    "list_intern_runtime_actor_invocations",
+                    f"/smr/research-intern/runtimes/async/{runtime_id}/actor-invocations",
+                    query={"limit": _bounded_limit(limit)},
+                )
+            ),
+            operation_id="list_intern_runtime_actor_invocations",
+        )
+        invocations = tuple(
+            InternActorInvocationEvidenceResponse.from_wire(value) for value in values
+        )
+        if any(
+            invocation.runtime_kind != "async"
+            or invocation.runtime_id != runtime_id
+            for invocation in invocations
+        ):
+            raise ValueError("Async Intern invocation page crossed its runtime boundary")
+        return invocations
+
+    async def wait_for_generation(
+        self,
+        generation: int,
+        *,
+        timeout_seconds: float = 30.0,
+        poll_interval_seconds: float = 0.25,
+    ) -> InternAsyncRuntimeResponse:
+        if generation < 0 or timeout_seconds <= 0 or poll_interval_seconds <= 0:
+            raise ValueError("Async Intern wait bounds are invalid")
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            runtime = await self.retrieve()
+            if runtime.state_generation >= generation:
+                return runtime
+            if time.monotonic() >= deadline:
+                raise ResearchInternPollingTimeoutError(
+                    f"Async Intern did not reach generation {generation}"
+                )
+            await asyncio.sleep(poll_interval_seconds)
+
+
 class AsyncResearchInternAPI:
     """Native asynchronous organization Research Intern operations."""
 
@@ -3153,6 +3440,7 @@ class AsyncResearchInternAPI:
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
         self.sessions = AsyncResearchInternSessionsAPI(transport, self)
         self.acceptance_receipts = AsyncResearchInternAcceptanceReceiptsAPI(transport)
+        self.async_runtime = AsyncResearchInternAsyncRuntimeAPI(transport)
 
     async def provision(
         self,

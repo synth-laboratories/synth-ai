@@ -153,6 +153,225 @@ class ResearchInternFactoryMembershipResponse(_StrictContract):
     attached_at: datetime
 
 
+class InternAsyncRuntimeBudget(_StrictContract):
+    maximum_cost_cents: int | None = Field(default=None, ge=0)
+    maximum_cycles: int | None = Field(default=None, ge=1)
+    maximum_concurrent_runs: int = Field(default=1, ge=1)
+
+
+class InternRuntimeBinding(_StrictContract):
+    factory_id: str | None = None
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+
+
+class InternAsyncRuntimeEnsureRequest(_StrictContract):
+    objective: str = Field(min_length=1, max_length=20_000)
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
+    budget: InternAsyncRuntimeBudget = Field(default_factory=InternAsyncRuntimeBudget)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class InternAsyncRuntimeResponse(_StrictContract):
+    schema_version: Literal["smr.intern-async-runtime.v1"]
+    async_runtime_id: str
+    async_assignment_id: str
+    cardinality: Literal["one_per_organization"]
+    instance_kind: Literal["organization_async_intern"]
+    research_intern_id: str
+    org_id: str
+    objective: str
+    status: Literal[
+        "created",
+        "planning",
+        "executing_cycle",
+        "checkpointing",
+        "sleeping",
+        "reconciling",
+        "awaiting_input",
+        "awaiting_evidence",
+        "paused",
+        "blocked",
+        "cancelling",
+        "cancelled",
+        "completed",
+        "failed",
+    ]
+    state_generation: int = Field(ge=0)
+    last_event_sequence: int = Field(ge=0)
+    cycle_number: int = Field(ge=0)
+    plan: dict[str, Any]
+    pending_interaction_id: str | None = None
+    pending_action_id: str | None = None
+    pending_actor_message_id: str | None = None
+    pending_instruction_count: int = Field(ge=0, le=32)
+    binding: InternRuntimeBinding
+    external_execution_status: str
+    evidence_readiness: str
+    next_wake_at: datetime | None = None
+    checkpoint: dict[str, Any] | None = None
+    budget: InternAsyncRuntimeBudget
+    blocker: dict[str, Any] | None = None
+    temporal_workflow_id: str
+    leave_safe: Literal[True]
+    created_at: datetime
+    updated_at: datetime
+    closed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def require_singleton_identity(self) -> InternAsyncRuntimeResponse:
+        if self.async_runtime_id != self.async_assignment_id:
+            raise ValueError("Async Intern compatibility identity drifted")
+        return self
+
+
+class InternAsyncInstructionRequest(_StrictContract):
+    command_id: str = Field(min_length=1, max_length=512)
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_generation: int = Field(ge=0)
+    command_kind: Literal["message", "intervene", "redirect_objective", "request_checkpoint"]
+    body: str | None = Field(default=None, max_length=20_000)
+    context: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def require_instruction_body(self) -> InternAsyncInstructionRequest:
+        if self.command_kind == "request_checkpoint":
+            if self.body is not None and self.body.strip():
+                raise ValueError("request_checkpoint does not accept a body")
+        elif self.body is None or not self.body.strip():
+            raise ValueError("Async Intern instruction requires a body")
+        return self
+
+    def to_wire(self) -> dict[str, Any]:
+        return {
+            "command_id": self.command_id,
+            "idempotency_key": self.idempotency_key,
+            "expected_generation": self.expected_generation,
+            "command_kind": self.command_kind,
+            "payload": {"body": self.body, "context": self.context},
+        }
+
+
+class InternRuntimeCommandReceipt(_StrictContract):
+    schema_version: Literal["smr.intern-runtime-command-receipt.v1"]
+    command_id: str
+    runtime_kind: Literal["sync", "async"]
+    runtime_id: str
+    status: Literal[
+        "received",
+        "delivered",
+        "applied",
+        "noop",
+        "refused",
+        "superseded",
+        "conflict",
+    ]
+    previous_generation: int = Field(ge=0)
+    state_generation: int = Field(ge=0)
+    decision_code: str
+    created_at: datetime
+
+
+class InternActorInvocationEvidenceResponse(_StrictContract):
+    schema_version: Literal["smr.intern-actor-invocation-evidence.v1"]
+    execution_id: str
+    actor_id: str | None = None
+    effect_id: str
+    runtime_kind: Literal["sync", "async"]
+    runtime_id: str
+    source_generation: int = Field(ge=1)
+    invocation_kind: Literal["sync_turn", "async_plan", "async_cycle"]
+    operation_id: str
+    model_alias: str
+    backend_model: str | None = None
+    provider: str | None = None
+    wire_api: str | None = None
+    status: Literal[
+        "started", "succeeded", "retryable_failure", "terminal_failure"
+    ]
+    application_status: Literal[
+        "pending", "applied", "superseded", "not_applicable"
+    ]
+    attempt_count: int = Field(ge=1)
+    result_kind: str | None = None
+    usage: dict[str, Any]
+    transcript_ref: dict[str, Any]
+    workspace_checkpoint_ref: dict[str, Any]
+    input_digest: str
+    output_digest: str | None = None
+    error_code: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime
+    completed_at: datetime | None = None
+
+
+class InternRuntimeEventResponse(_StrictContract):
+    schema_version: Literal["smr.intern-runtime-event.v1"]
+    event_id: str
+    runtime_kind: Literal["sync", "async"]
+    runtime_id: str
+    sequence: int = Field(ge=1)
+    previous_state_generation: int = Field(ge=0)
+    state_generation: int = Field(ge=1)
+    event_kind: str
+    command_id: str
+    payload: dict[str, Any]
+    created_at: datetime
+
+
+class InternMcpActionResponse(_StrictContract):
+    schema_version: Literal["smr.intern-mcp-action.v1"]
+    action_id: str
+    runtime_kind: Literal["sync", "async"]
+    runtime_id: str
+    source_generation: int = Field(ge=1)
+    effect_id: str
+    action_kind: Literal[
+        "discover_tools",
+        "call_tool",
+        "read_resource",
+        "create_factory",
+        "create_project",
+        "create_effort",
+        "start_factory_run",
+        "inspect_factory_run",
+        "deploy_swarm",
+        "inspect_swarm",
+        "stop_swarm",
+        "collect_evidence",
+    ]
+    server_name: str
+    method: Literal["tools/list", "tools/call", "resources/read"]
+    operation_name: str | None = None
+    resource_uri: str | None = None
+    requested_capability_operation: str
+    arguments: dict[str, Any]
+    rationale: str
+    status: Literal[
+        "proposed",
+        "awaiting_approval",
+        "execution_pending",
+        "executing",
+        "succeeded",
+        "retryable_failure",
+        "terminal_failure",
+        "refused",
+        "superseded",
+        "reconciled",
+    ]
+    approval_status: Literal["not_required", "pending", "approved", "refused"]
+    result: dict[str, Any]
+    receipt: dict[str, Any]
+    error_code: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class MagiDecisionRequest(_StrictContract):
     mode: MagiMode
     decision_kind: MagiDecisionKind
