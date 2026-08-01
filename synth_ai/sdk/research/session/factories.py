@@ -128,6 +128,10 @@ def _factory_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "name": _standup_required_string(factory, "name"),
         "kind": str(factory.get("kind") or "customer"),
+        "status": str(factory.get("status") or "active"),
+        "result_authority_generation": str(
+            factory.get("result_authority_generation") or "legacy"
+        ),
         "description": _standup_optional_string(factory.get("description")),
         "budget_policy": _standup_mapping(
             factory.get("budget_policy"),
@@ -141,6 +145,10 @@ def _factory_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
         "authorization_policy": _standup_mapping(
             factory.get("authorization_policy"),
             field="factory.authorization_policy",
+        ),
+        "homeostasis_policy": _standup_mapping(
+            factory.get("homeostasis_policy"),
+            field="factory.homeostasis_policy",
         ),
         "runtime_policy": _standup_mapping(
             factory.get("runtime_policy"),
