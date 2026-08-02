@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-from synth_ai.sdk.research.transport.streaming import SseEvent
+from synth_ai.core.http.streaming import SseEvent
 
 
 class RunRuntimeStreamEventKind(StrEnum):

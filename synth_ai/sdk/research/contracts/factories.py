@@ -557,16 +557,11 @@ class FactorySpec:
             "authorization_policy": {},
             "metadata": dict(self.metadata),
         }
-        # Older production backends predate this request field and reject
-        # unknown inputs. Omitting the legacy default preserves their existing
-        # behavior while still sending an explicit opt-in to result authority.
-        if (
-            self.result_authority_generation
-            is not FactoryResultAuthorityGeneration.LEGACY
-        ):
-            value["result_authority_generation"] = (
-                self.result_authority_generation.value
-            )
+        # Older production control planes predate this opt-in field and reject
+        # unknown keys.  Legacy is the backend default, so only transmit an
+        # explicit non-legacy authority choice.
+        if self.result_authority_generation is not FactoryResultAuthorityGeneration.LEGACY:
+            value["result_authority_generation"] = self.result_authority_generation.value
         if self.description is not None:
             value["description"] = self.description
         return value

@@ -1181,7 +1181,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_provision_research_intern",
+            name="research_provision_research_intern",
             description="Provision or replay the organization Research Intern.",
             input_schema=tool_schema(
                 {
@@ -1196,14 +1196,14 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_research_intern",
+            name="research_get_research_intern",
             description="Retrieve the organization Research Intern and current generation.",
             input_schema=tool_schema({}, required=[]),
             handler=retrieve,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_update_research_intern",
+            name="research_update_research_intern",
             description="Update explicit mutable Research Intern fields.",
             input_schema=tool_schema(
                 {
@@ -1219,7 +1219,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_attach_research_intern_factory",
+            name="research_attach_research_intern_factory",
             description="Attach the organization Research Intern to one Factory.",
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "minLength": 1}},
@@ -1229,14 +1229,14 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_research_intern_factories",
+            name="research_list_research_intern_factories",
             description="List Factory memberships for the organization Research Intern.",
             input_schema=tool_schema({}, required=[]),
             handler=list_factories,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_create_research_intern_session",
+            name="research_create_research_intern_session",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. Create or replay one durable Research Intern session.",
             input_schema=tool_schema(
                 {
@@ -1265,7 +1265,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_research_intern_sessions",
+            name="research_list_research_intern_sessions",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. List a bounded page of Research Intern sessions.",
             input_schema=tool_schema(
                 {"limit": {"type": "integer", "minimum": 1, "maximum": 500}},
@@ -1275,14 +1275,14 @@ def build_research_intern_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_research_intern_session",
+            name="research_get_research_intern_session",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. Retrieve one durable Research Intern session.",
             input_schema=tool_schema(session_selector, required=["session_id"]),
             handler=get_session,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_append_research_intern_event",
+            name="research_append_research_intern_event",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. Append one generation-fenced session event.",
             input_schema=tool_schema(
                 event_properties,
@@ -1297,7 +1297,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_research_intern_events",
+            name="research_list_research_intern_events",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. Read a bounded, reconnectable page of ordered Intern events.",
             input_schema=tool_schema(
                 {
@@ -1315,7 +1315,7 @@ def build_research_intern_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_watch_research_intern_events",
+            name="research_watch_research_intern_events",
             description=(
                 "DEPRECATED: prefer intern_sync_* / intern_async_*. Wait for typed Intern SSE frames with explicit event, frame, "
                 "reconnect, and time bounds."
@@ -1350,7 +1350,7 @@ def build_research_intern_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_sync_research_intern_session",
+            name="research_sync_research_intern_session",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. Project a bounded page of real runtime transcript events.",
             input_schema=tool_schema(
                 {
@@ -1363,7 +1363,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_run_research_intern_turn",
+            name="research_run_research_intern_turn",
             description=(
                 "DEPRECATED: prefer intern_sync_* / intern_async_*. Submit one operator turn to the bound real runtime and return "
                 "the canonical bounded reply projection."
@@ -1416,7 +1416,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_exchange_research_intern_turn",
+            name="research_exchange_research_intern_turn",
             description=(
                 "DEPRECATED: prefer intern_sync_* / intern_async_*. Submit one Intern turn and recover only its exact terminal "
                 "agent/error event over the canonical stream."
@@ -1470,7 +1470,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_close_research_intern_session",
+            name="research_close_research_intern_session",
             description="DEPRECATED: prefer intern_sync_* / intern_async_*. Close one exact Intern session generation without deleting evidence.",
             input_schema=tool_schema(
                 {
@@ -1503,7 +1503,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_publish_research_intern_session_trace",
+            name="research_publish_research_intern_session_trace",
             description=(
                 "DEPRECATED: prefer intern_sync_* / intern_async_*. Publish one terminal Intern event chain through backend-owned "
                 "Factory Trace V5 authority."
@@ -1531,7 +1531,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_research_intern_decision",
+            name="research_record_research_intern_decision",
             description="Record one typed Magi decision with runtime actuation receipts.",
             input_schema=tool_schema(
                 decision_properties,
@@ -1541,7 +1541,7 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_research_intern_decisions",
+            name="research_list_research_intern_decisions",
             description="List a bounded page of content-addressed Magi decisions.",
             input_schema=tool_schema(
                 {"limit": {"type": "integer", "minimum": 1, "maximum": 500}},
@@ -1551,14 +1551,14 @@ def build_research_intern_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_research_intern_decision",
+            name="research_get_research_intern_decision",
             description="Retrieve one content-addressed Magi decision receipt.",
             input_schema=tool_schema(receipt_selector, required=["receipt_id"]),
             handler=get_decision,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_publish_research_intern_acceptance_receipt",
+            name="research_publish_research_intern_acceptance_receipt",
             description="Publish or replay one deterministic FactoryBench acceptance receipt.",
             input_schema=tool_schema(
                 {
@@ -1577,14 +1577,14 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_research_intern_acceptance_receipt",
+            name="research_get_research_intern_acceptance_receipt",
             description="Retrieve one public content-addressed acceptance receipt.",
             input_schema=tool_schema(receipt_selector, required=["receipt_id"]),
             handler=get_acceptance_receipt,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_research_intern_acceptance_receipts",
+            name="research_list_research_intern_acceptance_receipts",
             description="List bounded acceptance receipts with candidate and lane filters.",
             input_schema=tool_schema(
                 {

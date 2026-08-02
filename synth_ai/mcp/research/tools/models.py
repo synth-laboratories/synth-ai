@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_model_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_results_models_list",
+            name="research_results_models_list",
             description="List project models.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},
@@ -19,7 +19,7 @@ def build_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_results_models_list,
         ),
         ToolDefinition(
-            name="smr_results_models_get",
+            name="research_results_models_get",
             description="Fetch one project model.",
             input_schema=tool_schema(
                 {
@@ -31,7 +31,7 @@ def build_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_results_models_get,
         ),
         ToolDefinition(
-            name="smr_results_models_download",
+            name="research_results_models_download",
             description="Download one project model.",
             input_schema=tool_schema(
                 {
@@ -43,7 +43,7 @@ def build_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_results_models_download,
         ),
         ToolDefinition(
-            name="smr_results_models_export",
+            name="research_results_models_export",
             description="Export one project model to the bound target.",
             input_schema=tool_schema(
                 {

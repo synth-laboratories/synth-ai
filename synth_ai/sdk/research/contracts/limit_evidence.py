@@ -106,7 +106,6 @@ class SmrRunLimitLaunchEvidence:
     enforcement_enabled: bool | None
     refusal_disposition: str | None
     funding_lane: str | None
-    owner_slot_id: str | None
     backend_url: str | None
     enforcement_granularity: dict[str, str]
     strict_inference_admission: dict[str, object]
@@ -131,12 +130,9 @@ class SmrRunLimitLaunchEvidence:
             enforcement_enabled=_optional_bool(value, "enforcement_enabled"),
             refusal_disposition=optional_text(value, "refusal_disposition"),
             funding_lane=optional_text(value, "funding_lane"),
-            owner_slot_id=optional_text(value, "owner_slot_id"),
             backend_url=optional_text(value, "backend_url"),
-            enforcement_granularity={
-                str(key): str(item) for key, item in granularity.items()
-            },
-            strict_inference_admission=dict(strict_admission),
+            enforcement_granularity={str(key): str(item) for key, item in granularity.items()},
+            strict_inference_admission={str(key): item for key, item in strict_admission.items()},
             limits=[SmrRunLimitLaunchCapEvidence.from_wire(item) for item in raw_limits],
         )
 
@@ -181,9 +177,7 @@ class SmrRunLimitDecisionEvidence:
             remaining_amount=_optional_float(value, "remaining_amount"),
             accounting_completeness=accounting,
             usage_sources=_string_list(value, "usage_sources"),
-            missing_accounting_sources=_string_list(
-                value, "missing_accounting_sources"
-            ),
+            missing_accounting_sources=_string_list(value, "missing_accounting_sources"),
             trigger_source=required_text(value, "trigger_source"),
             enforcement_granularity=optional_text(value, "enforcement_granularity"),
             possible_overshoot=optional_text(value, "possible_overshoot"),
@@ -383,11 +377,7 @@ class SmrRunLimitEvidencePage:
             org_id=required_text(value, "org_id"),
             project_id=required_text(value, "project_id"),
             run_id=required_text(value, "run_id"),
-            launch=(
-                SmrRunLimitLaunchEvidence.from_wire(launch)
-                if launch is not None
-                else None
-            ),
+            launch=(SmrRunLimitLaunchEvidence.from_wire(launch) if launch is not None else None),
             items=[SmrRunLimitEvidenceItem.from_wire(item) for item in items],
             next_cursor=optional_text(value, "next_cursor"),
         )

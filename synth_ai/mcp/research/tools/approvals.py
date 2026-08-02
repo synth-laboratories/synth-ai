@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_approval_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_list_run_approvals",
+            name="research_list_run_approvals",
             description="List approvals for a run.",
             input_schema=tool_schema(
                 {
@@ -35,7 +35,7 @@ def build_approval_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_approvals,
         ),
         ToolDefinition(
-            name="smr_approve_run_approval",
+            name="research_approve_run_approval",
             description="Approve a pending run approval request.",
             input_schema=tool_schema(
                 {
@@ -55,7 +55,7 @@ def build_approval_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_approve_run_approval,
         ),
         ToolDefinition(
-            name="smr_deny_run_approval",
+            name="research_deny_run_approval",
             description="Deny a pending run approval request.",
             input_schema=tool_schema(
                 {
@@ -75,7 +75,7 @@ def build_approval_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_deny_run_approval,
         ),
         ToolDefinition(
-            name="smr_respond_to_run_question",
+            name="research_respond_to_run_question",
             description="Respond to a pending operator question for a run.",
             input_schema=tool_schema(
                 {

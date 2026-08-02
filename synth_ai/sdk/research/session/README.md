@@ -25,7 +25,7 @@ Guidelines:
 - when a backend route has a stable response concept, return a typed model from the namespace API when practical
 
 Current typed namespace returns:
-- [`project.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/project.py)
+- [`project.py`](./project.py)
   - bound project setup via `client.project(id).setup.get()` and
     `client.project(id).setup.prepare()`
   - bound project launch preflight via `client.project(id).runs.preflight(...)`
@@ -36,14 +36,14 @@ Current typed namespace returns:
   - review-gated project ChangeSets via `client.project(id).changesets.*`
   - project-run actor controls via `client.project(id).runs.pause_actor(...)`,
     `resume_actor(...)`, and `interrupt_actor(...)`
-- [`progress.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/progress.py)
+- [`progress.py`](./progress.py)
   - `ProjectSetupAuthority` via `get_project_setup_authority(...)`
   - `LaunchPreflight` via `get_launch_preflight(...)`
-- [`runs.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/runs.py)
+- [`runs.py`](./runs.py)
   - `ManagedResearchRun` via `get(run_id, project_id=...)`
   - `SmrLogicalTimeline` via `get_logical_timeline(project_id, run_id)`
   - `SmrRunBranchResponse` via `branch_from_checkpoint(...)`
-- [`workspace_inputs.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/workspace_inputs.py)
+- [`workspace_inputs.py`](./workspace_inputs.py)
   - `WorkspaceInputsState`
   - `WorkspaceUploadResult`
 
@@ -52,20 +52,21 @@ reads such as `get_run(...)`, `get_project_workspace(...)`,
 `list_objectives(...)`, `list_run_objective_events(...)`,
 `get_run_work_graph(...)`, and `list_run_questions(...)`.
 
-Wire-shaped helpers remain on `ResearchControlSession` where MCP and lower-level callers need backend-shaped payloads.
+Wire-shaped helpers that MCP and other lower-level callers need live on
+`ResearchSession` itself; there is no second session class.
 
 Noun-first namespaces now mirror the customer surface:
 
-- org-scoped setup: `client.github`, `client.credentials`, `client.exports`
-- project-scoped work/results/status: `client.project(id).repos`, `.datasets`,
+- org-scoped setup: `client.github`, `client.secrets`, `client.exports`
+- project-scoped work/results/status: `client.project(id).repositories`, `.datasets`,
   `.files`, `.prs`, `.models`, `.outputs`, and `.readiness()`
 
 Contract posture:
 
-- backend route and schema shape stay authoritative through
-  `/Users/joshpurtell/Documents/GitHub/backend/smr_openapi.yaml`
-- backend-to-SDK drift is checked with
-  `/Users/joshpurtell/Documents/GitHub/backend/scripts/validate_smr_openapi.py`
+- backend route and schema shape stay authoritative through the backend's
+  `smr_openapi.yaml`
+- backend-to-SDK drift is checked by `sync_smr_schemas.py` in the sibling
+  `testing/` repo
 - older names may remain as wrappers, but new noun behavior belongs only on the
   flat namespaces above
 

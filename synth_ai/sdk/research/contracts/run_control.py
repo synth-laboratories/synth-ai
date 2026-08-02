@@ -19,7 +19,7 @@ from synth_ai.sdk.research.contracts.run_state import (
     _require_mapping,
     _require_string,
 )
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 
 
 class ManagedResearchRunControlEnqueueStatus(StrEnum):
@@ -48,7 +48,7 @@ class RunLifecycleControlErrorCode(StrEnum):
     LOCK_PRESSURE = "lock_pressure"
 
 
-class ManagedResearchRunControlError(SmrApiError):
+class ManagedResearchRunControlError(ResearchApiError):
     """Raised when the backend rejects a pause/resume/stop with HTTP 409.
 
     The backend returns ``detail`` as a mapping with keys
@@ -94,7 +94,7 @@ class ManagedResearchRunControlError(SmrApiError):
         Raises ``ValueError`` if the body does not match the documented
         contract. This is intentional: a 409 from these endpoints that
         lacks the expected structure is a contract drift, not a generic
-        API failure, and collapsing it into a plain ``SmrApiError``
+        API failure, and collapsing it into a plain ``ResearchApiError``
         would mask that.
         """
 

@@ -2,7 +2,6 @@
 
 import click
 
-from synth_ai.cli.dev_envs import dev_envs
 from synth_ai.cli.research import research
 
 
@@ -24,5 +23,4 @@ def cli(ctx):
         click.echo(ctx.get_help())
 
 
-cli.add_command(dev_envs)
 cli.add_command(research)

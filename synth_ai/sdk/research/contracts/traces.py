@@ -1,8 +1,7 @@
 """Factory-scoped managed Trace V5 transport contracts.
 
-Trace and evidence document schemas remain owned by ``synth-containers``.
-These models cover only the backend storage, publication, query, receipt, and
-download protocol.
+Trace and evidence document schemas are backend-authored; these models cover
+only the backend storage, publication, query, receipt, and download protocol.
 """
 
 from __future__ import annotations

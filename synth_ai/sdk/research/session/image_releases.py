@@ -10,7 +10,7 @@ from typing import Literal, NotRequired, TypedDict, cast
 
 import httpx
 
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.session._base import _ClientNamespace
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -507,7 +507,7 @@ class ImageReleasesAPI(_ClientNamespace):
                 upload_id=upload["upload_id"],
                 declaration=normalized,
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             if exc.status_code is not None:
                 raise
             # The backend finalize operation is idempotent and always proves

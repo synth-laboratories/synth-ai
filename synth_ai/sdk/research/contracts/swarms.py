@@ -559,7 +559,6 @@ class EnvironmentVariable:
 
 @dataclass(frozen=True, slots=True)
 class LocalExecution:
-    slot_id: str
     runtime_id: str
     dispatch_pool: str
     host_kind: HostKind
@@ -568,13 +567,11 @@ class LocalExecution:
     requires_hosted_capacity: bool = False
 
     def __post_init__(self) -> None:
-        require_text(self.slot_id, field_name="slot_id")
         require_text(self.runtime_id, field_name="runtime_id")
         require_text(self.dispatch_pool, field_name="dispatch_pool")
 
     def to_wire(self) -> JsonObject:
         return {
-            "slot_id": self.slot_id,
             "runtime_id": self.runtime_id,
             "dispatch_pool": self.dispatch_pool,
             "host_kind": self.host_kind.value,
@@ -839,7 +836,6 @@ class BoundRuntimeExecutionTarget:
             "attestation_id",
             "provider_resource_id",
             "control_slot_instance_id",
-            "slot_id",
             "runtime_id",
             "dispatch_pool",
             "claim_id",

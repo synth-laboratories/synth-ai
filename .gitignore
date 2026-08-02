@@ -148,18 +148,18 @@ temp/
 !.github/**
 .env.bak
 
-# Generated learning prompt JSONs
-synth_ai/learning/prompts/*.json
-synth_ai/learning/prompts/**/*.json
-
-# Ignore generic text and markdown files (except README.md)
+# Ignore generic text and markdown files (except the ones named below)
 *.txt
 **/*.txt
 *.md
 **/*.md
 !README.md
 !**/README.md
-!**/agents.md
+# Case matters on Linux: the file on disk is AGENTS.md, and `!**/agents.md`
+# does not match it there, so it silently fell back to ignored in CI.
+!AGENTS.md
+!**/AGENTS.md
+!CHANGELOG.md
 # The authoritative layering plan. synth_ai/README.md, core/README.md,
 # sdk/README.md, the core/research alias shim, the CHANGELOG, and
 # testing/scripts/check_sdk_layering.py all cite it by name; ignored, every one
@@ -173,11 +173,7 @@ synth_ai/learning/prompts/**/*.json
 # `make docs-gen` now writes into ../docs/docs/reference/sdk/ instead.
 docs/
 reference/
-!synth_ai/tui/opencode_config/**/*.md
-!contracts/**/*.md
-!skills/**/*.md
 
-uv.lock
 local-trace_trace.json
 
 # Local CI and demo configs

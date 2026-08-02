@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
@@ -495,7 +496,7 @@ class ResearchInternDecisionsAPI:
         idempotency_key: str,
         rationale: str,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         state_patch: JsonObject | None = None,
         mode: MagiMode = MagiMode.SYNC,
     ) -> MagiDecisionReceiptResponse:
@@ -528,7 +529,7 @@ class ResearchInternDecisionsAPI:
         idempotency_key: str,
         rationale: str,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Pause one exact Factory/run target through runtime authority."""
@@ -560,7 +561,7 @@ class ResearchInternDecisionsAPI:
         rationale: str,
         state_patch: JsonObject,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Steer one paused target with an exact durable state patch."""
@@ -592,7 +593,7 @@ class ResearchInternDecisionsAPI:
         idempotency_key: str,
         rationale: str,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Resume one exact Factory/run target through runtime authority."""
@@ -620,7 +621,7 @@ class ResearchInternDecisionsAPI:
         rationale: str,
         verdict: str,
         uncertainty: float,
-        evidence_refs: list[str],
+        evidence_refs: builtins.list[str],
         factory_id: str | None = None,
         project_id: str | None = None,
         effort_id: str | None = None,
@@ -3169,7 +3170,7 @@ class AsyncResearchInternDecisionsAPI:
         idempotency_key: str,
         rationale: str,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         state_patch: JsonObject | None = None,
         mode: MagiMode = MagiMode.SYNC,
     ) -> MagiDecisionReceiptResponse:
@@ -3202,7 +3203,7 @@ class AsyncResearchInternDecisionsAPI:
         idempotency_key: str,
         rationale: str,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Pause one exact Factory/run target through runtime authority."""
@@ -3234,7 +3235,7 @@ class AsyncResearchInternDecisionsAPI:
         rationale: str,
         state_patch: JsonObject,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Steer one paused target with an exact durable state patch."""
@@ -3266,7 +3267,7 @@ class AsyncResearchInternDecisionsAPI:
         idempotency_key: str,
         rationale: str,
         session_id: str | None = None,
-        evidence_refs: list[str] | None = None,
+        evidence_refs: builtins.list[str] | None = None,
         mode: MagiMode = MagiMode.ASYNC,
     ) -> MagiDecisionReceiptResponse:
         """Resume one exact Factory/run target through runtime authority."""
@@ -3294,7 +3295,7 @@ class AsyncResearchInternDecisionsAPI:
         rationale: str,
         verdict: str,
         uncertainty: float,
-        evidence_refs: list[str],
+        evidence_refs: builtins.list[str],
         factory_id: str | None = None,
         project_id: str | None = None,
         effort_id: str | None = None,

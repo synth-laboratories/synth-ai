@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any, List, Mapping
 
 from synth_ai.sdk.research.contracts.billing import (
@@ -178,40 +179,34 @@ class DevEnvironmentsAPI(_ClientNamespace):
                 "project_id": environment.project_id,
                 "run_id": run_id_text,
             }
-            try:
-                work_products = self._client.list_run_work_products(
-                    environment.project_id,
-                    run_id_text,
-                )
-                proof["work_products"] = work_products
-                proof["work_product_count"] = len(work_products)
-                proof["ready_work_product_count"] = sum(
-                    1
-                    for item in work_products
-                    if isinstance(item, Mapping)
-                    and str(item.get("status") or "").strip().lower() == "ready"
-                )
-            except Exception as exc:
-                proof["work_products_error"] = f"{type(exc).__name__}: {exc}"
-            try:
-                traces = self._client.get_project_run_traces(
-                    environment.project_id,
-                    run_id_text,
-                )
-                proof["trace_count"] = int(getattr(traces, "count", 0) or 0)
-                proof["traces"] = [
-                    {
-                        "trace_id": trace.trace_id,
-                        "artifact_id": trace.artifact_id,
-                        "event_count": trace.event_count,
-                        "storage_uri": trace.artifact_uri,
-                        "participant_session_id": trace.participant_session_id,
-                        "participant_role": trace.participant_role,
-                    }
-                    for trace in getattr(traces, "traces", ()) or ()
-                ]
-            except Exception as exc:
-                proof["traces_error"] = f"{type(exc).__name__}: {exc}"
+            work_products = self._client.list_run_work_products(
+                environment.project_id,
+                run_id_text,
+            )
+            proof["work_products"] = work_products
+            proof["work_product_count"] = len(work_products)
+            proof["ready_work_product_count"] = sum(
+                1
+                for item in work_products
+                if isinstance(item, Mapping)
+                and str(item.get("status") or "").strip().lower() == "ready"
+            )
+            traces = self._client.get_project_run_traces(
+                environment.project_id,
+                run_id_text,
+            )
+            proof["trace_count"] = int(getattr(traces, "count", 0) or 0)
+            proof["traces"] = [
+                {
+                    "trace_id": trace.trace_id,
+                    "artifact_id": trace.artifact_id,
+                    "event_count": trace.event_count,
+                    "storage_uri": trace.artifact_uri,
+                    "participant_session_id": trace.participant_session_id,
+                    "participant_role": trace.participant_role,
+                }
+                for trace in getattr(traces, "traces", ()) or ()
+            ]
             proofs.append(proof)
         return proofs
 
@@ -856,4 +851,272 @@ class DevEnvironmentsAPI(_ClientNamespace):
         return ", ".join(pieces)
 
 
-__all__ = ["DevEnvironmentsAPI"]
+# The Cloud S0 receipt shape is a backend contract, so reading it lives next to
+# the namespace that fetches it.
+
+
+def _mapping_at(payload: dict[str, Any], *path: str) -> dict[str, Any]:
+    current: object = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return {}
+        current = current.get(key)
+    return dict(current) if isinstance(current, dict) else {}
+
+
+def _list_at(payload: dict[str, Any], *path: str) -> list[object]:
+    current: object = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return []
+        current = current.get(key)
+    return list(current) if isinstance(current, list) else []
+
+
+def _text_at(payload: dict[str, Any], *path: str) -> str | None:
+    current: object = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    text = str(current or "").strip()
+    return text or None
+
+
+def _positive_int(value: object) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return value > 0
+    if isinstance(value, float):
+        return value > 0
+    try:
+        return int(str(value or "0")) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [text for item in value if (text := str(item or "").strip())]
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0GitProof:
+    """One run receipt's git branch/SHA proof, extracted from the evidence payload."""
+
+    run_id: str
+    branch: str
+    commit_sha: str
+    source: str
+    last_push_confirmed: object
+    project_git_status: object
+    run_git: object
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0EvidenceActuals:
+    """What the evidence payload actually contained."""
+
+    dev_environment_id: str | None
+    project_id: str | None
+    host_kind: str | None
+    bound_run_ids: tuple[str, ...]
+    git_proofs: tuple[CloudS0GitProof, ...]
+    work_product_count: object
+    trace_count: object
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0EvidenceExpectations:
+    """What the caller asked the evidence to prove."""
+
+    dev_environment_id: str | None
+    project_id: str | None
+    host_kind: str | None
+    run_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CloudS0EvidenceReport:
+    """Typed verdict of :func:`verify_cloud_s0_evidence`.
+
+    ``ok`` is True only when every required check passed; ``missing`` names the
+    failed checks so operators can act without diffing ``checks`` by hand.
+    """
+
+    ok: bool
+    checks: dict[str, bool]
+    missing: tuple[str, ...]
+    actual: CloudS0EvidenceActuals
+    expected: CloudS0EvidenceExpectations
+
+
+def _git_proofs_from_evidence(
+    payload: dict[str, Any],
+    *,
+    expected_run_ids: set[str],
+) -> tuple[CloudS0GitProof, ...]:
+    proofs: list[CloudS0GitProof] = []
+    for item in _list_at(payload, "receipts", "items"):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("kind") or "") != "dev_environment_run_receipt":
+            continue
+        run_id = str(item.get("run_id") or "").strip()
+        if expected_run_ids and run_id not in expected_run_ids:
+            continue
+        git_raw = item.get("git")
+        git = dict(git_raw) if isinstance(git_raw, Mapping) else {}
+        run_git_raw = git.get("run_git_context")
+        run_git = dict(run_git_raw) if isinstance(run_git_raw, Mapping) else {}
+        project_git_raw = git.get("project_git")
+        project_git = dict(project_git_raw) if isinstance(project_git_raw, Mapping) else {}
+        branch = str(run_git.get("branch") or project_git.get("default_branch") or "").strip()
+        commit_sha = str(
+            run_git.get("head_commit_sha") or project_git.get("commit_sha") or ""
+        ).strip()
+        source_refs = (
+            dict(item.get("source_refs")) if isinstance(item.get("source_refs"), dict) else {}
+        )
+        if branch and commit_sha:
+            proofs.append(
+                CloudS0GitProof(
+                    run_id=run_id,
+                    branch=branch,
+                    commit_sha=commit_sha,
+                    source=str(run_git.get("source") or "unknown"),
+                    last_push_confirmed=run_git.get("last_push_confirmed"),
+                    project_git_status=source_refs.get("project_git_status"),
+                    run_git=source_refs.get("run_git"),
+                )
+            )
+    return tuple(proofs)
+
+
+def verify_cloud_s0_evidence(
+    payload: dict[str, Any],
+    *,
+    expected_dev_environment_id: str | None = None,
+    expected_project_id: str | None = None,
+    expected_run_ids: tuple[str, ...] = (),
+    expected_host_kind: str | None = "daytona",
+) -> CloudS0EvidenceReport:
+    summary = _mapping_at(payload, "summary")
+    run_binding_summary = _mapping_at(payload, "summary", "run_binding_summary")
+    cloud_s0_proof = _mapping_at(payload, "summary", "cloud_s0_proof")
+    cloud_s0_checks = _mapping_at(payload, "summary", "cloud_s0_proof", "checks")
+    environment = _mapping_at(payload, "environment")
+    bound_run_ids = _string_list(run_binding_summary.get("bound_run_ids"))
+    expected_run_id_set = {
+        run_id for item in expected_run_ids if (run_id := str(item or "").strip())
+    }
+    actual_dev_environment_id = (
+        _text_at(payload, "dev_environment_id")
+        or _text_at(summary, "dev_environment_id")
+        or _text_at(environment, "dev_environment_id")
+        or _text_at(environment, "environment_id")
+    )
+    actual_project_id = (
+        _text_at(summary, "project_id")
+        or _text_at(environment, "project_id")
+        or _text_at(payload, "project_id")
+    )
+    actual_host_kind = _text_at(summary, "host_kind") or _text_at(environment, "host_kind")
+    git_proofs = _git_proofs_from_evidence(
+        payload,
+        expected_run_ids=expected_run_id_set,
+    )
+
+    checks: dict[str, bool] = {}
+    missing: list[str] = []
+
+    def require(name: str, passed: bool) -> None:
+        checks[name] = bool(passed)
+        if not passed:
+            missing.append(name)
+
+    require("summary_present", bool(summary))
+    require("run_binding_summary_present", bool(run_binding_summary))
+    require("cloud_s0_proof_present", bool(cloud_s0_proof))
+    require("bound_run_ids_present", bool(bound_run_ids))
+    require("has_bound_run", run_binding_summary.get("has_bound_run") is True)
+    require(
+        "has_dev_slot_execution_binding",
+        run_binding_summary.get("has_dev_slot_execution_binding") is True,
+    )
+    require(
+        "has_daytona_binding",
+        run_binding_summary.get("has_daytona_binding") is True,
+    )
+    require("receipt_ready", cloud_s0_proof.get("receipt_ready") is True)
+    for key in (
+        "environment_id_bound",
+        "dev_slot_execution_bound",
+        "daytona_bound",
+        "work_product_present",
+        "raw_trace_present",
+        "cost_snapshot_present",
+        "usage_snapshot_present",
+    ):
+        require(f"cloud_s0_checks.{key}", cloud_s0_checks.get(key) is True)
+    require(
+        "work_product_count_positive",
+        _positive_int(cloud_s0_proof.get("work_product_count")),
+    )
+    require("trace_count_positive", _positive_int(cloud_s0_proof.get("trace_count")))
+    require(
+        "cost_summary_present",
+        bool(_mapping_at(payload, "summary", "cloud_s0_proof", "cost_summary")),
+    )
+    require(
+        "usage_summary_present",
+        bool(_mapping_at(payload, "summary", "cloud_s0_proof", "usage_summary")),
+    )
+    require("git_branch_and_sha_present", bool(git_proofs))
+    if expected_dev_environment_id:
+        require(
+            "expected_dev_environment_id",
+            actual_dev_environment_id == expected_dev_environment_id,
+        )
+    if expected_project_id:
+        require("expected_project_id", actual_project_id == expected_project_id)
+    if expected_host_kind:
+        require("expected_host_kind", actual_host_kind == expected_host_kind)
+    if expected_run_id_set:
+        require(
+            "expected_run_ids_present",
+            expected_run_id_set.issubset(set(bound_run_ids)),
+        )
+
+    return CloudS0EvidenceReport(
+        ok=not missing,
+        checks=checks,
+        missing=tuple(missing),
+        actual=CloudS0EvidenceActuals(
+            dev_environment_id=actual_dev_environment_id,
+            project_id=actual_project_id,
+            host_kind=actual_host_kind,
+            bound_run_ids=tuple(bound_run_ids),
+            git_proofs=git_proofs,
+            work_product_count=cloud_s0_proof.get("work_product_count"),
+            trace_count=cloud_s0_proof.get("trace_count"),
+        ),
+        expected=CloudS0EvidenceExpectations(
+            dev_environment_id=expected_dev_environment_id,
+            project_id=expected_project_id,
+            host_kind=expected_host_kind,
+            run_ids=tuple(sorted(expected_run_id_set)),
+        ),
+    )
+
+
+__all__ = [
+    "CloudS0EvidenceActuals",
+    "CloudS0EvidenceExpectations",
+    "CloudS0EvidenceReport",
+    "CloudS0GitProof",
+    "DevEnvironmentsAPI",
+    "verify_cloud_s0_evidence",
+]

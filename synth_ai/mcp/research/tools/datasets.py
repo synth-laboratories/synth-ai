@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_dataset_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_work_datasets_list",
+            name="research_work_datasets_list",
             description="List project datasets.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},
@@ -19,7 +19,7 @@ def build_dataset_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_work_datasets_list,
         ),
         ToolDefinition(
-            name="smr_work_datasets_upload",
+            name="research_work_datasets_upload",
             description="Upload a dataset to a project.",
             input_schema=tool_schema(
                 {
@@ -37,7 +37,7 @@ def build_dataset_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_work_datasets_upload,
         ),
         ToolDefinition(
-            name="smr_work_datasets_download",
+            name="research_work_datasets_download",
             description="Download a project dataset.",
             input_schema=tool_schema(
                 {

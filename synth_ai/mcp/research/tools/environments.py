@@ -166,7 +166,7 @@ def build_environment_tools(
     }
     return [
         ToolDefinition(
-            name="smr_list_environments",
+            name="research_list_environments",
             description="List immutable Research Environment manifest versions.",
             input_schema=tool_schema(
                 {"limit": {"type": "integer", "minimum": 1, "maximum": 500}},
@@ -176,7 +176,7 @@ def build_environment_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_create_environment",
+            name="research_create_environment",
             description="Catalog one strict, content-addressed Environment manifest.",
             input_schema=tool_schema(
                 {"manifest": _manifest_schema()},
@@ -186,14 +186,14 @@ def build_environment_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_environment",
+            name="research_get_environment",
             description="Retrieve one immutable Environment manifest version.",
             input_schema=tool_schema(selector, required=["name"]),
             handler=get_environment,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_preflight_environment",
+            name="research_preflight_environment",
             description="Run backend-owned preflight for one Environment version.",
             input_schema=tool_schema(selector, required=["name"]),
             handler=preflight_environment,

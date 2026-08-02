@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from synth_ai.sdk.research.session.config import auth_headers
-from synth_ai.sdk.research.transport.http import SmrHttpTransport
+from synth_ai.sdk.research.transport.http import ResearchHttpTransport
 
 
 def build_http_transport(
@@ -11,8 +11,8 @@ def build_http_transport(
     api_key: str,
     backend_base: str,
     timeout_seconds: float,
-) -> SmrHttpTransport:
-    return SmrHttpTransport(
+) -> ResearchHttpTransport:
+    return ResearchHttpTransport(
         base_url=backend_base,
         headers=auth_headers(api_key),
         timeout=timeout_seconds,

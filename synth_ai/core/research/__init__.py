@@ -54,21 +54,48 @@ def _warn_once(name: str) -> None:
     )
 
 
+# CPython stamps the spec being loaded onto whatever `create_module` returns,
+# and what it returns here is a module that is already fully imported. Left
+# alone, the real module ends up carrying the alias's origin-less spec, which
+# costs it `importlib.resources`: `files()` yields an orphan path, so reading
+# any packaged data file raises FileNotFoundError for a process that touched the
+# deprecated path first. Snapshot these before the stamp, restore after.
+_IDENTITY_ATTRS = (
+    "__spec__",
+    "__loader__",
+    "__name__",
+    "__package__",
+    "__path__",
+    "__file__",
+    "__cached__",
+)
+
+
 class _AliasLoader(Loader):
     """Load the relocated module and publish it under the deprecated name."""
 
     def __init__(self, new_name: str) -> None:
         self._new_name = new_name
+        self._identity: dict[str, Any] = {}
 
     def create_module(self, spec: ModuleSpec) -> ModuleType | None:
         # Return the *real* module so both names share one object. Anything else
         # gives two module instances, two sets of class objects, and isinstance
         # checks that fail depending on which path the caller imported.
-        return importlib.import_module(self._new_name)
+        module = importlib.import_module(self._new_name)
+        self._identity = {
+            attr: getattr(module, attr) for attr in _IDENTITY_ATTRS if hasattr(module, attr)
+        }
+        return module
 
     def exec_module(self, module: ModuleType) -> None:
-        # Already executed under its real name by create_module.
-        return None
+        # Already executed under its real name by create_module; all that is
+        # left is to undo the identity stamp.
+        for attr in _IDENTITY_ATTRS:
+            if attr in self._identity:
+                setattr(module, attr, self._identity[attr])
+            elif hasattr(module, attr):
+                delattr(module, attr)
 
 
 class _ResearchAliasFinder(MetaPathFinder):

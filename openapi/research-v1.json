@@ -5284,6 +5284,52 @@
         "title": "PullRequestState",
         "type": "string"
       },
+      "RegistryActorRuntimeImageRegistrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "declaration": {
+            "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+          },
+          "image_config_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Config Digest",
+            "type": "string"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          }
+        },
+        "required": [
+          "declaration",
+          "image_config_digest"
+        ],
+        "title": "RegistryActorRuntimeImageRegistrationRequest",
+        "type": "object"
+      },
+      "RegistryActorRuntimeImageRegistrationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "runtime_image_release": {
+            "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+          },
+          "schema_version": {
+            "const": "smr-actor-image-registry-registration-v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "runtime_image_release"
+        ],
+        "title": "RegistryActorRuntimeImageRegistrationResponse",
+        "type": "object"
+      },
       "ResearchInternFactoryMembershipResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6154,6 +6200,9 @@
           "gpt-5.3-codex-spark",
           "gpt-5.5",
           "gpt-5.6-luna",
+          "gpt-5.6-sol",
+          "gpt-5.6-terra",
+          "cursor/grok-4.5",
           "gpt-5.4",
           "gpt-5.4-mini",
           "nemotron-super",
@@ -12087,7 +12136,8 @@
                 "type": "null"
               }
             ],
-            "description": "Explicit placement authority. Platform-resolved targets delegate all placement to Synth; bound-runtime targets carry one signed CloudDev binding and cannot restate host, pool, or source fields elsewhere.",
+            "deprecated": true,
+            "description": "Deprecated compatibility field scheduled for removal in synth-ai 0.18.0. Placement is resolved by the backend; callers must omit this field.",
             "title": "Execution Target"
           },
           "host_kind": {
@@ -29159,6 +29209,48 @@
           }
         },
         "summary": "Finalize Image Release",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/v1/image-releases/register-registry": {
+      "post": {
+        "description": "Register a digest-pinned org image already published to the configured registry.",
+        "operationId": "register_customer_actor_registry_image",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryActorRuntimeImageRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryActorRuntimeImageRegistrationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Customer Actor Registry Image",
         "tags": [
           "smr"
         ]

@@ -33,7 +33,11 @@ if TYPE_CHECKING:
 
 
 class Client:
-    """Synchronous typed client for projects and swarms."""
+    """Synchronous typed client over the Research namespaces.
+
+    Mounts projects, intern, swarms, factories, environments, image_releases,
+    traces, and visuals; economics and limits load lazily.
+    """
 
     def __init__(
         self,
@@ -58,6 +62,11 @@ class Client:
         self.visuals = VisualsAPI(self._transport)
         self._economics: EconomicsAPI | None = None
         self._limits: LimitsAPI | None = None
+
+    @property
+    def transport(self) -> HttpTransport:
+        """The shared typed HTTP transport every namespace routes through."""
+        return self._transport
 
     @property
     def economics(self) -> EconomicsAPI:
@@ -123,6 +132,11 @@ class AsyncClient:
         self.visuals = AsyncVisualsAPI(self._transport)
         self._economics: AsyncEconomicsAPI | None = None
         self._limits: AsyncLimitsAPI | None = None
+
+    @property
+    def transport(self) -> AsyncHttpTransport:
+        """The shared typed async HTTP transport every namespace routes through."""
+        return self._transport
 
     @property
     def economics(self) -> AsyncEconomicsAPI:

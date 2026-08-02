@@ -18,20 +18,20 @@ from synth_ai.core.contracts.json_value import JsonValue
 from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.sdk.research.errors import (
-    SmrApiError,
-    SmrCheckpointQuotaExceededError,
-    SmrConcurrentRunLimitExceededError,
-    SmrFundingLaneInvariantError,
-    SmrInferenceProviderUnavailableError,
-    SmrInsufficientCreditsError,
-    SmrLimitExceededError,
-    SmrLimitExtensionGuardedResumeBlockedError,
-    SmrLimitExtensionIdempotencyConflictError,
-    SmrLimitRevisionConflictError,
-    SmrManagedInferenceUnavailableError,
-    SmrProjectMonthlyBudgetExhaustedError,
-    SmrStructuredDenialError,
-    SmrUnsafeLimitExtensionError,
+    ResearchApiError,
+    ResearchCheckpointQuotaExceededError,
+    ResearchConcurrentRunLimitExceededError,
+    ResearchFundingLaneInvariantError,
+    ResearchInferenceProviderUnavailableError,
+    ResearchInsufficientCreditsError,
+    ResearchLimitExceededError,
+    ResearchLimitExtensionGuardedResumeBlockedError,
+    ResearchLimitExtensionIdempotencyConflictError,
+    ResearchLimitRevisionConflictError,
+    ResearchManagedInferenceUnavailableError,
+    ResearchProjectMonthlyBudgetExhaustedError,
+    ResearchStructuredDenialError,
+    ResearchUnsafeLimitExtensionError,
 )
 
 # Backend billing-admission blocker codes for the wallet/allowance family
@@ -150,7 +150,7 @@ def _raise_for_error_response(
                 response_text = response.text
                 stripped = code.strip()
                 if stripped == "smr_limit_exceeded":
-                    raise SmrLimitExceededError(
+                    raise ResearchLimitExceededError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
@@ -160,35 +160,35 @@ def _raise_for_error_response(
                     "smr_concurrent_run_limit_exceeded",
                     "smr_launch_promo_concurrent_limit",
                 }:
-                    raise SmrConcurrentRunLimitExceededError(
+                    raise ResearchConcurrentRunLimitExceededError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
                     )
                 if stripped == "smr_free_tier_routing_violation":
-                    raise SmrFundingLaneInvariantError(
+                    raise ResearchFundingLaneInvariantError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
                     )
                 if _is_insufficient_credits_code(stripped):
-                    raise SmrInsufficientCreditsError(
+                    raise ResearchInsufficientCreditsError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
                     )
                 if stripped == "smr_project_monthly_budget_exhausted":
-                    raise SmrProjectMonthlyBudgetExhaustedError(
+                    raise ResearchProjectMonthlyBudgetExhaustedError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
                     )
                 if stripped == "inference_provider_unavailable":
-                    raise SmrInferenceProviderUnavailableError(
+                    raise ResearchInferenceProviderUnavailableError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
@@ -198,28 +198,28 @@ def _raise_for_error_response(
                     "smr_managed_inference_unavailable",
                     "smr_managed_inference_upstream_unavailable",
                 }:
-                    raise SmrManagedInferenceUnavailableError(
+                    raise ResearchManagedInferenceUnavailableError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
                     )
                 if stripped == "checkpoint_storage_quota_exceeded":
-                    raise SmrCheckpointQuotaExceededError(
+                    raise ResearchCheckpointQuotaExceededError(
                         message,
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
                     )
                 limit_extension_error = {
-                    "limit_revision_conflict": SmrLimitRevisionConflictError,
+                    "limit_revision_conflict": ResearchLimitRevisionConflictError,
                     "limit_extension_idempotency_conflict": (
-                        SmrLimitExtensionIdempotencyConflictError
+                        ResearchLimitExtensionIdempotencyConflictError
                     ),
                     "limit_extension_guarded_action_not_enabled": (
-                        SmrLimitExtensionGuardedResumeBlockedError
+                        ResearchLimitExtensionGuardedResumeBlockedError
                     ),
-                    "limit_extension_not_safe": SmrUnsafeLimitExtensionError,
+                    "limit_extension_not_safe": ResearchUnsafeLimitExtensionError,
                 }.get(stripped)
                 if limit_extension_error is not None:
                     raise limit_extension_error(
@@ -228,14 +228,14 @@ def _raise_for_error_response(
                         response_text=response_text,
                         detail=detail,
                     )
-                raise SmrStructuredDenialError(
+                raise ResearchStructuredDenialError(
                     message,
                     status_code=status_code,
                     response_text=response_text,
                     detail=detail,
                 )
             structured = _structured_body_fields(response)
-            raise SmrApiError(
+            raise ResearchApiError(
                 _error_message(response),
                 status_code=response.status_code,
                 response_text=response.text,
@@ -249,7 +249,7 @@ def _raise_for_error_response(
                 else None,
             )
     structured = _structured_body_fields(response)
-    raise SmrApiError(
+    raise ResearchApiError(
         _error_message(response),
         status_code=response.status_code,
         response_text=response.text,
@@ -267,8 +267,10 @@ def _raise_for_transport_exception(
     operation_id: str | None = None,
 ) -> None:
     if isinstance(error, httpx.TimeoutException):
-        raise SmrApiError(f"{method} {path} timed out") from error
-    raise SmrApiError(f"{method} {path} failed: network error ({type(error).__name__})") from error
+        raise ResearchApiError(f"{method} {path} timed out") from error
+    raise ResearchApiError(
+        f"{method} {path} failed: network error ({type(error).__name__})"
+    ) from error
 
 
 def _raise_for_decode_error(
@@ -278,15 +280,18 @@ def _raise_for_decode_error(
     error: Exception,
     operation_id: str | None = None,
 ) -> None:
-    raise SmrApiError(
+    raise ResearchApiError(
         f"{method} {path} returned a non-JSON response",
         status_code=response.status_code,
         response_text=response.text,
     ) from error
 
 
-class SmrHttpTransport(HttpTransport):
-    """Deprecated compatibility adapter over the shared core transport."""
+class ResearchHttpTransport(HttpTransport):
+    """The Research transport: core's HttpTransport wired to Research error mapping.
+
+    Every ``ResearchSession`` request goes through this.
+    """
 
     def __init__(self, *, base_url: str, headers: dict[str, str], timeout: float) -> None:
         super().__init__(
@@ -316,15 +321,15 @@ class SmrHttpTransport(HttpTransport):
                 timeout_seconds=timeout_seconds,
                 operation_id=operation_id,
             )
-        except SmrApiError as error:
+        except ResearchApiError as error:
             if isinstance(error.__cause__, httpx.TimeoutException):
-                raise SmrApiError(f"GET {path} SSE stream timed out") from error.__cause__
+                raise ResearchApiError(f"GET {path} SSE stream timed out") from error.__cause__
             if isinstance(error.__cause__, httpx.TransportError):
-                raise SmrApiError(
+                raise ResearchApiError(
                     f"GET {path} SSE stream failed: network error "
                     f"({type(error.__cause__).__name__})"
                 ) from error.__cause__
             raise
 
 
-__all__ = ["SmrHttpTransport"]
+__all__ = ["ResearchHttpTransport"]

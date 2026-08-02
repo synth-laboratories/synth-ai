@@ -10,14 +10,14 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_register_trained_model",
+            name="research_register_trained_model",
             description=(
                 "Register a Tinker-trained LoRA adapter produced by the current "
                 "Managed Research "
-                "run. This inserts an ``smr_models`` registry row, attempts to "
+                "run. This inserts a trained-model registry row, attempts to "
                 "prepare a downloadable Wasabi adapter, and publishes a model "
                 "WorkProduct. If the response has no wasabi_uri or includes "
-                "export_error, use smr_export_trained_model to retry/export."
+                "export_error, use research_export_trained_model to retry/export."
             ),
             input_schema=tool_schema(
                 {
@@ -54,7 +54,7 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_register_trained_model,
         ),
         ToolDefinition(
-            name="smr_get_trained_model",
+            name="research_get_trained_model",
             description="Fetch a trained-model registry record by id.",
             input_schema=tool_schema(
                 {"model_id": {"type": "string"}},
@@ -63,7 +63,7 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_trained_model,
         ),
         ToolDefinition(
-            name="smr_list_trained_models_for_run",
+            name="research_list_trained_models_for_run",
             description="List trained models registered for a given Managed Research run.",
             input_schema=tool_schema(
                 {"run_id": {"type": "string"}},
@@ -72,7 +72,7 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_trained_models_for_run,
         ),
         ToolDefinition(
-            name="smr_export_trained_model",
+            name="research_export_trained_model",
             description=(
                 "Queue export of a registered trained-model WorkProduct to an "
                 "external destination. Use destination.kind='huggingface' for a "
@@ -98,7 +98,7 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_export_trained_model,
         ),
         ToolDefinition(
-            name="smr_create_trained_model_adapter_upload_url",
+            name="research_create_trained_model_adapter_upload_url",
             description=(
                 "Create a presigned Synth storage PUT URL for a trained-model "
                 "adapter tarball. Use this from a worker that has Tinker export "
@@ -115,11 +115,11 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_trained_model_adapter_upload_url,
         ),
         ToolDefinition(
-            name="smr_complete_trained_model_adapter_upload",
+            name="research_complete_trained_model_adapter_upload",
             description=(
                 "Mark a worker-uploaded trained-model adapter as the canonical "
                 "Wasabi object for the model WorkProduct. Call this only after "
-                "the PUT to the URL from smr_create_trained_model_adapter_upload_url "
+                "the PUT to the URL from research_create_trained_model_adapter_upload_url "
                 "has succeeded."
             ),
             input_schema=tool_schema(
@@ -135,7 +135,7 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_complete_trained_model_adapter_upload,
         ),
         ToolDefinition(
-            name="smr_update_trained_model",
+            name="research_update_trained_model",
             description=(
                 "Patch metrics on a trained-model record — typically called after "
                 "offline eval completes with the replayed tuned accuracy."
@@ -157,10 +157,10 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_update_trained_model,
         ),
         ToolDefinition(
-            name="smr_delete_trained_model",
+            name="research_delete_trained_model",
             description=(
                 "Delete a trained-model record: removes the Tinker checkpoint, the "
-                "Wasabi object, and soft-deletes the ``smr_models`` row. Call this "
+                "Wasabi object, and soft-deletes the trained-model registry row. Call this "
                 "at the end of the run after offline evaluation confirms the score."
             ),
             input_schema=tool_schema(
@@ -170,7 +170,7 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_delete_trained_model,
         ),
         ToolDefinition(
-            name="smr_get_run_cost_summary",
+            name="research_get_run_cost_summary",
             description=(
                 "Return the per-run cost summary, broken down by meter_kind "
                 "(tinker_training_job, token_input, sandbox_seconds, etc.)."

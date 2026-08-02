@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_log_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_list_run_log_archives",
+            name="research_list_run_log_archives",
             description="List archived log bundles for a run.",
             input_schema=tool_schema(
                 {

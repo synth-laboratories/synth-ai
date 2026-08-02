@@ -10,13 +10,13 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_export_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_setup_exports_list_targets",
+            name="research_setup_exports_list_targets",
             description="List org export targets.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_setup_exports_list_targets,
         ),
         ToolDefinition(
-            name="smr_setup_exports_create_target",
+            name="research_setup_exports_create_target",
             description="Create an org export target.",
             input_schema=tool_schema(
                 {

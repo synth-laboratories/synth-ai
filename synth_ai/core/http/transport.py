@@ -373,6 +373,28 @@ class HttpTransport:
             self.error_handler(response, operation_id)
         return bytes(response.content)
 
+    def request_external_bytes(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float | None = None,
+        operation_id: str | None = None,
+    ) -> bytes:
+        """Fetch an absolute URL without forwarding backend credentials."""
+        try:
+            with httpx.Client(
+                timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
+                follow_redirects=True,
+            ) as client:
+                response = client.get(url)
+        except httpx.TimeoutException as exc:
+            self.exception_handler("GET", url, exc, operation_id)
+        except httpx.TransportError as exc:
+            self.exception_handler("GET", url, exc, operation_id)
+        if response.is_error:
+            self.error_handler(response, operation_id)
+        return bytes(response.content)
+
     def request_multipart_json(
         self,
         request: HttpRequest,

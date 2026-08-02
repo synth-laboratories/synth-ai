@@ -10,7 +10,7 @@ CLI structure notes (for coding agents)
 
 ## Incident Log Requirement
 
-When you hit a Synth code bug or local dev setup issue, append a timestamped entry to `/Users/joshpurtell/Documents/Github/specifications/issues_log/YYYY-MM-DD.md` before finishing.
+When you hit a Synth code bug or local dev setup issue, append a timestamped entry to `specifications/issues_log/YYYY-MM-DD.md` in the sibling `testing/` repo before finishing.
 
 Use this one-line format:
 `- [YYYY-MM-DD HH:MM:SS TZ] <repo/path> — <issue> — <impact> — <action/status>`

@@ -24,7 +24,11 @@ research = SynthClient().research
 
 ## Supported Public Surfaces
 
-- Research: projects, swarms, factories, billing/economics reads
+- Research: projects, swarms, factories, intern (plus supporting namespaces:
+  environments, image releases, files, traces, visuals, wiki, knowledge,
+  experiments)
+- `research.advanced.*` is explicitly unstable operator surface — not part of
+  the public story
 
 ## Ownership Rules
 
