@@ -8118,6 +8118,649 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Sync Session
+      description: Create a durable Sync resource, then idempotently start its workflow.
+      operationId: create_intern_sync_session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncSessionCreateRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Sync Sessions
+      operationId: list_intern_sync_sessions
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SyncSessionResponse'
+                title: Response List Intern Sync Sessions Smr Research Intern Sync
+                  Sessions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Sync Session
+      operationId: get_intern_sync_session
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}/commands:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Command Intern Sync Session
+      operationId: command_intern_sync_session
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternRuntimeCommandRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeCommandReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Async Runtime
+      description: Get the organization's one Async Intern without an assignment id.
+      operationId: get_intern_async_runtime
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncRuntimeResponse'
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Ensure Intern Async Runtime
+      description: Create the organization's one Async Intern or replay its first
+        request.
+      operationId: ensure_intern_async_runtime
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsyncRuntimeEnsureRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncRuntimeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async/ensure:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Ensure Intern Async Runtime Alias
+      description: Named ensure alias over the same organization-singleton operation.
+      operationId: ensure_intern_async_runtime_alias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsyncRuntimeEnsureRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncRuntimeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async/commands:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Command Intern Async Runtime
+      description: Admit a control command to the organization's singleton Async inbox.
+      operationId: command_intern_async_runtime
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternRuntimeCommandRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeCommandReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async/messages:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Message Intern Async Runtime
+      description: Typed instruction alias over the singleton PostgreSQL command inbox.
+      operationId: message_intern_async_runtime
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsyncInstructionCommandRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeCommandReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async/events:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Async Runtime Events
+      description: Replay the singleton Async event ledger without a runtime path
+        id.
+      operationId: list_intern_async_runtime_events
+      parameters:
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternRuntimeEventResponse'
+                title: Response List Intern Async Runtime Events Smr Research Intern
+                  Async Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async/events/stream:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Stream Intern Async Runtime Events
+      description: Tail the singleton Async event ledger without a runtime path id.
+      operationId: stream_intern_async_runtime_events
+      parameters:
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last-Event-Id
+      responses:
+        '200':
+          description: Replay-then-tail SSE over the singleton Async ledger.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeEventStreamEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async-assignments:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Async Assignment
+      description: Create leave-safe Async work before starting durable orchestration.
+      operationId: create_intern_async_assignment
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsyncRuntimeEnsureRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncRuntimeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Async Assignments
+      operationId: list_intern_async_assignments
+      deprecated: true
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AsyncRuntimeResponse'
+                title: Response List Intern Async Assignments Smr Research Intern
+                  Async Assignments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async-assignments/{assignment_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Async Assignment
+      operationId: get_intern_async_assignment
+      deprecated: true
+      parameters:
+      - name: assignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Assignment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncRuntimeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/async-assignments/{assignment_id}/commands:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Command Intern Async Assignment
+      operationId: command_intern_async_assignment
+      deprecated: true
+      parameters:
+      - name: assignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Assignment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternRuntimeCommandRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeCommandReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/events:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Runtime Events
+      operationId: list_intern_runtime_events
+      parameters:
+      - name: runtime_kind
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Kind
+      - name: runtime_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Id
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternRuntimeEventResponse'
+                title: Response List Intern Runtime Events Smr Research Intern Runtimes  Runtime
+                  Kind   Runtime Id  Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/events/stream:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Stream Intern Runtime Events
+      operationId: stream_intern_runtime_events
+      parameters:
+      - name: runtime_kind
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Kind
+      - name: runtime_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Id
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Sequence
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last-Event-Id
+      responses:
+        '200':
+          description: Replay-then-tail SSE over durable Intern events.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeEventStreamEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Runtime Mcp Actions
+      operationId: list_intern_runtime_mcp_actions
+      parameters:
+      - name: runtime_kind
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Kind
+      - name: runtime_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternMcpActionResponse'
+                title: Response List Intern Runtime Mcp Actions Smr Research Intern
+                  Runtimes  Runtime Kind   Runtime Id  Mcp Actions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions/{action_id}/approval:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Decide Intern Runtime Mcp Action Approval
+      operationId: decide_intern_runtime_mcp_action_approval
+      parameters:
+      - name: runtime_kind
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Kind
+      - name: runtime_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Id
+      - name: action_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Action Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternMcpActionApprovalRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternMcpActionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/research-intern/sessions:
     post:
       tags:
@@ -17548,6 +18191,118 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Publish Visual
+      description: Publish a self-contained Visual without requiring an SMR run.
+      operationId: create_visual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrPublishVisualRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: List Visuals
+      operationId: list_visuals
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: visual_kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Visual Kind
+      - name: visibility
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            pattern: ^(org|public)$
+          - type: 'null'
+          title: Visibility
+      - name: factory_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Deleted
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 250
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/visuals:
     post:
       tags:
@@ -17626,92 +18381,6 @@ paths:
         required: true
         schema:
           type: string
-          title: Project Id
-      - name: visual_kind
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Visual Kind
-      - name: visibility
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            pattern: ^(org|public)$
-          - type: 'null'
-          title: Visibility
-      - name: factory_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Factory Id
-      - name: effort_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-      - name: include_deleted
-        in: query
-        required: false
-        schema:
-          type: boolean
-          default: false
-          title: Include Deleted
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Cursor
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 250
-          minimum: 1
-          default: 100
-          title: Limit
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SmrVisualListResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/visuals:
-    get:
-      tags:
-      - smr
-      - hosted-artifacts
-      summary: List Visuals
-      operationId: list_visuals
-      parameters:
-      - name: project_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
           title: Project Id
       - name: visual_kind
         in: query
@@ -39999,6 +40668,326 @@ components:
       - is_active
       title: ApiKeyRedacted
       description: A key row with the secret redacted. Safe to list.
+    AsyncBlockerResponse:
+      properties:
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+        retryable:
+          type: boolean
+          title: Retryable
+        next_retry_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Retry At
+        operator_action_required:
+          type: boolean
+          title: Operator Action Required
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - message
+      - retryable
+      title: AsyncBlockerResponse
+    AsyncCheckpointResponse:
+      properties:
+        checkpoint_id:
+          type: string
+          title: Checkpoint Id
+        summary:
+          type: string
+          title: Summary
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        unresolved_questions:
+          items:
+            type: string
+          type: array
+          title: Unresolved Questions
+        next_action:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Action
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - checkpoint_id
+      - summary
+      - evidence_refs
+      - unresolved_questions
+      - created_at
+      title: AsyncCheckpointResponse
+    AsyncInstructionCommandRequest:
+      properties:
+        command_id:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Command Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Generation
+        command_kind:
+          $ref: '#/components/schemas/AsyncInstructionKind'
+        payload:
+          $ref: '#/components/schemas/AsyncInstructionPayload'
+      additionalProperties: false
+      type: object
+      required:
+      - command_id
+      - idempotency_key
+      - expected_generation
+      - command_kind
+      - payload
+      title: AsyncInstructionCommandRequest
+      description: Typed envelope for the optional ``/async/messages`` command alias.
+    AsyncInstructionKind:
+      type: string
+      enum:
+      - message
+      - intervene
+      - redirect_objective
+      - request_checkpoint
+      title: AsyncInstructionKind
+      description: Client-authored instructions admitted to the singleton Async inbox.
+    AsyncInstructionPayload:
+      properties:
+        body:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Body
+        context:
+          additionalProperties: true
+          type: object
+          title: Context
+      additionalProperties: false
+      type: object
+      title: AsyncInstructionPayload
+    AsyncRuntimeBudget:
+      properties:
+        maximum_cost_cents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Maximum Cost Cents
+        maximum_cycles:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Maximum Cycles
+        maximum_concurrent_runs:
+          type: integer
+          minimum: 1.0
+          title: Maximum Concurrent Runs
+          default: 1
+      additionalProperties: false
+      type: object
+      title: AsyncRuntimeBudget
+    AsyncRuntimeEnsureRequest:
+      properties:
+        objective:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Objective
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        binding:
+          $ref: '#/components/schemas/RuntimeBinding'
+        budget:
+          $ref: '#/components/schemas/AsyncRuntimeBudget'
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - objective
+      - idempotency_key
+      title: AsyncRuntimeEnsureRequest
+    AsyncRuntimeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-async-runtime.v1
+          title: Schema Version
+          default: smr.intern-async-runtime.v1
+        async_runtime_id:
+          type: string
+          title: Async Runtime Id
+        async_assignment_id:
+          type: string
+          title: Async Assignment Id
+          deprecated: true
+        cardinality:
+          type: string
+          const: one_per_organization
+          title: Cardinality
+          default: one_per_organization
+        instance_kind:
+          type: string
+          const: organization_async_intern
+          title: Instance Kind
+          default: organization_async_intern
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        objective:
+          type: string
+          title: Objective
+        status:
+          $ref: '#/components/schemas/AsyncStatus'
+        state_generation:
+          type: integer
+          minimum: 0.0
+          title: State Generation
+        last_event_sequence:
+          type: integer
+          minimum: 0.0
+          title: Last Event Sequence
+        cycle_number:
+          type: integer
+          minimum: 0.0
+          title: Cycle Number
+        plan:
+          additionalProperties: true
+          type: object
+          title: Plan
+        pending_interaction_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Interaction Id
+        pending_action_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Action Id
+        pending_actor_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Actor Message Id
+        pending_instruction_count:
+          type: integer
+          maximum: 32.0
+          minimum: 0.0
+          title: Pending Instruction Count
+          default: 0
+        binding:
+          $ref: '#/components/schemas/RuntimeBinding'
+        external_execution_status:
+          $ref: '#/components/schemas/ExternalExecutionStatus'
+        evidence_readiness:
+          $ref: '#/components/schemas/EvidenceReadiness'
+        next_wake_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Wake At
+        checkpoint:
+          anyOf:
+          - $ref: '#/components/schemas/AsyncCheckpointResponse'
+          - type: 'null'
+        budget:
+          $ref: '#/components/schemas/AsyncRuntimeBudget'
+        blocker:
+          anyOf:
+          - $ref: '#/components/schemas/AsyncBlockerResponse'
+          - type: 'null'
+        temporal_workflow_id:
+          type: string
+          title: Temporal Workflow Id
+        leave_safe:
+          type: boolean
+          const: true
+          title: Leave Safe
+          default: true
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Closed At
+      additionalProperties: false
+      type: object
+      required:
+      - async_runtime_id
+      - async_assignment_id
+      - research_intern_id
+      - org_id
+      - objective
+      - status
+      - state_generation
+      - last_event_sequence
+      - cycle_number
+      - binding
+      - external_execution_status
+      - evidence_readiness
+      - budget
+      - temporal_workflow_id
+      - created_at
+      - updated_at
+      title: AsyncRuntimeResponse
+    AsyncStatus:
+      type: string
+      enum:
+      - created
+      - planning
+      - executing_cycle
+      - checkpointing
+      - sleeping
+      - reconciling
+      - awaiting_input
+      - awaiting_evidence
+      - paused
+      - blocked
+      - cancelling
+      - cancelled
+      - completed
+      - failed
+      title: AsyncStatus
     AutumnBalanceProxyResponse:
       properties:
         org_id:
@@ -44415,6 +45404,15 @@ components:
       - version
       - display_name
       title: EnvironmentTopologyResponse
+    EvidenceReadiness:
+      type: string
+      enum:
+      - not_required
+      - pending
+      - finalizing
+      - ready
+      - incomplete
+      title: EvidenceReadiness
     ExportTrainedModelBody:
       properties:
         destination:
@@ -44430,6 +45428,13 @@ components:
       required:
       - destination
       title: ExportTrainedModelBody
+    ExternalExecutionStatus:
+      type: string
+      enum:
+      - not_started
+      - active
+      - terminal
+      title: ExternalExecutionStatus
     FactoryProjectMembershipReceiptRef:
       properties:
         authority:
@@ -45864,6 +46869,333 @@ components:
       - review_request
       - broadcast
       title: InteractionIntent
+    InternMcpActionApprovalRequest:
+      properties:
+        decision:
+          type: string
+          enum:
+          - approve
+          - refuse
+          title: Decision
+      additionalProperties: false
+      type: object
+      required:
+      - decision
+      title: InternMcpActionApprovalRequest
+    InternMcpActionKind:
+      type: string
+      enum:
+      - discover_tools
+      - call_tool
+      - read_resource
+      - start_factory_run
+      - inspect_factory_run
+      - deploy_swarm
+      - inspect_swarm
+      - stop_swarm
+      - collect_evidence
+      title: InternMcpActionKind
+    InternMcpActionResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-mcp-action.v1
+          title: Schema Version
+          default: smr.intern-mcp-action.v1
+        action_id:
+          type: string
+          title: Action Id
+        runtime_kind:
+          type: string
+          enum:
+          - sync
+          - async
+          title: Runtime Kind
+        runtime_id:
+          type: string
+          title: Runtime Id
+        source_generation:
+          type: integer
+          minimum: 1.0
+          title: Source Generation
+        effect_id:
+          type: string
+          title: Effect Id
+        action_kind:
+          $ref: '#/components/schemas/InternMcpActionKind'
+        server_name:
+          type: string
+          title: Server Name
+        method:
+          $ref: '#/components/schemas/InternMcpMethod'
+        operation_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Operation Name
+        resource_uri:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resource Uri
+        requested_capability_operation:
+          type: string
+          title: Requested Capability Operation
+        arguments:
+          additionalProperties: true
+          type: object
+          title: Arguments
+        rationale:
+          type: string
+          title: Rationale
+        status:
+          $ref: '#/components/schemas/InternMcpActionStatus'
+        approval_status:
+          type: string
+          enum:
+          - not_required
+          - pending
+          - approved
+          - refused
+          title: Approval Status
+        result:
+          additionalProperties: true
+          type: object
+          title: Result
+        receipt:
+          additionalProperties: true
+          type: object
+          title: Receipt
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+      additionalProperties: false
+      type: object
+      required:
+      - action_id
+      - runtime_kind
+      - runtime_id
+      - source_generation
+      - effect_id
+      - action_kind
+      - server_name
+      - method
+      - requested_capability_operation
+      - arguments
+      - rationale
+      - status
+      - approval_status
+      - result
+      - receipt
+      - created_at
+      - updated_at
+      title: InternMcpActionResponse
+    InternMcpActionStatus:
+      type: string
+      enum:
+      - proposed
+      - awaiting_approval
+      - execution_pending
+      - executing
+      - succeeded
+      - retryable_failure
+      - terminal_failure
+      - refused
+      - superseded
+      - reconciled
+      title: InternMcpActionStatus
+    InternMcpMethod:
+      type: string
+      enum:
+      - tools/list
+      - tools/call
+      - resources/read
+      title: InternMcpMethod
+    InternRuntimeCommandReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-runtime-command-receipt.v1
+          title: Schema Version
+          default: smr.intern-runtime-command-receipt.v1
+        command_id:
+          type: string
+          title: Command Id
+        runtime_kind:
+          type: string
+          enum:
+          - sync
+          - async
+          title: Runtime Kind
+        runtime_id:
+          type: string
+          title: Runtime Id
+        status:
+          type: string
+          enum:
+          - received
+          - delivered
+          - applied
+          - noop
+          - refused
+          - superseded
+          - conflict
+          title: Status
+        previous_generation:
+          type: integer
+          minimum: 0.0
+          title: Previous Generation
+        state_generation:
+          type: integer
+          minimum: 0.0
+          title: State Generation
+        decision_code:
+          type: string
+          title: Decision Code
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - command_id
+      - runtime_kind
+      - runtime_id
+      - status
+      - previous_generation
+      - state_generation
+      - decision_code
+      - created_at
+      title: InternRuntimeCommandReceipt
+    InternRuntimeCommandRequest:
+      properties:
+        command_id:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Command Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Generation
+        command_kind:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Command Kind
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+      additionalProperties: false
+      type: object
+      required:
+      - command_id
+      - idempotency_key
+      - expected_generation
+      - command_kind
+      title: InternRuntimeCommandRequest
+    InternRuntimeEventResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-runtime-event.v1
+          title: Schema Version
+          default: smr.intern-runtime-event.v1
+        event_id:
+          type: string
+          title: Event Id
+        runtime_kind:
+          type: string
+          enum:
+          - sync
+          - async
+          title: Runtime Kind
+        runtime_id:
+          type: string
+          title: Runtime Id
+        sequence:
+          type: integer
+          minimum: 1.0
+          title: Sequence
+        previous_state_generation:
+          type: integer
+          minimum: 0.0
+          title: Previous State Generation
+        state_generation:
+          type: integer
+          minimum: 1.0
+          title: State Generation
+        event_kind:
+          type: string
+          title: Event Kind
+        command_id:
+          type: string
+          title: Command Id
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - runtime_kind
+      - runtime_id
+      - sequence
+      - previous_state_generation
+      - state_generation
+      - event_kind
+      - command_id
+      - payload
+      - created_at
+      title: InternRuntimeEventResponse
+    InternRuntimeEventStreamEnvelope:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-runtime-event-stream.v1
+          title: Schema Version
+          default: smr.intern-runtime-event-stream.v1
+        event:
+          $ref: '#/components/schemas/InternRuntimeEventResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - event
+      title: InternRuntimeEventStreamEnvelope
     InternalUsageEventOut:
       properties:
         id:
@@ -52228,6 +53560,31 @@ components:
       - overnight
       - continuous
       title: RunbookKind
+    RuntimeBinding:
+      properties:
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+      additionalProperties: false
+      type: object
+      title: RuntimeBinding
     RuntimeImageRef:
       properties:
         kind:
@@ -52492,6 +53849,15 @@ components:
       - steer
       - control
       title: RuntimeMessageMode
+    RuntimeOutcome:
+      type: string
+      enum:
+      - completed
+      - partial
+      - blocked
+      - cancelled
+      - failed
+      title: RuntimeOutcome
     SealedDatasetRevision:
       properties:
         schema_version:
@@ -64978,6 +66344,63 @@ components:
         Never carries evidence: evidence is org-scoped and served only on the
 
         authenticated SmrVisualResponse surface.'
+    SmrPublishVisualRequest:
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Title
+        html_content:
+          type: string
+          maxLength: 16777216
+          minLength: 1
+          title: Html Content
+        visual_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Visual Key
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Summary
+        visual_kind:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Visual Kind
+          default: research_visual
+        source_run_ids:
+          items:
+            type: string
+          type: array
+          title: Source Run Ids
+        trace_id:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Trace Id
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      type: object
+      required:
+      - title
+      - html_content
+      title: SmrPublishVisualRequest
+      description: Run-optional Visual publication accepted by HTTP and Synth MCP.
     SmrQuestionRespondRequest:
       properties:
         response_text:
@@ -77429,6 +78852,129 @@ components:
       - google
       title: SupportedProvider
       description: Supported LLM providers for encrypted provider-key storage.
+    SyncSessionCreateRequest:
+      properties:
+        objective:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Objective
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        binding:
+          $ref: '#/components/schemas/RuntimeBinding'
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - objective
+      - idempotency_key
+      title: SyncSessionCreateRequest
+    SyncSessionResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-sync-session.v1
+          title: Schema Version
+          default: smr.intern-sync-session.v1
+        sync_session_id:
+          type: string
+          title: Sync Session Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        objective:
+          type: string
+          title: Objective
+        status:
+          $ref: '#/components/schemas/SyncStatus'
+        state_generation:
+          type: integer
+          minimum: 0.0
+          title: State Generation
+        last_event_sequence:
+          type: integer
+          minimum: 0.0
+          title: Last Event Sequence
+        binding:
+          $ref: '#/components/schemas/RuntimeBinding'
+        pending_turn_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Turn Id
+        pending_action_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Action Id
+        pending_interaction_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Interaction Id
+        outcome:
+          anyOf:
+          - $ref: '#/components/schemas/RuntimeOutcome'
+          - type: 'null'
+        failure_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failure Code
+        temporal_workflow_id:
+          type: string
+          title: Temporal Workflow Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Closed At
+      additionalProperties: false
+      type: object
+      required:
+      - sync_session_id
+      - research_intern_id
+      - org_id
+      - objective
+      - status
+      - state_generation
+      - last_event_sequence
+      - binding
+      - temporal_workflow_id
+      - created_at
+      - updated_at
+      title: SyncSessionResponse
+    SyncStatus:
+      type: string
+      enum:
+      - created
+      - ready
+      - thinking
+      - waiting_for_operator
+      - paused
+      - closing
+      - closed
+      - failed
+      title: SyncStatus
     TagMessageRequest:
       properties:
         message:

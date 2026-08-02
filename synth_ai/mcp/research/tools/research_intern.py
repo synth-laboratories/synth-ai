@@ -12,9 +12,18 @@ from synth_ai.mcp.research.registry import (
     ToolDefinition,
     tool_schema,
 )
-from synth_ai.mcp.research.request_models import optional_int, optional_string, require_string
+from synth_ai.mcp.research.request_models import optional_int, optional_string, require_int, require_string
 from synth_ai.sdk.research.client import Client as ResearchClient
 from synth_ai.sdk.research.contracts.research_intern import (
+    InternAsyncCommandKind,
+    InternAsyncCommandRequest,
+    InternAsyncEnsureRequest,
+    InternAsyncInstructionKind,
+    InternAsyncInstructionRequest,
+    InternRuntimeOutcome,
+    InternSyncCommandKind,
+    InternSyncCommandRequest,
+    InternSyncSessionCreateRequest,
     MagiDecisionRequest,
     MagiMode,
     ResearchInternAcceptanceReceiptPublicationRequest,
@@ -89,6 +98,292 @@ def build_research_intern_tools(
     def retrieve(args: JSONDict) -> JSONDict:
         with client_from_args(args) as client:
             return client.intern.retrieve().to_wire()
+
+    def intern_sync_create(args: JSONDict) -> JSONDict:
+        request = InternSyncSessionCreateRequest.model_validate(
+            _request_payload(
+                args,
+                ("objective", "idempotency_key", "binding", "metadata"),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.sync_.create(request).to_wire()
+
+    def intern_sync_list(args: JSONDict) -> list[JSONDict]:
+        with client_from_args(args) as client:
+            return _wire_list(client.intern.sync_.list(limit=optional_int(args, "limit") or 100))
+
+    def intern_sync_get(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.sync_.get(require_string(args, "sync_session_id")).to_wire()
+
+    def intern_sync_command(args: JSONDict) -> JSONDict:
+        request = InternSyncCommandRequest.model_validate(
+            _request_payload(
+                args,
+                (
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "command_kind",
+                    "payload",
+                ),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.sync_.command(
+                require_string(args, "sync_session_id"),
+                request,
+            ).to_wire()
+
+    def intern_sync_send(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.sync_.send_message(
+                require_string(args, "sync_session_id"),
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                body=require_string(args, "body"),
+                turn_id=optional_string(args, "turn_id"),
+                context=context,
+            ).to_wire()
+
+    def intern_sync_intervene(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        state_patch = args.get("state_patch")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        if state_patch is not None and not isinstance(state_patch, dict):
+            raise ValueError("'state_patch' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.sync_.intervene(
+                require_string(args, "sync_session_id"),
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                body=require_string(args, "body"),
+                turn_id=optional_string(args, "turn_id"),
+                state_patch=state_patch,
+                context=context,
+            ).to_wire()
+
+    def intern_sync_answer(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.sync_.answer_interaction(
+                require_string(args, "sync_session_id"),
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                interaction_id=require_string(args, "interaction_id"),
+                answer=require_string(args, "answer"),
+                context=context,
+            ).to_wire()
+
+    def intern_sync_pause(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.sync_.pause(
+                require_string(args, "sync_session_id"),
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                rationale=require_string(args, "rationale"),
+            ).to_wire()
+
+    def intern_sync_resume(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.sync_.resume(
+                require_string(args, "sync_session_id"),
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+            ).to_wire()
+
+    def intern_sync_close(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.sync_.close(
+                require_string(args, "sync_session_id"),
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                rationale=require_string(args, "rationale"),
+                outcome=InternRuntimeOutcome(
+                    optional_string(args, "outcome") or InternRuntimeOutcome.COMPLETED.value
+                ),
+            ).to_wire()
+
+    def intern_sync_events(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.sync_.events(
+                require_string(args, "sync_session_id"),
+                after_sequence=optional_int(args, "after_sequence") or 0,
+                limit=optional_int(args, "limit") or 100,
+            ).to_wire()
+
+    def intern_sync_tail(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.sync_.tail(
+                require_string(args, "sync_session_id"),
+                after_sequence=optional_int(args, "after_sequence") or 0,
+                event_count_max=optional_int(args, "event_count_max") or 1,
+                timeout_seconds=_optional_number_default(
+                    args,
+                    "timeout_seconds",
+                    30.0,
+                ),
+            ).to_wire()
+
+    def intern_async_ensure(args: JSONDict) -> JSONDict:
+        request = InternAsyncEnsureRequest.model_validate(
+            _request_payload(
+                args,
+                ("objective", "idempotency_key", "binding", "budget", "metadata"),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.async_.ensure(request).to_wire()
+
+    def intern_async_get(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.async_.get().to_wire()
+
+    def intern_async_command(args: JSONDict) -> JSONDict:
+        request = InternAsyncCommandRequest.model_validate(
+            _request_payload(
+                args,
+                (
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "command_kind",
+                    "payload",
+                ),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.async_.command(request).to_wire()
+
+    def intern_async_send(args: JSONDict) -> JSONDict:
+        request = InternAsyncInstructionRequest.model_validate(
+            {
+                **_request_payload(
+                    args,
+                    (
+                        "command_id",
+                        "idempotency_key",
+                        "expected_generation",
+                        "body",
+                        "context",
+                    ),
+                ),
+                "instruction_kind": optional_string(args, "instruction_kind")
+                or InternAsyncInstructionKind.MESSAGE.value,
+            }
+        )
+        with client_from_args(args) as client:
+            return client.intern.async_.send(request).to_wire()
+
+    def intern_async_events(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.async_.events(
+                after_sequence=optional_int(args, "after_sequence") or 0,
+                limit=optional_int(args, "limit") or 100,
+            ).to_wire()
+
+    def intern_async_tail(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.async_.tail(
+                after_sequence=optional_int(args, "after_sequence") or 0,
+                event_count_max=optional_int(args, "event_count_max") or 1,
+                timeout_seconds=_optional_number_default(
+                    args,
+                    "timeout_seconds",
+                    30.0,
+                ),
+            ).to_wire()
+
+    def intern_async_pause(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.async_.pause(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                reason=require_string(args, "reason"),
+            ).to_wire()
+
+    def intern_async_resume(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.async_.resume(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+            ).to_wire()
+
+    def intern_async_cancel(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return client.intern.async_.cancel(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                reason=require_string(args, "reason"),
+            ).to_wire()
+
+    def intern_async_provide_input(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.async_.provide_input(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                interaction_id=require_string(args, "interaction_id"),
+                body=require_string(args, "body"),
+                context=context,
+            ).to_wire()
+
+    def intern_async_intervene(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.async_.intervene(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                body=require_string(args, "body"),
+                context=context,
+            ).to_wire()
+
+    def intern_async_redirect_objective(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.async_.redirect_objective(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                objective=require_string(args, "objective"),
+                context=context,
+            ).to_wire()
+
+    def intern_async_request_checkpoint(args: JSONDict) -> JSONDict:
+        context = args.get("context")
+        if context is not None and not isinstance(context, dict):
+            raise ValueError("'context' must be an object when provided")
+        with client_from_args(args) as client:
+            return client.intern.async_.request_checkpoint(
+                command_id=require_string(args, "command_id"),
+                idempotency_key=require_string(args, "idempotency_key"),
+                expected_generation=require_int(args, "expected_generation"),
+                context=context,
+            ).to_wire()
 
     def update(args: JSONDict) -> JSONDict:
         request = ResearchInternPatchRequest.model_validate(
@@ -414,7 +709,477 @@ def build_research_intern_tools(
             "pattern": "^sha256:[0-9a-f]{64}$",
         }
     }
+    async_command_identity: JSONDict = {
+        "command_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+        },
+        "expected_generation": {"type": "integer", "minimum": 0},
+    }
+    async_context = {"context": {"type": "object"}}
+    async_event_cursor: JSONDict = {
+        "after_sequence": {"type": "integer", "minimum": 0},
+    }
+    sync_selector: JSONDict = {
+        "sync_session_id": {"type": "string", "minLength": 1},
+    }
     return [
+        ToolDefinition(
+            name="intern_sync_create",
+            description="Create or replay one durable operator-present Sync session.",
+            input_schema=tool_schema(
+                {
+                    "objective": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    "idempotency_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                    },
+                    "binding": {"type": "object"},
+                    "metadata": {"type": "object"},
+                },
+                required=["objective", "idempotency_key"],
+            ),
+            handler=intern_sync_create,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_list",
+            description="List a bounded page of durable Sync Intern sessions.",
+            input_schema=tool_schema(
+                {"limit": {"type": "integer", "minimum": 1, "maximum": 500}},
+                required=[],
+            ),
+            handler=intern_sync_list,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_get",
+            description="Get one authoritative Sync Intern session projection.",
+            input_schema=tool_schema(sync_selector, required=["sync_session_id"]),
+            handler=intern_sync_get,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_command",
+            description="Submit one exact durable Sync command envelope.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_command_identity,
+                    "command_kind": {
+                        "type": "string",
+                        "enum": [value.value for value in InternSyncCommandKind],
+                    },
+                    "payload": {"type": "object"},
+                },
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "command_kind",
+                ],
+            ),
+            handler=intern_sync_command,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_send",
+            description="Send an operator message to one Sync Intern session.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_command_identity,
+                    "turn_id": {"type": "string", "minLength": 1},
+                    "body": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    "context": {"type": "object"},
+                },
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "body",
+                ],
+            ),
+            handler=intern_sync_send,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_intervene",
+            description="Fence pending Sync work and replace it with operator direction.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_command_identity,
+                    "turn_id": {"type": "string", "minLength": 1},
+                    "body": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    "state_patch": {"type": "object"},
+                    "context": {"type": "object"},
+                },
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "body",
+                ],
+            ),
+            handler=intern_sync_intervene,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_answer",
+            description="Answer the exact pending Sync Intern interaction.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_command_identity,
+                    "interaction_id": {"type": "string", "minLength": 1},
+                    "answer": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    "context": {"type": "object"},
+                },
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "interaction_id",
+                    "answer",
+                ],
+            ),
+            handler=intern_sync_answer,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_pause",
+            description="Pause a Sync session and fence its pending effects.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_command_identity,
+                    "rationale": {"type": "string", "minLength": 1},
+                },
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "rationale",
+                ],
+            ),
+            handler=intern_sync_pause,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_resume",
+            description="Resume a paused Sync Intern session.",
+            input_schema=tool_schema(
+                {**sync_selector, **async_command_identity},
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                ],
+            ),
+            handler=intern_sync_resume,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_close",
+            description="Close a Sync session while retaining its durable ledger.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_command_identity,
+                    "outcome": {
+                        "type": "string",
+                        "enum": [value.value for value in InternRuntimeOutcome],
+                    },
+                    "rationale": {"type": "string", "minLength": 1},
+                },
+                required=[
+                    "sync_session_id",
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "rationale",
+                ],
+            ),
+            handler=intern_sync_close,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_events",
+            description="Replay a bounded contiguous Sync Intern event page.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_event_cursor,
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 500},
+                },
+                required=["sync_session_id"],
+            ),
+            handler=intern_sync_events,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_sync_tail",
+            description="Wait for a bounded number of Sync Intern SSE events.",
+            input_schema=tool_schema(
+                {
+                    **sync_selector,
+                    **async_event_cursor,
+                    "event_count_max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                    },
+                    "timeout_seconds": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                    },
+                },
+                required=["sync_session_id"],
+            ),
+            handler=intern_sync_tail,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_ensure",
+            description=("Ensure and return the organization's one durable Async Intern runtime."),
+            input_schema=tool_schema(
+                {
+                    "objective": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000,
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                    },
+                    "binding": {"type": "object"},
+                    "budget": {"type": "object"},
+                    "metadata": {"type": "object"},
+                },
+                required=["objective", "idempotency_key"],
+            ),
+            handler=intern_async_ensure,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_get",
+            description="Get the authoritative projection of the org Async Intern.",
+            input_schema=tool_schema({}, required=[]),
+            handler=intern_async_get,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_command",
+            description="Submit one exact durable command envelope and return its receipt.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "command_kind": {
+                        "type": "string",
+                        "enum": [value.value for value in InternAsyncCommandKind],
+                    },
+                    "payload": {"type": "object"},
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "command_kind",
+                ],
+            ),
+            handler=intern_async_command,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_send",
+            description="Send a durable message or typed instruction to the Async Intern.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "instruction_kind": {
+                        "type": "string",
+                        "enum": [value.value for value in InternAsyncInstructionKind],
+                    },
+                    "body": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    **async_context,
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "body",
+                ],
+            ),
+            handler=intern_async_send,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_events",
+            description="Replay a bounded contiguous Async Intern event page.",
+            input_schema=tool_schema(
+                {
+                    **async_event_cursor,
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 500},
+                },
+                required=[],
+            ),
+            handler=intern_async_events,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_tail",
+            description="Wait for a bounded number of Async Intern SSE events.",
+            input_schema=tool_schema(
+                {
+                    **async_event_cursor,
+                    "event_count_max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                    },
+                    "timeout_seconds": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                    },
+                },
+                required=[],
+            ),
+            handler=intern_async_tail,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_pause",
+            description="Pause the Async Intern and fence older pending effects.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "reason": {"type": "string", "minLength": 1},
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "reason",
+                ],
+            ),
+            handler=intern_async_pause,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_resume",
+            description="Resume the paused Async Intern from its durable state.",
+            input_schema=tool_schema(
+                async_command_identity,
+                required=["command_id", "idempotency_key", "expected_generation"],
+            ),
+            handler=intern_async_resume,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_cancel",
+            description="Cancel the Async Intern's current work durably.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "reason": {"type": "string", "minLength": 1},
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "reason",
+                ],
+            ),
+            handler=intern_async_cancel,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_provide_input",
+            description="Answer the exact pending Async Intern interaction.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "interaction_id": {"type": "string", "minLength": 1},
+                    "body": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    **async_context,
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "interaction_id",
+                    "body",
+                ],
+            ),
+            handler=intern_async_provide_input,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_intervene",
+            description="Fence older work and steer one replacement Async cycle.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "body": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    **async_context,
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "body",
+                ],
+            ),
+            handler=intern_async_intervene,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_redirect_objective",
+            description="Replace the Async Intern objective and start replanning.",
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "objective": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000,
+                    },
+                    **async_context,
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "objective",
+                ],
+            ),
+            handler=intern_async_redirect_objective,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_request_checkpoint",
+            description="Ask the next bounded Async cycle to yield a checkpoint.",
+            input_schema=tool_schema(
+                {**async_command_identity, **async_context},
+                required=["command_id", "idempotency_key", "expected_generation"],
+            ),
+            handler=intern_async_request_checkpoint,
+            required_scopes=WRITE_SCOPES,
+        ),
         ToolDefinition(
             name="research_provision_research_intern",
             description="Provision or replay the organization Research Intern.",
@@ -472,7 +1237,7 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="research_create_research_intern_session",
-            description="Create or replay one durable Research Intern session.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. Create or replay one durable Research Intern session.",
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "minLength": 1},
@@ -501,7 +1266,7 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="research_list_research_intern_sessions",
-            description="List a bounded page of Research Intern sessions.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. List a bounded page of Research Intern sessions.",
             input_schema=tool_schema(
                 {"limit": {"type": "integer", "minimum": 1, "maximum": 500}},
                 required=[],
@@ -511,14 +1276,14 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="research_get_research_intern_session",
-            description="Retrieve one durable Research Intern session.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. Retrieve one durable Research Intern session.",
             input_schema=tool_schema(session_selector, required=["session_id"]),
             handler=get_session,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
             name="research_append_research_intern_event",
-            description="Append one generation-fenced session event.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. Append one generation-fenced session event.",
             input_schema=tool_schema(
                 event_properties,
                 required=[
@@ -533,7 +1298,7 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="research_list_research_intern_events",
-            description="Read a bounded, reconnectable page of ordered Intern events.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. Read a bounded, reconnectable page of ordered Intern events.",
             input_schema=tool_schema(
                 {
                     **session_selector,
@@ -552,7 +1317,7 @@ def build_research_intern_tools(
         ToolDefinition(
             name="research_watch_research_intern_events",
             description=(
-                "Wait for typed Intern SSE frames with explicit event, frame, "
+                "DEPRECATED: prefer intern_sync_* / intern_async_*. Wait for typed Intern SSE frames with explicit event, frame, "
                 "reconnect, and time bounds."
             ),
             input_schema=tool_schema(
@@ -586,7 +1351,7 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="research_sync_research_intern_session",
-            description="Project a bounded page of real runtime transcript events.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. Project a bounded page of real runtime transcript events.",
             input_schema=tool_schema(
                 {
                     **session_selector,
@@ -600,7 +1365,7 @@ def build_research_intern_tools(
         ToolDefinition(
             name="research_run_research_intern_turn",
             description=(
-                "Submit one operator turn to the bound real runtime and return "
+                "DEPRECATED: prefer intern_sync_* / intern_async_*. Submit one operator turn to the bound real runtime and return "
                 "the canonical bounded reply projection."
             ),
             input_schema=tool_schema(
@@ -653,7 +1418,7 @@ def build_research_intern_tools(
         ToolDefinition(
             name="research_exchange_research_intern_turn",
             description=(
-                "Submit one Intern turn and recover only its exact terminal "
+                "DEPRECATED: prefer intern_sync_* / intern_async_*. Submit one Intern turn and recover only its exact terminal "
                 "agent/error event over the canonical stream."
             ),
             input_schema=tool_schema(
@@ -706,7 +1471,7 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="research_close_research_intern_session",
-            description="Close one exact Intern session generation without deleting evidence.",
+            description="DEPRECATED: prefer intern_sync_* / intern_async_*. Close one exact Intern session generation without deleting evidence.",
             input_schema=tool_schema(
                 {
                     **session_selector,
@@ -740,7 +1505,7 @@ def build_research_intern_tools(
         ToolDefinition(
             name="research_publish_research_intern_session_trace",
             description=(
-                "Publish one terminal Intern event chain through backend-owned "
+                "DEPRECATED: prefer intern_sync_* / intern_async_*. Publish one terminal Intern event chain through backend-owned "
                 "Factory Trace V5 authority."
             ),
             input_schema=tool_schema(
