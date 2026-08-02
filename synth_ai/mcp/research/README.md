@@ -57,6 +57,40 @@ Run-control additions:
 - `smr_branch_run_from_checkpoint` for exact branches and branch-with-message
 - `smr_runtime_message_queue` remains the live steering tool and is intentionally separate from branching
 
+Sync Intern control plane:
+- `intern_sync_create`, `intern_sync_list`, and `intern_sync_get` address
+  durable operator-present sessions
+- `intern_sync_send`, `intern_sync_intervene`, `intern_sync_answer`,
+  `intern_sync_pause`, `intern_sync_resume`, and `intern_sync_close` are typed
+  generation-fenced controls over the same command inbox
+- `intern_sync_command` preserves the exact command envelope, while
+  `intern_sync_events` and `intern_sync_tail` provide reconnectable ledger access
+
+These tools are thin adapters over `client.intern.sync_`. Sync session identity
+and event cursors are explicit because one organization may have multiple Sync
+sessions; they never address the singleton Async resource implicitly.
+
+Async Intern control plane:
+- `intern_async_ensure` and `intern_async_get` address the organization's one
+  long-lived Async Intern runtime
+- `intern_async_command` preserves the exact durable command envelope
+- `intern_async_send`, `intern_async_intervene`,
+  `intern_async_redirect_objective`, and `intern_async_request_checkpoint`
+  submit typed instructions to the same backend inbox
+- `intern_async_pause`, `intern_async_resume`, `intern_async_cancel`, and
+  `intern_async_provide_input` expose explicit state-machine controls
+- `intern_async_events` replays a bounded event page and `intern_async_tail`
+  waits for a bounded number of SSE events
+
+These tools are thin adapters over `client.intern.async_`; they do not call
+HTTP directly and do not contain reducer logic. A command receipt proves
+durable admission, not completion. Callers retain command/idempotency identity
+across retries and use the event cursor for progress after disconnecting. This
+MCP surface is the external client control plane. The Intern's own
+capability-gated Factory/Swarm MCP execution happens behind Temporal and is not
+routed through these tools. Manderqueue remains actor transport for a bound Run
+and is never the client mailbox.
+
 Provider-wrapper note:
 - OpenRouter, Tinker, and Modal wrapper usage should still be read through canonical
   run usage and actor-usage surfaces, not wrapper-specific payloads

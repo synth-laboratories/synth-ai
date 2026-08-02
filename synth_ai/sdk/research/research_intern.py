@@ -44,6 +44,25 @@ from synth_ai.sdk.research.contracts.research_intern import (
     DatasetRevisionCreateRequest,
     DatasetRevisionLifecycleRequest,
     DatasetRevisionResponse,
+    InternAsyncCommandKind,
+    InternAsyncCommandReceipt,
+    InternAsyncCommandRequest,
+    InternAsyncEnsureRequest,
+    InternAsyncEvent,
+    InternAsyncEventPage,
+    InternAsyncEventStreamEnvelope,
+    InternAsyncInstructionKind,
+    InternAsyncInstructionRequest,
+    InternAsyncRuntime,
+    InternRuntimeOutcome,
+    InternSyncCommandKind,
+    InternSyncCommandReceipt,
+    InternSyncCommandRequest,
+    InternSyncEvent,
+    InternSyncEventPage,
+    InternSyncEventStreamEnvelope,
+    InternSyncSession,
+    InternSyncSessionCreateRequest,
     MagiDecisionKind,
     MagiDecisionReceiptResponse,
     MagiDecisionRequest,
@@ -153,6 +172,97 @@ def _decisions(value: object) -> tuple[MagiDecisionReceiptResponse, ...]:
             operation_id="list_magi_decisions",
         )
     )
+
+
+def _intern_async_event_page(
+    value: object,
+    *,
+    after_sequence: int,
+) -> InternAsyncEventPage:
+    events = tuple(
+        InternAsyncEvent.from_wire(item)
+        for item in array_value(
+            cast(JsonValue, value),
+            operation_id="list_intern_async_runtime_events",
+        )
+    )
+    expected_sequence = after_sequence + 1
+    runtime_id: str | None = None
+    for event in events:
+        if event.sequence != expected_sequence:
+            raise ValueError("Async Intern event page has a cursor gap")
+        if runtime_id is not None and event.runtime_id != runtime_id:
+            raise ValueError("Async Intern event page crossed runtime identity")
+        runtime_id = event.runtime_id
+        expected_sequence += 1
+    return InternAsyncEventPage(
+        events=events,
+        next_sequence=events[-1].sequence if events else after_sequence,
+    )
+
+
+def _intern_sync_event_page(
+    value: object,
+    *,
+    after_sequence: int,
+    runtime_id: str,
+) -> InternSyncEventPage:
+    events = tuple(
+        InternSyncEvent.from_wire(item)
+        for item in array_value(
+            cast(JsonValue, value),
+            operation_id="list_intern_runtime_events",
+        )
+    )
+    expected_sequence = after_sequence + 1
+    for event in events:
+        if event.sequence != expected_sequence:
+            raise ValueError("Sync Intern event page has a cursor gap")
+        if event.runtime_id != runtime_id:
+            raise ValueError("Sync Intern event page crossed runtime identity")
+        expected_sequence += 1
+    return InternSyncEventPage(
+        events=events,
+        next_sequence=events[-1].sequence if events else after_sequence,
+    )
+
+
+def _intern_async_stream_event(
+    frame: SseEvent,
+    *,
+    expected_sequence: int,
+    runtime_id: str | None,
+) -> InternAsyncEvent:
+    envelope = InternAsyncEventStreamEnvelope.from_wire(frame.json_data())
+    event = envelope.event
+    if (
+        event.sequence != expected_sequence
+        or frame.event_id != str(event.sequence)
+        or frame.event != event.event_kind
+    ):
+        raise ValueError("Async Intern SSE cursor or event identity drifted")
+    if runtime_id is not None and event.runtime_id != runtime_id:
+        raise ValueError("Async Intern SSE crossed runtime identity")
+    return event
+
+
+def _intern_sync_stream_event(
+    frame: SseEvent,
+    *,
+    expected_sequence: int,
+    runtime_id: str,
+) -> InternSyncEvent:
+    envelope = InternSyncEventStreamEnvelope.from_wire(frame.json_data())
+    event = envelope.event
+    if (
+        event.sequence != expected_sequence
+        or frame.event_id != str(event.sequence)
+        or frame.event != event.event_kind
+    ):
+        raise ValueError("Sync Intern SSE cursor or event identity drifted")
+    if event.runtime_id != runtime_id:
+        raise ValueError("Sync Intern SSE crossed runtime identity")
+    return event
 
 
 def _sessions(value: object) -> tuple[ResearchInternSessionResponse, ...]:
@@ -1909,11 +2019,539 @@ class ResearchInternReactiveSession:
         )
 
 
+class ResearchInternSyncRuntimeAPI:
+    """Synchronous transport for durable operator-present Sync sessions."""
+
+    _PATH = "/smr/research-intern/sync-sessions"
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def create(self, request: InternSyncSessionCreateRequest) -> InternSyncSession:
+        return InternSyncSession.from_wire(
+            self._transport.execute(
+                _request(
+                    "create_intern_sync_session",
+                    self._PATH,
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    def list(self, *, limit: int = 100) -> tuple[InternSyncSession, ...]:
+        return tuple(
+            InternSyncSession.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(
+                        _request(
+                            "list_intern_sync_sessions",
+                            self._PATH,
+                            query={"limit": _bounded_limit(limit)},
+                        )
+                    ),
+                ),
+                operation_id="list_intern_sync_sessions",
+            )
+        )
+
+    def get(self, sync_session_id: str) -> InternSyncSession:
+        session = InternSyncSession.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_sync_session",
+                    f"{self._PATH}/{sync_session_id}",
+                )
+            )
+        )
+        if session.sync_session_id != sync_session_id:
+            raise ValueError("Sync Intern session identity drifted")
+        return session
+
+    def command(
+        self,
+        sync_session_id: str,
+        request: InternSyncCommandRequest,
+    ) -> InternSyncCommandReceipt:
+        receipt = InternSyncCommandReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "command_intern_sync_session",
+                    f"{self._PATH}/{sync_session_id}/commands",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id or receipt.runtime_id != sync_session_id:
+            raise ValueError("Sync Intern command receipt identity drifted")
+        return receipt
+
+    def send_message(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        body: str,
+        turn_id: str | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternSyncCommandReceipt:
+        return self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.OPERATOR_MESSAGE,
+                payload={
+                    "turn_id": turn_id or command_id,
+                    "body": body,
+                    "context": context or {},
+                },
+            ),
+        )
+
+    def intervene(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        body: str,
+        turn_id: str | None = None,
+        state_patch: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternSyncCommandReceipt:
+        return self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.INTERVENE,
+                payload={
+                    "turn_id": turn_id or command_id,
+                    "body": body,
+                    "state_patch": state_patch or {},
+                    "context": context or {},
+                },
+            ),
+        )
+
+    def answer_interaction(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        interaction_id: str,
+        answer: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternSyncCommandReceipt:
+        return self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.ANSWER_INTERACTION,
+                payload={
+                    "interaction_id": interaction_id,
+                    "answer": answer,
+                    "context": context or {},
+                },
+            ),
+        )
+
+    def pause(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        rationale: str,
+    ) -> InternSyncCommandReceipt:
+        return self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.PAUSE,
+                payload={"rationale": rationale},
+            ),
+        )
+
+    def resume(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+    ) -> InternSyncCommandReceipt:
+        return self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.RESUME,
+            ),
+        )
+
+    def close(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        rationale: str,
+        outcome: InternRuntimeOutcome = InternRuntimeOutcome.COMPLETED,
+    ) -> InternSyncCommandReceipt:
+        return self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.CLOSE,
+                payload={"outcome": outcome.value, "rationale": rationale},
+            ),
+        )
+
+    def events(
+        self,
+        sync_session_id: str,
+        *,
+        after_sequence: int = 0,
+        limit: int = 100,
+    ) -> InternSyncEventPage:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        return _intern_sync_event_page(
+            self._transport.execute(
+                _request(
+                    "list_intern_runtime_events",
+                    f"/smr/research-intern/runtimes/sync/{sync_session_id}/events",
+                    query={
+                        "after_sequence": after_sequence,
+                        "limit": _bounded_limit(limit),
+                    },
+                )
+            ),
+            after_sequence=after_sequence,
+            runtime_id=sync_session_id,
+        )
+
+    def stream_events(
+        self,
+        sync_session_id: str,
+        *,
+        after_sequence: int = 0,
+        timeout_seconds: float = 30.0,
+    ) -> Iterator[InternSyncEvent]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        expected_sequence = after_sequence + 1
+        path = f"/smr/research-intern/runtimes/sync/{sync_session_id}/events/stream"
+        for frame in self._transport.stream_sse(
+            path,
+            params={"after_sequence": after_sequence},
+            last_event_id=str(after_sequence) if after_sequence else None,
+            timeout_seconds=_stream_timeout_seconds(timeout_seconds),
+            operation_id="stream_intern_runtime_events",
+        ):
+            event = _intern_sync_stream_event(
+                frame,
+                expected_sequence=expected_sequence,
+                runtime_id=sync_session_id,
+            )
+            expected_sequence = event.sequence + 1
+            yield event
+
+    def tail(
+        self,
+        sync_session_id: str,
+        *,
+        after_sequence: int = 0,
+        event_count_max: int = 1,
+        timeout_seconds: float = 30.0,
+    ) -> InternSyncEventPage:
+        _stream_bound(event_count_max, name="event_count_max", maximum=500)
+        events: list[InternSyncEvent] = []
+        for event in self.stream_events(
+            sync_session_id,
+            after_sequence=after_sequence,
+            timeout_seconds=timeout_seconds,
+        ):
+            events.append(event)
+            if len(events) >= event_count_max:
+                break
+        return InternSyncEventPage(
+            events=tuple(events),
+            next_sequence=events[-1].sequence if events else after_sequence,
+        )
+
+
+class ResearchInternAsyncRuntimeAPI:
+    """Synchronous transport for the organization's singleton Async Intern."""
+
+    _PATH = "/smr/research-intern/async"
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def ensure(self, request: InternAsyncEnsureRequest) -> InternAsyncRuntime:
+        return InternAsyncRuntime.from_wire(
+            self._transport.execute(
+                _request(
+                    "ensure_intern_async_runtime",
+                    self._PATH,
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    def get(self) -> InternAsyncRuntime:
+        return InternAsyncRuntime.from_wire(
+            self._transport.execute(_request("get_intern_async_runtime", self._PATH))
+        )
+
+    def command(self, request: InternAsyncCommandRequest) -> InternAsyncCommandReceipt:
+        receipt = InternAsyncCommandReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "command_intern_async_runtime",
+                    f"{self._PATH}/commands",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id:
+            raise ValueError("Async Intern command receipt identity drifted")
+        return receipt
+
+    def send(self, request: InternAsyncInstructionRequest) -> InternAsyncCommandReceipt:
+        return self.command(request.to_command())
+
+    def pause(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        return self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.PAUSE,
+                payload={"reason": reason},
+            )
+        )
+
+    def resume(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+    ) -> InternAsyncCommandReceipt:
+        return self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.RESUME,
+            )
+        )
+
+    def cancel(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        return self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.CANCEL,
+                payload={"reason": reason},
+            )
+        )
+
+    def provide_input(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        interaction_id: str,
+        body: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.PROVIDE_INPUT,
+                payload={
+                    "interaction_id": interaction_id,
+                    "body": body,
+                    "context": context or {},
+                },
+            )
+        )
+
+    def intervene(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        body: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return self.send(
+            InternAsyncInstructionRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                instruction_kind=InternAsyncInstructionKind.INTERVENE,
+                body=body,
+                context=context or {},
+            )
+        )
+
+    def redirect_objective(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        objective: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return self.send(
+            InternAsyncInstructionRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                instruction_kind=InternAsyncInstructionKind.REDIRECT_OBJECTIVE,
+                body=objective,
+                context=context or {},
+            )
+        )
+
+    def request_checkpoint(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return self.send(
+            InternAsyncInstructionRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                instruction_kind=InternAsyncInstructionKind.REQUEST_CHECKPOINT,
+                context=context or {},
+            )
+        )
+
+    def events(
+        self,
+        *,
+        after_sequence: int = 0,
+        limit: int = 100,
+    ) -> InternAsyncEventPage:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        return _intern_async_event_page(
+            self._transport.execute(
+                _request(
+                    "list_intern_async_runtime_events",
+                    f"{self._PATH}/events",
+                    query={
+                        "after_sequence": after_sequence,
+                        "limit": _bounded_limit(limit),
+                    },
+                )
+            ),
+            after_sequence=after_sequence,
+        )
+
+    def stream_events(
+        self,
+        *,
+        after_sequence: int = 0,
+        timeout_seconds: float = 30.0,
+    ) -> Iterator[InternAsyncEvent]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        expected_sequence = after_sequence + 1
+        runtime_id: str | None = None
+        for frame in self._transport.stream_sse(
+            f"{self._PATH}/events/stream",
+            params={"after_sequence": after_sequence},
+            last_event_id=str(after_sequence) if after_sequence else None,
+            timeout_seconds=_stream_timeout_seconds(timeout_seconds),
+            operation_id="stream_intern_async_runtime_events",
+        ):
+            event = _intern_async_stream_event(
+                frame,
+                expected_sequence=expected_sequence,
+                runtime_id=runtime_id,
+            )
+            runtime_id = event.runtime_id
+            expected_sequence = event.sequence + 1
+            yield event
+
+    def tail(
+        self,
+        *,
+        after_sequence: int = 0,
+        event_count_max: int = 1,
+        timeout_seconds: float = 30.0,
+    ) -> InternAsyncEventPage:
+        _stream_bound(event_count_max, name="event_count_max", maximum=500)
+        events: list[InternAsyncEvent] = []
+        for event in self.stream_events(
+            after_sequence=after_sequence,
+            timeout_seconds=timeout_seconds,
+        ):
+            events.append(event)
+            if len(events) >= event_count_max:
+                break
+        return InternAsyncEventPage(
+            events=tuple(events),
+            next_sequence=events[-1].sequence if events else after_sequence,
+        )
+
+
 class ResearchInternAPI:
     """One durable organization Intern and its many Factory memberships."""
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
+        self.sync_ = ResearchInternSyncRuntimeAPI(transport)
+        self.async_ = ResearchInternAsyncRuntimeAPI(transport)
         self.factories = ResearchInternFactoriesAPI(transport)
         self.decisions = ResearchInternDecisionsAPI(transport)
         self.sessions = ResearchInternSessionsAPI(transport, self)
@@ -3143,11 +3781,542 @@ class AsyncResearchInternAcceptanceReceiptsAPI:
         return receipts
 
 
+class AsyncResearchInternSyncRuntimeAPI:
+    """Native async transport for operator-present Sync sessions."""
+
+    _PATH = "/smr/research-intern/sync-sessions"
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def create(
+        self,
+        request: InternSyncSessionCreateRequest,
+    ) -> InternSyncSession:
+        return InternSyncSession.from_wire(
+            await self._transport.execute(
+                _request(
+                    "create_intern_sync_session",
+                    self._PATH,
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    async def list(self, *, limit: int = 100) -> tuple[InternSyncSession, ...]:
+        return tuple(
+            InternSyncSession.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    await self._transport.execute(
+                        _request(
+                            "list_intern_sync_sessions",
+                            self._PATH,
+                            query={"limit": _bounded_limit(limit)},
+                        )
+                    ),
+                ),
+                operation_id="list_intern_sync_sessions",
+            )
+        )
+
+    async def get(self, sync_session_id: str) -> InternSyncSession:
+        session = InternSyncSession.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_sync_session",
+                    f"{self._PATH}/{sync_session_id}",
+                )
+            )
+        )
+        if session.sync_session_id != sync_session_id:
+            raise ValueError("Sync Intern session identity drifted")
+        return session
+
+    async def command(
+        self,
+        sync_session_id: str,
+        request: InternSyncCommandRequest,
+    ) -> InternSyncCommandReceipt:
+        receipt = InternSyncCommandReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "command_intern_sync_session",
+                    f"{self._PATH}/{sync_session_id}/commands",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id or receipt.runtime_id != sync_session_id:
+            raise ValueError("Sync Intern command receipt identity drifted")
+        return receipt
+
+    async def send_message(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        body: str,
+        turn_id: str | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternSyncCommandReceipt:
+        return await self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.OPERATOR_MESSAGE,
+                payload={
+                    "turn_id": turn_id or command_id,
+                    "body": body,
+                    "context": context or {},
+                },
+            ),
+        )
+
+    async def intervene(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        body: str,
+        turn_id: str | None = None,
+        state_patch: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternSyncCommandReceipt:
+        return await self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.INTERVENE,
+                payload={
+                    "turn_id": turn_id or command_id,
+                    "body": body,
+                    "state_patch": state_patch or {},
+                    "context": context or {},
+                },
+            ),
+        )
+
+    async def answer_interaction(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        interaction_id: str,
+        answer: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternSyncCommandReceipt:
+        return await self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.ANSWER_INTERACTION,
+                payload={
+                    "interaction_id": interaction_id,
+                    "answer": answer,
+                    "context": context or {},
+                },
+            ),
+        )
+
+    async def pause(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        rationale: str,
+    ) -> InternSyncCommandReceipt:
+        return await self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.PAUSE,
+                payload={"rationale": rationale},
+            ),
+        )
+
+    async def resume(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+    ) -> InternSyncCommandReceipt:
+        return await self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.RESUME,
+            ),
+        )
+
+    async def close(
+        self,
+        sync_session_id: str,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        rationale: str,
+        outcome: InternRuntimeOutcome = InternRuntimeOutcome.COMPLETED,
+    ) -> InternSyncCommandReceipt:
+        return await self.command(
+            sync_session_id,
+            InternSyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternSyncCommandKind.CLOSE,
+                payload={"outcome": outcome.value, "rationale": rationale},
+            ),
+        )
+
+    async def events(
+        self,
+        sync_session_id: str,
+        *,
+        after_sequence: int = 0,
+        limit: int = 100,
+    ) -> InternSyncEventPage:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        return _intern_sync_event_page(
+            await self._transport.execute(
+                _request(
+                    "list_intern_runtime_events",
+                    f"/smr/research-intern/runtimes/sync/{sync_session_id}/events",
+                    query={
+                        "after_sequence": after_sequence,
+                        "limit": _bounded_limit(limit),
+                    },
+                )
+            ),
+            after_sequence=after_sequence,
+            runtime_id=sync_session_id,
+        )
+
+    async def stream_events(
+        self,
+        sync_session_id: str,
+        *,
+        after_sequence: int = 0,
+        timeout_seconds: float = 30.0,
+    ) -> AsyncIterator[InternSyncEvent]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        expected_sequence = after_sequence + 1
+        path = f"/smr/research-intern/runtimes/sync/{sync_session_id}/events/stream"
+        async for frame in self._transport.stream_sse(
+            path,
+            params={"after_sequence": after_sequence},
+            last_event_id=str(after_sequence) if after_sequence else None,
+            timeout_seconds=_stream_timeout_seconds(timeout_seconds),
+            operation_id="stream_intern_runtime_events",
+        ):
+            event = _intern_sync_stream_event(
+                frame,
+                expected_sequence=expected_sequence,
+                runtime_id=sync_session_id,
+            )
+            expected_sequence = event.sequence + 1
+            yield event
+
+    async def tail(
+        self,
+        sync_session_id: str,
+        *,
+        after_sequence: int = 0,
+        event_count_max: int = 1,
+        timeout_seconds: float = 30.0,
+    ) -> InternSyncEventPage:
+        _stream_bound(event_count_max, name="event_count_max", maximum=500)
+        events: list[InternSyncEvent] = []
+        async for event in self.stream_events(
+            sync_session_id,
+            after_sequence=after_sequence,
+            timeout_seconds=timeout_seconds,
+        ):
+            events.append(event)
+            if len(events) >= event_count_max:
+                break
+        return InternSyncEventPage(
+            events=tuple(events),
+            next_sequence=events[-1].sequence if events else after_sequence,
+        )
+
+
+class AsyncResearchInternAsyncRuntimeAPI:
+    """Native async transport for the organization's singleton Async Intern."""
+
+    _PATH = "/smr/research-intern/async"
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def ensure(self, request: InternAsyncEnsureRequest) -> InternAsyncRuntime:
+        return InternAsyncRuntime.from_wire(
+            await self._transport.execute(
+                _request(
+                    "ensure_intern_async_runtime",
+                    self._PATH,
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    async def get(self) -> InternAsyncRuntime:
+        return InternAsyncRuntime.from_wire(
+            await self._transport.execute(_request("get_intern_async_runtime", self._PATH))
+        )
+
+    async def command(self, request: InternAsyncCommandRequest) -> InternAsyncCommandReceipt:
+        receipt = InternAsyncCommandReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "command_intern_async_runtime",
+                    f"{self._PATH}/commands",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id:
+            raise ValueError("Async Intern command receipt identity drifted")
+        return receipt
+
+    async def send(self, request: InternAsyncInstructionRequest) -> InternAsyncCommandReceipt:
+        return await self.command(request.to_command())
+
+    async def pause(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        return await self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.PAUSE,
+                payload={"reason": reason},
+            )
+        )
+
+    async def resume(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+    ) -> InternAsyncCommandReceipt:
+        return await self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.RESUME,
+            )
+        )
+
+    async def cancel(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        return await self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.CANCEL,
+                payload={"reason": reason},
+            )
+        )
+
+    async def provide_input(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        interaction_id: str,
+        body: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return await self.command(
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.PROVIDE_INPUT,
+                payload={
+                    "interaction_id": interaction_id,
+                    "body": body,
+                    "context": context or {},
+                },
+            )
+        )
+
+    async def intervene(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        body: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return await self.send(
+            InternAsyncInstructionRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                instruction_kind=InternAsyncInstructionKind.INTERVENE,
+                body=body,
+                context=context or {},
+            )
+        )
+
+    async def redirect_objective(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        objective: str,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return await self.send(
+            InternAsyncInstructionRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                instruction_kind=InternAsyncInstructionKind.REDIRECT_OBJECTIVE,
+                body=objective,
+                context=context or {},
+            )
+        )
+
+    async def request_checkpoint(
+        self,
+        *,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        context: dict[str, JsonValue] | None = None,
+    ) -> InternAsyncCommandReceipt:
+        return await self.send(
+            InternAsyncInstructionRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                instruction_kind=InternAsyncInstructionKind.REQUEST_CHECKPOINT,
+                context=context or {},
+            )
+        )
+
+    async def events(
+        self,
+        *,
+        after_sequence: int = 0,
+        limit: int = 100,
+    ) -> InternAsyncEventPage:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        return _intern_async_event_page(
+            await self._transport.execute(
+                _request(
+                    "list_intern_async_runtime_events",
+                    f"{self._PATH}/events",
+                    query={
+                        "after_sequence": after_sequence,
+                        "limit": _bounded_limit(limit),
+                    },
+                )
+            ),
+            after_sequence=after_sequence,
+        )
+
+    async def stream_events(
+        self,
+        *,
+        after_sequence: int = 0,
+        timeout_seconds: float = 30.0,
+    ) -> AsyncIterator[InternAsyncEvent]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        expected_sequence = after_sequence + 1
+        runtime_id: str | None = None
+        async for frame in self._transport.stream_sse(
+            f"{self._PATH}/events/stream",
+            params={"after_sequence": after_sequence},
+            last_event_id=str(after_sequence) if after_sequence else None,
+            timeout_seconds=_stream_timeout_seconds(timeout_seconds),
+            operation_id="stream_intern_async_runtime_events",
+        ):
+            event = _intern_async_stream_event(
+                frame,
+                expected_sequence=expected_sequence,
+                runtime_id=runtime_id,
+            )
+            runtime_id = event.runtime_id
+            expected_sequence = event.sequence + 1
+            yield event
+
+    async def tail(
+        self,
+        *,
+        after_sequence: int = 0,
+        event_count_max: int = 1,
+        timeout_seconds: float = 30.0,
+    ) -> InternAsyncEventPage:
+        _stream_bound(event_count_max, name="event_count_max", maximum=500)
+        events: list[InternAsyncEvent] = []
+        async for event in self.stream_events(
+            after_sequence=after_sequence,
+            timeout_seconds=timeout_seconds,
+        ):
+            events.append(event)
+            if len(events) >= event_count_max:
+                break
+        return InternAsyncEventPage(
+            events=tuple(events),
+            next_sequence=events[-1].sequence if events else after_sequence,
+        )
+
+
 class AsyncResearchInternAPI:
     """Native asynchronous organization Research Intern operations."""
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
+        self.sync_ = AsyncResearchInternSyncRuntimeAPI(transport)
+        self.async_ = AsyncResearchInternAsyncRuntimeAPI(transport)
         self.factories = AsyncResearchInternFactoriesAPI(transport)
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
         self.sessions = AsyncResearchInternSessionsAPI(transport, self)
@@ -4076,6 +5245,7 @@ class AsyncProjectDataBindingsAPI:
 __all__ = [
     "AsyncProjectComputerAPI",
     "AsyncProjectDataBindingsAPI",
+    "AsyncResearchInternAsyncRuntimeAPI",
     "AsyncResearchInternAcceptanceReceiptsAPI",
     "AsyncResearchInternAPI",
     "AsyncResearchInternDecisionsAPI",
@@ -4086,6 +5256,7 @@ __all__ = [
     "ProjectDataBindingsAPI",
     "ResearchInternAcceptanceReceiptsAPI",
     "ResearchInternAPI",
+    "ResearchInternAsyncRuntimeAPI",
     "ResearchInternDecisionsAPI",
     "ResearchInternEventCursor",
     "ResearchInternEventObservation",
