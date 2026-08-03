@@ -1006,6 +1006,7 @@ class ResearchMcpServer:
             result = client.factories.wake_due(
                 factory_id,
                 launch_request=contract.launch_request,
+                effort_ids=contract.effort_ids,
                 limit=contract.limit,
                 allow_overlap=contract.allow_overlap,
                 dry_run=False,

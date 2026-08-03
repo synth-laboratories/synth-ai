@@ -219,6 +219,7 @@ def _wake_due_preview_kwargs(plan: Mapping[str, Any]) -> dict[str, Any]:
             field="wake_due.launch_request",
         )
         or None,
+        "effort_ids": tuple(str(value) for value in wake_due.get("effort_ids") or []),
         "limit": int(wake_due.get("limit") or 10),
         "allow_overlap": bool(wake_due.get("allow_overlap") or False),
         "continue_on_error": bool(wake_due.get("continue_on_error", True)),
@@ -1154,6 +1155,7 @@ class FactoriesAPI(_ClientNamespace):
         result = self.wake_due(
             factory_id,
             launch_request=contract.launch_request,
+            effort_ids=contract.effort_ids,
             limit=contract.limit,
             allow_overlap=contract.allow_overlap,
             dry_run=False,
@@ -1170,6 +1172,7 @@ class FactoriesAPI(_ClientNamespace):
         factory_id: str,
         *,
         launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
+        effort_ids: tuple[str, ...] = (),
         limit: int = 10,
         allow_overlap: bool = False,
         dry_run: bool = False,
@@ -1190,6 +1193,7 @@ class FactoriesAPI(_ClientNamespace):
                 factory_id,
                 FactoryWakeDueRequest(
                     launch_request=dict(launch_request) if launch_request else None,
+                    effort_ids=tuple(effort_ids),
                     limit=limit,
                     allow_overlap=allow_overlap,
                     dry_run=dry_run,

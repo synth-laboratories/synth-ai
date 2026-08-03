@@ -277,6 +277,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             return client.factories.wake_due(
                 str(args["factory_id"]),
                 launch_request=args.get("launch_request"),
+                effort_ids=tuple(str(value) for value in args.get("effort_ids") or []),
                 limit=int(args.get("limit") or 10),
                 allow_overlap=bool(args.get("allow_overlap") or False),
                 dry_run=True,
@@ -764,6 +765,13 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                     "launch_request": {
                         "type": "object",
                         "description": "Optional default launch request.",
+                    },
+                    "effort_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 100,
+                        "uniqueItems": True,
+                        "description": "Optional exact Effort scope for the preview.",
                     },
                     "limit": {
                         "type": "integer",

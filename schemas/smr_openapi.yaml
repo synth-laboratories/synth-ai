@@ -35608,6 +35608,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/synthtunnel/leases/{lease_id}/heartbeat:
+    post:
+      tags:
+      - synthtunnel
+      summary: Heartbeat Lease
+      operationId: heartbeat_lease_api_v1_synthtunnel_leases__lease_id__heartbeat_post
+      parameters:
+      - name: lease_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lease Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeaseHeartbeatRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaseCredentialsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/synthtunnel/leases/{lease_id}/attach:
+    post:
+      tags:
+      - synthtunnel
+      summary: Attach Lease
+      operationId: attach_lease_api_v1_synthtunnel_leases__lease_id__attach_post
+      parameters:
+      - name: lease_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lease Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaseCredentialsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/optimizers/gelo-launch-promo/status:
     get:
       tags:
@@ -39731,11 +39789,16 @@ components:
         agent_token:
           type: string
           title: Agent Token
+        token_expires_at:
+          type: string
+          format: date-time
+          title: Token Expires At
       type: object
       required:
       - transport
       - url
       - agent_token
+      - token_expires_at
       title: AgentConnectInfo
     AgentSessionCreateRequest:
       properties:
@@ -41978,7 +42041,7 @@ components:
           $ref: '#/components/schemas/LocalTarget'
         requested_ttl_seconds:
           type: integer
-          maximum: 86400.0
+          maximum: 604800.0
           minimum: 60.0
           title: Requested Ttl Seconds
           default: 3600
@@ -42014,6 +42077,10 @@ components:
         worker_token:
           type: string
           title: Worker Token
+        worker_token_expires_at:
+          type: string
+          format: date-time
+          title: Worker Token Expires At
         expires_at:
           type: string
           format: date-time
@@ -42030,6 +42097,7 @@ components:
       - public_url
       - agent_connect
       - worker_token
+      - worker_token_expires_at
       - expires_at
       - limits
       - heartbeat
@@ -46164,6 +46232,46 @@ components:
       - agent_kind
       - model
       title: LaunchRoleDefaultsResponse
+    LeaseCredentialsResponse:
+      properties:
+        lease_id:
+          type: string
+          title: Lease Id
+        status:
+          type: string
+          title: Status
+        public_url:
+          type: string
+          title: Public Url
+        agent_connect:
+          $ref: '#/components/schemas/AgentConnectInfo'
+        worker_token:
+          type: string
+          title: Worker Token
+        worker_token_expires_at:
+          type: string
+          format: date-time
+          title: Worker Token Expires At
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        limits:
+          $ref: '#/components/schemas/LeaseLimits'
+        heartbeat:
+          $ref: '#/components/schemas/LeaseHeartbeat'
+      type: object
+      required:
+      - lease_id
+      - status
+      - public_url
+      - agent_connect
+      - worker_token
+      - worker_token_expires_at
+      - expires_at
+      - limits
+      - heartbeat
+      title: LeaseCredentialsResponse
     LeaseHeartbeat:
       properties:
         required:
@@ -46177,6 +46285,16 @@ components:
       - required
       - recommended_interval_seconds
       title: LeaseHeartbeat
+    LeaseHeartbeatRequest:
+      properties:
+        extend_ttl_seconds:
+          type: integer
+          maximum: 604800.0
+          minimum: 60.0
+          title: Extend Ttl Seconds
+          default: 3600
+      type: object
+      title: LeaseHeartbeatRequest
     LeaseLimits:
       properties:
         max_inflight:
@@ -50726,10 +50844,20 @@ components:
         worker_token:
           type: string
           title: Worker Token
+        worker_token_expires_at:
+          type: string
+          format: date-time
+          title: Worker Token Expires At
+        lease_expires_at:
+          type: string
+          format: date-time
+          title: Lease Expires At
       type: object
       required:
       - lease_id
       - worker_token
+      - worker_token_expires_at
+      - lease_expires_at
       title: RefreshTokenResponse
     RegisterTrainedModelBody:
       properties:
