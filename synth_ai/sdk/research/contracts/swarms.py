@@ -1058,6 +1058,7 @@ class SwarmSpec:
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
+    kickoff_contract: Mapping[str, JsonValue] | None = None
     execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
@@ -1102,6 +1103,19 @@ class SwarmSpec:
             KickoffArtifact,
         ):
             raise ValueError("kickoff_artifact must be KickoffArtifact")
+        if self.kickoff_contract is not None:
+            if not isinstance(self.kickoff_contract, Mapping):
+                raise ValueError("kickoff_contract must be a mapping")
+            if not self.kickoff_contract:
+                raise ValueError("kickoff_contract must not be empty")
+            if self.kickoff_artifact is not None:
+                raise ValueError(
+                    "kickoff_contract cannot be combined with kickoff_artifact"
+                )
+            frozen_contract = _freeze_json(dict(self.kickoff_contract))
+            if not isinstance(frozen_contract, Mapping):
+                raise ValueError("kickoff_contract must be a JSON object")
+            object.__setattr__(self, "kickoff_contract", frozen_contract)
         if self.provider_policy is not None and not isinstance(
             self.provider_policy,
             ProviderPolicy,
@@ -1223,6 +1237,11 @@ class SwarmSpec:
             ]
         if self.kickoff_artifact is not None:
             payload["kickoff_contract"] = self.kickoff_artifact.to_wire()
+        if self.kickoff_contract is not None:
+            payload["kickoff_contract"] = cast(
+                JsonObject,
+                _thaw_json(cast(FrozenJsonValue, self.kickoff_contract)),
+            )
         if self.execution_target is not None:
             payload["execution_target"] = self.execution_target.to_wire()
         if self.actor_image_overrides:
