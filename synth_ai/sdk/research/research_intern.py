@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+import os
 import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
@@ -963,15 +964,66 @@ class ResearchInternTurnFailedError(RuntimeError):
         self.terminal_event = terminal_event
 
 
-class ResearchInternSessionsAPI:
-    """Durable reactive sessions and their ordered event logs."""
+LEGACY_INTERN_SESSIONS_ENV = "SYNTH_ALLOW_LEGACY_INTERN_SESSIONS"
 
-    def __init__(self, transport: HttpTransport, owner: ResearchInternAPI) -> None:
+
+def legacy_intern_sessions_enabled() -> bool:
+    """Whether the environment explicitly opted in to the legacy sessions plane."""
+    return str(os.getenv(LEGACY_INTERN_SESSIONS_ENV) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+class LegacyInternSessionsDisabledError(RuntimeError):
+    """The legacy ``/smr/research-intern/sessions`` plane is disabled by default.
+
+    QA for the Sync Intern release treats any legacy ``/sessions`` hit as a hard
+    fail, so the plane requires an explicit opt-in instead of being callable by
+    default. Use the ``/smr/research-intern/sync-sessions`` plane (``intern.sync_``
+    on the SDK, ``intern_sync_*`` / ``intern_async_*`` MCP tools) instead.
+    """
+
+    def __init__(self, operation: str) -> None:
+        super().__init__(
+            f"Legacy Research Intern sessions operation {operation!r} is disabled. "
+            "Use the /smr/research-intern/sync-sessions plane instead "
+            "(client.intern.sync_ / client.intern.async_, or the intern_sync_* / "
+            "intern_async_* MCP tools). To explicitly opt back in, construct the "
+            "client with allow_legacy_intern_sessions=True or set "
+            f"{LEGACY_INTERN_SESSIONS_ENV}=1."
+        )
+        self.operation = operation
+
+
+class ResearchInternSessionsAPI:
+    """Durable reactive sessions and their ordered event logs.
+
+    Legacy plane: every method requires the explicit
+    ``allow_legacy_intern_sessions`` / ``SYNTH_ALLOW_LEGACY_INTERN_SESSIONS``
+    opt-in and raises :class:`LegacyInternSessionsDisabledError` otherwise.
+    """
+
+    def __init__(
+        self,
+        transport: HttpTransport,
+        owner: ResearchInternAPI,
+        *,
+        allow_legacy: bool = False,
+    ) -> None:
         self._transport = transport
         self._owner = owner
+        self._allow_legacy = allow_legacy
+
+    def _require_legacy_enabled(self, operation: str) -> None:
+        if self._allow_legacy or legacy_intern_sessions_enabled():
+            return
+        raise LegacyInternSessionsDisabledError(operation)
 
     def create(self, request: ResearchInternSessionCreateRequest) -> ResearchInternSessionResponse:
         """Create or replay one durable Intern session."""
+        self._require_legacy_enabled("create")
         session = ResearchInternSessionResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -993,6 +1045,7 @@ class ResearchInternSessionsAPI:
 
     def list(self, *, limit: int = 100) -> tuple[ResearchInternSessionResponse, ...]:
         """List a bounded page of Intern sessions."""
+        self._require_legacy_enabled("list")
         return _sessions(
             self._transport.execute(
                 _request(
@@ -1005,6 +1058,7 @@ class ResearchInternSessionsAPI:
 
     def retrieve(self, session_id: str) -> ResearchInternSessionResponse:
         """Retrieve one Intern session by stable identity."""
+        self._require_legacy_enabled("retrieve")
         session = ResearchInternSessionResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -1023,6 +1077,7 @@ class ResearchInternSessionsAPI:
         request: ResearchInternEventAppendRequest,
     ) -> ResearchInternEventResponse:
         """Append one optimistic-concurrency-fenced event."""
+        self._require_legacy_enabled("append_event")
         event = ResearchInternEventResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -1049,6 +1104,7 @@ class ResearchInternSessionsAPI:
         limit: int = 100,
     ) -> tuple[ResearchInternEventResponse, ...]:
         """Observe an ordered, bounded page after one reconnect sequence."""
+        self._require_legacy_enabled("list_events")
         if (
             isinstance(after_sequence, bool)
             or not isinstance(after_sequence, int)
@@ -1096,6 +1152,7 @@ class ResearchInternSessionsAPI:
         timeout_seconds: float = 30.0,
     ) -> Iterator[ResearchInternEventStreamPayload]:
         """Stream typed backend-owned frames from one exact reconnect cursor."""
+        self._require_legacy_enabled("stream_events")
         validator = _ResearchInternEventStreamValidator(
             session_id,
             cursor=cursor,
@@ -1123,6 +1180,7 @@ class ResearchInternSessionsAPI:
         timeout_seconds: float = 30.0,
     ) -> ResearchInternEventStreamObservation:
         """Wait with explicit bounds, reconnecting only from durable SSE cursors."""
+        self._require_legacy_enabled("watch")
         _stream_bound(event_count_max, name="event_count_max", maximum=500)
         _stream_bound(frame_count_max, name="frame_count_max", maximum=5_000)
         _stream_bound(reconnect_count_max, name="reconnect_count_max", maximum=20)
@@ -1208,6 +1266,7 @@ class ResearchInternSessionsAPI:
         limit: int = 200,
     ) -> ResearchInternSessionSyncResponse:
         """Project a bounded page of canonical runtime transcript events."""
+        self._require_legacy_enabled("sync")
         response = ResearchInternSessionSyncResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -1232,6 +1291,7 @@ class ResearchInternSessionsAPI:
         request: ResearchInternTurnRequest,
     ) -> ResearchInternTurnResponse:
         """Submit one canonical real-runtime operator turn."""
+        self._require_legacy_enabled("turn")
         response = ResearchInternTurnResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -1258,6 +1318,7 @@ class ResearchInternSessionsAPI:
         request: ResearchInternSessionCloseRequest,
     ) -> ResearchInternSessionResponse:
         """Close one exact session generation and retain its event history."""
+        self._require_legacy_enabled("close")
         session = ResearchInternSessionResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -1280,6 +1341,7 @@ class ResearchInternSessionsAPI:
         request: ResearchInternTracePublicationRequest,
     ) -> ResearchInternTracePublicationResponse:
         """Publish the terminal event chain through backend Trace V5 authority."""
+        self._require_legacy_enabled("publish_trace")
         response = ResearchInternTracePublicationResponse.from_wire(
             self._transport.execute(
                 _request(
@@ -1302,6 +1364,7 @@ class ResearchInternSessionsAPI:
         request: ResearchInternSessionCreateRequest,
     ) -> ResearchInternReactiveSession:
         """Create a reconnectable reactive view over one backend session."""
+        self._require_legacy_enabled("create_reactive")
         session = self.create(request)
         return ResearchInternReactiveSession(
             self._owner,
@@ -1316,6 +1379,7 @@ class ResearchInternSessionsAPI:
         cursor: ResearchInternEventCursor | None = None,
     ) -> ResearchInternReactiveSession:
         """Reconnect to a session from an exact previously returned cursor."""
+        self._require_legacy_enabled("connect")
         session = self.retrieve(session_id)
         reconnect_cursor = cursor or ResearchInternEventCursor(session_id=session_id)
         if reconnect_cursor.session_id != session_id:
@@ -2549,13 +2613,22 @@ class ResearchInternAsyncRuntimeAPI:
 class ResearchInternAPI:
     """One durable organization Intern and its many Factory memberships."""
 
-    def __init__(self, transport: HttpTransport) -> None:
+    def __init__(
+        self,
+        transport: HttpTransport,
+        *,
+        allow_legacy_intern_sessions: bool = False,
+    ) -> None:
         self._transport = transport
         self.sync_ = ResearchInternSyncRuntimeAPI(transport)
         self.async_ = ResearchInternAsyncRuntimeAPI(transport)
         self.factories = ResearchInternFactoriesAPI(transport)
         self.decisions = ResearchInternDecisionsAPI(transport)
-        self.sessions = ResearchInternSessionsAPI(transport, self)
+        self.sessions = ResearchInternSessionsAPI(
+            transport,
+            self,
+            allow_legacy=allow_legacy_intern_sessions,
+        )
         self.acceptance_receipts = ResearchInternAcceptanceReceiptsAPI(transport)
 
     def provision(
@@ -3325,21 +3398,35 @@ class AsyncResearchInternDecisionsAPI:
 
 
 class AsyncResearchInternSessionsAPI:
-    """Native asynchronous Intern session and event-log operations."""
+    """Native asynchronous Intern session and event-log operations.
+
+    Legacy plane: every method requires the explicit
+    ``allow_legacy_intern_sessions`` / ``SYNTH_ALLOW_LEGACY_INTERN_SESSIONS``
+    opt-in and raises :class:`LegacyInternSessionsDisabledError` otherwise.
+    """
 
     def __init__(
         self,
         transport: AsyncHttpTransport,
         owner: AsyncResearchInternAPI,
+        *,
+        allow_legacy: bool = False,
     ) -> None:
         self._transport = transport
         self._owner = owner
+        self._allow_legacy = allow_legacy
+
+    def _require_legacy_enabled(self, operation: str) -> None:
+        if self._allow_legacy or legacy_intern_sessions_enabled():
+            return
+        raise LegacyInternSessionsDisabledError(operation)
 
     async def create(
         self,
         request: ResearchInternSessionCreateRequest,
     ) -> ResearchInternSessionResponse:
         """Create or replay one durable Intern session."""
+        self._require_legacy_enabled("create")
         session = ResearchInternSessionResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3361,6 +3448,7 @@ class AsyncResearchInternSessionsAPI:
 
     async def list(self, *, limit: int = 100) -> tuple[ResearchInternSessionResponse, ...]:
         """List a bounded page of Intern sessions."""
+        self._require_legacy_enabled("list")
         return _sessions(
             await self._transport.execute(
                 _request(
@@ -3373,6 +3461,7 @@ class AsyncResearchInternSessionsAPI:
 
     async def retrieve(self, session_id: str) -> ResearchInternSessionResponse:
         """Retrieve one Intern session by stable identity."""
+        self._require_legacy_enabled("retrieve")
         session = ResearchInternSessionResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3391,6 +3480,7 @@ class AsyncResearchInternSessionsAPI:
         request: ResearchInternEventAppendRequest,
     ) -> ResearchInternEventResponse:
         """Append one optimistic-concurrency-fenced event."""
+        self._require_legacy_enabled("append_event")
         event = ResearchInternEventResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3417,6 +3507,7 @@ class AsyncResearchInternSessionsAPI:
         limit: int = 100,
     ) -> tuple[ResearchInternEventResponse, ...]:
         """Observe an ordered, bounded page after one reconnect sequence."""
+        self._require_legacy_enabled("list_events")
         if (
             isinstance(after_sequence, bool)
             or not isinstance(after_sequence, int)
@@ -3464,6 +3555,7 @@ class AsyncResearchInternSessionsAPI:
         timeout_seconds: float = 30.0,
     ) -> AsyncIterator[ResearchInternEventStreamPayload]:
         """Stream typed backend-owned frames from one exact reconnect cursor."""
+        self._require_legacy_enabled("stream_events")
         validator = _ResearchInternEventStreamValidator(
             session_id,
             cursor=cursor,
@@ -3491,6 +3583,7 @@ class AsyncResearchInternSessionsAPI:
         timeout_seconds: float = 30.0,
     ) -> ResearchInternEventStreamObservation:
         """Wait with explicit bounds, reconnecting only from durable SSE cursors."""
+        self._require_legacy_enabled("watch")
         _stream_bound(event_count_max, name="event_count_max", maximum=500)
         _stream_bound(frame_count_max, name="frame_count_max", maximum=5_000)
         _stream_bound(reconnect_count_max, name="reconnect_count_max", maximum=20)
@@ -3580,6 +3673,7 @@ class AsyncResearchInternSessionsAPI:
         limit: int = 200,
     ) -> ResearchInternSessionSyncResponse:
         """Project a bounded page of canonical runtime transcript events."""
+        self._require_legacy_enabled("sync")
         response = ResearchInternSessionSyncResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3604,6 +3698,7 @@ class AsyncResearchInternSessionsAPI:
         request: ResearchInternTurnRequest,
     ) -> ResearchInternTurnResponse:
         """Submit one canonical real-runtime operator turn."""
+        self._require_legacy_enabled("turn")
         response = ResearchInternTurnResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3630,6 +3725,7 @@ class AsyncResearchInternSessionsAPI:
         request: ResearchInternSessionCloseRequest,
     ) -> ResearchInternSessionResponse:
         """Close one exact session generation and retain its event history."""
+        self._require_legacy_enabled("close")
         session = ResearchInternSessionResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3652,6 +3748,7 @@ class AsyncResearchInternSessionsAPI:
         request: ResearchInternTracePublicationRequest,
     ) -> ResearchInternTracePublicationResponse:
         """Publish the terminal event chain through backend Trace V5 authority."""
+        self._require_legacy_enabled("publish_trace")
         response = ResearchInternTracePublicationResponse.from_wire(
             await self._transport.execute(
                 _request(
@@ -3674,6 +3771,7 @@ class AsyncResearchInternSessionsAPI:
         request: ResearchInternSessionCreateRequest,
     ) -> AsyncResearchInternReactiveSession:
         """Create an asynchronously reconnectable view over one backend session."""
+        self._require_legacy_enabled("create_reactive")
         session = await self.create(request)
         return AsyncResearchInternReactiveSession(
             self._owner,
@@ -3688,6 +3786,7 @@ class AsyncResearchInternSessionsAPI:
         cursor: ResearchInternEventCursor | None = None,
     ) -> AsyncResearchInternReactiveSession:
         """Reconnect asynchronously from one exact previously returned cursor."""
+        self._require_legacy_enabled("connect")
         session = await self.retrieve(session_id)
         reconnect_cursor = cursor or ResearchInternEventCursor(session_id=session_id)
         if reconnect_cursor.session_id != session_id:
@@ -4314,13 +4413,22 @@ class AsyncResearchInternAsyncRuntimeAPI:
 class AsyncResearchInternAPI:
     """Native asynchronous organization Research Intern operations."""
 
-    def __init__(self, transport: AsyncHttpTransport) -> None:
+    def __init__(
+        self,
+        transport: AsyncHttpTransport,
+        *,
+        allow_legacy_intern_sessions: bool = False,
+    ) -> None:
         self._transport = transport
         self.sync_ = AsyncResearchInternSyncRuntimeAPI(transport)
         self.async_ = AsyncResearchInternAsyncRuntimeAPI(transport)
         self.factories = AsyncResearchInternFactoriesAPI(transport)
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
-        self.sessions = AsyncResearchInternSessionsAPI(transport, self)
+        self.sessions = AsyncResearchInternSessionsAPI(
+            transport,
+            self,
+            allow_legacy=allow_legacy_intern_sessions,
+        )
         self.acceptance_receipts = AsyncResearchInternAcceptanceReceiptsAPI(transport)
 
     async def provision(
@@ -5253,6 +5361,8 @@ __all__ = [
     "AsyncResearchInternFactoriesAPI",
     "AsyncResearchInternReactiveSession",
     "AsyncResearchInternSessionsAPI",
+    "LEGACY_INTERN_SESSIONS_ENV",
+    "LegacyInternSessionsDisabledError",
     "ProjectComputerAPI",
     "ProjectDataBindingsAPI",
     "ResearchInternAcceptanceReceiptsAPI",
@@ -5269,4 +5379,5 @@ __all__ = [
     "ResearchInternReactiveSession",
     "ResearchInternSessionsAPI",
     "ResearchInternTurnFailedError",
+    "legacy_intern_sessions_enabled",
 ]
