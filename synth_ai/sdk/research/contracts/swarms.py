@@ -1109,9 +1109,7 @@ class SwarmSpec:
             if not self.kickoff_contract:
                 raise ValueError("kickoff_contract must not be empty")
             if self.kickoff_artifact is not None:
-                raise ValueError(
-                    "kickoff_contract cannot be combined with kickoff_artifact"
-                )
+                raise ValueError("kickoff_contract cannot be combined with kickoff_artifact")
             frozen_contract = _freeze_json(dict(self.kickoff_contract))
             if not isinstance(frozen_contract, Mapping):
                 raise ValueError("kickoff_contract must be a JSON object")
