@@ -60,6 +60,7 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternSyncCommandKind,
     InternSyncCommandReceipt,
     InternSyncCommandRequest,
+    InternSyncDeployPacket,
     InternSyncEvent,
     InternSyncEventPage,
     InternSyncEventStreamEnvelope,
@@ -2134,6 +2135,19 @@ class ResearchInternSyncRuntimeAPI:
             raise ValueError("Sync Intern session identity drifted")
         return session
 
+    def deploy_packet(self, sync_session_id: str) -> InternSyncDeployPacket:
+        packet = InternSyncDeployPacket.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_sync_deploy_packet",
+                    f"{self._PATH}/{sync_session_id}/deploy-packet",
+                )
+            )
+        )
+        if packet.sync_session_id != sync_session_id:
+            raise ValueError("Sync Intern deploy packet identity drifted")
+        return packet
+
     def command(
         self,
         sync_session_id: str,
@@ -2561,6 +2575,25 @@ class ResearchInternAsyncRuntimeAPI:
             ),
             after_sequence=after_sequence,
         )
+
+    def mcp_actions(self, *, limit: int = 100) -> tuple[JsonObject, ...]:
+        """Read the shared runtime MCP-action ledger for this Async Intern."""
+
+        runtime_id = self.get().async_runtime_id
+        response = self._transport.execute(
+            _request(
+                "list_intern_async_runtime_mcp_actions",
+                f"/smr/research-intern/runtimes/async/{runtime_id}/mcp-actions",
+                query={"limit": _bounded_limit(limit)},
+            )
+        )
+        items = array_value(
+            cast(JsonValue, response),
+            operation_id="list_intern_async_runtime_mcp_actions",
+        )
+        if any(not isinstance(item, dict) for item in items):
+            raise ValueError("Async Intern MCP-action ledger must contain objects")
+        return tuple(cast(JsonObject, item) for item in items)
 
     def stream_events(
         self,

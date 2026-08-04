@@ -164,7 +164,12 @@ class InternSyncStatus(StrEnum):
 
 class InternRuntimeOutcome(StrEnum):
     COMPLETED = "completed"
+    PARTIAL = "partial"
+    BLOCKED = "blocked"
     CANCELLED = "cancelled"
+    CANCELED = "canceled"
+    STOPPED = "stopped"
+    ARCHIVED = "archived"
     FAILED = "failed"
 
 
@@ -182,6 +187,9 @@ class InternSyncSessionCreateRequest(_StrictContract):
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    execution_mode: Literal["fast", "standard", "deep"] = "standard"
+    task_template: str | None = Field(default=None, min_length=1, max_length=128)
+    objective_bounds: dict[str, Any] | None = None
 
 
 class SyncTemplateProvisionedResource(_StrictContract):
@@ -317,12 +325,16 @@ class InternSyncSession(_StrictContract):
     state_generation: int = Field(ge=0)
     last_event_sequence: int = Field(ge=0)
     binding: InternRuntimeBinding
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    objective_bounds: dict[str, Any] | None = None
     pending_turn_id: str | None = None
     pending_action_id: str | None = None
     pending_interaction_id: str | None = None
     outcome: InternRuntimeOutcome | None = None
     failure_code: str | None = None
     temporal_workflow_id: str
+    execution_mode: Literal["fast", "standard", "deep"] = "standard"
+    execution_profile_id: Literal["intern_sync"] = "intern_sync"
     # Server-minted projection stamps. Old backends omit them entirely; new
     # backends stamp them once the corresponding effect lands. The SDK only
     # observes these receipts — the backend remains the minting authority.
@@ -331,6 +343,10 @@ class InternSyncSession(_StrictContract):
     trace_publication: SyncTracePublicationReceipt | None = None
     kit_associations: tuple[SyncKitAssociationReceipt, ...] = ()
     kit_readiness: SyncKitReadiness | None = None
+    visuals: tuple[dict[str, Any], ...] = ()
+    kit_state_receipts: tuple[dict[str, Any], ...] = ()
+    experiments: tuple[dict[str, Any], ...] = ()
+    harness_bundle_available: bool = False
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None = None
@@ -342,6 +358,10 @@ class InternSyncCommandRequest(_StrictContract):
     expected_generation: int = Field(ge=0)
     command_kind: InternSyncCommandKind
     payload: dict[str, Any] = Field(default_factory=dict)
+    execution_mode: Literal["fast", "standard", "deep"] = "standard"
+    visual_selection: dict[str, Any] | None = None
+    mode: Literal["sync", "async"] = "sync"
+    evidence_refs: tuple[str, ...] = Field(default=(), max_length=128)
 
     @model_validator(mode="after")
     def validate_command_payload(self) -> InternSyncCommandRequest:
@@ -368,6 +388,32 @@ class InternSyncCommandRequest(_StrictContract):
                 raise ValueError("close requires a valid runtime outcome")
             required_text("reason", "rationale")
         return self
+
+
+class InternSyncDeployPacketEndpoint(_StrictContract):
+    purpose: Literal[
+        "upload_files",
+        "upload_workspace",
+        "confirm_push",
+        "assign_container",
+        "container_health",
+    ]
+    method: Literal["GET", "POST"]
+    path: str
+
+
+class InternSyncDeployPacket(_StrictContract):
+    schema_version: Literal["smr.intern-sync-deploy-packet.v1"]
+    sync_session_id: str
+    project_id: str
+    task_template: str | None = None
+    auth_scheme: Literal["bearer"]
+    auth_env_var: Literal["SYNTH_API_KEY"]
+    required_paths: tuple[str, ...] = ()
+    endpoints: tuple[InternSyncDeployPacketEndpoint, ...]
+    done_signal: Literal["workspace_confirm_push"]
+    image_kind: Literal["craftax_eval"]
+    instructions: str
 
 
 class InternSyncCommandReceipt(_StrictContract):

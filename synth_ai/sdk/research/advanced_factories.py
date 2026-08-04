@@ -287,6 +287,7 @@ class ResearchFactoriesAPI:
         factory_id: str,
         *,
         launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
+        effort_ids: tuple[str, ...] = (),
         limit: int = 10,
         allow_overlap: bool = False,
         continue_on_error: bool = True,
@@ -295,6 +296,7 @@ class ResearchFactoriesAPI:
         return self._session.factories.wake_due(
             factory_id,
             launch_request=launch_request,
+            effort_ids=effort_ids,
             limit=limit,
             allow_overlap=allow_overlap,
             dry_run=True,
@@ -322,6 +324,7 @@ class ResearchFactoriesAPI:
         result = self._session.factories.wake_due(
             factory_id,
             launch_request=contract.launch_request,
+            effort_ids=contract.effort_ids,
             limit=contract.limit,
             allow_overlap=contract.allow_overlap,
             dry_run=False,
