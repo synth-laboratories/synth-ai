@@ -46,6 +46,8 @@ from synth_ai.sdk.research.contracts.research_intern import (
     DatasetRevisionCreateRequest,
     DatasetRevisionLifecycleRequest,
     DatasetRevisionResponse,
+    InternAcceptanceFixtureReceipt,
+    InternAcceptanceFixtureRequest,
     InternAsyncCommandKind,
     InternAsyncCommandReceipt,
     InternAsyncCommandRequest,
@@ -2909,6 +2911,57 @@ class ResearchInternAsyncRuntimeAPI:
         )
 
 
+class ResearchInternAcceptanceFixturesAPI:
+    """Disposable Factory/Project/Effort/Run acceptance fixtures.
+
+    One command provisions a bound, Factory-ready chain with the organization
+    Intern attached (no tribal ids); the receipt is the durable evidence of
+    what exists, and teardown preserves it through the retention window.
+    """
+
+    _PATH = "/smr/research-intern/fixtures"
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def create(self, request: InternAcceptanceFixtureRequest) -> InternAcceptanceFixtureReceipt:
+        return InternAcceptanceFixtureReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "create_intern_acceptance_fixture",
+                    self._PATH,
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    def get(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        receipt = InternAcceptanceFixtureReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_acceptance_fixture",
+                    f"{self._PATH}/{fixture_id}",
+                )
+            )
+        )
+        if receipt.fixture_id != fixture_id:
+            raise ValueError("Intern acceptance fixture identity drifted")
+        return receipt
+
+    def teardown(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        receipt = InternAcceptanceFixtureReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "teardown_intern_acceptance_fixture",
+                    f"{self._PATH}/{fixture_id}:teardown",
+                )
+            )
+        )
+        if receipt.fixture_id != fixture_id:
+            raise ValueError("Intern acceptance fixture identity drifted")
+        return receipt
+
+
 class ResearchInternAPI:
     """One durable organization Intern and its many Factory memberships."""
 
@@ -2931,6 +2984,7 @@ class ResearchInternAPI:
             allow_legacy=allow_legacy_intern_sessions,
         )
         self.acceptance_receipts = ResearchInternAcceptanceReceiptsAPI(transport)
+        self.fixtures = ResearchInternAcceptanceFixturesAPI(transport)
 
     def provision(
         self,
@@ -4927,6 +4981,55 @@ class AsyncResearchInternAsyncRuntimeAPI:
         )
 
 
+class AsyncResearchInternAcceptanceFixturesAPI:
+    """Native asynchronous acceptance-fixture operations."""
+
+    _PATH = "/smr/research-intern/fixtures"
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def create(
+        self,
+        request: InternAcceptanceFixtureRequest,
+    ) -> InternAcceptanceFixtureReceipt:
+        return InternAcceptanceFixtureReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "create_intern_acceptance_fixture",
+                    self._PATH,
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    async def get(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        receipt = InternAcceptanceFixtureReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_acceptance_fixture",
+                    f"{self._PATH}/{fixture_id}",
+                )
+            )
+        )
+        if receipt.fixture_id != fixture_id:
+            raise ValueError("Intern acceptance fixture identity drifted")
+        return receipt
+
+    async def teardown(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        receipt = InternAcceptanceFixtureReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "teardown_intern_acceptance_fixture",
+                    f"{self._PATH}/{fixture_id}:teardown",
+                )
+            )
+        )
+        if receipt.fixture_id != fixture_id:
+            raise ValueError("Intern acceptance fixture identity drifted")
+        return receipt
+
+
 class AsyncResearchInternAPI:
     """Native asynchronous organization Research Intern operations."""
 
@@ -4949,6 +5052,7 @@ class AsyncResearchInternAPI:
             allow_legacy=allow_legacy_intern_sessions,
         )
         self.acceptance_receipts = AsyncResearchInternAcceptanceReceiptsAPI(transport)
+        self.fixtures = AsyncResearchInternAcceptanceFixturesAPI(transport)
 
     async def provision(
         self,
@@ -5874,6 +5978,7 @@ __all__ = [
     "AsyncProjectComputerAPI",
     "AsyncProjectDataBindingsAPI",
     "AsyncResearchInternAsyncRuntimeAPI",
+    "AsyncResearchInternAcceptanceFixturesAPI",
     "AsyncResearchInternAcceptanceReceiptsAPI",
     "AsyncResearchInternAPI",
     "AsyncResearchInternDecisionsAPI",
@@ -5884,6 +5989,7 @@ __all__ = [
     "LegacyInternSessionsDisabledError",
     "ProjectComputerAPI",
     "ProjectDataBindingsAPI",
+    "ResearchInternAcceptanceFixturesAPI",
     "ResearchInternAcceptanceReceiptsAPI",
     "ResearchInternAPI",
     "ResearchInternAsyncRuntimeAPI",

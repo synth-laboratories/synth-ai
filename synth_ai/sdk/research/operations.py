@@ -23,6 +23,18 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
+            "create_intern_acceptance_fixture", HttpMethod.POST,
+            "/smr/research-intern/fixtures", mutation=True, idempotent=True,
+        ),
+        _operation(
+            "get_intern_acceptance_fixture", HttpMethod.GET,
+            "/smr/research-intern/fixtures/{fixture_id}", idempotent=True,
+        ),
+        _operation(
+            "teardown_intern_acceptance_fixture", HttpMethod.POST,
+            "/smr/research-intern/fixtures/{fixture_id}:teardown", mutation=True, idempotent=True,
+        ),
+        _operation(
             "append_objective_answer_revision",
             HttpMethod.POST,
             "/smr/objectives/{objective_id}/answers/{answer_id}/revisions",
@@ -910,6 +922,13 @@ RESEARCH_OPERATIONS = {
             HttpMethod.POST,
             "/smr/factories/{factory_id}/trace-store:provision",
             mutation=True,
+        ),
+        _operation(
+            "preflight_factory_trace_store",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:preflight",
+            mutation=True,
+            idempotent=True,
         ),
         _operation(
             "rotate_factory_trace_store_credential",

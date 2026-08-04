@@ -1153,6 +1153,11 @@ def build_research_intern_tools(
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 60,
+                        "description": (
+                            "Bounded wait for the explicit Factory-ready "
+                            "condition before binding; omit to refuse "
+                            "immediately with a typed readiness report."
+                        ),
                     },
                 },
                 required=["objective", "idempotency_key"],

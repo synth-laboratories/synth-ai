@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -351,6 +351,50 @@ class TraceStoreProvisionResult(_TraceContract):
     receipt: TraceStoreLifecycleReceipt
 
 
+# The preflight trio keeps the backend contract names verbatim (unlike the
+# older abridged names above) because the response and identity block are
+# schema-versioned envelopes that sealed runners embed and re-verify by name.
+
+
+class TraceStorePreflightRequest(_TraceContract):
+    """Pre-launch trace-store readiness gate for a sealed run."""
+
+    catalog_provider: TraceCatalogProvider = TraceCatalogProvider.NONE
+    provision_if_missing: bool = True
+
+
+class TraceStoreRunEnvelopeIdentity(_TraceContract):
+    """Trace-store identity carried inside a sealed-run envelope.
+
+    Sealed runners embed exactly this block (as ``trace_store``) in the run
+    envelope so trace-inventory collection after grading can never 404 on an
+    unprovisioned or ambiguous store.
+    """
+
+    schema_version: Literal["synth.trace-store-run-envelope-identity.v1"]
+    trace_store_id: str
+    org_id: str
+    factory_id: str
+    blob_bucket: str
+    blob_prefix: str
+    catalog_provider: TraceCatalogProvider
+    catalog_database_name: str | None = None
+    provisioning_status: TraceStoreProvisioningStatus
+    provisioning_version: int
+
+
+class TraceStorePreflightResponse(_TraceContract):
+    """Typed provision-and-health result gating sealed-run launch."""
+
+    schema_version: Literal["synth.trace-store-preflight.v1"]
+    healthy: bool
+    provisioned: Literal["existing", "created"]
+    descriptor: TraceStoreDescriptor
+    run_envelope_identity: TraceStoreRunEnvelopeIdentity
+    health_conditions: list[str] = Field(default_factory=list)
+    checked_at: datetime
+
+
 __all__ = [
     "TraceBundleDownload",
     "TraceBundleDownloadObject",
@@ -372,8 +416,11 @@ __all__ = [
     "TraceStoreAccessReceipt",
     "TraceStoreDescriptor",
     "TraceStoreLifecycleReceipt",
+    "TraceStorePreflightRequest",
+    "TraceStorePreflightResponse",
     "TraceStoreProvisionResult",
     "TraceStoreProvisioningStatus",
+    "TraceStoreRunEnvelopeIdentity",
     "validate_optional_sha256_digest",
     "validate_sha256_digest",
     "validate_sha256_digest_list",

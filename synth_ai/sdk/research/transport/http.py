@@ -150,11 +150,14 @@ def _raise_for_error_response(
                 status_code = response.status_code
                 response_text = response.text
                 stripped = code.strip()
-                if status_code == 404 and stripped.endswith("_not_found"):
+                if status_code == 404 and stripped.endswith(("_not_found", "_retention_expired")):
                     # Typed retrievability evidence: preserve the backend's
                     # exact not-found condition and lookup scope so a genuine
                     # 404 can be distinguished from a wrong-organization
-                    # lookup (see ResearchNotFoundError).
+                    # lookup (see ResearchNotFoundError). Retention-expired
+                    # conditions (the resource existed; its read-only window
+                    # ended) share the machinery so evidence keeps the exact
+                    # backend code instead of an untyped denial.
                     raise ResearchNotFoundError(
                         message,
                         status_code=status_code,

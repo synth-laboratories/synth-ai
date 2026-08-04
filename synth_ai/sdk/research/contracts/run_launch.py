@@ -6,7 +6,7 @@ from collections.abc import AsyncIterable, AsyncIterator, Iterable, Iterator, Ma
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Self, TypeAlias
+from typing import Literal, Self, TypeAlias
 
 from synth_ai.sdk.research.contracts.actor_images import (
     ActorImageBinding,
@@ -238,6 +238,14 @@ class RunLaunchRequest(CommandRequest):
     dev_environment_id: str | None = None
     run_policy: SmrRunPolicy | WireMapping | None = None
     kickoff_contract: KickoffContract | WireMapping | None = None
+    # Sealed-run provenance: one resolved deployment receipt per participating
+    # repository, and the posture that governs them. The backend provenance
+    # authority validates and digest-stamps the pins ('live' refuses
+    # placeholder pins and unprovisioned trace stores with typed 422s), so the
+    # SDK passes them through opaquely and only checks shape and the mode
+    # vocabulary client-side.
+    deployment_pins: Sequence[WireMapping] | None = None
+    provenance_mode: Literal["live", "dry_run"] | str | None = None
     resource_bindings: RunResourceBindings | WireMapping | None = None
     evidence_obligations: EvidenceObligations | WireMapping | None = None
     ai_cache: WireMapping | None = None
@@ -271,6 +279,8 @@ class RunLaunchRequest(CommandRequest):
         )
         _validate_launch_text(self.idempotency_key, field_name="idempotency_key")
         _validate_positive_int(self.timebox_seconds, field_name="timebox_seconds")
+        if self.provenance_mode is not None and self.provenance_mode not in ("live", "dry_run"):
+            raise ValueError("provenance_mode must be 'live' or 'dry_run'")
         _validate_launch_sequences(self)
         _validate_launch_mappings(self)
         _validate_launch_combinations(self)
@@ -316,6 +326,8 @@ class RunLaunchRequest(CommandRequest):
             workflow=self.workflow,
             run_policy=self.run_policy,
             kickoff_contract=self.kickoff_contract,
+            deployment_pins=tuple(self.deployment_pins) if self.deployment_pins else None,
+            provenance_mode=self.provenance_mode,
             resource_bindings=self.resource_bindings,
             evidence_obligations=self._evidence_obligations_payload(),
             dev_environment_id=self.dev_environment_id,
@@ -1240,6 +1252,8 @@ def _validate_launch_sequences(request: RunLaunchRequest) -> None:
             raise ValueError(f"actor_model_overrides[{index}] must be an actor model assignment")
     for index, spec in enumerate(request.required_work_products or ()):
         _require_mapping(spec, label=f"required_work_products[{index}]")
+    for index, pin in enumerate(request.deployment_pins or ()):
+        _require_mapping(pin, label=f"deployment_pins[{index}]")
 
 
 def _validate_launch_mappings(request: RunLaunchRequest) -> None:
