@@ -187,6 +187,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_update_project_repository",
         "research_upload_project_dataset",
         "research_upload_workspace_files",
+        "research_confirm_workspace_push",
         "research_watch_run_events",
         "research_attach_source_repo",
         "research_attach_research_intern_factory",
