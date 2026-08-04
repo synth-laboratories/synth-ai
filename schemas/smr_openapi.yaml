@@ -9785,6 +9785,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/fixtures:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Research Intern Acceptance Fixture
+      description: 'Provision a disposable, ready Factory/Project/Effort/Run fixture.
+
+
+        No tribal ids: one command yields a bound, Factory-ready chain with the
+
+        organization Intern attached, idempotent per idempotency_key within one
+
+        test attempt. The receipt is the durable evidence of what exists.'
+      operationId: create_research_intern_acceptance_fixture_smr_research_intern_fixtures_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternAcceptanceFixtureRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternAcceptanceFixtureReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/fixtures/{fixture_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Research Intern Acceptance Fixture
+      description: Read one fixture receipt (evidence stays readable through retention).
+      operationId: get_research_intern_acceptance_fixture_smr_research_intern_fixtures__fixture_id__get
+      parameters:
+      - name: fixture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Fixture Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternAcceptanceFixtureReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/fixtures/{fixture_id}:teardown:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Teardown Research Intern Acceptance Fixture
+      description: Explicitly tear down a fixture while preserving its evidence window.
+      operationId: teardown_research_intern_acceptance_fixture_smr_research_intern_fixtures__fixture_id__teardown_post
+      parameters:
+      - name: fixture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Fixture Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternAcceptanceFixtureReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/research-intern/async/blockers/{blocker_id}:open-sync:
     post:
       tags:
@@ -11832,6 +11922,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TraceStoreCrossFactoryDenialReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:preflight:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Preflight Factory Trace Store
+      description: 'Provision-if-missing and health-check the trace store before launch.
+
+
+        Sealed runners must call this before creating paid/live resources and
+
+        embed ``run_envelope_identity`` in the run envelope, so post-grade trace
+
+        inventory can never 404 on an unprovisioned store.'
+      operationId: preflight_factory_trace_store
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceStorePreflightRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStorePreflightResponse'
         '422':
           description: Validation Error
           content:
@@ -44220,6 +44351,12 @@ components:
           additionalProperties: true
           type: object
           title: Metadata
+        factory_ready_wait_seconds:
+          type: integer
+          maximum: 60.0
+          minimum: 0.0
+          title: Factory Ready Wait Seconds
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -51196,6 +51333,132 @@ components:
       - review_request
       - broadcast
       title: InteractionIntent
+    InternAcceptanceFixtureReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-acceptance-fixture.v1
+          title: Schema Version
+          default: smr.intern-acceptance-fixture.v1
+        fixture_id:
+          type: string
+          title: Fixture Id
+        org_id:
+          type: string
+          title: Org Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        task_template:
+          type: string
+          title: Task Template
+        status:
+          type: string
+          enum:
+          - ready
+          - torn_down
+          title: Status
+        binding:
+          $ref: '#/components/schemas/RuntimeBinding'
+        resources:
+          items:
+            $ref: '#/components/schemas/InternAcceptanceFixtureResourceV1'
+          type: array
+          title: Resources
+        factory_readiness:
+          additionalProperties: true
+          type: object
+          title: Factory Readiness
+        replayed:
+          type: boolean
+          title: Replayed
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        torn_down_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Torn Down At
+        retention_expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Retention Expires At
+      additionalProperties: false
+      type: object
+      required:
+      - fixture_id
+      - org_id
+      - research_intern_id
+      - task_template
+      - status
+      - binding
+      - created_at
+      title: InternAcceptanceFixtureReceipt
+      description: Durable, validator-readable evidence for one acceptance fixture.
+    InternAcceptanceFixtureRequest:
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 180
+          minLength: 1
+          title: Idempotency Key
+        task_template:
+          type: string
+          maxLength: 128
+          title: Task Template
+          default: craftax_harness_prompt
+        include_run:
+          type: boolean
+          title: Include Run
+          default: true
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      title: InternAcceptanceFixtureRequest
+      description: 'Bootstrap one disposable Factory/Project/Effort/Run acceptance
+        fixture.
+
+
+        No tribal ids: the backend provisions the whole chain from the named task
+
+        template and binds the organization Intern to it. Idempotent within one
+
+        test attempt via ``idempotency_key``.'
+    InternAcceptanceFixtureResourceV1:
+      properties:
+        resource_kind:
+          type: string
+          title: Resource Kind
+        resource_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resource Id
+        status:
+          type: string
+          title: Status
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+      additionalProperties: false
+      type: object
+      required:
+      - resource_kind
+      - status
+      title: InternAcceptanceFixtureResourceV1
     InternMcpActionApprovalRequest:
       properties:
         decision:
@@ -51420,6 +51683,16 @@ components:
           type: string
           format: date-time
           title: Created At
+        actuation:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Actuation
+        duplicate:
+          type: boolean
+          title: Duplicate
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -62388,6 +62661,52 @@ components:
       - jwt_audience
       - jwt_key_id
       title: SmrDependencyIdentityRequest
+    SmrDeploymentPinRequest:
+      properties:
+        repository:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Repository
+        commit_sha:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Commit Sha
+        deployment_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Deployment Id
+        artifact_digest:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Artifact Digest
+        environment:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Environment
+        resolved_at:
+          type: string
+          format: date-time
+          title: Resolved At
+      type: object
+      required:
+      - repository
+      - commit_sha
+      - environment
+      - resolved_at
+      title: SmrDeploymentPinRequest
+      description: 'One repository''s resolved deployment receipt for run provenance.
+
+
+        Mirrors ``packages.smr.run_provenance.DeploymentPin``; validated and
+
+        digest-stamped at launch by the provenance binding authority.'
     SmrDeriveVisualRequest:
       properties:
         parent_revision:
@@ -73310,6 +73629,27 @@ components:
           description: Optional staged-run kickoff contract. When provided, this becomes
             the authoritative staged contract for the run and is persisted on the
             run row.
+        deployment_pins:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/SmrDeploymentPinRequest'
+            type: array
+          - type: 'null'
+          title: Deployment Pins
+          description: Resolved deployment receipts binding this run to exact frozen
+            deployments (one pin per participating repository). Required when provenance_mode
+            is set; placeholder pins are refused in live mode.
+        provenance_mode:
+          anyOf:
+          - type: string
+            enum:
+            - live
+            - dry_run
+          - type: 'null'
+          title: Provenance Mode
+          description: Sealed-run provenance posture. 'live' requires non-placeholder
+            deployment_pins and a provisioned Factory trace store; 'dry_run' validates
+            shape only. Omit for ordinary (non-sealed) runs.
         tool_config:
           anyOf:
           - $ref: '#/components/schemas/SmrRunToolConfigRequest'
@@ -90473,6 +90813,58 @@ components:
       - content_digest
       - receipt_uri
       title: TraceStoreLifecycleReceipt
+    TraceStorePreflightRequest:
+      properties:
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+          default: none
+        provision_if_missing:
+          type: boolean
+          title: Provision If Missing
+          default: true
+      additionalProperties: false
+      type: object
+      title: TraceStorePreflightRequest
+      description: Pre-launch trace-store readiness gate for a sealed run.
+    TraceStorePreflightResponse:
+      properties:
+        schema_version:
+          type: string
+          const: synth.trace-store-preflight.v1
+          title: Schema Version
+          default: synth.trace-store-preflight.v1
+        healthy:
+          type: boolean
+          title: Healthy
+        provisioned:
+          type: string
+          enum:
+          - existing
+          - created
+          title: Provisioned
+        descriptor:
+          $ref: '#/components/schemas/TraceStoreDescriptorResponse'
+        run_envelope_identity:
+          $ref: '#/components/schemas/TraceStoreRunEnvelopeIdentity'
+        health_conditions:
+          items:
+            type: string
+          type: array
+          title: Health Conditions
+        checked_at:
+          type: string
+          format: date-time
+          title: Checked At
+      additionalProperties: false
+      type: object
+      required:
+      - healthy
+      - provisioned
+      - descriptor
+      - run_envelope_identity
+      - checked_at
+      title: TraceStorePreflightResponse
+      description: Typed provision-and-health result gating sealed-run launch.
     TraceStoreProvisionRequest:
       properties:
         catalog_provider:
@@ -90501,6 +90893,60 @@ components:
       - credential_invalidated
       - error
       title: TraceStoreProvisioningStatus
+    TraceStoreRunEnvelopeIdentity:
+      properties:
+        schema_version:
+          type: string
+          const: synth.trace-store-run-envelope-identity.v1
+          title: Schema Version
+          default: synth.trace-store-run-envelope-identity.v1
+        trace_store_id:
+          type: string
+          title: Trace Store Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        blob_bucket:
+          type: string
+          title: Blob Bucket
+        blob_prefix:
+          type: string
+          title: Blob Prefix
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+        catalog_database_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Catalog Database Name
+        provisioning_status:
+          $ref: '#/components/schemas/TraceStoreProvisioningStatus'
+        provisioning_version:
+          type: integer
+          title: Provisioning Version
+      additionalProperties: false
+      type: object
+      required:
+      - trace_store_id
+      - org_id
+      - factory_id
+      - blob_bucket
+      - blob_prefix
+      - catalog_provider
+      - provisioning_status
+      - provisioning_version
+      title: TraceStoreRunEnvelopeIdentity
+      description: 'Trace-store identity carried inside a sealed-run envelope.
+
+
+        Sealed runners embed exactly this block (as ``trace_store``) in the run
+
+        envelope so trace-inventory collection after grading can never 404 on an
+
+        unprovisioned or ambiguous store.'
     TrainedModelAdapterUploadUrlBody:
       properties:
         expires_in:
