@@ -190,6 +190,10 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_work_repos_list": READ_SCOPES,
     "research_work_repos_attach": WRITE_SCOPES,
     "research_work_repos_detach": WRITE_SCOPES,
+    "research_create_visual": WRITE_SCOPES,
+    "research_update_visual": WRITE_SCOPES,
+    "research_promote_visual": WRITE_SCOPES,
+    "research_unpublish_visual": WRITE_SCOPES,
 }
 
 
