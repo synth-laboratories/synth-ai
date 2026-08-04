@@ -29,7 +29,10 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
             name="research_list_project_files",
-            description="List project-scoped Phase 3 stored files.",
+            description=(
+                "List durable files attached to a Research project. Files can be "
+                "added throughout the project lifecycle, independently of run creation."
+            ),
             input_schema=tool_schema(
                 {
                     "project_id": {"type": "string"},
@@ -41,8 +44,27 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_project_files,
         ),
         ToolDefinition(
+            name="research_upload_project_files",
+            description=(
+                "Upload one or more files and attach them durably to a Research project. "
+                "Use project-relative paths; templates derive readiness from these files."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string"},
+                    "files": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": _FILE_ITEM_SCHEMA,
+                    },
+                },
+                required=["project_id", "files"],
+            ),
+            handler=server._tool_create_project_files,
+        ),
+        ToolDefinition(
             name="research_create_project_files",
-            description="Create project-scoped Phase 3 stored files.",
+            description="Compatibility alias for research_upload_project_files.",
             input_schema=tool_schema(
                 {
                     "project_id": {"type": "string"},
