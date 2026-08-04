@@ -2150,6 +2150,7 @@ class FactoryStatus:
 @dataclass(frozen=True)
 class FactoryWakeDueRequest:
     launch_request: dict[str, Any] | None = None
+    effort_ids: tuple[str, ...] = ()
     limit: int = 10
     allow_overlap: bool = False
     dry_run: bool = False
@@ -2163,6 +2164,7 @@ class FactoryWakeDueRequest:
         mapping = _require_mapping(payload, label="factory wake request contract")
         allowed_keys = {
             "launch_request",
+            "effort_ids",
             "limit",
             "allow_overlap",
             "continue_on_error",
@@ -2194,12 +2196,21 @@ class FactoryWakeDueRequest:
         if not 1 <= limit <= 100:
             raise ValueError("factory wake limit must be between 1 and 100")
         continue_on_error = _optional_bool(mapping, "continue_on_error")
+        raw_effort_ids = mapping.get("effort_ids") or ()
+        if not isinstance(raw_effort_ids, (list, tuple)):
+            raise ValueError("factory wake effort_ids must be an array")
+        effort_ids = tuple(str(value).strip() for value in raw_effort_ids)
+        if any(not value for value in effort_ids) or len(set(effort_ids)) != len(effort_ids):
+            raise ValueError("factory wake effort_ids must be unique non-empty strings")
+        if len(effort_ids) > 100:
+            raise ValueError("factory wake effort_ids must contain at most 100 entries")
         return cls(
             launch_request=(
                 _optional_object_dict(launch_request, label="factory wake launch_request")
                 if launch_request is not None
                 else None
             ),
+            effort_ids=effort_ids,
             limit=limit,
             allow_overlap=bool(_optional_bool(mapping, "allow_overlap")),
             dry_run=bool(_optional_bool(mapping, "dry_run")),
@@ -2214,6 +2225,7 @@ class FactoryWakeDueRequest:
             "launch_request": (
                 dict(self.launch_request) if self.launch_request is not None else None
             ),
+            "effort_ids": list(self.effort_ids),
             "limit": self.limit,
             "allow_overlap": self.allow_overlap,
             "continue_on_error": self.continue_on_error,
@@ -2222,6 +2234,7 @@ class FactoryWakeDueRequest:
 
     def to_wire(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
+            "effort_ids": list(self.effort_ids),
             "limit": self.limit,
             "allow_overlap": self.allow_overlap,
             "dry_run": self.dry_run,
