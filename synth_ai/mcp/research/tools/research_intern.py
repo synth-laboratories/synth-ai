@@ -12,7 +12,12 @@ from synth_ai.mcp.research.registry import (
     ToolDefinition,
     tool_schema,
 )
-from synth_ai.mcp.research.request_models import optional_int, optional_string, require_int, require_string
+from synth_ai.mcp.research.request_models import (
+    optional_int,
+    optional_string,
+    require_int,
+    require_string,
+)
 from synth_ai.sdk.research.client import Client as ResearchClient
 from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncCommandKind,
@@ -35,10 +40,34 @@ from synth_ai.sdk.research.contracts.research_intern import (
     ResearchInternTracePublicationRequest,
     ResearchInternTurnRequest,
 )
-from synth_ai.sdk.research.research_intern import ResearchInternEventCursor
+from synth_ai.sdk.research.research_intern import (
+    ResearchInternEventCursor,
+    legacy_intern_sessions_enabled,
+)
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 _RESEARCH_INTERN_EVENT_SEQUENCE_MAX = 2**31 - 1
+
+#: MCP tools that drive the legacy ``/smr/research-intern/sessions`` plane.
+#: They are excluded from registration unless the environment explicitly opts
+#: in via ``SYNTH_ALLOW_LEGACY_INTERN_SESSIONS=1``; QA treats any legacy
+#: ``/sessions`` hit as a hard fail, so the default surface is sync-sessions
+#: only (``intern_sync_*`` / ``intern_async_*``).
+LEGACY_INTERN_SESSION_TOOL_NAMES = frozenset(
+    {
+        "research_append_research_intern_event",
+        "research_close_research_intern_session",
+        "research_create_research_intern_session",
+        "research_exchange_research_intern_turn",
+        "research_get_research_intern_session",
+        "research_list_research_intern_events",
+        "research_list_research_intern_sessions",
+        "research_publish_research_intern_session_trace",
+        "research_run_research_intern_turn",
+        "research_sync_research_intern_session",
+        "research_watch_research_intern_events",
+    }
+)
 
 
 def _request_payload(args: JSONDict, names: tuple[str, ...]) -> JSONDict:
@@ -725,7 +754,7 @@ def build_research_intern_tools(
     sync_selector: JSONDict = {
         "sync_session_id": {"type": "string", "minLength": 1},
     }
-    return [
+    tools = [
         ToolDefinition(
             name="intern_sync_create",
             description="Create or replay one durable operator-present Sync session.",
@@ -1598,6 +1627,9 @@ def build_research_intern_tools(
             required_scopes=READ_SCOPES,
         ),
     ]
+    if not legacy_intern_sessions_enabled():
+        tools = [tool for tool in tools if tool.name not in LEGACY_INTERN_SESSION_TOOL_NAMES]
+    return tools
 
 
-__all__ = ["build_research_intern_tools"]
+__all__ = ["LEGACY_INTERN_SESSION_TOOL_NAMES", "build_research_intern_tools"]

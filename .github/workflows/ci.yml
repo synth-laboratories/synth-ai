@@ -148,6 +148,9 @@ jobs:
         run: |
           uv run python - <<'PY'
           from synth_ai.mcp.research.server import ResearchMcpServer
+          from synth_ai.mcp.research.tools.research_intern import (
+              LEGACY_INTERN_SESSION_TOOL_NAMES,
+          )
 
           stable = ResearchMcpServer()
           advanced = ResearchMcpServer(include_advanced_tools=True)
@@ -155,7 +158,8 @@ jobs:
           advanced_names = advanced.available_tool_names()
           intern_names = {name for name in stable_names if "research_intern" in name}
 
-          assert len(intern_names) == 22, intern_names
+          assert len(intern_names) == 11, intern_names
+          assert not set(stable_names) & LEGACY_INTERN_SESSION_TOOL_NAMES
           assert not any(name.startswith("smr_") for name in stable_names)
           assert not any(name.startswith("smr_") for name in advanced_names)
           for canonical_name in intern_names:
