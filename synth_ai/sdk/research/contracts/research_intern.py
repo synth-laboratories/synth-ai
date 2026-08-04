@@ -184,6 +184,129 @@ class InternSyncSessionCreateRequest(_StrictContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class SyncTemplateProvisionedResource(_StrictContract):
+    """One resource decision made while provisioning a task template."""
+
+    resource_kind: Literal[
+        "project",
+        "factory",
+        "factory_project_link",
+        "effort",
+        "intern_factory_membership",
+        "run",
+    ]
+    status: Literal["created", "reused", "unsupported"]
+    resource_id: str | None = None
+    error_code: str | None = None
+
+
+class SyncTemplateProvisioningReceipt(_StrictContract):
+    """Durable record of what starting from a task template provisioned.
+
+    The backend mints this receipt inside the session-create transaction and
+    stamps it into the session projection; the SDK only ever observes it.
+    """
+
+    schema_version: Literal["smr.intern-sync-template-provisioning.v1"]
+    task_template: str
+    binding: InternRuntimeBinding
+    resources: tuple[SyncTemplateProvisionedResource, ...]
+    provisioned_at: datetime
+
+
+class SyncTracePublicationReceipt(_StrictContract):
+    """Read-only receipt for the server-side terminal Trace V5 publication.
+
+    The backend publishes the durable Sync event chain as genuine Trace V5 as
+    an effect of the session reaching a terminal state. Clients never mint
+    this record; they observe it on the session projection after close.
+    """
+
+    schema_version: Literal["smr.intern-sync-trace-publication.v1"]
+    status: Literal["published", "failed"]
+    sync_session_id: str
+    runtime_kind: Literal["sync"]
+    state_generation: int = Field(ge=1)
+    event_count: int | None = Field(default=None, ge=1)
+    trace_id: str | None = None
+    trace_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    capture_id: str | None = None
+    bundle_id: str | None = None
+    manifest_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    publication_id: str | None = None
+    error_code: str | None = None
+    attempted_at: datetime
+    published_at: datetime | None = None
+
+
+SyncKitIngressKind = Literal[
+    "website_upload",
+    "sdk_upload",
+    "git_push",
+    "project_files",
+]
+
+SyncKitIngressObservation = Literal[
+    "stored_file_write",
+    "push_confirmation",
+    "upload_url_issuance",
+]
+
+
+class SyncKitAssociatedFile(_StrictContract):
+    """One file observed in a kit ingress, with whatever identity was available."""
+
+    path: str
+    digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    size_bytes: int | None = Field(default=None, ge=0)
+    stored_file_id: str | None = None
+
+
+class SyncKitIngressSource(_StrictContract):
+    """Source identity of one kit ingress, per ingress kind."""
+
+    commit_sha: str | None = None
+    archive_key: str | None = None
+    workspace_archive_id: str | None = None
+    push_confirmation_receipt_id: str | None = None
+    upload_batch_id: str | None = None
+    dataset_ref: str | None = None
+    stored_file_ids: tuple[str, ...] = ()
+
+
+class SyncKitAssociationReceipt(_StrictContract):
+    """Durable record that a kit ingress landed while this session was open.
+
+    The backend mints this receipt as a server-side effect of observing an
+    upload, push, or file write on a project bound to an open Sync session.
+    Clients never mint it; they observe it on the session projection.
+    """
+
+    schema_version: Literal["smr.intern-sync-kit-association.v1"]
+    receipt_id: str
+    sync_session_id: str
+    project_id: str
+    ingress_kind: SyncKitIngressKind
+    observed_via: SyncKitIngressObservation
+    files: tuple[SyncKitAssociatedFile, ...] = ()
+    source: SyncKitIngressSource
+    open_session_count: int = Field(ge=1)
+    associated_at: datetime
+
+
+class SyncKitReadiness(_StrictContract):
+    """Read-only kit completeness projection for a template-bound session."""
+
+    schema_version: Literal["smr.intern-sync-kit-readiness.v1"]
+    status: Literal["ready", "incomplete"]
+    task_template: str
+    kit_contract: str
+    required_files: tuple[str, ...]
+    present_files: tuple[str, ...] = ()
+    missing_files: tuple[str, ...] = ()
+    checked_at: datetime
+
+
 class InternSyncSession(_StrictContract):
     schema_version: Literal["smr.intern-sync-session.v1"]
     sync_session_id: str
@@ -200,6 +323,14 @@ class InternSyncSession(_StrictContract):
     outcome: InternRuntimeOutcome | None = None
     failure_code: str | None = None
     temporal_workflow_id: str
+    # Server-minted projection stamps. Old backends omit them entirely; new
+    # backends stamp them once the corresponding effect lands. The SDK only
+    # observes these receipts — the backend remains the minting authority.
+    task_template: str | None = None
+    provisioning: SyncTemplateProvisioningReceipt | None = None
+    trace_publication: SyncTracePublicationReceipt | None = None
+    kit_associations: tuple[SyncKitAssociationReceipt, ...] = ()
+    kit_readiness: SyncKitReadiness | None = None
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None = None
