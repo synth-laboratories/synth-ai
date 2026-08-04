@@ -60,7 +60,88 @@ EXCLUDED_DIRECTORY_NAMES = frozenset(
 #: Filenames that indicate a credential regardless of directory.
 _CREDENTIAL_FILENAMES = frozenset({"auth.json", ".env", "credentials.json", ".netrc"})
 
+
+def _load_dockerignore(dockerfile: Path) -> list[str]:
+    """Read ignore patterns for a build context.
+
+    The backend never sees a ``.dockerignore``: the archive the client uploads
+    *is* the context. Applying the rules here is therefore the only thing
+    keeping excluded trees out of the image and out of S3 — and for some
+    contexts it is the difference between fitting the archive cap and not.
+    BuildKit prefers ``<dockerfile>.dockerignore`` over a context-root
+    ``.dockerignore``, so this checks the same two locations in the same order.
+    """
+    for candidate in (
+        dockerfile.with_name(dockerfile.name + ".dockerignore"),
+        dockerfile.parent / ".dockerignore",
+    ):
+        if not candidate.is_file():
+            continue
+        patterns: list[str] = []
+        for raw in candidate.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if line and not line.startswith("#"):
+                patterns.append(line)
+        return patterns
+    return []
+
+
+def _matches_dockerignore(relative: PurePosixPath, patterns: list[str]) -> bool:
+    """Approximate Docker's ignore matching for the patterns people actually write.
+
+    Negations (``!pattern``) are treated as "do not ignore", matching Docker.
+    This is deliberately conservative: an unmatched pattern only means a file is
+    included, so the worst case is a larger archive, never a missing file.
+    """
+    ignored = False
+    for pattern in patterns:
+        negated = pattern.startswith("!")
+        candidate = pattern[1:] if negated else pattern
+        candidate = candidate.strip("/")
+        if not candidate:
+            continue
+        matched = relative.match(candidate) or any(
+            PurePosixPath(*relative.parts[: index + 1]).match(candidate)
+            for index in range(len(relative.parts))
+        )
+        if matched:
+            ignored = not negated
+    return ignored
+
+
 _COPY_SOURCE = re.compile(r"^\s*(COPY|ADD)\s+(?P<rest>.+)$", re.IGNORECASE)
+_ARG_DEFAULT = re.compile(
+    r"^\s*ARG\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>.*)$", re.IGNORECASE
+)
+_INTERPOLATION = re.compile(
+    r"\$\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|\$(?P<bare>[A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def _expand_build_args(source: str, build_args: dict[str, str]) -> str | None:
+    """Substitute ``ARG`` defaults into a COPY source path.
+
+    Build args are not plumbed through the container-pool build path — the
+    backend's ``do_build`` takes a Dockerfile and a context and nothing else —
+    so a Dockerfile's ARG *defaults* are what the image is actually built with.
+    Expanding them here validates the paths the build will really resolve, and
+    catches a bundle whose vendored contents disagree with its ARG defaults.
+
+    Returns ``None`` when a referenced variable has no default, since the value
+    is then genuinely unknown and the path cannot be checked either way.
+    """
+    unresolved = False
+
+    def _replace(match: re.Match[str]) -> str:
+        nonlocal unresolved
+        name = match.group("braced") or match.group("bare")
+        if name not in build_args:
+            unresolved = True
+            return ""
+        return build_args[name]
+
+    expanded = _INTERPOLATION.sub(_replace, source)
+    return None if unresolved else expanded
 
 
 class HarborBundleError(ValueError):
@@ -98,7 +179,12 @@ def _check_dockerfile_context(dockerfile: Path, *, bundle_root: Path) -> None:
     """Reject a Dockerfile whose build context is wider than its own directory."""
 
     offenders: list[str] = []
+    build_args: dict[str, str] = {}
     for number, line in enumerate(dockerfile.read_text(encoding="utf-8").splitlines(), 1):
+        arg_match = _ARG_DEFAULT.match(line)
+        if arg_match is not None:
+            build_args[arg_match.group("name")] = arg_match.group("value").strip().strip("\"'")
+            continue
         match = _COPY_SOURCE.match(line)
         if match is None:
             continue
@@ -111,14 +197,22 @@ def _check_dockerfile_context(dockerfile: Path, *, bundle_root: Path) -> None:
         for source in arguments[:-1]:
             if source.startswith("--"):
                 continue
-            candidate = PurePosixPath(source)
+            expanded = _expand_build_args(source, build_args)
+            if expanded is None:
+                # A variable with no ARG default: the build value is unknown, so
+                # neither accepting nor rejecting the path would be honest.
+                continue
+            candidate = PurePosixPath(expanded)
             if candidate.is_absolute() or ".." in candidate.parts:
                 offenders.append(f"  line {number}: {line.strip()}")
                 continue
-            # The context root is environment/; a source naming a sibling of
-            # environment/ (tasks/, adapters/, ...) resolves outside it.
-            if not (dockerfile.parent / source).exists():
-                offenders.append(f"  line {number}: {line.strip()}")
+            # The context root is the Dockerfile's own directory; a source
+            # naming anything above it cannot resolve during a pool build.
+            if not (dockerfile.parent / expanded).exists():
+                detail = f"  line {number}: {line.strip()}"
+                if expanded != source:
+                    detail += f"\n      (resolves to {expanded!r} via ARG defaults)"
+                offenders.append(detail)
     if offenders:
         relative = dockerfile.relative_to(bundle_root)
         raise HarborBundleError(
@@ -178,12 +272,15 @@ def build_harbor_bundle_archive(
             "as the verifier phase."
         )
 
+    ignore_patterns = _load_dockerignore(dockerfile)
     members: list[tuple[Path, str]] = []
     for path in sorted(bundle_root.rglob("*")):
         if not path.is_file():
             continue
         relative = PurePosixPath(path.relative_to(bundle_root).as_posix())
         if _is_excluded(relative):
+            continue
+        if ignore_patterns and _matches_dockerignore(relative, ignore_patterns):
             continue
         if not allow_credential_files and relative.name in _CREDENTIAL_FILENAMES:
             raise HarborBundleError(
@@ -234,13 +331,100 @@ def build_harbor_bundle_archive(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class DockerContextArchive:
+    """A packaged build context for an arbitrary (non-Harbor) container."""
+
+    archive_base64: str
+    archive_bytes: int
+    file_count: int
+    dockerfile_path: str
+    ignored_by_dockerignore: int
+
+
+def build_docker_context_archive(
+    context_dir: str | Path,
+    *,
+    dockerfile_path: str = "Dockerfile",
+    allow_credential_files: bool = False,
+) -> DockerContextArchive:
+    """Package a plain Docker build context for an ``arbitrary`` pool task.
+
+    Unlike :func:`build_harbor_bundle_archive` this requires no task.toml,
+    instruction, or tests — an arbitrary container serves the Synth HTTP
+    contract rather than running agent and verifier phases. The context is
+    rooted at ``context_dir`` rather than at the Dockerfile's directory, because
+    the arbitrary path uploads the context as given.
+    """
+
+    root = Path(context_dir).expanduser().resolve()
+    if not root.is_dir():
+        raise HarborBundleError(f"{root} is not a directory.")
+    dockerfile = root / dockerfile_path
+    if not dockerfile.is_file():
+        raise HarborBundleError(f"Build context is missing {dockerfile_path}.")
+
+    ignore_patterns = _load_dockerignore(dockerfile)
+    members: list[tuple[Path, str]] = []
+    ignored = 0
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = PurePosixPath(path.relative_to(root).as_posix())
+        if _is_excluded(relative):
+            ignored += 1
+            continue
+        if ignore_patterns and _matches_dockerignore(relative, ignore_patterns):
+            ignored += 1
+            continue
+        if not allow_credential_files and relative.name in _CREDENTIAL_FILENAMES:
+            raise HarborBundleError(
+                f"{relative} looks like a credential and would ship inside the "
+                "container image and to S3. Remove it, or pass "
+                "allow_credential_files=True if it is genuinely fixture data."
+            )
+        members.append((path, relative.as_posix()))
+
+    if not members:
+        raise HarborBundleError(f"{root} has no packageable files.")
+
+    with io.BytesIO() as buffer:
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            for path, arcname in members:
+                archive.add(path, arcname=arcname)
+        raw = buffer.getvalue()
+
+    if len(raw) > MAX_ARCHIVE_BYTES:
+        raise HarborBundleError(
+            f"Build context archive is {len(raw)} bytes; the backend rejects anything "
+            f"over {MAX_ARCHIVE_BYTES}. {ignored} files were already excluded — check "
+            "for build output that no ignore rule covers."
+        )
+    encoded = base64.b64encode(raw).decode("ascii")
+    if len(encoded) > MAX_BASE64_CHARS:
+        raise HarborBundleError(
+            f"Encoded context is {len(encoded)} characters; the backend rejects "
+            f"anything over {MAX_BASE64_CHARS}."
+        )
+
+    return DockerContextArchive(
+        archive_base64=encoded,
+        archive_bytes=len(raw),
+        file_count=len(members),
+        dockerfile_path=dockerfile_path,
+        ignored_by_dockerignore=ignored,
+    )
+
+
 __all__ = [
     "DOCKERFILE_PATH",
     "EXCLUDED_DIRECTORY_NAMES",
+    "DockerContextArchive",
     "HarborBundle",
     "HarborBundleError",
     "INSTRUCTION_PATH",
     "MAX_ARCHIVE_BYTES",
     "TASK_CONFIG_PATH",
+    "build_docker_context_archive",
     "build_harbor_bundle_archive",
 ]
