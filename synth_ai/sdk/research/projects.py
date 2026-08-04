@@ -27,6 +27,7 @@ from synth_ai.sdk.research.project_deliveries import (
     AsyncProjectDeliveriesAPI,
     ProjectDeliveriesAPI,
 )
+from synth_ai.sdk.research.project_files import AsyncProjectFilesAPI, ProjectFilesAPI
 from synth_ai.sdk.research.project_workspaces import (
     AsyncProjectWorkspaceAPI,
     ProjectWorkspaceAPI,
@@ -113,7 +114,7 @@ class ProjectSetupAPI:
 
 
 class ProjectsAPI:
-    """Project lifecycle operations and nested data, setup, and workspace namespaces."""
+    """Project lifecycle operations and nested resource namespaces."""
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -121,6 +122,7 @@ class ProjectsAPI:
         self.computer = ProjectComputerAPI(transport)
         self.data_bindings = ProjectDataBindingsAPI(transport)
         self.deliveries = ProjectDeliveriesAPI(transport)
+        self.files = ProjectFilesAPI(transport)
         self.repositories = ProjectRepositoriesAPI(transport)
         self.setup = ProjectSetupAPI(transport)
         self.workspace = ProjectWorkspaceAPI(transport)
@@ -273,6 +275,7 @@ class AsyncProjectsAPI:
         self.computer = AsyncProjectComputerAPI(transport)
         self.data_bindings = AsyncProjectDataBindingsAPI(transport)
         self.deliveries = AsyncProjectDeliveriesAPI(transport)
+        self.files = AsyncProjectFilesAPI(transport)
         self.datasets = AsyncProjectDatasetsAPI(transport)
         self.repositories = AsyncProjectRepositoriesAPI(transport)
         self.setup = AsyncProjectSetupAPI(transport)

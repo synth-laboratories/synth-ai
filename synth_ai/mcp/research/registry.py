@@ -58,6 +58,7 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_confirm_workspace_push": WRITE_SCOPES,
     "research_list_project_files": READ_SCOPES,
     "research_create_project_files": WRITE_SCOPES,
+    "research_upload_project_files": WRITE_SCOPES,
     "research_get_project_file": READ_SCOPES,
     "research_get_file_content": READ_SCOPES,
     "research_list_run_file_mounts": READ_SCOPES,

@@ -151,7 +151,10 @@ def build_workspace_input_tools(
         ),
         ToolDefinition(
             name="research_get_workspace_inputs",
-            description="Fetch the typed workspace bootstrap inputs for a project.",
+            description=(
+                "Compatibility view of workspace bootstrap state. For files that may be "
+                "added at any time, prefer research_list_project_files."
+            ),
             input_schema=tool_schema(
                 {
                     "project_id": {
@@ -167,8 +170,8 @@ def build_workspace_input_tools(
         ToolDefinition(
             name="research_upload_workspace_files",
             description=(
-                "Upload up to 10,000 project workspace files in deterministic, "
-                "retry-safe batches and return the complete ordered receipt."
+                "Compatibility uploader that also commits files to the project workspace. "
+                "For ordinary durable project files, prefer research_upload_project_files."
             ),
             input_schema=tool_schema(
                 {

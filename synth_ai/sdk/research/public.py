@@ -410,6 +410,15 @@ from synth_ai.sdk.research.project_deliveries import (
     AsyncProjectDeliveriesAPI,
     ProjectDeliveriesAPI,
 )
+from synth_ai.sdk.research.project_files import (
+    AsyncProjectFilesAPI,
+    ProjectFile,
+    ProjectFilesAPI,
+    ProjectFilesPage,
+    ProjectFilesUploadReceipt,
+    ProjectFilesUploadRequest,
+    ProjectFileUpload,
+)
 from synth_ai.sdk.research.project_workspaces import WorkspaceBatchUploadError
 from synth_ai.sdk.research.research_intern import (
     AsyncProjectComputerAPI,
@@ -863,6 +872,13 @@ __all__ = [
     "WorkspaceSourceRepositoryReceipt",
     "WorkspaceSourceRepositorySpec",
     "WorkspaceStoredFile",
+    "AsyncProjectFilesAPI",
+    "ProjectFile",
+    "ProjectFileUpload",
+    "ProjectFilesAPI",
+    "ProjectFilesPage",
+    "ProjectFilesUploadReceipt",
+    "ProjectFilesUploadRequest",
     "WorkProductArtifactLink",
     "WorkProductArtifactRole",
     "WorkProductBlocker",

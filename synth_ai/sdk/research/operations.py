@@ -704,6 +704,12 @@ RESEARCH_OPERATIONS = {
             "retrieve_project", HttpMethod.GET, "/smr/projects/{project_id}", idempotent=True
         ),
         _operation(
+            "list_project_files",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/files",
+            idempotent=True,
+        ),
+        _operation(
             "retrieve_image_release",
             HttpMethod.GET,
             "/smr/v1/image-releases/{release_id}",
@@ -912,6 +918,12 @@ RESEARCH_OPERATIONS = {
             "/smr/projects/{project_id}/workspace-inputs/files:upload",
             mutation=True,
             idempotent=True,
+        ),
+        _operation(
+            "upload_project_files",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/files",
+            mutation=True,
         ),
         _operation("update_effort", HttpMethod.PATCH, "/smr/efforts/{effort_id}", mutation=True),
         _operation(

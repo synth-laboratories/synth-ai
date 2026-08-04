@@ -453,11 +453,32 @@ class InternAsyncCheckpoint(_StrictContract):
 
 
 class InternAsyncBlocker(_StrictContract):
+    """Matches backend ``AsyncBlockerResponse`` (smr.intern-async-blocker.v1)."""
+
+    schema_version: Literal["smr.intern-async-blocker.v1"] = (
+        "smr.intern-async-blocker.v1"
+    )
+    blocker_id: str | None = None
     code: str
     message: str
     retryable: bool
     next_retry_at: datetime | None = None
     operator_action_required: bool = False
+    status: Literal["open", "handoff_opened", "resolved", "superseded"] | None = None
+    binding: InternRuntimeBinding | None = None
+    action_schema_version: str | None = None
+    action_kind: str | None = None
+    action_digest: str | None = None
+    summary: str | None = None
+    rationale: str | None = None
+    preauthorization_rule: str | None = None
+    evidence_resources: tuple[Any, ...] = ()
+    required_operator_capability: str | None = None
+    sync_session_id: str | None = None
+    resolution_receipt: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    resolved_at: datetime | None = None
 
 
 class InternAsyncRuntime(_StrictContract):
