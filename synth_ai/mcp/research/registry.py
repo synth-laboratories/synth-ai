@@ -55,6 +55,7 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_attach_source_repo": WRITE_SCOPES,
     "research_get_workspace_inputs": READ_SCOPES,
     "research_upload_workspace_files": WRITE_SCOPES,
+    "research_confirm_workspace_push": WRITE_SCOPES,
     "research_list_project_files": READ_SCOPES,
     "research_create_project_files": WRITE_SCOPES,
     "research_get_project_file": READ_SCOPES,
@@ -190,6 +191,10 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_work_repos_list": READ_SCOPES,
     "research_work_repos_attach": WRITE_SCOPES,
     "research_work_repos_detach": WRITE_SCOPES,
+    "research_create_visual": WRITE_SCOPES,
+    "research_update_visual": WRITE_SCOPES,
+    "research_promote_visual": WRITE_SCOPES,
+    "research_unpublish_visual": WRITE_SCOPES,
 }
 
 

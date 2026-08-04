@@ -105,6 +105,19 @@ def build_workspace_input_tools(
                 request,
             ).to_wire()
 
+    def confirm_workspace_push(args: JSONDict) -> JSONDict:
+        project_id = ProjectId(require_string(args, "project_id"))
+        commit_sha = require_string(args, "commit_sha")
+        archive_key = require_string(args, "archive_key")
+        run_id = require_string(args, "run_id")
+        with client_from_args(args) as client:
+            return client.projects.workspace.confirm_push(
+                project_id,
+                commit_sha=commit_sha,
+                archive_key=archive_key,
+                run_id=run_id,
+            ).to_wire()
+
     return [
         ToolDefinition(
             name="research_attach_source_repo",
@@ -191,6 +204,45 @@ def build_workspace_input_tools(
                 required=["project_id", "files"],
             ),
             handler=upload_workspace_files,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_confirm_workspace_push",
+            description=(
+                "Confirm an already-pushed workspace commit through project "
+                "authority and return the typed WorkspacePushConfirmationReceipt "
+                "-- the done signal for coding agents driving workspace ingress "
+                "over MCP. If the project is bound to an open Sync session, the "
+                "backend also auto-records a kit-association receipt server-side."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {
+                        "type": "string",
+                        "description": "Research project ID.",
+                    },
+                    "commit_sha": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{40}$",
+                        "description": (
+                            "Exact 40-hex lowercase commit SHA pushed to the "
+                            "internal workspace git server."
+                        ),
+                    },
+                    "archive_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Immutable workspace archive object key.",
+                    },
+                    "run_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Run ID the pushed workspace belongs to.",
+                    },
+                },
+                required=["project_id", "commit_sha", "archive_key", "run_id"],
+            ),
+            handler=confirm_workspace_push,
             required_scopes=WRITE_SCOPES,
         ),
     ]
