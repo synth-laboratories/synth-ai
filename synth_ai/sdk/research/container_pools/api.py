@@ -218,6 +218,7 @@ class ContainerPoolsAPI:
         dockerfile_path: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         allow_credential_files: bool = False,
+        collect_phase_logs: bool | None = None,
     ) -> RuntimeImageRelease:
         """Package a Harbor task bundle and publish it as a release.
 
@@ -237,6 +238,12 @@ class ContainerPoolsAPI:
         }
         if dockerfile_path:
             release_metadata["harbor_dockerfile_path"] = dockerfile_path
+        if collect_phase_logs is not None:
+            # Whether the backend collects /logs from the sandbox into rollout
+            # artifacts. On by default; a failed rollout otherwise discards the
+            # only evidence of why the agent phase failed, and every distinct
+            # failure reports the same exit code.
+            release_metadata["collect_phase_logs"] = bool(collect_phase_logs)
         release_metadata.update(_json_object(metadata))
         return self.create_release(
             pool_id,
