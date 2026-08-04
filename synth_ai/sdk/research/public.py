@@ -517,6 +517,15 @@ from synth_ai.sdk.research.research_intern import (
     ResearchInternSyncRuntimeAPI,
     ResearchInternTurnFailedError,
 )
+from synth_ai.sdk.research.surface_parity import (
+    CanonicalIdentity,
+    SurfaceObservation,
+    async_runtime_digest,
+    build_surface_parity,
+    canonical_digest,
+    emit_surface_parity_json,
+    sync_projection_digest,
+)
 from synth_ai.sdk.research.swarms import SwarmHandle
 from synth_ai.sdk.research.traces import FactoryTraceStoreAPI, ResearchTracesAPI
 from synth_ai.sdk.research.visuals import AsyncVisualsAPI, VisualsAPI
@@ -1005,6 +1014,15 @@ __all__ = [
     "WorkspaceSourceRepositoryReceipt",
     "WorkspaceSourceRepositorySpec",
     "WorkspaceStoredFile",
+    # Surface-parity evidence helpers (Gate-2 WS3): one canonical digest and
+    # one surfaces-object emitter shared by API/SDK/MCP parity checks.
+    "CanonicalIdentity",
+    "SurfaceObservation",
+    "async_runtime_digest",
+    "build_surface_parity",
+    "canonical_digest",
+    "emit_surface_parity_json",
+    "sync_projection_digest",
 ]
 
 _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {

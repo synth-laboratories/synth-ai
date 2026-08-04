@@ -29,6 +29,7 @@ from synth_ai.sdk.research.errors import (
     ResearchLimitExtensionIdempotencyConflictError,
     ResearchLimitRevisionConflictError,
     ResearchManagedInferenceUnavailableError,
+    ResearchNotFoundError,
     ResearchProjectMonthlyBudgetExhaustedError,
     ResearchStructuredDenialError,
     ResearchUnsafeLimitExtensionError,
@@ -149,6 +150,17 @@ def _raise_for_error_response(
                 status_code = response.status_code
                 response_text = response.text
                 stripped = code.strip()
+                if status_code == 404 and stripped.endswith("_not_found"):
+                    # Typed retrievability evidence: preserve the backend's
+                    # exact not-found condition and lookup scope so a genuine
+                    # 404 can be distinguished from a wrong-organization
+                    # lookup (see ResearchNotFoundError).
+                    raise ResearchNotFoundError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                    )
                 if stripped == "smr_limit_exceeded":
                     raise ResearchLimitExceededError(
                         message,
