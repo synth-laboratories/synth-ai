@@ -29,7 +29,7 @@ def test_sync_projection_accepts_integrated_backend_fields() -> None:
             "execution_mode": "standard",
             "execution_profile_id": "intern_sync",
             "visuals": [],
-            "kit_state_receipts": [],
+            "workspace_run_receipts": [],
             "experiments": [],
             "harness_bundle_available": True,
             "created_at": now,

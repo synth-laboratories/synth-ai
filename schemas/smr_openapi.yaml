@@ -9287,17 +9287,11 @@ paths:
       description: 'Create a durable Sync resource, then idempotently start its workflow.
 
 
-        ``task_template`` starts the session from a code-declared task template:
+        Callers may bind an existing canonical Factory/Project/Effort/Run graph.
 
-        the backend provisions the Factory/Project/Effort chain through the
+        Eval-specific setup belongs to the eval harness and uses the ordinary
 
-        canonical creation authorities and binds the session to it, recording a
-
-        ``provisioning`` receipt on the session projection. Typed conditions:
-
-        ``intern_task_template_unknown``, ``intern_task_template_binding_conflict``
-
-        and ``intern_template_provisioning_unsupported:run``.'
+        project, Factory, file, and session APIs before starting the walkthrough.'
       operationId: create_intern_sync_session
       requestBody:
         required: true
@@ -9593,6 +9587,166 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPresenceLeaseResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}/local-pilot/attach:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Attach Intern Sync Local Pilot
+      description: Mint one short-lived org/session-bound Local Pilot capability.
+      operationId: attach_intern_sync_local_pilot_smr_research_intern_sync_sessions__sync_session_id__local_pilot_attach_post
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Attach Intern Sync Local Pilot Smr Research Intern
+                  Sync Sessions  Sync Session Id  Local Pilot Attach Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}/local-pilot/context:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Sync Local Pilot Context
+      operationId: get_intern_sync_local_pilot_context_smr_research_intern_sync_sessions__sync_session_id__local_pilot_context_get
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-Intern-Pilot-Fence
+        in: header
+        required: true
+        schema:
+          type: integer
+          title: X-Intern-Pilot-Fence
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Intern Sync Local Pilot Context Smr Research Intern
+                  Sync Sessions  Sync Session Id  Local Pilot Context Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}/local-pilot/commands:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Command Intern Sync Local Pilot
+      description: Admit a model-authored result through the ordinary durable mailbox.
+      operationId: command_intern_sync_local_pilot_smr_research_intern_sync_sessions__sync_session_id__local_pilot_commands_post
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-Intern-Pilot-Fence
+        in: header
+        required: true
+        schema:
+          type: integer
+          title: X-Intern-Pilot-Fence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternRuntimeCommandRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeCommandReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}/local-pilot/detach:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Detach Intern Sync Local Pilot
+      operationId: detach_intern_sync_local_pilot_smr_research_intern_sync_sessions__sync_session_id__local_pilot_detach_post
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-Intern-Pilot-Fence
+        in: header
+        required: true
+        schema:
+          type: integer
+          title: X-Intern-Pilot-Fence
+      responses:
+        '204':
+          description: Successful Response
         '422':
           description: Validation Error
           content:
@@ -51411,8 +51565,9 @@ components:
         task_template:
           type: string
           maxLength: 128
+          minLength: 1
           title: Task Template
-          default: craftax_harness_prompt
+          default: acceptance_default
         include_run:
           type: boolean
           title: Include Run
@@ -51430,11 +51585,18 @@ components:
         fixture.
 
 
-        No tribal ids: the backend provisions the whole chain from the named task
+        No tribal ids: the backend provisions the whole chain through the
 
-        template and binds the organization Intern to it. Idempotent within one
+        canonical creation authorities and binds the organization Intern to it.
 
-        test attempt via ``idempotency_key``.'
+        Idempotent within one test attempt via ``idempotency_key``.
+
+
+        ``task_template`` is a caller-supplied label recorded on the fixture
+
+        receipt; eval-specific task content (objectives, rubrics, required
+
+        project files) lives with the eval harness, never in production.'
     InternAcceptanceFixtureResourceV1:
       properties:
         resource_kind:
@@ -54707,6 +54869,7 @@ components:
       - swarm
       - factory
       - project
+      - project_attachment
       - effort
       - experiment
       - result
@@ -87904,11 +88067,6 @@ components:
         project_id:
           type: string
           title: Project Id
-        task_template:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task Template
         auth_scheme:
           type: string
           const: bearer
@@ -87919,12 +88077,6 @@ components:
           const: SYNTH_API_KEY
           title: Auth Env Var
           default: SYNTH_API_KEY
-        required_paths:
-          items:
-            type: string
-          type: array
-          title: Required Paths
-          default: []
         endpoints:
           items:
             $ref: '#/components/schemas/SyncDeployPacketEndpointV1'
@@ -87937,9 +88089,9 @@ components:
           default: workspace_confirm_push
         image_kind:
           type: string
-          const: craftax_eval
+          const: project_default
           title: Image Kind
-          default: craftax_eval
+          default: project_default
         instructions:
           type: string
           maxLength: 20000
@@ -88097,72 +88249,6 @@ components:
         ``edit`` decisions record both the ``original`` proposal fields and the
 
         ``amendment`` that was applied (approved-with-amendment).'
-    SyncExperimentKitPinV1:
-      properties:
-        schema_version:
-          type: string
-          const: smr.sync-experiment-kit-pin.v1
-          title: Schema Version
-          default: smr.sync-experiment-kit-pin.v1
-        workspace_archive_id:
-          anyOf:
-          - type: string
-            maxLength: 512
-            minLength: 1
-          - type: 'null'
-          title: Workspace Archive Id
-        run_id:
-          anyOf:
-          - type: string
-            maxLength: 255
-            minLength: 1
-          - type: 'null'
-          title: Run Id
-        commit_sha:
-          anyOf:
-          - type: string
-            maxLength: 255
-            minLength: 1
-          - type: 'null'
-          title: Commit Sha
-        storage_bucket:
-          anyOf:
-          - type: string
-            maxLength: 255
-            minLength: 1
-          - type: 'null'
-          title: Storage Bucket
-        archive_key:
-          anyOf:
-          - type: string
-            maxLength: 1024
-            minLength: 1
-          - type: 'null'
-          title: Archive Key
-        digest:
-          anyOf:
-          - type: string
-            pattern: ^sha256:[0-9a-f]{64}$
-          - type: 'null'
-          title: Digest
-        size_bytes:
-          anyOf:
-          - type: integer
-            minimum: 0.0
-          - type: 'null'
-          title: Size Bytes
-      additionalProperties: false
-      type: object
-      title: SyncExperimentKitPinV1
-      description: 'Exact workspace/kit identity a promotion or harness bundle is
-        pinned to.
-
-
-        Captured from the latest successful run-owned workspace archive at the
-
-        moment the pin is minted; every field is copied from that immutable row so
-
-        the pin stays meaningful after project pointers move on.'
     SyncExperimentLifecycleRequestV1:
       properties:
         action:
@@ -88227,9 +88313,9 @@ components:
           - type: string
           - type: 'null'
           title: Superseded Experiment Id
-        kit_pin:
+        workspace_pin:
           anyOf:
-          - $ref: '#/components/schemas/SyncExperimentKitPinV1'
+          - $ref: '#/components/schemas/SyncExperimentWorkspacePinV1'
           - type: 'null'
       additionalProperties: false
       type: object
@@ -88246,7 +88332,7 @@ components:
 
         minting: scores stay server-owned in ``result_summary``, so the receipt
 
-        records the decision, the presence-checked operator, and the kit pin --
+        records the decision, the presence-checked operator, and workspace pin --
 
         never score values.'
     SyncExperimentScoresV1:
@@ -88430,13 +88516,48 @@ components:
       - updated_at
       title: SyncExperimentV1
       description: First-class Sync-facing experiment ledger object.
-    SyncKitAssociatedFileV1:
+    SyncExperimentWorkspacePinV1:
       properties:
-        path:
+        schema_version:
           type: string
-          maxLength: 1024
-          minLength: 1
-          title: Path
+          const: smr.sync-experiment-workspace-pin.v1
+          title: Schema Version
+          default: smr.sync-experiment-workspace-pin.v1
+        workspace_archive_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Workspace Archive Id
+        run_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Run Id
+        commit_sha:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Commit Sha
+        storage_bucket:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Storage Bucket
+        archive_key:
+          anyOf:
+          - type: string
+            maxLength: 1024
+            minLength: 1
+          - type: 'null'
+          title: Archive Key
         digest:
           anyOf:
           - type: string
@@ -88449,267 +88570,17 @@ components:
             minimum: 0.0
           - type: 'null'
           title: Size Bytes
-        stored_file_id:
-          anyOf:
-          - type: string
-            maxLength: 512
-            minLength: 1
-          - type: 'null'
-          title: Stored File Id
       additionalProperties: false
       type: object
-      required:
-      - path
-      title: SyncKitAssociatedFileV1
-      description: One file observed in a kit ingress, with whatever identity was
-        available.
-    SyncKitAssociationReceiptV1:
-      properties:
-        schema_version:
-          type: string
-          const: smr.intern-sync-kit-association.v1
-          title: Schema Version
-          default: smr.intern-sync-kit-association.v1
-        receipt_id:
-          type: string
-          maxLength: 512
-          minLength: 1
-          title: Receipt Id
-        sync_session_id:
-          type: string
-          title: Sync Session Id
-        project_id:
-          type: string
-          title: Project Id
-        ingress_kind:
-          type: string
-          enum:
-          - website_upload
-          - sdk_upload
-          - git_push
-          - project_files
-          title: Ingress Kind
-        observed_via:
-          type: string
-          enum:
-          - stored_file_write
-          - push_confirmation
-          - upload_url_issuance
-          title: Observed Via
-        files:
-          items:
-            $ref: '#/components/schemas/SyncKitAssociatedFileV1'
-          type: array
-          maxItems: 256
-          title: Files
-          default: []
-        source:
-          $ref: '#/components/schemas/SyncKitIngressSourceV1'
-        open_session_count:
-          type: integer
-          minimum: 1.0
-          title: Open Session Count
-        associated_at:
-          type: string
-          format: date-time
-          title: Associated At
-      additionalProperties: false
-      type: object
-      required:
-      - receipt_id
-      - sync_session_id
-      - project_id
-      - ingress_kind
-      - observed_via
-      - source
-      - open_session_count
-      - associated_at
-      title: SyncKitAssociationReceiptV1
-      description: 'Durable record that a kit ingress landed while this session was
-        open.
+      title: SyncExperimentWorkspacePinV1
+      description: 'Exact workspace identity a promotion or download is pinned to.
 
 
-        The backend mints this receipt as a server-side effect of observing an
+        Captured from the latest successful run-owned workspace archive at the
 
-        upload, push, or file write on a project bound to an open Sync session.
+        moment the pin is minted; every field is copied from that immutable row so
 
-        Clients never mint it; they observe it on the session projection.'
-    SyncKitIngressSourceV1:
-      properties:
-        commit_sha:
-          anyOf:
-          - type: string
-            maxLength: 255
-            minLength: 1
-          - type: 'null'
-          title: Commit Sha
-        archive_key:
-          anyOf:
-          - type: string
-            maxLength: 1024
-            minLength: 1
-          - type: 'null'
-          title: Archive Key
-        workspace_archive_id:
-          anyOf:
-          - type: string
-            maxLength: 512
-            minLength: 1
-          - type: 'null'
-          title: Workspace Archive Id
-        push_confirmation_receipt_id:
-          anyOf:
-          - type: string
-            maxLength: 512
-            minLength: 1
-          - type: 'null'
-          title: Push Confirmation Receipt Id
-        upload_batch_id:
-          anyOf:
-          - type: string
-            maxLength: 512
-            minLength: 1
-          - type: 'null'
-          title: Upload Batch Id
-        dataset_ref:
-          anyOf:
-          - type: string
-            maxLength: 512
-            minLength: 1
-          - type: 'null'
-          title: Dataset Ref
-        stored_file_ids:
-          items:
-            type: string
-          type: array
-          maxItems: 256
-          title: Stored File Ids
-          default: []
-      additionalProperties: false
-      type: object
-      title: SyncKitIngressSourceV1
-      description: Source identity of one kit ingress, per ingress kind.
-    SyncKitReadinessV1:
-      properties:
-        schema_version:
-          type: string
-          const: smr.intern-sync-kit-readiness.v1
-          title: Schema Version
-          default: smr.intern-sync-kit-readiness.v1
-        status:
-          type: string
-          enum:
-          - ready
-          - incomplete
-          title: Status
-        task_template:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Task Template
-        kit_contract:
-          type: string
-          maxLength: 255
-          minLength: 1
-          title: Kit Contract
-        required_files:
-          items:
-            type: string
-          type: array
-          maxItems: 256
-          minItems: 1
-          title: Required Files
-        present_files:
-          items:
-            type: string
-          type: array
-          maxItems: 256
-          title: Present Files
-          default: []
-        missing_files:
-          items:
-            type: string
-          type: array
-          maxItems: 256
-          title: Missing Files
-          default: []
-        checked_at:
-          type: string
-          format: date-time
-          title: Checked At
-      additionalProperties: false
-      type: object
-      required:
-      - status
-      - task_template
-      - kit_contract
-      - required_files
-      - checked_at
-      title: SyncKitReadinessV1
-      description: Read-only kit completeness projection for a template-bound session.
-    SyncKitStateReceiptV1:
-      properties:
-        schema_version:
-          type: string
-          const: smr.intern-sync-kit-state.v1
-          title: Schema Version
-          default: smr.intern-sync-kit-state.v1
-        run_id:
-          type: string
-          maxLength: 255
-          minLength: 1
-          title: Run Id
-        sync_session_id:
-          type: string
-          title: Sync Session Id
-        project_id:
-          type: string
-          title: Project Id
-        experiment_id:
-          anyOf:
-          - type: string
-            maxLength: 255
-            minLength: 1
-          - type: 'null'
-          title: Experiment Id
-        kit_readiness_status:
-          type: string
-          enum:
-          - ready
-          - incomplete
-          - not_applicable
-          title: Kit Readiness Status
-        workspace:
-          $ref: '#/components/schemas/SyncWorkspaceSnapshotIdentityV1'
-        recorded_at:
-          type: string
-          format: date-time
-          title: Recorded At
-      additionalProperties: false
-      type: object
-      required:
-      - run_id
-      - sync_session_id
-      - project_id
-      - kit_readiness_status
-      - workspace
-      - recorded_at
-      title: SyncKitStateReceiptV1
-      description: 'Durable proof of exactly which kit state a triggered run launched
-        from.
-
-
-        Server-minted at ``smr_project_trigger_run`` dispatch, next to the kit and
-
-        experiment gates: the workspace snapshot identity is captured at trigger
-
-        time, so a run launched after a harness change is provably bound to the
-
-        new kit. Clients never mint this receipt; they observe it on the session
-
-        projection. True container remount (lease cycling) is typed-unsupported
-
-        in this surface.'
+        the pin stays meaningful after project pointers move on.'
     SyncObjectiveBoundsV1:
       properties:
         schema_version:
@@ -88883,13 +88754,6 @@ components:
         execution_mode:
           $ref: '#/components/schemas/SyncExecutionMode'
           default: standard
-        task_template:
-          anyOf:
-          - type: string
-            maxLength: 128
-            minLength: 1
-          - type: 'null'
-          title: Task Template
         objective_bounds:
           anyOf:
           - $ref: '#/components/schemas/SyncObjectiveBoundsV1'
@@ -88973,29 +88837,9 @@ components:
         temporal_workflow_id:
           type: string
           title: Temporal Workflow Id
-        task_template:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task Template
-        provisioning:
-          anyOf:
-          - $ref: '#/components/schemas/SyncTemplateProvisioningReceiptV1'
-          - type: 'null'
         trace_publication:
           anyOf:
           - $ref: '#/components/schemas/SyncTracePublicationReceiptV1'
-          - type: 'null'
-        kit_associations:
-          items:
-            $ref: '#/components/schemas/SyncKitAssociationReceiptV1'
-          type: array
-          maxItems: 256
-          title: Kit Associations
-          default: []
-        kit_readiness:
-          anyOf:
-          - $ref: '#/components/schemas/SyncKitReadinessV1'
           - type: 'null'
         visuals:
           items:
@@ -89004,12 +88848,12 @@ components:
           maxItems: 64
           title: Visuals
           default: []
-        kit_state_receipts:
+        workspace_run_receipts:
           items:
-            $ref: '#/components/schemas/SyncKitStateReceiptV1'
+            $ref: '#/components/schemas/SyncWorkspaceRunReceiptV1'
           type: array
           maxItems: 256
-          title: Kit State Receipts
+          title: Workspace Run Receipts
           default: []
         experiments:
           items:
@@ -89121,80 +88965,6 @@ components:
       - closed
       - failed
       title: SyncStatus
-    SyncTemplateProvisionedResourceV1:
-      properties:
-        resource_kind:
-          type: string
-          enum:
-          - project
-          - factory
-          - factory_project_link
-          - effort
-          - intern_factory_membership
-          - run
-          title: Resource Kind
-        status:
-          type: string
-          enum:
-          - created
-          - reused
-          - unsupported
-          title: Status
-        resource_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Resource Id
-        error_code:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error Code
-      additionalProperties: false
-      type: object
-      required:
-      - resource_kind
-      - status
-      title: SyncTemplateProvisionedResourceV1
-      description: One resource decision made while provisioning a task template.
-    SyncTemplateProvisioningReceiptV1:
-      properties:
-        schema_version:
-          type: string
-          const: smr.intern-sync-template-provisioning.v1
-          title: Schema Version
-          default: smr.intern-sync-template-provisioning.v1
-        task_template:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Task Template
-        binding:
-          $ref: '#/components/schemas/RuntimeBinding'
-        resources:
-          items:
-            $ref: '#/components/schemas/SyncTemplateProvisionedResourceV1'
-          type: array
-          minItems: 1
-          title: Resources
-        provisioned_at:
-          type: string
-          format: date-time
-          title: Provisioned At
-      additionalProperties: false
-      type: object
-      required:
-      - task_template
-      - binding
-      - resources
-      - provisioned_at
-      title: SyncTemplateProvisioningReceiptV1
-      description: 'Durable record of what starting from a task template provisioned.
-
-
-        The backend mints this receipt inside the session-create transaction and
-
-        stamps it into the session projection; clients only ever observe it.'
     SyncTracePublicationReceiptV1:
       properties:
         schema_version:
@@ -89331,6 +89101,47 @@ components:
       - work_summaries
       - tool_call_groups
       title: SyncTurnProjectionV1
+    SyncWorkspaceRunReceiptV1:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-sync-workspace-run.v1
+          title: Schema Version
+          default: smr.intern-sync-workspace-run.v1
+        run_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Run Id
+        sync_session_id:
+          type: string
+          title: Sync Session Id
+        project_id:
+          type: string
+          title: Project Id
+        experiment_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Experiment Id
+        workspace:
+          $ref: '#/components/schemas/SyncWorkspaceSnapshotIdentityV1'
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - sync_session_id
+      - project_id
+      - workspace
+      - recorded_at
+      title: SyncWorkspaceRunReceiptV1
+      description: Durable proof of the project workspace used to trigger one run.
     SyncWorkspaceSnapshotIdentityV1:
       properties:
         schema_version:
@@ -89343,6 +89154,7 @@ components:
           enum:
           - internal_git_head
           - stored_file_digest_set
+          - internal_git_head_with_stored_files
           title: Kind
         commit_sha:
           anyOf:
@@ -89380,11 +89192,13 @@ components:
 
         same identity workspace push confirmation freezes); it is preferred.
 
-        ``stored_file_digest_set`` cites a digest over the project-scope stored
+        ``stored_file_digest_set`` cites a digest over the model-visible,
 
-        file inventory -- the same rows the kit-readiness gate validates -- for
+        project-scope stored-file inventory when no internal-git identity exists.
 
-        projects whose internal-git identity does not exist yet.'
+        ``internal_git_head_with_stored_files`` binds both authorities so a file
+
+        attached after the latest git commit cannot disappear from the receipt.'
     TagMessageRequest:
       properties:
         message:

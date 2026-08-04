@@ -188,38 +188,7 @@ class InternSyncSessionCreateRequest(_StrictContract):
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
-    task_template: str | None = Field(default=None, min_length=1, max_length=128)
     objective_bounds: dict[str, Any] | None = None
-
-
-class SyncTemplateProvisionedResource(_StrictContract):
-    """One resource decision made while provisioning a task template."""
-
-    resource_kind: Literal[
-        "project",
-        "factory",
-        "factory_project_link",
-        "effort",
-        "intern_factory_membership",
-        "run",
-    ]
-    status: Literal["created", "reused", "unsupported"]
-    resource_id: str | None = None
-    error_code: str | None = None
-
-
-class SyncTemplateProvisioningReceipt(_StrictContract):
-    """Durable record of what starting from a task template provisioned.
-
-    The backend mints this receipt inside the session-create transaction and
-    stamps it into the session projection; the SDK only ever observes it.
-    """
-
-    schema_version: Literal["smr.intern-sync-template-provisioning.v1"]
-    task_template: str
-    binding: InternRuntimeBinding
-    resources: tuple[SyncTemplateProvisionedResource, ...]
-    provisioned_at: datetime
 
 
 class SyncTracePublicationReceipt(_StrictContract):
@@ -247,74 +216,6 @@ class SyncTracePublicationReceipt(_StrictContract):
     published_at: datetime | None = None
 
 
-SyncKitIngressKind = Literal[
-    "website_upload",
-    "sdk_upload",
-    "git_push",
-    "project_files",
-]
-
-SyncKitIngressObservation = Literal[
-    "stored_file_write",
-    "push_confirmation",
-    "upload_url_issuance",
-]
-
-
-class SyncKitAssociatedFile(_StrictContract):
-    """One file observed in a kit ingress, with whatever identity was available."""
-
-    path: str
-    digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
-    size_bytes: int | None = Field(default=None, ge=0)
-    stored_file_id: str | None = None
-
-
-class SyncKitIngressSource(_StrictContract):
-    """Source identity of one kit ingress, per ingress kind."""
-
-    commit_sha: str | None = None
-    archive_key: str | None = None
-    workspace_archive_id: str | None = None
-    push_confirmation_receipt_id: str | None = None
-    upload_batch_id: str | None = None
-    dataset_ref: str | None = None
-    stored_file_ids: tuple[str, ...] = ()
-
-
-class SyncKitAssociationReceipt(_StrictContract):
-    """Durable record that a kit ingress landed while this session was open.
-
-    The backend mints this receipt as a server-side effect of observing an
-    upload, push, or file write on a project bound to an open Sync session.
-    Clients never mint it; they observe it on the session projection.
-    """
-
-    schema_version: Literal["smr.intern-sync-kit-association.v1"]
-    receipt_id: str
-    sync_session_id: str
-    project_id: str
-    ingress_kind: SyncKitIngressKind
-    observed_via: SyncKitIngressObservation
-    files: tuple[SyncKitAssociatedFile, ...] = ()
-    source: SyncKitIngressSource
-    open_session_count: int = Field(ge=1)
-    associated_at: datetime
-
-
-class SyncKitReadiness(_StrictContract):
-    """Read-only kit completeness projection for a template-bound session."""
-
-    schema_version: Literal["smr.intern-sync-kit-readiness.v1"]
-    status: Literal["ready", "incomplete"]
-    task_template: str
-    kit_contract: str
-    required_files: tuple[str, ...]
-    present_files: tuple[str, ...] = ()
-    missing_files: tuple[str, ...] = ()
-    checked_at: datetime
-
-
 class InternSyncSession(_StrictContract):
     schema_version: Literal["smr.intern-sync-session.v1"]
     sync_session_id: str
@@ -338,13 +239,14 @@ class InternSyncSession(_StrictContract):
     # Server-minted projection stamps. Old backends omit them entirely; new
     # backends stamp them once the corresponding effect lands. The SDK only
     # observes these receipts — the backend remains the minting authority.
-    task_template: str | None = None
-    provisioning: SyncTemplateProvisioningReceipt | None = None
+    # Backend 069a119ed reduced this surface: the task-template lane
+    # (task_template, provisioning, kit_associations, kit_readiness,
+    # kit_state_receipts) is gone; workspace_run_receipts replaces
+    # kit_state_receipts. Opaque tuples/objects stay opaque because the
+    # backend is the schema and digest authority for those payloads.
     trace_publication: SyncTracePublicationReceipt | None = None
-    kit_associations: tuple[SyncKitAssociationReceipt, ...] = ()
-    kit_readiness: SyncKitReadiness | None = None
     visuals: tuple[dict[str, Any], ...] = ()
-    kit_state_receipts: tuple[dict[str, Any], ...] = ()
+    workspace_run_receipts: tuple[dict[str, Any], ...] = ()
     experiments: tuple[dict[str, Any], ...] = ()
     harness_bundle_available: bool = False
     created_at: datetime
@@ -406,13 +308,11 @@ class InternSyncDeployPacket(_StrictContract):
     schema_version: Literal["smr.intern-sync-deploy-packet.v1"]
     sync_session_id: str
     project_id: str
-    task_template: str | None = None
     auth_scheme: Literal["bearer"]
     auth_env_var: Literal["SYNTH_API_KEY"]
-    required_paths: tuple[str, ...] = ()
     endpoints: tuple[InternSyncDeployPacketEndpoint, ...]
     done_signal: Literal["workspace_confirm_push"]
-    image_kind: Literal["craftax_eval"]
+    image_kind: Literal["project_default"]
     instructions: str
 
 
