@@ -448,6 +448,7 @@ class InternAsyncCheckpoint(_StrictContract):
     evidence_refs: list[str]
     unresolved_questions: list[str]
     next_action: str | None = None
+    research_records: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime
 
 
