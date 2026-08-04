@@ -22,9 +22,14 @@
       "supported_reasoning_efforts": [
         "low",
         "medium",
-        "high"
+        "high",
+        "xhigh"
       ],
       "default_reasoning_effort": "medium",
+      "supported_service_tiers": [
+        "fast",
+        "priority"
+      ],
       "context_window_tokens": null,
       "max_output_tokens": null,
       "usage_required": true,
@@ -38,6 +43,28 @@
         "reasoning_output_usd": "0.0000012",
         "source": "openai_api_pricing",
         "observed_at": "2026-07-30"
+      },
+      "pricing_by_service_tier": {
+        "fast": {
+          "currency": "USD",
+          "unit": "token",
+          "input_usd": "4E-7",
+          "cached_input_usd": "4E-8",
+          "output_usd": "0.0000024",
+          "reasoning_output_usd": "0.0000024",
+          "source": "openai_api_pricing_fast",
+          "observed_at": "2026-07-30"
+        },
+        "priority": {
+          "currency": "USD",
+          "unit": "token",
+          "input_usd": "4E-7",
+          "cached_input_usd": "4E-8",
+          "output_usd": "0.0000024",
+          "reasoning_output_usd": "0.0000024",
+          "source": "openai_api_pricing_fast",
+          "observed_at": "2026-07-30"
+        }
       }
     },
     {
@@ -65,6 +92,10 @@
         "xhigh"
       ],
       "default_reasoning_effort": "medium",
+      "supported_service_tiers": [
+        "fast",
+        "priority"
+      ],
       "context_window_tokens": null,
       "max_output_tokens": null,
       "usage_required": true,
@@ -78,6 +109,28 @@
         "reasoning_output_usd": "0.00003",
         "source": "openai_gpt_5_6_preview",
         "observed_at": "2026-07-09"
+      },
+      "pricing_by_service_tier": {
+        "fast": {
+          "currency": "USD",
+          "unit": "token",
+          "input_usd": "0.00001",
+          "cached_input_usd": "0.000001",
+          "output_usd": "0.00006",
+          "reasoning_output_usd": "0.00006",
+          "source": "openai_api_pricing_fast",
+          "observed_at": "2026-07-30"
+        },
+        "priority": {
+          "currency": "USD",
+          "unit": "token",
+          "input_usd": "0.00001",
+          "cached_input_usd": "0.000001",
+          "output_usd": "0.00006",
+          "reasoning_output_usd": "0.00006",
+          "source": "openai_api_pricing_fast",
+          "observed_at": "2026-07-30"
+        }
       }
     },
     {
@@ -104,6 +157,7 @@
         "high"
       ],
       "default_reasoning_effort": "medium",
+      "supported_service_tiers": [],
       "context_window_tokens": null,
       "max_output_tokens": null,
       "usage_required": true,
@@ -117,7 +171,8 @@
         "reasoning_output_usd": "0.000012",
         "source": "openai_api_pricing",
         "observed_at": "2026-07-30"
-      }
+      },
+      "pricing_by_service_tier": {}
     },
     {
       "id": "cursor/grok-4.5",
@@ -142,6 +197,7 @@
       ],
       "supported_reasoning_efforts": [],
       "default_reasoning_effort": null,
+      "supported_service_tiers": [],
       "context_window_tokens": null,
       "max_output_tokens": null,
       "usage_required": true,
@@ -155,7 +211,8 @@
         "reasoning_output_usd": "0.000006",
         "source": "cursor_grok_4_5_launch",
         "observed_at": "2026-07-09"
-      }
+      },
+      "pricing_by_service_tier": {}
     },
     {
       "id": "gpt-5.4-mini",
@@ -182,6 +239,7 @@
         "xhigh"
       ],
       "default_reasoning_effort": "medium",
+      "supported_service_tiers": [],
       "context_window_tokens": null,
       "max_output_tokens": 128000,
       "usage_required": true,
@@ -195,7 +253,8 @@
         "reasoning_output_usd": "0.0000016",
         "source": "synth_contract",
         "observed_at": "2026-04-21"
-      }
+      },
+      "pricing_by_service_tier": {}
     },
     {
       "id": "cursor/composer-2.5",
@@ -222,6 +281,7 @@
       ],
       "supported_reasoning_efforts": [],
       "default_reasoning_effort": null,
+      "supported_service_tiers": [],
       "context_window_tokens": null,
       "max_output_tokens": 64000,
       "usage_required": false,
@@ -235,7 +295,8 @@
         "reasoning_output_usd": "0.00000250",
         "source": "cursor_changelog_composer_2_5_standard",
         "observed_at": "2026-05-23"
-      }
+      },
+      "pricing_by_service_tier": {}
     },
     {
       "id": "modal/moonshotai/Kimi-K3",
@@ -263,6 +324,7 @@
         "low"
       ],
       "default_reasoning_effort": "low",
+      "supported_service_tiers": [],
       "context_window_tokens": 1048576,
       "max_output_tokens": 8192,
       "usage_required": true,
@@ -277,6 +339,7 @@
         "source": "modal_managed_shared_api_catalog",
         "observed_at": "2026-07-27"
       },
+      "pricing_by_service_tier": {},
       "source_model_id": "moonshotai/Kimi-K3",
       "source_model_revision": "9f62e4e9fffbd0a83ddd60e1c209d828994b3569",
       "source_model_license": "Kimi K3 License",
@@ -305,11 +368,13 @@
       ],
       "supported_reasoning_efforts": [],
       "default_reasoning_effort": null,
+      "supported_service_tiers": [],
       "context_window_tokens": 262144,
       "max_output_tokens": 16384,
       "usage_required": false,
       "pricing_present": false,
-      "pricing": null
+      "pricing": null,
+      "pricing_by_service_tier": {}
     }
   ]
 }
