@@ -328,12 +328,16 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
     into an opaque denial:
 
     - ``backend_error_code``: the exact backend condition, for example
-      ``intern_async_runtime_not_found`` or ``intern_sync_session_not_found``.
-      (Named to avoid shadowing the read-only ``SynthError.error_code``
-      transport-failure property.)
+      ``intern_async_runtime_not_found``, ``intern_sync_session_not_found``,
+      or a retention condition such as
+      ``intern_async_runtime_retention_expired`` /
+      ``intern_acceptance_fixture_retention_expired`` (the resource existed;
+      its read-only retention window ended). (Named to avoid shadowing the
+      read-only ``SynthError.error_code`` transport-failure property.)
     - ``resource``: the resource segment of the condition (``async_runtime``,
-      ``sync_session``, ...), or ``None`` when the code has no
-      ``intern_*_not_found`` shape.
+      ``sync_session``, ``acceptance_fixture``, ...), or ``None`` when the
+      code has neither the ``intern_*_not_found`` nor the
+      ``intern_*_retention_expired`` shape.
     - ``scope_identifier``: the lookup key the backend echoed back (the
       organization id for org-singleton lookups such as the Async Intern, the
       resource id otherwise), when the backend provided one.
@@ -362,13 +366,14 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
         code = self.detail.get("error_code")
         self.backend_error_code: str = code.strip() if isinstance(code, str) else ""
         resource: str | None = None
-        if self.backend_error_code.startswith("intern_") and self.backend_error_code.endswith(
-            "_not_found"
-        ):
-            resource = self.backend_error_code.removeprefix("intern_").removesuffix("_not_found")
+        if self.backend_error_code.startswith("intern_"):
+            for suffix in ("_not_found", "_retention_expired"):
+                if self.backend_error_code.endswith(suffix):
+                    resource = self.backend_error_code.removeprefix("intern_").removesuffix(suffix)
+                    break
         self.resource: str | None = resource
         scope: str | None = None
-        for key in ("runtime_id", "resource_id", "org_id"):
+        for key in ("runtime_id", "resource_id", "fixture_id", "async_runtime_id", "org_id"):
             value = self.detail.get(key)
             if isinstance(value, str) and value.strip():
                 scope = value.strip()

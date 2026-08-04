@@ -578,6 +578,8 @@ def _build_project_run_payload(
     dev_environment_id: str | None = None,
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
+    deployment_pins: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
+    provenance_mode: str | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
     open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -814,6 +816,22 @@ def _build_project_run_payload(
         run_policy_payload = normalized_run_policy.to_dict()
         reject_deprecated_run_policy_payload(run_policy_payload)
         payload["run_policy"] = run_policy_payload
+    # Sealed-run provenance: the backend provenance authority validates and
+    # digest-stamps the pins (typed 422s: run_deployment_pins_missing,
+    # run_deployment_pin_placeholder, run_deployment_pin_invalid,
+    # run_provenance_mode_invalid, run_trace_store_not_provisioned), so the
+    # SDK only normalizes shape and the mode vocabulary here.
+    normalized_deployment_pins = _optional_mapping_list(
+        deployment_pins,
+        field_name="deployment_pins",
+    )
+    if normalized_deployment_pins:
+        payload["deployment_pins"] = normalized_deployment_pins
+    if provenance_mode is not None:
+        normalized_provenance_mode = str(provenance_mode).strip()
+        if normalized_provenance_mode not in ("live", "dry_run"):
+            raise ValueError("provenance_mode must be 'live' or 'dry_run'")
+        payload["provenance_mode"] = normalized_provenance_mode
     normalized_required_work_products = _required_work_product_payloads(
         required_work_products,
         field_name="required_work_products",
@@ -5535,6 +5553,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
+        deployment_pins: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
+        provenance_mode: str | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5586,6 +5606,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
+            deployment_pins=deployment_pins,
+            provenance_mode=provenance_mode,
             resource_bindings=resource_bindings,
             evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
@@ -5694,6 +5716,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
+        deployment_pins: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
+        provenance_mode: str | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5761,6 +5785,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
+            deployment_pins=deployment_pins,
+            provenance_mode=provenance_mode,
             resource_bindings=resource_bindings,
             evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,

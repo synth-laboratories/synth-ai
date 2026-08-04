@@ -130,6 +130,26 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "create_intern_acceptance_fixture",
+            HttpMethod.POST,
+            "/smr/research-intern/fixtures",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_acceptance_fixture",
+            HttpMethod.GET,
+            "/smr/research-intern/fixtures/{fixture_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "teardown_intern_acceptance_fixture",
+            HttpMethod.POST,
+            "/smr/research-intern/fixtures/{fixture_id}:teardown",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "list_intern_async_runtime_events",
             HttpMethod.GET,
             "/smr/research-intern/async/events",
@@ -423,6 +443,13 @@ RESEARCH_OPERATIONS = {
             HttpMethod.POST,
             "/smr/factories/{factory_id}/trace-store:provision",
             mutation=True,
+        ),
+        _operation(
+            "preflight_factory_trace_store",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:preflight",
+            mutation=True,
+            idempotent=True,
         ),
         _operation(
             "rotate_factory_trace_store_credential",

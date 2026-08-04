@@ -271,7 +271,14 @@ def build_research_intern_tools(
         request = InternAsyncEnsureRequest.model_validate(
             _request_payload(
                 args,
-                ("objective", "idempotency_key", "binding", "budget", "metadata"),
+                (
+                    "objective",
+                    "idempotency_key",
+                    "binding",
+                    "budget",
+                    "metadata",
+                    "factory_ready_wait_seconds",
+                ),
             )
         )
         with client_from_args(args) as client:
@@ -997,6 +1004,16 @@ def build_research_intern_tools(
                     "binding": {"type": "object"},
                     "budget": {"type": "object"},
                     "metadata": {"type": "object"},
+                    "factory_ready_wait_seconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 60,
+                        "description": (
+                            "Bounded wait for the explicit Factory-ready "
+                            "condition before binding; omit to refuse "
+                            "immediately with a typed readiness report."
+                        ),
+                    },
                 },
                 required=["objective", "idempotency_key"],
             ),
