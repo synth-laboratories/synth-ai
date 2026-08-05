@@ -498,6 +498,10 @@ class InternAsyncRuntime(_StrictContract):
     pending_interaction_id: str | None = None
     pending_action_id: str | None = None
     pending_actor_message_id: str | None = None
+    # A successful Manderqueue publish is not an actor reply. These identities
+    # stay projected until reconciliation observes a correlated response.
+    awaiting_actor_reply_message_id: str | None = None
+    awaiting_actor_reply_thread_id: str | None = None
     pending_instruction_count: int = Field(default=0, ge=0, le=32)
     binding: InternRuntimeBinding
     external_execution_status: InternAsyncExternalExecutionStatus
@@ -521,6 +525,11 @@ class InternAsyncRuntime(_StrictContract):
             and self.evidence_readiness is not InternAsyncEvidenceReadiness.READY
         ):
             raise ValueError("completed Async Intern requires ready evidence")
+        if self.status is InternAsyncStatus.COMPLETED and (
+            self.awaiting_actor_reply_message_id is not None
+            or self.awaiting_actor_reply_thread_id is not None
+        ):
+            raise ValueError("completed Async Intern cannot await an actor reply")
         return self
 
 
