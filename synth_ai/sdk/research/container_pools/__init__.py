@@ -29,6 +29,10 @@ from synth_ai.sdk.research.container_pools.packaging import (
     HarborBundleError,
     build_harbor_bundle_archive,
 )
+from synth_ai.sdk.research.contracts.managed_inference import (
+    ManagedInference,
+    ManagedInferenceLimits,
+)
 
 __all__ = [
     "DEFAULT_POLL_INTERVAL_SECONDS",
@@ -38,6 +42,8 @@ __all__ = [
     "HarborBundle",
     "HarborBundleError",
     "Pool",
+    "ManagedInference",
+    "ManagedInferenceLimits",
     "PoolId",
     "PoolTask",
     "PoolTaskId",

@@ -23,6 +23,7 @@ from synth_ai.sdk.research.contracts.factories import (
     EffortRecurrence,
     EffortResearchRecurrencePolicy,
 )
+from synth_ai.sdk.research.contracts.managed_inference import ManagedInference
 from synth_ai.sdk.research.contracts.run_state import (
     _int_value,
     _optional_bool,
@@ -232,6 +233,7 @@ class FactoryCreateRequest:
     publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
     authorization_policy: AuthorizationPolicy | dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    default_child_inference: ManagedInference | None = None
 
     def to_wire(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -247,6 +249,8 @@ class FactoryCreateRequest:
         }
         if self.description is not None:
             payload["description"] = self.description
+        if self.default_child_inference is not None:
+            payload["default_child_inference"] = self.default_child_inference.to_wire()
         return payload
 
 
