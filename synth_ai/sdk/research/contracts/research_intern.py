@@ -144,6 +144,128 @@ class ResearchInternResponse(_StrictContract):
     updated_at: datetime
 
 
+class InternMetaThreadKind(StrEnum):
+    SYNC = "sync"
+    ASYNC = "async"
+
+
+class InternMetaThreadLifecycle(StrEnum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class InternMetaThreadSegmentStatus(StrEnum):
+    LIVE = "live"
+    SEALED = "sealed"
+
+
+class InternMetaHandoffStatus(StrEnum):
+    SEALED = "sealed"
+    MERGED = "merged"
+
+
+class InternCrossMetaThreadMessageKind(StrEnum):
+    REQUEST_DECISION = "request_decision"
+    OPEN_BRANCH_ACK = "open_branch_ack"
+    DECISION_RESOLVED = "decision_resolved"
+    STEER = "steer"
+    NOTE = "note"
+
+
+class InternCrossMetaThreadMessageResolution(StrEnum):
+    COMPLETED = "completed"
+    DENIED = "denied"
+    SUPERSEDED = "superseded"
+
+
+class InternAgentConfig(_StrictContract):
+    agent_role: str
+    harness: str
+    model: str
+    reasoning_effort: str
+    segment_role: str | None = None
+    harness_command: str | None = None
+    workspace_root: str | None = None
+
+
+class InternMetaThread(_StrictContract):
+    schema_version: Literal["smr.meta-thread.v1"]
+    meta_thread_id: str
+    organization_id: str
+    research_intern_id: str
+    kind: InternMetaThreadKind
+    lifecycle: InternMetaThreadLifecycle
+    head_segment_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class InternMetaThreadSegment(_StrictContract):
+    schema_version: Literal["smr.meta-thread-segment.v1"]
+    segment_id: str
+    meta_thread_id: str
+    parent_segment_id: str | None = None
+    lane_runtime_id: str | None = None
+    agent_config: InternAgentConfig | None = None
+    status: InternMetaThreadSegmentStatus
+    opened_at: datetime
+    sealed_at: datetime | None = None
+    linked_message_id: str | None = None
+    handoff_id: str | None = None
+    is_head: bool = False
+
+
+class InternMetaHandoff(_StrictContract):
+    schema_version: Literal["smr.meta-handoff.v1"]
+    handoff_id: str
+    meta_thread_id: str
+    source_segment_id: str
+    summary: str
+    evidence_references: tuple[str, ...] = ()
+    agent_config: InternAgentConfig | None = None
+    status: InternMetaHandoffStatus
+    created_at: datetime
+    sealed_at: datetime
+    merged_at: datetime | None = None
+
+
+class InternCrossMetaThreadMessageCreateRequest(_StrictContract):
+    schema_version: Literal["smr.cross-meta-thread-message-create.v1"] = (
+        "smr.cross-meta-thread-message-create.v1"
+    )
+    message_id: str = Field(min_length=1, max_length=512)
+    source_meta_thread_id: str = Field(min_length=1, max_length=512)
+    destination_meta_thread_id: str = Field(min_length=1, max_length=512)
+    kind: InternCrossMetaThreadMessageKind
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    linked_message_id: str | None = None
+    sync_session_id: str | None = None
+    segment_id: str | None = None
+    resolution: InternCrossMetaThreadMessageResolution | None = None
+    summary: str | None = Field(default=None, max_length=4_000)
+
+
+class InternCrossMetaThreadMessage(_StrictContract):
+    schema_version: Literal["smr.cross-meta-thread-message.v1"]
+    message_id: str
+    organization_id: str
+    research_intern_id: str
+    source_meta_thread_id: str
+    source_kind: InternMetaThreadKind
+    destination_meta_thread_id: str
+    destination_kind: InternMetaThreadKind
+    kind: InternCrossMetaThreadMessageKind
+    idempotency_key: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    linked_message_id: str | None = None
+    sync_session_id: str | None = None
+    segment_id: str | None = None
+    resolution: InternCrossMetaThreadMessageResolution | None = None
+    summary: str | None = None
+    created_at: datetime
+
+
 class InternRuntimeBinding(_StrictContract):
     factory_id: str | None = None
     project_id: str | None = None
@@ -216,8 +338,59 @@ class SyncTracePublicationReceipt(_StrictContract):
     published_at: datetime | None = None
 
 
+SyncWorkspaceSnapshotKind = Literal[
+    "internal_git_head",
+    "stored_file_digest_set",
+    "internal_git_head_with_stored_files",
+]
+
+
+class SyncWorkspaceSnapshotIdentity(_StrictContract):
+    """Provable project workspace identity captured when a run is triggered."""
+
+    schema_version: Literal["smr.intern-sync-workspace-snapshot.v1"] = (
+        "smr.intern-sync-workspace-snapshot.v1"
+    )
+    kind: SyncWorkspaceSnapshotKind
+    commit_sha: str | None = None
+    inventory_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    file_count: int | None = Field(default=None, ge=1)
+    captured_at: datetime
+
+    @model_validator(mode="after")
+    def require_identity_per_kind(self) -> SyncWorkspaceSnapshotIdentity:
+        if self.kind == "internal_git_head" and not self.commit_sha:
+            raise ValueError("internal_git_head snapshot requires commit_sha")
+        if self.kind == "stored_file_digest_set" and (
+            not self.inventory_digest or not self.file_count
+        ):
+            raise ValueError(
+                "stored_file_digest_set snapshot requires the inventory digest and file count"
+            )
+        if self.kind == "internal_git_head_with_stored_files" and (
+            not self.commit_sha or not self.inventory_digest or not self.file_count
+        ):
+            raise ValueError(
+                "internal_git_head_with_stored_files snapshot requires commit_sha, "
+                "the inventory digest, and file count"
+            )
+        return self
+
+
+class SyncWorkspaceRunReceipt(_StrictContract):
+    """Server-minted proof of the project workspace used to trigger one run."""
+
+    schema_version: Literal["smr.intern-sync-workspace-run.v1"] = "smr.intern-sync-workspace-run.v1"
+    run_id: str
+    sync_session_id: str
+    project_id: str
+    experiment_id: str | None = None
+    workspace: SyncWorkspaceSnapshotIdentity
+    recorded_at: datetime
+
+
 class InternSyncSession(_StrictContract):
-    schema_version: Literal["smr.intern-sync-session.v1"]
+    schema_version: Literal["smr.intern-sync-session.v1"] = "smr.intern-sync-session.v1"
     sync_session_id: str
     research_intern_id: str
     org_id: str
@@ -234,7 +407,7 @@ class InternSyncSession(_StrictContract):
     outcome: InternRuntimeOutcome | None = None
     failure_code: str | None = None
     temporal_workflow_id: str
-    execution_mode: Literal["fast", "standard", "deep"] = "standard"
+    execution_mode: Literal["fast", "standard", "deep"]
     execution_profile_id: Literal["intern_sync"] = "intern_sync"
     # Server-minted projection stamps. Old backends omit them entirely; new
     # backends stamp them once the corresponding effect lands. The SDK only
@@ -242,11 +415,11 @@ class InternSyncSession(_StrictContract):
     # Backend 069a119ed reduced this surface: the task-template lane
     # (task_template, provisioning, kit_associations, kit_readiness,
     # kit_state_receipts) is gone; workspace_run_receipts replaces
-    # kit_state_receipts. Opaque tuples/objects stay opaque because the
-    # backend is the schema and digest authority for those payloads.
+    # kit_state_receipts and is now typed. Remaining tuples/objects stay
+    # opaque because the backend is the schema and digest authority there.
     trace_publication: SyncTracePublicationReceipt | None = None
     visuals: tuple[dict[str, Any], ...] = ()
-    workspace_run_receipts: tuple[dict[str, Any], ...] = ()
+    workspace_run_receipts: tuple[SyncWorkspaceRunReceipt, ...] = ()
     experiments: tuple[dict[str, Any], ...] = ()
     harness_bundle_available: bool = False
     created_at: datetime

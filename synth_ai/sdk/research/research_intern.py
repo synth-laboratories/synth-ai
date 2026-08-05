@@ -58,6 +58,12 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncInstructionKind,
     InternAsyncInstructionRequest,
     InternAsyncRuntime,
+    InternCrossMetaThreadMessage,
+    InternCrossMetaThreadMessageCreateRequest,
+    InternMetaHandoff,
+    InternMetaThread,
+    InternMetaThreadKind,
+    InternMetaThreadSegment,
     InternRuntimeOutcome,
     InternSyncCommandKind,
     InternSyncCommandReceipt,
@@ -2087,13 +2093,134 @@ class ResearchInternReactiveSession:
         )
 
 
+class ResearchInternMetaThreadsAPI:
+    """Exact graph and cross-lane protocol projections for one Intern."""
+
+    _PATH = "/smr/research-intern/meta-threads"
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def list(self) -> tuple[InternMetaThread, ...]:
+        return tuple(
+            InternMetaThread.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(_request("list_intern_meta_threads", self._PATH)),
+                ),
+                operation_id="list_intern_meta_threads",
+            )
+        )
+
+    def get(self, meta_thread_id: str) -> InternMetaThread:
+        thread = InternMetaThread.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_meta_thread",
+                    f"{self._PATH}/{meta_thread_id}",
+                )
+            )
+        )
+        if thread.meta_thread_id != meta_thread_id:
+            raise ValueError("Intern meta-thread identity drifted")
+        return thread
+
+    def segments(self, meta_thread_id: str) -> tuple[InternMetaThreadSegment, ...]:
+        return tuple(
+            InternMetaThreadSegment.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(
+                        _request(
+                            "list_intern_meta_thread_segments",
+                            f"{self._PATH}/{meta_thread_id}/segments",
+                        )
+                    ),
+                ),
+                operation_id="list_intern_meta_thread_segments",
+            )
+        )
+
+    def handoffs(self, meta_thread_id: str) -> tuple[InternMetaHandoff, ...]:
+        return tuple(
+            InternMetaHandoff.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(
+                        _request(
+                            "list_intern_meta_thread_handoffs",
+                            f"{self._PATH}/{meta_thread_id}/handoffs",
+                        )
+                    ),
+                ),
+                operation_id="list_intern_meta_thread_handoffs",
+            )
+        )
+
+    def messages(
+        self, meta_thread_id: str, *, limit: int = 200
+    ) -> tuple[InternCrossMetaThreadMessage, ...]:
+        return tuple(
+            InternCrossMetaThreadMessage.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(
+                        _request(
+                            "list_intern_meta_thread_messages",
+                            f"{self._PATH}/{meta_thread_id}/messages",
+                            query={"limit": _bounded_limit(limit)},
+                        )
+                    ),
+                ),
+                operation_id="list_intern_meta_thread_messages",
+            )
+        )
+
+    def send(
+        self, request: InternCrossMetaThreadMessageCreateRequest
+    ) -> InternCrossMetaThreadMessage:
+        message = InternCrossMetaThreadMessage.from_wire(
+            self._transport.execute(
+                _request(
+                    "create_intern_meta_thread_message",
+                    f"{self._PATH}/messages",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if message.message_id != request.message_id:
+            raise ValueError("Cross meta-thread message identity drifted")
+        return message
+
+
 class ResearchInternSyncRuntimeAPI:
     """Synchronous transport for durable operator-present Sync sessions."""
 
     _PATH = "/smr/research-intern/sync-sessions"
 
-    def __init__(self, transport: HttpTransport) -> None:
+    def __init__(
+        self,
+        transport: HttpTransport,
+        meta_threads: ResearchInternMetaThreadsAPI | None = None,
+    ) -> None:
         self._transport = transport
+        self._meta_threads = meta_threads or ResearchInternMetaThreadsAPI(transport)
+
+    def branches(self) -> tuple[InternMetaThreadSegment, ...]:
+        """List the Sync head plus every live or sealed branch projection."""
+
+        sync_threads = [
+            thread
+            for thread in self._meta_threads.list()
+            if thread.kind is InternMetaThreadKind.SYNC
+        ]
+        if len(sync_threads) != 1:
+            raise ValueError("Research Intern must expose exactly one Sync meta-thread")
+        return self._meta_threads.segments(sync_threads[0].meta_thread_id)
 
     def create(self, request: InternSyncSessionCreateRequest) -> InternSyncSession:
         return InternSyncSession.from_wire(
@@ -2706,7 +2833,8 @@ class ResearchInternAPI:
         allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self._transport = transport
-        self.sync_ = ResearchInternSyncRuntimeAPI(transport)
+        self.meta_threads = ResearchInternMetaThreadsAPI(transport)
+        self.sync_ = ResearchInternSyncRuntimeAPI(transport, self.meta_threads)
         self.async_ = ResearchInternAsyncRuntimeAPI(transport)
         self.factories = ResearchInternFactoriesAPI(transport)
         self.decisions = ResearchInternDecisionsAPI(transport)
@@ -3968,13 +4096,129 @@ class AsyncResearchInternAcceptanceReceiptsAPI:
         return receipts
 
 
+class AsyncResearchInternMetaThreadsAPI:
+    """Native async graph and cross-lane protocol projections."""
+
+    _PATH = "/smr/research-intern/meta-threads"
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def list(self) -> tuple[InternMetaThread, ...]:
+        return tuple(
+            InternMetaThread.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    await self._transport.execute(_request("list_intern_meta_threads", self._PATH)),
+                ),
+                operation_id="list_intern_meta_threads",
+            )
+        )
+
+    async def get(self, meta_thread_id: str) -> InternMetaThread:
+        thread = InternMetaThread.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_meta_thread",
+                    f"{self._PATH}/{meta_thread_id}",
+                )
+            )
+        )
+        if thread.meta_thread_id != meta_thread_id:
+            raise ValueError("Intern meta-thread identity drifted")
+        return thread
+
+    async def segments(self, meta_thread_id: str) -> tuple[InternMetaThreadSegment, ...]:
+        return tuple(
+            InternMetaThreadSegment.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    await self._transport.execute(
+                        _request(
+                            "list_intern_meta_thread_segments",
+                            f"{self._PATH}/{meta_thread_id}/segments",
+                        )
+                    ),
+                ),
+                operation_id="list_intern_meta_thread_segments",
+            )
+        )
+
+    async def messages(
+        self, meta_thread_id: str, *, limit: int = 200
+    ) -> tuple[InternCrossMetaThreadMessage, ...]:
+        return tuple(
+            InternCrossMetaThreadMessage.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    await self._transport.execute(
+                        _request(
+                            "list_intern_meta_thread_messages",
+                            f"{self._PATH}/{meta_thread_id}/messages",
+                            query={"limit": _bounded_limit(limit)},
+                        )
+                    ),
+                ),
+                operation_id="list_intern_meta_thread_messages",
+            )
+        )
+
+    async def handoffs(self, meta_thread_id: str) -> tuple[InternMetaHandoff, ...]:
+        return tuple(
+            InternMetaHandoff.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    await self._transport.execute(
+                        _request(
+                            "list_intern_meta_thread_handoffs",
+                            f"{self._PATH}/{meta_thread_id}/handoffs",
+                        )
+                    ),
+                ),
+                operation_id="list_intern_meta_thread_handoffs",
+            )
+        )
+
+    async def send(
+        self, request: InternCrossMetaThreadMessageCreateRequest
+    ) -> InternCrossMetaThreadMessage:
+        message = InternCrossMetaThreadMessage.from_wire(
+            await self._transport.execute(
+                _request(
+                    "create_intern_meta_thread_message",
+                    f"{self._PATH}/messages",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if message.message_id != request.message_id:
+            raise ValueError("Cross meta-thread message identity drifted")
+        return message
+
+
 class AsyncResearchInternSyncRuntimeAPI:
     """Native async transport for operator-present Sync sessions."""
 
     _PATH = "/smr/research-intern/sync-sessions"
 
-    def __init__(self, transport: AsyncHttpTransport) -> None:
+    def __init__(
+        self,
+        transport: AsyncHttpTransport,
+        meta_threads: AsyncResearchInternMetaThreadsAPI | None = None,
+    ) -> None:
         self._transport = transport
+        self._meta_threads = meta_threads or AsyncResearchInternMetaThreadsAPI(transport)
+
+    async def branches(self) -> tuple[InternMetaThreadSegment, ...]:
+        threads = await self._meta_threads.list()
+        sync_threads = [thread for thread in threads if thread.kind is InternMetaThreadKind.SYNC]
+        if len(sync_threads) != 1:
+            raise ValueError("Research Intern must expose exactly one Sync meta-thread")
+        return await self._meta_threads.segments(sync_threads[0].meta_thread_id)
 
     async def create(
         self,
@@ -4556,7 +4800,8 @@ class AsyncResearchInternAPI:
         allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self._transport = transport
-        self.sync_ = AsyncResearchInternSyncRuntimeAPI(transport)
+        self.meta_threads = AsyncResearchInternMetaThreadsAPI(transport)
+        self.sync_ = AsyncResearchInternSyncRuntimeAPI(transport, self.meta_threads)
         self.async_ = AsyncResearchInternAsyncRuntimeAPI(transport)
         self.factories = AsyncResearchInternFactoriesAPI(transport)
         self.decisions = AsyncResearchInternDecisionsAPI(transport)

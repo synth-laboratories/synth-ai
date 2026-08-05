@@ -25,6 +25,7 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncEnsureRequest,
     InternAsyncInstructionKind,
     InternAsyncInstructionRequest,
+    InternCrossMetaThreadMessageCreateRequest,
     InternRuntimeOutcome,
     InternSyncCommandKind,
     InternSyncCommandRequest,
@@ -140,7 +141,52 @@ def build_research_intern_tools(
 
     def intern_sync_list(args: JSONDict) -> list[JSONDict]:
         with client_from_args(args) as client:
-            return _wire_list(client.intern.sync_.list(limit=optional_int(args, "limit") or 100))
+            return _wire_list(client.intern.sync_.branches())
+
+    def intern_sync_branches(args: JSONDict) -> list[JSONDict]:
+        with client_from_args(args) as client:
+            return _wire_list(client.intern.sync_.branches())
+
+    def intern_meta_threads(args: JSONDict) -> list[JSONDict]:
+        with client_from_args(args) as client:
+            return _wire_list(client.intern.meta_threads.list())
+
+    def intern_meta_segments(args: JSONDict) -> list[JSONDict]:
+        with client_from_args(args) as client:
+            return _wire_list(
+                client.intern.meta_threads.segments(require_string(args, "meta_thread_id"))
+            )
+
+    def intern_meta_messages(args: JSONDict) -> list[JSONDict]:
+        with client_from_args(args) as client:
+            return _wire_list(
+                client.intern.meta_threads.messages(
+                    require_string(args, "meta_thread_id"),
+                    limit=optional_int(args, "limit") or 200,
+                )
+            )
+
+    def intern_meta_send(args: JSONDict) -> JSONDict:
+        request = InternCrossMetaThreadMessageCreateRequest.model_validate(
+            _request_payload(
+                args,
+                (
+                    "message_id",
+                    "source_meta_thread_id",
+                    "destination_meta_thread_id",
+                    "kind",
+                    "idempotency_key",
+                    "payload",
+                    "linked_message_id",
+                    "sync_session_id",
+                    "segment_id",
+                    "resolution",
+                    "summary",
+                ),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.meta_threads.send(request).to_wire()
 
     def intern_sync_get(args: JSONDict) -> JSONDict:
         with client_from_args(args) as client:
@@ -763,6 +809,76 @@ def build_research_intern_tools(
     }
     tools = [
         ToolDefinition(
+            name="intern_meta_threads",
+            description="List the Intern's one Sync and one Async meta-thread.",
+            input_schema=tool_schema({}, required=[]),
+            handler=intern_meta_threads,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_meta_segments",
+            description="List head, live, and sealed segments for one meta-thread.",
+            input_schema=tool_schema(
+                {"meta_thread_id": {"type": "string", "minLength": 1}},
+                required=["meta_thread_id"],
+            ),
+            handler=intern_meta_segments,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_meta_messages",
+            description="List durable cross-lane messages visible to one meta-thread.",
+            input_schema=tool_schema(
+                {
+                    "meta_thread_id": {"type": "string", "minLength": 1},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 500},
+                },
+                required=["meta_thread_id"],
+            ),
+            handler=intern_meta_messages,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_meta_send",
+            description="Send one exact durable Sync-to-Async protocol object.",
+            input_schema=tool_schema(
+                {
+                    "message_id": {"type": "string", "minLength": 1},
+                    "source_meta_thread_id": {"type": "string", "minLength": 1},
+                    "destination_meta_thread_id": {"type": "string", "minLength": 1},
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "request_decision",
+                            "open_branch_ack",
+                            "decision_resolved",
+                            "steer",
+                            "note",
+                        ],
+                    },
+                    "idempotency_key": {"type": "string", "minLength": 1},
+                    "payload": {"type": "object"},
+                    "linked_message_id": {"type": "string"},
+                    "sync_session_id": {"type": "string"},
+                    "segment_id": {"type": "string"},
+                    "resolution": {
+                        "type": "string",
+                        "enum": ["completed", "denied", "superseded"],
+                    },
+                    "summary": {"type": "string", "maxLength": 4000},
+                },
+                required=[
+                    "message_id",
+                    "source_meta_thread_id",
+                    "destination_meta_thread_id",
+                    "kind",
+                    "idempotency_key",
+                ],
+            ),
+            handler=intern_meta_send,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
             name="intern_sync_create",
             description="Create or replay one durable operator-present Sync session.",
             input_schema=tool_schema(
@@ -782,12 +898,16 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
+            name="intern_sync_branches",
+            description="List the Sync head plus every live or sealed branch.",
+            input_schema=tool_schema({}, required=[]),
+            handler=intern_sync_branches,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
             name="intern_sync_list",
-            description="List a bounded page of durable Sync Intern sessions.",
-            input_schema=tool_schema(
-                {"limit": {"type": "integer", "minimum": 1, "maximum": 500}},
-                required=[],
-            ),
+            description="Compatibility alias of intern_sync_branches.",
+            input_schema=tool_schema({}, required=[]),
             handler=intern_sync_list,
             required_scopes=READ_SCOPES,
         ),

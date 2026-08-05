@@ -171,6 +171,8 @@ def test_mcp_tool_list_excludes_legacy_tools_by_default() -> None:
     names = {tool.name for tool in build_research_intern_tools(cast(Any, None))}
     assert not names & LEGACY_INTERN_SESSION_TOOL_NAMES
     assert "intern_sync_create" in names
+    assert "intern_sync_branches" in names
+    assert "intern_meta_send" in names
     assert "intern_async_ensure" in names
     assert "research_provision_research_intern" in names
 

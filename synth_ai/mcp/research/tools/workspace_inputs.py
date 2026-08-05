@@ -215,8 +215,7 @@ def build_workspace_input_tools(
                 "Confirm an already-pushed workspace commit through project "
                 "authority and return the typed WorkspacePushConfirmationReceipt "
                 "-- the done signal for coding agents driving workspace ingress "
-                "over MCP. If the project is bound to an open Sync session, the "
-                "backend also auto-records a kit-association receipt server-side."
+                "over MCP."
             ),
             input_schema=tool_schema(
                 {

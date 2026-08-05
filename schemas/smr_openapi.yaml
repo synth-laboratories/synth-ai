@@ -9345,6 +9345,214 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/sync-sessions/{sync_session_id}/close:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Close Intern Sync Branch
+      description: Admit a typed close whose runtime transition seals and merges the
+        branch.
+      operationId: close_intern_sync_branch_smr_research_intern_sync_sessions__sync_session_id__close_post
+      parameters:
+      - name: sync_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sync Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncBranchCloseRequestV1'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternRuntimeCommandReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/meta-threads:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Meta Threads
+      operationId: list_intern_meta_threads_smr_research_intern_meta_threads_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MetaThreadResponseV1'
+                type: array
+                title: Response List Intern Meta Threads Smr Research Intern Meta
+                  Threads Get
+  /smr/research-intern/meta-threads/{meta_thread_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Meta Thread
+      operationId: get_intern_meta_thread_smr_research_intern_meta_threads__meta_thread_id__get
+      parameters:
+      - name: meta_thread_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Meta Thread Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaThreadResponseV1'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/meta-threads/{meta_thread_id}/segments:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Meta Thread Segments
+      operationId: list_intern_meta_thread_segments_smr_research_intern_meta_threads__meta_thread_id__segments_get
+      parameters:
+      - name: meta_thread_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Meta Thread Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetaThreadSegmentResponseV1'
+                title: Response List Intern Meta Thread Segments Smr Research Intern
+                  Meta Threads  Meta Thread Id  Segments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/meta-threads/{meta_thread_id}/handoffs:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Meta Thread Handoffs
+      operationId: list_intern_meta_thread_handoffs_smr_research_intern_meta_threads__meta_thread_id__handoffs_get
+      parameters:
+      - name: meta_thread_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Meta Thread Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetaHandoffResponseV1'
+                title: Response List Intern Meta Thread Handoffs Smr Research Intern
+                  Meta Threads  Meta Thread Id  Handoffs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/meta-threads/{meta_thread_id}/messages:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Meta Thread Messages
+      operationId: list_intern_meta_thread_messages_smr_research_intern_meta_threads__meta_thread_id__messages_get
+      parameters:
+      - name: meta_thread_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Meta Thread Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 200
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CrossMetaThreadMessageResponseV1'
+                title: Response List Intern Meta Thread Messages Smr Research Intern
+                  Meta Threads  Meta Thread Id  Messages Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/meta-threads/messages:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Meta Thread Message
+      operationId: create_intern_meta_thread_message_smr_research_intern_meta_threads_messages_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossMetaThreadMessageCreateRequestV1'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossMetaThreadMessageResponseV1'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/research-intern/sync-sessions/{sync_session_id}:
     get:
       tags:
@@ -10029,7 +10237,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/research-intern/async/blockers/{blocker_id}:open-sync:
+  /smr/research-intern/async/blockers/{blocker_id}/open-sync:
     post:
       tags:
       - smr
@@ -10091,7 +10299,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/research-intern/async/blockers/{blocker_id}:resolve:
+  /smr/research-intern/async/blockers/{blocker_id}/resolve:
     post:
       tags:
       - smr
@@ -14408,6 +14616,185 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrEnvironmentPreflightResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/files:
+    post:
+      tags:
+      - smr
+      summary: Create File
+      operationId: create_file_smr_files_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFileCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFileResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      summary: List Files
+      operationId: list_files_smr_files_get
+      parameters:
+      - name: sync_session_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sync Session Id
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFileResponse'
+                title: Response List Files Smr Files Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/files/{file_id}:
+    get:
+      tags:
+      - smr
+      summary: Get File
+      operationId: get_file_smr_files__file_id__get
+      parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: File Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFileResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - smr
+      summary: Update File
+      operationId: update_file_smr_files__file_id__patch
+      parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: File Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFileUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFileResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - smr
+      summary: Delete File
+      operationId: delete_file_smr_files__file_id__delete
+      parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: File Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/files/{file_id}/events:
+    get:
+      tags:
+      - smr
+      summary: List File Events
+      operationId: list_file_events_smr_files__file_id__events_get
+      parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: File Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFileEventResponse'
+                title: Response List File Events Smr Files  File Id  Events Get
         '422':
           description: Validation Error
           content:
@@ -43173,6 +43560,127 @@ paths:
           content:
             application/json:
               schema: {}
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/inference/v1/chat/completions:
+    post:
+      tags:
+      - container-pools
+      summary: Pool Rollout Chat Completions
+      operationId: pool_rollout_chat_completions_v1_pools__pool_id__rollouts__rollout_id__inference_v1_chat_completions_post
+      parameters:
+      - name: pool_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pool Id
+      - name: rollout_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rollout Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Pool Rollout Chat Completions V1 Pools  Pool Id  Rollouts  Rollout
+                  Id  Inference V1 Chat Completions Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/inference/v1/responses:
+    post:
+      tags:
+      - container-pools
+      summary: Pool Rollout Responses
+      description: 'Responses in, Responses out -- proxied natively, never bridged.
+
+
+        Codex speaks only the Responses wire. Round-tripping it through Chat
+
+        Completions is lossy in a way that is invisible at the HTTP layer: the chat
+
+        wire has no representation for a Responses ``function_call`` item, so an
+
+        agent''s tool calls are dropped, it answers in prose, executes nothing, and
+
+        the rollout scores badly as though the model were weak.
+
+
+        So this proxies to the provider''s own ``/responses`` endpoint and returns
+
+        what it says. A provider without one is refused explicitly rather than
+
+        bridged, because a clear 502 beats a silently degraded agent.'
+      operationId: pool_rollout_responses_v1_pools__pool_id__rollouts__rollout_id__inference_v1_responses_post
+      parameters:
+      - name: pool_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pool Id
+      - name: rollout_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rollout Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Pool Rollout Responses V1 Pools  Pool Id  Rollouts  Rollout
+                  Id  Inference V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/inference/v1/models:
+    get:
+      tags:
+      - container-pools
+      summary: Pool Rollout Models
+      description: Codex probes this on startup; a 404 here makes it fall back oddly.
+      operationId: pool_rollout_models_v1_pools__pool_id__rollouts__rollout_id__inference_v1_models_get
+      parameters:
+      - name: pool_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pool Id
+      - name: rollout_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rollout Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Pool Rollout Models V1 Pools  Pool Id  Rollouts  Rollout
+                  Id  Inference V1 Models Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/demo/keys:
     post:
       tags:
@@ -43766,6 +44274,54 @@ components:
       - gpu_events_count
       - total_gpu_seconds
       title: AdminUsageSummaryResponse
+    AgentConfigV1:
+      properties:
+        agent_role:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Agent Role
+        harness:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Harness
+        model:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Model
+        reasoning_effort:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Reasoning Effort
+        segment_role:
+          anyOf:
+          - type: string
+            maxLength: 128
+          - type: 'null'
+          title: Segment Role
+        harness_command:
+          anyOf:
+          - type: string
+            maxLength: 4096
+          - type: 'null'
+          title: Harness Command
+        workspace_root:
+          anyOf:
+          - type: string
+            maxLength: 4096
+          - type: 'null'
+          title: Workspace Root
+      additionalProperties: false
+      type: object
+      required:
+      - agent_role
+      - harness
+      - model
+      - reasoning_effort
+      title: AgentConfigV1
     AgentConnectInfo:
       properties:
         transport:
@@ -44583,6 +45139,16 @@ components:
           - type: string
           - type: 'null'
           title: Pending Actor Message Id
+        awaiting_actor_reply_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Awaiting Actor Reply Message Id
+        awaiting_actor_reply_thread_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Awaiting Actor Reply Thread Id
         pending_instruction_count:
           type: integer
           maximum: 32.0
@@ -47627,6 +48193,167 @@ components:
       - org_id
       - organization_balance
       title: CreditsBalanceResponse
+    CrossMetaThreadMessageCreateRequestV1:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.cross-meta-thread-message-create.v1
+        message_id:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Message Id
+        source_meta_thread_id:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Source Meta Thread Id
+        destination_meta_thread_id:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Destination Meta Thread Id
+        kind:
+          $ref: '#/components/schemas/CrossMetaThreadMessageKind'
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        linked_message_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Linked Message Id
+        sync_session_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Sync Session Id
+        segment_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Segment Id
+        resolution:
+          anyOf:
+          - $ref: '#/components/schemas/CrossMetaThreadMessageResolution'
+          - type: 'null'
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Summary
+      additionalProperties: false
+      type: object
+      required:
+      - message_id
+      - source_meta_thread_id
+      - destination_meta_thread_id
+      - kind
+      - idempotency_key
+      title: CrossMetaThreadMessageCreateRequestV1
+    CrossMetaThreadMessageKind:
+      type: string
+      enum:
+      - request_decision
+      - open_branch_ack
+      - decision_resolved
+      - steer
+      - note
+      title: CrossMetaThreadMessageKind
+    CrossMetaThreadMessageResolution:
+      type: string
+      enum:
+      - completed
+      - denied
+      - superseded
+      title: CrossMetaThreadMessageResolution
+    CrossMetaThreadMessageResponseV1:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.cross-meta-thread-message.v1
+        message_id:
+          type: string
+          title: Message Id
+        organization_id:
+          type: string
+          title: Organization Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        source_meta_thread_id:
+          type: string
+          title: Source Meta Thread Id
+        source_kind:
+          $ref: '#/components/schemas/MetaThreadKind'
+        destination_meta_thread_id:
+          type: string
+          title: Destination Meta Thread Id
+        destination_kind:
+          $ref: '#/components/schemas/MetaThreadKind'
+        kind:
+          $ref: '#/components/schemas/CrossMetaThreadMessageKind'
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        linked_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Linked Message Id
+        sync_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sync Session Id
+        segment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Segment Id
+        resolution:
+          anyOf:
+          - $ref: '#/components/schemas/CrossMetaThreadMessageResolution'
+          - type: 'null'
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - message_id
+      - organization_id
+      - research_intern_id
+      - source_meta_thread_id
+      - source_kind
+      - destination_meta_thread_id
+      - destination_kind
+      - kind
+      - idempotency_key
+      - created_at
+      title: CrossMetaThreadMessageResponseV1
     DashboardAuthIntrospectionResponse:
       properties:
         active:
@@ -53323,6 +54050,187 @@ components:
       - review
       - system
       title: MessageKind
+    MetaHandoffResponseV1:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.meta-handoff.v1
+        handoff_id:
+          type: string
+          title: Handoff Id
+        meta_thread_id:
+          type: string
+          title: Meta Thread Id
+        source_segment_id:
+          type: string
+          title: Source Segment Id
+        summary:
+          type: string
+          title: Summary
+        evidence_references:
+          items:
+            type: string
+          type: array
+          title: Evidence References
+          default: []
+        agent_config:
+          anyOf:
+          - $ref: '#/components/schemas/AgentConfigV1'
+          - type: 'null'
+        status:
+          $ref: '#/components/schemas/MetaHandoffStatus'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        sealed_at:
+          type: string
+          format: date-time
+          title: Sealed At
+        merged_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Merged At
+      additionalProperties: false
+      type: object
+      required:
+      - handoff_id
+      - meta_thread_id
+      - source_segment_id
+      - summary
+      - status
+      - created_at
+      - sealed_at
+      title: MetaHandoffResponseV1
+    MetaHandoffStatus:
+      type: string
+      enum:
+      - sealed
+      - merged
+      title: MetaHandoffStatus
+    MetaThreadKind:
+      type: string
+      enum:
+      - sync
+      - async
+      title: MetaThreadKind
+    MetaThreadLifecycle:
+      type: string
+      enum:
+      - active
+      - archived
+      title: MetaThreadLifecycle
+    MetaThreadResponseV1:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.meta-thread.v1
+        meta_thread_id:
+          type: string
+          title: Meta Thread Id
+        organization_id:
+          type: string
+          title: Organization Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        kind:
+          $ref: '#/components/schemas/MetaThreadKind'
+        lifecycle:
+          $ref: '#/components/schemas/MetaThreadLifecycle'
+        head_segment_id:
+          type: string
+          title: Head Segment Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - meta_thread_id
+      - organization_id
+      - research_intern_id
+      - kind
+      - lifecycle
+      - head_segment_id
+      - created_at
+      - updated_at
+      title: MetaThreadResponseV1
+    MetaThreadSegmentResponseV1:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.meta-thread-segment.v1
+        segment_id:
+          type: string
+          title: Segment Id
+        meta_thread_id:
+          type: string
+          title: Meta Thread Id
+        parent_segment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Segment Id
+        lane_runtime_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lane Runtime Id
+        agent_config:
+          anyOf:
+          - $ref: '#/components/schemas/AgentConfigV1'
+          - type: 'null'
+        status:
+          $ref: '#/components/schemas/MetaThreadSegmentStatus'
+        opened_at:
+          type: string
+          format: date-time
+          title: Opened At
+        sealed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Sealed At
+        linked_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Linked Message Id
+        handoff_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Handoff Id
+        is_head:
+          type: boolean
+          title: Is Head
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - segment_id
+      - meta_thread_id
+      - status
+      - opened_at
+      title: MetaThreadSegmentResponseV1
+    MetaThreadSegmentStatus:
+      type: string
+      enum:
+      - live
+      - sealed
+      title: MetaThreadSegmentStatus
     MilestoneKind:
       type: string
       enum:
@@ -69220,6 +70128,170 @@ components:
       required:
       - factory_id
       title: SmrFactoryWorkspaceResponse
+    SmrFileCreateRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Name
+        content:
+          type: string
+          title: Content
+        encoding:
+          type: string
+          enum:
+          - utf-8
+          - base64
+          title: Encoding
+          default: utf-8
+        content_type:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Content Type
+        sync_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sync Session Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - content
+      title: SmrFileCreateRequest
+    SmrFileEventResponse:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        file_id:
+          type: string
+          title: File Id
+        event_kind:
+          type: string
+          enum:
+          - file.created
+          - file.updated
+          - file.deleted
+          title: Event Kind
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - file_id
+      - event_kind
+      - payload
+      - created_at
+      title: SmrFileEventResponse
+    SmrFileResponse:
+      properties:
+        file_id:
+          type: string
+          title: File Id
+        org_id:
+          type: string
+          title: Org Id
+        sync_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sync Session Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Type
+        encoding:
+          type: string
+          enum:
+          - utf-8
+          - base64
+          title: Encoding
+        content_sha256:
+          type: string
+          title: Content Sha256
+        content_bytes:
+          type: integer
+          title: Content Bytes
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - file_id
+      - org_id
+      - sync_session_id
+      - project_id
+      - name
+      - content_type
+      - encoding
+      - content_sha256
+      - content_bytes
+      - metadata
+      - created_at
+      - updated_at
+      title: SmrFileResponse
+    SmrFileUpdateRequest:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Name
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metadata
+      additionalProperties: false
+      type: object
+      title: SmrFileUpdateRequest
     SmrFinalizeVisualRevisionRequest:
       properties:
         render_state:
@@ -69669,8 +70741,7 @@ components:
       - hypothesis
       - proposed_diff_ref
       title: SmrHarnessChangeProposalRequest
-      description: 'Operator/Intern-proposed change to the project''s harness kit
-        (F5.2).
+      description: 'Operator/Intern-proposed change to the project''s harness (F5.2).
 
 
         The change itself travels as ``proposed_diff_ref`` -- a reference (file
@@ -83335,6 +84406,11 @@ components:
           type: integer
           minimum: 0.0
           title: Work Product Count
+        tool_call_count:
+          type: integer
+          minimum: 0.0
+          title: Tool Call Count
+          default: 0
         run_is_terminal:
           type: boolean
           title: Run Is Terminal
@@ -83382,6 +84458,11 @@ components:
             $ref: '#/components/schemas/SmrSwarmTracePublicationResponse'
           type: array
           title: Trace Publications
+        tool_calls:
+          items:
+            $ref: '#/components/schemas/SmrSwarmToolCallEvidenceResponse'
+          type: array
+          title: Tool Calls
         freshness:
           $ref: '#/components/schemas/SmrSwarmEvidenceFreshnessResponse'
       additionalProperties: false
@@ -83849,6 +84930,76 @@ components:
       - by_model
       title: SmrSwarmTokenUsageResponse
       description: Typed token rollup for a swarm.
+    SmrSwarmToolCallEvidenceResponse:
+      properties:
+        tool_call_id:
+          type: string
+          minLength: 1
+          title: Tool Call Id
+        stable_actor_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stable Actor Key
+        actor_role:
+          type: string
+          minLength: 1
+          title: Actor Role
+        correlation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correlation Id
+        bundle_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bundle Name
+        tool_name:
+          type: string
+          minLength: 1
+          title: Tool Name
+        arguments_digest:
+          type: string
+          maxLength: 64
+          minLength: 64
+          title: Arguments Digest
+        status:
+          type: string
+          enum:
+          - succeeded
+          - failed
+          - unknown_tool
+          title: Status
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        retryable:
+          type: boolean
+          title: Retryable
+        duration_ms:
+          type: integer
+          minimum: 0.0
+          title: Duration Ms
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+      additionalProperties: false
+      type: object
+      required:
+      - tool_call_id
+      - actor_role
+      - tool_name
+      - arguments_digest
+      - status
+      - retryable
+      - duration_ms
+      - occurred_at
+      title: SmrSwarmToolCallEvidenceResponse
+      description: Secret-safe durable outcome for one run-scoped MCP invocation.
     SmrSwarmTracePublicationResponse:
       properties:
         publication_id:
@@ -87895,11 +89046,14 @@ components:
           type: string
           title: Org Id
         project_id:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Project Id
         scope_kind:
           type: string
           enum:
+          - sync_session
           - project
           - factory
           - effort
@@ -88025,6 +89179,47 @@ components:
       required:
       - decision
       title: SyncApprovalDecisionRequestV1
+    SyncBranchCloseRequestV1:
+      properties:
+        command_id:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Command Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_generation:
+          type: integer
+          minimum: 0.0
+          title: Expected Generation
+        outcome:
+          type: string
+          pattern: ^(completed|cancelled|failed)$
+          title: Outcome
+        summary:
+          type: string
+          maxLength: 4000
+          minLength: 1
+          title: Summary
+        evidence_references:
+          items:
+            type: string
+          type: array
+          maxItems: 128
+          title: Evidence References
+          default: []
+      additionalProperties: false
+      type: object
+      required:
+      - command_id
+      - idempotency_key
+      - expected_generation
+      - outcome
+      - summary
+      title: SyncBranchCloseRequestV1
     SyncDeployPacketEndpointV1:
       properties:
         purpose:
