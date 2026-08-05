@@ -28256,6 +28256,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/inference/v1/chat/completions:
+    post:
+      tags:
+      - smr-inference
+      summary: Chat Completions
+      operationId: chat_completions_smr_inference_v1_chat_completions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Chat Completions Smr Inference V1 Chat Completions
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/inference/v1/responses:
+    post:
+      tags:
+      - smr-inference
+      summary: Responses
+      operationId: responses_smr_inference_v1_responses_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Responses Smr Inference V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/inference/v1/models:
+    get:
+      tags:
+      - smr-inference
+      summary: Models
+      operationId: models_smr_inference_v1_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Models Smr Inference V1 Models Get
+  /smr/inference/v1/limits:
+    get:
+      tags:
+      - smr-inference
+      summary: Limits
+      operationId: limits_smr_inference_v1_limits_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Limits Smr Inference V1 Limits Get
   /smr/free-beta/apply:
     post:
       tags:
@@ -44933,7 +45018,7 @@ components:
           title: Summary
         evidence_refs:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           title: Evidence Refs
         unresolved_questions:
@@ -52348,6 +52433,61 @@ components:
       - resource_kind
       - status
       title: InternAcceptanceFixtureResourceV1
+    InternDeliverableProjectionV1:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-deliverable-projection.v1
+          title: Schema Version
+          default: smr.intern-deliverable-projection.v1
+        kind:
+          type: string
+          const: report
+          title: Kind
+          default: report
+        title:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Title
+        project_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Run Id
+        artifact_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Artifact Id
+        readiness:
+          type: string
+          enum:
+          - viewable
+          - downloadable
+          title: Readiness
+          default: viewable
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - title
+      title: InternDeliverableProjectionV1
+      description: Explicit request to cross channel 2 into a customer-visible WorkProduct.
     InternMcpActionApprovalRequest:
       properties:
         decision:
@@ -52871,6 +53011,10 @@ components:
             maxLength: 2000
           - type: 'null'
           title: Suggested Next Step
+        deliverable:
+          anyOf:
+          - $ref: '#/components/schemas/InternDeliverableProjectionV1'
+          - type: 'null'
         schema_version:
           type: string
           const: smr.intern-work-summary.v1
@@ -54070,7 +54214,7 @@ components:
           title: Summary
         evidence_references:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           title: Evidence References
           default: []
@@ -55785,7 +55929,7 @@ components:
       - approval
       - artifact_publication
       - trace_publication
-      - other
+      - workspace_archive
       title: ProducedResourceKind
     ProducedResourceReferenceV1:
       properties:
@@ -66523,6 +66667,12 @@ components:
           additionalProperties: true
           type: object
           title: Metadata
+        default_child_inference:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Default Child Inference
       additionalProperties: false
       type: object
       required:
@@ -74561,6 +74711,14 @@ components:
       title: SmrProjectStatusRunSummary
     SmrProjectTriggerRequest:
       properties:
+        inference:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Inference
+          description: Execution-scoped managed-inference intent; raw provider credentials
+            are forbidden.
         execution_target:
           anyOf:
           - oneOf:
@@ -89206,7 +89364,7 @@ components:
           title: Summary
         evidence_references:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           maxItems: 128
           title: Evidence References
@@ -89914,7 +90072,7 @@ components:
           default: sync
         evidence_refs:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           maxItems: 128
           title: Evidence Refs
@@ -89953,6 +90111,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/SyncObjectiveBoundsV1'
           - type: 'null'
+        require_operator_approval:
+          type: boolean
+          title: Require Operator Approval
+          default: true
       additionalProperties: false
       type: object
       required:
