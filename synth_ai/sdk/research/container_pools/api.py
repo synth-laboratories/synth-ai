@@ -31,6 +31,7 @@ from synth_ai.sdk.research.container_pools.contracts import (
 )
 from synth_ai.sdk.research.container_pools.operations import container_pool_operation
 from synth_ai.sdk.research.container_pools.packaging import build_harbor_bundle_archive
+from synth_ai.sdk.research.contracts.managed_inference import ManagedInference
 
 #: Poll interval while waiting on a rollout. Harbor rollouts run for minutes to
 #: hours, so a tight loop buys nothing and costs request quota.
@@ -142,11 +143,15 @@ class ContainerPoolsAPI:
         backend: str = "arbitrary",
         task_config: Mapping[str, Any] | None = None,
         task_metadata: Mapping[str, Any] | None = None,
+        inference: ManagedInference | None = None,
     ) -> PoolTask:
         path = f"/v1/pools/{_seg(pool_id, field_name='pool_id')}/tasks"
         body: JsonObject = {"task_id": task_id, "backend": backend}
-        if task_config:
-            body["task_config"] = _json_object(task_config)
+        normalized_task_config = _json_object(task_config)
+        if inference is not None:
+            normalized_task_config["inference"] = inference.to_wire()
+        if normalized_task_config:
+            body["task_config"] = normalized_task_config
         if task_metadata:
             body["task_metadata"] = _json_object(task_metadata)
         return PoolTask.from_wire(

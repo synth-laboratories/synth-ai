@@ -215,6 +215,10 @@ from synth_ai.sdk.research.contracts.image_releases import (
     declaration_from_wire,
     image_release_from_wire,
 )
+from synth_ai.sdk.research.contracts.managed_inference import (
+    ManagedInference,
+    ManagedInferenceLimits,
+)
 from synth_ai.sdk.research.contracts.project_data import (
     ProjectDataset,
     ProjectDatasetEncoding,
@@ -908,6 +912,8 @@ __all__ = [
     "RuntimeImageReleaseListResponse",
     "RuntimeImageReleaseStatus",
     "RuntimeImageKind",
+    "ManagedInference",
+    "ManagedInferenceLimits",
     "RuntimeImageRef",
     "RuntimeLifecycleSnapshot",
     "RuntimeTerminalPhase",
