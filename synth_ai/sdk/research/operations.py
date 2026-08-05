@@ -98,6 +98,43 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "list_intern_meta_threads",
+            HttpMethod.GET,
+            "/smr/research-intern/meta-threads",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_meta_thread",
+            HttpMethod.GET,
+            "/smr/research-intern/meta-threads/{meta_thread_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_meta_thread_segments",
+            HttpMethod.GET,
+            "/smr/research-intern/meta-threads/{meta_thread_id}/segments",
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_meta_thread_handoffs",
+            HttpMethod.GET,
+            "/smr/research-intern/meta-threads/{meta_thread_id}/handoffs",
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_meta_thread_messages",
+            HttpMethod.GET,
+            "/smr/research-intern/meta-threads/{meta_thread_id}/messages",
+            idempotent=True,
+        ),
+        _operation(
+            "create_intern_meta_thread_message",
+            HttpMethod.POST,
+            "/smr/research-intern/meta-threads/messages",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "list_intern_runtime_events",
             HttpMethod.GET,
             "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/events",

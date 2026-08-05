@@ -144,6 +144,128 @@ class ResearchInternResponse(_StrictContract):
     updated_at: datetime
 
 
+class InternMetaThreadKind(StrEnum):
+    SYNC = "sync"
+    ASYNC = "async"
+
+
+class InternMetaThreadLifecycle(StrEnum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class InternMetaThreadSegmentStatus(StrEnum):
+    LIVE = "live"
+    SEALED = "sealed"
+
+
+class InternMetaHandoffStatus(StrEnum):
+    SEALED = "sealed"
+    MERGED = "merged"
+
+
+class InternCrossMetaThreadMessageKind(StrEnum):
+    REQUEST_DECISION = "request_decision"
+    OPEN_BRANCH_ACK = "open_branch_ack"
+    DECISION_RESOLVED = "decision_resolved"
+    STEER = "steer"
+    NOTE = "note"
+
+
+class InternCrossMetaThreadMessageResolution(StrEnum):
+    COMPLETED = "completed"
+    DENIED = "denied"
+    SUPERSEDED = "superseded"
+
+
+class InternAgentConfig(_StrictContract):
+    agent_role: str
+    harness: str
+    model: str
+    reasoning_effort: str
+    segment_role: str | None = None
+    harness_command: str | None = None
+    workspace_root: str | None = None
+
+
+class InternMetaThread(_StrictContract):
+    schema_version: Literal["smr.meta-thread.v1"]
+    meta_thread_id: str
+    organization_id: str
+    research_intern_id: str
+    kind: InternMetaThreadKind
+    lifecycle: InternMetaThreadLifecycle
+    head_segment_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class InternMetaThreadSegment(_StrictContract):
+    schema_version: Literal["smr.meta-thread-segment.v1"]
+    segment_id: str
+    meta_thread_id: str
+    parent_segment_id: str | None = None
+    lane_runtime_id: str | None = None
+    agent_config: InternAgentConfig | None = None
+    status: InternMetaThreadSegmentStatus
+    opened_at: datetime
+    sealed_at: datetime | None = None
+    linked_message_id: str | None = None
+    handoff_id: str | None = None
+    is_head: bool = False
+
+
+class InternMetaHandoff(_StrictContract):
+    schema_version: Literal["smr.meta-handoff.v1"]
+    handoff_id: str
+    meta_thread_id: str
+    source_segment_id: str
+    summary: str
+    evidence_references: tuple[str, ...] = ()
+    agent_config: InternAgentConfig | None = None
+    status: InternMetaHandoffStatus
+    created_at: datetime
+    sealed_at: datetime
+    merged_at: datetime | None = None
+
+
+class InternCrossMetaThreadMessageCreateRequest(_StrictContract):
+    schema_version: Literal["smr.cross-meta-thread-message-create.v1"] = (
+        "smr.cross-meta-thread-message-create.v1"
+    )
+    message_id: str = Field(min_length=1, max_length=512)
+    source_meta_thread_id: str = Field(min_length=1, max_length=512)
+    destination_meta_thread_id: str = Field(min_length=1, max_length=512)
+    kind: InternCrossMetaThreadMessageKind
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    linked_message_id: str | None = None
+    sync_session_id: str | None = None
+    segment_id: str | None = None
+    resolution: InternCrossMetaThreadMessageResolution | None = None
+    summary: str | None = Field(default=None, max_length=4_000)
+
+
+class InternCrossMetaThreadMessage(_StrictContract):
+    schema_version: Literal["smr.cross-meta-thread-message.v1"]
+    message_id: str
+    organization_id: str
+    research_intern_id: str
+    source_meta_thread_id: str
+    source_kind: InternMetaThreadKind
+    destination_meta_thread_id: str
+    destination_kind: InternMetaThreadKind
+    kind: InternCrossMetaThreadMessageKind
+    idempotency_key: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    linked_message_id: str | None = None
+    sync_session_id: str | None = None
+    segment_id: str | None = None
+    resolution: InternCrossMetaThreadMessageResolution | None = None
+    summary: str | None = None
+    created_at: datetime
+
+
 class InternRuntimeBinding(_StrictContract):
     factory_id: str | None = None
     project_id: str | None = None
