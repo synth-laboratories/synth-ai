@@ -326,6 +326,11 @@ class SwarmEvidence:
                     "project_id",
                     "artifacts",
                     "work_products",
+                    # Backend may include inline selected contents / Trace V5
+                    # publications; accept them without requiring callers to
+                    # consume them yet.
+                    "selected_artifact_contents",
+                    "trace_publications",
                     "freshness",
                 }
             ),
@@ -359,6 +364,8 @@ class SwarmEvidence:
             "project_id": self.project_id,
             "artifacts": [artifact.to_wire() for artifact in self.artifacts],
             "work_products": [item.to_wire() for item in self.work_products],
+            "selected_artifact_contents": [],
+            "trace_publications": [],
             "freshness": self.freshness.to_wire(),
         }
 
