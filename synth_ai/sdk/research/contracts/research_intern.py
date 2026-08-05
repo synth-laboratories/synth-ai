@@ -188,38 +188,7 @@ class InternSyncSessionCreateRequest(_StrictContract):
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
-    task_template: str | None = Field(default=None, min_length=1, max_length=128)
     objective_bounds: dict[str, Any] | None = None
-
-
-class SyncTemplateProvisionedResource(_StrictContract):
-    """One resource decision made while provisioning a task template."""
-
-    resource_kind: Literal[
-        "project",
-        "factory",
-        "factory_project_link",
-        "effort",
-        "intern_factory_membership",
-        "run",
-    ]
-    status: Literal["created", "reused", "unsupported"]
-    resource_id: str | None = None
-    error_code: str | None = None
-
-
-class SyncTemplateProvisioningReceipt(_StrictContract):
-    """Durable record of what starting from a task template provisioned.
-
-    The backend mints this receipt inside the session-create transaction and
-    stamps it into the session projection; the SDK only ever observes it.
-    """
-
-    schema_version: Literal["smr.intern-sync-template-provisioning.v1"]
-    task_template: str
-    binding: InternRuntimeBinding
-    resources: tuple[SyncTemplateProvisionedResource, ...]
-    provisioned_at: datetime
 
 
 class SyncTracePublicationReceipt(_StrictContract):
@@ -247,76 +216,59 @@ class SyncTracePublicationReceipt(_StrictContract):
     published_at: datetime | None = None
 
 
-SyncKitIngressKind = Literal[
-    "website_upload",
-    "sdk_upload",
-    "git_push",
-    "project_files",
-]
-
-SyncKitIngressObservation = Literal[
-    "stored_file_write",
-    "push_confirmation",
-    "upload_url_issuance",
+SyncWorkspaceSnapshotKind = Literal[
+    "internal_git_head",
+    "stored_file_digest_set",
+    "internal_git_head_with_stored_files",
 ]
 
 
-class SyncKitAssociatedFile(_StrictContract):
-    """One file observed in a kit ingress, with whatever identity was available."""
+class SyncWorkspaceSnapshotIdentity(_StrictContract):
+    """Provable project workspace identity captured when a run is triggered."""
 
-    path: str
-    digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
-    size_bytes: int | None = Field(default=None, ge=0)
-    stored_file_id: str | None = None
-
-
-class SyncKitIngressSource(_StrictContract):
-    """Source identity of one kit ingress, per ingress kind."""
-
+    schema_version: Literal["smr.intern-sync-workspace-snapshot.v1"] = (
+        "smr.intern-sync-workspace-snapshot.v1"
+    )
+    kind: SyncWorkspaceSnapshotKind
     commit_sha: str | None = None
-    archive_key: str | None = None
-    workspace_archive_id: str | None = None
-    push_confirmation_receipt_id: str | None = None
-    upload_batch_id: str | None = None
-    dataset_ref: str | None = None
-    stored_file_ids: tuple[str, ...] = ()
+    inventory_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    file_count: int | None = Field(default=None, ge=1)
+    captured_at: datetime
+
+    @model_validator(mode="after")
+    def require_identity_per_kind(self) -> SyncWorkspaceSnapshotIdentity:
+        if self.kind == "internal_git_head" and not self.commit_sha:
+            raise ValueError("internal_git_head snapshot requires commit_sha")
+        if self.kind == "stored_file_digest_set" and (
+            not self.inventory_digest or not self.file_count
+        ):
+            raise ValueError(
+                "stored_file_digest_set snapshot requires the inventory digest and file count"
+            )
+        if self.kind == "internal_git_head_with_stored_files" and (
+            not self.commit_sha or not self.inventory_digest or not self.file_count
+        ):
+            raise ValueError(
+                "internal_git_head_with_stored_files snapshot requires commit_sha, "
+                "the inventory digest, and file count"
+            )
+        return self
 
 
-class SyncKitAssociationReceipt(_StrictContract):
-    """Durable record that a kit ingress landed while this session was open.
+class SyncWorkspaceRunReceipt(_StrictContract):
+    """Server-minted proof of the project workspace used to trigger one run."""
 
-    The backend mints this receipt as a server-side effect of observing an
-    upload, push, or file write on a project bound to an open Sync session.
-    Clients never mint it; they observe it on the session projection.
-    """
-
-    schema_version: Literal["smr.intern-sync-kit-association.v1"]
-    receipt_id: str
+    schema_version: Literal["smr.intern-sync-workspace-run.v1"] = "smr.intern-sync-workspace-run.v1"
+    run_id: str
     sync_session_id: str
     project_id: str
-    ingress_kind: SyncKitIngressKind
-    observed_via: SyncKitIngressObservation
-    files: tuple[SyncKitAssociatedFile, ...] = ()
-    source: SyncKitIngressSource
-    open_session_count: int = Field(ge=1)
-    associated_at: datetime
-
-
-class SyncKitReadiness(_StrictContract):
-    """Read-only kit completeness projection for a template-bound session."""
-
-    schema_version: Literal["smr.intern-sync-kit-readiness.v1"]
-    status: Literal["ready", "incomplete"]
-    task_template: str
-    kit_contract: str
-    required_files: tuple[str, ...]
-    present_files: tuple[str, ...] = ()
-    missing_files: tuple[str, ...] = ()
-    checked_at: datetime
+    experiment_id: str | None = None
+    workspace: SyncWorkspaceSnapshotIdentity
+    recorded_at: datetime
 
 
 class InternSyncSession(_StrictContract):
-    schema_version: Literal["smr.intern-sync-session.v1"]
+    schema_version: Literal["smr.intern-sync-session.v1"] = "smr.intern-sync-session.v1"
     sync_session_id: str
     research_intern_id: str
     org_id: str
@@ -333,18 +285,11 @@ class InternSyncSession(_StrictContract):
     outcome: InternRuntimeOutcome | None = None
     failure_code: str | None = None
     temporal_workflow_id: str
-    execution_mode: Literal["fast", "standard", "deep"] = "standard"
+    execution_mode: Literal["fast", "standard", "deep"]
     execution_profile_id: Literal["intern_sync"] = "intern_sync"
-    # Server-minted projection stamps. Old backends omit them entirely; new
-    # backends stamp them once the corresponding effect lands. The SDK only
-    # observes these receipts — the backend remains the minting authority.
-    task_template: str | None = None
-    provisioning: SyncTemplateProvisioningReceipt | None = None
     trace_publication: SyncTracePublicationReceipt | None = None
-    kit_associations: tuple[SyncKitAssociationReceipt, ...] = ()
-    kit_readiness: SyncKitReadiness | None = None
     visuals: tuple[dict[str, Any], ...] = ()
-    kit_state_receipts: tuple[dict[str, Any], ...] = ()
+    workspace_run_receipts: tuple[SyncWorkspaceRunReceipt, ...] = ()
     experiments: tuple[dict[str, Any], ...] = ()
     harness_bundle_available: bool = False
     created_at: datetime
@@ -406,13 +351,11 @@ class InternSyncDeployPacket(_StrictContract):
     schema_version: Literal["smr.intern-sync-deploy-packet.v1"]
     sync_session_id: str
     project_id: str
-    task_template: str | None = None
     auth_scheme: Literal["bearer"]
     auth_env_var: Literal["SYNTH_API_KEY"]
-    required_paths: tuple[str, ...] = ()
     endpoints: tuple[InternSyncDeployPacketEndpoint, ...]
     done_signal: Literal["workspace_confirm_push"]
-    image_kind: Literal["craftax_eval"]
+    image_kind: Literal["project_default"]
     instructions: str
 
 
