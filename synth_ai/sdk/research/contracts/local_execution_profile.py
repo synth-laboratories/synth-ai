@@ -345,7 +345,6 @@ def load_local_eval_contract(path: str | Path | None = None) -> LocalEvalContrac
 def local_execution_payload(contract: LocalEvalContract) -> dict[str, Any]:
     host_kind = LOCAL_LAUNCH_TARGET_HOST_KIND[contract.launch_target.strip().lower()]
     return {
-        "slot_id": contract.worker_pool_id,
         "runtime_id": contract.runtime_id,
         "dispatch_pool": contract.worker_pool_id,
         "host_kind": host_kind,
