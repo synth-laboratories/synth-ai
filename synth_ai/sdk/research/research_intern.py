@@ -2598,9 +2598,7 @@ class ResearchInternAsyncRuntimeAPI:
             raise ValueError("Async Intern command receipt identity drifted")
         return receipt
 
-    def handoff_model(
-        self, request: InternAsyncHandoffModelRequest
-    ) -> InternAsyncCommandReceipt:
+    def handoff_model(self, request: InternAsyncHandoffModelRequest) -> InternAsyncCommandReceipt:
         """Change Async model/effort via spine handoff (no meta-thread id)."""
 
         receipt = InternAsyncCommandReceipt.from_wire(
@@ -2672,11 +2670,7 @@ class ResearchInternAsyncRuntimeAPI:
         handoff_id: str,
         request: InternMetaHandoffContinueRequest | None = None,
     ) -> InternMetaHandoff:
-        body = (
-            cast(JsonObject, request.to_wire())
-            if request is not None
-            else cast(JsonObject, {})
-        )
+        body = cast(JsonObject, request.to_wire()) if request is not None else cast(JsonObject, {})
         return InternMetaHandoff.from_wire(
             self._transport.execute(
                 _request(
@@ -4713,11 +4707,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         handoff_id: str,
         request: InternMetaHandoffContinueRequest | None = None,
     ) -> InternMetaHandoff:
-        body = (
-            cast(JsonObject, request.to_wire())
-            if request is not None
-            else cast(JsonObject, {})
-        )
+        body = cast(JsonObject, request.to_wire()) if request is not None else cast(JsonObject, {})
         return InternMetaHandoff.from_wire(
             await self._transport.execute(
                 _request(
