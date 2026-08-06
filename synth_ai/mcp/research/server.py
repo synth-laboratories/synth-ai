@@ -47,6 +47,7 @@ from synth_ai.mcp.research.tools.factory_results import (
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
+from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
@@ -480,6 +481,7 @@ class ResearchMcpServer:
             *build_output_tools(self),
             *build_readiness_tools(self),
             *build_research_intern_tools(self._core_client_from_args),
+            *build_intern_program_tools(self._core_client_from_args),
             *build_resource_tools(self),
             *build_run_tools(self),
             *build_progress_tools(self),

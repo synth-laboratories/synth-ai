@@ -160,8 +160,14 @@ class InternMetaThreadSegmentStatus(StrEnum):
 
 
 class InternMetaHandoffStatus(StrEnum):
-    SEALED = "sealed"
+    NEEDS_REVIEW = "needs_review"
+    APPROVED = "approved"
+    CONTINUED = "continued"
+    REJECTED = "rejected"
+    SUPERSEDED = "superseded"
     MERGED = "merged"
+    # Compat with pre-control-plane rows / clients.
+    SEALED = "sealed"
 
 
 class InternCrossMetaThreadMessageKind(StrEnum):
@@ -220,13 +226,44 @@ class InternMetaHandoff(_StrictContract):
     handoff_id: str
     meta_thread_id: str
     source_segment_id: str
+    destination_segment_id: str | None = None
     summary: str
-    evidence_references: tuple[str, ...] = ()
+    evidence_references: tuple[Any, ...] = ()
+    parent_agent_config: InternAgentConfig | None = None
+    child_agent_config: InternAgentConfig | None = None
     agent_config: InternAgentConfig | None = None
     status: InternMetaHandoffStatus
     created_at: datetime
     sealed_at: datetime
+    approved_at: datetime | None = None
+    continued_at: datetime | None = None
     merged_at: datetime | None = None
+
+
+class InternAsyncHandoffModelRequest(_StrictContract):
+    """Product verb: change Async model/effort via spine handoff (no MT id)."""
+
+    command_id: str = Field(min_length=1, max_length=512)
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_generation: int = Field(ge=0)
+    summary: str = Field(min_length=1, max_length=4_000)
+    agent_config: InternAgentConfig
+    evidence_references: tuple[Any, ...] = ()
+    require_review: bool = False
+
+
+class InternAsyncHandoffReviewRequest(_StrictContract):
+    """Attended seal: park a model/effort switch at needs_review (no MT id)."""
+
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    summary: str = Field(min_length=1, max_length=4_000)
+    agent_config: InternAgentConfig
+    evidence_references: tuple[Any, ...] = ()
+
+
+class InternMetaHandoffContinueRequest(_StrictContract):
+    child_agent_config: InternAgentConfig | None = None
+    summary: str | None = Field(default=None, max_length=4_000)
 
 
 class InternCrossMetaThreadMessageCreateRequest(_StrictContract):
@@ -575,10 +612,17 @@ class InternAsyncCommandKind(StrEnum):
     INTERVENE = "intervene"
     REDIRECT_OBJECTIVE = "redirect_objective"
     REQUEST_CHECKPOINT = "request_checkpoint"
+    # See: backend packages/intern/contracts.py + WP4 H1 spine handoff.
+    REQUEST_SPINE_HANDOFF = "request_spine_handoff"
+    ADVANCE_SPINE = "advance_spine"
 
 
 class InternAsyncRuntimeBudget(_StrictContract):
+    """Async spend ceilings. Day/month defaults are applied server-side when omitted."""
+
     maximum_cost_cents: int | None = Field(default=None, ge=0)
+    maximum_daily_cost_cents: int | None = Field(default=None, ge=0)
+    maximum_monthly_cost_cents: int | None = Field(default=None, ge=0)
     maximum_cycles: int | None = Field(default=None, ge=1)
     maximum_concurrent_runs: int = Field(default=1, ge=1)
 
@@ -589,23 +633,149 @@ class InternAsyncEnsureRequest(_StrictContract):
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     budget: InternAsyncRuntimeBudget = Field(default_factory=InternAsyncRuntimeBudget)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # Bounded wait for Factory-ready before binding; 0 refuses immediately.
+    factory_ready_wait_seconds: int = Field(default=0, ge=0, le=60)
+
+
+class InternAsyncRuntimeSpend(_StrictContract):
+    """Day, month, and lifetime burn against the ceilings that gate Async work.
+
+    The burn is the same total the backend's capability gate and spend sweeper
+    read, and it already folds in persistent-host idle cost -- so what a caller
+    sees here is what actually trips the gate, not a separate estimate.
+
+    ``blocked_reason`` reports the daily ceiling first when both have tripped.
+    """
+
+    daily_cents: int = Field(default=0, ge=0)
+    daily_ceiling_cents: int | None = Field(default=None, ge=0)
+    daily_remaining_cents: int | None = None
+    daily_exhausted: bool = False
+    monthly_cents: int = Field(default=0, ge=0)
+    monthly_ceiling_cents: int | None = Field(default=None, ge=0)
+    monthly_remaining_cents: int | None = None
+    monthly_exhausted: bool = False
+    lifetime_cents: int = Field(default=0, ge=0)
+    lifetime_ceiling_cents: int | None = Field(default=None, ge=0)
+    blocked_reason: str | None = None
+
+
+class InternAsyncRuntimeHostLease(_StrictContract):
+    """The sticky host lease backing Async work.
+
+    Pausing releases the lease; resuming reacquires it. ``reused`` distinguishes
+    a reacquired lease from a freshly provisioned host, and ``cents_per_hour``
+    is the idle burn rate that feeds the spend totals above.
+    """
+
+    lease_id: str | None = None
+    host_kind: str | None = None
+    host_id: str | None = None
+    sticky_key: str | None = None
+    status: str | None = None
+    bound: bool = False
+    reused: bool = False
+    cents_per_hour: int = Field(default=0, ge=0)
+    acquired_at: datetime | None = None
+    renewed_at: datetime | None = None
+    expires_at: datetime | None = None
+    released_at: datetime | None = None
+    release_reason: str | None = None
+
+
+class InternProducedResourceKind(StrEnum):
+    VISUAL = "visual"
+    RUN = "run"
+    SWARM = "swarm"
+    FACTORY = "factory"
+    PROJECT = "project"
+    PROJECT_ATTACHMENT = "project_attachment"
+    EFFORT = "effort"
+    EXPERIMENT = "experiment"
+    RESULT = "result"
+    REPORT = "report"
+    APPROVAL = "approval"
+    ARTIFACT_PUBLICATION = "artifact_publication"
+    TRACE_PUBLICATION = "trace_publication"
+    WORKSPACE_ARCHIVE = "workspace_archive"
+
+
+class InternProducedResourceReference(_StrictContract):
+    """A typed reference to something an Intern runtime produced.
+
+    The backend emits these as objects, not as opaque strings.
+    """
+
+    schema_version: Literal["smr.produced-resource-reference.v1"] = (
+        "smr.produced-resource-reference.v1"
+    )
+    resource_kind: InternProducedResourceKind
+    resource_id: str = Field(min_length=1, max_length=512)
+    revision: str | None = Field(default=None, min_length=1, max_length=255)
+    receipt_id: str | None = Field(default=None, min_length=1, max_length=512)
+    access_state: Literal["accessible", "inaccessible", "missing"] = "accessible"
 
 
 class InternAsyncCheckpoint(_StrictContract):
     checkpoint_id: str
     summary: str
-    evidence_refs: list[str]
+    evidence_refs: tuple[InternProducedResourceReference, ...] = ()
     unresolved_questions: list[str]
     next_action: str | None = None
     created_at: datetime
+    research_records: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class InternAsyncBlocker(_StrictContract):
+    """One Async blocker.
+
+    Most fields are populated only once the blocker has been opened as a Sync
+    handoff, so they stay optional; a fresh blocker carries code/message/retry
+    only.
+    """
+
+    schema_version: Literal["smr.intern-async-blocker.v1"] = "smr.intern-async-blocker.v1"
+    blocker_id: str | None = None
     code: str
     message: str
     retryable: bool
     next_retry_at: datetime | None = None
     operator_action_required: bool = False
+    status: Literal["open", "handoff_opened", "resolved", "superseded"] | None = None
+    binding: InternRuntimeBinding | None = None
+    action_schema_version: str | None = None
+    action_kind: str | None = None
+    action_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    summary: str | None = Field(default=None, max_length=2_000)
+    rationale: str | None = Field(default=None, max_length=4_000)
+    preauthorization_rule: str | None = None
+    evidence_resources: tuple[InternProducedResourceReference, ...] = ()
+    required_operator_capability: str | None = None
+    sync_session_id: str | None = None
+    resolution_receipt: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    resolved_at: datetime | None = None
+
+
+class InternAsyncJudgmentItem(_StrictContract):
+    """One open ask-and-continue judgment item (does not freeze org Async)."""
+
+    schema_version: Literal["smr.intern-async-judgment.v1"] = "smr.intern-async-judgment.v1"
+    interaction_id: str
+    effort_id: str
+    prompt: str
+    created_generation: int = Field(ge=0)
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class InternAsyncEffortWorkSummary(_StrictContract):
+    effort_id: str
+    status: Literal["runnable", "awaiting_input"]
+    open_interaction_id: str | None = None
+    # Fairness cursor for the round-robin fan-out across Efforts: the cycle in
+    # which this Effort last held a cycle slot (0 = never advanced).
+    last_advanced_cycle: int = Field(default=0, ge=0)
 
 
 class InternAsyncRuntime(_StrictContract):
@@ -630,12 +800,16 @@ class InternAsyncRuntime(_StrictContract):
     awaiting_actor_reply_message_id: str | None = None
     awaiting_actor_reply_thread_id: str | None = None
     pending_instruction_count: int = Field(default=0, ge=0, le=32)
+    open_judgment_items: tuple[InternAsyncJudgmentItem, ...] = ()
+    effort_work: tuple[InternAsyncEffortWorkSummary, ...] = ()
     binding: InternRuntimeBinding
     external_execution_status: InternAsyncExternalExecutionStatus
     evidence_readiness: InternAsyncEvidenceReadiness
     next_wake_at: datetime | None = None
     checkpoint: InternAsyncCheckpoint | None = None
     budget: InternAsyncRuntimeBudget
+    spend: InternAsyncRuntimeSpend = Field(default_factory=InternAsyncRuntimeSpend)
+    host_lease: InternAsyncRuntimeHostLease = Field(default_factory=InternAsyncRuntimeHostLease)
     blocker: InternAsyncBlocker | None = None
     temporal_workflow_id: str
     leave_safe: Literal[True]
@@ -696,6 +870,13 @@ class InternAsyncCommandRequest(_StrictContract):
             "body"
         ):
             raise ValueError("request_checkpoint does not accept body")
+        elif self.command_kind in {
+            InternAsyncCommandKind.REQUEST_SPINE_HANDOFF,
+            InternAsyncCommandKind.ADVANCE_SPINE,
+        }:
+            agent_config = self.payload.get("agent_config")
+            if not isinstance(agent_config, dict) or not agent_config:
+                raise ValueError(f"{self.command_kind.value} requires agent_config")
         return self
 
 
@@ -1377,19 +1558,12 @@ __all__ = [
     "DatasetRevisionCreateRequest",
     "DatasetRevisionLifecycleRequest",
     "DatasetRevisionResponse",
-    "MAGI_CANONICAL_USER_BY_MODE",
-    "MagiActuationStatus",
-    "MagiCanonicalUser",
-    "MagiDecisionActuationReceipt",
-    "MagiDecisionKind",
-    "MagiDecisionReceiptResponse",
-    "MagiDecisionRequest",
-    "MagiMode",
     "InternAsyncBlocker",
     "InternAsyncCheckpoint",
     "InternAsyncCommandKind",
     "InternAsyncCommandReceipt",
     "InternAsyncCommandRequest",
+    "InternAsyncEffortWorkSummary",
     "InternAsyncEnsureRequest",
     "InternAsyncEvent",
     "InternAsyncEventPage",
@@ -1398,15 +1572,28 @@ __all__ = [
     "InternAsyncExternalExecutionStatus",
     "InternAsyncInstructionKind",
     "InternAsyncInstructionRequest",
+    "InternAsyncJudgmentItem",
     "InternAsyncRuntime",
     "InternAsyncRuntimeBudget",
+    "InternAsyncRuntimeHostLease",
+    "InternAsyncRuntimeSpend",
     "InternAsyncStatus",
+    "InternProducedResourceKind",
+    "InternProducedResourceReference",
     "InternRuntimeBinding",
+    "MAGI_CANONICAL_USER_BY_MODE",
+    "MagiActuationStatus",
+    "MagiCanonicalUser",
+    "MagiDecisionActuationReceipt",
+    "MagiDecisionKind",
+    "MagiDecisionReceiptResponse",
+    "MagiDecisionRequest",
+    "MagiMode",
     "ProjectComputerCleanupReceiptResponse",
     "ProjectComputerCleanupRequest",
     "ProjectComputerLifecycle",
-    "ProjectComputerProvisionRequest",
     "ProjectComputerProvisionReceipt",
+    "ProjectComputerProvisionRequest",
     "ProjectComputerReplaceRequest",
     "ProjectComputerResponse",
     "ProjectComputerRestorationReceipt",
@@ -1426,8 +1613,8 @@ __all__ = [
     "ResearchInternSessionCloseRequest",
     "ResearchInternSessionCreateRequest",
     "ResearchInternSessionResponse",
-    "ResearchInternSessionSyncResponse",
     "ResearchInternSessionStatus",
+    "ResearchInternSessionSyncResponse",
     "ResearchInternStatus",
     "ResearchInternTurnControl",
     "ResearchInternTurnError",

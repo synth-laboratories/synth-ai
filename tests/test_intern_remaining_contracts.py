@@ -69,10 +69,31 @@ def test_async_projection_preserves_actor_reply_wait_identity() -> None:
             "awaiting_actor_reply_message_id": "mq-1",
             "awaiting_actor_reply_thread_id": "thread-1",
             "pending_instruction_count": 0,
+            "open_judgment_items": [
+                {
+                    "schema_version": "smr.intern-async-judgment.v1",
+                    "interaction_id": "judgment-1",
+                    "effort_id": "effort-1",
+                    "prompt": "Confirm the next experiment?",
+                    "created_generation": 3,
+                    "context": {},
+                }
+            ],
+            "effort_work": [
+                {
+                    "effort_id": "effort-1",
+                    "status": "awaiting_input",
+                    "open_interaction_id": "judgment-1",
+                }
+            ],
             "binding": {},
             "external_execution_status": "active",
             "evidence_readiness": "pending",
-            "budget": {"maximum_concurrent_runs": 1},
+            "budget": {
+                "maximum_concurrent_runs": 1,
+                "maximum_daily_cost_cents": 5000,
+                "maximum_monthly_cost_cents": 50000,
+            },
             "temporal_workflow_id": "intern-async:org-1:async-1",
             "leave_safe": True,
             "created_at": now,
@@ -82,3 +103,8 @@ def test_async_projection_preserves_actor_reply_wait_identity() -> None:
 
     assert runtime.awaiting_actor_reply_message_id == "mq-1"
     assert runtime.awaiting_actor_reply_thread_id == "thread-1"
+    assert len(runtime.open_judgment_items) == 1
+    assert runtime.open_judgment_items[0].effort_id == "effort-1"
+    assert runtime.effort_work[0].status == "awaiting_input"
+    assert runtime.budget.maximum_daily_cost_cents == 5000
+    assert runtime.budget.maximum_monthly_cost_cents == 50000

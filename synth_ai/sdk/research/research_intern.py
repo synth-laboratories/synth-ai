@@ -53,12 +53,16 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncEvent,
     InternAsyncEventPage,
     InternAsyncEventStreamEnvelope,
+    InternAsyncHandoffModelRequest,
+    InternAsyncHandoffReviewRequest,
     InternAsyncInstructionKind,
     InternAsyncInstructionRequest,
     InternAsyncRuntime,
+    InternAsyncRuntimeBudget,
     InternCrossMetaThreadMessage,
     InternCrossMetaThreadMessageCreateRequest,
     InternMetaHandoff,
+    InternMetaHandoffContinueRequest,
     InternMetaThread,
     InternMetaThreadKind,
     InternMetaThreadSegment,
@@ -104,6 +108,10 @@ from synth_ai.sdk.research.contracts.research_intern import (
     ResearchInternTurnRequest,
     ResearchInternTurnResponse,
     ResearchInternTurnStatus,
+)
+from synth_ai.sdk.research.intern_program import (
+    AsyncInternProgramAPI,
+    InternProgramAPI,
 )
 from synth_ai.sdk.research.operations import (
     dataset_revision_publication_operation,
@@ -180,6 +188,39 @@ def _decisions(value: object) -> tuple[MagiDecisionReceiptResponse, ...]:
             cast(JsonValue, value),
             operation_id="list_magi_decisions",
         )
+    )
+
+
+def _async_ensure_request_with_budget_overrides(
+    request: InternAsyncEnsureRequest,
+    *,
+    maximum_daily_cost_cents: int | None = None,
+    maximum_monthly_cost_cents: int | None = None,
+) -> InternAsyncEnsureRequest:
+    """Merge optional day/month ceiling kwargs into the ensure budget."""
+
+    if maximum_daily_cost_cents is None and maximum_monthly_cost_cents is None:
+        return request
+    budget = InternAsyncRuntimeBudget.model_validate(
+        {
+            **request.budget.model_dump(mode="python"),
+            **(
+                {"maximum_daily_cost_cents": maximum_daily_cost_cents}
+                if maximum_daily_cost_cents is not None
+                else {}
+            ),
+            **(
+                {"maximum_monthly_cost_cents": maximum_monthly_cost_cents}
+                if maximum_monthly_cost_cents is not None
+                else {}
+            ),
+        }
+    )
+    return InternAsyncEnsureRequest.model_validate(
+        {
+            **request.model_dump(mode="python"),
+            "budget": budget.model_dump(mode="python"),
+        }
     )
 
 
@@ -2514,13 +2555,26 @@ class ResearchInternAsyncRuntimeAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
-    def ensure(self, request: InternAsyncEnsureRequest) -> InternAsyncRuntime:
+    def ensure(
+        self,
+        request: InternAsyncEnsureRequest,
+        *,
+        maximum_daily_cost_cents: int | None = None,
+        maximum_monthly_cost_cents: int | None = None,
+    ) -> InternAsyncRuntime:
+        """Ensure the org Async Intern. Day/month kwargs override ``request.budget``."""
+
+        ensure_request = _async_ensure_request_with_budget_overrides(
+            request,
+            maximum_daily_cost_cents=maximum_daily_cost_cents,
+            maximum_monthly_cost_cents=maximum_monthly_cost_cents,
+        )
         return InternAsyncRuntime.from_wire(
             self._transport.execute(
                 _request(
                     "ensure_intern_async_runtime",
                     self._PATH,
-                    body=cast(JsonObject, request.to_wire()),
+                    body=cast(JsonObject, ensure_request.to_wire()),
                 )
             )
         )
@@ -2544,6 +2598,89 @@ class ResearchInternAsyncRuntimeAPI:
             raise ValueError("Async Intern command receipt identity drifted")
         return receipt
 
+    def handoff_model(self, request: InternAsyncHandoffModelRequest) -> InternAsyncCommandReceipt:
+        """Change Async model/effort via spine handoff (no meta-thread id)."""
+
+        receipt = InternAsyncCommandReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "handoff_intern_async_model",
+                    f"{self._PATH}/handoff-model",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id:
+            raise ValueError("Async Intern handoff-model receipt identity drifted")
+        return receipt
+
+    def seal_handoff_for_review(
+        self, request: InternAsyncHandoffReviewRequest
+    ) -> InternMetaHandoff:
+        """Attended seal: park model/effort switch at needs_review."""
+
+        return InternMetaHandoff.from_wire(
+            self._transport.execute(
+                _request(
+                    "seal_intern_async_handoff_for_review",
+                    f"{self._PATH}/handoffs/review",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    def list_handoffs(self) -> tuple[InternMetaHandoff, ...]:
+        return tuple(
+            InternMetaHandoff.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(
+                        _request("list_intern_async_handoffs", f"{self._PATH}/handoffs")
+                    ),
+                ),
+                operation_id="list_intern_async_handoffs",
+            )
+        )
+
+    def approve_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        return InternMetaHandoff.from_wire(
+            self._transport.execute(
+                _request(
+                    "approve_intern_async_handoff",
+                    f"{self._PATH}/handoffs/{handoff_id}/approve",
+                    body=cast(JsonObject, {}),
+                )
+            )
+        )
+
+    def reject_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        return InternMetaHandoff.from_wire(
+            self._transport.execute(
+                _request(
+                    "reject_intern_async_handoff",
+                    f"{self._PATH}/handoffs/{handoff_id}/reject",
+                    body=cast(JsonObject, {}),
+                )
+            )
+        )
+
+    def continue_handoff(
+        self,
+        handoff_id: str,
+        request: InternMetaHandoffContinueRequest | None = None,
+    ) -> InternMetaHandoff:
+        body = cast(JsonObject, request.to_wire()) if request is not None else cast(JsonObject, {})
+        return InternMetaHandoff.from_wire(
+            self._transport.execute(
+                _request(
+                    "continue_intern_async_handoff",
+                    f"{self._PATH}/handoffs/{handoff_id}/continue",
+                    body=body,
+                )
+            )
+        )
+
     def send(self, request: InternAsyncInstructionRequest) -> InternAsyncCommandReceipt:
         return self.command(request.to_command())
 
@@ -2555,6 +2692,8 @@ class ResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Pause Async work and free the sticky exe.dev host lease (resume reacquires)."""
+
         return self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -2783,6 +2922,7 @@ class ResearchInternAPI:
         self.meta_threads = ResearchInternMetaThreadsAPI(transport)
         self.sync_ = ResearchInternSyncRuntimeAPI(transport, self.meta_threads)
         self.async_ = ResearchInternAsyncRuntimeAPI(transport)
+        self.program = InternProgramAPI(transport)
         self.factories = ResearchInternFactoriesAPI(transport)
         self.decisions = ResearchInternDecisionsAPI(transport)
         self.sessions = ResearchInternSessionsAPI(
@@ -4450,13 +4590,26 @@ class AsyncResearchInternAsyncRuntimeAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
-    async def ensure(self, request: InternAsyncEnsureRequest) -> InternAsyncRuntime:
+    async def ensure(
+        self,
+        request: InternAsyncEnsureRequest,
+        *,
+        maximum_daily_cost_cents: int | None = None,
+        maximum_monthly_cost_cents: int | None = None,
+    ) -> InternAsyncRuntime:
+        """Ensure the org Async Intern. Day/month kwargs override ``request.budget``."""
+
+        ensure_request = _async_ensure_request_with_budget_overrides(
+            request,
+            maximum_daily_cost_cents=maximum_daily_cost_cents,
+            maximum_monthly_cost_cents=maximum_monthly_cost_cents,
+        )
         return InternAsyncRuntime.from_wire(
             await self._transport.execute(
                 _request(
                     "ensure_intern_async_runtime",
                     self._PATH,
-                    body=cast(JsonObject, request.to_wire()),
+                    body=cast(JsonObject, ensure_request.to_wire()),
                 )
             )
         )
@@ -4480,6 +4633,91 @@ class AsyncResearchInternAsyncRuntimeAPI:
             raise ValueError("Async Intern command receipt identity drifted")
         return receipt
 
+    async def handoff_model(
+        self, request: InternAsyncHandoffModelRequest
+    ) -> InternAsyncCommandReceipt:
+        """Change Async model/effort via spine handoff (no meta-thread id)."""
+
+        receipt = InternAsyncCommandReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "handoff_intern_async_model",
+                    f"{self._PATH}/handoff-model",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id:
+            raise ValueError("Async Intern handoff-model receipt identity drifted")
+        return receipt
+
+    async def seal_handoff_for_review(
+        self, request: InternAsyncHandoffReviewRequest
+    ) -> InternMetaHandoff:
+        """Attended seal: park model/effort switch at needs_review."""
+
+        return InternMetaHandoff.from_wire(
+            await self._transport.execute(
+                _request(
+                    "seal_intern_async_handoff_for_review",
+                    f"{self._PATH}/handoffs/review",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+
+    async def list_handoffs(self) -> tuple[InternMetaHandoff, ...]:
+        return tuple(
+            InternMetaHandoff.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    await self._transport.execute(
+                        _request("list_intern_async_handoffs", f"{self._PATH}/handoffs")
+                    ),
+                ),
+                operation_id="list_intern_async_handoffs",
+            )
+        )
+
+    async def approve_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        return InternMetaHandoff.from_wire(
+            await self._transport.execute(
+                _request(
+                    "approve_intern_async_handoff",
+                    f"{self._PATH}/handoffs/{handoff_id}/approve",
+                    body=cast(JsonObject, {}),
+                )
+            )
+        )
+
+    async def reject_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        return InternMetaHandoff.from_wire(
+            await self._transport.execute(
+                _request(
+                    "reject_intern_async_handoff",
+                    f"{self._PATH}/handoffs/{handoff_id}/reject",
+                    body=cast(JsonObject, {}),
+                )
+            )
+        )
+
+    async def continue_handoff(
+        self,
+        handoff_id: str,
+        request: InternMetaHandoffContinueRequest | None = None,
+    ) -> InternMetaHandoff:
+        body = cast(JsonObject, request.to_wire()) if request is not None else cast(JsonObject, {})
+        return InternMetaHandoff.from_wire(
+            await self._transport.execute(
+                _request(
+                    "continue_intern_async_handoff",
+                    f"{self._PATH}/handoffs/{handoff_id}/continue",
+                    body=body,
+                )
+            )
+        )
+
     async def send(self, request: InternAsyncInstructionRequest) -> InternAsyncCommandReceipt:
         return await self.command(request.to_command())
 
@@ -4491,6 +4729,8 @@ class AsyncResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Pause Async work and free the sticky exe.dev host lease (resume reacquires)."""
+
         return await self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -4700,6 +4940,7 @@ class AsyncResearchInternAPI:
         self.meta_threads = AsyncResearchInternMetaThreadsAPI(transport)
         self.sync_ = AsyncResearchInternSyncRuntimeAPI(transport, self.meta_threads)
         self.async_ = AsyncResearchInternAsyncRuntimeAPI(transport)
+        self.program = AsyncInternProgramAPI(transport)
         self.factories = AsyncResearchInternFactoriesAPI(transport)
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
         self.sessions = AsyncResearchInternSessionsAPI(

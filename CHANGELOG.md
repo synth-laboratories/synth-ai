@@ -4,6 +4,51 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Added
+
+- **`client.intern.program`** — the Effort-first Intern research program.
+  `list_efforts` returns the Effort board (each Effort plus its open-work
+  counts); `get_effort` returns the Effort rollup — Progress, Results,
+  Experiments, Knowledge — with the cycle/wake/spend/host chrome demoted to a
+  secondary `runtime` block. Objectives, milestones, tasks, progress claims, and
+  objective links hang beneath one Effort, which is a path segment on every
+  create, so a row cannot be written without its binding. Both the synchronous
+  and native-async clients carry the namespace.
+- **Fifteen `intern_*` MCP tools** for the same surface: `intern_effort_board`,
+  `intern_effort_detail`, and the objective / milestone / task / progress-claim /
+  objective-link families. Effort lifecycle is not duplicated — the existing
+  `research_list_factory_efforts`, `research_get_effort`, and
+  `research_patch_effort` remain the Effort verbs.
+- **`client.intern.program.search_memory` / `get_memory_hit`** plus the
+  `intern_memory_search` / `intern_memory_get` MCP tools read the Intern's own
+  history. Both surfaces return the retrieval payload with no wrapper and with
+  explicit nulls intact, matching the Intern's own memory tools field for field,
+  so the same records are never described two ways.
+- **`synth_ai.sdk.research.intern_grants`** — the agent-facing grant matrix: the
+  capabilities a running Intern may hold, which tool needs which, and the action
+  kind each is proposed under. `validate_intern_tool_grant` refuses swarm
+  task-graph planning and swarm run-task writes with
+  `intern_swarm_plan_tasks_ownership_forbidden` before the registry is consulted,
+  so the refusal names the boundary. The Intern kicks a swarm run off and polls
+  it; it never owns the run's task graph.
+
+### Fixed
+
+- `InternAsyncRuntime` now models `spend` (`InternAsyncRuntimeSpend`) and
+  `host_lease` (`InternAsyncRuntimeHostLease`). The spend block is the burn that
+  actually gates Async work — the same totals the capability gate and sweeper
+  read, persistent-host idle cost included — and reports the daily ceiling first
+  when both have tripped. `InternEffortRuntimeStrip` gained the Effort-inventory
+  trim counters and `active_effort_id`; results rows gained `link_source` and
+  `effort_scoped`.
+- `InternAsyncCheckpoint.evidence_refs` is a tuple of typed
+  `InternProducedResourceReference` values, not strings, and the model carries
+  `research_records`. `InternAsyncBlocker` carries the full blocker projection
+  (identity, status, binding, handoff context, timestamps), and
+  `InternAsyncEffortWorkSummary` carries `last_advanced_cycle`. All three models
+  forbid unknown fields, so each omission raised a validation error against a
+  real backend response rather than dropping data.
+
 ### Changed
 
 - Project and Swarm hero list methods now return typed `SyncPage` values with an

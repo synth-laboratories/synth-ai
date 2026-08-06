@@ -6,6 +6,7 @@ from synth_ai.mcp.research.tools.exports import build_export_tools
 from synth_ai.mcp.research.tools.factories import build_factory_tools
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
+from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
 from synth_ai.mcp.research.tools.progress import build_progress_tools
@@ -26,6 +27,7 @@ __all__ = [
     "build_factory_tools",
     "build_file_tools",
     "build_image_release_tools",
+    "build_intern_program_tools",
     "build_model_tools",
     "build_output_tools",
     "build_progress_tools",
