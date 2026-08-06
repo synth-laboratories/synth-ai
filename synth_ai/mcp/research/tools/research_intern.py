@@ -317,11 +317,22 @@ def build_research_intern_tools(
         request = InternAsyncEnsureRequest.model_validate(
             _request_payload(
                 args,
-                ("objective", "idempotency_key", "binding", "budget", "metadata"),
+                (
+                    "objective",
+                    "idempotency_key",
+                    "binding",
+                    "budget",
+                    "metadata",
+                    "factory_ready_wait_seconds",
+                ),
             )
         )
         with client_from_args(args) as client:
-            return client.intern.async_.ensure(request).to_wire()
+            return client.intern.async_.ensure(
+                request,
+                maximum_daily_cost_cents=optional_int(args, "maximum_daily_cost_cents"),
+                maximum_monthly_cost_cents=optional_int(args, "maximum_monthly_cost_cents"),
+            ).to_wire()
 
     def intern_async_get(args: JSONDict) -> JSONDict:
         with client_from_args(args) as client:
@@ -1101,7 +1112,11 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="intern_async_ensure",
-            description=("Ensure and return the organization's one durable Async Intern runtime."),
+            description=(
+                "Ensure and return the organization's one durable Async Intern runtime. "
+                "Optional maximum_daily_cost_cents / maximum_monthly_cost_cents set spend "
+                "ceilings (also accepted under budget); omitted values get server defaults."
+            ),
             input_schema=tool_schema(
                 {
                     "objective": {
@@ -1115,8 +1130,30 @@ def build_research_intern_tools(
                         "maxLength": 512,
                     },
                     "binding": {"type": "object"},
-                    "budget": {"type": "object"},
+                    "budget": {
+                        "type": "object",
+                        "description": (
+                            "AsyncRuntimeBudget fields including maximum_cost_cents, "
+                            "maximum_daily_cost_cents, maximum_monthly_cost_cents, "
+                            "maximum_cycles, maximum_concurrent_runs."
+                        ),
+                    },
+                    "maximum_daily_cost_cents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Day spend ceiling in cents; overrides budget.",
+                    },
+                    "maximum_monthly_cost_cents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Month spend ceiling in cents; overrides budget.",
+                    },
                     "metadata": {"type": "object"},
+                    "factory_ready_wait_seconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 60,
+                    },
                 },
                 required=["objective", "idempotency_key"],
             ),
@@ -1212,7 +1249,10 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="intern_async_pause",
-            description="Pause the Async Intern and fence older pending effects.",
+            description=(
+                "Pause the Async Intern, fence older pending effects, and free the "
+                "sticky exe.dev host lease. Resume reacquires the lease."
+            ),
             input_schema=tool_schema(
                 {
                     **async_command_identity,

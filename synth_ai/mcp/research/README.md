@@ -95,15 +95,52 @@ sessions; they never address the singleton Async resource implicitly.
 
 Async Intern control plane:
 - `intern_async_ensure` and `intern_async_get` address the organization's one
-  long-lived Async Intern runtime
-- `intern_async_command` preserves the exact durable command envelope
+  long-lived Async Intern runtime. Ensure accepts day/month spend ceilings via
+  `budget.maximum_daily_cost_cents` / `budget.maximum_monthly_cost_cents` or
+  top-level kwargs of the same names; omitted ceilings get server defaults.
+- `intern_async_command` preserves the exact durable command envelope (including
+  `request_spine_handoff` / `advance_spine`)
 - `intern_async_send`, `intern_async_intervene`,
   `intern_async_redirect_objective`, and `intern_async_request_checkpoint`
   submit typed instructions to the same backend inbox
 - `intern_async_pause`, `intern_async_resume`, `intern_async_cancel`, and
-  `intern_async_provide_input` expose explicit state-machine controls
+  `intern_async_provide_input` expose explicit state-machine controls. Pause
+  frees the sticky exe.dev host lease; resume reacquires it.
+- `intern_async_get` projections include `open_judgment_items` and `effort_work`
+  (ask-and-continue asks and per-Effort work summaries), plus `spend` and
+  `host_lease`. The spend totals are the same ones the capability gate and the
+  spend sweeper read, host idle cost included, so what a caller sees is what
+  actually blocks work; `host_lease.reused` distinguishes a lease reacquired on
+  resume from a freshly provisioned host
 - `intern_async_events` replays a bounded event page and `intern_async_tail`
   waits for a bounded number of SSE events
+
+Intern research program (Effort-first):
+- `intern_effort_board` lists Efforts as board rows -- the Effort plus its open
+  objective/task/question counts -- and `intern_effort_detail` rolls one Effort
+  up into Progress / Results / Experiments / Knowledge. The runtime block on the
+  detail is secondary ops chrome (cycle, wake, cursor, spend, host lease), not
+  the product surface.
+- `intern_objective_list` / `_create` / `_get` / `_update`,
+  `intern_milestone_list` / `_create` / `_transition`, and
+  `intern_task_list` / `_create` / `_update` address the Intern's own
+  Effort-bound planner store. The Effort is a required argument on every create:
+  a row cannot exist without its binding, and the binding is immutable.
+- `intern_progress_claim_create` folds a finished run's result back into the
+  objective that motivated it; `intern_objective_link_create` records a
+  *reference* from an Intern objective to an SMR-owned run, report, work
+  product, or experiment. Neither writes the target.
+- Effort lifecycle itself is not duplicated here. Use the existing
+  `research_list_factory_efforts`, `research_get_effort`, and
+  `research_patch_effort`; these are the Async program verbs.
+- `intern_memory_search` / `intern_memory_get` read the Intern's own history.
+  They return the retrieval payload with no wrapper, field for field with the
+  Intern's own memory tools -- so an operator inspecting memory sees exactly
+  what the Intern saw, rather than a second description of the same records.
+- The Intern is a client of the swarm plane, never its owner. Kickoff and poll
+  stay on `research_trigger_run` / `research_get_run` / `research_get_swarm_*`.
+  No tool here plans a swarm's task graph, and none should be added that does --
+  `synth_ai.sdk.research.intern_grants` refuses those names outright.
 
 These tools are thin adapters over `client.intern.async_`; they do not call
 HTTP directly and do not contain reducer logic. A command receipt proves

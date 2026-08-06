@@ -56,6 +56,7 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncInstructionKind,
     InternAsyncInstructionRequest,
     InternAsyncRuntime,
+    InternAsyncRuntimeBudget,
     InternCrossMetaThreadMessage,
     InternCrossMetaThreadMessageCreateRequest,
     InternMetaHandoff,
@@ -104,6 +105,10 @@ from synth_ai.sdk.research.contracts.research_intern import (
     ResearchInternTurnRequest,
     ResearchInternTurnResponse,
     ResearchInternTurnStatus,
+)
+from synth_ai.sdk.research.intern_program import (
+    AsyncInternProgramAPI,
+    InternProgramAPI,
 )
 from synth_ai.sdk.research.operations import (
     dataset_revision_publication_operation,
@@ -180,6 +185,39 @@ def _decisions(value: object) -> tuple[MagiDecisionReceiptResponse, ...]:
             cast(JsonValue, value),
             operation_id="list_magi_decisions",
         )
+    )
+
+
+def _async_ensure_request_with_budget_overrides(
+    request: InternAsyncEnsureRequest,
+    *,
+    maximum_daily_cost_cents: int | None = None,
+    maximum_monthly_cost_cents: int | None = None,
+) -> InternAsyncEnsureRequest:
+    """Merge optional day/month ceiling kwargs into the ensure budget."""
+
+    if maximum_daily_cost_cents is None and maximum_monthly_cost_cents is None:
+        return request
+    budget = InternAsyncRuntimeBudget.model_validate(
+        {
+            **request.budget.model_dump(mode="python"),
+            **(
+                {"maximum_daily_cost_cents": maximum_daily_cost_cents}
+                if maximum_daily_cost_cents is not None
+                else {}
+            ),
+            **(
+                {"maximum_monthly_cost_cents": maximum_monthly_cost_cents}
+                if maximum_monthly_cost_cents is not None
+                else {}
+            ),
+        }
+    )
+    return InternAsyncEnsureRequest.model_validate(
+        {
+            **request.model_dump(mode="python"),
+            "budget": budget.model_dump(mode="python"),
+        }
     )
 
 
@@ -2514,13 +2552,26 @@ class ResearchInternAsyncRuntimeAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
-    def ensure(self, request: InternAsyncEnsureRequest) -> InternAsyncRuntime:
+    def ensure(
+        self,
+        request: InternAsyncEnsureRequest,
+        *,
+        maximum_daily_cost_cents: int | None = None,
+        maximum_monthly_cost_cents: int | None = None,
+    ) -> InternAsyncRuntime:
+        """Ensure the org Async Intern. Day/month kwargs override ``request.budget``."""
+
+        ensure_request = _async_ensure_request_with_budget_overrides(
+            request,
+            maximum_daily_cost_cents=maximum_daily_cost_cents,
+            maximum_monthly_cost_cents=maximum_monthly_cost_cents,
+        )
         return InternAsyncRuntime.from_wire(
             self._transport.execute(
                 _request(
                     "ensure_intern_async_runtime",
                     self._PATH,
-                    body=cast(JsonObject, request.to_wire()),
+                    body=cast(JsonObject, ensure_request.to_wire()),
                 )
             )
         )
@@ -2555,6 +2606,8 @@ class ResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Pause Async work and free the sticky exe.dev host lease (resume reacquires)."""
+
         return self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -2783,6 +2836,7 @@ class ResearchInternAPI:
         self.meta_threads = ResearchInternMetaThreadsAPI(transport)
         self.sync_ = ResearchInternSyncRuntimeAPI(transport, self.meta_threads)
         self.async_ = ResearchInternAsyncRuntimeAPI(transport)
+        self.program = InternProgramAPI(transport)
         self.factories = ResearchInternFactoriesAPI(transport)
         self.decisions = ResearchInternDecisionsAPI(transport)
         self.sessions = ResearchInternSessionsAPI(
@@ -4450,13 +4504,26 @@ class AsyncResearchInternAsyncRuntimeAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
-    async def ensure(self, request: InternAsyncEnsureRequest) -> InternAsyncRuntime:
+    async def ensure(
+        self,
+        request: InternAsyncEnsureRequest,
+        *,
+        maximum_daily_cost_cents: int | None = None,
+        maximum_monthly_cost_cents: int | None = None,
+    ) -> InternAsyncRuntime:
+        """Ensure the org Async Intern. Day/month kwargs override ``request.budget``."""
+
+        ensure_request = _async_ensure_request_with_budget_overrides(
+            request,
+            maximum_daily_cost_cents=maximum_daily_cost_cents,
+            maximum_monthly_cost_cents=maximum_monthly_cost_cents,
+        )
         return InternAsyncRuntime.from_wire(
             await self._transport.execute(
                 _request(
                     "ensure_intern_async_runtime",
                     self._PATH,
-                    body=cast(JsonObject, request.to_wire()),
+                    body=cast(JsonObject, ensure_request.to_wire()),
                 )
             )
         )
@@ -4491,6 +4558,8 @@ class AsyncResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Pause Async work and free the sticky exe.dev host lease (resume reacquires)."""
+
         return await self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -4700,6 +4769,7 @@ class AsyncResearchInternAPI:
         self.meta_threads = AsyncResearchInternMetaThreadsAPI(transport)
         self.sync_ = AsyncResearchInternSyncRuntimeAPI(transport, self.meta_threads)
         self.async_ = AsyncResearchInternAsyncRuntimeAPI(transport)
+        self.program = AsyncInternProgramAPI(transport)
         self.factories = AsyncResearchInternFactoriesAPI(transport)
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
         self.sessions = AsyncResearchInternSessionsAPI(
