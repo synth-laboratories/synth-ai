@@ -160,8 +160,14 @@ class InternMetaThreadSegmentStatus(StrEnum):
 
 
 class InternMetaHandoffStatus(StrEnum):
-    SEALED = "sealed"
+    NEEDS_REVIEW = "needs_review"
+    APPROVED = "approved"
+    CONTINUED = "continued"
+    REJECTED = "rejected"
+    SUPERSEDED = "superseded"
     MERGED = "merged"
+    # Compat with pre-control-plane rows / clients.
+    SEALED = "sealed"
 
 
 class InternCrossMetaThreadMessageKind(StrEnum):
@@ -220,13 +226,44 @@ class InternMetaHandoff(_StrictContract):
     handoff_id: str
     meta_thread_id: str
     source_segment_id: str
+    destination_segment_id: str | None = None
     summary: str
-    evidence_references: tuple[str, ...] = ()
+    evidence_references: tuple[Any, ...] = ()
+    parent_agent_config: InternAgentConfig | None = None
+    child_agent_config: InternAgentConfig | None = None
     agent_config: InternAgentConfig | None = None
     status: InternMetaHandoffStatus
     created_at: datetime
     sealed_at: datetime
+    approved_at: datetime | None = None
+    continued_at: datetime | None = None
     merged_at: datetime | None = None
+
+
+class InternAsyncHandoffModelRequest(_StrictContract):
+    """Product verb: change Async model/effort via spine handoff (no MT id)."""
+
+    command_id: str = Field(min_length=1, max_length=512)
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    expected_generation: int = Field(ge=0)
+    summary: str = Field(min_length=1, max_length=4_000)
+    agent_config: InternAgentConfig
+    evidence_references: tuple[Any, ...] = ()
+    require_review: bool = False
+
+
+class InternAsyncHandoffReviewRequest(_StrictContract):
+    """Attended seal: park a model/effort switch at needs_review (no MT id)."""
+
+    idempotency_key: str = Field(min_length=1, max_length=512)
+    summary: str = Field(min_length=1, max_length=4_000)
+    agent_config: InternAgentConfig
+    evidence_references: tuple[Any, ...] = ()
+
+
+class InternMetaHandoffContinueRequest(_StrictContract):
+    child_agent_config: InternAgentConfig | None = None
+    summary: str | None = Field(default=None, max_length=4_000)
 
 
 class InternCrossMetaThreadMessageCreateRequest(_StrictContract):
