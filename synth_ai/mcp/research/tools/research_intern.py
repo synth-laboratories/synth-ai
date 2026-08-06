@@ -23,6 +23,7 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncCommandKind,
     InternAsyncCommandRequest,
     InternAsyncEnsureRequest,
+    InternAsyncHandoffModelRequest,
     InternAsyncInstructionKind,
     InternAsyncInstructionRequest,
     InternCrossMetaThreadMessageCreateRequest,
@@ -336,7 +337,10 @@ def build_research_intern_tools(
 
     def intern_async_get(args: JSONDict) -> JSONDict:
         with client_from_args(args) as client:
-            return client.intern.async_.get().to_wire()
+            # Nulls stay in the projection: spend remainders and host_lease
+            # timestamps are meaningful precisely when null (no ceiling set /
+            # lease never released). Mirrors the memory tools' contract.
+            return client.intern.async_.get().model_dump(mode="json")
 
     def intern_async_command(args: JSONDict) -> JSONDict:
         request = InternAsyncCommandRequest.model_validate(
@@ -418,6 +422,33 @@ def build_research_intern_tools(
                 expected_generation=require_int(args, "expected_generation"),
                 reason=require_string(args, "reason"),
             ).to_wire()
+
+    def intern_async_handoff_model(args: JSONDict) -> JSONDict:
+        request = InternAsyncHandoffModelRequest.model_validate(
+            _request_payload(
+                args,
+                (
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "summary",
+                    "agent_config",
+                    "evidence_references",
+                    "require_review",
+                ),
+            )
+        )
+        with client_from_args(args) as client:
+            return client.intern.async_.handoff_model(request).to_wire()
+
+    def intern_async_list_handoffs(args: JSONDict) -> JSONDict:
+        with client_from_args(args) as client:
+            return {
+                "handoffs": [
+                    item.model_dump(mode="json")
+                    for item in client.intern.async_.list_handoffs()
+                ]
+            }
 
     def intern_async_provide_input(args: JSONDict) -> JSONDict:
         context = args.get("context")
@@ -1297,8 +1328,57 @@ def build_research_intern_tools(
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
+            name="intern_async_handoff_model",
+            description=(
+                "Switch the Async Intern's agent model/effort via a durable "
+                "spine handoff (seals the predecessor with a summary; the "
+                "successor resumes from it). Set require_review=true to park "
+                "the switch at needs_review for attended approve/continue."
+            ),
+            input_schema=tool_schema(
+                {
+                    **async_command_identity,
+                    "summary": {"type": "string", "minLength": 1, "maxLength": 4000},
+                    "agent_config": {
+                        "type": "object",
+                        "description": (
+                            "Successor agent config (agent_role, harness, "
+                            "model, reasoning_effort)."
+                        ),
+                    },
+                    "evidence_references": {"type": "array"},
+                    "require_review": {"type": "boolean"},
+                },
+                required=[
+                    "command_id",
+                    "idempotency_key",
+                    "expected_generation",
+                    "summary",
+                    "agent_config",
+                ],
+            ),
+            handler=intern_async_handoff_model,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="intern_async_list_handoffs",
+            description=(
+                "List Async spine handoffs (model/effort switches) with "
+                "status: needs_review, approved, continued, rejected, "
+                "superseded, merged."
+            ),
+            input_schema=tool_schema({}, required=[]),
+            handler=intern_async_list_handoffs,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
             name="intern_async_provide_input",
-            description="Answer the exact pending Async Intern interaction.",
+            description=(
+                "Answer one parked per-Effort Async Intern question by its "
+                "interaction_id (see open_judgment_items on intern_async_get). "
+                "Multiple asks can be open at once and none freeze the "
+                "runtime; answering unblocks only that Effort."
+            ),
             input_schema=tool_schema(
                 {
                     **async_command_identity,
