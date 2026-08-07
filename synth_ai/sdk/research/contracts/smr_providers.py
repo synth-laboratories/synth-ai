@@ -53,6 +53,10 @@ DEFAULT_PROVIDER_POLICY_ALLOWED_PROVIDERS: tuple[str, ...] = (
     "xai",
     "grok",
     "cursor",
+    "modal",
+    "openrouter",
+    "meta",
+    "poolside",
 )
 DEFAULT_PROVIDER_POLICY_ALLOWED_DOMICILES: tuple[str, ...] = ("us",)
 DEFAULT_PROVIDER_POLICY_ALLOWED_REGIONS: tuple[str, ...] = ("us",)

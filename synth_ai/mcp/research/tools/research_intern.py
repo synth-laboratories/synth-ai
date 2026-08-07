@@ -445,8 +445,7 @@ def build_research_intern_tools(
         with client_from_args(args) as client:
             return {
                 "handoffs": [
-                    item.model_dump(mode="json")
-                    for item in client.intern.async_.list_handoffs()
+                    item.model_dump(mode="json") for item in client.intern.async_.list_handoffs()
                 ]
             }
 
@@ -1342,8 +1341,7 @@ def build_research_intern_tools(
                     "agent_config": {
                         "type": "object",
                         "description": (
-                            "Successor agent config (agent_role, harness, "
-                            "model, reasoning_effort)."
+                            "Successor agent config (agent_role, harness, model, reasoning_effort)."
                         ),
                     },
                     "evidence_references": {"type": "array"},

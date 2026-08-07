@@ -91,6 +91,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "get_intern_sync_deploy_packet",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/deploy-packet",
+            idempotent=True,
+        ),
+        _operation(
             "command_intern_sync_session",
             HttpMethod.POST,
             "/smr/research-intern/sync-sessions/{sync_session_id}/commands",
@@ -144,6 +150,14 @@ RESEARCH_OPERATIONS = {
             "stream_intern_runtime_events",
             HttpMethod.GET,
             "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/events/stream",
+            idempotent=True,
+        ),
+        # Runtime-kind-generic: the same ledger route serves Sync and Async
+        # runtimes, so the operation id carries no runtime kind either.
+        _operation(
+            "list_intern_runtime_mcp_actions",
+            HttpMethod.GET,
+            "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions",
             idempotent=True,
         ),
         _operation(
