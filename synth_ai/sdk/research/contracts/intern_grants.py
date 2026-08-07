@@ -110,6 +110,10 @@ class InternCapabilityOperation(StrEnum):
     GRADING_REQUEST = "grading.request"
     SPINE_HANDOFF = "intern.spine.handoff"
     MEMORY_READ = "intern.memory.read"
+    # Synth-wiki project memory. Distinct from intern.memory.* (the spine).
+    WIKI_READ = "wiki.read"
+    WIKI_PROPOSE = "wiki.propose"
+    WIKI_LIBRARIAN = "wiki.librarian"
     # Effort-primary Async plus the subordinate Intern objective/milestone/task
     # store. Every row these write is Effort-bound and lives in the Intern
     # store; none of them crosses into SMR write authority.

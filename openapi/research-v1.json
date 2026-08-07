@@ -920,6 +920,18 @@
             ],
             "title": "Expires At"
           },
+          "generation": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation"
+          },
           "host_id": {
             "anyOf": [
               {
@@ -10011,7 +10023,8 @@
           "approval",
           "artifact_publication",
           "trace_publication",
-          "workspace_archive"
+          "workspace_archive",
+          "manderqueue_message"
         ],
         "title": "ProducedResourceKind",
         "type": "string"
@@ -14250,6 +14263,8 @@
           "deepseek/deepseek-chat",
           "deepseek/deepseek-reasoner",
           "poolside/laguna-s-2.1",
+          "openrouter/poolside/laguna-s-2.1",
+          "meta/muse-spark-1.2",
           "synth_internal/laguna-s-2.1-nvfp4"
         ],
         "title": "SmrAgentModel",
@@ -22920,7 +22935,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'meta/muse-spark-1.2', 'modal/moonshotai/Kimi-K3', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -26075,8 +26090,15 @@
       "SmrRunLifecycleDispatchResponse": {
         "properties": {
           "host_kind": {
-            "title": "Host Kind",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Kind"
           },
           "local_execution": {
             "anyOf": [
@@ -26099,8 +26121,7 @@
         },
         "required": [
           "owner",
-          "pool_id",
-          "host_kind"
+          "pool_id"
         ],
         "title": "SmrRunLifecycleDispatchResponse",
         "type": "object"

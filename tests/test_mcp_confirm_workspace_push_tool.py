@@ -96,12 +96,18 @@ def test_input_schema_requires_full_identity(factory: _StubClientFactory) -> Non
     assert schema["additionalProperties"] is False
 
 
-def test_description_notes_sync_session_kit_association(
+def test_description_names_the_typed_receipt_it_returns(
     factory: _StubClientFactory,
 ) -> None:
+    """A coding agent must be able to tell from the description what it gets back.
+
+    This previously asserted a "kit-association receipt" bound to a Sync session.
+    That vocabulary is gone: the receipt is ``run_id``-bound and carries no
+    session identity (see ``WorkspacePushConfirmationReceipt``).
+    """
     description = _tool(factory).description
-    assert "kit-association receipt" in description
-    assert "Sync session" in description
+    assert "WorkspacePushConfirmationReceipt" in description
+    assert "done signal" in description
 
 
 def test_handler_requires_every_argument(factory: _StubClientFactory) -> None:

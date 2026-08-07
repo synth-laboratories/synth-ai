@@ -669,6 +669,12 @@ class InternAsyncRuntimeHostLease(_StrictContract):
     """
 
     lease_id: str | None = None
+    #: Monotonic per-``sticky_key`` bind counter, ``None`` only when the org has
+    #: no lease row. Together with ``lease_id`` this is the only honest
+    #: pause/resume discriminator: the host id is a deterministic function of
+    #: ``sticky_key``, so a correctly reacquired lease keeps the *same*
+    #: ``host_id`` and only ``generation`` advances.
+    generation: int | None = Field(default=None, ge=1)
     host_kind: str | None = None
     host_id: str | None = None
     sticky_key: str | None = None
@@ -698,6 +704,8 @@ class InternProducedResourceKind(StrEnum):
     ARTIFACT_PUBLICATION = "artifact_publication"
     TRACE_PUBLICATION = "trace_publication"
     WORKSPACE_ARCHIVE = "workspace_archive"
+    # The leave-safe Manderqueue round-trip cites the staged message as evidence.
+    MANDERQUEUE_MESSAGE = "manderqueue_message"
 
 
 class InternProducedResourceReference(_StrictContract):
@@ -719,7 +727,9 @@ class InternProducedResourceReference(_StrictContract):
 class InternAsyncCheckpoint(_StrictContract):
     checkpoint_id: str
     summary: str
-    evidence_refs: tuple[InternProducedResourceReference, ...] = ()
+    # The backend always emits this list, empty or not. Defaulting it here would
+    # let an absent one read as "no evidence" rather than a truncated response.
+    evidence_refs: tuple[InternProducedResourceReference, ...]
     unresolved_questions: list[str]
     next_action: str | None = None
     created_at: datetime
