@@ -62,6 +62,7 @@ class ActiveActorModel(StrEnum):
     GPT_5_6_LUNA = "gpt-5.6-luna"
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     KIMI_K3 = "modal/moonshotai/Kimi-K3"
+    OPENROUTER_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
     OPENROUTER_LAGUNA_S_2_1 = "openrouter/poolside/laguna-s-2.1"
     LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
     META_MUSE_SPARK_1_2 = "meta/muse-spark-1.2"

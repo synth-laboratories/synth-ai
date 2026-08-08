@@ -342,12 +342,16 @@ class InternSyncCommandKind(StrEnum):
 
 
 class InternSyncSessionCreateRequest(_StrictContract):
-    objective: str = Field(min_length=1, max_length=20_000)
+    # Empty until the first send_message; Effort objectives live on Intern MCP.
+    objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
     objective_bounds: dict[str, Any] | None = None
+    # Matches backend SyncSessionCreateRequest: True when an operator is present.
+    # Unattended Dock / CI must set False or write gates stall forever.
+    require_operator_approval: bool = True
 
 
 class SyncTracePublicationReceipt(_StrictContract):
@@ -536,6 +540,10 @@ class InternSyncCommandReceipt(_StrictContract):
     state_generation: int = Field(ge=0)
     decision_code: str
     created_at: datetime
+    # Backend may echo optional Magi actuation / idempotent-replay flags.
+    # OpenAPI: InternRuntimeCommandReceipt.actuation | .duplicate
+    actuation: dict[str, Any] | None = None
+    duplicate: bool = False
 
 
 class InternSyncEvent(_StrictContract):
@@ -628,7 +636,8 @@ class InternAsyncRuntimeBudget(_StrictContract):
 
 
 class InternAsyncEnsureRequest(_StrictContract):
-    objective: str = Field(min_length=1, max_length=20_000)
+    # Empty until the first async_.send; Effort objectives live on Intern MCP.
+    objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     budget: InternAsyncRuntimeBudget = Field(default_factory=InternAsyncRuntimeBudget)
@@ -936,6 +945,8 @@ class InternAsyncCommandReceipt(_StrictContract):
     state_generation: int = Field(ge=0)
     decision_code: str
     created_at: datetime
+    actuation: dict[str, Any] | None = None
+    duplicate: bool = False
 
 
 class InternAsyncEvent(_StrictContract):

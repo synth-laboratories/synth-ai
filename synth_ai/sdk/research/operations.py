@@ -362,6 +362,13 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "detach_research_intern_factory",
+            HttpMethod.DELETE,
+            "/smr/research-intern/factories/{factory_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "list_research_intern_factories",
             HttpMethod.GET,
             "/smr/research-intern/factories",

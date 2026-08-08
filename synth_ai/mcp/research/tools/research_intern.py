@@ -914,10 +914,13 @@ def build_research_intern_tools(
         ),
         ToolDefinition(
             name="intern_sync_create",
-            description="Create or replay one durable operator-present Sync session.",
+            description=(
+                "Create or replay one durable operator-present Sync session. "
+                "Objective may be empty at create; the first ask is send_message."
+            ),
             input_schema=tool_schema(
                 {
-                    "objective": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    "objective": {"type": "string", "maxLength": 20000},
                     "idempotency_key": {
                         "type": "string",
                         "minLength": 1,
@@ -926,7 +929,7 @@ def build_research_intern_tools(
                     "binding": {"type": "object"},
                     "metadata": {"type": "object"},
                 },
-                required=["objective", "idempotency_key"],
+                required=["idempotency_key"],
             ),
             handler=intern_sync_create,
             required_scopes=WRITE_SCOPES,

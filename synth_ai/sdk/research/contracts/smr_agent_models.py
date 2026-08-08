@@ -37,6 +37,7 @@ class SmrAgentModel(StrEnum):
     DEEPSEEK_DEEPSEEK_CHAT = "deepseek/deepseek-chat"
     DEEPSEEK_DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     POOLSIDE_LAGUNA_S_2_1 = "poolside/laguna-s-2.1"
+    OPENROUTER_OPENAI_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
     OPENROUTER_POOLSIDE_LAGUNA_S_2_1 = "openrouter/poolside/laguna-s-2.1"
     META_MUSE_SPARK_1_2 = "meta/muse-spark-1.2"
     SYNTH_INTERNAL_LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"

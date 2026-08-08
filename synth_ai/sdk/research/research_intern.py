@@ -1,4 +1,4 @@
-"""Research Intern, Magi decision, and project resource operations."""
+"""Research Intern Sync/Async customer SDK (plus legacy Magi decision ledger)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import asyncio
 import builtins
 import os
 import time
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from typing import Literal, cast
@@ -393,7 +394,12 @@ def _dataset_revisions(value: object) -> tuple[DatasetRevisionResponse, ...]:
 
 
 class ResearchInternFactoriesAPI:
-    """Factory memberships owned by the organization Research Intern."""
+    """Factory memberships owned by the organization Research Intern.
+
+    Prefer Intern MCP ``smr_factory_attach`` / ``smr_factory_detach`` /
+    ``smr_factory_list_attached`` on the happy path; these customer helpers
+    remain for setup and compatibility.
+    """
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -410,6 +416,18 @@ class ResearchInternFactoriesAPI:
         if membership.factory_id != str(factory_id):
             raise ValueError("Research Intern Factory membership identity drifted")
         return membership
+
+    def detach(self, factory_id: FactoryId) -> JsonObject:
+        """Detach one Factory from the organization Research Intern."""
+        value = self._transport.execute(
+            _request(
+                "detach_research_intern_factory",
+                f"/smr/research-intern/factories/{factory_id}",
+            )
+        )
+        if not isinstance(value, dict):
+            raise ValueError("Research Intern Factory detach response invalid")
+        return value
 
     def list(self) -> tuple[ResearchInternFactoryMembershipResponse, ...]:
         """List Factory memberships for the organization Research Intern."""
@@ -475,13 +493,23 @@ class ResearchInternFactoriesAPI:
 
 
 class ResearchInternDecisionsAPI:
-    """Durable Casper, Melchior, and Balthasar decision receipts."""
+    """Legacy Magi decision ledger — not the Sync/Async product path.
+
+    Customer Sync/Async acceptance uses ``intern.sync_`` / ``intern.async_``
+    only. Promote/reject is the grader. These helpers remain for legacy callers.
+    """
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
     def record(self, request: MagiDecisionRequest) -> MagiDecisionReceiptResponse:
-        """Record one idempotent, evidence-linked Magi decision."""
+        """Record one idempotent, evidence-linked Magi decision (legacy)."""
+        warnings.warn(
+            "intern.decisions is legacy Magi ledger; use intern.sync_ / "
+            "intern.async_ commands for Sync/Async product control.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         value = self._transport.execute(
             _request(
                 "record_magi_decision",

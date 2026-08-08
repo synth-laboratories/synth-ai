@@ -1949,744 +1949,6 @@
         "title": "ClaimKind",
         "type": "string"
       },
-      "CraftaxArtifactRef": {
-        "additionalProperties": false,
-        "description": "Immutable artifact identity; URIs never contain inline credentials.",
-        "properties": {
-          "mime_type": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mime Type"
-          },
-          "sha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Sha256",
-            "type": "string"
-          },
-          "uri": {
-            "maxLength": 2048,
-            "minLength": 1,
-            "title": "Uri",
-            "type": "string"
-          }
-        },
-        "required": [
-          "uri",
-          "sha256"
-        ],
-        "title": "CraftaxArtifactRef",
-        "type": "object"
-      },
-      "CraftaxCampaignBinding": {
-        "additionalProperties": false,
-        "description": "Exact authority and artifact pins for one Craftax research campaign.",
-        "properties": {
-          "actor_auth": {
-            "const": "chatgpt",
-            "default": "chatgpt",
-            "title": "Actor Auth",
-            "type": "string"
-          },
-          "actor_model": {
-            "const": "luna",
-            "default": "luna",
-            "title": "Actor Model",
-            "type": "string"
-          },
-          "baseline_policy": {
-            "$ref": "#/components/schemas/CraftaxArtifactRef"
-          },
-          "campaign_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Campaign Id",
-            "type": "string"
-          },
-          "effort_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Effort Id",
-            "type": "string"
-          },
-          "environment_version": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Environment Version",
-            "type": "string"
-          },
-          "evaluation_plan": {
-            "$ref": "#/components/schemas/CraftaxEvaluationPlan"
-          },
-          "factory_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Factory Id",
-            "type": "string"
-          },
-          "harness_version": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Harness Version",
-            "type": "string"
-          },
-          "policy_auth": {
-            "default": "openai_api",
-            "enum": [
-              "openai_api",
-              "openrouter"
-            ],
-            "title": "Policy Auth",
-            "type": "string"
-          },
-          "policy_model": {
-            "const": "luna",
-            "default": "luna",
-            "title": "Policy Model",
-            "type": "string"
-          },
-          "project_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Project Id",
-            "type": "string"
-          },
-          "run_id": {
-            "anyOf": [
-              {
-                "maxLength": 512,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Run Id"
-          },
-          "schema_version": {
-            "const": "intern.craftax-campaign-binding.v1",
-            "default": "intern.craftax-campaign-binding.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "campaign_id",
-          "factory_id",
-          "project_id",
-          "effort_id",
-          "environment_version",
-          "harness_version",
-          "baseline_policy",
-          "evaluation_plan"
-        ],
-        "title": "CraftaxCampaignBinding",
-        "type": "object"
-      },
-      "CraftaxCampaignInstructionRequest": {
-        "additionalProperties": false,
-        "description": "Typed alias that admits one campaign instruction to Async Intern.",
-        "properties": {
-          "binding": {
-            "$ref": "#/components/schemas/CraftaxCampaignBinding"
-          },
-          "command_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Command Id",
-            "type": "string"
-          },
-          "expected_generation": {
-            "minimum": 0.0,
-            "title": "Expected Generation",
-            "type": "integer"
-          },
-          "idempotency_key": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Idempotency Key",
-            "type": "string"
-          },
-          "objective": {
-            "maxLength": 20000,
-            "minLength": 1,
-            "title": "Objective",
-            "type": "string"
-          },
-          "stage": {
-            "enum": [
-              "P0_baseline",
-              "P1_early_survival",
-              "P2_crafting_progression",
-              "P3_exploration"
-            ],
-            "title": "Stage",
-            "type": "string"
-          }
-        },
-        "required": [
-          "command_id",
-          "idempotency_key",
-          "expected_generation",
-          "objective",
-          "stage",
-          "binding"
-        ],
-        "title": "CraftaxCampaignInstructionRequest",
-        "type": "object"
-      },
-      "CraftaxEvaluationPlan": {
-        "additionalProperties": false,
-        "description": "Preregistered comparison; seed membership is fixed before treatment.",
-        "properties": {
-          "baseline_candidate_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Baseline Candidate Id",
-            "type": "string"
-          },
-          "development_seeds": {
-            "items": {
-              "type": "integer"
-            },
-            "maxItems": 10000,
-            "minItems": 1,
-            "title": "Development Seeds",
-            "type": "array"
-          },
-          "early_stop_conditions": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 64,
-            "title": "Early Stop Conditions",
-            "type": "array"
-          },
-          "evaluation_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Evaluation Id",
-            "type": "string"
-          },
-          "held_out_seeds": {
-            "items": {
-              "type": "integer"
-            },
-            "maxItems": 10000,
-            "minItems": 1,
-            "title": "Held Out Seeds",
-            "type": "array"
-          },
-          "maximum_cost_cents": {
-            "minimum": 0.0,
-            "title": "Maximum Cost Cents",
-            "type": "integer"
-          },
-          "maximum_policy_tokens": {
-            "minimum": 1.0,
-            "title": "Maximum Policy Tokens",
-            "type": "integer"
-          },
-          "primary_gate": {
-            "$ref": "#/components/schemas/CraftaxMetricGate"
-          },
-          "regression_gates": {
-            "items": {
-              "$ref": "#/components/schemas/CraftaxRegressionGate"
-            },
-            "maxItems": 64,
-            "title": "Regression Gates",
-            "type": "array"
-          },
-          "rollouts_per_seed": {
-            "maximum": 10000.0,
-            "minimum": 1.0,
-            "title": "Rollouts Per Seed",
-            "type": "integer"
-          },
-          "schema_version": {
-            "const": "intern.craftax-evaluation-plan.v1",
-            "default": "intern.craftax-evaluation-plan.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "treatment_candidate_id": {
-            "anyOf": [
-              {
-                "maxLength": 512,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Treatment Candidate Id"
-          }
-        },
-        "required": [
-          "evaluation_id",
-          "baseline_candidate_id",
-          "development_seeds",
-          "held_out_seeds",
-          "rollouts_per_seed",
-          "maximum_policy_tokens",
-          "maximum_cost_cents",
-          "primary_gate"
-        ],
-        "title": "CraftaxEvaluationPlan",
-        "type": "object"
-      },
-      "CraftaxEvaluationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "absolute_uplift": {
-            "title": "Absolute Uplift",
-            "type": "number"
-          },
-          "actor_usage": {
-            "$ref": "#/components/schemas/CraftaxUsage"
-          },
-          "baseline_candidate_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Baseline Candidate Id",
-            "type": "string"
-          },
-          "baseline_value": {
-            "title": "Baseline Value",
-            "type": "number"
-          },
-          "evaluation_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Evaluation Id",
-            "type": "string"
-          },
-          "evidence_refs": {
-            "items": {
-              "$ref": "#/components/schemas/CraftaxArtifactRef"
-            },
-            "maxItems": 128,
-            "title": "Evidence Refs",
-            "type": "array"
-          },
-          "held_out": {
-            "title": "Held Out",
-            "type": "boolean"
-          },
-          "per_seed": {
-            "items": {
-              "$ref": "#/components/schemas/CraftaxSeedObservation"
-            },
-            "maxItems": 10000,
-            "minItems": 1,
-            "title": "Per Seed",
-            "type": "array"
-          },
-          "policy_usage": {
-            "$ref": "#/components/schemas/CraftaxUsage"
-          },
-          "primary_metric": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Primary Metric",
-            "type": "string"
-          },
-          "regressions": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 64,
-            "title": "Regressions",
-            "type": "array"
-          },
-          "relative_uplift": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Relative Uplift"
-          },
-          "schema_version": {
-            "const": "intern.craftax-evaluation-result.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "treatment_candidate_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Treatment Candidate Id",
-            "type": "string"
-          },
-          "treatment_value": {
-            "title": "Treatment Value",
-            "type": "number"
-          },
-          "verdict": {
-            "enum": [
-              "pass",
-              "fail",
-              "indeterminate"
-            ],
-            "title": "Verdict",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "evaluation_id",
-          "baseline_candidate_id",
-          "treatment_candidate_id",
-          "held_out",
-          "primary_metric",
-          "baseline_value",
-          "treatment_value",
-          "absolute_uplift",
-          "per_seed",
-          "actor_usage",
-          "policy_usage",
-          "verdict"
-        ],
-        "title": "CraftaxEvaluationResult",
-        "type": "object"
-      },
-      "CraftaxEvidencePublicationRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "effort_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Effort Id",
-            "type": "string"
-          },
-          "factory_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Factory Id",
-            "type": "string"
-          },
-          "idempotency_key": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Idempotency Key",
-            "type": "string"
-          },
-          "project_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Project Id",
-            "type": "string"
-          },
-          "record": {
-            "discriminator": {
-              "mapping": {
-                "intern.craftax-evaluation-plan.v1": "#/components/schemas/CraftaxEvaluationPlan",
-                "intern.craftax-evaluation-result.v1": "#/components/schemas/CraftaxEvaluationResult",
-                "intern.craftax-policy-candidate.v1": "#/components/schemas/CraftaxPolicyCandidate",
-                "intern.craftax-policy-decision.v1": "#/components/schemas/CraftaxPolicyDecision",
-                "intern.craftax-visual-artifact.v1": "#/components/schemas/CraftaxVisualArtifact"
-              },
-              "propertyName": "schema_version"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/CraftaxPolicyCandidate"
-              },
-              {
-                "$ref": "#/components/schemas/CraftaxEvaluationPlan"
-              },
-              {
-                "$ref": "#/components/schemas/CraftaxEvaluationResult"
-              },
-              {
-                "$ref": "#/components/schemas/CraftaxVisualArtifact"
-              },
-              {
-                "$ref": "#/components/schemas/CraftaxPolicyDecision"
-              }
-            ],
-            "title": "Record"
-          },
-          "run_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Run Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "idempotency_key",
-          "factory_id",
-          "project_id",
-          "effort_id",
-          "run_id",
-          "record"
-        ],
-        "title": "CraftaxEvidencePublicationRequest",
-        "type": "object"
-      },
-      "CraftaxEvidencePublicationResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "entry_id": {
-            "title": "Entry Id",
-            "type": "string"
-          },
-          "link_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Link Ids",
-            "type": "array"
-          },
-          "record_identity": {
-            "title": "Record Identity",
-            "type": "string"
-          },
-          "record_schema_version": {
-            "title": "Record Schema Version",
-            "type": "string"
-          },
-          "replayed": {
-            "title": "Replayed",
-            "type": "boolean"
-          },
-          "schema_version": {
-            "const": "smr.intern-craftax-evidence-publication.v1",
-            "default": "smr.intern-craftax-evidence-publication.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "entry_id",
-          "record_schema_version",
-          "record_identity",
-          "replayed"
-        ],
-        "title": "CraftaxEvidencePublicationResponse",
-        "type": "object"
-      },
-      "CraftaxMetricGate": {
-        "additionalProperties": false,
-        "properties": {
-          "direction": {
-            "enum": [
-              "maximize",
-              "minimize"
-            ],
-            "title": "Direction",
-            "type": "string"
-          },
-          "metric": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Metric",
-            "type": "string"
-          },
-          "minimum_absolute_uplift": {
-            "default": 0.0,
-            "title": "Minimum Absolute Uplift",
-            "type": "number"
-          },
-          "minimum_relative_uplift": {
-            "default": 0.0,
-            "title": "Minimum Relative Uplift",
-            "type": "number"
-          }
-        },
-        "required": [
-          "metric",
-          "direction"
-        ],
-        "title": "CraftaxMetricGate",
-        "type": "object"
-      },
-      "CraftaxPolicyCandidate": {
-        "additionalProperties": false,
-        "properties": {
-          "campaign_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Campaign Id",
-            "type": "string"
-          },
-          "candidate_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Candidate Id",
-            "type": "string"
-          },
-          "change_summary": {
-            "maxLength": 20000,
-            "minLength": 1,
-            "title": "Change Summary",
-            "type": "string"
-          },
-          "config_ref": {
-            "$ref": "#/components/schemas/CraftaxArtifactRef"
-          },
-          "failure_mode": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Failure Mode",
-            "type": "string"
-          },
-          "hypothesis": {
-            "maxLength": 20000,
-            "minLength": 1,
-            "title": "Hypothesis",
-            "type": "string"
-          },
-          "parent_candidate_id": {
-            "anyOf": [
-              {
-                "maxLength": 512,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Candidate Id"
-          },
-          "policy_artifact_ref": {
-            "$ref": "#/components/schemas/CraftaxArtifactRef"
-          },
-          "policy_model": {
-            "const": "luna",
-            "title": "Policy Model",
-            "type": "string"
-          },
-          "prompt_or_program_ref": {
-            "$ref": "#/components/schemas/CraftaxArtifactRef"
-          },
-          "schema_version": {
-            "const": "intern.craftax-policy-candidate.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "stage": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Stage",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "candidate_id",
-          "campaign_id",
-          "stage",
-          "hypothesis",
-          "failure_mode",
-          "change_summary",
-          "policy_model",
-          "policy_artifact_ref",
-          "prompt_or_program_ref",
-          "config_ref"
-        ],
-        "title": "CraftaxPolicyCandidate",
-        "type": "object"
-      },
-      "CraftaxPolicyDecision": {
-        "additionalProperties": false,
-        "properties": {
-          "campaign_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Campaign Id",
-            "type": "string"
-          },
-          "candidate_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Candidate Id",
-            "type": "string"
-          },
-          "decision": {
-            "enum": [
-              "promote",
-              "reject",
-              "revise",
-              "indeterminate"
-            ],
-            "title": "Decision",
-            "type": "string"
-          },
-          "decision_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Decision Id",
-            "type": "string"
-          },
-          "evaluation_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Evaluation Id",
-            "type": "string"
-          },
-          "factory_selection_required": {
-            "default": true,
-            "title": "Factory Selection Required",
-            "type": "boolean"
-          },
-          "rationale": {
-            "maxLength": 20000,
-            "minLength": 1,
-            "title": "Rationale",
-            "type": "string"
-          },
-          "schema_version": {
-            "const": "intern.craftax-policy-decision.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "decision_id",
-          "campaign_id",
-          "candidate_id",
-          "evaluation_id",
-          "decision",
-          "rationale"
-        ],
-        "title": "CraftaxPolicyDecision",
-        "type": "object"
-      },
-      "CraftaxRegressionGate": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_regression": {
-            "minimum": 0.0,
-            "title": "Maximum Regression",
-            "type": "number"
-          },
-          "metric": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Metric",
-            "type": "string"
-          }
-        },
-        "required": [
-          "metric",
-          "maximum_regression"
-        ],
-        "title": "CraftaxRegressionGate",
-        "type": "object"
-      },
       "CraftaxScorerImageReleaseDeclaration": {
         "additionalProperties": false,
         "properties": {
@@ -2823,137 +2085,6 @@
           "declaration"
         ],
         "title": "CraftaxScorerImageReleaseResponse",
-        "type": "object"
-      },
-      "CraftaxSeedObservation": {
-        "additionalProperties": false,
-        "properties": {
-          "baseline": {
-            "additionalProperties": {
-              "type": "number"
-            },
-            "title": "Baseline",
-            "type": "object"
-          },
-          "seed": {
-            "title": "Seed",
-            "type": "integer"
-          },
-          "treatment": {
-            "additionalProperties": {
-              "type": "number"
-            },
-            "title": "Treatment",
-            "type": "object"
-          }
-        },
-        "required": [
-          "seed",
-          "baseline",
-          "treatment"
-        ],
-        "title": "CraftaxSeedObservation",
-        "type": "object"
-      },
-      "CraftaxUsage": {
-        "additionalProperties": false,
-        "properties": {
-          "cost_cents": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Cost Cents",
-            "type": "number"
-          },
-          "input_tokens": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Input Tokens",
-            "type": "integer"
-          },
-          "latency_milliseconds": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Latency Milliseconds",
-            "type": "integer"
-          },
-          "output_tokens": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Output Tokens",
-            "type": "integer"
-          }
-        },
-        "title": "CraftaxUsage",
-        "type": "object"
-      },
-      "CraftaxVisualArtifact": {
-        "additionalProperties": false,
-        "properties": {
-          "artifact_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Artifact Id",
-            "type": "string"
-          },
-          "artifact_ref": {
-            "$ref": "#/components/schemas/CraftaxArtifactRef"
-          },
-          "candidate_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Candidate Id",
-            "type": "string"
-          },
-          "evaluation_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Evaluation Id",
-            "type": "string"
-          },
-          "schema_version": {
-            "const": "intern.craftax-visual-artifact.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "seed_scope": {
-            "enum": [
-              "development",
-              "held_out"
-            ],
-            "title": "Seed Scope",
-            "type": "string"
-          },
-          "source_result_sha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Source Result Sha256",
-            "type": "string"
-          },
-          "visual_kind": {
-            "enum": [
-              "reward_distribution",
-              "survival_curve",
-              "death_causes",
-              "progression",
-              "inventory_trajectory",
-              "action_distribution",
-              "visitation_heatmap",
-              "candidate_card"
-            ],
-            "title": "Visual Kind",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "artifact_id",
-          "evaluation_id",
-          "candidate_id",
-          "visual_kind",
-          "seed_scope",
-          "artifact_ref",
-          "source_result_sha256"
-        ],
-        "title": "CraftaxVisualArtifact",
         "type": "object"
       },
       "DataBindingCreateRequest": {
@@ -34013,9 +33144,10 @@
           },
           "objective": {
             "maxLength": 20000,
-            "minLength": 1,
+            "default": "",
             "title": "Objective",
-            "type": "string"
+            "type": "string",
+            "description": "Optional at create; first ask is send_message / operator_message."
           },
           "objective_bounds": {
             "anyOf": [
@@ -34034,7 +33166,6 @@
           }
         },
         "required": [
-          "objective",
           "idempotency_key"
         ],
         "title": "SyncSessionCreateRequest",
@@ -44436,92 +43567,6 @@
         ]
       }
     },
-    "/smr/research-intern/async/craftax-campaigns/evidence": {
-      "post": {
-        "description": "Publish one exact-bound typed record to the Factory experiment log.",
-        "operationId": "publish_intern_craftax_evidence",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CraftaxEvidencePublicationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CraftaxEvidencePublicationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Publish Intern Craftax Evidence",
-        "tags": [
-          "smr",
-          "research-intern"
-        ]
-      }
-    },
-    "/smr/research-intern/async/craftax-campaigns/instructions": {
-      "post": {
-        "description": "Admit one exact Luna/Craftax campaign instruction to Async Intern.\n\nThe alias deliberately reuses the singleton command ledger. It provides a\nstrict campaign boundary without creating a second runtime or experiment\nauthority beside Factory.",
-        "operationId": "instruct_intern_craftax_campaign",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CraftaxCampaignInstructionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InternRuntimeCommandReceipt"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Instruct Intern Craftax Campaign",
-        "tags": [
-          "smr",
-          "research-intern"
-        ]
-      }
-    },
     "/smr/research-intern/async/ensure": {
       "post": {
         "description": "Named ensure alias over the same organization-singleton operation.",
@@ -47988,7 +47033,8 @@
                       "enum": [
                         "snapshot",
                         "transcript",
-                        "heartbeat"
+                        "heartbeat",
+                        "terminal"
                       ],
                       "title": "RuntimeStreamEventKind",
                       "type": "string"
@@ -48120,6 +47166,73 @@
                         "timeline"
                       ],
                       "title": "SmrRuntimeStreamSnapshotPayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamTerminalPayload": {
+                      "additionalProperties": false,
+                      "description": "Final frame emitted when a run is terminal by durable contract.\n\nThe runtime stream reads Redis control-plane state only. Once that snapshot\nis gone there will never be another runtime event for the run, and the\ndurable terminal receipt (``SmrRunTerminalOutcome`` / ``smr_run_terminations``)\nis the sole remaining authority. This payload carries the terminal fact\nin-band so an SSE consumer terminalises on the stream it is already parsing\ninstead of reconnecting against a refusal.",
+                      "properties": {
+                        "project_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Project Id"
+                        },
+                        "public_state": {
+                          "minLength": 1,
+                          "title": "Public State",
+                          "type": "string"
+                        },
+                        "run_id": {
+                          "minLength": 1,
+                          "title": "Run Id",
+                          "type": "string"
+                        },
+                        "snapshot_missing_reason": {
+                          "minLength": 1,
+                          "title": "Snapshot Missing Reason",
+                          "type": "string"
+                        },
+                        "source": {
+                          "const": "smr_run_terminal_outcome.tombstone.runtime_stream.v1",
+                          "default": "smr_run_terminal_outcome.tombstone.runtime_stream.v1",
+                          "title": "Source",
+                          "type": "string"
+                        },
+                        "stop_reason": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Stop Reason"
+                        },
+                        "terminal_outcome": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Terminal Outcome"
+                        }
+                      },
+                      "required": [
+                        "run_id",
+                        "public_state",
+                        "snapshot_missing_reason"
+                      ],
+                      "title": "SmrRuntimeStreamTerminalPayload",
                       "type": "object"
                     },
                     "SmrRuntimeStreamTimelineEventDetailPayload": {
@@ -48573,6 +47686,9 @@
                         },
                         {
                           "$ref": "#/$defs/SmrRuntimeStreamHeartbeatPayload"
+                        },
+                        {
+                          "$ref": "#/$defs/SmrRuntimeStreamTerminalPayload"
                         }
                       ],
                       "title": "Payload"
