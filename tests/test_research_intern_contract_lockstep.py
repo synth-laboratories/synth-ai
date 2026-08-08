@@ -47,6 +47,7 @@ MIRRORED_MODELS: Mapping[str, str] = {
     "InternAsyncJudgmentItem": "AsyncJudgmentItemResponse",
     "InternAsyncEffortWorkSummary": "AsyncEffortWorkSummary",
     "InternAsyncCommandRequest": "InternRuntimeCommandRequest",
+    "InternResumeCondition": "ResumeConditionResponse",
     "InternProducedResourceReference": "ProducedResourceReferenceV1",
     "InternSyncSession": "SyncSessionResponse",
     "InternRuntimeBinding": "RuntimeBinding",
@@ -59,6 +60,10 @@ MIRRORED_ENUMS: Mapping[str, str] = {
     "InternProducedResourceKind": "ProducedResourceKind",
     "InternAsyncExternalExecutionStatus": "ExternalExecutionStatus",
     "InternAsyncEvidenceReadiness": "EvidenceReadiness",
+    "InternAsyncRuntimePhase": "RuntimePhaseWire",
+    "InternAsyncStopReason": "StopReason",
+    "InternAsyncResumeKind": "ResumeKind",
+    "InternAsyncWaitProducer": "WaitProducer",
 }
 
 

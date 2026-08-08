@@ -868,14 +868,13 @@
             "type": "object"
           },
           "objective": {
+            "default": "",
             "maxLength": 20000,
-            "minLength": 1,
             "title": "Objective",
             "type": "string"
           }
         },
         "required": [
-          "objective",
           "idempotency_key"
         ],
         "title": "AsyncRuntimeEnsureRequest",
@@ -1034,6 +1033,17 @@
       "AsyncRuntimeResponse": {
         "additionalProperties": false,
         "properties": {
+          "active_effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Effort Id"
+          },
           "async_assignment_id": {
             "deprecated": true,
             "title": "Async Assignment Id",
@@ -1148,8 +1158,7 @@
             "type": "integer"
           },
           "leave_safe": {
-            "const": true,
-            "default": true,
+            "default": false,
             "title": "Leave Safe",
             "type": "boolean"
           },
@@ -1180,6 +1189,16 @@
           "org_id": {
             "title": "Org Id",
             "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pending_action_id": {
             "anyOf": [
@@ -1221,6 +1240,10 @@
             ],
             "title": "Pending Interaction Id"
           },
+          "phase": {
+            "$ref": "#/components/schemas/RuntimePhaseWire",
+            "default": "lifecycle:not_started"
+          },
           "plan": {
             "additionalProperties": true,
             "title": "Plan",
@@ -1229,6 +1252,16 @@
           "research_intern_id": {
             "title": "Research Intern Id",
             "type": "string"
+          },
+          "resume": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeConditionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schema_version": {
             "const": "smr.intern-async-runtime.v1",
@@ -1246,6 +1279,16 @@
           },
           "status": {
             "$ref": "#/components/schemas/AsyncStatus"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StopReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "temporal_workflow_id": {
             "title": "Temporal Workflow Id",
@@ -1384,6 +1427,7 @@
         "type": "object"
       },
       "AsyncStatus": {
+        "description": "Org-runtime lane status (legacy flat enum; prefer derived ``phase``).\n\nDEPRECATED / never assigned by the reducer (kept for DB CHECK + OpenAPI\ncompat until a deliberate drop): ``CHECKPOINTING``, ``AWAITING_INPUT``\n(Effort-level only now), ``CANCELLING``, ``FAILED``. Prefer\n``packages.intern.async_.phase.derive_phase`` for new readers.\n# See: INTERN_ASYNC_RUNTIME_PHASE_REFACTOR_HANDOFF_2026-08-08.md",
         "enum": [
           "created",
           "planning",
@@ -6459,6 +6503,8 @@
           "call_tool",
           "read_resource",
           "create_factory",
+          "attach_factory",
+          "detach_factory",
           "create_project",
           "create_effort",
           "start_factory_run",
@@ -12914,6 +12960,92 @@
         "title": "ResourceRoutingPolicy",
         "type": "object"
       },
+      "ResumeConditionResponse": {
+        "additionalProperties": false,
+        "description": "Wire form of packages.intern.async_.phase.ResumeCondition.\n\n# See: INTERN_ASYNC_RUNTIME_PHASE_REFACTOR_HANDOFF_2026-08-08.md \u00a76.3",
+        "properties": {
+          "effort_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Effort Ids",
+            "type": "array"
+          },
+          "external_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ref"
+          },
+          "interaction_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Interaction Ids",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ResumeKind"
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WaitProducer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wake_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wake At"
+          },
+          "watchdog_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Watchdog At"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ResumeConditionResponse",
+        "type": "object"
+      },
+      "ResumeKind": {
+        "enum": [
+          "timer",
+          "human_answer",
+          "operator_command",
+          "external_event",
+          "never"
+        ],
+        "title": "ResumeKind",
+        "type": "string"
+      },
       "RunLifecycleEnqueueStatus": {
         "description": "Public route acknowledgement status, not run lifecycle authority.",
         "enum": [
@@ -13079,6 +13211,26 @@
           "failed"
         ],
         "title": "RuntimeOutcome",
+        "type": "string"
+      },
+      "RuntimePhaseWire": {
+        "enum": [
+          "agent:bootstrapping",
+          "agent:cancelled",
+          "agent:failed",
+          "agent:finished",
+          "agent:gated",
+          "agent:held",
+          "agent:publishing",
+          "agent:running",
+          "agent:tool",
+          "agent:waiting",
+          "agent:waiting_evidence",
+          "lifecycle:not_started",
+          "world:syncing",
+          "world:waiting"
+        ],
+        "title": "RuntimePhaseWire",
         "type": "string"
       },
       "SealedDatasetRevision": {
@@ -13394,6 +13546,7 @@
           "deepseek/deepseek-chat",
           "deepseek/deepseek-reasoner",
           "poolside/laguna-s-2.1",
+          "openrouter/openai/gpt-5.6-luna",
           "openrouter/poolside/laguna-s-2.1",
           "meta/muse-spark-1.2",
           "synth_internal/laguna-s-2.1-nvfp4"
@@ -22066,7 +22219,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'meta/muse-spark-1.2', 'modal/moonshotai/Kimi-K3', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'meta/muse-spark-1.2', 'modal/moonshotai/Kimi-K3', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -32619,6 +32772,26 @@
         "title": "SourceIntegrityState",
         "type": "string"
       },
+      "StopReason": {
+        "enum": [
+          "none",
+          "cadence_timer",
+          "judgment_parked",
+          "no_runnable_effort",
+          "tool_in_flight",
+          "publish_in_flight",
+          "actor_reply_pending",
+          "external_execution_active",
+          "evidence_finalizing",
+          "operator_hold",
+          "budget_exhausted",
+          "capability_gate",
+          "infrastructure_failure",
+          "terminal"
+        ],
+        "title": "StopReason",
+        "type": "string"
+      },
       "SwarmContribution": {
         "additionalProperties": false,
         "properties": {
@@ -33143,11 +33316,10 @@
             "type": "object"
           },
           "objective": {
-            "maxLength": 20000,
             "default": "",
+            "maxLength": 20000,
             "title": "Objective",
-            "type": "string",
-            "description": "Optional at create; first ask is send_message / operator_message."
+            "type": "string"
           },
           "objective_bounds": {
             "anyOf": [
@@ -35822,6 +35994,20 @@
         ],
         "title": "VisualTemplateRef",
         "type": "object"
+      },
+      "WaitProducer": {
+        "description": "Closed vocabulary for a named ambient wait (L1).\n\n# See: INTERN_ASYNC_RUNTIME_PHASE_REFACTOR_HANDOFF_2026-08-08.md \u00a75 L1",
+        "enum": [
+          "run",
+          "swarm",
+          "effort",
+          "actor_reply",
+          "operator_answer",
+          "evidence",
+          "world_sync"
+        ],
+        "title": "WaitProducer",
+        "type": "string"
       },
       "WorkMode": {
         "enum": [
@@ -44681,6 +44867,49 @@
       }
     },
     "/smr/research-intern/factories/{factory_id}": {
+      "delete": {
+        "operationId": "detach_research_intern_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Detach Research Intern Factory",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detach Research Intern Factory",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
       "post": {
         "operationId": "attach_research_intern_factory",
         "parameters": [

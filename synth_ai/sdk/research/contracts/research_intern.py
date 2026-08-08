@@ -589,6 +589,70 @@ class InternAsyncStatus(StrEnum):
     FAILED = "failed"
 
 
+class InternAsyncRuntimePhase(StrEnum):
+    """Derived ``noun:verb`` phase of the org Async runtime.
+
+    Mirrors backend ``RuntimePhaseWire``. ``agent:*`` verbs describe the agent
+    itself; ``world:*`` describes a wait on something outside the agent.
+    """
+
+    LIFECYCLE_NOT_STARTED = "lifecycle:not_started"
+    AGENT_BOOTSTRAPPING = "agent:bootstrapping"
+    AGENT_RUNNING = "agent:running"
+    AGENT_TOOL = "agent:tool"
+    AGENT_PUBLISHING = "agent:publishing"
+    AGENT_WAITING = "agent:waiting"
+    AGENT_WAITING_EVIDENCE = "agent:waiting_evidence"
+    AGENT_HELD = "agent:held"
+    AGENT_GATED = "agent:gated"
+    AGENT_FINISHED = "agent:finished"
+    AGENT_CANCELLED = "agent:cancelled"
+    AGENT_FAILED = "agent:failed"
+    WORLD_SYNCING = "world:syncing"
+    WORLD_WAITING = "world:waiting"
+
+
+class InternAsyncStopReason(StrEnum):
+    """Why the agent is off. Mirrors backend ``StopReason``."""
+
+    NONE = "none"
+    CADENCE_TIMER = "cadence_timer"
+    JUDGMENT_PARKED = "judgment_parked"
+    NO_RUNNABLE_EFFORT = "no_runnable_effort"
+    TOOL_IN_FLIGHT = "tool_in_flight"
+    PUBLISH_IN_FLIGHT = "publish_in_flight"
+    ACTOR_REPLY_PENDING = "actor_reply_pending"
+    EXTERNAL_EXECUTION_ACTIVE = "external_execution_active"
+    EVIDENCE_FINALIZING = "evidence_finalizing"
+    OPERATOR_HOLD = "operator_hold"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    CAPABILITY_GATE = "capability_gate"
+    INFRASTRUCTURE_FAILURE = "infrastructure_failure"
+    TERMINAL = "terminal"
+
+
+class InternAsyncResumeKind(StrEnum):
+    """What turns the agent back on. Mirrors backend ``ResumeKind``."""
+
+    TIMER = "timer"
+    HUMAN_ANSWER = "human_answer"
+    OPERATOR_COMMAND = "operator_command"
+    EXTERNAL_EVENT = "external_event"
+    NEVER = "never"
+
+
+class InternAsyncWaitProducer(StrEnum):
+    """Who produces the awaited event. Mirrors backend ``WaitProducer``."""
+
+    RUN = "run"
+    SWARM = "swarm"
+    EFFORT = "effort"
+    ACTOR_REPLY = "actor_reply"
+    OPERATOR_ANSWER = "operator_answer"
+    EVIDENCE = "evidence"
+    WORLD_SYNC = "world_sync"
+
+
 class InternAsyncExternalExecutionStatus(StrEnum):
     NOT_STARTED = "not_started"
     ACTIVE = "active"
@@ -797,6 +861,22 @@ class InternAsyncEffortWorkSummary(_StrictContract):
     last_advanced_cycle: int = Field(default=0, ge=0)
 
 
+
+class InternResumeCondition(_StrictContract):
+    """What turns an off agent on again (mirrors backend ResumeConditionResponse).
+
+    # See: backend INTERN_ASYNC_RUNTIME_PHASE_REFACTOR_HANDOFF_2026-08-08.md
+    """
+
+    kind: InternAsyncResumeKind
+    wake_at: datetime | None = None
+    watchdog_at: datetime | None = None
+    interaction_ids: tuple[str, ...] = ()
+    effort_ids: tuple[str, ...] = ()
+    external_ref: str | None = None
+    producer: InternAsyncWaitProducer | None = None
+
+
 class InternAsyncRuntime(_StrictContract):
     schema_version: Literal["smr.intern-async-runtime.v1"]
     async_runtime_id: str
@@ -831,7 +911,13 @@ class InternAsyncRuntime(_StrictContract):
     host_lease: InternAsyncRuntimeHostLease = Field(default_factory=InternAsyncRuntimeHostLease)
     blocker: InternAsyncBlocker | None = None
     temporal_workflow_id: str
-    leave_safe: Literal[True]
+    # Ambient phase projection (derived; additive). leave_safe is honest bool.
+    phase: InternAsyncRuntimePhase = InternAsyncRuntimePhase.LIFECYCLE_NOT_STARTED
+    stop_reason: InternAsyncStopReason | None = None
+    resume: InternResumeCondition | None = None
+    active_effort_id: str | None = None
+    outcome: InternRuntimeOutcome | None = None
+    leave_safe: bool
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None = None
@@ -1594,11 +1680,15 @@ __all__ = [
     "InternAsyncInstructionKind",
     "InternAsyncInstructionRequest",
     "InternAsyncJudgmentItem",
+    "InternAsyncResumeKind",
     "InternAsyncRuntime",
     "InternAsyncRuntimeBudget",
     "InternAsyncRuntimeHostLease",
+    "InternAsyncRuntimePhase",
     "InternAsyncRuntimeSpend",
     "InternAsyncStatus",
+    "InternAsyncStopReason",
+    "InternAsyncWaitProducer",
     "InternProducedResourceKind",
     "InternProducedResourceReference",
     "InternRuntimeBinding",
