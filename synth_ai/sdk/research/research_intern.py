@@ -68,6 +68,7 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternMetaThreadKind,
     InternMetaThreadSegment,
     InternRuntimeOutcome,
+    InternSyncApprovalCard,
     InternSyncCommandKind,
     InternSyncCommandReceipt,
     InternSyncCommandRequest,
@@ -75,6 +76,7 @@ from synth_ai.sdk.research.contracts.research_intern import (
     InternSyncEvent,
     InternSyncEventPage,
     InternSyncEventStreamEnvelope,
+    InternSyncPresenceLease,
     InternSyncSession,
     InternSyncSessionCreateRequest,
     MagiDecisionKind,
@@ -2344,6 +2346,110 @@ class ResearchInternSyncRuntimeAPI:
             raise ValueError("Sync Intern deploy packet identity drifted")
         return packet
 
+    def presence(
+        self,
+        sync_session_id: str,
+        *,
+        connection_id: str,
+        connection_generation: int = 1,
+    ) -> InternSyncPresenceLease:
+        """Acquire or renew this operator's presence lease on the session.
+
+        Billed sync launches (rollouts, deploys) are gated on an active
+        authenticated operator presence
+        (``intern_sync_active_presence_required``). Hold and renew this lease
+        (before ``expires_at``) for as long as the Intern is expected to
+        launch work on your behalf.
+        """
+
+        lease = InternSyncPresenceLease.from_wire(
+            self._transport.execute(
+                _request(
+                    "acquire_intern_sync_presence",
+                    f"{self._PATH}/{sync_session_id}/presence",
+                    body={
+                        "connection_id": connection_id,
+                        "connection_generation": connection_generation,
+                    },
+                )
+            )
+        )
+        if lease.sync_session_id != sync_session_id:
+            raise ValueError("Sync Intern presence lease identity drifted")
+        return lease
+
+    def release_presence(
+        self,
+        sync_session_id: str,
+        *,
+        connection_id: str,
+        connection_generation: int = 1,
+    ) -> InternSyncPresenceLease:
+        """Release this operator's presence lease on the session."""
+
+        return InternSyncPresenceLease.from_wire(
+            self._transport.execute(
+                _request(
+                    "release_intern_sync_presence",
+                    f"{self._PATH}/{sync_session_id}/presence/release",
+                    body={
+                        "connection_id": connection_id,
+                        "connection_generation": connection_generation,
+                    },
+                )
+            )
+        )
+
+    def approvals(self, sync_session_id: str) -> tuple[InternSyncApprovalCard, ...]:
+        """List operator approval cards for this session.
+
+        Billed MCP actions (rollout launches, deploys) park in
+        ``awaiting_approval`` with ``capability_operator_approval_required``
+        until the present operator decides them.
+        """
+
+        return tuple(
+            InternSyncApprovalCard.from_wire(item)
+            for item in array_value(
+                cast(
+                    JsonValue,
+                    self._transport.execute(
+                        _request(
+                            "list_intern_sync_approvals",
+                            f"{self._PATH}/{sync_session_id}/approvals",
+                        )
+                    ),
+                ),
+                operation_id="list_intern_sync_approvals",
+            )
+        )
+
+    def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        decision: str,
+        comment: str | None = None,
+    ) -> InternSyncApprovalCard:
+        """Decide one approval card: ``approve``, ``deny``, or ``edit``.
+
+        Requires an active presence lease on the card's session
+        (``intern_sync_active_presence_required`` otherwise).
+        """
+
+        body: JsonObject = {"decision": decision}
+        if comment is not None:
+            body["comment"] = comment
+        return InternSyncApprovalCard.from_wire(
+            self._transport.execute(
+                _request(
+                    "decide_intern_sync_approval",
+                    f"/smr/research-intern/sync-approvals/{approval_id}/decision",
+                    body=body,
+                )
+            )
+        )
+
     def command(
         self,
         sync_session_id: str,
@@ -2727,7 +2833,11 @@ class ResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
-        """Pause Async work and free the sticky exe.dev host lease (resume reacquires)."""
+        """Pause Async work and free the sticky host **lease** (resume reacquires).
+
+        The shared org exe.dev VM is retained until filestore backup exists;
+        pause does not wipe Sync/Async guest workspaces on that box.
+        """
 
         return self.command(
             InternAsyncCommandRequest(
@@ -4779,7 +4889,11 @@ class AsyncResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
-        """Pause Async work and free the sticky exe.dev host lease (resume reacquires)."""
+        """Pause Async work and free the sticky host **lease** (resume reacquires).
+
+        The shared org exe.dev VM is retained until filestore backup exists;
+        pause does not wipe Sync/Async guest workspaces on that box.
+        """
 
         return await self.command(
             InternAsyncCommandRequest(

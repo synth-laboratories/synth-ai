@@ -546,6 +546,55 @@ class InternSyncCommandReceipt(_StrictContract):
     duplicate: bool = False
 
 
+class InternSyncApprovalCard(BaseModel):
+    """Operator approval card for a billed sync action (lenient projection).
+
+    Billed MCP actions (rollout launches, deploys) can park in
+    ``awaiting_approval`` with ``capability_operator_approval_required``; the
+    present operator decides them via the sync-approvals surface. This mirrors
+    the fields drivers need from ``smr.sync-approval-card.v1`` and ignores
+    unknown fields so card evolution does not break approval loops.
+    """
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    schema_version: str
+    approval_id: str
+    sync_session_id: str
+    scope_kind: str
+    scope_id: str
+    decision_state: str
+    application_state: str
+    title: str | None = None
+    body: str | None = None
+
+    @classmethod
+    def from_wire(cls, value: object) -> Self:
+        return cls.model_validate(value)
+
+
+class InternSyncPresenceLease(_StrictContract):
+    """Operator presence lease on a Sync session.
+
+    Billed sync launches (rollouts, deploys) are gated on an active
+    authenticated operator presence (`intern_sync_active_presence_required`);
+    drivers hold and renew this lease while they expect the Intern to launch
+    work on their behalf.
+    """
+
+    schema_version: Literal["smr.intern-sync-presence.v1"]
+    lease_id: str
+    sync_session_id: str
+    org_id: str
+    user_id: str
+    connection_id: str
+    connection_generation: int = Field(ge=1)
+    acquired_at: datetime
+    renewed_at: datetime
+    expires_at: datetime
+    interactive_approval_available: bool
+
+
 class InternSyncEvent(_StrictContract):
     schema_version: Literal["smr.intern-runtime-event.v1"]
     event_id: str
@@ -553,7 +602,11 @@ class InternSyncEvent(_StrictContract):
     runtime_id: str
     sequence: int = Field(ge=1)
     previous_state_generation: int = Field(ge=0)
-    state_generation: int = Field(ge=1)
+    # Backend contract (packages/intern/contracts.py InternRuntimeEvent) allows
+    # generation 0: events written before the first command admission (e.g.
+    # presence acquired at session open) legitimately carry gen 0. ge=1 here
+    # crashed the I6 smoke's event poll (2026-08-08).
+    state_generation: int = Field(ge=0)
     event_kind: str
     command_id: str
     payload: dict[str, Any]
@@ -734,11 +787,12 @@ class InternAsyncRuntimeSpend(_StrictContract):
 
 
 class InternAsyncRuntimeHostLease(_StrictContract):
-    """The sticky host lease backing Async work.
+    """The sticky host lease backing org Intern exe.dev (Sync + Async share).
 
-    Pausing releases the lease; resuming reacquires it. ``reused`` distinguishes
-    a reacquired lease from a freshly provisioned host, and ``cents_per_hour``
-    is the idle burn rate that feeds the spend totals above.
+    Pausing releases the **lease** for metering; the shared org VM is retained
+    until filestore backup exists. Resuming reacquires the lease. ``reused``
+    distinguishes a reacquired lease from a freshly provisioned host, and
+    ``cents_per_hour`` is the idle burn rate that feeds the spend totals above.
     """
 
     lease_id: str | None = None
@@ -1042,7 +1096,9 @@ class InternAsyncEvent(_StrictContract):
     runtime_id: str
     sequence: int = Field(ge=1)
     previous_state_generation: int = Field(ge=0)
-    state_generation: int = Field(ge=1)
+    # Same gen-0 allowance as InternSyncEvent — backend permits pre-admission
+    # events at generation 0.
+    state_generation: int = Field(ge=0)
     event_kind: str
     command_id: str
     payload: dict[str, Any]

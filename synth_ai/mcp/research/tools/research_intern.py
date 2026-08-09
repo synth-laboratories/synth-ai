@@ -1283,8 +1283,9 @@ def build_research_intern_tools(
         ToolDefinition(
             name="intern_async_pause",
             description=(
-                "Pause the Async Intern, fence older pending effects, and free the "
-                "sticky exe.dev host lease. Resume reacquires the lease."
+                "Pause the Async Intern, fence older pending effects, and free "
+                "the sticky host lease (org exe.dev VM retained until filestore "
+                "backup exists). Resume reacquires the lease."
             ),
             input_schema=tool_schema(
                 {

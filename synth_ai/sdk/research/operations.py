@@ -97,6 +97,33 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "acquire_intern_sync_presence",
+            HttpMethod.PUT,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/presence",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_sync_approvals",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/approvals",
+            idempotent=True,
+        ),
+        _operation(
+            "decide_intern_sync_approval",
+            HttpMethod.POST,
+            "/smr/research-intern/sync-approvals/{approval_id}/decision",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "release_intern_sync_presence",
+            HttpMethod.POST,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/presence/release",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "command_intern_sync_session",
             HttpMethod.POST,
             "/smr/research-intern/sync-sessions/{sync_session_id}/commands",
