@@ -2451,6 +2451,13 @@ class ResearchInternSyncRuntimeAPI:
         expected_generation: int,
         rationale: str,
     ) -> InternSyncCommandReceipt:
+        """Pause this Sync session and fence its pending effects.
+
+        Pause and close act on the session, not the machine: the shared org
+        exe.dev VM (one box for all of the org's Sync and Async work) is
+        retained, so guest workspaces and Codex threads survive for resume.
+        """
+
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2756,6 +2763,14 @@ class ResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Cancel Async work, fence older pending effects, and free the
+        sticky host **lease**.
+
+        Like pause, cancel does not wipe machine memory: the shared org
+        exe.dev VM is retained until filestore backup exists, so Sync/Async
+        guest workspaces on that box survive.
+        """
+
         return self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -4486,6 +4501,13 @@ class AsyncResearchInternSyncRuntimeAPI:
         expected_generation: int,
         rationale: str,
     ) -> InternSyncCommandReceipt:
+        """Pause this Sync session and fence its pending effects.
+
+        Pause and close act on the session, not the machine: the shared org
+        exe.dev VM (one box for all of the org's Sync and Async work) is
+        retained, so guest workspaces and Codex threads survive for resume.
+        """
+
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4793,6 +4815,14 @@ class AsyncResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Cancel Async work, fence older pending effects, and free the
+        sticky host **lease**.
+
+        Like pause, cancel does not wipe machine memory: the shared org
+        exe.dev VM is retained until filestore backup exists, so Sync/Async
+        guest workspaces on that box survive.
+        """
+
         return await self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
