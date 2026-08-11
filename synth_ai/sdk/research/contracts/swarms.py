@@ -26,6 +26,7 @@ from synth_ai.sdk.research.contracts.common import (
     SwarmId,
     require_text,
 )
+from synth_ai.sdk.research.contracts.managed_inference import ManagedInference
 
 FrozenJsonScalar: TypeAlias = str | int | float | bool | None
 FrozenJsonValue: TypeAlias = (
@@ -1082,6 +1083,7 @@ class SwarmSpec:
     dev_environment_id: str | None = None
     effort_id: EffortId | None = None
     idempotency_key: str | None = None
+    inference: ManagedInference | None = None
     provider: (
         InferenceProvider
         | str
@@ -1119,6 +1121,8 @@ class SwarmSpec:
             raise ValueError("provider_policy must be ProviderPolicy")
         if self.run_policy is not None and not isinstance(self.run_policy, RunPolicy):
             raise ValueError("run_policy must be RunPolicy")
+        if self.inference is not None and not isinstance(self.inference, ManagedInference):
+            raise ValueError("inference must be ManagedInference")
         if self.environment is not None and not isinstance(
             self.environment,
             SwarmEnvironment,
@@ -1225,6 +1229,8 @@ class SwarmSpec:
             payload["limit"] = self.limit.to_wire()
         if self.run_policy is not None:
             payload["run_policy"] = self.run_policy.to_wire()
+        if self.inference is not None:
+            payload["inference"] = self.inference.to_wire()
         if self.required_capabilities:
             payload["required_capabilities"] = list(self.required_capabilities)
         if self.kickoff_messages:
