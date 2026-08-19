@@ -39,6 +39,7 @@ except _PackageNotFoundError:
 __all__ = [
     "AsyncResearchInternReactiveSession",
     "AsyncSynthClient",
+    "AsyncOptimizersClient",
     "DataBindingCreateRequest",
     "DatasetRevisionCreateRequest",
     "DatasetRevisionFinalizeRequest",
@@ -99,9 +100,30 @@ __all__ = [
     "ResearchVisualPromotionRequest",
     "ResearchVisualVersions",
     "SynthClient",
+    "OptimizersClient",
+    "OptimizerRunOutputs",
+    "SavedLoraCheckpoint",
+    "SavedLoraCheckpointPage",
+    "SavedLoraLineage",
+    "SavedLoraRunPage",
+    "HostedTrainingModelCatalog",
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "AsyncOptimizersClient": ("synth_ai.sdk.optimizers", "AsyncOptimizersClient"),
+    "HostedTrainingModelCatalog": (
+        "synth_ai.sdk.optimizers",
+        "HostedTrainingModelCatalog",
+    ),
+    "OptimizersClient": ("synth_ai.sdk.optimizers", "OptimizersClient"),
+    "OptimizerRunOutputs": ("synth_ai.sdk.optimizers", "OptimizerRunOutputs"),
+    "SavedLoraCheckpoint": ("synth_ai.sdk.optimizers", "SavedLoraCheckpoint"),
+    "SavedLoraCheckpointPage": (
+        "synth_ai.sdk.optimizers",
+        "SavedLoraCheckpointPage",
+    ),
+    "SavedLoraLineage": ("synth_ai.sdk.optimizers", "SavedLoraLineage"),
+    "SavedLoraRunPage": ("synth_ai.sdk.optimizers", "SavedLoraRunPage"),
     "AsyncResearchInternReactiveSession": (
         "synth_ai.sdk.research.research_intern",
         "AsyncResearchInternReactiveSession",
