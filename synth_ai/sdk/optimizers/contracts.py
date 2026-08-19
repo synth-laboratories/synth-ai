@@ -67,6 +67,33 @@ class SavedLoraCheckpointPage(OptimizerContract):
     offset: int
 
 
+class SavedLoraCheckpointInspection(OptimizerContract):
+    """Catalog and immutable evidence details for one saved checkpoint."""
+
+    checkpoint: SavedLoraCheckpoint
+    inspection: dict[str, Any]
+
+
+class OptimizerWorkbenchViewState(OptimizerContract):
+    schema_version: str = "optimizer_workbench.view_state.v1"
+    selected_run_id: str | None = None
+    selected_checkpoint_id: str | None = None
+    filters: dict[str, Any] = Field(default_factory=dict)
+    sort_by: str = "updated_at"
+    sort_direction: str = "desc"
+    updated_at: str | None = None
+
+
+class OptimizerWorkbenchAnnotation(OptimizerContract):
+    annotation_id: str
+    run_id: str
+    checkpoint_id: str | None = None
+    body: str
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 class OptimizerRunIdentity(OptimizerContract):
     run_id: str
     attempt_id: str | None = None
@@ -136,7 +163,10 @@ __all__ = [
     "OptimizerRunOutputs",
     "SavedLoraCheckpoint",
     "SavedLoraCheckpointPage",
+    "SavedLoraCheckpointInspection",
     "SavedLoraLineage",
     "SavedLoraRunPage",
     "SavedLoraStorage",
+    "OptimizerWorkbenchAnnotation",
+    "OptimizerWorkbenchViewState",
 ]

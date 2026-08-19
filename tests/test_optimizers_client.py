@@ -13,6 +13,7 @@ network, a credential, or a running backend.
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 import httpx
@@ -196,6 +197,36 @@ def test_pagination_is_clamped_to_the_documented_bounds() -> None:
     client.checkpoints.list(limit=5000, offset=-10)
     assert seen[-1].url.params["limit"] == "100"
     assert seen[-1].url.params["offset"] == "0"
+
+
+def test_checkpoint_catalog_mutations_use_owner_scoped_contracts() -> None:
+    client = OptimizersClient(api_key=API_KEY, base_url="https://api.test")
+    seen = _mount(client, _json(CHECKPOINT))
+    client.checkpoints.update("ckpt_1", name="reviewed", tags=["reviewed"])
+    assert seen[-1].method == "PATCH"
+    assert seen[-1].url.path.endswith("/checkpoints/ckpt_1")
+    assert json.loads(seen[-1].content) == {"name": "reviewed", "tags": ["reviewed"]}
+
+
+def test_annotation_contract_carries_real_artifact_ids() -> None:
+    client = OptimizersClient(api_key=API_KEY, base_url="https://api.test")
+    seen = _mount(
+        client,
+        _json(
+            {
+                "annotation_id": "note_1",
+                "run_id": "run_1",
+                "body": "Artifact supports the conclusion.",
+                "evidence": [{"artifact_id": "art_1", "artifact_name": "events.jsonl"}],
+            }
+        ),
+    )
+    note = client.workbench.annotate(
+        run_id="run_1", body="Artifact supports the conclusion.", evidence_artifact_ids=["art_1"]
+    )
+    assert note.evidence[0]["artifact_id"] == "art_1"
+    assert seen[-1].url.path.endswith("/checkpoints/workbench/annotations")
+    assert json.loads(seen[-1].content)["evidence_artifact_ids"] == ["art_1"]
 
 
 def test_run_id_is_path_escaped_and_cannot_traverse() -> None:

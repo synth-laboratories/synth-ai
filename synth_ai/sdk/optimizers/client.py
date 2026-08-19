@@ -14,7 +14,10 @@ from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk.optimizers.contracts import (
     HostedTrainingModelCatalog,
     OptimizerRunOutputs,
+    OptimizerWorkbenchAnnotation,
+    OptimizerWorkbenchViewState,
     SavedLoraCheckpoint,
+    SavedLoraCheckpointInspection,
     SavedLoraCheckpointPage,
     SavedLoraRunPage,
 )
@@ -83,6 +86,34 @@ class CheckpointsAPI:
         )
         return SavedLoraCheckpoint.model_validate(_object(payload))
 
+    def inspect(self, checkpoint_id: str) -> SavedLoraCheckpointInspection:
+        payload = self._transport.request_json(
+            "GET", f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}/inspection",
+            operation_id="optimizers.checkpoints.inspect",
+        )
+        return SavedLoraCheckpointInspection.model_validate(_object(payload))
+
+    def update(
+        self, checkpoint_id: str, *, name: str | None = None, tags: Sequence[str] | None = None
+    ) -> SavedLoraCheckpoint:
+        """Rename and/or replace normalized catalog tags; archive contents stay immutable."""
+        body = _params(name=name, tags=list(tags) if tags is not None else None)
+        if not body:
+            raise ValueError("provide name or tags when updating a checkpoint")
+        payload = self._transport.request_json(
+            "PATCH", f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}",
+            json_body=body, operation_id="optimizers.checkpoints.update",
+        )
+        return SavedLoraCheckpoint.model_validate(_object(payload))
+
+    def purge(self, checkpoint_id: str) -> dict[str, Any]:
+        """Permanently remove an owner-owned archive and its catalog record."""
+        payload = self._transport.request_json(
+            "DELETE", f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}",
+            params={"purge": True}, operation_id="optimizers.checkpoints.purge",
+        )
+        return dict(_object(payload))
+
     def list_for_run(
         self,
         run_id: str,
@@ -139,6 +170,32 @@ class RunsAPI:
         return OptimizerRunOutputs.model_validate(_object(payload))
 
 
+class WorkbenchAPI:
+    """Persist linked selection and write notes tied to real run artifacts."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def state(self) -> OptimizerWorkbenchViewState:
+        return OptimizerWorkbenchViewState.model_validate(_object(self._transport.request_json(
+            "GET", "/api/v1/optimizers/checkpoints/workbench/state",
+            operation_id="optimizers.workbench.state",
+        )))
+
+    def save_state(self, **state: Any) -> OptimizerWorkbenchViewState:
+        return OptimizerWorkbenchViewState.model_validate(_object(self._transport.request_json(
+            "PUT", "/api/v1/optimizers/checkpoints/workbench/state", json_body=state,
+            operation_id="optimizers.workbench.save_state",
+        )))
+
+    def annotate(self, *, run_id: str, body: str, evidence_artifact_ids: Sequence[str], checkpoint_id: str | None = None) -> OptimizerWorkbenchAnnotation:
+        return OptimizerWorkbenchAnnotation.model_validate(_object(self._transport.request_json(
+            "POST", "/api/v1/optimizers/checkpoints/workbench/annotations",
+            json_body=_params(run_id=run_id, body=body, checkpoint_id=checkpoint_id, evidence_artifact_ids=list(evidence_artifact_ids)),
+            operation_id="optimizers.workbench.annotate",
+        )))
+
+
 class AsyncCheckpointsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
@@ -190,6 +247,30 @@ class AsyncCheckpointsAPI:
         )
         return SavedLoraCheckpoint.model_validate(_object(payload))
 
+    async def inspect(self, checkpoint_id: str) -> SavedLoraCheckpointInspection:
+        payload = await self._transport.request_json(
+            "GET", f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}/inspection",
+            operation_id="optimizers.checkpoints.inspect",
+        )
+        return SavedLoraCheckpointInspection.model_validate(_object(payload))
+
+    async def update(self, checkpoint_id: str, *, name: str | None = None, tags: Sequence[str] | None = None) -> SavedLoraCheckpoint:
+        body = _params(name=name, tags=list(tags) if tags is not None else None)
+        if not body:
+            raise ValueError("provide name or tags when updating a checkpoint")
+        payload = await self._transport.request_json(
+            "PATCH", f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}",
+            json_body=body, operation_id="optimizers.checkpoints.update",
+        )
+        return SavedLoraCheckpoint.model_validate(_object(payload))
+
+    async def purge(self, checkpoint_id: str) -> dict[str, Any]:
+        payload = await self._transport.request_json(
+            "DELETE", f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}",
+            params={"purge": True}, operation_id="optimizers.checkpoints.purge",
+        )
+        return dict(_object(payload))
+
     async def list_for_run(
         self,
         run_id: str,
@@ -240,6 +321,29 @@ class AsyncRunsAPI:
         return OptimizerRunOutputs.model_validate(_object(payload))
 
 
+class AsyncWorkbenchAPI:
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def state(self) -> OptimizerWorkbenchViewState:
+        return OptimizerWorkbenchViewState.model_validate(_object(await self._transport.request_json(
+            "GET", "/api/v1/optimizers/checkpoints/workbench/state", operation_id="optimizers.workbench.state"
+        )))
+
+    async def save_state(self, **state: Any) -> OptimizerWorkbenchViewState:
+        return OptimizerWorkbenchViewState.model_validate(_object(await self._transport.request_json(
+            "PUT", "/api/v1/optimizers/checkpoints/workbench/state", json_body=state,
+            operation_id="optimizers.workbench.save_state"
+        )))
+
+    async def annotate(self, *, run_id: str, body: str, evidence_artifact_ids: Sequence[str], checkpoint_id: str | None = None) -> OptimizerWorkbenchAnnotation:
+        return OptimizerWorkbenchAnnotation.model_validate(_object(await self._transport.request_json(
+            "POST", "/api/v1/optimizers/checkpoints/workbench/annotations",
+            json_body=_params(run_id=run_id, body=body, checkpoint_id=checkpoint_id, evidence_artifact_ids=list(evidence_artifact_ids)),
+            operation_id="optimizers.workbench.annotate"
+        )))
+
+
 class OptimizersClient:
     """Hosted optimizer namespace mounted at ``SynthClient.optimizers``."""
 
@@ -259,6 +363,7 @@ class OptimizersClient:
         self.checkpoints = CheckpointsAPI(self._transport)
         self.models = ModelsAPI(self._transport)
         self.runs = RunsAPI(self._transport)
+        self.workbench = WorkbenchAPI(self._transport)
 
     def close(self) -> None:
         self._transport.close()
@@ -283,6 +388,7 @@ class AsyncOptimizersClient:
         self.checkpoints = AsyncCheckpointsAPI(self._transport)
         self.models = AsyncModelsAPI(self._transport)
         self.runs = AsyncRunsAPI(self._transport)
+        self.workbench = AsyncWorkbenchAPI(self._transport)
 
     async def close(self) -> None:
         await self._transport.close()
