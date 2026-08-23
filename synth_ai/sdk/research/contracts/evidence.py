@@ -280,6 +280,7 @@ class EvidenceFreshness:
                     "generated_at",
                     "artifact_count",
                     "work_product_count",
+                    "tool_call_count",
                     "run_is_terminal",
                 }
             ),
@@ -331,6 +332,7 @@ class SwarmEvidence:
                     # consume them yet.
                     "selected_artifact_contents",
                     "trace_publications",
+                    "tool_calls",
                     "freshness",
                 }
             ),
