@@ -320,8 +320,6 @@ def _optional_cloud_deployment_source(
     return normalized
 
 
-
-
 def _coerce_cloud_deployment_schema(
     payload: Any,
     *,

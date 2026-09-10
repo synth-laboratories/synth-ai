@@ -118,9 +118,7 @@ from synth_ai import SynthClient
 from synth_ai.sdk.research.public import EffortSpec, FactorySpec, ProjectId
 
 with SynthClient() as client:
-    factory = client.research.factories.create(
-        FactorySpec(name="Prompt optimizer")
-    )
+    factory = client.research.factories.create(FactorySpec(name="Prompt optimizer"))
     effort = client.research.factories.efforts.create(
         EffortSpec(
             factory_id=factory.factory_id,

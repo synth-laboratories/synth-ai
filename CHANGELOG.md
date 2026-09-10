@@ -2,7 +2,16 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
-## Unreleased
+## 0.18.2 — 2026-09-10
+
+Release candidate; publication is pending protected CI approval.
+
+- Reconciled the bounded248-operation Research registry with the backend release
+  contract, preserving legacy event and acceptance-receipt lookup aliases.
+- Restored typed not-found and retention errors, surface-parity helpers, strict
+  acceptance fixtures, trace-store preflight clients, and run provenance pins.
+- Fixture requests use the backend's generic acceptance_default label; eval
+  task content remains outside production dependencies.
 
 ### Added
 
@@ -155,6 +164,7 @@ paths still import, resolve to the same objects, and only add a
   ```python
   # before
   from synth_ai.core.research.contracts.status import SwarmStatus
+
   # after
   from synth_ai.sdk.research.contracts.status import SwarmStatus
   ```
