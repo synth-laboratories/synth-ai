@@ -23,16 +23,24 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
-            "create_intern_acceptance_fixture", HttpMethod.POST,
-            "/smr/research-intern/fixtures", mutation=True, idempotent=True,
+            "create_intern_acceptance_fixture",
+            HttpMethod.POST,
+            "/smr/research-intern/fixtures",
+            mutation=True,
+            idempotent=True,
         ),
         _operation(
-            "get_intern_acceptance_fixture", HttpMethod.GET,
-            "/smr/research-intern/fixtures/{fixture_id}", idempotent=True,
+            "get_intern_acceptance_fixture",
+            HttpMethod.GET,
+            "/smr/research-intern/fixtures/{fixture_id}",
+            idempotent=True,
         ),
         _operation(
-            "teardown_intern_acceptance_fixture", HttpMethod.POST,
-            "/smr/research-intern/fixtures/{fixture_id}:teardown", mutation=True, idempotent=True,
+            "teardown_intern_acceptance_fixture",
+            HttpMethod.POST,
+            "/smr/research-intern/fixtures/{fixture_id}:teardown",
+            mutation=True,
+            idempotent=True,
         ),
         _operation(
             "append_objective_answer_revision",

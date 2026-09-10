@@ -982,7 +982,7 @@ class InternAcceptanceFixtureRequest(_StrictContract):
     """
 
     idempotency_key: str = Field(min_length=1, max_length=180)
-    task_template: str = Field(default="craftax_harness_prompt", max_length=128)
+    task_template: str = Field(default="acceptance_default", min_length=1, max_length=128)
     # A fixture Run is an inert, pre-terminalized row that satisfies binding
     # validation without dispatching compute. Disable for chain-only fixtures.
     include_run: bool = True

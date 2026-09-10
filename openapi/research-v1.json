@@ -5948,6 +5948,177 @@
         "title": "ImageReleaseUploadResponse",
         "type": "object"
       },
+      "InternAcceptanceFixtureReceipt": {
+        "additionalProperties": false,
+        "description": "Durable, validator-readable evidence for one acceptance fixture.",
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/RuntimeBinding"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "factory_readiness": {
+            "additionalProperties": true,
+            "title": "Factory Readiness",
+            "type": "object"
+          },
+          "fixture_id": {
+            "title": "Fixture Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/InternAcceptanceFixtureResourceV1"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "retention_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Expires At"
+          },
+          "schema_version": {
+            "const": "smr.intern-acceptance-fixture.v1",
+            "default": "smr.intern-acceptance-fixture.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "torn_down"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_template": {
+            "title": "Task Template",
+            "type": "string"
+          },
+          "torn_down_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Torn Down At"
+          }
+        },
+        "required": [
+          "fixture_id",
+          "org_id",
+          "research_intern_id",
+          "task_template",
+          "status",
+          "binding",
+          "created_at"
+        ],
+        "title": "InternAcceptanceFixtureReceipt",
+        "type": "object"
+      },
+      "InternAcceptanceFixtureRequest": {
+        "additionalProperties": false,
+        "description": "Bootstrap one disposable Factory/Project/Effort/Run acceptance fixture.\n\nNo tribal ids: the backend provisions the whole chain through the\ncanonical creation authorities and binds the organization Intern to it.\nIdempotent within one test attempt via ``idempotency_key``.\n\n``task_template`` is a caller-supplied label recorded on the fixture\nreceipt; eval-specific task content (objectives, rubrics, required\nproject files) lives with the eval harness, never in production.",
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 180,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "include_run": {
+            "default": true,
+            "title": "Include Run",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "task_template": {
+            "default": "acceptance_default",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Task Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "InternAcceptanceFixtureRequest",
+        "type": "object"
+      },
+      "InternAcceptanceFixtureResourceV1": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "resource_kind": {
+            "title": "Resource Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_kind",
+          "status"
+        ],
+        "title": "InternAcceptanceFixtureResourceV1",
+        "type": "object"
+      },
       "InternEffortBoardResponse": {
         "additionalProperties": false,
         "properties": {
@@ -36741,6 +36912,74 @@
         "title": "TraceStoreLifecycleReceipt",
         "type": "object"
       },
+      "TraceStorePreflightRequest": {
+        "additionalProperties": false,
+        "description": "Pre-launch trace-store readiness gate for a sealed run.",
+        "properties": {
+          "catalog_provider": {
+            "$ref": "#/components/schemas/TraceCatalogProvider",
+            "default": "none"
+          },
+          "provision_if_missing": {
+            "default": true,
+            "title": "Provision If Missing",
+            "type": "boolean"
+          }
+        },
+        "title": "TraceStorePreflightRequest",
+        "type": "object"
+      },
+      "TraceStorePreflightResponse": {
+        "additionalProperties": false,
+        "description": "Typed provision-and-health result gating sealed-run launch.",
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "descriptor": {
+            "$ref": "#/components/schemas/TraceStoreDescriptorResponse"
+          },
+          "health_conditions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Health Conditions",
+            "type": "array"
+          },
+          "healthy": {
+            "title": "Healthy",
+            "type": "boolean"
+          },
+          "provisioned": {
+            "enum": [
+              "existing",
+              "created"
+            ],
+            "title": "Provisioned",
+            "type": "string"
+          },
+          "run_envelope_identity": {
+            "$ref": "#/components/schemas/TraceStoreRunEnvelopeIdentity"
+          },
+          "schema_version": {
+            "const": "synth.trace-store-preflight.v1",
+            "default": "synth.trace-store-preflight.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "healthy",
+          "provisioned",
+          "descriptor",
+          "run_envelope_identity",
+          "checked_at"
+        ],
+        "title": "TraceStorePreflightResponse",
+        "type": "object"
+      },
       "TraceStoreProvisionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -36778,6 +37017,71 @@
         ],
         "title": "TraceStoreProvisioningStatus",
         "type": "string"
+      },
+      "TraceStoreRunEnvelopeIdentity": {
+        "additionalProperties": false,
+        "description": "Trace-store identity carried inside a sealed-run envelope.\n\nSealed runners embed exactly this block (as ``trace_store``) in the run\nenvelope so trace-inventory collection after grading can never 404 on an\nunprovisioned or ambiguous store.",
+        "properties": {
+          "blob_bucket": {
+            "title": "Blob Bucket",
+            "type": "string"
+          },
+          "blob_prefix": {
+            "title": "Blob Prefix",
+            "type": "string"
+          },
+          "catalog_database_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Database Name"
+          },
+          "catalog_provider": {
+            "$ref": "#/components/schemas/TraceCatalogProvider"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "provisioning_status": {
+            "$ref": "#/components/schemas/TraceStoreProvisioningStatus"
+          },
+          "provisioning_version": {
+            "title": "Provisioning Version",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.trace-store-run-envelope-identity.v1",
+            "default": "synth.trace-store-run-envelope-identity.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "trace_store_id": {
+            "title": "Trace Store Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trace_store_id",
+          "org_id",
+          "factory_id",
+          "blob_bucket",
+          "blob_prefix",
+          "catalog_provider",
+          "provisioning_status",
+          "provisioning_version"
+        ],
+        "title": "TraceStoreRunEnvelopeIdentity",
+        "type": "object"
       },
       "TranscriptCursorKind": {
         "description": "Opaque cursor namespace returned by a transcript page.",
@@ -40217,6 +40521,60 @@
           }
         },
         "summary": "Invalidate Factory Trace Store Credential",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:preflight": {
+      "post": {
+        "description": "Provision-if-missing and health-check the trace store before launch.\n\nSealed runners must call this before creating paid/live resources and\nembed ``run_envelope_identity`` in the run envelope, so post-grade trace\ninventory can never 404 on an unprovisioned store.",
+        "operationId": "preflight_factory_trace_store",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceStorePreflightRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStorePreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preflight Factory Trace Store",
         "tags": [
           "smr",
           "traces"
@@ -46850,6 +47208,137 @@
           }
         },
         "summary": "Mint Factory Role Receipt",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/fixtures": {
+      "post": {
+        "description": "Provision a disposable, ready Factory/Project/Effort/Run fixture.\n\nNo tribal ids: one command yields a bound, Factory-ready chain with the\norganization Intern attached, idempotent per idempotency_key within one\ntest attempt. The receipt is the durable evidence of what exists.",
+        "operationId": "create_intern_acceptance_fixture",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternAcceptanceFixtureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternAcceptanceFixtureReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Research Intern Acceptance Fixture",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/fixtures/{fixture_id}": {
+      "get": {
+        "description": "Read one fixture receipt (evidence stays readable through retention).",
+        "operationId": "get_intern_acceptance_fixture",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fixture_id",
+            "required": true,
+            "schema": {
+              "title": "Fixture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternAcceptanceFixtureReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Research Intern Acceptance Fixture",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/fixtures/{fixture_id}:teardown": {
+      "post": {
+        "description": "Explicitly tear down a fixture while preserving its evidence window.",
+        "operationId": "teardown_intern_acceptance_fixture",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fixture_id",
+            "required": true,
+            "schema": {
+              "title": "Fixture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternAcceptanceFixtureReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Teardown Research Intern Acceptance Fixture",
         "tags": [
           "smr",
           "research-intern"

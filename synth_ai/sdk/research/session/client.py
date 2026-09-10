@@ -166,10 +166,13 @@ from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.session._client_helpers import (
     _coerce_dict,
     _coerce_dict_list,
+    _fencing_headers,
     _guess_content_type,
     _is_source_bundle_entry,
     _optional_mapping,
+    _optional_non_empty_string,
     _positive_int_env,
+    _require_fencing_headers,
     _require_non_empty_string,
     assert_hosted_launch_surface,
     provider_selection_payload,
@@ -270,11 +273,6 @@ __all__ = [
 ]
 
 
-def _optional_non_empty_string(value: str | None) -> str | None:
-    text = str(value or "").strip()
-    return text or None
-
-
 def _optional_cloud_deployment_source(
     payload: CloudDeploymentProjectGitSource | Mapping[str, Any] | None,
 ) -> dict[str, str] | None:
@@ -322,21 +320,6 @@ def _optional_cloud_deployment_source(
     return normalized
 
 
-def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
-    """``X-Fencing-Token`` header for mutating CloudDeployment ops, or None."""
-    if fencing_token is None:
-        return None
-    if isinstance(fencing_token, bool):
-        raise ValueError("fencing_token must be an integer when provided")
-    return {"X-Fencing-Token": str(int(fencing_token))}
-
-
-def _require_fencing_headers(fencing_token: int) -> dict[str, str]:
-    if isinstance(fencing_token, bool) or not isinstance(fencing_token, int):
-        raise ValueError("fencing_token must be a positive integer")
-    if fencing_token < 1:
-        raise ValueError("fencing_token must be a positive integer")
-    return {"X-Fencing-Token": str(fencing_token)}
 
 
 def _coerce_cloud_deployment_schema(
