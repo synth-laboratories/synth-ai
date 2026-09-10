@@ -169,6 +169,9 @@ jobs:
               )
           PY
       - name: Detect SDK pytest suite
+        # Public tests must run even when the private sibling checkout is unavailable.
+        # Kept separate so a green MCP smoke cannot mask stale public contracts.
+        # The private suite below remains an additional gate when available.
         id: sdk_tests
         run: |
           if [ -d testing/backend/unit/synth_ai_sdk ]; then
@@ -176,6 +179,8 @@ jobs:
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Run public SDK contract tests
+        run: uv run --group dev pytest tests -q
       - name: Run SDK pytest suite
         if: steps.sdk_tests.outputs.available == 'true'
         env:

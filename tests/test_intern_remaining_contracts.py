@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from synth_ai.sdk.research.contracts.factory_operations import FactoryWakeDueRequest
 from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncRuntime,
@@ -30,7 +33,7 @@ def test_sync_projection_accepts_integrated_backend_fields() -> None:
             "execution_mode": "standard",
             "execution_profile_id": "intern_sync",
             "visuals": [],
-            "kit_state_receipts": [],
+            "workspace_run_receipts": [],
             "experiments": [],
             "harness_bundle_available": True,
             "created_at": now,
@@ -40,6 +43,9 @@ def test_sync_projection_accepts_integrated_backend_fields() -> None:
     )
     assert session.outcome is InternRuntimeOutcome.STOPPED
     assert session.harness_bundle_available is True
+    assert session.workspace_run_receipts == ()
+    with pytest.raises(ValidationError, match="kit_state_receipts"):
+        InternSyncSession.from_wire({**session.to_wire(), "kit_state_receipts": []})
 
 
 def test_factory_wake_effort_scope_round_trips_in_signed_contract() -> None:

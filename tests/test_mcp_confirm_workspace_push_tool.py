@@ -96,12 +96,13 @@ def test_input_schema_requires_full_identity(factory: _StubClientFactory) -> Non
     assert schema["additionalProperties"] is False
 
 
-def test_description_notes_sync_session_kit_association(
+def test_description_names_backend_owned_workspace_confirmation_receipt(
     factory: _StubClientFactory,
 ) -> None:
     description = _tool(factory).description
-    assert "kit-association receipt" in description
-    assert "Sync session" in description
+    assert "WorkspacePushConfirmationReceipt" in description
+    assert "project authority" in description
+    assert "already-pushed" in description
 
 
 def test_handler_requires_every_argument(factory: _StubClientFactory) -> None:
