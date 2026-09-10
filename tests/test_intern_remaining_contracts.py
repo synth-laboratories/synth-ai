@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
-
 from synth_ai.sdk.research.contracts.factory_operations import FactoryWakeDueRequest
 from synth_ai.sdk.research.contracts.research_intern import (
     InternAsyncRuntime,
