@@ -332,6 +332,79 @@
         "title": "ActorRuntimeImageReleaseResponse",
         "type": "object"
       },
+      "AgentConfigV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_role": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Role",
+            "type": "string"
+          },
+          "harness": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Harness",
+            "type": "string"
+          },
+          "harness_command": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Harness Command"
+          },
+          "model": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "reasoning_effort": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reasoning Effort",
+            "type": "string"
+          },
+          "segment_role": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Role"
+          },
+          "workspace_root": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Root"
+          }
+        },
+        "required": [
+          "agent_role",
+          "harness",
+          "model",
+          "reasoning_effort"
+        ],
+        "title": "AgentConfigV1",
+        "type": "object"
+      },
       "AsyncBlockerResponse": {
         "additionalProperties": false,
         "properties": {
@@ -662,6 +735,98 @@
           "status"
         ],
         "title": "AsyncEffortWorkSummary",
+        "type": "object"
+      },
+      "AsyncHandoffModelRequestV1": {
+        "additionalProperties": false,
+        "description": "Product verb: change Async model/effort via spine handoff (no MT id).",
+        "properties": {
+          "agent_config": {
+            "$ref": "#/components/schemas/AgentConfigV1"
+          },
+          "command_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Command Id",
+            "type": "string"
+          },
+          "evidence_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProducedResourceReferenceV1"
+            },
+            "maxItems": 128,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "expected_generation": {
+            "minimum": 0.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "require_review": {
+            "default": false,
+            "title": "Require Review",
+            "type": "boolean"
+          },
+          "summary": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_id",
+          "idempotency_key",
+          "expected_generation",
+          "summary",
+          "agent_config"
+        ],
+        "title": "AsyncHandoffModelRequestV1",
+        "type": "object"
+      },
+      "AsyncHandoffReviewRequestV1": {
+        "additionalProperties": false,
+        "description": "Attended seal: park a model/effort switch at needs_review (no MT id).",
+        "properties": {
+          "agent_config": {
+            "$ref": "#/components/schemas/AgentConfigV1"
+          },
+          "evidence_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProducedResourceReferenceV1"
+            },
+            "maxItems": 128,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "summary",
+          "agent_config"
+        ],
+        "title": "AsyncHandoffReviewRequestV1",
         "type": "object"
       },
       "AsyncInstructionCommandRequest": {
@@ -2944,6 +3109,256 @@
         "title": "CraftaxVisualArtifact",
         "type": "object"
       },
+      "CrossMetaThreadMessageCreateRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "destination_meta_thread_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Destination Meta Thread Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CrossMetaThreadMessageKind"
+          },
+          "linked_message_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Message Id"
+          },
+          "message_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CrossMetaThreadMessageResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "default": "smr.cross-meta-thread-message-create.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "segment_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Id"
+          },
+          "source_meta_thread_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Source Meta Thread Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "sync_session_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Session Id"
+          }
+        },
+        "required": [
+          "message_id",
+          "source_meta_thread_id",
+          "destination_meta_thread_id",
+          "kind",
+          "idempotency_key"
+        ],
+        "title": "CrossMetaThreadMessageCreateRequestV1",
+        "type": "object"
+      },
+      "CrossMetaThreadMessageKind": {
+        "enum": [
+          "request_decision",
+          "open_branch_ack",
+          "decision_resolved",
+          "steer",
+          "note"
+        ],
+        "title": "CrossMetaThreadMessageKind",
+        "type": "string"
+      },
+      "CrossMetaThreadMessageResolution": {
+        "enum": [
+          "completed",
+          "denied",
+          "superseded"
+        ],
+        "title": "CrossMetaThreadMessageResolution",
+        "type": "string"
+      },
+      "CrossMetaThreadMessageResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "destination_kind": {
+            "$ref": "#/components/schemas/MetaThreadKind"
+          },
+          "destination_meta_thread_id": {
+            "title": "Destination Meta Thread Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CrossMetaThreadMessageKind"
+          },
+          "linked_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Message Id"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CrossMetaThreadMessageResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "default": "smr.cross-meta-thread-message.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "segment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Id"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/MetaThreadKind"
+          },
+          "source_meta_thread_id": {
+            "title": "Source Meta Thread Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "sync_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Session Id"
+          }
+        },
+        "required": [
+          "message_id",
+          "organization_id",
+          "research_intern_id",
+          "source_meta_thread_id",
+          "source_kind",
+          "destination_meta_thread_id",
+          "destination_kind",
+          "kind",
+          "idempotency_key",
+          "created_at"
+        ],
+        "title": "CrossMetaThreadMessageResponseV1",
+        "type": "object"
+      },
       "DataBindingCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4017,6 +4432,7 @@
           "managed_research",
           "managed_research_private_alpha",
           "smr_spend",
+          "workshop_spend",
           "smr_credit_wallet",
           "smr_active_projects",
           "smr_open_ended_discovery",
@@ -9428,6 +9844,367 @@
         "title": "MagiMode",
         "type": "string"
       },
+      "MetaHandoffContinueRequestV1": {
+        "additionalProperties": false,
+        "description": "Attended continue after approve \u2014 optional child AgentConfig override.",
+        "properties": {
+          "child_agent_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentConfigV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "title": "MetaHandoffContinueRequestV1",
+        "type": "object"
+      },
+      "MetaHandoffResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentConfigV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "child_agent_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentConfigV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "continued_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Continued At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "destination_segment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination Segment Id"
+          },
+          "evidence_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProducedResourceReferenceV1"
+            },
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "handoff_id": {
+            "title": "Handoff Id",
+            "type": "string"
+          },
+          "merged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged At"
+          },
+          "meta_thread_id": {
+            "title": "Meta Thread Id",
+            "type": "string"
+          },
+          "parent_agent_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentConfigV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "default": "smr.meta-handoff.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sealed_at": {
+            "format": "date-time",
+            "title": "Sealed At",
+            "type": "string"
+          },
+          "source_segment_id": {
+            "title": "Source Segment Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MetaHandoffStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "handoff_id",
+          "meta_thread_id",
+          "source_segment_id",
+          "summary",
+          "status",
+          "created_at",
+          "sealed_at"
+        ],
+        "title": "MetaHandoffResponseV1",
+        "type": "object"
+      },
+      "MetaHandoffStatus": {
+        "description": "Handoff lifecycle. Sync close uses MERGED; Async spine uses CONTINUED.",
+        "enum": [
+          "needs_review",
+          "approved",
+          "continued",
+          "rejected",
+          "superseded",
+          "merged"
+        ],
+        "title": "MetaHandoffStatus",
+        "type": "string"
+      },
+      "MetaThreadKind": {
+        "enum": [
+          "sync",
+          "async"
+        ],
+        "title": "MetaThreadKind",
+        "type": "string"
+      },
+      "MetaThreadLifecycle": {
+        "enum": [
+          "active",
+          "archived"
+        ],
+        "title": "MetaThreadLifecycle",
+        "type": "string"
+      },
+      "MetaThreadResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "head_segment_id": {
+            "title": "Head Segment Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MetaThreadKind"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/MetaThreadLifecycle"
+          },
+          "meta_thread_id": {
+            "title": "Meta Thread Id",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "smr.meta-thread.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meta_thread_id",
+          "organization_id",
+          "research_intern_id",
+          "kind",
+          "lifecycle",
+          "head_segment_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MetaThreadResponseV1",
+        "type": "object"
+      },
+      "MetaThreadSegmentResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentConfigV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handoff_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handoff Id"
+          },
+          "is_head": {
+            "default": false,
+            "title": "Is Head",
+            "type": "boolean"
+          },
+          "lane_runtime_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Runtime Id"
+          },
+          "linked_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Message Id"
+          },
+          "meta_thread_id": {
+            "title": "Meta Thread Id",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "parent_segment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Segment Id"
+          },
+          "schema_version": {
+            "default": "smr.meta-thread-segment.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sealed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sealed At"
+          },
+          "segment_id": {
+            "title": "Segment Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MetaThreadSegmentStatus"
+          }
+        },
+        "required": [
+          "segment_id",
+          "meta_thread_id",
+          "status",
+          "opened_at"
+        ],
+        "title": "MetaThreadSegmentResponseV1",
+        "type": "object"
+      },
+      "MetaThreadSegmentStatus": {
+        "enum": [
+          "live",
+          "sealed"
+        ],
+        "title": "MetaThreadSegmentStatus",
+        "type": "string"
+      },
       "NotebookEconomics": {
         "additionalProperties": false,
         "properties": {
@@ -13619,7 +14396,7 @@
           "limit": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/UsageLimit"
+                "$ref": "#/components/schemas/UsageLimit-Input"
               },
               {
                 "type": "null"
@@ -14250,6 +15027,8 @@
           "deepseek/deepseek-chat",
           "deepseek/deepseek-reasoner",
           "poolside/laguna-s-2.1",
+          "openrouter/poolside/laguna-s-2.1",
+          "meta/muse-spark-1.2",
           "synth_internal/laguna-s-2.1-nvfp4"
         ],
         "title": "SmrAgentModel",
@@ -22920,7 +23699,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -23173,7 +23952,7 @@
           "limit": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/UsageLimit"
+                "$ref": "#/components/schemas/UsageLimit-Input"
               },
               {
                 "type": "null"
@@ -36027,7 +36806,7 @@
         "title": "TranscriptReplayMode",
         "type": "string"
       },
-      "UsageLimit": {
+      "UsageLimit-Input": {
         "additionalProperties": false,
         "properties": {
           "max_concurrent_actors": {
@@ -44668,6 +45447,258 @@
         ]
       }
     },
+    "/smr/research-intern/async/handoff-model": {
+      "post": {
+        "description": "Product verb: change Async model/effort via spine handoff (no MT id).\n\nSee: ``notes/plans/smr/intern_metaharness_control_plane.md``.",
+        "operationId": "handoff_intern_async_model",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsyncHandoffModelRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternRuntimeCommandReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Handoff Intern Async Model",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/handoffs": {
+      "get": {
+        "description": "List Async spine handoffs for the org singleton (no MT id).",
+        "operationId": "list_intern_async_handoffs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetaHandoffResponseV1"
+                  },
+                  "title": "Response List Intern Async Handoffs Smr Research Intern Async Handoffs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Intern Async Handoffs",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/handoffs/review": {
+      "post": {
+        "description": "Attended product verb: seal Async model switch at needs_review (no MT id).",
+        "operationId": "seal_intern_async_handoff_for_review",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsyncHandoffReviewRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaHandoffResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Seal Intern Async Handoff For Review",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/handoffs/{handoff_id}/approve": {
+      "post": {
+        "operationId": "approve_intern_async_handoff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handoff_id",
+            "required": true,
+            "schema": {
+              "title": "Handoff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaHandoffResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Intern Async Handoff",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/handoffs/{handoff_id}/continue": {
+      "post": {
+        "operationId": "continue_intern_async_handoff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handoff_id",
+            "required": true,
+            "schema": {
+              "title": "Handoff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetaHandoffContinueRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaHandoffResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Continue Intern Async Handoff",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/handoffs/{handoff_id}/reject": {
+      "post": {
+        "operationId": "reject_intern_async_handoff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handoff_id",
+            "required": true,
+            "schema": {
+              "title": "Handoff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaHandoffResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Intern Async Handoff",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/async/messages": {
       "post": {
         "description": "Typed instruction alias over the singleton PostgreSQL command inbox.",
@@ -45939,6 +46970,270 @@
           }
         },
         "summary": "Get Intern Memory Hit",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/meta-threads": {
+      "get": {
+        "operationId": "list_intern_meta_threads",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetaThreadResponseV1"
+                  },
+                  "title": "Response List Intern Meta Threads Smr Research Intern Meta Threads Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Intern Meta Threads",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/meta-threads/messages": {
+      "post": {
+        "operationId": "create_intern_meta_thread_message",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrossMetaThreadMessageCreateRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossMetaThreadMessageResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Intern Meta Thread Message",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/meta-threads/{meta_thread_id}": {
+      "get": {
+        "operationId": "get_intern_meta_thread",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meta_thread_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaThreadResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Meta Thread",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/meta-threads/{meta_thread_id}/handoffs": {
+      "get": {
+        "operationId": "list_intern_meta_thread_handoffs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meta_thread_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetaHandoffResponseV1"
+                  },
+                  "title": "Response List Intern Meta Thread Handoffs Smr Research Intern Meta Threads  Meta Thread Id  Handoffs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Intern Meta Thread Handoffs",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/meta-threads/{meta_thread_id}/messages": {
+      "get": {
+        "operationId": "list_intern_meta_thread_messages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meta_thread_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CrossMetaThreadMessageResponseV1"
+                  },
+                  "title": "Response List Intern Meta Thread Messages Smr Research Intern Meta Threads  Meta Thread Id  Messages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Intern Meta Thread Messages",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/meta-threads/{meta_thread_id}/segments": {
+      "get": {
+        "operationId": "list_intern_meta_thread_segments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "meta_thread_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetaThreadSegmentResponseV1"
+                  },
+                  "title": "Response List Intern Meta Thread Segments Smr Research Intern Meta Threads  Meta Thread Id  Segments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Intern Meta Thread Segments",
         "tags": [
           "smr",
           "research-intern"
