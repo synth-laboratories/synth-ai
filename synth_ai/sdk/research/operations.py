@@ -23,6 +23,320 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
+            "create_intern_acceptance_fixture",
+            HttpMethod.POST,
+            "/smr/research-intern/fixtures",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_acceptance_fixture",
+            HttpMethod.GET,
+            "/smr/research-intern/fixtures/{fixture_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "teardown_intern_acceptance_fixture",
+            HttpMethod.POST,
+            "/smr/research-intern/fixtures/{fixture_id}:teardown",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "append_objective_answer_revision",
+            HttpMethod.POST,
+            "/smr/objectives/{objective_id}/answers/{answer_id}/revisions",
+            mutation=True,
+        ),
+        _operation(
+            "append_research_claim_revision",
+            HttpMethod.POST,
+            "/smr/objectives/{objective_id}/claims/{claim_id}/revisions",
+            mutation=True,
+        ),
+        _operation(
+            "archive_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}:archive",
+            mutation=True,
+        ),
+        _operation(
+            "command_intern_async_assignment",
+            HttpMethod.POST,
+            "/smr/research-intern/async-assignments/{assignment_id}/commands",
+            mutation=True,
+        ),
+        _operation(
+            "compare_owned_experiments",
+            HttpMethod.GET,
+            "/smr/experiments/compare",
+            idempotent=True,
+        ),
+        _operation(
+            "create_intern_async_assignment",
+            HttpMethod.POST,
+            "/smr/research-intern/async-assignments",
+            mutation=True,
+        ),
+        _operation(
+            "create_objective_answer",
+            HttpMethod.POST,
+            "/smr/objectives/{objective_id}/answers",
+            mutation=True,
+        ),
+        _operation(
+            "create_research_claim",
+            HttpMethod.POST,
+            "/smr/objectives/{objective_id}/claims",
+            mutation=True,
+        ),
+        _operation(
+            "create_research_claim_edge",
+            HttpMethod.POST,
+            "/smr/objectives/{objective_id}/claim-edges",
+            mutation=True,
+        ),
+        _operation(
+            "create_visual",
+            HttpMethod.POST,
+            "/smr/visuals",
+            mutation=True,
+        ),
+        _operation(
+            "create_visual_release",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/releases",
+            mutation=True,
+        ),
+        _operation(
+            "create_visual_revision",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/revisions",
+            mutation=True,
+        ),
+        _operation(
+            "decide_intern_runtime_mcp_action_approval",
+            HttpMethod.POST,
+            "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions/{action_id}/approval",
+            mutation=True,
+        ),
+        _operation(
+            "derive_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}:derive",
+            mutation=True,
+        ),
+        _operation(
+            "diff_visual_revision",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/revisions/{revision}/diff",
+            idempotent=True,
+        ),
+        _operation(
+            "ensure_intern_async_runtime_alias",
+            HttpMethod.POST,
+            "/smr/research-intern/async/ensure",
+            mutation=True,
+        ),
+        _operation(
+            "export_visual_revision",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/revisions/{revision}:export",
+            mutation=True,
+        ),
+        _operation(
+            "extend_project_run_resource_limit",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/runs/{run_id}/resource-limit-extensions",
+            mutation=True,
+        ),
+        _operation(
+            "extend_run_resource_limit",
+            HttpMethod.POST,
+            "/smr/runs/{run_id}/resource-limit-extensions",
+            mutation=True,
+        ),
+        _operation(
+            "finalize_visual_revision",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/revisions/{revision}:finalize",
+            mutation=True,
+        ),
+        _operation(
+            "freeze_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}:freeze",
+            mutation=True,
+        ),
+        _operation(
+            "get_effort_deo_frontier",
+            HttpMethod.GET,
+            "/smr/efforts/{effort_id}/frontier",
+            idempotent=True,
+        ),
+        _operation(
+            "get_factory_runtime_policy",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/runtime-policy",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_async_assignment",
+            HttpMethod.GET,
+            "/smr/research-intern/async-assignments/{assignment_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "get_project_experiment_dag",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/experiments/dag",
+            idempotent=True,
+        ),
+        _operation(
+            "get_public_magi_decision",
+            HttpMethod.GET,
+            "/smr/research-intern/decision-receipts/{digest_hex}",
+            idempotent=True,
+        ),
+        _operation(
+            "instruct_intern_craftax_campaign",
+            HttpMethod.POST,
+            "/smr/research-intern/async/craftax-campaigns/instructions",
+            mutation=True,
+        ),
+        _operation(
+            "list_factory_runtime_policy_history",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/runtime-policy/history",
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_async_assignments",
+            HttpMethod.GET,
+            "/smr/research-intern/async-assignments",
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_runtime_mcp_actions",
+            HttpMethod.GET,
+            "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions",
+            idempotent=True,
+        ),
+        _operation(
+            "list_objective_answer_revisions",
+            HttpMethod.GET,
+            "/smr/objectives/{objective_id}/answers/{answer_id}/revisions",
+            idempotent=True,
+        ),
+        _operation(
+            "list_objective_answers",
+            HttpMethod.GET,
+            "/smr/objectives/{objective_id}/answers",
+            idempotent=True,
+        ),
+        _operation(
+            "list_project_run_limit_evidence",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/runs/{run_id}/limit-evidence",
+            idempotent=True,
+        ),
+        _operation(
+            "list_research_claim_revisions",
+            HttpMethod.GET,
+            "/smr/objectives/{objective_id}/claims/{claim_id}/revisions",
+            idempotent=True,
+        ),
+        _operation(
+            "list_research_claims",
+            HttpMethod.GET,
+            "/smr/objectives/{objective_id}/claims",
+            idempotent=True,
+        ),
+        _operation(
+            "list_run_limit_evidence",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/limit-evidence",
+            idempotent=True,
+        ),
+        _operation(
+            "message_intern_async_runtime",
+            HttpMethod.POST,
+            "/smr/research-intern/async/messages",
+            mutation=True,
+        ),
+        _operation(
+            "patch_factory_runtime_policy",
+            HttpMethod.PATCH,
+            "/smr/factories/{factory_id}/runtime-policy",
+            mutation=True,
+        ),
+        _operation(
+            "publish_intern_craftax_evidence",
+            HttpMethod.POST,
+            "/smr/research-intern/async/craftax-campaigns/evidence",
+            mutation=True,
+        ),
+        _operation(
+            "replace_factory_runtime_policy",
+            HttpMethod.PUT,
+            "/smr/factories/{factory_id}/runtime-policy",
+            mutation=True,
+        ),
+        _operation(
+            "retrieve_effort_notebook",
+            HttpMethod.GET,
+            "/smr/efforts/{effort_id}/notebook",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_factory_notebook",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/notebook",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_oeq_resolution",
+            HttpMethod.GET,
+            "/smr/objectives/{objective_id}/oeq-resolution",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_swarm_notebook",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/swarm-notebook",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual_revision",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/revisions/{revision}",
+            idempotent=True,
+        ),
+        _operation(
+            "review_objective_answer",
+            HttpMethod.POST,
+            "/smr/objectives/{objective_id}/reviews",
+            mutation=True,
+        ),
+        _operation(
+            "revoke_visual_release",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/releases/{release_id}:revoke",
+            mutation=True,
+        ),
+        _operation(
+            "standup_factory",
+            HttpMethod.POST,
+            "/smr/factories/standup",
+            mutation=True,
+        ),
+        _operation(
+            "submit_factory_runtime_command",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/commands/{command}",
+            mutation=True,
+        ),
+        _operation(
             "archive_factory", HttpMethod.POST, "/smr/factories/{factory_id}/archive", mutation=True
         ),
         _operation(
@@ -391,14 +705,14 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
-            "append_research_intern_event",
+            "append_research_intern_session_event",
             HttpMethod.POST,
             "/smr/research-intern/sessions/{session_id}/events",
             mutation=True,
             idempotent=True,
         ),
         _operation(
-            "list_research_intern_events",
+            "list_research_intern_session_events",
             HttpMethod.GET,
             "/smr/research-intern/sessions/{session_id}/events",
             idempotent=True,
@@ -444,7 +758,7 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
-            "get_research_intern_acceptance_receipt",
+            "get_public_research_intern_acceptance_receipt",
             HttpMethod.GET,
             "/smr/research-intern/acceptance-receipts/{digest_hex}",
             idempotent=True,
@@ -616,6 +930,13 @@ RESEARCH_OPERATIONS = {
             HttpMethod.POST,
             "/smr/factories/{factory_id}/trace-store:provision",
             mutation=True,
+        ),
+        _operation(
+            "preflight_factory_trace_store",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:preflight",
+            mutation=True,
+            idempotent=True,
         ),
         _operation(
             "rotate_factory_trace_store_credential",
@@ -1123,9 +1444,19 @@ DATASET_REVISION_PUBLICATION_OPERATIONS = {
 }
 
 
+# COMPAT: old SDK method names resolve to backend-authored canonical IDs.
+# Remove these aliases only after the legacy public clients are retired.
+RESEARCH_OPERATION_ALIASES = {
+    "append_research_intern_event": "append_research_intern_session_event",
+    "list_research_intern_events": "list_research_intern_session_events",
+    "get_research_intern_acceptance_receipt": "get_public_research_intern_acceptance_receipt",
+}
+
+
 def research_operation(operation_id: str) -> OperationMetadata:
     try:
-        return RESEARCH_OPERATIONS[OperationId(operation_id)]
+        canonical_id = RESEARCH_OPERATION_ALIASES.get(operation_id, operation_id)
+        return RESEARCH_OPERATIONS[OperationId(canonical_id)]
     except KeyError as error:
         raise ValueError(f"unknown Research operation_id {operation_id!r}") from error
 

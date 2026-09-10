@@ -145,6 +145,9 @@ from synth_ai.sdk.research.contracts import (
     ImageReleaseUploadResponse,
     ImageUploadId,
     InferenceProvider,
+    InternAcceptanceFixtureReceipt,
+    InternAcceptanceFixtureRequest,
+    InternAcceptanceFixtureResource,
     InternAgentConfig,
     InternAsyncBlocker,
     InternAsyncCheckpoint,
@@ -390,8 +393,11 @@ from synth_ai.sdk.research.contracts import (
     TraceStoreAccessReceipt,
     TraceStoreDescriptor,
     TraceStoreLifecycleReceipt,
+    TraceStorePreflightRequest,
+    TraceStorePreflightResponse,
     TraceStoreProvisioningStatus,
     TraceStoreProvisionResult,
+    TraceStoreRunEnvelopeIdentity,
     TranscriptCursor,
     TranscriptCursorKind,
     TranscriptEventId,
@@ -488,6 +494,7 @@ from synth_ai.sdk.research.project_workspaces import WorkspaceBatchUploadError
 from synth_ai.sdk.research.research_intern import (
     AsyncProjectComputerAPI,
     AsyncProjectDataBindingsAPI,
+    AsyncResearchInternAcceptanceFixturesAPI,
     AsyncResearchInternAcceptanceReceiptsAPI,
     AsyncResearchInternAPI,
     AsyncResearchInternAsyncRuntimeAPI,
@@ -500,6 +507,7 @@ from synth_ai.sdk.research.research_intern import (
     LegacyInternSessionsDisabledError,
     ProjectComputerAPI,
     ProjectDataBindingsAPI,
+    ResearchInternAcceptanceFixturesAPI,
     ResearchInternAcceptanceReceiptsAPI,
     ResearchInternAPI,
     ResearchInternAsyncRuntimeAPI,
@@ -517,12 +525,25 @@ from synth_ai.sdk.research.research_intern import (
     ResearchInternSyncRuntimeAPI,
     ResearchInternTurnFailedError,
 )
+from synth_ai.sdk.research.surface_parity import (
+    CanonicalIdentity,
+    SurfaceObservation,
+    async_runtime_digest,
+    build_surface_parity,
+    canonical_digest,
+    emit_surface_parity_json,
+    sync_projection_digest,
+)
 from synth_ai.sdk.research.swarms import SwarmHandle
 from synth_ai.sdk.research.traces import FactoryTraceStoreAPI, ResearchTracesAPI
 from synth_ai.sdk.research.visuals import AsyncVisualsAPI, VisualsAPI
 
 __all__ = [
     "ActiveActorModel",
+    "AsyncResearchInternAcceptanceFixturesAPI",
+    "InternAcceptanceFixtureReceipt",
+    "InternAcceptanceFixtureRequest",
+    "InternAcceptanceFixtureResource",
     "ActivityActor",
     "ActivityActorState",
     "ActivityCursor",
@@ -832,6 +853,7 @@ __all__ = [
     "RegistryActorRuntimeImageRegistrationRequest",
     "ResearchInternAcceptanceReceiptPublicationRequest",
     "ResearchInternAcceptanceReceiptPublicationResponse",
+    "ResearchInternAcceptanceFixturesAPI",
     "ResearchInternAcceptanceReceiptsAPI",
     "ResearchInternAPI",
     "ResearchInternAsyncRuntimeAPI",
@@ -945,6 +967,9 @@ __all__ = [
     "TraceStoreLifecycleReceipt",
     "TraceStoreProvisioningStatus",
     "TraceStoreProvisionResult",
+    "TraceStorePreflightRequest",
+    "TraceStorePreflightResponse",
+    "TraceStoreRunEnvelopeIdentity",
     "TranscriptCursor",
     "TranscriptCursorKind",
     "TranscriptEventId",
@@ -1005,6 +1030,15 @@ __all__ = [
     "WorkspaceSourceRepositoryReceipt",
     "WorkspaceSourceRepositorySpec",
     "WorkspaceStoredFile",
+    # Surface-parity evidence helpers (Gate-2 WS3): one canonical digest and
+    # one surfaces-object emitter shared by API/SDK/MCP parity checks.
+    "CanonicalIdentity",
+    "SurfaceObservation",
+    "async_runtime_digest",
+    "build_surface_parity",
+    "canonical_digest",
+    "emit_surface_parity_json",
+    "sync_projection_digest",
 ]
 
 _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {

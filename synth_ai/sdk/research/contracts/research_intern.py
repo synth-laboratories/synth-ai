@@ -536,6 +536,17 @@ class InternSyncCommandReceipt(_StrictContract):
     state_generation: int = Field(ge=0)
     decision_code: str
     created_at: datetime
+    # Durable actuation receipt (schema smr.intern-command-actuation.v1),
+    # present once the command reached a final decision. Kept opaque
+    # (WS3 per-field decision: supported_opaque) because the backend mints it,
+    # types it as an open JSON object in its own contract, and stamps a
+    # result_digest over its canonical content; re-modeling it here would put
+    # a second schema authority under that digest. Absent on older backends.
+    actuation: dict[str, Any] | None = None
+    # True when this response replays an already-admitted command (idempotent
+    # retry); the stored receipt/actuation is immutable. Older backends omit
+    # the field, which means first application.
+    duplicate: bool = False
 
 
 class InternSyncEvent(_StrictContract):
@@ -926,6 +937,14 @@ class InternAsyncCommandReceipt(_StrictContract):
     state_generation: int = Field(ge=0)
     decision_code: str
     created_at: datetime
+    # Same durable actuation receipt as InternSyncCommandReceipt.actuation:
+    # backend-minted smr.intern-command-actuation.v1, kept opaque
+    # (supported_opaque) because the backend is the schema and digest
+    # authority for it. Absent on older backends.
+    actuation: dict[str, Any] | None = None
+    # True when this response replays an already-admitted command (idempotent
+    # retry). Older backends omit the field, which means first application.
+    duplicate: bool = False
 
 
 class InternAsyncEvent(_StrictContract):
@@ -952,6 +971,51 @@ class InternAsyncEventPage(_StrictContract):
 
     events: tuple[InternAsyncEvent, ...]
     next_sequence: int = Field(ge=0)
+
+
+class InternAcceptanceFixtureRequest(_StrictContract):
+    """Bootstrap one disposable Factory/Project/Effort/Run acceptance fixture.
+
+    No tribal ids: the backend provisions the whole chain from the named task
+    template and binds the organization Intern to it. Idempotent within one
+    test attempt via ``idempotency_key``.
+    """
+
+    idempotency_key: str = Field(min_length=1, max_length=180)
+    task_template: str = Field(default="acceptance_default", min_length=1, max_length=128)
+    # A fixture Run is an inert, pre-terminalized row that satisfies binding
+    # validation without dispatching compute. Disable for chain-only fixtures.
+    include_run: bool = True
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class InternAcceptanceFixtureResource(_StrictContract):
+    resource_kind: str
+    resource_id: str | None = None
+    status: str
+    error_code: str | None = None
+
+
+class InternAcceptanceFixtureReceipt(_StrictContract):
+    """Durable, validator-readable evidence for one acceptance fixture."""
+
+    schema_version: Literal["smr.intern-acceptance-fixture.v1"]
+    fixture_id: str
+    org_id: str
+    research_intern_id: str
+    task_template: str
+    status: Literal["ready", "torn_down"]
+    binding: InternRuntimeBinding
+    resources: tuple[InternAcceptanceFixtureResource, ...] = ()
+    # Backend factory_binding_readiness report; opaque because the backend is
+    # the readiness authority and its report shape is advisory evidence.
+    factory_readiness: dict[str, Any] = Field(default_factory=dict)
+    replayed: bool = False
+    created_at: datetime
+    torn_down_at: datetime | None = None
+    # Evidence stays readable until this instant; teardown never destroys it
+    # before the validation window ends.
+    retention_expires_at: datetime | None = None
 
 
 class ResearchInternFactoryMembershipResponse(_StrictContract):
@@ -1558,6 +1622,9 @@ __all__ = [
     "DatasetRevisionCreateRequest",
     "DatasetRevisionLifecycleRequest",
     "DatasetRevisionResponse",
+    "InternAcceptanceFixtureReceipt",
+    "InternAcceptanceFixtureRequest",
+    "InternAcceptanceFixtureResource",
     "InternAsyncBlocker",
     "InternAsyncCheckpoint",
     "InternAsyncCommandKind",

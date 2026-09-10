@@ -317,6 +317,70 @@ class ResearchStructuredDenialError(ResearchApiError):
         self.detail = dict(detail) if detail else {}
 
 
+class ResearchNotFoundError(ResearchStructuredDenialError):
+    """Raised when the backend reports a typed ``*_not_found`` condition (HTTP 404).
+
+    The backend scopes every Research Intern lookup to the organization bound
+    to the caller's API key, so a 404 only proves the resource is absent *for
+    that organization* -- it never proves global absence. Release evidence must
+    be able to distinguish a genuine miss from a wrong-organization lookup, so
+    this error preserves the backend's typed condition instead of collapsing it
+    into an opaque denial:
+
+    - ``backend_error_code``: the exact backend condition, for example
+      ``intern_async_runtime_not_found``, ``intern_sync_session_not_found``,
+      or a retention condition such as
+      ``intern_async_runtime_retention_expired`` /
+      ``intern_acceptance_fixture_retention_expired`` (the resource existed;
+      its read-only retention window ended). (Named to avoid shadowing the
+      read-only ``SynthError.error_code`` transport-failure property.)
+    - ``resource``: the resource segment of the condition (``async_runtime``,
+      ``sync_session``, ``acceptance_fixture``, ...), or ``None`` when the
+      code has neither the ``intern_*_not_found`` nor the
+      ``intern_*_retention_expired`` shape.
+    - ``scope_identifier``: the lookup key the backend echoed back (the
+      organization id for org-singleton lookups such as the Async Intern, the
+      resource id otherwise), when the backend provided one.
+
+    Evidence that records ``backend_error_code`` + ``scope_identifier`` next to
+    the caller's organization binding can attribute the miss: a not-found under
+    the expected organization is a true absence for that organization, while a
+    mismatch between the expected resource's organization and the caller's
+    binding identifies a wrong-organization lookup.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        response_text: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            detail=detail,
+        )
+        code = self.detail.get("error_code")
+        self.backend_error_code: str = code.strip() if isinstance(code, str) else ""
+        resource: str | None = None
+        if self.backend_error_code.startswith("intern_"):
+            for suffix in ("_not_found", "_retention_expired"):
+                if self.backend_error_code.endswith(suffix):
+                    resource = self.backend_error_code.removeprefix("intern_").removesuffix(suffix)
+                    break
+        self.resource: str | None = resource
+        scope: str | None = None
+        for key in ("runtime_id", "resource_id", "fixture_id", "async_runtime_id", "org_id"):
+            value = self.detail.get(key)
+            if isinstance(value, str) and value.strip():
+                scope = value.strip()
+                break
+        self.scope_identifier: str | None = scope
+
+
 class ResearchLimitExtensionError(ResearchApiError):
     """Base class for durable run-limit extension refusals."""
 
@@ -569,6 +633,7 @@ __all__ = [
     "ResearchLimitExtensionIdempotencyConflictError",
     "ResearchLimitRevisionConflictError",
     "ResearchManagedInferenceUnavailableError",
+    "ResearchNotFoundError",
     "ResearchOperationError",
     "ResearchProjectMonthlyBudgetExhaustedError",
     "ResearchStructuredDenialError",

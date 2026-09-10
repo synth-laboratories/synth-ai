@@ -42,7 +42,7 @@ docs-dev:
 # SDK gates and pytest suite live in ../testing (see testing/backend/unit/synth_ai_sdk/README.md).
 test test-unit:
 	@if [ -d $(TESTING)/backend/unit/synth_ai_sdk ]; then \
-		cd $(TESTING) && export SYNTH_AI_DIR=$(CURDIR) && \
+		cd $(TESTING) && export SYNTH_AI_DIR=$(CURDIR) BACKEND_DIR=$(BACKEND) && \
 		uv run python scripts/check_sdk_layering.py && \
 		uv run python scripts/check_sdk_architecture.py && \
 		uv run python scripts/check_no_rust_sdk.py && \

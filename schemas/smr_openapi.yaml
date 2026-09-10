@@ -10147,6 +10147,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/fixtures:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Research Intern Acceptance Fixture
+      description: 'Provision a disposable, ready Factory/Project/Effort/Run fixture.
+
+
+        No tribal ids: one command yields a bound, Factory-ready chain with the
+
+        organization Intern attached, idempotent per idempotency_key within one
+
+        test attempt. The receipt is the durable evidence of what exists.'
+      operationId: create_research_intern_acceptance_fixture_smr_research_intern_fixtures_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternAcceptanceFixtureRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternAcceptanceFixtureReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/fixtures/{fixture_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Research Intern Acceptance Fixture
+      description: Read one fixture receipt (evidence stays readable through retention).
+      operationId: get_research_intern_acceptance_fixture_smr_research_intern_fixtures__fixture_id__get
+      parameters:
+      - name: fixture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Fixture Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternAcceptanceFixtureReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/fixtures/{fixture_id}:teardown:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Teardown Research Intern Acceptance Fixture
+      description: Explicitly tear down a fixture while preserving its evidence window.
+      operationId: teardown_research_intern_acceptance_fixture_smr_research_intern_fixtures__fixture_id__teardown_post
+      parameters:
+      - name: fixture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Fixture Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternAcceptanceFixtureReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/research-intern/async/blockers/{blocker_id}/open-sync:
     post:
       tags:
@@ -12113,6 +12203,699 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Efforts
+      operationId: list_intern_efforts
+      parameters:
+      - name: factory_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternEffortBoardResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts/{effort_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Effort Detail
+      operationId: get_intern_effort_detail
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternEffortDetailResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts/{effort_id}/objectives:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Objectives
+      operationId: list_intern_effort_objectives
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternObjectiveResponse'
+                title: Response List Intern Effort Objectives
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Objective
+      operationId: create_intern_effort_objective
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternObjectiveCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternObjectiveResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/objectives/{objective_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Objective
+      operationId: get_intern_objective
+      parameters:
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      - name: objective_kind
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/InternObjectiveKind'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternObjectiveResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - smr
+      - research-intern
+      summary: Patch Intern Objective
+      operationId: patch_intern_objective
+      parameters:
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternObjectivePatchRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternObjectiveResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts/{effort_id}/milestones:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Milestones
+      operationId: list_intern_effort_milestones
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternMilestoneResponse'
+                title: Response List Intern Effort Milestones
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Milestone
+      operationId: create_intern_effort_milestone
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternMilestoneCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternMilestoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/milestones/{milestone_id}/transition:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Transition Intern Milestone
+      operationId: transition_intern_milestone
+      parameters:
+      - name: milestone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Milestone Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternMilestoneTransitionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternMilestoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts/{effort_id}/tasks:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Effort Tasks
+      operationId: list_intern_effort_tasks
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: milestone_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Milestone Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternEffortTaskResponse'
+                title: Response List Intern Effort Tasks
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Effort Task
+      operationId: create_intern_effort_task
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternEffortTaskCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternEffortTaskResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/tasks/{intern_task_id}:
+    patch:
+      tags:
+      - smr
+      - research-intern
+      summary: Patch Intern Effort Task
+      operationId: patch_intern_effort_task
+      parameters:
+      - name: intern_task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Intern Task Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternEffortTaskPatchRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternEffortTaskResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts/{effort_id}/progress-claims:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Progress Claims
+      operationId: list_intern_effort_progress_claims
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternProgressClaimResponse'
+                title: Response List Intern Effort Progress Claims
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Progress Claim
+      operationId: create_intern_effort_progress_claim
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternProgressClaimCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternProgressClaimResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/efforts/{effort_id}/links:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Intern Objective Links
+      operationId: list_intern_effort_objective_links
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternObjectiveLinkResponse'
+                title: Response List Intern Effort Objective Links
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/objectives/{objective_id}/links:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Intern Objective Link
+      description: 'Reference an SMR artifact from an Intern objective.
+
+
+        A link is a pointer, never a write to the target. SMR keeps sole authority
+
+        over the linked row, and deleting it never cascades into the Intern planner.'
+      operationId: create_intern_objective_link
+      parameters:
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternObjectiveLinkCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternObjectiveLinkResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/memory:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Search Intern Memory
+      description: "Bounded keyword search over this org's Intern memory.\n\nDeliberately\
+        \ a thin binding over ``services/intern/memory_search.py`` \u2014 the\nsame\
+        \ call the ``smr_intern_memory_search`` MCP tool makes. Reimplementing\nretrieval\
+        \ here would let the agent's memory and the operator's memory drift\napart,\
+        \ and the bounds (query length, limit ceiling, allowed kinds) are\nenforced\
+        \ once, in the service, for both callers."
+      operationId: search_intern_memory
+      parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+          maxLength: 256
+          title: Query
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 20
+          title: Limit
+      - name: kinds
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: array
+            items:
+              type: string
+          - type: 'null'
+          title: Kinds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternMemorySearchResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/memory/{hit_id}:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Intern Memory Hit
+      description: 'Fetch one memory hit by the stable ``kind:id`` handle search returned.
+
+
+        An unknown or malformed handle is the service''s typed refusal
+
+        (``intern_memory_get_not_found`` / ``intern_memory_get_hit_id_invalid``),
+
+        not a 500.'
+      operationId: get_intern_memory_hit
+      parameters:
+      - name: hit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Hit Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternMemoryHitResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/factories/{factory_id}/trace-store:
     get:
       tags:
@@ -12194,6 +12977,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TraceStoreCrossFactoryDenialReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:preflight:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Preflight Factory Trace Store
+      description: 'Provision-if-missing and health-check the trace store before launch.
+
+
+        Sealed runners must call this before creating paid/live resources and
+
+        embed ``run_envelope_identity`` in the run envelope, so post-grade trace
+
+        inventory can never 404 on an unprovisioned store.'
+      operationId: preflight_factory_trace_store
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceStorePreflightRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStorePreflightResponse'
         '422':
           description: Validation Error
           content:
@@ -27221,6 +28045,14 @@ paths:
           minimum: 1
           default: 200
           title: Limit
+      - name: after_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Seq
       responses:
         '200':
           description: Successful Response
@@ -27392,6 +28224,8 @@ paths:
       tags:
       - smr
       summary: Acknowledge Project Run Message
+      description: "mark_seen \u2192 client/seq cursor only (no server-side recipient\
+        \ row)."
       operationId: acknowledge_project_run_message_smr_projects__project_id__runs__run_id__manderqueue_acknowledgements_post
       parameters:
       - name: project_id
@@ -28125,6 +28959,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/inference/v1/chat/completions:
+    post:
+      tags:
+      - smr-inference
+      summary: Chat Completions
+      operationId: chat_completions_smr_inference_v1_chat_completions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Chat Completions Smr Inference V1 Chat Completions
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/inference/v1/responses:
+    post:
+      tags:
+      - smr-inference
+      summary: Responses
+      operationId: responses_smr_inference_v1_responses_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Responses Smr Inference V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/inference/v1/models:
+    get:
+      tags:
+      - smr-inference
+      summary: Models
+      operationId: models_smr_inference_v1_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Models Smr Inference V1 Models Get
+  /smr/inference/v1/limits:
+    get:
+      tags:
+      - smr-inference
+      summary: Limits
+      operationId: limits_smr_inference_v1_limits_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Limits Smr Inference V1 Limits Get
   /smr/free-beta/apply:
     post:
       tags:
@@ -35352,6 +36271,14 @@ paths:
           minimum: 1
           default: 200
           title: Limit
+      - name: after_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Seq
       responses:
         '200':
           description: Successful Response
@@ -35522,6 +36449,8 @@ paths:
       - smr
       - swarm-alias
       summary: Acknowledge Project Run Message
+      description: "mark_seen \u2192 client/seq cursor only (no server-side recipient\
+        \ row)."
       operationId: acknowledge_project_run_message_post_swarm_alias
       parameters:
       - name: project_id
@@ -36165,6 +37094,33 @@ paths:
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/delivery:
+    post:
+      tags:
+      - manderqueue-bridge
+      summary: Mq Worker Delivery
+      operationId: mq_worker_delivery_v1_delivery_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MqDeliveryEnvelope'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Mq Worker Delivery V1 Delivery Post
         '422':
           description: Validation Error
           content:
@@ -40927,6 +41883,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FlushSSEStreamsResponse'
+  /api/v1/admin/feature-flags/{org_id}/{feature}:
+    get:
+      tags:
+      - admin
+      summary: Get Org Feature Flag
+      operationId: get_org_feature_flag_api_v1_admin_feature_flags__org_id___feature__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Org Id
+      - name: feature
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: ^[a-z0-9][a-z0-9_]*$
+          title: Feature
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - admin
+      summary: Set Org Feature Flag
+      operationId: set_org_feature_flag_api_v1_admin_feature_flags__org_id___feature__put
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Org Id
+      - name: feature
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: ^[a-z0-9][a-z0-9_]*$
+          title: Feature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeatureFlagMutationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/manifest/:
     get:
       tags:
@@ -43429,6 +44466,127 @@ paths:
           content:
             application/json:
               schema: {}
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/inference/v1/chat/completions:
+    post:
+      tags:
+      - container-pools
+      summary: Pool Rollout Chat Completions
+      operationId: pool_rollout_chat_completions_v1_pools__pool_id__rollouts__rollout_id__inference_v1_chat_completions_post
+      parameters:
+      - name: pool_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pool Id
+      - name: rollout_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rollout Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Pool Rollout Chat Completions V1 Pools  Pool Id  Rollouts  Rollout
+                  Id  Inference V1 Chat Completions Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/inference/v1/responses:
+    post:
+      tags:
+      - container-pools
+      summary: Pool Rollout Responses
+      description: 'Responses in, Responses out -- proxied natively, never bridged.
+
+
+        Codex speaks only the Responses wire. Round-tripping it through Chat
+
+        Completions is lossy in a way that is invisible at the HTTP layer: the chat
+
+        wire has no representation for a Responses ``function_call`` item, so an
+
+        agent''s tool calls are dropped, it answers in prose, executes nothing, and
+
+        the rollout scores badly as though the model were weak.
+
+
+        So this proxies to the provider''s own ``/responses`` endpoint and returns
+
+        what it says. A provider without one is refused explicitly rather than
+
+        bridged, because a clear 502 beats a silently degraded agent.'
+      operationId: pool_rollout_responses_v1_pools__pool_id__rollouts__rollout_id__inference_v1_responses_post
+      parameters:
+      - name: pool_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pool Id
+      - name: rollout_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rollout Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Pool Rollout Responses V1 Pools  Pool Id  Rollouts  Rollout
+                  Id  Inference V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/inference/v1/models:
+    get:
+      tags:
+      - container-pools
+      summary: Pool Rollout Models
+      description: Codex probes this on startup; a 404 here makes it fall back oddly.
+      operationId: pool_rollout_models_v1_pools__pool_id__rollouts__rollout_id__inference_v1_models_get
+      parameters:
+      - name: pool_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pool Id
+      - name: rollout_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rollout Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Pool Rollout Models V1 Pools  Pool Id  Rollouts  Rollout
+                  Id  Inference V1 Models Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/demo/keys:
     post:
       tags:
@@ -44681,7 +45839,7 @@ components:
           title: Summary
         evidence_refs:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           title: Evidence Refs
         unresolved_questions:
@@ -44713,6 +45871,33 @@ components:
       - unresolved_questions
       - created_at
       title: AsyncCheckpointResponse
+    AsyncEffortWorkSummary:
+      properties:
+        effort_id:
+          type: string
+          title: Effort Id
+        status:
+          type: string
+          enum:
+          - runnable
+          - awaiting_input
+          title: Status
+        open_interaction_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Open Interaction Id
+        last_advanced_cycle:
+          type: integer
+          minimum: 0.0
+          title: Last Advanced Cycle
+          default: 0
+      additionalProperties: false
+      type: object
+      required:
+      - effort_id
+      - status
+      title: AsyncEffortWorkSummary
     AsyncInstructionCommandRequest:
       properties:
         command_id:
@@ -44767,6 +45952,39 @@ components:
       additionalProperties: false
       type: object
       title: AsyncInstructionPayload
+    AsyncJudgmentItemResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-async-judgment.v1
+          title: Schema Version
+          default: smr.intern-async-judgment.v1
+        interaction_id:
+          type: string
+          title: Interaction Id
+        effort_id:
+          type: string
+          title: Effort Id
+        prompt:
+          type: string
+          title: Prompt
+        created_generation:
+          type: integer
+          minimum: 0.0
+          title: Created Generation
+        context:
+          additionalProperties: true
+          type: object
+          title: Context
+      additionalProperties: false
+      type: object
+      required:
+      - interaction_id
+      - effort_id
+      - prompt
+      - created_generation
+      title: AsyncJudgmentItemResponse
+      description: One open ask-and-continue judgment item (does not freeze org Async).
     AsyncRuntimeBudget:
       properties:
         maximum_cost_cents:
@@ -44775,6 +45993,18 @@ components:
             minimum: 0.0
           - type: 'null'
           title: Maximum Cost Cents
+        maximum_daily_cost_cents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Maximum Daily Cost Cents
+        maximum_monthly_cost_cents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Maximum Monthly Cost Cents
         maximum_cycles:
           anyOf:
           - type: integer
@@ -44809,12 +46039,98 @@ components:
           additionalProperties: true
           type: object
           title: Metadata
+        factory_ready_wait_seconds:
+          type: integer
+          maximum: 60.0
+          minimum: 0.0
+          title: Factory Ready Wait Seconds
+          default: 0
       additionalProperties: false
       type: object
       required:
       - objective
       - idempotency_key
       title: AsyncRuntimeEnsureRequest
+    AsyncRuntimeHostLease:
+      properties:
+        bound:
+          type: boolean
+          title: Bound
+          default: false
+        lease_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lease Id
+        sticky_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sticky Key
+        host_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host Kind
+        host_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host Id
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        acquired_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Acquired At
+        renewed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Renewed At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        released_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Released At
+        release_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Release Reason
+        reused:
+          type: boolean
+          title: Reused
+          default: false
+        cents_per_hour:
+          type: integer
+          minimum: 0.0
+          title: Cents Per Hour
+          default: 0
+      additionalProperties: false
+      type: object
+      title: AsyncRuntimeHostLease
+      description: 'Sticky exe.dev host binding for the org''s Async Intern (WP2 S2).
+
+
+        Reported because the lease is what *accrues* the idle burn above: a lease
+
+        held across a quiet night is the usual explanation for a ceiling trip that
+
+        no single cycle appears to account for.'
     AsyncRuntimeResponse:
       properties:
         schema_version:
@@ -44881,12 +46197,34 @@ components:
           - type: string
           - type: 'null'
           title: Pending Actor Message Id
+        awaiting_actor_reply_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Awaiting Actor Reply Message Id
+        awaiting_actor_reply_thread_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Awaiting Actor Reply Thread Id
         pending_instruction_count:
           type: integer
           maximum: 32.0
           minimum: 0.0
           title: Pending Instruction Count
           default: 0
+        open_judgment_items:
+          items:
+            $ref: '#/components/schemas/AsyncJudgmentItemResponse'
+          type: array
+          title: Open Judgment Items
+          default: []
+        effort_work:
+          items:
+            $ref: '#/components/schemas/AsyncEffortWorkSummary'
+          type: array
+          title: Effort Work
+          default: []
         binding:
           $ref: '#/components/schemas/RuntimeBinding'
         external_execution_status:
@@ -44905,6 +46243,10 @@ components:
           - type: 'null'
         budget:
           $ref: '#/components/schemas/AsyncRuntimeBudget'
+        spend:
+          $ref: '#/components/schemas/AsyncRuntimeSpend'
+        host_lease:
+          $ref: '#/components/schemas/AsyncRuntimeHostLease'
         blocker:
           anyOf:
           - $ref: '#/components/schemas/AsyncBlockerResponse'
@@ -44951,6 +46293,75 @@ components:
       - created_at
       - updated_at
       title: AsyncRuntimeResponse
+    AsyncRuntimeSpend:
+      properties:
+        lifetime_cents:
+          type: integer
+          minimum: 0.0
+          title: Lifetime Cents
+          default: 0
+        daily_cents:
+          type: integer
+          minimum: 0.0
+          title: Daily Cents
+          default: 0
+        monthly_cents:
+          type: integer
+          minimum: 0.0
+          title: Monthly Cents
+          default: 0
+        lifetime_ceiling_cents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Lifetime Ceiling Cents
+        daily_ceiling_cents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Daily Ceiling Cents
+        monthly_ceiling_cents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Monthly Ceiling Cents
+        daily_remaining_cents:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Daily Remaining Cents
+        monthly_remaining_cents:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Monthly Remaining Cents
+        daily_exhausted:
+          type: boolean
+          title: Daily Exhausted
+          default: false
+        monthly_exhausted:
+          type: boolean
+          title: Monthly Exhausted
+          default: false
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocked Reason
+      additionalProperties: false
+      type: object
+      title: AsyncRuntimeSpend
+      description: "Observed Async burn against the ceilings in ``AsyncRuntimeBudget``.\n\
+        \n# See: intern_async_24_7_change_scope.md (WP2 S1/S2, Downstream acceptance)\n\
+        \n``AsyncRuntimeBudget`` states only what the org is *allowed* to spend. A\n\
+        caller watching for the day/month trip to ``BlockAsync`` needs the other\n\
+        half \u2014 what has actually been spent \u2014 and needs it in the same projection,\n\
+        because the trip is a comparison of the two. Totals include both billed LLM\n\
+        spend and the ``intern_sticky_host`` wall-time idle burn (WP2 S2), which is\n\
+        the component most likely to exhaust a ceiling while nobody is watching."
     AsyncStatus:
       type: string
       enum:
@@ -50872,6 +52283,89 @@ components:
       - s3
       - turso
       title: FactoryStorageTechnology
+    FeatureFlagMutationRequest:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - enabled
+      - reason
+      title: FeatureFlagMutationRequest
+    FeatureFlagResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        org_id:
+          type: string
+          format: uuid
+          title: Org Id
+        feature:
+          type: string
+          title: Feature
+        enabled:
+          type: boolean
+          title: Enabled
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        created_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - org_id
+      - feature
+      - enabled
+      - reason
+      - expires_at
+      - metadata
+      - created_at
+      - created_by
+      - updated_at
+      title: FeatureFlagResponse
     FinalizeRequest:
       properties:
         preparation_id:
@@ -51568,6 +53062,96 @@ components:
       - archive_sha256
       - archive_size_bytes
       title: ImageReleaseArtifact
+    ImageReleaseDeclarationRequest:
+      properties:
+        kind:
+          type: string
+          enum:
+          - craftax_scorer
+          - actor_runtime
+          title: Kind
+        archive_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Archive Sha256
+        archive_size_bytes:
+          type: integer
+          maximum: 17179869184.0
+          exclusiveMinimum: 0.0
+          title: Archive Size Bytes
+        image_manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
+        source_repository:
+          type: string
+          maxLength: 512
+          minLength: 20
+          title: Source Repository
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Commit Sha
+        fixture_manifest_sha256:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+          title: Fixture Manifest Sha256
+        fixture_binary_sha256:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+          title: Fixture Binary Sha256
+        actor_role:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Actor Role
+        interface_mode:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Interface Mode
+        capabilities:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 32
+          - type: 'null'
+          title: Capabilities
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - archive_sha256
+      - archive_size_bytes
+      - image_manifest_digest
+      - image_ref
+      - platform_os
+      - platform_architecture
+      - source_repository
+      - source_commit_sha
+      title: ImageReleaseDeclarationRequest
     ImageReleaseFinalizeRequest:
       properties:
         upload_id:
@@ -51657,6 +53241,63 @@ components:
       - platform_os
       - platform_architecture
       title: ImageReleaseInspection
+    ImageReleaseResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-v1
+          title: Schema Version
+        release_id:
+          type: string
+          title: Release Id
+        org_id:
+          type: string
+          title: Org Id
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        inspection:
+          additionalProperties: true
+          type: object
+          title: Inspection
+        runtime_image_release:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Runtime Image Release
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release_id
+      - org_id
+      - artifact
+      - declaration
+      - inspection
+      title: ImageReleaseResponse
+    ImageReleaseStagingCleanupResponse:
+      properties:
+        upload_id:
+          type: string
+          title: Upload Id
+        status:
+          type: string
+          enum:
+          - deleted
+          - absent
+          title: Status
+      additionalProperties: false
+      type: object
+      required:
+      - upload_id
+      - status
+      title: ImageReleaseStagingCleanupResponse
     ImageReleaseStorageIdentity:
       properties:
         object_key:
@@ -51946,6 +53587,1306 @@ components:
       - review_request
       - broadcast
       title: InteractionIntent
+    InternAcceptanceFixtureReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-acceptance-fixture.v1
+          title: Schema Version
+          default: smr.intern-acceptance-fixture.v1
+        fixture_id:
+          type: string
+          title: Fixture Id
+        org_id:
+          type: string
+          title: Org Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        task_template:
+          type: string
+          title: Task Template
+        status:
+          type: string
+          enum:
+          - ready
+          - torn_down
+          title: Status
+        binding:
+          $ref: '#/components/schemas/RuntimeBinding'
+        resources:
+          items:
+            $ref: '#/components/schemas/InternAcceptanceFixtureResourceV1'
+          type: array
+          title: Resources
+        factory_readiness:
+          additionalProperties: true
+          type: object
+          title: Factory Readiness
+        replayed:
+          type: boolean
+          title: Replayed
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        torn_down_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Torn Down At
+        retention_expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Retention Expires At
+      additionalProperties: false
+      type: object
+      required:
+      - fixture_id
+      - org_id
+      - research_intern_id
+      - task_template
+      - status
+      - binding
+      - created_at
+      title: InternAcceptanceFixtureReceipt
+      description: Durable, validator-readable evidence for one acceptance fixture.
+    InternAcceptanceFixtureRequest:
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 180
+          minLength: 1
+          title: Idempotency Key
+        task_template:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Task Template
+          default: acceptance_default
+        include_run:
+          type: boolean
+          title: Include Run
+          default: true
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      title: InternAcceptanceFixtureRequest
+      description: 'Bootstrap one disposable Factory/Project/Effort/Run acceptance
+        fixture.
+
+
+        No tribal ids: the backend provisions the whole chain through the
+
+        canonical creation authorities and binds the organization Intern to it.
+
+        Idempotent within one test attempt via ``idempotency_key``.
+
+
+        ``task_template`` is a caller-supplied label recorded on the fixture
+
+        receipt; eval-specific task content (objectives, rubrics, required
+
+        project files) lives with the eval harness, never in production.'
+    InternAcceptanceFixtureResourceV1:
+      properties:
+        resource_kind:
+          type: string
+          title: Resource Kind
+        resource_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resource Id
+        status:
+          type: string
+          title: Status
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+      additionalProperties: false
+      type: object
+      required:
+      - resource_kind
+      - status
+      title: InternAcceptanceFixtureResourceV1
+    InternDeliverableProjectionV1:
+      properties:
+        schema_version:
+          type: string
+          const: smr.intern-deliverable-projection.v1
+          title: Schema Version
+          default: smr.intern-deliverable-projection.v1
+        kind:
+          type: string
+          const: report
+          title: Kind
+          default: report
+        title:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Title
+        project_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Run Id
+        artifact_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Artifact Id
+        readiness:
+          type: string
+          enum:
+          - viewable
+          - downloadable
+          title: Readiness
+          default: viewable
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - title
+      title: InternDeliverableProjectionV1
+      description: Explicit request to cross channel 2 into a customer-visible WorkProduct.
+    InternEffortBoardResponse:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.intern-effort-board.v1
+        efforts:
+          items:
+            $ref: '#/components/schemas/InternEffortSummary'
+          type: array
+          title: Efforts
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      title: InternEffortBoardResponse
+    InternEffortClaimProgress:
+      properties:
+        progress_claim_id:
+          type: string
+          title: Progress Claim Id
+        objective_id:
+          type: string
+          title: Objective Id
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        claim_kind:
+          $ref: '#/components/schemas/InternProgressClaimKind'
+        summary:
+          type: string
+          title: Summary
+        percent_complete:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Percent Complete
+        status:
+          $ref: '#/components/schemas/InternProgressClaimStatus'
+        smr_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Smr Run Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - progress_claim_id
+      - objective_id
+      - objective_kind
+      - claim_kind
+      - summary
+      - status
+      - created_at
+      title: InternEffortClaimProgress
+    InternEffortDetailResponse:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.intern-effort-detail.v1
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+        effort:
+          $ref: '#/components/schemas/InternEffortRef'
+        progress:
+          $ref: '#/components/schemas/InternEffortProgressRollup'
+        results:
+          $ref: '#/components/schemas/InternEffortResultsRollup'
+        experiments:
+          $ref: '#/components/schemas/InternEffortExperimentsRollup'
+        knowledge:
+          $ref: '#/components/schemas/InternEffortKnowledgeRollup'
+        runtime:
+          $ref: '#/components/schemas/InternEffortRuntimeStrip'
+      additionalProperties: false
+      type: object
+      required:
+      - generated_at
+      - effort
+      title: InternEffortDetailResponse
+    InternEffortEvidenceRef:
+      properties:
+        artifact_id:
+          type: string
+          title: Artifact Id
+        kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - artifact_id
+      title: InternEffortEvidenceRef
+    InternEffortExperiment:
+      properties:
+        experiment_id:
+          type: string
+          title: Experiment Id
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - experiment_id
+      title: InternEffortExperiment
+    InternEffortExperimentsRollup:
+      properties:
+        linked_runs:
+          items:
+            $ref: '#/components/schemas/InternEffortLinkedRun'
+          type: array
+          title: Linked Runs
+        experiments:
+          items:
+            $ref: '#/components/schemas/InternEffortExperiment'
+          type: array
+          title: Experiments
+        counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Counts
+      additionalProperties: false
+      type: object
+      title: InternEffortExperimentsRollup
+    InternEffortKnowledgeRollup:
+      properties:
+        memory_hits:
+          items:
+            $ref: '#/components/schemas/InternEffortMemoryHit'
+          type: array
+          title: Memory Hits
+        experiment_log_entries:
+          items:
+            $ref: '#/components/schemas/InternEffortLogEntry'
+          type: array
+          title: Experiment Log Entries
+        evidence_refs:
+          items:
+            $ref: '#/components/schemas/InternEffortEvidenceRef'
+          type: array
+          title: Evidence Refs
+        counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Counts
+      additionalProperties: false
+      type: object
+      title: InternEffortKnowledgeRollup
+    InternEffortLinkedRun:
+      properties:
+        run_id:
+          type: string
+          title: Run Id
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        finished_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Finished At
+        is_nonterminal:
+          type: boolean
+          title: Is Nonterminal
+          default: false
+        link_role:
+          $ref: '#/components/schemas/InternObjectiveLinkRole'
+          default: primary
+        link_source:
+          type: string
+          title: Link Source
+          default: effort_binding
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      title: InternEffortLinkedRun
+      description: 'A run this Effort''s work rides on. SMR owns it; the Intern only
+        reads it.
+
+
+        ``link_source`` distinguishes a run bound to the Effort itself from one the
+
+        Intern referenced through an objective link, so the FE can show provenance
+
+        without implying the Intern scheduled it.'
+    InternEffortLogEntry:
+      properties:
+        entry_id:
+          type: string
+          title: Entry Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - entry_id
+      title: InternEffortLogEntry
+    InternEffortMemoryHit:
+      properties:
+        hit_id:
+          type: string
+          title: Hit Id
+        kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        snippet:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Snippet
+        occurred_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Occurred At
+      additionalProperties: false
+      type: object
+      required:
+      - hit_id
+      title: InternEffortMemoryHit
+    InternEffortMilestoneProgress:
+      properties:
+        milestone_id:
+          type: string
+          title: Milestone Id
+        title:
+          type: string
+          title: Title
+        state:
+          $ref: '#/components/schemas/InternMilestoneState'
+        milestone_kind:
+          $ref: '#/components/schemas/InternMilestoneKind'
+        parent_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        parent_id:
+          type: string
+          title: Parent Id
+        position:
+          type: integer
+          title: Position
+          default: 0
+        allowed_next_states:
+          items:
+            $ref: '#/components/schemas/InternMilestoneState'
+          type: array
+          title: Allowed Next States
+      additionalProperties: false
+      type: object
+      required:
+      - milestone_id
+      - title
+      - state
+      - milestone_kind
+      - parent_kind
+      - parent_id
+      title: InternEffortMilestoneProgress
+    InternEffortObjectiveProgress:
+      properties:
+        objective_id:
+          type: string
+          title: Objective Id
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        title:
+          type: string
+          title: Title
+        status:
+          type: string
+          title: Status
+        evaluation_state:
+          type: string
+          title: Evaluation State
+        evaluation_iteration:
+          type: integer
+          title: Evaluation Iteration
+          default: 0
+        max_evaluation_iterations:
+          type: integer
+          title: Max Evaluation Iterations
+          default: 1
+        milestone_count:
+          type: integer
+          title: Milestone Count
+          default: 0
+        task_count:
+          type: integer
+          title: Task Count
+          default: 0
+        open_task_count:
+          type: integer
+          title: Open Task Count
+          default: 0
+        latest_claim_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Claim At
+        percent_complete:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Percent Complete
+      additionalProperties: false
+      type: object
+      required:
+      - objective_id
+      - objective_kind
+      - title
+      - status
+      - evaluation_state
+      title: InternEffortObjectiveProgress
+    InternEffortOpenQuestion:
+      properties:
+        interaction_id:
+          type: string
+          title: Interaction Id
+        question:
+          type: string
+          title: Question
+        asked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Asked At
+      additionalProperties: false
+      type: object
+      required:
+      - interaction_id
+      - question
+      title: InternEffortOpenQuestion
+      description: One parked Async question awaiting human judgment on this Effort.
+    InternEffortProgressRollup:
+      properties:
+        objective_counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Objective Counts
+        objectives:
+          items:
+            $ref: '#/components/schemas/InternEffortObjectiveProgress'
+          type: array
+          title: Objectives
+        milestone_counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Milestone Counts
+        milestones:
+          items:
+            $ref: '#/components/schemas/InternEffortMilestoneProgress'
+          type: array
+          title: Milestones
+        task_counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Task Counts
+        tasks:
+          items:
+            $ref: '#/components/schemas/InternEffortTaskProgress'
+          type: array
+          title: Tasks
+        recent_claims:
+          items:
+            $ref: '#/components/schemas/InternEffortClaimProgress'
+          type: array
+          title: Recent Claims
+        open_questions:
+          items:
+            $ref: '#/components/schemas/InternEffortOpenQuestion'
+          type: array
+          title: Open Questions
+      additionalProperties: false
+      type: object
+      title: InternEffortProgressRollup
+    InternEffortRef:
+      properties:
+        effort_id:
+          type: string
+          title: Effort Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          title: Name
+        hypothesis_or_topic:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hypothesis Or Topic
+        status:
+          type: string
+          title: Status
+        effort_type:
+          type: string
+          title: Effort Type
+        decision_needed:
+          type: boolean
+          title: Decision Needed
+          default: false
+        decision_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Note
+        next_wake_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Wake At
+        latest_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Run Id
+        latest_report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Report Id
+        latest_work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Work Product Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - effort_id
+      - factory_id
+      - project_id
+      - name
+      - status
+      - effort_type
+      - created_at
+      - updated_at
+      title: InternEffortRef
+      description: "The ``smr_efforts`` projection carried by every Effort-shaped\
+        \ payload.\n\nA deliberate subset of ``SmrEffortResponse``: identity, disposition,\
+        \ and the\nlatest-artifact pointers. Policy bodies (recurrence, budget, authorization)\n\
+        are omitted \u2014 the board is a research surface, not an ops console."
+    InternEffortReportRef:
+      properties:
+        report_id:
+          type: string
+          title: Report Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - report_id
+      title: InternEffortReportRef
+    InternEffortResultsRollup:
+      properties:
+        work_products:
+          items:
+            $ref: '#/components/schemas/InternEffortWorkProduct'
+          type: array
+          title: Work Products
+        work_summaries:
+          items:
+            $ref: '#/components/schemas/InternEffortWorkSummary'
+          type: array
+          title: Work Summaries
+        latest_report:
+          anyOf:
+          - $ref: '#/components/schemas/InternEffortReportRef'
+          - type: 'null'
+        counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Counts
+      additionalProperties: false
+      type: object
+      title: InternEffortResultsRollup
+    InternEffortRuntimeStrip:
+      properties:
+        async_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Async Status
+        cycle_number:
+          type: integer
+          title: Cycle Number
+          default: 0
+        next_wake_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Wake At
+        durable_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Durable Cursor
+        parked_question_count:
+          type: integer
+          title: Parked Question Count
+          default: 0
+        spend:
+          $ref: '#/components/schemas/InternEffortSpend'
+        sticky_host:
+          $ref: '#/components/schemas/InternEffortStickyHost'
+        effort_inventory_available:
+          type: integer
+          title: Effort Inventory Available
+          default: 0
+        effort_inventory_included:
+          type: integer
+          title: Effort Inventory Included
+          default: 0
+        effort_inventory_omitted:
+          type: integer
+          title: Effort Inventory Omitted
+          default: 0
+        active_effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Effort Id
+        context_snapshot_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Context Snapshot At
+      additionalProperties: false
+      type: object
+      title: InternEffortRuntimeStrip
+      description: 'Demoted ops chrome: cycle/wake/cursor/spend.
+
+
+        Projected from Postgres only. The Effort detail never reads Temporal
+
+        history, so this strip reports what the durable projection knows and
+
+        nothing else.'
+    InternEffortSpend:
+      properties:
+        daily_cents:
+          type: integer
+          title: Daily Cents
+          default: 0
+        daily_ceiling_cents:
+          type: integer
+          title: Daily Ceiling Cents
+          default: 0
+        monthly_cents:
+          type: integer
+          title: Monthly Cents
+          default: 0
+        monthly_ceiling_cents:
+          type: integer
+          title: Monthly Ceiling Cents
+          default: 0
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocked Reason
+      additionalProperties: false
+      type: object
+      title: InternEffortSpend
+    InternEffortStickyHost:
+      properties:
+        host_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host Kind
+        lease_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lease Id
+        bound:
+          type: boolean
+          title: Bound
+          default: false
+      additionalProperties: false
+      type: object
+      title: InternEffortStickyHost
+    InternEffortSummary:
+      properties:
+        effort_id:
+          type: string
+          title: Effort Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          title: Name
+        hypothesis_or_topic:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hypothesis Or Topic
+        status:
+          type: string
+          title: Status
+        effort_type:
+          type: string
+          title: Effort Type
+        decision_needed:
+          type: boolean
+          title: Decision Needed
+          default: false
+        decision_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Note
+        next_wake_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Wake At
+        latest_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Run Id
+        latest_report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Report Id
+        latest_work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Work Product Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        open_objective_count:
+          type: integer
+          title: Open Objective Count
+          default: 0
+        open_task_count:
+          type: integer
+          title: Open Task Count
+          default: 0
+        open_question_count:
+          type: integer
+          title: Open Question Count
+          default: 0
+        latest_claim_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Claim At
+        blocked:
+          type: boolean
+          title: Blocked
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - effort_id
+      - factory_id
+      - project_id
+      - name
+      - status
+      - effort_type
+      - created_at
+      - updated_at
+      title: InternEffortSummary
+      description: 'One row of the Effort board: the Effort plus its open-work counters.'
+    InternEffortTaskCreateRequest:
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        body:
+          anyOf:
+          - type: string
+            maxLength: 8000
+          - type: 'null'
+          title: Body
+        milestone_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Milestone Id
+        objective_kind:
+          anyOf:
+          - $ref: '#/components/schemas/InternObjectiveKind'
+          - type: 'null'
+        objective_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Objective Id
+        acceptance_criteria:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Acceptance Criteria
+        dependency_task_ids:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Dependency Task Ids
+        position:
+          type: integer
+          minimum: 0.0
+          title: Position
+          default: 0
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - title
+      title: InternEffortTaskCreateRequest
+      description: 'Create one Intern planner task.
+
+
+        This is the Intern''s own checklist row in ``smr_intern_effort_tasks``. It
+        is
+
+        not an ``smr_run_tasks`` row and carries no run-DAG relationship.'
+    InternEffortTaskPatchRequest:
+      properties:
+        title:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Title
+        body:
+          anyOf:
+          - type: string
+            maxLength: 8000
+          - type: 'null'
+          title: Body
+        state:
+          anyOf:
+          - $ref: '#/components/schemas/InternEffortTaskState'
+          - type: 'null'
+        acceptance_criteria:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 12
+          - type: 'null'
+          title: Acceptance Criteria
+        artifact_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 24
+          - type: 'null'
+          title: Artifact Ids
+        assigned_actor_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Assigned Actor Key
+        assignment_reason:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Assignment Reason
+        position:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Position
+      additionalProperties: false
+      type: object
+      title: InternEffortTaskPatchRequest
+    InternEffortTaskProgress:
+      properties:
+        intern_task_id:
+          type: string
+          title: Intern Task Id
+        title:
+          type: string
+          title: Title
+        state:
+          $ref: '#/components/schemas/InternEffortTaskState'
+        milestone_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Milestone Id
+        objective_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Objective Id
+        position:
+          type: integer
+          title: Position
+          default: 0
+      additionalProperties: false
+      type: object
+      required:
+      - intern_task_id
+      - title
+      - state
+      title: InternEffortTaskProgress
+    InternEffortTaskResponse:
+      properties:
+        intern_task_id:
+          type: string
+          title: Intern Task Id
+        effort_id:
+          type: string
+          title: Effort Id
+        project_id:
+          type: string
+          title: Project Id
+        milestone_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Milestone Id
+        objective_kind:
+          anyOf:
+          - $ref: '#/components/schemas/InternObjectiveKind'
+          - type: 'null'
+        objective_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Objective Id
+        title:
+          type: string
+          title: Title
+        body:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Body
+        state:
+          $ref: '#/components/schemas/InternEffortTaskState'
+        acceptance_criteria:
+          items:
+            type: string
+          type: array
+          title: Acceptance Criteria
+        dependency_task_ids:
+          items:
+            type: string
+          type: array
+          title: Dependency Task Ids
+        artifact_ids:
+          items:
+            type: string
+          type: array
+          title: Artifact Ids
+        assigned_actor_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assigned Actor Key
+        assignment_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignment Reason
+        position:
+          type: integer
+          title: Position
+          default: 0
+        allowed_next_states:
+          items:
+            $ref: '#/components/schemas/InternEffortTaskState'
+          type: array
+          title: Allowed Next States
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - intern_task_id
+      - effort_id
+      - project_id
+      - title
+      - state
+      - created_at
+      - updated_at
+      title: InternEffortTaskResponse
+    InternEffortTaskState:
+      type: string
+      enum:
+      - planned
+      - ready
+      - assigned
+      - in_progress
+      - review_required
+      - repair_required
+      - blocked
+      - done
+      - failed
+      - stopped
+      - superseded
+      title: InternEffortTaskState
+    InternEffortWorkProduct:
+      properties:
+        work_product_id:
+          type: string
+          title: Work Product Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        link_source:
+          type: string
+          title: Link Source
+          default: effort_binding
+      additionalProperties: false
+      type: object
+      required:
+      - work_product_id
+      title: InternEffortWorkProduct
+      description: "One openable artifact this Effort produced or claimed.\n\n``run_id``\
+        \ is always present because ``smr_run_work_products.run_id`` is NOT\nNULL\
+        \ \u2014 every work product is produced by some run. ``link_source`` says\n\
+        whether *this Effort* is the one that ran it (``effort_binding``) or merely\n\
+        cited it from one of its objectives (``intern_objective_link``), so an\nanalysis-only\
+        \ Effort can show its inputs without claiming it scheduled them."
+    InternEffortWorkSummary:
+      properties:
+        work_summary_id:
+          type: string
+          title: Work Summary Id
+        summary:
+          type: string
+          title: Summary
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        runtime_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runtime Kind
+        effort_scoped:
+          type: boolean
+          title: Effort Scoped
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - work_summary_id
+      - summary
+      title: InternEffortWorkSummary
+      description: "A Sync-lane work summary for this Effort's Intern.\n\n``effort_scoped``\
+        \ is ``False`` because ``smr_intern_work_summaries`` carries\nno Effort column\
+        \ and no binding blob \u2014 it can only be narrowed to the\nIntern. The flag\
+        \ exists so the FE labels the section Intern-wide instead of\nimplying these\
+        \ summaries describe this Effort."
     InternMcpActionApprovalRequest:
       properties:
         decision:
@@ -52125,6 +55066,788 @@ components:
       - tools/call
       - resources/read
       title: InternMcpMethod
+    InternMemoryHit:
+      properties:
+        kind:
+          $ref: '#/components/schemas/InternMemoryHitKind'
+        hit_id:
+          type: string
+          title: Hit Id
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        snippet:
+          type: string
+          title: Snippet
+          default: ''
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - hit_id
+      title: InternMemoryHit
+      description: 'One keyword hit in the Intern''s own durable history.
+
+
+        ``hit_id`` is the stable ``kind:id`` handle search returns and get accepts;
+
+        it is the only identifier a caller should round-trip.'
+    InternMemoryHitKind:
+      type: string
+      enum:
+      - event
+      - handoff
+      - message
+      - segment
+      title: InternMemoryHitKind
+    InternMemoryHitResponse:
+      properties:
+        hit:
+          $ref: '#/components/schemas/InternMemoryHit'
+      additionalProperties: false
+      type: object
+      required:
+      - hit
+      title: InternMemoryHitResponse
+      description: Mirrors the ``smr_intern_memory_get`` MCP tool result.
+    InternMemorySearchResponse:
+      properties:
+        query:
+          type: string
+          title: Query
+        limit:
+          type: integer
+          title: Limit
+        kinds:
+          items:
+            type: string
+          type: array
+          title: Kinds
+        hit_count:
+          type: integer
+          title: Hit Count
+          default: 0
+        hits:
+          items:
+            $ref: '#/components/schemas/InternMemoryHit'
+          type: array
+          title: Hits
+      additionalProperties: false
+      type: object
+      required:
+      - query
+      - limit
+      title: InternMemorySearchResponse
+      description: "Bounded keyword search over one Intern's memory.\n\nMirrors the\
+        \ ``smr_intern_memory_search`` MCP tool result field-for-field \u2014\nno\
+        \ envelope, no renames \u2014 so the SDK, the public MCP surface, and this\n\
+        route cannot describe the same retrieval differently."
+    InternMilestoneCreateRequest:
+      properties:
+        parent_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        parent_id:
+          type: string
+          title: Parent Id
+        milestone_kind:
+          $ref: '#/components/schemas/InternMilestoneKind'
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        objective:
+          type: string
+          maxLength: 8000
+          title: Objective
+          default: ''
+        acceptance_criteria:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Acceptance Criteria
+        position:
+          type: integer
+          minimum: 0.0
+          title: Position
+          default: 0
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - parent_kind
+      - parent_id
+      - milestone_kind
+      - title
+      title: InternMilestoneCreateRequest
+    InternMilestoneKind:
+      type: string
+      enum:
+      - subquestion
+      - suboutcome
+      title: InternMilestoneKind
+    InternMilestoneResponse:
+      properties:
+        milestone_id:
+          type: string
+          title: Milestone Id
+        effort_id:
+          type: string
+          title: Effort Id
+        project_id:
+          type: string
+          title: Project Id
+        parent_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        parent_id:
+          type: string
+          title: Parent Id
+        milestone_kind:
+          $ref: '#/components/schemas/InternMilestoneKind'
+        title:
+          type: string
+          title: Title
+        objective:
+          type: string
+          title: Objective
+        state:
+          $ref: '#/components/schemas/InternMilestoneState'
+        acceptance_criteria:
+          items:
+            type: string
+          type: array
+          title: Acceptance Criteria
+        evidence_artifact_ids:
+          items:
+            type: string
+          type: array
+          title: Evidence Artifact Ids
+        evidence_entry_ids:
+          items:
+            type: string
+          type: array
+          title: Evidence Entry Ids
+        position:
+          type: integer
+          title: Position
+          default: 0
+        allowed_next_states:
+          items:
+            $ref: '#/components/schemas/InternMilestoneState'
+          type: array
+          title: Allowed Next States
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - milestone_id
+      - effort_id
+      - project_id
+      - parent_kind
+      - parent_id
+      - milestone_kind
+      - title
+      - objective
+      - state
+      - created_at
+      - updated_at
+      title: InternMilestoneResponse
+    InternMilestoneState:
+      type: string
+      enum:
+      - planned
+      - ready
+      - active
+      - validation_pending
+      - validating
+      - accepted
+      - blocked
+      - failed
+      - stopped
+      title: InternMilestoneState
+    InternMilestoneTransitionRequest:
+      properties:
+        next_state:
+          $ref: '#/components/schemas/InternMilestoneState'
+        reason:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - next_state
+      title: InternMilestoneTransitionRequest
+    InternObjectiveCreateRequest:
+      properties:
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        description:
+          type: string
+          maxLength: 20000
+          title: Description
+          default: ''
+        scope:
+          type: string
+          maxLength: 4000
+          title: Scope
+          default: ''
+        question_text:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Question Text
+        evidence_requirements:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Evidence Requirements
+        resolution_criteria:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Resolution Criteria
+        outcome_text:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Outcome Text
+        success_criteria:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Success Criteria
+        deliverable_requirements:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Deliverable Requirements
+        max_evaluation_iterations:
+          type: integer
+          maximum: 10.0
+          minimum: 1.0
+          title: Max Evaluation Iterations
+          default: 1
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - objective_kind
+      - title
+      title: InternObjectiveCreateRequest
+      description: 'Create one Intern objective under the Effort named by the path.
+
+
+        ``effort_id`` is intentionally absent: the binding is the path segment, so
+
+        an objective cannot be created unbound (E5 by construction).'
+    InternObjectiveEvaluationState:
+      type: string
+      enum:
+      - active
+      - review_pending
+      - accepted
+      - rejected
+      title: InternObjectiveEvaluationState
+    InternObjectiveKind:
+      type: string
+      enum:
+      - open_ended_question
+      - directed_effort_outcome
+      title: InternObjectiveKind
+    InternObjectiveLinkCreateRequest:
+      properties:
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        link_kind:
+          $ref: '#/components/schemas/InternObjectiveLinkKind'
+        target_id:
+          type: string
+          title: Target Id
+        link_role:
+          $ref: '#/components/schemas/InternObjectiveLinkRole'
+          default: primary
+        note:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Note
+      additionalProperties: false
+      type: object
+      required:
+      - objective_kind
+      - link_kind
+      - target_id
+      title: InternObjectiveLinkCreateRequest
+    InternObjectiveLinkKind:
+      type: string
+      enum:
+      - smr_run
+      - smr_open_ended_question
+      - smr_directed_effort_outcome
+      - smr_work_product
+      - smr_report
+      - smr_experiment
+      title: InternObjectiveLinkKind
+      description: 'Reference targets an Intern objective may point at.
+
+
+        Every one of these is an SMR-owned row. A link is a *reference only*: it
+
+        never grants the Intern write authority over the target and never cascades.'
+    InternObjectiveLinkResponse:
+      properties:
+        objective_link_id:
+          type: string
+          title: Objective Link Id
+        effort_id:
+          type: string
+          title: Effort Id
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        objective_id:
+          type: string
+          title: Objective Id
+        link_kind:
+          $ref: '#/components/schemas/InternObjectiveLinkKind'
+        target_id:
+          type: string
+          title: Target Id
+        link_role:
+          $ref: '#/components/schemas/InternObjectiveLinkRole'
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - objective_link_id
+      - effort_id
+      - objective_kind
+      - objective_id
+      - link_kind
+      - target_id
+      - link_role
+      - created_at
+      title: InternObjectiveLinkResponse
+    InternObjectiveLinkRole:
+      type: string
+      enum:
+      - primary
+      - supporting
+      - reviewer
+      - blocker
+      - out_of_scope
+      title: InternObjectiveLinkRole
+    InternObjectivePatchRequest:
+      properties:
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        title:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Title
+        description:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Description
+        scope:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Scope
+        question_text:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Question Text
+        outcome_text:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Outcome Text
+        status:
+          anyOf:
+          - $ref: '#/components/schemas/InternObjectiveStatus'
+          - type: 'null'
+        evaluation_state:
+          anyOf:
+          - $ref: '#/components/schemas/InternObjectiveEvaluationState'
+          - type: 'null'
+        review_summary:
+          anyOf:
+          - type: string
+            maxLength: 20000
+          - type: 'null'
+          title: Review Summary
+        evidence_requirements:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 12
+          - type: 'null'
+          title: Evidence Requirements
+        resolution_criteria:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 12
+          - type: 'null'
+          title: Resolution Criteria
+        success_criteria:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 12
+          - type: 'null'
+          title: Success Criteria
+        deliverable_requirements:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 12
+          - type: 'null'
+          title: Deliverable Requirements
+      additionalProperties: false
+      type: object
+      required:
+      - objective_kind
+      title: InternObjectivePatchRequest
+      description: 'Revise an Intern objective in place.
+
+
+        ``effort_id`` is not a member: an objective never moves between Efforts.
+
+        Supplying one is reported as ``research_program_effort_binding_mismatch``.'
+    InternObjectiveResponse:
+      properties:
+        objective_id:
+          type: string
+          title: Objective Id
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        effort_id:
+          type: string
+          title: Effort Id
+        project_id:
+          type: string
+          title: Project Id
+        status:
+          $ref: '#/components/schemas/InternObjectiveStatus'
+        evaluation_state:
+          $ref: '#/components/schemas/InternObjectiveEvaluationState'
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        scope:
+          type: string
+          title: Scope
+        question_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Question Text
+        outcome_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Outcome Text
+        evidence_requirements:
+          items:
+            type: string
+          type: array
+          title: Evidence Requirements
+        resolution_criteria:
+          items:
+            type: string
+          type: array
+          title: Resolution Criteria
+        success_criteria:
+          items:
+            type: string
+          type: array
+          title: Success Criteria
+        deliverable_requirements:
+          items:
+            type: string
+          type: array
+          title: Deliverable Requirements
+        evaluation_iteration:
+          type: integer
+          title: Evaluation Iteration
+          default: 0
+        max_evaluation_iterations:
+          type: integer
+          title: Max Evaluation Iterations
+          default: 1
+        review_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Summary
+        milestone_count:
+          type: integer
+          title: Milestone Count
+          default: 0
+        task_count:
+          type: integer
+          title: Task Count
+          default: 0
+        open_task_count:
+          type: integer
+          title: Open Task Count
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - objective_id
+      - objective_kind
+      - effort_id
+      - project_id
+      - status
+      - evaluation_state
+      - title
+      - description
+      - scope
+      - created_at
+      - updated_at
+      title: InternObjectiveResponse
+    InternObjectiveStatus:
+      type: string
+      enum:
+      - active
+      - paused
+      - blocked
+      - review_pending
+      - complete
+      - failed
+      - withdrawn
+      title: InternObjectiveStatus
+    InternProgressClaimCreateRequest:
+      properties:
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        objective_id:
+          type: string
+          title: Objective Id
+        summary:
+          type: string
+          maxLength: 8000
+          minLength: 1
+          title: Summary
+        title:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Title
+        claim_kind:
+          $ref: '#/components/schemas/InternProgressClaimKind'
+          default: progress
+        percent_complete:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Percent Complete
+        intern_task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Intern Task Id
+        milestone_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Milestone Id
+        smr_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Smr Run Id
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Evidence Refs
+        expected_remaining_work:
+          items:
+            type: string
+          type: array
+          maxItems: 12
+          title: Expected Remaining Work
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - objective_kind
+      - objective_id
+      - summary
+      title: InternProgressClaimCreateRequest
+    InternProgressClaimKind:
+      type: string
+      enum:
+      - progress
+      - achievement
+      title: InternProgressClaimKind
+    InternProgressClaimResponse:
+      properties:
+        progress_claim_id:
+          type: string
+          title: Progress Claim Id
+        effort_id:
+          type: string
+          title: Effort Id
+        project_id:
+          type: string
+          title: Project Id
+        objective_kind:
+          $ref: '#/components/schemas/InternObjectiveKind'
+        objective_id:
+          type: string
+          title: Objective Id
+        intern_task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Intern Task Id
+        milestone_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Milestone Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        summary:
+          type: string
+          title: Summary
+        claim_kind:
+          $ref: '#/components/schemas/InternProgressClaimKind'
+        percent_complete:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Percent Complete
+        status:
+          $ref: '#/components/schemas/InternProgressClaimStatus'
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        expected_remaining_work:
+          items:
+            type: string
+          type: array
+          title: Expected Remaining Work
+        smr_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Smr Run Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - progress_claim_id
+      - effort_id
+      - project_id
+      - objective_kind
+      - objective_id
+      - summary
+      - claim_kind
+      - status
+      - created_at
+      title: InternProgressClaimResponse
+    InternProgressClaimStatus:
+      type: string
+      enum:
+      - pending
+      - review_pending
+      - accepted
+      - rejected
+      title: InternProgressClaimStatus
     InternRuntimeCommandReceipt:
       properties:
         schema_version:
@@ -52170,6 +55893,16 @@ components:
           type: string
           format: date-time
           title: Created At
+        actuation:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Actuation
+        duplicate:
+          type: boolean
+          title: Duplicate
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -52459,6 +56192,10 @@ components:
             maxLength: 2000
           - type: 'null'
           title: Suggested Next Step
+        deliverable:
+          anyOf:
+          - $ref: '#/components/schemas/InternDeliverableProjectionV1'
+          - type: 'null'
         schema_version:
           type: string
           const: smr.intern-work-summary.v1
@@ -53502,14 +57239,6 @@ components:
       properties:
         kind:
           type: string
-          enum:
-          - direct
-          - selector
-          - topic
-          - human
-          - actor_group
-          - run
-          - broadcast
           title: Kind
           default: run
         subscriber_id:
@@ -53658,7 +57387,7 @@ components:
           title: Summary
         evidence_references:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           title: Evidence References
           default: []
@@ -53928,6 +57657,101 @@ components:
 
 
         It is never retrievable from this API again (list is redacted).'
+    MqDeliveryEnvelope:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+        message_id:
+          type: string
+          title: Message Id
+        thread_id:
+          type: string
+          title: Thread Id
+        recipient:
+          $ref: '#/components/schemas/MqDeliveryRecipient'
+        attempts:
+          type: integer
+          title: Attempts
+          default: 0
+        message:
+          $ref: '#/components/schemas/MqDeliveryMessage'
+      type: object
+      required:
+      - job_id
+      - message_id
+      - thread_id
+      - recipient
+      title: MqDeliveryEnvelope
+    MqDeliveryMessage:
+      properties:
+        seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Seq
+        kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+        body:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Body
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        sender:
+          additionalProperties: true
+          type: object
+          title: Sender
+        idempotency_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency Key
+        correlation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correlation Id
+        parent_message_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Message Id
+        causation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Causation Id
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+      type: object
+      title: MqDeliveryMessage
+    MqDeliveryRecipient:
+      properties:
+        kind:
+          type: string
+          title: Kind
+        id:
+          type: string
+          title: Id
+        org_id:
+          type: string
+          title: Org Id
+      type: object
+      required:
+      - kind
+      - id
+      - org_id
+      title: MqDeliveryRecipient
     NotebookEconomics:
       properties:
         nominal_cost_cents:
@@ -55373,7 +59197,7 @@ components:
       - approval
       - artifact_publication
       - trace_publication
-      - other
+      - workspace_archive
       title: ProducedResourceKind
     ProducedResourceReferenceV1:
       properties:
@@ -57973,10 +61797,6 @@ components:
           title: Replay Policy
         fallback_policy:
           type: string
-          enum:
-          - block
-          - queue
-          - start_turn
           title: Fallback Policy
           default: block
         idempotency_key:
@@ -63320,6 +67140,52 @@ components:
       - jwt_audience
       - jwt_key_id
       title: SmrDependencyIdentityRequest
+    SmrDeploymentPinRequest:
+      properties:
+        repository:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Repository
+        commit_sha:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Commit Sha
+        deployment_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Deployment Id
+        artifact_digest:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Artifact Digest
+        environment:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Environment
+        resolved_at:
+          type: string
+          format: date-time
+          title: Resolved At
+      type: object
+      required:
+      - repository
+      - commit_sha
+      - environment
+      - resolved_at
+      title: SmrDeploymentPinRequest
+      description: 'One repository''s resolved deployment receipt for run provenance.
+
+
+        Mirrors ``packages.smr.run_provenance.DeploymentPin``; validated and
+
+        digest-stamped at launch by the provenance binding authority.'
     SmrDeriveVisualRequest:
       properties:
         parent_revision:
@@ -66065,6 +69931,12 @@ components:
           additionalProperties: true
           type: object
           title: Metadata
+        default_child_inference:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Default Child Inference
       additionalProperties: false
       type: object
       required:
@@ -74103,6 +77975,14 @@ components:
       title: SmrProjectStatusRunSummary
     SmrProjectTriggerRequest:
       properties:
+        inference:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Inference
+          description: Execution-scoped managed-inference intent; raw provider credentials
+            are forbidden.
         execution_target:
           anyOf:
           - oneOf:
@@ -74405,6 +78285,27 @@ components:
           description: Optional staged-run kickoff contract. When provided, this becomes
             the authoritative staged contract for the run and is persisted on the
             run row.
+        deployment_pins:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/SmrDeploymentPinRequest'
+            type: array
+          - type: 'null'
+          title: Deployment Pins
+          description: Resolved deployment receipts binding this run to exact frozen
+            deployments (one pin per participating repository). Required when provenance_mode
+            is set; placeholder pins are refused in live mode.
+        provenance_mode:
+          anyOf:
+          - type: string
+            enum:
+            - live
+            - dry_run
+          - type: 'null'
+          title: Provenance Mode
+          description: Sealed-run provenance posture. 'live' requires non-placeholder
+            deployment_pins and a provisioned Factory trace store; 'dry_run' validates
+            shape only. Omit for ordinary (non-sealed) runs.
         tool_config:
           anyOf:
           - $ref: '#/components/schemas/SmrRunToolConfigRequest'
@@ -83927,6 +87828,11 @@ components:
           type: integer
           minimum: 0.0
           title: Work Product Count
+        tool_call_count:
+          type: integer
+          minimum: 0.0
+          title: Tool Call Count
+          default: 0
         run_is_terminal:
           type: boolean
           title: Run Is Terminal
@@ -83974,6 +87880,11 @@ components:
             $ref: '#/components/schemas/SmrSwarmTracePublicationResponse'
           type: array
           title: Trace Publications
+        tool_calls:
+          items:
+            $ref: '#/components/schemas/SmrSwarmToolCallEvidenceResponse'
+          type: array
+          title: Tool Calls
         freshness:
           $ref: '#/components/schemas/SmrSwarmEvidenceFreshnessResponse'
       additionalProperties: false
@@ -84441,6 +88352,76 @@ components:
       - by_model
       title: SmrSwarmTokenUsageResponse
       description: Typed token rollup for a swarm.
+    SmrSwarmToolCallEvidenceResponse:
+      properties:
+        tool_call_id:
+          type: string
+          minLength: 1
+          title: Tool Call Id
+        stable_actor_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stable Actor Key
+        actor_role:
+          type: string
+          minLength: 1
+          title: Actor Role
+        correlation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correlation Id
+        bundle_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bundle Name
+        tool_name:
+          type: string
+          minLength: 1
+          title: Tool Name
+        arguments_digest:
+          type: string
+          maxLength: 64
+          minLength: 64
+          title: Arguments Digest
+        status:
+          type: string
+          enum:
+          - succeeded
+          - failed
+          - unknown_tool
+          title: Status
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        retryable:
+          type: boolean
+          title: Retryable
+        duration_ms:
+          type: integer
+          minimum: 0.0
+          title: Duration Ms
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+      additionalProperties: false
+      type: object
+      required:
+      - tool_call_id
+      - actor_role
+      - tool_name
+      - arguments_digest
+      - status
+      - retryable
+      - duration_ms
+      - occurred_at
+      title: SmrSwarmToolCallEvidenceResponse
+      description: Secret-safe durable outcome for one run-scoped MCP invocation.
     SmrSwarmTracePublicationResponse:
       properties:
         publication_id:
@@ -88647,7 +92628,7 @@ components:
           title: Summary
         evidence_references:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           maxItems: 128
           title: Evidence References
@@ -89355,7 +93336,7 @@ components:
           default: sync
         evidence_refs:
           items:
-            type: string
+            $ref: '#/components/schemas/ProducedResourceReferenceV1'
           type: array
           maxItems: 128
           title: Evidence Refs
@@ -89394,6 +93375,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/SyncObjectiveBoundsV1'
           - type: 'null'
+        require_operator_approval:
+          type: boolean
+          title: Require Operator Approval
+          default: true
       additionalProperties: false
       type: object
       required:
@@ -91263,6 +95248,58 @@ components:
       - content_digest
       - receipt_uri
       title: TraceStoreLifecycleReceipt
+    TraceStorePreflightRequest:
+      properties:
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+          default: none
+        provision_if_missing:
+          type: boolean
+          title: Provision If Missing
+          default: true
+      additionalProperties: false
+      type: object
+      title: TraceStorePreflightRequest
+      description: Pre-launch trace-store readiness gate for a sealed run.
+    TraceStorePreflightResponse:
+      properties:
+        schema_version:
+          type: string
+          const: synth.trace-store-preflight.v1
+          title: Schema Version
+          default: synth.trace-store-preflight.v1
+        healthy:
+          type: boolean
+          title: Healthy
+        provisioned:
+          type: string
+          enum:
+          - existing
+          - created
+          title: Provisioned
+        descriptor:
+          $ref: '#/components/schemas/TraceStoreDescriptorResponse'
+        run_envelope_identity:
+          $ref: '#/components/schemas/TraceStoreRunEnvelopeIdentity'
+        health_conditions:
+          items:
+            type: string
+          type: array
+          title: Health Conditions
+        checked_at:
+          type: string
+          format: date-time
+          title: Checked At
+      additionalProperties: false
+      type: object
+      required:
+      - healthy
+      - provisioned
+      - descriptor
+      - run_envelope_identity
+      - checked_at
+      title: TraceStorePreflightResponse
+      description: Typed provision-and-health result gating sealed-run launch.
     TraceStoreProvisionRequest:
       properties:
         catalog_provider:
@@ -91291,6 +95328,60 @@ components:
       - credential_invalidated
       - error
       title: TraceStoreProvisioningStatus
+    TraceStoreRunEnvelopeIdentity:
+      properties:
+        schema_version:
+          type: string
+          const: synth.trace-store-run-envelope-identity.v1
+          title: Schema Version
+          default: synth.trace-store-run-envelope-identity.v1
+        trace_store_id:
+          type: string
+          title: Trace Store Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        blob_bucket:
+          type: string
+          title: Blob Bucket
+        blob_prefix:
+          type: string
+          title: Blob Prefix
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+        catalog_database_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Catalog Database Name
+        provisioning_status:
+          $ref: '#/components/schemas/TraceStoreProvisioningStatus'
+        provisioning_version:
+          type: integer
+          title: Provisioning Version
+      additionalProperties: false
+      type: object
+      required:
+      - trace_store_id
+      - org_id
+      - factory_id
+      - blob_bucket
+      - blob_prefix
+      - catalog_provider
+      - provisioning_status
+      - provisioning_version
+      title: TraceStoreRunEnvelopeIdentity
+      description: 'Trace-store identity carried inside a sealed-run envelope.
+
+
+        Sealed runners embed exactly this block (as ``trace_store``) in the run
+
+        envelope so trace-inventory collection after grading can never 404 on an
+
+        unprovisioned or ambiguous store.'
     TrainedModelAdapterUploadUrlBody:
       properties:
         expires_in:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import mimetypes
 import os
 import re
 from collections.abc import Iterable, Mapping
@@ -167,7 +166,13 @@ from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.session._client_helpers import (
     _coerce_dict,
     _coerce_dict_list,
+    _fencing_headers,
+    _guess_content_type,
+    _is_source_bundle_entry,
     _optional_mapping,
+    _optional_non_empty_string,
+    _positive_int_env,
+    _require_fencing_headers,
     _require_non_empty_string,
     assert_hosted_launch_surface,
     provider_selection_payload,
@@ -268,11 +273,6 @@ __all__ = [
 ]
 
 
-def _optional_non_empty_string(value: str | None) -> str | None:
-    text = str(value or "").strip()
-    return text or None
-
-
 def _optional_cloud_deployment_source(
     payload: CloudDeploymentProjectGitSource | Mapping[str, Any] | None,
 ) -> dict[str, str] | None:
@@ -318,23 +318,6 @@ def _optional_cloud_deployment_source(
         field_name="source.instance_id",
     )
     return normalized
-
-
-def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
-    """``X-Fencing-Token`` header for mutating CloudDeployment ops, or None."""
-    if fencing_token is None:
-        return None
-    if isinstance(fencing_token, bool):
-        raise ValueError("fencing_token must be an integer when provided")
-    return {"X-Fencing-Token": str(int(fencing_token))}
-
-
-def _require_fencing_headers(fencing_token: int) -> dict[str, str]:
-    if isinstance(fencing_token, bool) or not isinstance(fencing_token, int):
-        raise ValueError("fencing_token must be a positive integer")
-    if fencing_token < 1:
-        raise ValueError("fencing_token must be a positive integer")
-    return {"X-Fencing-Token": str(fencing_token)}
 
 
 def _coerce_cloud_deployment_schema(
@@ -578,6 +561,8 @@ def _build_project_run_payload(
     dev_environment_id: str | None = None,
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
+    deployment_pins: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
+    provenance_mode: str | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
     open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -814,6 +799,22 @@ def _build_project_run_payload(
         run_policy_payload = normalized_run_policy.to_dict()
         reject_deprecated_run_policy_payload(run_policy_payload)
         payload["run_policy"] = run_policy_payload
+    # Sealed-run provenance: the backend provenance authority validates and
+    # digest-stamps the pins (typed 422s: run_deployment_pins_missing,
+    # run_deployment_pin_placeholder, run_deployment_pin_invalid,
+    # run_provenance_mode_invalid, run_trace_store_not_provisioned), so the
+    # SDK only normalizes shape and the mode vocabulary here.
+    normalized_deployment_pins = _optional_mapping_list(
+        deployment_pins,
+        field_name="deployment_pins",
+    )
+    if normalized_deployment_pins:
+        payload["deployment_pins"] = normalized_deployment_pins
+    if provenance_mode is not None:
+        normalized_provenance_mode = str(provenance_mode).strip()
+        if normalized_provenance_mode not in ("live", "dry_run"):
+            raise ValueError("provenance_mode must be 'live' or 'dry_run'")
+        payload["provenance_mode"] = normalized_provenance_mode
     normalized_required_work_products = _required_work_product_payloads(
         required_work_products,
         field_name="required_work_products",
@@ -959,39 +960,7 @@ def _build_project_run_payload_from_request(
     return _build_project_run_payload(**explicit)
 
 
-def _guess_content_type(path: str) -> str:
-    guessed, _ = mimetypes.guess_type(path)
-    return guessed or "application/octet-stream"
-
-
-def _is_source_bundle_entry(path: str, entry: Mapping[str, Any]) -> bool:
-    kind = str(entry.get("kind") or "").strip().lower()
-    content_type = str(entry.get("content_type") or _guess_content_type(path)).strip().lower()
-    return (
-        kind == "source_bundle"
-        or path.lower().endswith(".zip")
-        or content_type
-        in {
-            "application/zip",
-            "application/x-zip",
-            "application/x-zip-compressed",
-            "multipart/x-zip",
-        }
-    )
-
-
 _DEFAULT_WORKSPACE_UPLOAD_CHUNK_SIZE = 100
-
-
-def _positive_int_env(name: str, default_value: int) -> int:
-    raw = str(os.getenv(name) or "").strip()
-    if not raw:
-        return default_value
-    try:
-        value = int(raw)
-    except ValueError:
-        return default_value
-    return value if value > 0 else default_value
 
 
 def _normalize_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:
@@ -5535,6 +5504,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
+        deployment_pins: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
+        provenance_mode: str | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5586,6 +5557,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
+            deployment_pins=deployment_pins,
+            provenance_mode=provenance_mode,
             resource_bindings=resource_bindings,
             evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
@@ -5694,6 +5667,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
+        deployment_pins: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
+        provenance_mode: str | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5761,6 +5736,8 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
+            deployment_pins=deployment_pins,
+            provenance_mode=provenance_mode,
             resource_bindings=resource_bindings,
             evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
