@@ -53,6 +53,7 @@ class CheckpointsAPI:
         limit: int = 50,
         offset: int = 0,
     ) -> SavedLoraCheckpointPage:
+        """Search saved checkpoints with filters and a page size clamped to 1–100."""
         payload = self._transport.request_json(
             "GET",
             "/api/v1/optimizers/checkpoints",
@@ -76,6 +77,7 @@ class CheckpointsAPI:
         return SavedLoraCheckpointPage.model_validate(_object(payload))
 
     def get(self, checkpoint_id: str) -> SavedLoraCheckpoint:
+        """Retrieve one saved checkpoint by its URL-escaped identifier."""
         payload = self._transport.request_json(
             "GET",
             f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}",
@@ -92,6 +94,7 @@ class CheckpointsAPI:
         limit: int = 100,
         offset: int = 0,
     ) -> SavedLoraRunPage:
+        """List saved checkpoints for one run with bounded pagination."""
         payload = self._transport.request_json(
             "GET",
             f"/api/v1/optimizers/runs/{quote(run_id, safe='')}/saved-checkpoints",
@@ -115,6 +118,7 @@ class ModelsAPI:
     def list(
         self, *, algorithm: str | None = None, provider: str | None = None
     ) -> HostedTrainingModelCatalog:
+        """Discover hosted training models filtered by algorithm and provider."""
         payload = self._transport.request_json(
             "GET",
             "/api/v1/optimizers/models/training",
@@ -131,6 +135,7 @@ class RunsAPI:
         self._transport = transport
 
     def outputs(self, run_id: str) -> OptimizerRunOutputs:
+        """Retrieve the backend-owned output inventory for one optimizer run."""
         payload = self._transport.request_json(
             "GET",
             f"/api/v1/optimizers/runs/{quote(run_id, safe='')}/outputs",
@@ -140,6 +145,8 @@ class RunsAPI:
 
 
 class AsyncCheckpointsAPI:
+    """Asynchronous saved-checkpoint discovery and lineage reads."""
+
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
@@ -160,6 +167,7 @@ class AsyncCheckpointsAPI:
         limit: int = 50,
         offset: int = 0,
     ) -> SavedLoraCheckpointPage:
+        """Search saved checkpoints with filters and a page size clamped to 1–100."""
         payload = await self._transport.request_json(
             "GET",
             "/api/v1/optimizers/checkpoints",
@@ -183,6 +191,7 @@ class AsyncCheckpointsAPI:
         return SavedLoraCheckpointPage.model_validate(_object(payload))
 
     async def get(self, checkpoint_id: str) -> SavedLoraCheckpoint:
+        """Retrieve one saved checkpoint by its URL-escaped identifier."""
         payload = await self._transport.request_json(
             "GET",
             f"/api/v1/optimizers/checkpoints/{quote(checkpoint_id, safe='')}",
@@ -199,6 +208,7 @@ class AsyncCheckpointsAPI:
         limit: int = 100,
         offset: int = 0,
     ) -> SavedLoraRunPage:
+        """List saved checkpoints for one run with bounded pagination."""
         payload = await self._transport.request_json(
             "GET",
             f"/api/v1/optimizers/runs/{quote(run_id, safe='')}/saved-checkpoints",
@@ -214,10 +224,13 @@ class AsyncCheckpointsAPI:
 
 
 class AsyncModelsAPI:
+    """Asynchronous hosted training model discovery."""
+
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
     async def list(self, **filters: Any) -> HostedTrainingModelCatalog:
+        """Read the training model catalog using backend-supported query filters."""
         payload = await self._transport.request_json(
             "GET",
             "/api/v1/optimizers/models/training",
@@ -228,10 +241,13 @@ class AsyncModelsAPI:
 
 
 class AsyncRunsAPI:
+    """Asynchronous reads of persisted hosted optimizer outputs."""
+
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
     async def outputs(self, run_id: str) -> OptimizerRunOutputs:
+        """Retrieve the backend-owned output inventory for one optimizer run."""
         payload = await self._transport.request_json(
             "GET",
             f"/api/v1/optimizers/runs/{quote(run_id, safe='')}/outputs",
@@ -261,6 +277,7 @@ class OptimizersClient:
         self.runs = RunsAPI(self._transport)
 
     def close(self) -> None:
+        """Close the hosted optimizer HTTP transport."""
         self._transport.close()
 
 
@@ -285,6 +302,7 @@ class AsyncOptimizersClient:
         self.runs = AsyncRunsAPI(self._transport)
 
     async def close(self) -> None:
+        """Close the asynchronous hosted optimizer HTTP transport."""
         await self._transport.close()
 
 

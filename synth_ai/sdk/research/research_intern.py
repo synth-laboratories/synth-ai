@@ -2143,6 +2143,7 @@ class ResearchInternMetaThreadsAPI:
         self._transport = transport
 
     def list(self) -> tuple[InternMetaThread, ...]:
+        """List backend-owned Sync and Async meta-thread projections."""
         return tuple(
             InternMetaThread.from_wire(item)
             for item in array_value(
@@ -2155,6 +2156,7 @@ class ResearchInternMetaThreadsAPI:
         )
 
     def get(self, meta_thread_id: str) -> InternMetaThread:
+        """Retrieve one meta-thread and reject a mismatched response identity."""
         thread = InternMetaThread.from_wire(
             self._transport.execute(
                 _request(
@@ -2168,6 +2170,7 @@ class ResearchInternMetaThreadsAPI:
         return thread
 
     def segments(self, meta_thread_id: str) -> tuple[InternMetaThreadSegment, ...]:
+        """List the live and sealed segments of one meta-thread."""
         return tuple(
             InternMetaThreadSegment.from_wire(item)
             for item in array_value(
@@ -2185,6 +2188,7 @@ class ResearchInternMetaThreadsAPI:
         )
 
     def handoffs(self, meta_thread_id: str) -> tuple[InternMetaHandoff, ...]:
+        """List durable cross-lane handoff records for one meta-thread."""
         return tuple(
             InternMetaHandoff.from_wire(item)
             for item in array_value(
@@ -2204,6 +2208,7 @@ class ResearchInternMetaThreadsAPI:
     def messages(
         self, meta_thread_id: str, *, limit: int = 200
     ) -> tuple[InternCrossMetaThreadMessage, ...]:
+        """Read a bounded page of cross-meta-thread messages."""
         return tuple(
             InternCrossMetaThreadMessage.from_wire(item)
             for item in array_value(
@@ -2224,6 +2229,7 @@ class ResearchInternMetaThreadsAPI:
     def send(
         self, request: InternCrossMetaThreadMessageCreateRequest
     ) -> InternCrossMetaThreadMessage:
+        """Send a typed cross-lane message and verify its receipt identity."""
         message = InternCrossMetaThreadMessage.from_wire(
             self._transport.execute(
                 _request(
@@ -2264,6 +2270,7 @@ class ResearchInternSyncRuntimeAPI:
         return self._meta_threads.segments(sync_threads[0].meta_thread_id)
 
     def create(self, request: InternSyncSessionCreateRequest) -> InternSyncSession:
+        """Create a Sync session from a typed backend request."""
         return InternSyncSession.from_wire(
             self._transport.execute(
                 _request(
@@ -2275,6 +2282,7 @@ class ResearchInternSyncRuntimeAPI:
         )
 
     def list(self, *, limit: int = 100) -> tuple[InternSyncSession, ...]:
+        """List a bounded page of typed Sync session projections."""
         return tuple(
             InternSyncSession.from_wire(item)
             for item in array_value(
@@ -2293,6 +2301,7 @@ class ResearchInternSyncRuntimeAPI:
         )
 
     def get(self, sync_session_id: str) -> InternSyncSession:
+        """Retrieve a Sync session and reject response identity drift."""
         session = InternSyncSession.from_wire(
             self._transport.execute(
                 _request(
@@ -2306,6 +2315,7 @@ class ResearchInternSyncRuntimeAPI:
         return session
 
     def deploy_packet(self, sync_session_id: str) -> InternSyncDeployPacket:
+        """Retrieve the backend deploy packet for the exact Sync session."""
         packet = InternSyncDeployPacket.from_wire(
             self._transport.execute(
                 _request(
@@ -2323,6 +2333,7 @@ class ResearchInternSyncRuntimeAPI:
         sync_session_id: str,
         request: InternSyncCommandRequest,
     ) -> InternSyncCommandReceipt:
+        """Submit a fenced command and verify its command and runtime identities."""
         receipt = InternSyncCommandReceipt.from_wire(
             self._transport.execute(
                 _request(
@@ -2347,6 +2358,7 @@ class ResearchInternSyncRuntimeAPI:
         turn_id: str | None = None,
         context: dict[str, JsonValue] | None = None,
     ) -> InternSyncCommandReceipt:
+        """Submit an operator message with an idempotency key and expected generation."""
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2374,6 +2386,7 @@ class ResearchInternSyncRuntimeAPI:
         state_patch: dict[str, JsonValue] | None = None,
         context: dict[str, JsonValue] | None = None,
     ) -> InternSyncCommandReceipt:
+        """Submit a fenced intervention with the requested state patch and context."""
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2401,6 +2414,7 @@ class ResearchInternSyncRuntimeAPI:
         answer: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternSyncCommandReceipt:
+        """Answer one interaction through a generation-fenced Sync command."""
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2425,6 +2439,7 @@ class ResearchInternSyncRuntimeAPI:
         expected_generation: int,
         rationale: str,
     ) -> InternSyncCommandReceipt:
+        """Request a fenced pause and retain the operator rationale in the receipt."""
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2444,6 +2459,7 @@ class ResearchInternSyncRuntimeAPI:
         idempotency_key: str,
         expected_generation: int,
     ) -> InternSyncCommandReceipt:
+        """Request resumption at the expected Sync generation."""
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2464,6 +2480,7 @@ class ResearchInternSyncRuntimeAPI:
         rationale: str,
         outcome: InternRuntimeOutcome = InternRuntimeOutcome.COMPLETED,
     ) -> InternSyncCommandReceipt:
+        """Close a Sync session with an explicit outcome and rationale."""
         return self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -2482,6 +2499,7 @@ class ResearchInternSyncRuntimeAPI:
         after_sequence: int = 0,
         limit: int = 100,
     ) -> InternSyncEventPage:
+        """Read a bounded event page after a non-negative reconnect sequence."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         return _intern_sync_event_page(
@@ -2506,6 +2524,7 @@ class ResearchInternSyncRuntimeAPI:
         after_sequence: int = 0,
         timeout_seconds: float = 30.0,
     ) -> Iterator[InternSyncEvent]:
+        """Stream typed SSE events while validating runtime identity and contiguous sequence."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         expected_sequence = after_sequence + 1
@@ -2533,6 +2552,7 @@ class ResearchInternSyncRuntimeAPI:
         event_count_max: int = 1,
         timeout_seconds: float = 30.0,
     ) -> InternSyncEventPage:
+        """Collect a bounded number of streamed events and return their reconnect cursor."""
         _stream_bound(event_count_max, name="event_count_max", maximum=500)
         events: list[InternSyncEvent] = []
         for event in self.stream_events(
@@ -2582,11 +2602,13 @@ class ResearchInternAsyncRuntimeAPI:
         )
 
     def get(self) -> InternAsyncRuntime:
+        """Retrieve the organization Intern's backend-owned Async runtime."""
         return InternAsyncRuntime.from_wire(
             self._transport.execute(_request("get_intern_async_runtime", self._PATH))
         )
 
     def command(self, request: InternAsyncCommandRequest) -> InternAsyncCommandReceipt:
+        """Submit a fenced Async command and reject command receipt identity drift."""
         receipt = InternAsyncCommandReceipt.from_wire(
             self._transport.execute(
                 _request(
@@ -2632,6 +2654,7 @@ class ResearchInternAsyncRuntimeAPI:
         )
 
     def list_handoffs(self) -> tuple[InternMetaHandoff, ...]:
+        """List the Async runtime's durable handoff review records."""
         return tuple(
             InternMetaHandoff.from_wire(item)
             for item in array_value(
@@ -2646,6 +2669,7 @@ class ResearchInternAsyncRuntimeAPI:
         )
 
     def approve_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        """Approve one backend-owned Async handoff review."""
         return InternMetaHandoff.from_wire(
             self._transport.execute(
                 _request(
@@ -2657,6 +2681,7 @@ class ResearchInternAsyncRuntimeAPI:
         )
 
     def reject_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        """Reject one backend-owned Async handoff review."""
         return InternMetaHandoff.from_wire(
             self._transport.execute(
                 _request(
@@ -2672,6 +2697,7 @@ class ResearchInternAsyncRuntimeAPI:
         handoff_id: str,
         request: InternMetaHandoffContinueRequest | None = None,
     ) -> InternMetaHandoff:
+        """Continue a handoff with an optional typed continuation request."""
         body = cast(JsonObject, request.to_wire()) if request is not None else cast(JsonObject, {})
         return InternMetaHandoff.from_wire(
             self._transport.execute(
@@ -2684,6 +2710,7 @@ class ResearchInternAsyncRuntimeAPI:
         )
 
     def send(self, request: InternAsyncInstructionRequest) -> InternAsyncCommandReceipt:
+        """Convert an Async instruction to a command and return its verified receipt."""
         return self.command(request.to_command())
 
     def pause(
@@ -2713,6 +2740,7 @@ class ResearchInternAsyncRuntimeAPI:
         idempotency_key: str,
         expected_generation: int,
     ) -> InternAsyncCommandReceipt:
+        """Resume Async work through a generation-fenced command."""
         return self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -2730,6 +2758,7 @@ class ResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Cancel Async work at the expected generation with an explicit reason."""
         return self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -2750,6 +2779,7 @@ class ResearchInternAsyncRuntimeAPI:
         body: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Answer one Async interaction with fenced input and optional context."""
         return self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -2773,6 +2803,7 @@ class ResearchInternAsyncRuntimeAPI:
         body: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Send a generation-fenced Async intervention instruction."""
         return self.send(
             InternAsyncInstructionRequest(
                 command_id=command_id,
@@ -2793,6 +2824,7 @@ class ResearchInternAsyncRuntimeAPI:
         objective: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Request an Async objective change through backend command authority."""
         return self.send(
             InternAsyncInstructionRequest(
                 command_id=command_id,
@@ -2812,6 +2844,7 @@ class ResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Request a backend-owned Async checkpoint at the expected generation."""
         return self.send(
             InternAsyncInstructionRequest(
                 command_id=command_id,
@@ -2828,6 +2861,7 @@ class ResearchInternAsyncRuntimeAPI:
         after_sequence: int = 0,
         limit: int = 100,
     ) -> InternAsyncEventPage:
+        """Read a bounded Async event page after a non-negative reconnect sequence."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         return _intern_async_event_page(
@@ -2869,6 +2903,7 @@ class ResearchInternAsyncRuntimeAPI:
         after_sequence: int = 0,
         timeout_seconds: float = 30.0,
     ) -> Iterator[InternAsyncEvent]:
+        """Stream Async SSE events and reject runtime identity or sequence drift."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         expected_sequence = after_sequence + 1
@@ -2896,6 +2931,7 @@ class ResearchInternAsyncRuntimeAPI:
         event_count_max: int = 1,
         timeout_seconds: float = 30.0,
     ) -> InternAsyncEventPage:
+        """Collect bounded Async events and return the last durable reconnect sequence."""
         _stream_bound(event_count_max, name="event_count_max", maximum=500)
         events: list[InternAsyncEvent] = []
         for event in self.stream_events(
@@ -2925,6 +2961,7 @@ class ResearchInternAcceptanceFixturesAPI:
         self._transport = transport
 
     def create(self, request: InternAcceptanceFixtureRequest) -> InternAcceptanceFixtureReceipt:
+        """Provision a typed acceptance fixture and return its backend-owned receipt."""
         return InternAcceptanceFixtureReceipt.from_wire(
             self._transport.execute(
                 _request(
@@ -2936,6 +2973,7 @@ class ResearchInternAcceptanceFixturesAPI:
         )
 
     def get(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        """Retrieve a fixture receipt and reject a mismatched fixture identity."""
         receipt = InternAcceptanceFixtureReceipt.from_wire(
             self._transport.execute(
                 _request(
@@ -2949,6 +2987,7 @@ class ResearchInternAcceptanceFixturesAPI:
         return receipt
 
     def teardown(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        """Request fixture teardown while retaining its identity-checked evidence receipt."""
         receipt = InternAcceptanceFixtureReceipt.from_wire(
             self._transport.execute(
                 _request(
@@ -4245,6 +4284,7 @@ class AsyncResearchInternMetaThreadsAPI:
         self._transport = transport
 
     async def list(self) -> tuple[InternMetaThread, ...]:
+        """List backend-owned Sync and Async meta-thread projections."""
         return tuple(
             InternMetaThread.from_wire(item)
             for item in array_value(
@@ -4257,6 +4297,7 @@ class AsyncResearchInternMetaThreadsAPI:
         )
 
     async def get(self, meta_thread_id: str) -> InternMetaThread:
+        """Retrieve one meta-thread and reject a mismatched response identity."""
         thread = InternMetaThread.from_wire(
             await self._transport.execute(
                 _request(
@@ -4270,6 +4311,7 @@ class AsyncResearchInternMetaThreadsAPI:
         return thread
 
     async def segments(self, meta_thread_id: str) -> tuple[InternMetaThreadSegment, ...]:
+        """List the live and sealed segments of one meta-thread."""
         return tuple(
             InternMetaThreadSegment.from_wire(item)
             for item in array_value(
@@ -4289,6 +4331,7 @@ class AsyncResearchInternMetaThreadsAPI:
     async def messages(
         self, meta_thread_id: str, *, limit: int = 200
     ) -> tuple[InternCrossMetaThreadMessage, ...]:
+        """Read a bounded page of cross-meta-thread messages."""
         return tuple(
             InternCrossMetaThreadMessage.from_wire(item)
             for item in array_value(
@@ -4307,6 +4350,7 @@ class AsyncResearchInternMetaThreadsAPI:
         )
 
     async def handoffs(self, meta_thread_id: str) -> tuple[InternMetaHandoff, ...]:
+        """List durable cross-lane handoff records for one meta-thread."""
         return tuple(
             InternMetaHandoff.from_wire(item)
             for item in array_value(
@@ -4326,6 +4370,7 @@ class AsyncResearchInternMetaThreadsAPI:
     async def send(
         self, request: InternCrossMetaThreadMessageCreateRequest
     ) -> InternCrossMetaThreadMessage:
+        """Send a typed cross-lane message and verify its receipt identity."""
         message = InternCrossMetaThreadMessage.from_wire(
             await self._transport.execute(
                 _request(
@@ -4354,6 +4399,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         self._meta_threads = meta_threads or AsyncResearchInternMetaThreadsAPI(transport)
 
     async def branches(self) -> tuple[InternMetaThreadSegment, ...]:
+        """List the Sync head and branch segments; require exactly one Sync meta-thread."""
         threads = await self._meta_threads.list()
         sync_threads = [thread for thread in threads if thread.kind is InternMetaThreadKind.SYNC]
         if len(sync_threads) != 1:
@@ -4364,6 +4410,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         self,
         request: InternSyncSessionCreateRequest,
     ) -> InternSyncSession:
+        """Create a Sync session from a typed backend request."""
         return InternSyncSession.from_wire(
             await self._transport.execute(
                 _request(
@@ -4375,6 +4422,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         )
 
     async def list(self, *, limit: int = 100) -> tuple[InternSyncSession, ...]:
+        """List a bounded page of typed Sync session projections."""
         return tuple(
             InternSyncSession.from_wire(item)
             for item in array_value(
@@ -4393,6 +4441,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         )
 
     async def get(self, sync_session_id: str) -> InternSyncSession:
+        """Retrieve a Sync session and reject response identity drift."""
         session = InternSyncSession.from_wire(
             await self._transport.execute(
                 _request(
@@ -4410,6 +4459,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         sync_session_id: str,
         request: InternSyncCommandRequest,
     ) -> InternSyncCommandReceipt:
+        """Submit a fenced command and verify its command and runtime identities."""
         receipt = InternSyncCommandReceipt.from_wire(
             await self._transport.execute(
                 _request(
@@ -4434,6 +4484,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         turn_id: str | None = None,
         context: dict[str, JsonValue] | None = None,
     ) -> InternSyncCommandReceipt:
+        """Submit an operator message with an idempotency key and expected generation."""
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4461,6 +4512,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         state_patch: dict[str, JsonValue] | None = None,
         context: dict[str, JsonValue] | None = None,
     ) -> InternSyncCommandReceipt:
+        """Submit a fenced intervention with the requested state patch and context."""
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4488,6 +4540,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         answer: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternSyncCommandReceipt:
+        """Answer one interaction through a generation-fenced Sync command."""
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4512,6 +4565,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         expected_generation: int,
         rationale: str,
     ) -> InternSyncCommandReceipt:
+        """Request a fenced pause and retain the operator rationale in the receipt."""
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4531,6 +4585,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         idempotency_key: str,
         expected_generation: int,
     ) -> InternSyncCommandReceipt:
+        """Request resumption at the expected Sync generation."""
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4551,6 +4606,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         rationale: str,
         outcome: InternRuntimeOutcome = InternRuntimeOutcome.COMPLETED,
     ) -> InternSyncCommandReceipt:
+        """Close a Sync session with an explicit outcome and rationale."""
         return await self.command(
             sync_session_id,
             InternSyncCommandRequest(
@@ -4569,6 +4625,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         after_sequence: int = 0,
         limit: int = 100,
     ) -> InternSyncEventPage:
+        """Read a bounded event page after a non-negative reconnect sequence."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         return _intern_sync_event_page(
@@ -4593,6 +4650,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         after_sequence: int = 0,
         timeout_seconds: float = 30.0,
     ) -> AsyncIterator[InternSyncEvent]:
+        """Stream typed SSE events while validating runtime identity and contiguous sequence."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         expected_sequence = after_sequence + 1
@@ -4620,6 +4678,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         event_count_max: int = 1,
         timeout_seconds: float = 30.0,
     ) -> InternSyncEventPage:
+        """Collect a bounded number of streamed events and return their reconnect cursor."""
         _stream_bound(event_count_max, name="event_count_max", maximum=500)
         events: list[InternSyncEvent] = []
         async for event in self.stream_events(
@@ -4669,11 +4728,13 @@ class AsyncResearchInternAsyncRuntimeAPI:
         )
 
     async def get(self) -> InternAsyncRuntime:
+        """Retrieve the organization Intern's backend-owned Async runtime."""
         return InternAsyncRuntime.from_wire(
             await self._transport.execute(_request("get_intern_async_runtime", self._PATH))
         )
 
     async def command(self, request: InternAsyncCommandRequest) -> InternAsyncCommandReceipt:
+        """Submit a fenced Async command and reject command receipt identity drift."""
         receipt = InternAsyncCommandReceipt.from_wire(
             await self._transport.execute(
                 _request(
@@ -4721,6 +4782,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         )
 
     async def list_handoffs(self) -> tuple[InternMetaHandoff, ...]:
+        """List the Async runtime's durable handoff review records."""
         return tuple(
             InternMetaHandoff.from_wire(item)
             for item in array_value(
@@ -4735,6 +4797,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         )
 
     async def approve_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        """Approve one backend-owned Async handoff review."""
         return InternMetaHandoff.from_wire(
             await self._transport.execute(
                 _request(
@@ -4746,6 +4809,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         )
 
     async def reject_handoff(self, handoff_id: str) -> InternMetaHandoff:
+        """Reject one backend-owned Async handoff review."""
         return InternMetaHandoff.from_wire(
             await self._transport.execute(
                 _request(
@@ -4761,6 +4825,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         handoff_id: str,
         request: InternMetaHandoffContinueRequest | None = None,
     ) -> InternMetaHandoff:
+        """Continue a handoff with an optional typed continuation request."""
         body = cast(JsonObject, request.to_wire()) if request is not None else cast(JsonObject, {})
         return InternMetaHandoff.from_wire(
             await self._transport.execute(
@@ -4773,6 +4838,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         )
 
     async def send(self, request: InternAsyncInstructionRequest) -> InternAsyncCommandReceipt:
+        """Convert an Async instruction to a command and return its verified receipt."""
         return await self.command(request.to_command())
 
     async def pause(
@@ -4802,6 +4868,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         idempotency_key: str,
         expected_generation: int,
     ) -> InternAsyncCommandReceipt:
+        """Resume Async work through a generation-fenced command."""
         return await self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -4819,6 +4886,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         reason: str,
     ) -> InternAsyncCommandReceipt:
+        """Cancel Async work at the expected generation with an explicit reason."""
         return await self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -4839,6 +4907,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         body: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Answer one Async interaction with fenced input and optional context."""
         return await self.command(
             InternAsyncCommandRequest(
                 command_id=command_id,
@@ -4862,6 +4931,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         body: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Send a generation-fenced Async intervention instruction."""
         return await self.send(
             InternAsyncInstructionRequest(
                 command_id=command_id,
@@ -4882,6 +4952,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         objective: str,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Request an Async objective change through backend command authority."""
         return await self.send(
             InternAsyncInstructionRequest(
                 command_id=command_id,
@@ -4901,6 +4972,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         expected_generation: int,
         context: dict[str, JsonValue] | None = None,
     ) -> InternAsyncCommandReceipt:
+        """Request a backend-owned Async checkpoint at the expected generation."""
         return await self.send(
             InternAsyncInstructionRequest(
                 command_id=command_id,
@@ -4917,6 +4989,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         after_sequence: int = 0,
         limit: int = 100,
     ) -> InternAsyncEventPage:
+        """Read a bounded Async event page after a non-negative reconnect sequence."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         return _intern_async_event_page(
@@ -4939,6 +5012,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         after_sequence: int = 0,
         timeout_seconds: float = 30.0,
     ) -> AsyncIterator[InternAsyncEvent]:
+        """Stream Async SSE events and reject runtime identity or sequence drift."""
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
         expected_sequence = after_sequence + 1
@@ -4966,6 +5040,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
         event_count_max: int = 1,
         timeout_seconds: float = 30.0,
     ) -> InternAsyncEventPage:
+        """Collect bounded Async events and return the last durable reconnect sequence."""
         _stream_bound(event_count_max, name="event_count_max", maximum=500)
         events: list[InternAsyncEvent] = []
         async for event in self.stream_events(
@@ -4993,6 +5068,7 @@ class AsyncResearchInternAcceptanceFixturesAPI:
         self,
         request: InternAcceptanceFixtureRequest,
     ) -> InternAcceptanceFixtureReceipt:
+        """Provision a typed acceptance fixture and return its backend-owned receipt."""
         return InternAcceptanceFixtureReceipt.from_wire(
             await self._transport.execute(
                 _request(
@@ -5004,6 +5080,7 @@ class AsyncResearchInternAcceptanceFixturesAPI:
         )
 
     async def get(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        """Retrieve a fixture receipt and reject a mismatched fixture identity."""
         receipt = InternAcceptanceFixtureReceipt.from_wire(
             await self._transport.execute(
                 _request(
@@ -5017,6 +5094,7 @@ class AsyncResearchInternAcceptanceFixturesAPI:
         return receipt
 
     async def teardown(self, fixture_id: str) -> InternAcceptanceFixtureReceipt:
+        """Request fixture teardown while retaining its identity-checked evidence receipt."""
         receipt = InternAcceptanceFixtureReceipt.from_wire(
             await self._transport.execute(
                 _request(
