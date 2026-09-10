@@ -6,6 +6,8 @@ import json
 import os
 import sys
 from dataclasses import asdict, is_dataclass
+from datetime import date, datetime, time
+from enum import Enum
 from typing import Any
 
 from synth_ai.core.errors import SynthError
@@ -45,6 +47,7 @@ from synth_ai.mcp.research.tools.factory_results import (
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
+from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
@@ -54,6 +57,7 @@ from synth_ai.mcp.research.tools.projects import build_project_tools
 from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
 from synth_ai.mcp.research.tools.repos import build_repo_tools
+from synth_ai.mcp.research.tools.research_intern import build_research_intern_tools
 from synth_ai.mcp.research.tools.resources import build_resource_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
@@ -92,6 +96,32 @@ def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
 
 _STABLE_TOOL_NAMES = frozenset(
     {
+        "intern_async_cancel",
+        "intern_async_command",
+        "intern_async_ensure",
+        "intern_async_events",
+        "intern_async_get",
+        "intern_async_intervene",
+        "intern_async_pause",
+        "intern_async_provide_input",
+        "intern_async_redirect_objective",
+        "intern_async_request_checkpoint",
+        "intern_async_resume",
+        "intern_async_send",
+        "intern_async_tail",
+        "intern_sync_answer",
+        "intern_sync_close",
+        "intern_sync_command",
+        "intern_sync_create",
+        "intern_sync_events",
+        "intern_sync_get",
+        "intern_sync_intervene",
+        "intern_sync_list",
+        "intern_sync_pause",
+        "intern_sync_resume",
+        "intern_sync_send",
+        "intern_sync_tail",
+        "research_append_research_intern_event",
         "research_archive_factory",
         "research_archive_project",
         "research_branch_run_from_checkpoint",
@@ -117,6 +147,10 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_visual",
         "research_get_visual_content",
         "research_get_visual_preview",
+        "research_create_visual",
+        "research_update_visual",
+        "research_promote_visual",
+        "research_unpublish_visual",
         "research_get_run",
         "research_get_run_transcript",
         "research_get_swarm_activity",
@@ -154,8 +188,30 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_update_project_repository",
         "research_upload_project_dataset",
         "research_upload_workspace_files",
+        "research_confirm_workspace_push",
         "research_watch_run_events",
         "research_attach_source_repo",
+        "research_attach_research_intern_factory",
+        "research_close_research_intern_session",
+        "research_create_research_intern_session",
+        "research_exchange_research_intern_turn",
+        "research_get_research_intern",
+        "research_get_research_intern_acceptance_receipt",
+        "research_get_research_intern_decision",
+        "research_get_research_intern_session",
+        "research_list_research_intern_acceptance_receipts",
+        "research_list_research_intern_decisions",
+        "research_list_research_intern_events",
+        "research_list_research_intern_factories",
+        "research_list_research_intern_sessions",
+        "research_provision_research_intern",
+        "research_publish_research_intern_acceptance_receipt",
+        "research_publish_research_intern_session_trace",
+        "research_record_research_intern_decision",
+        "research_run_research_intern_turn",
+        "research_sync_research_intern_session",
+        "research_update_research_intern",
+        "research_watch_research_intern_events",
     }
 )
 
@@ -285,13 +341,26 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
 
 def _mcp_jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return asdict(value)
-    if isinstance(value, list):
-        return [_mcp_jsonable(item) for item in value]
-    if isinstance(value, tuple):
+        return _mcp_jsonable(asdict(value))
+    if isinstance(value, Enum):
+        return _mcp_jsonable(value.value)
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
         return [_mcp_jsonable(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _mcp_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        normalized = [_mcp_jsonable(item) for item in value]
+        return sorted(
+            normalized,
+            key=lambda item: json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
     return value
 
 
@@ -411,6 +480,8 @@ class ResearchMcpServer:
             *build_model_tools(self),
             *build_output_tools(self),
             *build_readiness_tools(self),
+            *build_research_intern_tools(self._core_client_from_args),
+            *build_intern_program_tools(self._core_client_from_args),
             *build_resource_tools(self),
             *build_run_tools(self),
             *build_progress_tools(self),
@@ -1326,9 +1397,13 @@ class ResearchMcpServer:
             )
         limit_value = self._optional_float_arg(args, "limit_value")
         additional_value = self._optional_float_arg(args, "additional_value")
-        resolve_blockers = optional_bool(args, "resolve_blockers", default=True)
-        resume = optional_bool(args, "resume", default=True)
+        expected_revision = optional_int(args, "expected_revision")
+        if expected_revision is None or expected_revision < 1:
+            raise ValueError("expected_revision must be an integer greater than or equal to 1")
+        resolve_blockers = optional_bool(args, "resolve_blockers", default=False)
+        resume = optional_bool(args, "resume", default=False)
         kwargs = {
+            "expected_revision": expected_revision,
             "limit_value": limit_value,
             "additional_value": additional_value,
             "reason": optional_string(args, "reason"),
@@ -2722,7 +2797,7 @@ class ResearchMcpServer:
                 arguments = params.get("arguments")
                 if arguments is not None and not isinstance(arguments, dict):
                     raise RpcError(-32602, "tools/call arguments must be an object")
-                result = self.call_tool(tool_name, arguments)
+                result = _mcp_jsonable(self.call_tool(tool_name, arguments))
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,

@@ -144,7 +144,34 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - name: Sync dev dependencies
         run: uv sync --group dev
+      - name: Smoke test Research MCP registry
+        run: |
+          uv run python - <<'PY'
+          from synth_ai.mcp.research.server import ResearchMcpServer
+          from synth_ai.mcp.research.tools.research_intern import (
+              LEGACY_INTERN_SESSION_TOOL_NAMES,
+          )
+
+          stable = ResearchMcpServer()
+          advanced = ResearchMcpServer(include_advanced_tools=True)
+          stable_names = stable.available_tool_names()
+          advanced_names = advanced.available_tool_names()
+          intern_names = {name for name in stable_names if "research_intern" in name}
+
+          assert len(intern_names) == 11, intern_names
+          assert not set(stable_names) & LEGACY_INTERN_SESSION_TOOL_NAMES
+          assert not any(name.startswith("smr_") for name in stable_names)
+          assert not any(name.startswith("smr_") for name in advanced_names)
+          for canonical_name in intern_names:
+              legacy_name = f"smr_{canonical_name.removeprefix('research_')}"
+              assert stable.get_tool_definition(legacy_name) is stable.get_tool_definition(
+                  canonical_name
+              )
+          PY
       - name: Detect SDK pytest suite
+        # Public tests must run even when the private sibling checkout is unavailable.
+        # Kept separate so a green MCP smoke cannot mask stale public contracts.
+        # The private suite below remains an additional gate when available.
         id: sdk_tests
         run: |
           if [ -d testing/backend/unit/synth_ai_sdk ]; then
@@ -152,6 +179,8 @@ jobs:
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Run public SDK contract tests
+        run: uv run --group dev pytest tests -q
       - name: Run SDK pytest suite
         if: steps.sdk_tests.outputs.available == 'true'
         env:

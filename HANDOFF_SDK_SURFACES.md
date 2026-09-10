@@ -40,6 +40,7 @@ core/  →  sdk/  →  client.py  →  cli/ + mcp/research/
 
 ```python
 from synth_ai import SynthClient
+
 r = SynthClient().research
 ```
 

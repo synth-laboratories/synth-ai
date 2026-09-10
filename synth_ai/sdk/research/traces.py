@@ -26,6 +26,8 @@ from synth_ai.sdk.research.contracts.traces import (
     TraceQueryResult,
     TraceStoreDescriptor,
     TraceStoreLifecycleReceipt,
+    TraceStorePreflightRequest,
+    TraceStorePreflightResponse,
     TraceStoreProvisionResult,
 )
 from synth_ai.sdk.research.operations import research_operation
@@ -222,6 +224,31 @@ class FactoryTraceStoreAPI:
             )
         )
         return TraceStoreProvisionResult.from_wire(value)
+
+    def preflight(
+        self,
+        request: TraceStorePreflightRequest | None = None,
+    ) -> TraceStorePreflightResponse:
+        """Provision-if-missing and health-check the trace store before launch.
+
+        Sealed runners call this before creating paid/live resources and embed
+        the returned ``run_envelope_identity`` in the run envelope so
+        post-grade trace inventory can never 404 on an unprovisioned store.
+        """
+        value = self._transport.execute(
+            _request(
+                "preflight_factory_trace_store",
+                f"{self._base}/trace-store:preflight",
+                body=(request or TraceStorePreflightRequest()).to_wire(),
+            )
+        )
+        response = TraceStorePreflightResponse.from_wire(value)
+        if (
+            response.descriptor.factory_id != self.factory_id
+            or response.run_envelope_identity.factory_id != self.factory_id
+        ):
+            raise ValueError("trace store preflight identity drifted")
+        return response
 
     def rotate_credential(self) -> TraceStoreLifecycleReceipt:
         return self._lifecycle(
@@ -498,6 +525,26 @@ class AsyncFactoryTraceStoreAPI:
             )
         )
         return TraceStoreProvisionResult.from_wire(value)
+
+    async def preflight(
+        self,
+        request: TraceStorePreflightRequest | None = None,
+    ) -> TraceStorePreflightResponse:
+        """Provision-if-missing and health-check the trace store before launch."""
+        value = await self._transport.execute(
+            _request(
+                "preflight_factory_trace_store",
+                f"{self._base}/trace-store:preflight",
+                body=(request or TraceStorePreflightRequest()).to_wire(),
+            )
+        )
+        response = TraceStorePreflightResponse.from_wire(value)
+        if (
+            response.descriptor.factory_id != self.factory_id
+            or response.run_envelope_identity.factory_id != self.factory_id
+        ):
+            raise ValueError("trace store preflight identity drifted")
+        return response
 
     async def rotate_credential(self) -> TraceStoreLifecycleReceipt:
         return await self._lifecycle(

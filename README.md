@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.18.0-orange synth-ai==0.18.0 -->
+<!-- CI release pins: PyPI-0.18.2-orange synth-ai==0.18.2 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -118,9 +118,7 @@ from synth_ai import SynthClient
 from synth_ai.sdk.research.public import EffortSpec, FactorySpec, ProjectId
 
 with SynthClient() as client:
-    factory = client.research.factories.create(
-        FactorySpec(name="Prompt optimizer")
-    )
+    factory = client.research.factories.create(FactorySpec(name="Prompt optimizer"))
     effort = client.research.factories.efforts.create(
         EffortSpec(
             factory_id=factory.factory_id,

@@ -1730,7 +1730,7 @@ paths:
             schema:
               $ref: '#/components/schemas/SynthTunnelLeaseCreateRequest'
       responses:
-        '200':
+        '201':
           description: SynthTunnel lease payload
           content:
             application/json:
@@ -1738,6 +1738,16 @@ paths:
                 $ref: '#/components/schemas/SynthTunnelLease'
 
   /api/v1/synthtunnel/leases/{lease_id}:
+    get:
+      tags: [Tunnels]
+      summary: Get SynthTunnel lease status
+      x-internal: true
+      operationId: getSynthTunnelLease
+      parameters:
+        - $ref: '#/components/parameters/LeaseId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
     delete:
       tags: [Tunnels]
       summary: Close SynthTunnel lease
@@ -1749,6 +1759,60 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ObjectResponse'
+
+  /api/v1/synthtunnel/leases/{lease_id}/token:refresh:
+    post:
+      tags: [Tunnels]
+      summary: Refresh overlapping SynthTunnel worker credentials
+      x-internal: true
+      operationId: refreshSynthTunnelWorkerToken
+      parameters:
+        - $ref: '#/components/parameters/LeaseId'
+      responses:
+        '200':
+          description: Current worker credentials covering the remaining lease
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthTunnelWorkerCredentials'
+
+  /api/v1/synthtunnel/leases/{lease_id}/heartbeat:
+    post:
+      tags: [Tunnels]
+      summary: Extend a live SynthTunnel lease and rotate live credentials
+      x-internal: true
+      operationId: heartbeatSynthTunnelLease
+      parameters:
+        - $ref: '#/components/parameters/LeaseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SynthTunnelHeartbeatRequest'
+      responses:
+        '200':
+          description: Extended lease and current attachment credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthTunnelLeaseCredentials'
+
+  /api/v1/synthtunnel/leases/{lease_id}/attach:
+    post:
+      tags: [Tunnels]
+      summary: Reattach a local agent to an existing SynthTunnel lease
+      x-internal: true
+      operationId: attachSynthTunnelLease
+      parameters:
+        - $ref: '#/components/parameters/LeaseId'
+      responses:
+        '200':
+          description: Existing route and fresh attachment credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthTunnelLeaseCredentials'
 
 components:
   securitySchemes:
@@ -2857,6 +2921,8 @@ components:
           additionalProperties: true
         requested_ttl_seconds:
           type: integer
+          minimum: 60
+          maximum: 604800
         metadata:
           type: object
           additionalProperties: true
@@ -2878,6 +2944,9 @@ components:
           type: string
         worker_token:
           type: string
+        worker_token_expires_at:
+          type: string
+          format: date-time
         expires_at:
           type: string
           format: date-time
@@ -2891,3 +2960,59 @@ components:
           type: object
           additionalProperties: true
       additionalProperties: true
+
+    SynthTunnelHeartbeatRequest:
+      type: object
+      properties:
+        extend_ttl_seconds:
+          type: integer
+          minimum: 60
+          maximum: 604800
+          default: 3600
+      additionalProperties: false
+
+    SynthTunnelWorkerCredentials:
+      type: object
+      required: [lease_id, worker_token, worker_token_expires_at, lease_expires_at]
+      properties:
+        lease_id:
+          type: string
+        worker_token:
+          type: string
+        worker_token_expires_at:
+          type: string
+          format: date-time
+        lease_expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    SynthTunnelLeaseCredentials:
+      type: object
+      required: [lease_id, status, public_url, agent_connect, worker_token,
+        worker_token_expires_at, expires_at, limits, heartbeat]
+      properties:
+        lease_id:
+          type: string
+        status:
+          type: string
+        public_url:
+          type: string
+        agent_connect:
+          type: object
+          additionalProperties: true
+        worker_token:
+          type: string
+        worker_token_expires_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        limits:
+          type: object
+          additionalProperties: true
+        heartbeat:
+          type: object
+          additionalProperties: true
+      additionalProperties: false

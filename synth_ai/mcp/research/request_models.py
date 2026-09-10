@@ -40,6 +40,15 @@ def require_string(payload: JSONDict, key: str) -> str:
     return value.strip()
 
 
+def require_int(payload: JSONDict, key: str) -> int:
+    if key not in payload or payload.get(key) is None:
+        raise ValueError(f"'{key}' is required and must be an integer")
+    value = payload[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"'{key}' is required and must be an integer")
+    return value
+
+
 def optional_string(payload: JSONDict, key: str) -> str | None:
     value = payload.get(key)
     if value is None:

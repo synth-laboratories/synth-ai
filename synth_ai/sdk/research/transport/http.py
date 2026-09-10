@@ -25,9 +25,14 @@ from synth_ai.sdk.research.errors import (
     ResearchInferenceProviderUnavailableError,
     ResearchInsufficientCreditsError,
     ResearchLimitExceededError,
+    ResearchLimitExtensionGuardedResumeBlockedError,
+    ResearchLimitExtensionIdempotencyConflictError,
+    ResearchLimitRevisionConflictError,
     ResearchManagedInferenceUnavailableError,
+    ResearchNotFoundError,
     ResearchProjectMonthlyBudgetExhaustedError,
     ResearchStructuredDenialError,
+    ResearchUnsafeLimitExtensionError,
 )
 
 # Backend billing-admission blocker codes for the wallet/allowance family
@@ -145,6 +150,20 @@ def _raise_for_error_response(
                 status_code = response.status_code
                 response_text = response.text
                 stripped = code.strip()
+                if status_code == 404 and stripped.endswith(("_not_found", "_retention_expired")):
+                    # Typed retrievability evidence: preserve the backend's
+                    # exact not-found condition and lookup scope so a genuine
+                    # 404 can be distinguished from a wrong-organization
+                    # lookup (see ResearchNotFoundError). Retention-expired
+                    # conditions (the resource existed; its read-only window
+                    # ended) share the machinery so evidence keeps the exact
+                    # backend code instead of an untyped denial.
+                    raise ResearchNotFoundError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                    )
                 if stripped == "smr_limit_exceeded":
                     raise ResearchLimitExceededError(
                         message,
@@ -202,6 +221,23 @@ def _raise_for_error_response(
                     )
                 if stripped == "checkpoint_storage_quota_exceeded":
                     raise ResearchCheckpointQuotaExceededError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                    )
+                limit_extension_error = {
+                    "limit_revision_conflict": ResearchLimitRevisionConflictError,
+                    "limit_extension_idempotency_conflict": (
+                        ResearchLimitExtensionIdempotencyConflictError
+                    ),
+                    "limit_extension_guarded_action_not_enabled": (
+                        ResearchLimitExtensionGuardedResumeBlockedError
+                    ),
+                    "limit_extension_not_safe": ResearchUnsafeLimitExtensionError,
+                }.get(stripped)
+                if limit_extension_error is not None:
+                    raise limit_extension_error(
                         message,
                         status_code=status_code,
                         response_text=response_text,

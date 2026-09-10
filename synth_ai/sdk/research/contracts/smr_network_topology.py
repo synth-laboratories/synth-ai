@@ -7,7 +7,7 @@ from enum import StrEnum
 
 class SmrNetworkTopology(StrEnum):
     LOCAL_NETWORK = "local_network"
-    RAILWAY_NETWORK = "railway_network"
+    HOSTED_PRIVATE_NETWORK = "hosted_private_network"
     NGROK_PUBLIC = "ngrok_public"
 
 

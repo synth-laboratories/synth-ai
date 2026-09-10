@@ -35,10 +35,12 @@ class SynthClient:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 30.0,
+        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
         self.timeout_seconds = timeout_seconds
+        self.allow_legacy_intern_sessions = allow_legacy_intern_sessions
         self._research_client: ResearchClient | None = None
         self._optimizers_client: OptimizersClient | None = None
 
@@ -52,6 +54,7 @@ class SynthClient:
                 api_key=self.api_key,
                 base_url=self.base_url,
                 timeout_seconds=self.timeout_seconds,
+                allow_legacy_intern_sessions=self.allow_legacy_intern_sessions,
             )
         return self._research_client
 
@@ -93,10 +96,12 @@ class AsyncSynthClient:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 30.0,
+        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
         self.timeout_seconds = timeout_seconds
+        self.allow_legacy_intern_sessions = allow_legacy_intern_sessions
         self._async_research_client: AsyncResearchClient | None = None
         self._async_optimizers_client: AsyncOptimizersClient | None = None
 
@@ -110,6 +115,7 @@ class AsyncSynthClient:
                 api_key=self.api_key,
                 base_url=self.base_url,
                 timeout_seconds=self.timeout_seconds,
+                allow_legacy_intern_sessions=self.allow_legacy_intern_sessions,
             )
         return self._async_research_client
 

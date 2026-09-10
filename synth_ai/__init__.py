@@ -37,6 +37,7 @@ except _PackageNotFoundError:
 
 
 __all__ = [
+    "AsyncResearchInternReactiveSession",
     "AsyncSynthClient",
     "AsyncOptimizersClient",
     "DataBindingCreateRequest",
@@ -53,6 +54,8 @@ __all__ = [
     "FactoryRoleReceiptRuntimeEvidence",
     "FactoryStorageAuthorityResponse",
     "ResearchApiError",
+    "MagiDecisionKind",
+    "MagiDecisionReceiptResponse",
     "MagiDecisionRequest",
     "MagiMode",
     "ProjectComputerCleanupReceiptResponse",
@@ -70,14 +73,29 @@ __all__ = [
     "ResearchConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
+    "ResearchLimitExtensionGuardedResumeBlockedError",
+    "ResearchLimitExtensionIdempotencyConflictError",
+    "ResearchLimitRevisionConflictError",
     "ResearchProjectCreateRequest",
     "ResearchInternProvisionRequest",
+    "ResearchInternReactiveSession",
+    "ResearchInternEventStreamCursor",
+    "ResearchInternEventStreamEvent",
+    "ResearchInternEventStreamHeartbeat",
     "ResearchInternResponse",
+    "ResearchInternSessionCreateRequest",
+    "ResearchInternSessionResponse",
     "ResearchInternStatus",
+    "ResearchInternTracePublicationRequest",
+    "ResearchInternTracePublicationResponse",
+    "ResearchInternTurnControl",
+    "ResearchInternTurnRequest",
+    "ResearchInternTurnResponse",
     "ResearchSwarmLaunchRequest",
     "ResearchSwarmState",
     "ResearchVisual",
     "ResearchVisualPage",
+    "ResearchUnsafeLimitExtensionError",
     "ResearchVisualPatchRequest",
     "ResearchVisualPromotionRequest",
     "ResearchVisualVersions",
@@ -106,6 +124,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "SavedLoraLineage": ("synth_ai.sdk.optimizers", "SavedLoraLineage"),
     "SavedLoraRunPage": ("synth_ai.sdk.optimizers", "SavedLoraRunPage"),
+    "AsyncResearchInternReactiveSession": (
+        "synth_ai.sdk.research.research_intern",
+        "AsyncResearchInternReactiveSession",
+    ),
     "DataBindingCreateRequest": (
         "synth_ai.sdk.research.contracts",
         "DataBindingCreateRequest",
@@ -162,6 +184,14 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.sdk.research.contracts",
         "MagiDecisionRequest",
     ),
+    "MagiDecisionKind": (
+        "synth_ai.sdk.research.contracts",
+        "MagiDecisionKind",
+    ),
+    "MagiDecisionReceiptResponse": (
+        "synth_ai.sdk.research.contracts",
+        "MagiDecisionReceiptResponse",
+    ),
     "MagiMode": ("synth_ai.sdk.research.contracts", "MagiMode"),
     "ProjectComputerCleanupReceiptResponse": (
         "synth_ai.sdk.research.contracts",
@@ -217,6 +247,22 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "ResearchInsufficientCreditsError",
     ),
     "ResearchLimitExceededError": ("synth_ai.sdk.research.errors", "ResearchLimitExceededError"),
+    "ResearchLimitExtensionGuardedResumeBlockedError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchLimitExtensionGuardedResumeBlockedError",
+    ),
+    "ResearchLimitExtensionIdempotencyConflictError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchLimitExtensionIdempotencyConflictError",
+    ),
+    "ResearchLimitRevisionConflictError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchLimitRevisionConflictError",
+    ),
+    "ResearchUnsafeLimitExtensionError": (
+        "synth_ai.sdk.research.errors",
+        "ResearchUnsafeLimitExtensionError",
+    ),
     "SmrApiError": ("synth_ai.sdk.research.errors", "ResearchApiError"),
     "SmrConcurrentRunLimitExceededError": (
         "synth_ai.sdk.research.errors",
@@ -236,13 +282,57 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.sdk.research.contracts",
         "ResearchInternProvisionRequest",
     ),
+    "ResearchInternReactiveSession": (
+        "synth_ai.sdk.research.research_intern",
+        "ResearchInternReactiveSession",
+    ),
+    "ResearchInternEventStreamCursor": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternEventStreamCursor",
+    ),
+    "ResearchInternEventStreamEvent": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternEventStreamEvent",
+    ),
+    "ResearchInternEventStreamHeartbeat": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternEventStreamHeartbeat",
+    ),
     "ResearchInternResponse": (
         "synth_ai.sdk.research.contracts",
         "ResearchInternResponse",
     ),
+    "ResearchInternSessionCreateRequest": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternSessionCreateRequest",
+    ),
+    "ResearchInternSessionResponse": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternSessionResponse",
+    ),
     "ResearchInternStatus": (
         "synth_ai.sdk.research.contracts",
         "ResearchInternStatus",
+    ),
+    "ResearchInternTracePublicationRequest": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTracePublicationRequest",
+    ),
+    "ResearchInternTracePublicationResponse": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTracePublicationResponse",
+    ),
+    "ResearchInternTurnControl": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTurnControl",
+    ),
+    "ResearchInternTurnRequest": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTurnRequest",
+    ),
+    "ResearchInternTurnResponse": (
+        "synth_ai.sdk.research.contracts",
+        "ResearchInternTurnResponse",
     ),
     "ResearchSwarmLaunchRequest": (
         "synth_ai.sdk.research.contracts",

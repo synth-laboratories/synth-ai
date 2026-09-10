@@ -239,7 +239,6 @@ class LocalProductSourceMirror:
 @dataclass(frozen=True)
 class LocalEvalContract:
     schema_version: str
-    slot_id: str
     runtime_id: str
     worker_pool_id: str
     launch_target: str
@@ -268,7 +267,6 @@ class LocalEvalContract:
         )
         contract = cls(
             schema_version=_required_string(payload, "schema_version"),
-            slot_id=_required_string(payload, "slot_id"),
             runtime_id=_required_string(payload, "runtime_id"),
             worker_pool_id=_required_string(payload, "worker_pool_id"),
             launch_target=_required_string(payload, "launch_target"),
@@ -347,7 +345,6 @@ def load_local_eval_contract(path: str | Path | None = None) -> LocalEvalContrac
 def local_execution_payload(contract: LocalEvalContract) -> dict[str, Any]:
     host_kind = LOCAL_LAUNCH_TARGET_HOST_KIND[contract.launch_target.strip().lower()]
     return {
-        "slot_id": contract.slot_id,
         "runtime_id": contract.runtime_id,
         "dispatch_pool": contract.worker_pool_id,
         "host_kind": host_kind,

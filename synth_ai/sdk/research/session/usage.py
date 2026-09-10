@@ -12,6 +12,7 @@ from synth_ai.sdk.research.contracts.wire_models import (
     SmrResourceLimitProgress,
     SmrResourceLimits,
     SmrResourceLimitSelector,
+    SmrRunLimitEvidencePage,
     SmrRunUsage,
 )
 from synth_ai.sdk.research.errors import ResearchApiError
@@ -54,6 +55,7 @@ def _selector_to_wire(
 
 def _limit_extension_payload(
     *,
+    expected_revision: int,
     limit_value: float | None,
     additional_value: float | None,
     reason: str | None,
@@ -66,6 +68,7 @@ def _limit_extension_payload(
     idempotency_key: str | None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
+        "expected_revision": int(expected_revision),
         "resolve_blockers": bool(resolve_blockers),
         "resume": bool(resume),
     }
@@ -117,6 +120,26 @@ class UsageAPI(_ClientNamespace):
             )
         )
 
+    def get_run_limit_evidence(
+        self,
+        run_id: str,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SmrRunLimitEvidencePage:
+        params: dict[str, object] = {"limit": int(limit)}
+        if cursor is not None:
+            params["cursor"] = cursor
+        return SmrRunLimitEvidencePage.from_wire(
+            _raise_on_error_payload(
+                self._client._request_json(
+                    "GET",
+                    f"/smr/runs/{run_id}/limit-evidence",
+                    params=params,
+                )
+            )
+        )
+
     def get_run_progress_toward_resource_limits(
         self,
         run_id: str,
@@ -134,6 +157,7 @@ class UsageAPI(_ClientNamespace):
         self,
         run_id: str,
         *,
+        expected_revision: int,
         limit_value: float | None = None,
         additional_value: float | None = None,
         reason: str | None = None,
@@ -141,8 +165,8 @@ class UsageAPI(_ClientNamespace):
         resource_limit_id: str | None = None,
         metric: str | None = None,
         unit: str | None = None,
-        resolve_blockers: bool = True,
-        resume: bool = True,
+        resolve_blockers: bool = False,
+        resume: bool = False,
         idempotency_key: str | None = None,
     ) -> SmrResourceLimitExtension:
         return SmrResourceLimitExtension.from_wire(
@@ -151,6 +175,7 @@ class UsageAPI(_ClientNamespace):
                     "POST",
                     f"/smr/runs/{run_id}/resource-limit-extensions",
                     json_body=_limit_extension_payload(
+                        expected_revision=expected_revision,
                         limit_value=limit_value,
                         additional_value=additional_value,
                         reason=reason,
@@ -180,6 +205,27 @@ class UsageAPI(_ClientNamespace):
             )
         )
 
+    def get_project_run_limit_evidence(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SmrRunLimitEvidencePage:
+        params: dict[str, object] = {"limit": int(limit)}
+        if cursor is not None:
+            params["cursor"] = cursor
+        return SmrRunLimitEvidencePage.from_wire(
+            _raise_on_error_payload(
+                self._client._request_json(
+                    "GET",
+                    f"/smr/projects/{project_id}/runs/{run_id}/limit-evidence",
+                    params=params,
+                )
+            )
+        )
+
     def get_project_run_progress_toward_resource_limits(
         self,
         project_id: str,
@@ -199,6 +245,7 @@ class UsageAPI(_ClientNamespace):
         project_id: str,
         run_id: str,
         *,
+        expected_revision: int,
         limit_value: float | None = None,
         additional_value: float | None = None,
         reason: str | None = None,
@@ -206,8 +253,8 @@ class UsageAPI(_ClientNamespace):
         resource_limit_id: str | None = None,
         metric: str | None = None,
         unit: str | None = None,
-        resolve_blockers: bool = True,
-        resume: bool = True,
+        resolve_blockers: bool = False,
+        resume: bool = False,
         idempotency_key: str | None = None,
     ) -> SmrResourceLimitExtension:
         return SmrResourceLimitExtension.from_wire(
@@ -216,6 +263,7 @@ class UsageAPI(_ClientNamespace):
                     "POST",
                     f"/smr/projects/{project_id}/runs/{run_id}/resource-limit-extensions",
                     json_body=_limit_extension_payload(
+                        expected_revision=expected_revision,
                         limit_value=limit_value,
                         additional_value=additional_value,
                         reason=reason,
