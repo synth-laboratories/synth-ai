@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import mimetypes
 import os
 import re
 from collections.abc import Iterable, Mapping
@@ -167,7 +166,10 @@ from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.session._client_helpers import (
     _coerce_dict,
     _coerce_dict_list,
+    _guess_content_type,
+    _is_source_bundle_entry,
     _optional_mapping,
+    _positive_int_env,
     _require_non_empty_string,
     assert_hosted_launch_surface,
     provider_selection_payload,
@@ -959,39 +961,7 @@ def _build_project_run_payload_from_request(
     return _build_project_run_payload(**explicit)
 
 
-def _guess_content_type(path: str) -> str:
-    guessed, _ = mimetypes.guess_type(path)
-    return guessed or "application/octet-stream"
-
-
-def _is_source_bundle_entry(path: str, entry: Mapping[str, Any]) -> bool:
-    kind = str(entry.get("kind") or "").strip().lower()
-    content_type = str(entry.get("content_type") or _guess_content_type(path)).strip().lower()
-    return (
-        kind == "source_bundle"
-        or path.lower().endswith(".zip")
-        or content_type
-        in {
-            "application/zip",
-            "application/x-zip",
-            "application/x-zip-compressed",
-            "multipart/x-zip",
-        }
-    )
-
-
 _DEFAULT_WORKSPACE_UPLOAD_CHUNK_SIZE = 100
-
-
-def _positive_int_env(name: str, default_value: int) -> int:
-    raw = str(os.getenv(name) or "").strip()
-    if not raw:
-        return default_value
-    try:
-        value = int(raw)
-    except ValueError:
-        return default_value
-    return value if value > 0 else default_value
 
 
 def _normalize_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:

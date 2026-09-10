@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 import os
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
@@ -17,6 +18,38 @@ from synth_ai.sdk.research.contracts.smr_providers import (
 )
 from synth_ai.sdk.research.contracts.swarms import normalize_provider_selection
 from synth_ai.sdk.research.errors import ResearchApiError, ResearchHostedModelOverridesError
+
+
+def _guess_content_type(path: str) -> str:
+    guessed, _ = mimetypes.guess_type(path)
+    return guessed or "application/octet-stream"
+
+
+def _is_source_bundle_entry(path: str, entry: Mapping[str, Any]) -> bool:
+    kind = str(entry.get("kind") or "").strip().lower()
+    content_type = str(entry.get("content_type") or _guess_content_type(path)).strip().lower()
+    return (
+        kind == "source_bundle"
+        or path.lower().endswith(".zip")
+        or content_type
+        in {
+            "application/zip",
+            "application/x-zip",
+            "application/x-zip-compressed",
+            "multipart/x-zip",
+        }
+    )
+
+
+def _positive_int_env(name: str, default_value: int) -> int:
+    raw = str(os.getenv(name) or "").strip()
+    if not raw:
+        return default_value
+    try:
+        value = int(raw)
+    except ValueError:
+        return default_value
+    return value if value > 0 else default_value
 
 
 class SmrLaunchMode(StrEnum):
