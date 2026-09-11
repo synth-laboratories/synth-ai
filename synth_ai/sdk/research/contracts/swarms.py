@@ -84,7 +84,6 @@ class DeprecatedActorModel(StrEnum):
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
-    GROK_4_3 = "x-ai/grok-4.3"
     GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
     KIMI_K3_BASETEN = "baseten/moonshotai/Kimi-K3"
@@ -121,7 +120,6 @@ class ActorModel(StrEnum):
     DEEPSEEK_REASONER = DeprecatedActorModel.DEEPSEEK_REASONER.value
     CURSOR_GPT_5 = DeprecatedActorModel.CURSOR_GPT_5.value
     CURSOR_SONNET_4 = DeprecatedActorModel.CURSOR_SONNET_4.value
-    GROK_4_3 = DeprecatedActorModel.GROK_4_3.value
     GROK_BUILD = DeprecatedActorModel.GROK_BUILD.value
     KIMI_K2_6 = DeprecatedActorModel.KIMI_K2_6.value
     KIMI_K3_BASETEN = DeprecatedActorModel.KIMI_K3_BASETEN.value

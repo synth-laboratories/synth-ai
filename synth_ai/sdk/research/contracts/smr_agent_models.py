@@ -25,7 +25,6 @@ class SmrAgentModel(StrEnum):
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
-    X_AI_GROK_4_3 = "x-ai/grok-4.3"
     X_AI_GROK_BUILD = "x-ai/grok-build"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"
     BASETEN_MOONSHOTAI_KIMI_K3 = "baseten/moonshotai/Kimi-K3"
