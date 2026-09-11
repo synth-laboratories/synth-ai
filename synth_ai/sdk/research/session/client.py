@@ -3034,6 +3034,38 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             label="list_project_files",
         )
 
+    def create_org_file(
+        self,
+        *,
+        name: str,
+        content: str,
+        encoding: str = "utf-8",
+        content_type: str | None = None,
+        sync_session_id: str | None = None,
+        project_id: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a file using the backend's org-file contract.
+
+        # See: backend/app/api/v1/managed_research/files.py::create_file
+        """
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/files",
+                json_body={
+                    "name": name,
+                    "content": content,
+                    "encoding": encoding,
+                    "content_type": content_type,
+                    "sync_session_id": sync_session_id,
+                    "project_id": project_id,
+                    "metadata": dict(metadata or {}),
+                },
+            ),
+            label="create_org_file",
+        )
+
     def create_project_files(
         self,
         project_id: str,

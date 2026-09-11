@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from os import PathLike
-from typing import Any
+from typing import Any, Literal
 
 from synth_ai.sdk.research.contracts.types import (
     ResourceUploadResult,
@@ -16,6 +16,36 @@ from synth_ai.sdk.research.session._base import _ClientNamespace
 
 
 class FilesAPI(_ClientNamespace):
+    def create_org(
+        self,
+        *,
+        name: str,
+        content: str,
+        encoding: Literal["utf-8", "base64"] = "utf-8",
+        content_type: str | None = None,
+        sync_session_id: str | None = None,
+        project_id: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create an org-owned file, optionally bound to a session or project.
+
+        # See: backend/app/api/v1/managed_research/files.py::SmrFileCreateRequest
+        Unbound files retain a null project_id; they are not project StoredFiles.
+        """
+        if not name.strip() or len(name) > 512:
+            raise ValueError("name must contain 1 through 512 characters")
+        if encoding not in {"utf-8", "base64"}:
+            raise ValueError("encoding must be utf-8 or base64")
+        return self._client.create_org_file(
+            name=name,
+            content=content,
+            encoding=encoding,
+            content_type=content_type,
+            sync_session_id=sync_session_id,
+            project_id=project_id,
+            metadata=dict(metadata or {}),
+        )
+
     def list_project(
         self,
         project_id: str,

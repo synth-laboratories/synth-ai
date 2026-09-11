@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Mapping
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import SynthError
@@ -53,12 +53,14 @@ def _request(
     *,
     query: JsonObject | None = None,
     body: JsonObject | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> HttpRequest:
     return HttpRequest(
         research_operation(operation_id),
         path,
         query=query or {},
         body=body,
+        headers=headers or {},
     )
 
 
@@ -313,12 +315,16 @@ class SwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        runtime_binding_context_id: str | None = None,
     ) -> SwarmHandle:
         """Create a Swarm from a typed Swarm specification.
 
+        # See: backend/app/api/v1/managed_research/projects.py (project trigger)
         Args:
             request: Swarm specification to serialize into the create request body.
             project_id: Optional Project that should own the Swarm.
+            runtime_binding_context_id: Opaque manager-issued placement context
+                redeemed by the backend for this project trigger only.
 
         Returns:
             A handle for the created Swarm.
@@ -329,7 +335,18 @@ class SwarmsAPI:
         else:
             operation_id = "trigger_project_run"
             path = f"/smr/projects/{project_id}/trigger"
-        value = self._transport.execute(_request(operation_id, path, body=request.to_wire()))
+        headers: dict[str, str] = {}
+        if runtime_binding_context_id is not None:
+            if project_id is None:
+                raise ValueError("runtime binding context requires a project")
+            if not runtime_binding_context_id.strip() or any(
+                character in runtime_binding_context_id for character in "\r\n"
+            ):
+                raise ValueError("runtime_binding_context_id must be a non-empty header value")
+            headers["X-Synth-Runtime-Binding-Context"] = runtime_binding_context_id
+        value = self._transport.execute(
+            _request(operation_id, path, body=request.to_wire(), headers=headers)
+        )
         return SwarmHandle(self, Swarm.from_wire(value))
 
     def list(
@@ -875,12 +892,16 @@ class AsyncSwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        runtime_binding_context_id: str | None = None,
     ) -> AsyncSwarmHandle:
         """Create a Swarm from a typed Swarm specification.
 
+        # See: backend/app/api/v1/managed_research/projects.py (project trigger)
         Args:
             request: Swarm specification to serialize into the create request body.
             project_id: Optional Project that should own the Swarm.
+            runtime_binding_context_id: Opaque manager-issued placement context
+                redeemed by the backend for this project trigger only.
 
         Returns:
             A handle for the created Swarm.
@@ -891,7 +912,18 @@ class AsyncSwarmsAPI:
         else:
             operation_id = "trigger_project_run"
             path = f"/smr/projects/{project_id}/trigger"
-        value = await self._transport.execute(_request(operation_id, path, body=request.to_wire()))
+        headers: dict[str, str] = {}
+        if runtime_binding_context_id is not None:
+            if project_id is None:
+                raise ValueError("runtime binding context requires a project")
+            if not runtime_binding_context_id.strip() or any(
+                character in runtime_binding_context_id for character in "\r\n"
+            ):
+                raise ValueError("runtime_binding_context_id must be a non-empty header value")
+            headers["X-Synth-Runtime-Binding-Context"] = runtime_binding_context_id
+        value = await self._transport.execute(
+            _request(operation_id, path, body=request.to_wire(), headers=headers)
+        )
         return AsyncSwarmHandle(self, Swarm.from_wire(value))
 
     async def list(
