@@ -62,7 +62,9 @@ class ActiveActorModel(StrEnum):
     GPT_5_6_LUNA = "gpt-5.6-luna"
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     KIMI_K3 = "modal/moonshotai/Kimi-K3"
+    OPENROUTER_LAGUNA_S_2_1 = "openrouter/poolside/laguna-s-2.1"
     LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
+    META_MUSE_SPARK_1_2 = "meta/muse-spark-1.2"
 
 
 class DeprecatedActorModel(StrEnum):
@@ -102,7 +104,9 @@ class ActorModel(StrEnum):
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
     KIMI_K3 = ActiveActorModel.KIMI_K3.value
+    OPENROUTER_LAGUNA_S_2_1 = ActiveActorModel.OPENROUTER_LAGUNA_S_2_1.value
     LAGUNA_S_2_1_NVFP4 = ActiveActorModel.LAGUNA_S_2_1_NVFP4.value
+    META_MUSE_SPARK_1_2 = ActiveActorModel.META_MUSE_SPARK_1_2.value
     GPT_5_4 = DeprecatedActorModel.GPT_5_4.value
     GPT_5_5 = DeprecatedActorModel.GPT_5_5.value
     GPT_5_CODEX = DeprecatedActorModel.GPT_5_CODEX.value
@@ -1374,6 +1378,38 @@ class ResolvedSwarmConfiguration:
         }
 
 
+def _format_preflight_blocker_message(
+    *,
+    message: str,
+    error_code: object = None,
+    detail: object = None,
+) -> str:
+    """Collapse structured preflight blockers into a single Dock-readable string."""
+
+    parts = [message]
+    code = str(error_code).strip() if isinstance(error_code, str) else ""
+    if code and code not in message:
+        parts.append(f"error_code={code}")
+    reasons: list[str] = []
+    if isinstance(detail, Mapping):
+        violations = detail.get("violations")
+        if isinstance(violations, list):
+            for violation in violations:
+                if not isinstance(violation, Mapping):
+                    continue
+                reason = violation.get("reason")
+                if isinstance(reason, str) and reason.strip():
+                    reasons.append(reason.strip())
+        detail_code = detail.get("error_code") or detail.get("code")
+        nested_code = detail_code.strip() if isinstance(detail_code, str) else ""
+        if nested_code and nested_code not in {code, *reasons}:
+            reasons.insert(0, nested_code)
+    if reasons:
+        unique_reasons = list(dict.fromkeys(reasons))
+        parts.append("violations=" + ",".join(unique_reasons))
+    return "; ".join(parts)
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmPreflight:
     project_id: ProjectId
@@ -1400,7 +1436,13 @@ class SwarmPreflight:
                     message = blocker.get("code")
                 if not isinstance(message, str) or not message.strip():
                     raise ValueError("preflight blocker must include message, detail, or code")
-                blockers.append(message.strip())
+                blockers.append(
+                    _format_preflight_blocker_message(
+                        message=message.strip(),
+                        error_code=blocker.get("error_code") or blocker.get("code"),
+                        detail=blocker.get("detail"),
+                    )
+                )
             else:
                 raise ValueError("preflight blocker must be a string or object")
         return cls(
