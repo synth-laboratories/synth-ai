@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from synth_ai.sdk.research.contracts.intern_usage import InternSessionUsage
+from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.wire_models import (
     BillingEntitlementSnapshot,
     OrgLimits,
@@ -111,6 +113,34 @@ class UsageAPI(_ClientNamespace):
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return SmrRunUsage.from_wire(
             _raise_on_error_payload(self._client._request_json("GET", f"/smr/runs/{run_id}/usage"))
+        )
+
+    def get_intern_sync_session_usage(self, sync_session_id: str) -> InternSessionUsage:
+        """Usage receipt for one Intern Sync session, including the runs it launched."""
+        return InternSessionUsage.from_wire(
+            _raise_on_error_payload(
+                self._client._request_json(
+                    "GET", f"/smr/research-intern/sync-sessions/{sync_session_id}/usage"
+                )
+            )
+        )
+
+    def get_intern_async_assignment_usage(self, assignment_id: str) -> InternSessionUsage:
+        """Usage receipt for one Intern Async assignment, including the runs it launched."""
+        return InternSessionUsage.from_wire(
+            _raise_on_error_payload(
+                self._client._request_json(
+                    "GET", f"/smr/research-intern/async-assignments/{assignment_id}/usage"
+                )
+            )
+        )
+
+    def get_run_resource_settlement(self, run_id: str) -> RunResourceSettlement:
+        """Fresh (uncached) read of whether the resources a run registered are disposed."""
+        return RunResourceSettlement.from_wire(
+            _raise_on_error_payload(
+                self._client._request_json("GET", f"/smr/runs/{run_id}/resource-settlement")
+            )
         )
 
     def get_run_resource_limits(self, run_id: str) -> SmrResourceLimits:

@@ -435,6 +435,9 @@ class ManagedResearchRun:
     project_id: str
     public_state: RunState
     effort_id: str | None = None
+    # The Intern Sync session or Async assignment that launched this run.
+    origin_runtime_kind: str | None = None
+    origin_runtime_id: str | None = None
     run_kind: ManagedResearchRunKind = ManagedResearchRunKind.RESEARCH
     runbook: str | None = None
     project_alias: str | None = None
@@ -501,6 +504,8 @@ class ManagedResearchRun:
             run_id=_require_string(mapping, "run_id", label="run.run_id"),
             project_id=project_id,
             effort_id=_optional_string(mapping, "effort_id"),
+            origin_runtime_kind=_optional_string(mapping, "origin_runtime_kind"),
+            origin_runtime_id=_optional_string(mapping, "origin_runtime_id"),
             run_kind=ManagedResearchRunKind(
                 _optional_string(mapping, "run_kind") or ManagedResearchRunKind.RESEARCH
             ),

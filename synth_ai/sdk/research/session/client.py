@@ -59,6 +59,7 @@ from synth_ai.sdk.research.contracts.run_observability import (
     RunTickingUpdate,
     RunTickMode,
 )
+from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.run_state import ManagedResearchRun
 from synth_ai.sdk.research.contracts.smr_actor_models import (
     SmrActorModelAssignment,
@@ -1462,6 +1463,9 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return self.usage.get_run_usage(run_id)
+
+    def get_run_resource_settlement(self, run_id: str) -> RunResourceSettlement:
+        return self.usage.get_run_resource_settlement(run_id)
 
     def get_run_resource_limits(self, run_id: str) -> SmrResourceLimits:
         return self.usage.get_run_resource_limits(run_id)
@@ -5822,13 +5826,22 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         public_state: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
+        origin_runtime_kind: str | None = None,
+        origin_runtime_id: str | None = None,
     ) -> list[dict[str, Any]]:
+        """List runs; pass both origin fields to get the runs one Intern runtime launched."""
+        if (origin_runtime_kind is None) != (origin_runtime_id is None):
+            raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
         if active_only:
+            if origin_runtime_id is not None:
+                raise ValueError("active_only does not combine with an origin filter")
             return self.list_active_runs(project_id)
         params = build_query_params(
             public_state=public_state,
             limit=limit,
             cursor=cursor,
+            origin_runtime_kind=origin_runtime_kind,
+            origin_runtime_id=origin_runtime_id,
         )
         return _coerce_dict_list(
             self._request_json("GET", f"/smr/projects/{project_id}/runs", params=params),

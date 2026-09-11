@@ -8670,6 +8670,122 @@
         "title": "InternRuntimeEventStreamEnvelope",
         "type": "object"
       },
+      "InternSessionUsageResponse": {
+        "additionalProperties": false,
+        "description": "Usage receipt for one Intern runtime: its direct inference plus the runs it launched.",
+        "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/InternUsageBillingState"
+          },
+          "bindings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Bindings",
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "origin_runtime_id": {
+            "title": "Origin Runtime Id",
+            "type": "string"
+          },
+          "origin_runtime_kind": {
+            "enum": [
+              "sync",
+              "async"
+            ],
+            "title": "Origin Runtime Kind",
+            "type": "string"
+          },
+          "run_count": {
+            "title": "Run Count",
+            "type": "integer"
+          },
+          "spend_cents": {
+            "title": "Spend Cents",
+            "type": "integer"
+          },
+          "token_count": {
+            "title": "Token Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "origin_runtime_kind",
+          "origin_runtime_id",
+          "org_id",
+          "spend_cents",
+          "token_count",
+          "run_count",
+          "billing",
+          "bindings",
+          "metadata"
+        ],
+        "title": "InternSessionUsageResponse",
+        "type": "object"
+      },
+      "InternUsageBillingState": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_failed_row_count": {
+            "title": "Billing Failed Row Count",
+            "type": "integer"
+          },
+          "billing_state": {
+            "enum": [
+              "settled",
+              "pending",
+              "stalled",
+              "failed",
+              "observability_only",
+              "not_applicable"
+            ],
+            "title": "Billing State",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "show_stalled_banner": {
+            "title": "Show Stalled Banner",
+            "type": "boolean"
+          },
+          "stalled_row_count": {
+            "title": "Stalled Row Count",
+            "type": "integer"
+          },
+          "stalled_spend_cents": {
+            "title": "Stalled Spend Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "billing_state",
+          "stalled_row_count",
+          "stalled_spend_cents",
+          "billing_failed_row_count",
+          "show_stalled_banner"
+        ],
+        "title": "InternUsageBillingState",
+        "type": "object"
+      },
       "JsonValue": {},
       "MagiActuationStatus": {
         "enum": [
@@ -10124,6 +10240,14 @@
         ],
         "title": "OeqResolutionResponse",
         "type": "object"
+      },
+      "OriginRuntimeKind": {
+        "enum": [
+          "sync",
+          "async"
+        ],
+        "title": "OriginRuntimeKind",
+        "type": "string"
       },
       "ParentObjectiveKind": {
         "enum": [
@@ -13000,6 +13124,146 @@
         ],
         "title": "RunLifecycleEnqueueStatus",
         "type": "string"
+      },
+      "RunResourceSettlementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed"
+          },
+          "coverage": {
+            "enum": [
+              "untracked",
+              "explicit-v1"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_complete": {
+            "default": false,
+            "title": "Coverage Complete",
+            "type": "boolean"
+          },
+          "edge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edge Id"
+          },
+          "excluded": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "pending": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending"
+          },
+          "registered_tree_settled": {
+            "default": false,
+            "title": "Registered Tree Settled",
+            "type": "boolean"
+          },
+          "root_confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Confirmed"
+          },
+          "root_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Run Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "root_tree",
+                  "owned_subtree"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Kind"
+          },
+          "settled": {
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "unknown": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unknown"
+          }
+        },
+        "required": [
+          "run_id",
+          "observed_at",
+          "coverage",
+          "settled"
+        ],
+        "title": "RunResourceSettlementResponse",
+        "type": "object"
       },
       "RunbookKind": {
         "enum": [
@@ -26950,6 +27214,28 @@
           "org_id": {
             "title": "Org Id",
             "type": "string"
+          },
+          "origin_runtime_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Runtime Id"
+          },
+          "origin_runtime_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Runtime Kind"
           },
           "output_obligations": {
             "items": {
@@ -42769,6 +43055,42 @@
               "description": "Opaque pagination cursor. Accepted forms: '<created_at_iso>', '<created_at_iso>|<run_id>', or '<run_id>'.",
               "title": "Cursor"
             }
+          },
+          {
+            "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+            "in": "query",
+            "name": "origin_runtime_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OriginRuntimeKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+              "title": "Origin Runtime Kind"
+            }
+          },
+          {
+            "description": "Intern Sync session or Async assignment id that launched the run.",
+            "in": "query",
+            "name": "origin_runtime_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern Sync session or Async assignment id that launched the run.",
+              "title": "Origin Runtime Id"
+            }
           }
         ],
         "responses": {
@@ -44521,6 +44843,49 @@
           }
         },
         "summary": "Command Intern Async Assignment",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async-assignments/{assignment_id}/usage": {
+      "get": {
+        "operationId": "get_intern_async_assignment_usage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternSessionUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Async Assignment Usage",
         "tags": [
           "smr",
           "research-intern"
@@ -47647,6 +48012,50 @@
         ]
       }
     },
+    "/smr/research-intern/sync-sessions/{sync_session_id}/usage": {
+      "get": {
+        "description": "Session resource/usage panel projection (receipts only).",
+        "operationId": "get_intern_sync_session_usage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_session_id",
+            "required": true,
+            "schema": {
+              "title": "Sync Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternSessionUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Sync Session Usage",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/tasks/{intern_task_id}": {
       "patch": {
         "operationId": "patch_intern_effort_task",
@@ -47821,6 +48230,42 @@
               ],
               "description": "Opaque pagination cursor. Accepted forms: '<created_at_iso>', '<created_at_iso>|<run_id>', or '<run_id>'.",
               "title": "Cursor"
+            }
+          },
+          {
+            "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+            "in": "query",
+            "name": "origin_runtime_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OriginRuntimeKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+              "title": "Origin Runtime Kind"
+            }
+          },
+          {
+            "description": "Intern Sync session or Async assignment id that launched the run.",
+            "in": "query",
+            "name": "origin_runtime_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern Sync session or Async assignment id that launched the run.",
+              "title": "Origin Runtime Id"
             }
           }
         ],
@@ -48322,6 +48767,48 @@
           }
         },
         "summary": "Extend Run Resource Limit",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/resource-settlement": {
+      "get": {
+        "operationId": "get_run_resource_settlement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResourceSettlementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Resource Settlement",
         "tags": [
           "smr"
         ]
