@@ -2,6 +2,24 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+### Removed (breaking)
+
+- The legacy Research Intern sessions plane: `client.intern.sessions` (sync and async),
+  reactive sessions, their stream/turn/event types, the `allow_legacy_intern_sessions`
+  client option and `SYNTH_ALLOW_LEGACY_INTERN_SESSIONS`, the ten
+  `*_research_intern_session*` operations, the renamed-operation aliases
+  (`append_research_intern_event`, `list_research_intern_events`,
+  `get_research_intern_acceptance_receipt`) and the eleven legacy MCP session tools.
+  Use `client.intern.sync_` / `client.intern.async_`.
+
+### Added
+
+- Sync presence and approvals: `presence`, `release_presence`, `approvals`,
+  `decide_approval` on the Sync and Async runtime clients.
+- `KickoffContract.trace_capture`.
+
 ## 0.18.2 — 2026-09-10
 
 Release candidate; publication is pending protected CI approval.
