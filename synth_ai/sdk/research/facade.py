@@ -115,7 +115,6 @@ class Client:
         api_key: str,
         base_url: str,
         timeout_seconds: float = 120.0,
-        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url
@@ -124,7 +123,6 @@ class Client:
             api_key=api_key,
             base_url=base_url,
             timeout_seconds=timeout_seconds,
-            allow_legacy_intern_sessions=allow_legacy_intern_sessions,
         )
         self._session: ResearchSession | None = None
         self._advanced: ResearchAdvancedAPI | None = None

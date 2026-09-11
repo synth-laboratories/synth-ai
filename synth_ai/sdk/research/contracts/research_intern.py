@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Literal, Self
+from typing import Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from synth_ai.sdk.research.contracts.dataset_revisions import (
     DatasetRevisionCreateRequest,
@@ -23,7 +23,6 @@ from synth_ai.sdk.research.contracts.project_runtime import ProjectComputerState
 from synth_ai.sdk.research.contracts.project_workspace_evidence import (
     ProjectComputerWorkspaceSnapshot,
 )
-from synth_ai.sdk.research.contracts.traces import TracePromotionReceipt
 
 
 class _StrictContract(BaseModel):
@@ -549,6 +548,55 @@ class InternSyncCommandReceipt(_StrictContract):
     duplicate: bool = False
 
 
+class InternSyncApprovalCard(BaseModel):
+    """Operator approval card for a billed sync action (lenient projection).
+
+    Billed MCP actions (rollout launches, deploys) can park in
+    ``awaiting_approval`` with ``capability_operator_approval_required``; the
+    present operator decides them via the sync-approvals surface. This mirrors
+    the fields drivers need from ``smr.sync-approval-card.v1`` and ignores
+    unknown fields so card evolution does not break approval loops.
+    """
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    schema_version: Literal["smr.sync-approval-card.v1"]
+    approval_id: str
+    sync_session_id: str
+    scope_kind: str
+    scope_id: str
+    decision_state: str
+    application_state: str
+    title: str | None = None
+    body: str | None = None
+
+    @classmethod
+    def from_wire(cls, value: object) -> Self:
+        return cls.model_validate(value)
+
+
+class InternSyncPresenceLease(_StrictContract):
+    """Operator presence lease on a Sync session.
+
+    Billed sync launches (rollouts, deploys) are gated on an active
+    authenticated operator presence (``intern_sync_active_presence_required``);
+    drivers hold and renew this lease while they expect the Intern to launch
+    work on their behalf.
+    """
+
+    schema_version: Literal["smr.intern-sync-presence.v1"]
+    lease_id: str
+    sync_session_id: str
+    org_id: str
+    user_id: str
+    connection_id: str
+    connection_generation: int = Field(ge=1)
+    acquired_at: datetime
+    renewed_at: datetime
+    expires_at: datetime
+    interactive_approval_available: bool
+
+
 class InternSyncEvent(_StrictContract):
     schema_version: Literal["smr.intern-runtime-event.v1"]
     event_id: str
@@ -556,7 +604,9 @@ class InternSyncEvent(_StrictContract):
     runtime_id: str
     sequence: int = Field(ge=1)
     previous_state_generation: int = Field(ge=0)
-    state_generation: int = Field(ge=1)
+    # Backend InternRuntimeEventResponse permits generation 0 for events
+    # written before the first command admission (e.g. presence at open).
+    state_generation: int = Field(ge=0)
     event_kind: str
     command_id: str
     payload: dict[str, Any]
@@ -672,11 +722,12 @@ class InternAsyncRuntimeSpend(_StrictContract):
 
 
 class InternAsyncRuntimeHostLease(_StrictContract):
-    """The sticky host lease backing Async work.
+    """The sticky host lease backing org Intern exe.dev (Sync + Async share).
 
-    Pausing releases the lease; resuming reacquires it. ``reused`` distinguishes
-    a reacquired lease from a freshly provisioned host, and ``cents_per_hour``
-    is the idle burn rate that feeds the spend totals above.
+    Pausing releases the **lease** for metering; the shared org VM is retained
+    until filestore backup exists. Resuming reacquires the lease. ``reused``
+    distinguishes a reacquired lease from a freshly provisioned host, and
+    ``cents_per_hour`` is the idle burn rate that feeds the spend totals above.
     """
 
     lease_id: str | None = None
@@ -954,7 +1005,9 @@ class InternAsyncEvent(_StrictContract):
     runtime_id: str
     sequence: int = Field(ge=1)
     previous_state_generation: int = Field(ge=0)
-    state_generation: int = Field(ge=1)
+    # Backend InternRuntimeEventResponse permits generation 0 for events
+    # written before the first command admission (e.g. presence at open).
+    state_generation: int = Field(ge=0)
     event_kind: str
     command_id: str
     payload: dict[str, Any]
@@ -1104,305 +1157,6 @@ class MagiDecisionReceiptResponse(_StrictContract):
         if self.canonical_user != MAGI_CANONICAL_USER_BY_MODE[self.mode]:
             raise ValueError("canonical_user does not match Magi mode")
         return self
-
-
-class ResearchInternSessionStatus(StrEnum):
-    ACTIVE = "active"
-    COMPLETED = "completed"
-    PARTIAL = "partial"
-    FAILED = "failed"
-    STOPPED = "stopped"
-    CANCELED = "canceled"
-    ARCHIVED = "archived"
-
-
-class ResearchInternEventKind(StrEnum):
-    OBJECTIVE = "objective"
-    OPERATOR_MESSAGE = "operator_message"
-    AGENT_MESSAGE = "agent_message"
-    PROGRESS = "progress"
-    MAGI_DECISION = "magi_decision"
-    STATE_SNAPSHOT = "state_snapshot"
-    ERROR = "error"
-    CLOSED = "closed"
-
-
-class ResearchInternEventActorKind(StrEnum):
-    OPERATOR = "operator"
-    RESEARCH_INTERN = "research_intern"
-    MAGI = "magi"
-    SYSTEM = "system"
-
-
-class ResearchInternSessionCreateRequest(_StrictContract):
-    factory_id: str = Field(min_length=1, max_length=255)
-    project_id: str = Field(min_length=1, max_length=255)
-    effort_id: str = Field(min_length=1, max_length=255)
-    run_id: str | None = Field(default=None, max_length=255)
-    objective: str = Field(min_length=1, max_length=20_000)
-    objective_bounds: dict[str, Any] = Field(default_factory=dict)
-    idempotency_key: str = Field(min_length=1, max_length=512)
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class ResearchInternSessionResponse(_StrictContract):
-    session_id: str
-    research_intern_id: str
-    org_id: str
-    factory_id: str
-    project_id: str
-    effort_id: str
-    run_id: str | None = None
-    objective: str
-    objective_bounds: dict[str, Any]
-    status: ResearchInternSessionStatus
-    state_generation: int = Field(ge=0)
-    last_event_sequence: int = Field(ge=0)
-    metadata: dict[str, Any]
-    created_by_user_id: str | None = None
-    created_at: datetime
-    updated_at: datetime
-    closed_at: datetime | None = None
-
-
-class ResearchInternEventAppendRequest(_StrictContract):
-    event_kind: ResearchInternEventKind
-    mode: MagiMode | None = None
-    idempotency_key: str = Field(min_length=1, max_length=512)
-    expected_state_generation: int = Field(ge=0)
-    body: str | None = Field(default=None, max_length=20_000)
-    payload: dict[str, Any] = Field(default_factory=dict)
-    evidence_refs: list[str] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def validate_public_event(self) -> ResearchInternEventAppendRequest:
-        if self.event_kind in {
-            ResearchInternEventKind.OBJECTIVE,
-            ResearchInternEventKind.AGENT_MESSAGE,
-            ResearchInternEventKind.MAGI_DECISION,
-            ResearchInternEventKind.CLOSED,
-        }:
-            raise ValueError(f"{self.event_kind.value} is emitted by the server")
-        if self.event_kind is ResearchInternEventKind.OPERATOR_MESSAGE and self.mode is not None:
-            raise ValueError("operator_message does not accept mode")
-        if self.event_kind is ResearchInternEventKind.OPERATOR_MESSAGE and not self.body:
-            raise ValueError("operator_message requires body")
-        if not self.body and not self.payload:
-            raise ValueError("event requires body or payload")
-        return self
-
-
-class ResearchInternEventResponse(_StrictContract):
-    schema_version: Literal["smr.research-intern-event.v1"] = "smr.research-intern-event.v1"
-    event_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    session_id: str
-    research_intern_id: str
-    org_id: str
-    sequence: int = Field(ge=1)
-    previous_state_generation: int = Field(ge=0)
-    state_generation: int = Field(ge=0)
-    event_kind: ResearchInternEventKind
-    actor_kind: ResearchInternEventActorKind
-    actor_id: str | None = None
-    mode: MagiMode | None = None
-    canonical_user: MagiCanonicalUser | None = None
-    receipt_id: str | None = None
-    idempotency_key: str
-    body: str | None = None
-    payload: dict[str, Any]
-    evidence_refs: list[str]
-    created_at: datetime
-
-    @model_validator(mode="after")
-    def validate_state_generation_chain(self) -> ResearchInternEventResponse:
-        if self.state_generation != self.previous_state_generation + 1:
-            raise ValueError(
-                "event state_generation must immediately follow previous_state_generation"
-            )
-        return self
-
-
-class ResearchInternEventStreamCursor(_StrictContract):
-    """Exact durable event-log position carried by the Intern SSE API."""
-
-    schema_version: Literal["smr.research-intern-event-stream-cursor.v1"] = (
-        "smr.research-intern-event-stream-cursor.v1"
-    )
-    after_sequence: int = Field(ge=1)
-    event_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    state_generation: int = Field(ge=1)
-
-
-class ResearchInternEventStreamEvent(_StrictContract):
-    """One durable Research Intern event framed by the backend stream."""
-
-    schema_version: Literal["smr.research-intern-event-stream.v1"] = (
-        "smr.research-intern-event-stream.v1"
-    )
-    kind: Literal["event"] = "event"
-    session_id: str
-    cursor: ResearchInternEventStreamCursor
-    event: ResearchInternEventResponse
-
-    @model_validator(mode="after")
-    def validate_cursor_chain(self) -> ResearchInternEventStreamEvent:
-        if (
-            self.session_id != self.event.session_id
-            or self.cursor.after_sequence != self.event.sequence
-            or self.cursor.event_id != self.event.event_id
-            or self.cursor.state_generation != self.event.state_generation
-        ):
-            raise ValueError("event stream cursor must identify the framed event")
-        return self
-
-
-class ResearchInternEventStreamHeartbeat(_StrictContract):
-    """Non-durable liveness frame whose cursor names the last durable event."""
-
-    schema_version: Literal["smr.research-intern-event-stream.v1"] = (
-        "smr.research-intern-event-stream.v1"
-    )
-    kind: Literal["heartbeat"] = "heartbeat"
-    session_id: str
-    cursor: ResearchInternEventStreamCursor | None = None
-    reconnect_after_ms: int = Field(ge=1_000, le=30_000)
-    emitted_at: datetime
-
-
-ResearchInternEventStreamPayload = Annotated[
-    ResearchInternEventStreamEvent | ResearchInternEventStreamHeartbeat,
-    Field(discriminator="kind"),
-]
-
-
-class ResearchInternEventStreamEnvelope(RootModel[ResearchInternEventStreamPayload]):
-    """OpenAPI-visible discriminated union for Intern SSE data payloads."""
-
-
-class ResearchInternSessionCloseRequest(_StrictContract):
-    idempotency_key: str = Field(min_length=1, max_length=512)
-    expected_state_generation: int = Field(ge=0)
-    status: Literal["completed", "partial", "failed", "stopped", "canceled", "archived"]
-    rationale: str = Field(min_length=1, max_length=20_000)
-    evidence_refs: list[str] = Field(default_factory=list)
-
-
-class ResearchInternTracePublicationRequest(_StrictContract):
-    """Optimistic fence for publishing one terminal Intern event chain."""
-
-    schema_version: Literal["smr.research-intern-trace-publication-request.v1"] = (
-        "smr.research-intern-trace-publication-request.v1"
-    )
-    idempotency_key: str = Field(min_length=1, max_length=512)
-    expected_state_generation: int = Field(ge=1)
-
-
-class ResearchInternTracePublicationResponse(_StrictContract):
-    """Factory Trace Store receipt for one genuine terminal Intern Trace V5."""
-
-    schema_version: Literal["smr.research-intern-trace-publication.v1"] = (
-        "smr.research-intern-trace-publication.v1"
-    )
-    session_id: str
-    research_intern_id: str
-    idempotency_key: str = Field(min_length=1, max_length=512)
-    org_id: str
-    factory_id: str
-    project_id: str
-    effort_id: str
-    run_id: str
-    state_generation: int = Field(ge=1)
-    event_count: int = Field(ge=1)
-    trace_id: str
-    trace_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    capture_id: str
-    bundle_id: str
-    manifest_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    promotion: TracePromotionReceipt
-
-    @model_validator(mode="after")
-    def validate_promotion_identity(self) -> ResearchInternTracePublicationResponse:
-        if (
-            self.factory_id != self.promotion.factory_id
-            or self.bundle_id != self.promotion.bundle_id
-            or self.manifest_digest != self.promotion.manifest_digest
-            or self.promotion.trace_digests != [self.trace_digest]
-        ):
-            raise ValueError("Research Intern trace response must match its promotion receipt")
-        return self
-
-
-class ResearchInternSessionSyncResponse(_StrictContract):
-    schema_version: Literal["smr.research-intern-session-sync.v1"] = (
-        "smr.research-intern-session-sync.v1"
-    )
-    session: ResearchInternSessionResponse
-    events: list[ResearchInternEventResponse]
-    source_run_id: str
-    projected_count: int = Field(ge=0)
-    has_more: bool
-
-
-class ResearchInternTurnControl(StrEnum):
-    PAUSE = "pause"
-    INTERVENE = "intervene"
-    RESUME = "resume"
-
-
-class ResearchInternTurnStatus(StrEnum):
-    ACCEPTED = "accepted"
-    COMPLETED = "completed"
-    TIMED_OUT = "timed_out"
-    FAILED = "failed"
-
-
-class ResearchInternTurnRequest(_StrictContract):
-    """One browser-callable operator turn against the bound real runtime."""
-
-    body: str = Field(min_length=1, max_length=20_000)
-    mode: MagiMode = MagiMode.SYNC
-    idempotency_key: str = Field(min_length=1, max_length=512)
-    expected_session_state_generation: int = Field(ge=0)
-    expected_intern_state_generation: int = Field(ge=0)
-    control: ResearchInternTurnControl | None = None
-    rationale: str | None = Field(default=None, max_length=20_000)
-    state_patch: dict[str, Any] = Field(default_factory=dict)
-    evidence_refs: list[str] = Field(default_factory=list)
-    wait_timeout_seconds: float = Field(default=15.0, ge=0.0, le=30.0)
-    poll_interval_ms: int = Field(default=250, ge=100, le=2_000)
-
-    @model_validator(mode="after")
-    def validate_turn_control(self) -> ResearchInternTurnRequest:
-        if self.control is not None and not str(self.rationale or "").strip():
-            raise ValueError("controlled turns require rationale")
-        if self.control is ResearchInternTurnControl.INTERVENE and not self.state_patch:
-            raise ValueError("intervene turns require a non-empty state_patch")
-        if self.control is None and self.state_patch:
-            raise ValueError("state_patch requires a controlled turn")
-        return self
-
-
-class ResearchInternTurnError(_StrictContract):
-    error_code: str
-    message: str
-    retryable: bool
-    detail: dict[str, Any] = Field(default_factory=dict)
-
-
-class ResearchInternTurnResponse(_StrictContract):
-    schema_version: Literal["smr.research-intern-turn.v1"] = "smr.research-intern-turn.v1"
-    turn_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    status: ResearchInternTurnStatus
-    session: ResearchInternSessionResponse
-    run_id: str
-    operator_event: ResearchInternEventResponse
-    decision_receipt: MagiDecisionReceiptResponse | None = None
-    agent_event: ResearchInternEventResponse | None = None
-    projected_events: list[ResearchInternEventResponse] = Field(default_factory=list)
-    reconnect_after_sequence: int = Field(ge=0)
-    waited_seconds: float = Field(ge=0)
-    replayed: bool
-    error: ResearchInternTurnError | None = None
 
 
 class ResearchInternAcceptanceReceiptPublicationRequest(_StrictContract):
@@ -1668,24 +1422,10 @@ __all__ = [
     "ProjectComputerWorkspaceSnapshot",
     "ResearchInternAcceptanceReceiptPublicationRequest",
     "ResearchInternAcceptanceReceiptPublicationResponse",
-    "ResearchInternEventActorKind",
-    "ResearchInternEventAppendRequest",
-    "ResearchInternEventKind",
-    "ResearchInternEventResponse",
     "ResearchInternFactoryMembershipResponse",
     "ResearchInternPatchRequest",
     "ResearchInternPolicySet",
     "ResearchInternProvisionRequest",
     "ResearchInternResponse",
-    "ResearchInternSessionCloseRequest",
-    "ResearchInternSessionCreateRequest",
-    "ResearchInternSessionResponse",
-    "ResearchInternSessionStatus",
-    "ResearchInternSessionSyncResponse",
     "ResearchInternStatus",
-    "ResearchInternTurnControl",
-    "ResearchInternTurnError",
-    "ResearchInternTurnRequest",
-    "ResearchInternTurnResponse",
-    "ResearchInternTurnStatus",
 ]
