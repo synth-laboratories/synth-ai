@@ -140,6 +140,12 @@ CLI discovery:
 synth-ai research --help
 ```
 
+Project creation also accepts the backend-owned `ProjectSpec.policy` mapping.
+For example, a server-enabled fresh project can request
+`policy={"host_resource_custody_mode": "horizons_docker_sessions_only"}`.
+The backend validates this restricted mode and owns its immutable resource
+binding; SDK serialization does not grant additional authority.
+
 ## Container pools
 
 The optional `synth-ai[pools]` extra exposes the canonical `synth-containers`
