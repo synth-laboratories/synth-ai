@@ -39,6 +39,25 @@ from synth_ai.sdk.research.contracts.research_intern import (
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 _RESEARCH_INTERN_EVENT_SEQUENCE_MAX = 2**31 - 1
 
+# Retired MCP tools for the removed `/smr/research-intern/sessions` plane.
+# Kept as a named set so CI can assert they stay unregistered even if someone
+# reintroduces the opt-in flag. They are never added to the tool list.
+LEGACY_INTERN_SESSION_TOOL_NAMES = frozenset(
+    {
+        "research_append_research_intern_event",
+        "research_close_research_intern_session",
+        "research_create_research_intern_session",
+        "research_exchange_research_intern_turn",
+        "research_get_research_intern_session",
+        "research_list_research_intern_events",
+        "research_list_research_intern_sessions",
+        "research_publish_research_intern_session_trace",
+        "research_run_research_intern_turn",
+        "research_sync_research_intern_session",
+        "research_watch_research_intern_events",
+    }
+)
+
 
 def _request_payload(args: JSONDict, names: tuple[str, ...]) -> JSONDict:
     return {name: args[name] for name in names if name in args}
@@ -1241,4 +1260,4 @@ def build_research_intern_tools(
     return tools
 
 
-__all__ = ["build_research_intern_tools"]
+__all__ = ["LEGACY_INTERN_SESSION_TOOL_NAMES", "build_research_intern_tools"]
