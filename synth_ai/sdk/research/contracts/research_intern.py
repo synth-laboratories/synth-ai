@@ -914,7 +914,6 @@ class InternAsyncEffortWorkSummary(_StrictContract):
     last_advanced_cycle: int = Field(default=0, ge=0)
 
 
-
 class InternResumeCondition(_StrictContract):
     """What turns an off agent on again (mirrors backend ResumeConditionResponse).
 

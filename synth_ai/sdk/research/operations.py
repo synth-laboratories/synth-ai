@@ -22,7 +22,13 @@ def _operation(
 RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
-        _operation("detach_research_intern_factory", HttpMethod.DELETE, "/smr/research-intern/factories/{factory_id}", mutation=True, idempotent=True),
+        _operation(
+            "detach_research_intern_factory",
+            HttpMethod.DELETE,
+            "/smr/research-intern/factories/{factory_id}",
+            mutation=True,
+            idempotent=True,
+        ),
         _operation(
             "create_intern_acceptance_fixture",
             HttpMethod.POST,
