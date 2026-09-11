@@ -99,26 +99,24 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="research_request_resource_limit_extension",
-            description="Request a run resource-limit extension, optionally resolving blockers and resuming work.",
-            input_schema=tool_schema(
-                {
+            description="Request a revision-checked run resource-limit cap increase. Blocker clearing and resume are not enabled in this slice.",
+            input_schema={
+                "type": "object",
+                "properties": {
                     "scope": {
                         "type": "string",
                         "enum": ["run"],
                         "description": "Limit scope to extend. Project-scoped run lookup is selected by also passing project_id.",
                     },
-                    "run_id": {
+                    "run_id": {"type": "string", "description": "Run id when scope is run."},
+                    "project_id": {
                         "type": "string",
-                        "description": "Run id when scope is run.",
+                        "description": "Optional project id for project-scoped run lookup.",
                     },
                     "expected_revision": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Current cap revision used to guard the extension.",
-                    },
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project id for project-scoped run lookup.",
+                        "description": "Current canonical cap revision. A stale value is refused without changing the cap.",
                     },
                     "limit_value": {
                         "type": "number",
@@ -151,20 +149,21 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
                     "resolve_blockers": {
                         "type": "boolean",
                         "default": False,
-                        "description": "Explicitly resolve matching system limit blockers after a safe extension.",
+                        "description": "Must be false until guarded blocker release is enabled.",
                     },
                     "resume": {
                         "type": "boolean",
                         "default": False,
-                        "description": "Explicitly attempt guarded run resume after a safe extension.",
+                        "description": "Must be false until guarded lifecycle resume is enabled.",
                     },
                     "idempotency_key": {
                         "type": "string",
                         "description": "Optional caller-supplied idempotency key.",
                     },
                 },
-                required=["scope", "run_id", "expected_revision"],
-            ),
+                "required": ["scope", "run_id", "expected_revision"],
+                "additionalProperties": False,
+            },
             handler=server._tool_request_resource_limit_extension,
         ),
         ToolDefinition(
