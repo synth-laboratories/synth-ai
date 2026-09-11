@@ -340,6 +340,12 @@ class InternSyncCommandKind(StrEnum):
     CLOSE = "close"
 
 
+class InternSyncRuntimeBudget(_StrictContract):
+    maximum_cost_cents: int | None = Field(default=None, ge=0)
+    maximum_daily_cost_cents: int | None = Field(default=None, ge=0)
+    maximum_monthly_cost_cents: int | None = Field(default=None, ge=0)
+
+
 class InternSyncSessionCreateRequest(_StrictContract):
     objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
@@ -347,6 +353,7 @@ class InternSyncSessionCreateRequest(_StrictContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
     objective_bounds: dict[str, Any] | None = None
+    budget: InternSyncRuntimeBudget = Field(default_factory=InternSyncRuntimeBudget)
 
     require_operator_approval: bool = True
 
@@ -439,6 +446,7 @@ class InternSyncSession(_StrictContract):
     binding: InternRuntimeBinding
     metadata: dict[str, Any] = Field(default_factory=dict)
     objective_bounds: dict[str, Any] | None = None
+    budget: InternSyncRuntimeBudget = Field(default_factory=InternSyncRuntimeBudget)
     pending_turn_id: str | None = None
     pending_action_id: str | None = None
     pending_interaction_id: str | None = None

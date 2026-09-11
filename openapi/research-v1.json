@@ -33782,6 +33782,50 @@
         "title": "SyncPresenceLeaseResponse",
         "type": "object"
       },
+      "SyncRuntimeBudget": {
+        "additionalProperties": false,
+        "description": "Spend admission ceilings shared by all effects in one Sync session.",
+        "properties": {
+          "maximum_cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Cost Cents"
+          },
+          "maximum_daily_cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Daily Cost Cents"
+          },
+          "maximum_monthly_cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Monthly Cost Cents"
+          }
+        },
+        "title": "SyncRuntimeBudget",
+        "type": "object"
+      },
       "SyncRuntimeCommandRequest": {
         "additionalProperties": false,
         "description": "Sync-only command envelope with typed semantic turn context.",
@@ -33862,6 +33906,9 @@
           "binding": {
             "$ref": "#/components/schemas/RuntimeBinding"
           },
+          "budget": {
+            "$ref": "#/components/schemas/SyncRuntimeBudget"
+          },
           "execution_mode": {
             "$ref": "#/components/schemas/SyncExecutionMode",
             "default": "standard"
@@ -33910,6 +33957,9 @@
         "properties": {
           "binding": {
             "$ref": "#/components/schemas/RuntimeBinding"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/SyncRuntimeBudget"
           },
           "closed_at": {
             "anyOf": [
