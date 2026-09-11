@@ -140,6 +140,26 @@ CLI discovery:
 synth-ai research --help
 ```
 
+## Container pools
+
+The optional `synth-ai[pools]` extra exposes the canonical `synth-containers`
+client through `AsyncSynthClient.pools`. It uses the same configured backend
+credential and keeps hosted admission, resource ownership, and recovery in the
+backend. The enclosing async client closes the pool transport.
+
+```python
+from synth_ai import AsyncSynthClient
+
+async def inspect_lease(lease_id: str, task_id: str):
+    async with AsyncSynthClient() as client:
+        return await client.pools.get_lease_interactive(lease_id, task_id=task_id)
+```
+
+For explicit lifetime management, `from synth_ai.pools import PoolClient`
+re-exports the same implementation. Research-only installations do not import
+this optional dependency. Development candidates must install the exact pinned
+containers wheel; an unpublished candidate extra is not a release claim.
+
 ## CLI
 
 ```bash

@@ -9,6 +9,7 @@ from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 if TYPE_CHECKING:
+    from synth_ai.pools import PoolClient
     from synth_ai.sdk.optimizers import AsyncOptimizersClient, OptimizersClient
     from synth_ai.sdk.research import AsyncResearchClient
     from synth_ai.sdk.research.facade import ResearchClient
@@ -99,6 +100,7 @@ class AsyncSynthClient:
         self.timeout_seconds = timeout_seconds
         self._async_research_client: AsyncResearchClient | None = None
         self._async_optimizers_client: AsyncOptimizersClient | None = None
+        self._pool_client: PoolClient | None = None
 
     @property
     def research(self) -> AsyncResearchClient:
@@ -114,6 +116,25 @@ class AsyncSynthClient:
         return self._async_research_client
 
     @property
+    def pools(self) -> PoolClient:
+        """Backend-owned pool, deployment and interactive lease operations.
+
+        See: evals/docs/handoffs/EVAL_EXECUTION_STREAMING_DELIVERY_PLAN_2026-09-10.md §3.
+        Uses the canonical synth-containers client and this client's existing
+        backend credential. Requires the optional ``synth-ai[pools]`` extra.
+        Requests always pass through hosted admission and resource ownership.
+        """
+        if self._pool_client is None:
+            from synth_ai.pools import PoolClient
+
+            self._pool_client = PoolClient(
+                api_key=self.api_key,
+                backend_url=self.base_url,
+                timeout_seconds=self.timeout_seconds,
+            )
+        return self._pool_client
+
+    @property
     def async_research(self) -> AsyncResearchClient:
         """Deprecated alias for :attr:`research`."""
         warnings.warn(
@@ -125,12 +146,19 @@ class AsyncSynthClient:
 
     async def close(self) -> None:
         """Close all asynchronous Research transports."""
-        if self._async_research_client is not None:
-            await self._async_research_client.close()
-            self._async_research_client = None
-        if self._async_optimizers_client is not None:
-            await self._async_optimizers_client.close()
-            self._async_optimizers_client = None
+        try:
+            if self._async_research_client is not None:
+                await self._async_research_client.close()
+                self._async_research_client = None
+        finally:
+            try:
+                if self._async_optimizers_client is not None:
+                    await self._async_optimizers_client.close()
+                    self._async_optimizers_client = None
+            finally:
+                if self._pool_client is not None:
+                    await self._pool_client.aclose()
+                    self._pool_client = None
 
     @property
     def optimizers(self) -> AsyncOptimizersClient:
