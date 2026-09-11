@@ -622,9 +622,10 @@ class InternEffortSpend(_StrictInternProgramContract):
 
 
 class InternEffortStickyHost(_StrictInternProgramContract):
-    """The persistent host lease backing Async work.
+    """The persistent host lease for the org Intern exe.dev VM.
 
-    Pausing frees the lease; resuming reacquires it.
+    Pausing frees the lease; the shared org VM is retained until filestore
+    backup exists. Resuming reacquires the lease.
     """
 
     host_kind: str | None = None

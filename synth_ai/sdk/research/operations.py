@@ -405,6 +405,33 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "acquire_intern_sync_presence",
+            HttpMethod.PUT,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/presence",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "release_intern_sync_presence",
+            HttpMethod.POST,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/presence/release",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_sync_approvals",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/approvals",
+            idempotent=True,
+        ),
+        _operation(
+            "decide_intern_sync_approval",
+            HttpMethod.POST,
+            "/smr/research-intern/sync-approvals/{approval_id}/decision",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "command_intern_sync_session",
             HttpMethod.POST,
             "/smr/research-intern/sync-sessions/{sync_session_id}/commands",
@@ -683,71 +710,6 @@ RESEARCH_OPERATIONS = {
             "list_magi_decisions",
             HttpMethod.GET,
             "/smr/research-intern/decisions",
-            idempotent=True,
-        ),
-        _operation(
-            "create_research_intern_session",
-            HttpMethod.POST,
-            "/smr/research-intern/sessions",
-            mutation=True,
-            idempotent=True,
-        ),
-        _operation(
-            "list_research_intern_sessions",
-            HttpMethod.GET,
-            "/smr/research-intern/sessions",
-            idempotent=True,
-        ),
-        _operation(
-            "get_research_intern_session",
-            HttpMethod.GET,
-            "/smr/research-intern/sessions/{session_id}",
-            idempotent=True,
-        ),
-        _operation(
-            "append_research_intern_session_event",
-            HttpMethod.POST,
-            "/smr/research-intern/sessions/{session_id}/events",
-            mutation=True,
-            idempotent=True,
-        ),
-        _operation(
-            "list_research_intern_session_events",
-            HttpMethod.GET,
-            "/smr/research-intern/sessions/{session_id}/events",
-            idempotent=True,
-        ),
-        _operation(
-            "stream_research_intern_session_events",
-            HttpMethod.GET,
-            "/smr/research-intern/sessions/{session_id}/events/stream",
-            idempotent=True,
-        ),
-        _operation(
-            "sync_research_intern_session",
-            HttpMethod.POST,
-            "/smr/research-intern/sessions/{session_id}/sync",
-            mutation=True,
-        ),
-        _operation(
-            "create_research_intern_session_turn",
-            HttpMethod.POST,
-            "/smr/research-intern/sessions/{session_id}/turns",
-            mutation=True,
-            idempotent=True,
-        ),
-        _operation(
-            "close_research_intern_session",
-            HttpMethod.POST,
-            "/smr/research-intern/sessions/{session_id}/close",
-            mutation=True,
-            idempotent=True,
-        ),
-        _operation(
-            "publish_research_intern_session_trace",
-            HttpMethod.POST,
-            "/smr/research-intern/sessions/{session_id}/trace:publish",
-            mutation=True,
             idempotent=True,
         ),
         _operation(
@@ -1444,19 +1406,9 @@ DATASET_REVISION_PUBLICATION_OPERATIONS = {
 }
 
 
-# COMPAT: old SDK method names resolve to backend-authored canonical IDs.
-# Remove these aliases only after the legacy public clients are retired.
-RESEARCH_OPERATION_ALIASES = {
-    "append_research_intern_event": "append_research_intern_session_event",
-    "list_research_intern_events": "list_research_intern_session_events",
-    "get_research_intern_acceptance_receipt": "get_public_research_intern_acceptance_receipt",
-}
-
-
 def research_operation(operation_id: str) -> OperationMetadata:
     try:
-        canonical_id = RESEARCH_OPERATION_ALIASES.get(operation_id, operation_id)
-        return RESEARCH_OPERATIONS[OperationId(canonical_id)]
+        return RESEARCH_OPERATIONS[OperationId(operation_id)]
     except KeyError as error:
         raise ValueError(f"unknown Research operation_id {operation_id!r}") from error
 
