@@ -113,3 +113,15 @@ def test_async_projection_preserves_actor_reply_wait_identity() -> None:
     assert runtime.effort_work[0].status == "awaiting_input"
     assert runtime.budget.maximum_daily_cost_cents == 5000
     assert runtime.budget.maximum_monthly_cost_cents == 50000
+
+
+def test_sync_create_allows_send_first_and_preserves_operator_approval_default():
+    from synth_ai.sdk.research.contracts.research_intern import InternSyncSessionCreateRequest
+
+    request = InternSyncSessionCreateRequest(idempotency_key="send-first")
+    assert request.objective == ""
+    assert request.to_wire()["require_operator_approval"] is True
+    unattended = InternSyncSessionCreateRequest(
+        idempotency_key="unattended", require_operator_approval=False
+    )
+    assert unattended.to_wire()["require_operator_approval"] is False

@@ -341,12 +341,14 @@ class InternSyncCommandKind(StrEnum):
 
 
 class InternSyncSessionCreateRequest(_StrictContract):
-    objective: str = Field(min_length=1, max_length=20_000)
+    objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
     objective_bounds: dict[str, Any] | None = None
+
+    require_operator_approval: bool = True
 
 
 class SyncTracePublicationReceipt(_StrictContract):
