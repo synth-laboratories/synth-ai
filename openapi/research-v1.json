@@ -12859,7 +12859,6 @@
           "synth_ai",
           "cursor",
           "deepseek",
-          "xai",
           "modal",
           "openai_chatgpt",
           "baseten"
@@ -13735,7 +13734,6 @@
           "gpt-5.6-luna",
           "gpt-5.6-sol",
           "gpt-5.6-terra",
-          "cursor/grok-4.5",
           "gpt-5.4",
           "gpt-5.4-mini",
           "nemotron-super",
@@ -13744,7 +13742,6 @@
           "cursor/composer-2.5",
           "cursor/gpt-5",
           "cursor/sonnet-4",
-          "x-ai/grok-build",
           "moonshotai/kimi-k2.6",
           "baseten/moonshotai/Kimi-K3",
           "modal/moonshotai/Kimi-K3",
@@ -14980,7 +14977,6 @@
           "openrouter",
           "poolside",
           "synth_internal",
-          "xai",
           "tinker"
         ],
         "title": "SmrCredentialProvider",
@@ -20780,8 +20776,7 @@
           "openrouter",
           "poolside",
           "synth",
-          "synth_internal",
-          "xai"
+          "synth_internal"
         ],
         "title": "SmrInferenceProvider",
         "type": "string"
@@ -22427,7 +22422,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -22779,7 +22774,7 @@
                 "type": "null"
               }
             ],
-            "description": "Declarative provider routing preferences. Use agent_inference for agent actor traffic and experiment_inference for benchmark/eval model traffic. Defaults require ZDR and US domicile/region for OpenAI, Baseten, Gemini, and Grok-family providers."
+            "description": "Declarative provider routing preferences. Use agent_inference for agent actor traffic and experiment_inference for benchmark/eval model traffic. Defaults require ZDR and US domicile/region for OpenAI, Baseten, and Gemini providers."
           },
           "providers": {
             "description": "Run-scoped resource bindings. This is independent from the inference provider selector.",

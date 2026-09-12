@@ -26,7 +26,6 @@ SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (
     "openrouter/poolside/laguna-s-2.1",
     "poolside/laguna-s-2.1",
     "synth_internal/laguna-s-2.1-nvfp4",
-    "x-ai/grok-build",
 )
 
 
@@ -52,7 +51,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -76,7 +74,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -100,7 +97,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -123,7 +119,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -146,7 +141,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -169,7 +163,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -192,7 +185,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -215,7 +207,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -239,7 +230,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -266,7 +256,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -291,7 +280,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
     {
@@ -315,7 +303,6 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "openrouter/poolside/laguna-s-2.1",
             "poolside/laguna-s-2.1",
             "synth_internal/laguna-s-2.1-nvfp4",
-            "x-ai/grok-build",
         ],
     },
 )

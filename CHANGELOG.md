@@ -2,6 +2,18 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+### Removed
+
+- **Grok / xAI** (breaking enum change). `SmrAgentModel.X_AI_GROK_BUILD`,
+  `SmrAgentModel.CURSOR_GROK_4_5`, `ActorModel.GROK_BUILD` /
+  `DeprecatedActorModel.GROK_BUILD`, and the `xai` member of
+  `ResourceProvider`, `SmrCredentialProvider`, `SmrInferenceProvider`,
+  `CredentialProvider`, and `InferenceProvider` are gone, as is `xai` from the
+  public provider selection. The backend no longer serves `x-ai/grok-build`
+  or `cursor/grok-4.5`; use `openrouter/openai/gpt-5.6-luna`.
+
 ## 0.18.2 — 2026-09-10
 
 Release candidate; publication is pending protected CI approval.
