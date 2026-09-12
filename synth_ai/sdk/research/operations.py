@@ -1282,6 +1282,14 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "get_intern_sync_session_resources", HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/resources", idempotent=True,
+        ),
+        _operation(
+            "get_intern_async_assignment_resources", HttpMethod.GET,
+            "/smr/research-intern/async-assignments/{assignment_id}/resources", idempotent=True,
+        ),
+        _operation(
             "get_intern_async_assignment_usage",
             HttpMethod.GET,
             "/smr/research-intern/async-assignments/{assignment_id}/usage",

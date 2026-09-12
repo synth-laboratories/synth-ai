@@ -8448,6 +8448,119 @@
         "title": "InternProgressClaimStatus",
         "type": "string"
       },
+      "InternResourceDisposition": {
+        "additionalProperties": false,
+        "properties": {
+          "cleanup_owner_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Owner Run Id"
+          },
+          "disposition": {
+            "enum": [
+              "settled",
+              "pending",
+              "unknown",
+              "excluded"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "self",
+              "owned",
+              "borrowed",
+              "shared",
+              "retained"
+            ],
+            "title": "Relation",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "title": "Resource Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_kind",
+          "resource_id",
+          "relation",
+          "disposition",
+          "reason"
+        ],
+        "title": "InternResourceDisposition",
+        "type": "object"
+      },
+      "InternResourceInventory": {
+        "additionalProperties": false,
+        "properties": {
+          "coverage": {
+            "const": "registered-runtime-resources-v1",
+            "default": "registered-runtime-resources-v1",
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_complete": {
+            "default": false,
+            "title": "Coverage Complete",
+            "type": "boolean"
+          },
+          "incomplete_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incomplete Reasons",
+            "type": "array"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/InternResourceDisposition"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "runtime_id": {
+            "title": "Runtime Id",
+            "type": "string"
+          },
+          "runtime_kind": {
+            "enum": [
+              "sync",
+              "async"
+            ],
+            "title": "Runtime Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runtime_kind",
+          "runtime_id",
+          "observed_at",
+          "resources"
+        ],
+        "title": "InternResourceInventory",
+        "type": "object"
+      },
       "InternRuntimeCommandReceipt": {
         "additionalProperties": false,
         "properties": {
@@ -45008,6 +45121,50 @@
         ]
       }
     },
+    "/smr/research-intern/async-assignments/{assignment_id}/resources": {
+      "get": {
+        "description": "Read the exact recorded assignment, never silently substitute today's singleton.",
+        "operationId": "get_intern_async_assignment_resources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternResourceInventory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Async Assignment Resources",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/async-assignments/{assignment_id}/usage": {
       "get": {
         "operationId": "get_intern_async_assignment_usage",
@@ -48165,6 +48322,50 @@
           }
         },
         "summary": "Release Intern Sync Presence",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/sync-sessions/{sync_session_id}/resources": {
+      "get": {
+        "description": "See notes/specifications/tanha/current/systems/platform/intern_resource_inventory.md.",
+        "operationId": "get_intern_sync_session_resources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_session_id",
+            "required": true,
+            "schema": {
+              "title": "Sync Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternResourceInventory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Sync Session Resources",
         "tags": [
           "smr",
           "research-intern"
