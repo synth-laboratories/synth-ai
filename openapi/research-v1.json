@@ -8713,7 +8713,19 @@
       },
       "InternResourceDisposition": {
         "additionalProperties": false,
+        "description": "One enumerated resource. ``retained`` always names its owner and reason.",
         "properties": {
+          "cleanup_owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Owner"
+          },
           "cleanup_owner_run_id": {
             "anyOf": [
               {
@@ -8730,10 +8742,23 @@
               "settled",
               "pending",
               "unknown",
-              "excluded"
+              "excluded",
+              "retained"
             ],
             "title": "Disposition",
             "type": "string"
+          },
+          "epoch": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epoch"
           },
           "reason": {
             "title": "Reason",
@@ -8771,6 +8796,7 @@
       },
       "InternResourceInventory": {
         "additionalProperties": false,
+        "description": "``coverage_complete`` is creator coverage; ``disposition_complete`` is cleanup.\n\nPending and unknown entries may exist in a complete inventory.",
         "properties": {
           "coverage": {
             "const": "registered-runtime-resources-v1",
@@ -8783,6 +8809,29 @@
             "title": "Coverage Complete",
             "type": "boolean"
           },
+          "creator_set": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creator Set"
+          },
+          "disposition_complete": {
+            "default": false,
+            "title": "Disposition Complete",
+            "type": "boolean"
+          },
+          "epochs": {
+            "items": {
+              "$ref": "#/components/schemas/InternRuntimeResourceEpoch"
+            },
+            "title": "Epochs",
+            "type": "array"
+          },
           "incomplete_reasons": {
             "items": {
               "type": "string"
@@ -8794,6 +8843,17 @@
             "format": "date-time",
             "title": "Observed At",
             "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
           },
           "resources": {
             "items": {
@@ -8822,6 +8882,53 @@
           "resources"
         ],
         "title": "InternResourceInventory",
+        "type": "object"
+      },
+      "InternResourceStopEffect": {
+        "additionalProperties": false,
+        "description": "An effect actually performed when a runtime epoch closed.",
+        "properties": {
+          "effect": {
+            "enum": [
+              "stop_requested",
+              "already_settled",
+              "retained",
+              "admission_fenced"
+            ],
+            "title": "Effect",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "title": "Resource Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_kind",
+          "resource_id",
+          "effect",
+          "reason"
+        ],
+        "title": "InternResourceStopEffect",
         "type": "object"
       },
       "InternRuntimeCommandReceipt": {
@@ -9044,6 +9151,75 @@
           "event"
         ],
         "title": "InternRuntimeEventStreamEnvelope",
+        "type": "object"
+      },
+      "InternRuntimeResourceEpoch": {
+        "additionalProperties": false,
+        "description": "One admission epoch; closed epochs remain enumerated for recovery.",
+        "properties": {
+          "admission": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Admission",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closure_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "conversation_closed",
+                  "work_cancelled",
+                  "work_completed",
+                  "work_failed",
+                  "archived",
+                  "superseded_by_reopen"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closure Kind"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/InternResourceStopEffect"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "epoch": {
+            "minimum": 0.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "epoch",
+          "admission",
+          "opened_at"
+        ],
+        "title": "InternRuntimeResourceEpoch",
         "type": "object"
       },
       "InternSessionUsageResponse": {
