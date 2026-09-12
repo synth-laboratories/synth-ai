@@ -9169,6 +9169,18 @@
             "title": "Admission",
             "type": "string"
           },
+          "cleanup_settled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Settled At"
+          },
           "closed_at": {
             "anyOf": [
               {

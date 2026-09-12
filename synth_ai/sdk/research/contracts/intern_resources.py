@@ -66,6 +66,8 @@ class InternRuntimeResourceEpoch(BaseModel):
     opened_at: datetime
     closed_at: datetime | None = None
     effects: list[InternResourceStopEffect] = Field(default_factory=list)
+    # Null while the backend re-drive pass is still converging this epoch.
+    cleanup_settled_at: datetime | None = None
 
 
 class InternResourceInventory(BaseModel):
