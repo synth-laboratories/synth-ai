@@ -48,9 +48,16 @@ def _open(payload, blocker_id, request):
     return result
 
 
-def _resolve(payload, blocker_id):
+def _resolve(payload, blocker_id, request):
     result = InternBlockerResolveResponse.model_validate(payload)
-    if result.blocker.blocker_id != blocker_id:
+    receipt = result.blocker.resolution_receipt or {}
+    if (result.blocker.blocker_id != blocker_id
+        or receipt.get("idempotency_key") != request.idempotency_key
+        or receipt.get("outcome") != request.outcome
+        or receipt.get("comment") != request.comment
+        or tuple(receipt.get("supporting_receipt_ids") or ()) != request.supporting_receipt_ids
+        or receipt.get("continuation_command_id") != result.continuation_command.command_id
+        or receipt.get("sync_session_id") != result.blocker.sync_session_id):
         raise ValueError("Async blocker resolution identity drifted")
     return result
 
@@ -77,7 +84,7 @@ class InternBlockersAPI:
     ) -> InternBlockerResolveResponse:
         """Submit an explicit disposition and return its durable continuation receipt."""
         return _resolve(
-            self._transport.execute(_request_for(blocker_id, "resolve", request)), blocker_id
+            self._transport.execute(_request_for(blocker_id, "resolve", request)), blocker_id, request
         )
 
 
@@ -103,5 +110,5 @@ class AsyncInternBlockersAPI:
     ) -> InternBlockerResolveResponse:
         """Submit an explicit disposition and return its durable continuation receipt."""
         return _resolve(
-            await self._transport.execute(_request_for(blocker_id, "resolve", request)), blocker_id
+            await self._transport.execute(_request_for(blocker_id, "resolve", request)), blocker_id, request
         )

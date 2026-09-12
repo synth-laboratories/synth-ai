@@ -56,9 +56,17 @@ async def test_async_controls_parse_handoff_and_continuation():
         runtime_kind="async", runtime_id="async", status="received", previous_generation=0,
         state_generation=1, decision_code="accepted", created_at="2026-09-12T00:00:00Z",
     ))
+    transport.execute.return_value["blocker"]["resolution_receipt"] = dict(
+        idempotency_key="resolve", outcome="denied", comment=None,
+        supporting_receipt_ids=[], continuation_command_id="command", sync_session_id="sync",
+    )
+    transport.execute.return_value["blocker"]["sync_session_id"] = "sync"
     result = await api.resolve("b", InternBlockerResolveRequest(idempotency_key="resolve", outcome="denied"))
     assert result.continuation_command.command_id == "command"
     assert result.continuation_command.status == "received"
+    transport.execute.return_value["blocker"]["resolution_receipt"]["outcome"] = "completed"
+    with pytest.raises(ValueError, match="identity drifted"):
+        await api.resolve("b", InternBlockerResolveRequest(idempotency_key="resolve", outcome="denied"))
 
 
 def test_blocker_read_preserves_exact_identity():
