@@ -1264,6 +1264,24 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "get_run_resource_settlement",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/resource-settlement",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_sync_session_usage",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/usage",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_async_assignment_usage",
+            HttpMethod.GET,
+            "/smr/research-intern/async-assignments/{assignment_id}/usage",
+            idempotent=True,
+        ),
+        _operation(
             "retrieve_swarm_workspace_archive",
             HttpMethod.GET,
             "/smr/runs/{run_id}/workspace/archive",

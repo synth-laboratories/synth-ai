@@ -1287,6 +1287,10 @@ class Swarm:
     finished_at: datetime | None = None
     terminal_outcome: SwarmTerminalOutcome | None = None
     work_completed: bool = False
+    # The Intern Sync session ("sync") or Async assignment ("async") that
+    # launched this swarm; both None for swarms no Intern runtime started.
+    origin_runtime_kind: str | None = None
+    origin_runtime_id: str | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Swarm:
@@ -1294,6 +1298,9 @@ class Swarm:
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
         terminal_outcome = optional_text(payload, "terminal_outcome")
+        origin_runtime_kind = optional_text(payload, "origin_runtime_kind")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"swarm origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         return cls(
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
@@ -1311,6 +1318,8 @@ class Swarm:
                 SwarmTerminalOutcome(terminal_outcome) if terminal_outcome is not None else None
             ),
             work_completed=optional_bool(payload, "work_completed"),
+            origin_runtime_kind=origin_runtime_kind,
+            origin_runtime_id=optional_text(payload, "origin_runtime_id"),
         )
 
     def require_terminal_outcome(self) -> SwarmTerminalOutcome:

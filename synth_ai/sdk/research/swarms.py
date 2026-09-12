@@ -24,6 +24,7 @@ from synth_ai.sdk.research.contracts.evidence import (
     ContentDisposition,
     SwarmEvidence,
 )
+from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.status import SwarmStatus
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
@@ -355,6 +356,8 @@ class SwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
+        origin_runtime_kind: str | None = None,
+        origin_runtime_id: str | None = None,
     ) -> SyncPage[Swarm]:
         """List Swarms for a Project.
 
@@ -362,13 +365,23 @@ class SwarmsAPI:
             project_id: Project whose Swarms to list.
             limit: Maximum number of Swarms to request.
             cursor: Optional pagination cursor returned by the backend.
+            origin_runtime_kind: ``"sync"`` or ``"async"``; with
+                ``origin_runtime_id``, list only the Swarms that Intern runtime launched.
+            origin_runtime_id: Intern Sync session or Async assignment id.
 
         Returns:
             A typed page containing Swarms and any continuation cursor.
         """
+        if (origin_runtime_kind is None) != (origin_runtime_id is None):
+            raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
+        if origin_runtime_kind is not None and origin_runtime_id is not None:
+            query["origin_runtime_kind"] = origin_runtime_kind
+            query["origin_runtime_id"] = origin_runtime_id
         value = self._transport.execute(
             _request(
                 "list_project_runs",
@@ -409,6 +422,20 @@ class SwarmsAPI:
             )
         )
         return SwarmUsage.from_wire(value)
+
+    def resource_settlement(self, swarm_id: SwarmId) -> RunResourceSettlement:
+        """Fresh read of whether the resources this Swarm registered are disposed.
+
+        ``settled`` covers registered resources only; ``coverage_complete`` says
+        whether that inventory is complete. ``coverage="untracked"`` is no claim.
+        """
+        value = self._transport.execute(
+            _request(
+                "get_run_resource_settlement",
+                f"/smr/runs/{swarm_id}/resource-settlement",
+            )
+        )
+        return RunResourceSettlement.from_wire(value)
 
     def evidence(self, swarm_id: SwarmId) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
@@ -932,6 +959,8 @@ class AsyncSwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
+        origin_runtime_kind: str | None = None,
+        origin_runtime_id: str | None = None,
     ) -> SyncPage[Swarm]:
         """List Swarms for a Project.
 
@@ -939,13 +968,23 @@ class AsyncSwarmsAPI:
             project_id: Project whose Swarms to list.
             limit: Maximum number of Swarms to request.
             cursor: Optional pagination cursor returned by the backend.
+            origin_runtime_kind: ``"sync"`` or ``"async"``; with
+                ``origin_runtime_id``, list only the Swarms that Intern runtime launched.
+            origin_runtime_id: Intern Sync session or Async assignment id.
 
         Returns:
             A typed page containing Swarms and any continuation cursor.
         """
+        if (origin_runtime_kind is None) != (origin_runtime_id is None):
+            raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
+        if origin_runtime_kind is not None and origin_runtime_id is not None:
+            query["origin_runtime_kind"] = origin_runtime_kind
+            query["origin_runtime_id"] = origin_runtime_id
         value = await self._transport.execute(
             _request("list_project_runs", f"/smr/projects/{project_id}/runs", query=query)
         )

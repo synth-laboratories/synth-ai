@@ -14,6 +14,7 @@ from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.sdk.research.contracts._wire import array_value
 from synth_ai.sdk.research.contracts.common import FactoryId, ProjectId
+from synth_ai.sdk.research.contracts.intern_usage import InternSessionUsage
 from synth_ai.sdk.research.contracts.dataset_revisions import (
     DatasetRevisionFinalizeRequest,
     DatasetRevisionFinalizeResponse,
@@ -1031,6 +1032,25 @@ class ResearchInternSyncRuntimeAPI:
         if any(card.sync_session_id != sync_session_id for card in cards):
             raise ValueError("Sync Intern approval card identity drifted")
         return cards
+
+    def usage(self, sync_session_id: str) -> InternSessionUsage:
+        """Usage receipt for this session: direct inference plus the runs it launched.
+
+        ``spend_cents`` is settled run spend; until ``billing.billing_state`` is
+        ``settled`` the total is incomplete, not a final zero.
+        """
+
+        usage = InternSessionUsage.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_sync_session_usage",
+                    f"{self._PATH}/{sync_session_id}/usage",
+                )
+            )
+        )
+        if usage.origin_runtime_kind != "sync" or usage.origin_runtime_id != sync_session_id:
+            raise ValueError("Sync Intern usage identity drifted")
+        return usage
 
     def decide_approval(
         self,
