@@ -125,7 +125,26 @@ def test_swarm_rollouts_are_typed_and_parent_checked() -> None:
     rollouts = SwarmsAPI(transport).rollouts(SwarmId("run-1"))  # type: ignore[arg-type]
 
     assert [(r.rollout_id, r.score) for r in rollouts] == [("rollout-1", 1.0)]
+    assert rollouts[0].release_coordinates is None
     assert transport.requests[0].path == "/smr/runs/run-1/rollouts"
+
+    coordinates = {
+        "runtime_image_release_id": "image-release-1",
+        "resolved_image_digest": "sha256:" + "a" * 64,
+        "shared_bundle_release_id": None,
+        "task_bundle_release_id": "task-release-1",
+    }
+    rollout["release_coordinates"] = coordinates
+    pinned = SwarmsAPI(transport).rollouts(SwarmId("run-1"))[0].release_coordinates
+    assert pinned is not None
+    assert pinned.runtime_image_release_id == "image-release-1"
+    assert pinned.resolved_image_digest == coordinates["resolved_image_digest"]
+    assert pinned.task_bundle_release_id == "task-release-1"
+    for invalid in ([], "forged", {"runtime_image_release_id": {"secret": "value"}}):
+        rollout["release_coordinates"] = invalid
+        with pytest.raises(ValueError):
+            SwarmsAPI(transport).rollouts(SwarmId("run-1"))
+    rollout["release_coordinates"] = coordinates
 
     drifted = _Transport(
         {"list_swarm_rollouts": {"run_id": "run-1", "items": [{**rollout, "budget_parent_run_id": "run-9"}], "limit": 100}}

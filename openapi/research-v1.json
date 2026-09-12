@@ -33699,6 +33699,58 @@
         "title": "SwarmRolloutPage",
         "type": "object"
       },
+      "SwarmRolloutReleaseCoordinates": {
+        "additionalProperties": false,
+        "description": "Release identities frozen at acceptance, not a native execution attestation.",
+        "properties": {
+          "resolved_image_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Image Digest"
+          },
+          "runtime_image_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Image Release Id"
+          },
+          "shared_bundle_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Bundle Release Id"
+          },
+          "task_bundle_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Bundle Release Id"
+          }
+        },
+        "title": "SwarmRolloutReleaseCoordinates",
+        "type": "object"
+      },
       "SwarmRolloutSummary": {
         "additionalProperties": false,
         "description": "One pool rollout whose verified budget parent is the swarm.\n\nBuilt field by field from the rollout row, never from the stored request,\nso task-provided environment and transport credentials cannot leak.",
@@ -33761,6 +33813,16 @@
           "pool_id": {
             "title": "Pool Id",
             "type": "string"
+          },
+          "release_coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmRolloutReleaseCoordinates"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rollout_id": {
             "title": "Rollout Id",

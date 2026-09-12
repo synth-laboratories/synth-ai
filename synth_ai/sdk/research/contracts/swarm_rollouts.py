@@ -32,6 +32,30 @@ def _optional_datetime(payload: Mapping[str, object], key: str) -> datetime | No
 
 
 @dataclass(frozen=True)
+class SwarmRolloutReleaseCoordinates:
+    """Accepted release snapshot; not an attestation of the executed native image.
+
+    See: backend/notes/specifications/tanha/current/systems/platform/intern_resource_inventory.md.
+    """
+
+    runtime_image_release_id: str | None = None
+    resolved_image_digest: str | None = None
+    shared_bundle_release_id: str | None = None
+    task_bundle_release_id: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> SwarmRolloutReleaseCoordinates:
+        if not isinstance(payload, Mapping):
+            raise ValueError("swarm rollout release coordinates must be an object")
+        return cls(
+            runtime_image_release_id=_optional_text(payload, "runtime_image_release_id"),
+            resolved_image_digest=_optional_text(payload, "resolved_image_digest"),
+            shared_bundle_release_id=_optional_text(payload, "shared_bundle_release_id"),
+            task_bundle_release_id=_optional_text(payload, "task_bundle_release_id"),
+        )
+
+
+@dataclass(frozen=True)
 class SwarmRollout:
     rollout_id: str
     pool_id: str
@@ -48,6 +72,7 @@ class SwarmRollout:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     cancelled_at: datetime | None = None
+    release_coordinates: SwarmRolloutReleaseCoordinates | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> SwarmRollout:
@@ -78,6 +103,10 @@ class SwarmRollout:
             started_at=_optional_datetime(payload, "started_at"),
             completed_at=_optional_datetime(payload, "completed_at"),
             cancelled_at=_optional_datetime(payload, "cancelled_at"),
+            release_coordinates=(
+                SwarmRolloutReleaseCoordinates.from_wire(payload["release_coordinates"])
+                if payload.get("release_coordinates") is not None else None
+            ),
         )
 
 
@@ -93,4 +122,4 @@ def swarm_rollouts_from_wire(payload: object, *, swarm_id: str) -> tuple[SwarmRo
     return rollouts
 
 
-__all__ = ["SwarmRollout", "swarm_rollouts_from_wire"]
+__all__ = ["SwarmRollout", "SwarmRolloutReleaseCoordinates", "swarm_rollouts_from_wire"]
