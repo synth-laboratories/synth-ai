@@ -1295,6 +1295,12 @@ RESEARCH_OPERATIONS = {
             "/smr/research-intern/async-assignments/{assignment_id}/usage",
             idempotent=True,
         ),
+        _operation("get_intern_async_blocker", HttpMethod.GET,
+                   "/smr/research-intern/async/blockers/{blocker_id}", idempotent=True),
+        _operation("open_intern_async_blocker_sync", HttpMethod.POST,
+                   "/smr/research-intern/async/blockers/{blocker_id}/open-sync", idempotent=True),
+        _operation("resolve_intern_async_blocker", HttpMethod.POST,
+                   "/smr/research-intern/async/blockers/{blocker_id}/resolve", idempotent=True),
         _operation(
             "retrieve_swarm_workspace_archive",
             HttpMethod.GET,

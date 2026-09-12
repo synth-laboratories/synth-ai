@@ -405,6 +405,258 @@
         "title": "AgentConfigV1",
         "type": "object"
       },
+      "AsyncBlockerHandoffContextV1": {
+        "additionalProperties": false,
+        "properties": {
+          "action_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Action Digest",
+            "type": "string"
+          },
+          "action_kind": {
+            "title": "Action Kind",
+            "type": "string"
+          },
+          "action_schema_version": {
+            "title": "Action Schema Version",
+            "type": "string"
+          },
+          "async_assignment_id": {
+            "title": "Async Assignment Id",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/RuntimeBinding"
+          },
+          "blocker_id": {
+            "title": "Blocker Id",
+            "type": "string"
+          },
+          "evidence_resources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProducedResourceReferenceV1"
+            },
+            "title": "Evidence Resources",
+            "type": "array"
+          },
+          "preauthorization_rule": {
+            "title": "Preauthorization Rule",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "required_operator_capability": {
+            "title": "Required Operator Capability",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-handoff-context.v1",
+            "default": "smr.intern-async-blocker-handoff-context.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "blocker_id",
+          "async_assignment_id",
+          "binding",
+          "action_schema_version",
+          "action_kind",
+          "action_digest",
+          "summary",
+          "rationale",
+          "preauthorization_rule",
+          "required_operator_capability"
+        ],
+        "title": "AsyncBlockerHandoffContextV1",
+        "type": "object"
+      },
+      "AsyncBlockerHandoffReceiptV1": {
+        "additionalProperties": false,
+        "properties": {
+          "blocker_id": {
+            "title": "Blocker Id",
+            "type": "string"
+          },
+          "context": {
+            "$ref": "#/components/schemas/AsyncBlockerHandoffContextV1"
+          },
+          "context_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Context Digest",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "handoff_receipt_id": {
+            "title": "Handoff Receipt Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "opened_by_user_id": {
+            "title": "Opened By User Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-handoff-receipt.v1",
+            "default": "smr.intern-async-blocker-handoff-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sync_session_id": {
+            "title": "Sync Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "handoff_receipt_id",
+          "blocker_id",
+          "org_id",
+          "sync_session_id",
+          "opened_by_user_id",
+          "idempotency_key",
+          "context",
+          "context_digest",
+          "created_at"
+        ],
+        "title": "AsyncBlockerHandoffReceiptV1",
+        "type": "object"
+      },
+      "AsyncBlockerOpenSyncRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "AsyncBlockerOpenSyncRequest",
+        "type": "object"
+      },
+      "AsyncBlockerOpenSyncResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocker": {
+            "$ref": "#/components/schemas/AsyncBlockerResponse"
+          },
+          "handoff_receipt": {
+            "$ref": "#/components/schemas/AsyncBlockerHandoffReceiptV1"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-open-sync.v1",
+            "default": "smr.intern-async-blocker-open-sync.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sync_session": {
+            "$ref": "#/components/schemas/SyncSessionResponse"
+          }
+        },
+        "required": [
+          "blocker",
+          "sync_session",
+          "handoff_receipt"
+        ],
+        "title": "AsyncBlockerOpenSyncResponse",
+        "type": "object"
+      },
+      "AsyncBlockerResolveRequest": {
+        "additionalProperties": false,
+        "description": "Operator disposition for one exact Async-to-Sync handoff.",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "completed",
+              "denied",
+              "superseded"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "supporting_receipt_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 128,
+            "title": "Supporting Receipt Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "outcome"
+        ],
+        "title": "AsyncBlockerResolveRequest",
+        "type": "object"
+      },
+      "AsyncBlockerResolveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocker": {
+            "$ref": "#/components/schemas/AsyncBlockerResponse"
+          },
+          "continuation_command": {
+            "$ref": "#/components/schemas/InternRuntimeCommandReceipt"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-resolution.v1",
+            "default": "smr.intern-async-blocker-resolution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "blocker",
+          "continuation_command"
+        ],
+        "title": "AsyncBlockerResolveResponse",
+        "type": "object"
+      },
       "AsyncBlockerResponse": {
         "additionalProperties": false,
         "properties": {
@@ -45202,6 +45454,158 @@
           }
         },
         "summary": "Get Intern Async Assignment Usage",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/blockers/{blocker_id}": {
+      "get": {
+        "description": "Read one exact blocker and its durable terminal resolution receipt.",
+        "operationId": "get_intern_async_blocker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncBlockerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Async Blocker",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/blockers/{blocker_id}/open-sync": {
+      "post": {
+        "description": "Open one exact-context Sync handoff without creating an approval.",
+        "operationId": "open_intern_async_blocker_sync",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsyncBlockerOpenSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncBlockerOpenSyncResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Intern Async Blocker Sync",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/blockers/{blocker_id}/resolve": {
+      "post": {
+        "description": "Record explicit Sync disposition and durably continue Async work.",
+        "operationId": "resolve_intern_async_blocker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsyncBlockerResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncBlockerResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Intern Async Blocker",
         "tags": [
           "smr",
           "research-intern"
