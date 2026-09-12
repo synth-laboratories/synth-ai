@@ -106,7 +106,7 @@ class SwarmRolloutLogicalIntent:
         intent_id = _optional_text(payload, "intent_id")
         if source not in {"explicit", "derived"}:
             raise ValueError("swarm rollout logical intent source is unknown")
-        if scope_kind not in {"smr_run", "intern_runtime", "organization"}:
+        if scope_kind not in {"smr_run", "intern_runtime", "organization", "intern_delegation"}:
             raise ValueError("swarm rollout logical intent scope is unknown")
         if (source == "explicit") != (intent_id is not None):
             raise ValueError("only an explicit logical intent carries an intent_id")

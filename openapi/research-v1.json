@@ -33990,7 +33990,8 @@
             "enum": [
               "smr_run",
               "intern_runtime",
-              "organization"
+              "organization",
+              "intern_delegation"
             ],
             "title": "Scope Kind",
             "type": "string"
