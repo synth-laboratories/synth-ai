@@ -14,7 +14,7 @@ from synth_ai.sdk.research.contracts.intern_blockers import (
 
 
 def blocker():
-    return dict(blocker_id="b", code="approval", message="review required", retryable=False)
+    return dict(blocker_id="b", async_assignment_id="async", code="approval", message="review required", retryable=False)
 
 
 def open_response():
@@ -64,6 +64,10 @@ async def test_async_controls_parse_handoff_and_continuation():
     result = await api.resolve("b", InternBlockerResolveRequest(idempotency_key="resolve", outcome="denied"))
     assert result.continuation_command.command_id == "command"
     assert result.continuation_command.status == "received"
+    transport.execute.return_value["continuation_command"]["runtime_id"] = "other-assignment"
+    with pytest.raises(ValueError, match="identity drifted"):
+        await api.resolve("b", InternBlockerResolveRequest(idempotency_key="resolve", outcome="denied"))
+    transport.execute.return_value["continuation_command"]["runtime_id"] = "async"
     transport.execute.return_value["blocker"]["resolution_receipt"]["outcome"] = "completed"
     with pytest.raises(ValueError, match="identity drifted"):
         await api.resolve("b", InternBlockerResolveRequest(idempotency_key="resolve", outcome="denied"))

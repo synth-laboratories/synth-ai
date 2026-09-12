@@ -39,6 +39,7 @@ def _open(payload, blocker_id, request):
         result.blocker.blocker_id != blocker_id
         or receipt.blocker_id != blocker_id
         or receipt.context.blocker_id != blocker_id
+        or receipt.context.async_assignment_id != result.blocker.async_assignment_id
         or receipt.idempotency_key != request.idempotency_key
         or receipt.sync_session_id != result.sync_session.sync_session_id
         or result.blocker.sync_session_id != receipt.sync_session_id
@@ -52,6 +53,8 @@ def _resolve(payload, blocker_id, request):
     result = InternBlockerResolveResponse.model_validate(payload)
     receipt = result.blocker.resolution_receipt or {}
     if (result.blocker.blocker_id != blocker_id
+        or not result.blocker.async_assignment_id
+        or result.continuation_command.runtime_id != result.blocker.async_assignment_id
         or receipt.get("idempotency_key") != request.idempotency_key
         or receipt.get("outcome") != request.outcome
         or receipt.get("comment") != request.comment

@@ -694,6 +694,17 @@
             ],
             "title": "Action Schema Version"
           },
+          "async_assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Async Assignment Id"
+          },
           "binding": {
             "anyOf": [
               {
