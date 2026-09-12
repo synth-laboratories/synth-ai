@@ -263,32 +263,42 @@ class EvidenceWorkProduct:
         }
 
 
+_FRESHNESS_FIELDS = frozenset(
+    {
+        "generated_at",
+        "artifact_count",
+        "work_product_count",
+        "run_is_terminal",
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceFreshness:
     generated_at: datetime
     artifact_count: int
     work_product_count: int
     run_is_terminal: bool
+    # Backend SmrSwarmEvidenceFreshnessResponse.tool_call_count (default 0);
+    # older backends omit it, so it is accepted but not required.
+    tool_call_count: int = 0
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> EvidenceFreshness:
+        has_tool_call_count = isinstance(value, dict) and "tool_call_count" in value
         payload = _exact_object(
             value,
             label="swarm evidence freshness",
-            fields=frozenset(
-                {
-                    "generated_at",
-                    "artifact_count",
-                    "work_product_count",
-                    "run_is_terminal",
-                }
-            ),
+            fields=_FRESHNESS_FIELDS | ({"tool_call_count"} if has_tool_call_count else set()),
         )
         return cls(
             generated_at=required_datetime(payload, "generated_at"),
             artifact_count=_non_negative_int(payload, "artifact_count"),
             work_product_count=_non_negative_int(payload, "work_product_count"),
             run_is_terminal=required_bool(payload, "run_is_terminal"),
+            tool_call_count=(
+                _non_negative_int(payload, "tool_call_count") if has_tool_call_count else 0
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -296,6 +306,7 @@ class EvidenceFreshness:
             "generated_at": self.generated_at.isoformat(),
             "artifact_count": self.artifact_count,
             "work_product_count": self.work_product_count,
+            "tool_call_count": self.tool_call_count,
             "run_is_terminal": self.run_is_terminal,
         }
 
