@@ -108,6 +108,32 @@ def test_swarm_resource_settlement() -> None:
     assert transport.requests[0].path == "/smr/runs/run-1/resource-settlement"
 
 
+def test_swarm_rollouts_are_typed_and_parent_checked() -> None:
+    rollout = {
+        "rollout_id": "rollout-1",
+        "pool_id": "pool-1",
+        "adapter": "harbor",
+        "status": "completed",
+        "seed": 3,
+        "trace_correlation_id": "trace-1",
+        "budget_parent_run_id": "run-1",
+        "success": True,
+        "score": 1,
+        "created_at": NOW.replace("Z", "+00:00"),
+    }
+    transport = _Transport({"list_swarm_rollouts": {"run_id": "run-1", "items": [rollout], "limit": 100}})
+    rollouts = SwarmsAPI(transport).rollouts(SwarmId("run-1"))  # type: ignore[arg-type]
+
+    assert [(r.rollout_id, r.score) for r in rollouts] == [("rollout-1", 1.0)]
+    assert transport.requests[0].path == "/smr/runs/run-1/rollouts"
+
+    drifted = _Transport(
+        {"list_swarm_rollouts": {"run_id": "run-1", "items": [{**rollout, "budget_parent_run_id": "run-9"}], "limit": 100}}
+    )
+    with pytest.raises(ValueError, match="budget parent drifted"):
+        SwarmsAPI(drifted).rollouts(SwarmId("run-1"))  # type: ignore[arg-type]
+
+
 def test_sync_session_usage_checks_identity() -> None:
     sync = ResearchInternAPI(_Transport({"get_intern_sync_session_usage": USAGE})).sync_  # type: ignore[arg-type]
     assert sync.usage("sync-1").run_ids == ("run-1",)

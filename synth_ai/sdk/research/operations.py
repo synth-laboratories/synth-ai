@@ -1270,6 +1270,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "list_swarm_rollouts",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/rollouts",
+            idempotent=True,
+        ),
+        _operation(
             "get_intern_sync_session_usage",
             HttpMethod.GET,
             "/smr/research-intern/sync-sessions/{sync_session_id}/usage",

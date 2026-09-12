@@ -25,6 +25,7 @@ from synth_ai.sdk.research.contracts.evidence import (
     SwarmEvidence,
 )
 from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
+from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
 from synth_ai.sdk.research.contracts.status import SwarmStatus
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
@@ -422,6 +423,17 @@ class SwarmsAPI:
             )
         )
         return SwarmUsage.from_wire(value)
+
+    def rollouts(self, swarm_id: SwarmId, *, limit: int = 100) -> tuple[SwarmRollout, ...]:
+        """Container-pool rollouts this Swarm launched (verified budget parent only)."""
+        value = self._transport.execute(
+            _request(
+                "list_swarm_rollouts",
+                f"/smr/runs/{swarm_id}/rollouts",
+                query={"limit": limit},
+            )
+        )
+        return swarm_rollouts_from_wire(value, swarm_id=str(swarm_id))
 
     def resource_settlement(self, swarm_id: SwarmId) -> RunResourceSettlement:
         """Fresh read of whether the resources this Swarm registered are disposed.
