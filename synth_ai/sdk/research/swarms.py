@@ -1034,6 +1034,17 @@ class AsyncSwarmsAPI:
         )
         return SwarmUsage.from_wire(value)
 
+    async def rollouts(self, swarm_id: SwarmId, *, limit: int = 100) -> tuple[SwarmRollout, ...]:
+        """Container-pool rollouts this Swarm launched (verified budget parent only)."""
+        value = await self._transport.execute(
+            _request(
+                "list_swarm_rollouts",
+                f"/smr/runs/{swarm_id}/rollouts",
+                query={"limit": limit},
+            )
+        )
+        return swarm_rollouts_from_wire(value, swarm_id=str(swarm_id))
+
     async def evidence(self, swarm_id: SwarmId) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         value = await self._transport.execute(
