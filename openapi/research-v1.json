@@ -8893,7 +8893,11 @@
               "stop_requested",
               "already_settled",
               "retained",
-              "admission_fenced"
+              "admission_fenced",
+              "stopped",
+              "already_terminal",
+              "stop_accepted",
+              "stop_failed"
             ],
             "title": "Effect",
             "type": "string"

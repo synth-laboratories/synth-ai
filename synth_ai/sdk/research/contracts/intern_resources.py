@@ -41,7 +41,17 @@ class InternResourceStopEffect(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     resource_kind: str
     resource_id: str
-    effect: Literal["stop_requested", "already_settled", "retained", "admission_fenced"]
+    # Close-time effects, then the real outcome of each internal run stop.
+    effect: Literal[
+        "stop_requested",
+        "already_settled",
+        "retained",
+        "admission_fenced",
+        "stopped",
+        "already_terminal",
+        "stop_accepted",
+        "stop_failed",
+    ]
     owner: str | None = None
     reason: str
 
