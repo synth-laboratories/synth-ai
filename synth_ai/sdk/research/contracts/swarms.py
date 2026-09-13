@@ -99,6 +99,7 @@ class ActorModel(StrEnum):
     :class:`DeprecatedActorModel` only for legacy actor-specific overrides.
     """
 
+    OPENROUTER_GPT_5_6_LUNA = ActiveActorModel.OPENROUTER_GPT_5_6_LUNA.value
     GPT_5_4_MINI = ActiveActorModel.GPT_5_4_MINI.value
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
