@@ -1,5 +1,11 @@
 # Synth Index SDK
 
+Agent retrieval opt-in is read-only. `IndexAccessPolicy.allow_draft_preparation`
+and Intern `index_draft_enabled` default to false and require reads enabled.
+Draft preparation needs explicit persisted operator intent as well as an
+effective capability grant; metadata cannot authorize it. Draft opt-in never
+authorizes submission, approval, publication, or private-search charges.
+
 Unreleased typed Index client. Backend `packages/contributions/*` owns the wire
 vocabulary and validators; this mirror must stay schema- and behavior-compatible.
 Do not import backend modules from the published package. Cross-repo parity

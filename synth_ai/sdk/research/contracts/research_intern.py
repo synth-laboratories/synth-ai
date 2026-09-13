@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, StrictBool, model_validator
 
 from synth_ai.sdk.research.contracts.dataset_revisions import (
     DatasetRevisionCreateRequest,
@@ -348,8 +348,15 @@ class InternSyncSessionCreateRequest(_StrictContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
     objective_bounds: dict[str, Any] | None = None
-    # Explicit Synth Index opt-in: public-only bounded reads + private drafts.
-    index_enabled: bool = False
+    # Reading context never implicitly authorizes draft mutation.
+    index_enabled: StrictBool = False
+    index_draft_enabled: StrictBool = False
+
+    @model_validator(mode="after")
+    def require_index_reads_for_drafts(self):
+        if self.index_draft_enabled and not self.index_enabled:
+            raise ValueError("Index draft preparation requires index_enabled")
+        return self
 
 
 class SyncTracePublicationReceipt(_StrictContract):
@@ -648,8 +655,15 @@ class InternAsyncEnsureRequest(_StrictContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Bounded wait for Factory-ready before binding; 0 refuses immediately.
     factory_ready_wait_seconds: int = Field(default=0, ge=0, le=60)
-    # Explicit Synth Index opt-in: public-only bounded reads + private drafts.
-    index_enabled: bool = False
+    # Reading context never implicitly authorizes draft mutation.
+    index_enabled: StrictBool = False
+    index_draft_enabled: StrictBool = False
+
+    @model_validator(mode="after")
+    def require_index_reads_for_drafts(self):
+        if self.index_draft_enabled and not self.index_enabled:
+            raise ValueError("Index draft preparation requires index_enabled")
+        return self
 
 
 class InternAsyncRuntimeSpend(_StrictContract):

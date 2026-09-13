@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
+from synth_ai.sdk.index.agent_policy import IndexAccessPolicy
 from synth_ai.sdk.research.contracts.smr_credential_providers import (
     SmrCredentialProvider,
     coerce_smr_credential_provider,
@@ -67,6 +68,7 @@ class SmrRunPolicy:
     funding_source: SmrFundingSource | None = None
     access: SmrRunPolicyAccess | None = None
     limits: SmrRunPolicyLimits | None = None
+    index: IndexAccessPolicy | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {}
@@ -76,6 +78,8 @@ class SmrRunPolicy:
             payload["access"] = self.access.to_dict()
         if self.limits is not None:
             payload["limits"] = self.limits.to_dict()
+        if self.index is not None:
+            payload["index"] = IndexAccessPolicy.model_validate(self.index).model_dump(mode="json")
         return payload
 
 
@@ -193,6 +197,9 @@ def coerce_smr_run_policy(
         funding_source=funding_source,
         access=access,
         limits=limits,
+        index=IndexAccessPolicy.model_validate(value["index"])
+        if value.get("index") is not None
+        else None,
     )
 
 
