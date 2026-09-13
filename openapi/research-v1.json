@@ -31165,6 +31165,7 @@
             "title": "Event Id"
           },
           "kind": {
+            "description": "Transcript event kind, e.g. message.completed, reasoning.summary, turn.completed, tool.call.completed, or task.completion_claimed (an accepted worker completion claim projected from its durable claim row; payload schema smr.task-completion-claimed.v1 with claim_id, task_key, participant_id, text and summary).",
             "minLength": 1,
             "title": "Kind",
             "type": "string"
@@ -50294,6 +50295,7 @@
                           "title": "Event Id"
                         },
                         "kind": {
+                          "description": "Transcript event kind, e.g. message.completed, reasoning.summary, turn.completed, tool.call.completed, or task.completion_claimed (an accepted worker completion claim projected from its durable claim row; payload schema smr.task-completion-claimed.v1 with claim_id, task_key, participant_id, text and summary).",
                           "minLength": 1,
                           "title": "Kind",
                           "type": "string"
