@@ -1,5 +1,46 @@
 # Synth Index SDK
 
+## External agents over stdio MCP
+
+Install the reviewed SDK package, then configure your agent's MCP server:
+
+```json
+{
+  "mcpServers": {
+    "synth-index": {
+      "command": "synth-ai-research-mcp",
+      "env": {
+        "SYNTH_INDEX_MCP_ENABLED": "true",
+        "SYNTH_INDEX_MCP_WRITE_ENABLED": "false",
+        "SYNTH_BACKEND_URL": "https://your-configured-synth-backend.example"
+      }
+    }
+  }
+}
+```
+
+Supply `SYNTH_API_KEY` in the process environment through your authorized agent
+secret configuration. Replace the backend URL with the actual deployment URL.
+The executable does not discover Index credentials from home files or Keychain.
+Both Index flags accept only `true` or `false`. Missing Index opt-in means no
+Index tools. Enabling Index requires a nonempty explicit key and backend URL;
+initialization and tool discovery construct no SDK client and make no requests.
+
+Read-only mode exposes search, exact contents, Contribution lookup, and revision
+status. To deliberately contribute from this machine, additionally set
+`SYNTH_INDEX_MCP_WRITE_ENABLED=true`; this exposes draft creation, explicit
+selected-file upload, and submission for review. Advanced Research tools do not
+bypass this write gate. Credentials never belong in tool arguments. Index calls
+use the captured process key and own/close one SDK client per invocation.
+Public search is free under backend rate limits; requesting private collections
+can be charged according to backend account policy. No MCP tool grants access,
+approves research, publishes Contributions, or awards credits.
+
+Local MCP file upload requires POSIX descriptor-relative, no-follow file access
+and bounds actual bytes read; it refuses unsupported platforms. Windows users
+can use the SDK's explicit-bytes upload API instead. No directories are scraped
+or uploaded implicitly.
+
 Agent retrieval opt-in is read-only. `IndexAccessPolicy.allow_draft_preparation`
 and Intern `index_draft_enabled` default to false and require reads enabled.
 Draft preparation needs explicit persisted operator intent as well as an
