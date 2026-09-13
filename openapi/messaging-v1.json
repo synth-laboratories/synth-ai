@@ -1,0 +1,1095 @@
+{
+  "components": {
+    "schemas": {
+      "CreateGrantRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "history_after_seq": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History After Seq"
+          },
+          "operations": {
+            "items": {
+              "enum": [
+                "read",
+                "publish"
+              ],
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          },
+          "thread_id": {
+            "format": "uuid",
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "maximum": 2592000,
+            "minimum": 60,
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "thread_id",
+          "enrollment_id",
+          "operations",
+          "ttl_seconds"
+        ],
+        "title": "CreateGrantRequest",
+        "type": "object"
+      },
+      "CreateThreadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "CreateThreadRequest",
+        "type": "object"
+      },
+      "CredentialRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "incarnation": {
+            "minimum": 1,
+            "title": "Incarnation",
+            "type": "integer"
+          },
+          "ttl_seconds": {
+            "default": 300,
+            "maximum": 300,
+            "minimum": 60,
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enrollment_id",
+          "incarnation"
+        ],
+        "title": "CredentialRequest",
+        "type": "object"
+      },
+      "EmptyRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyRequest",
+        "type": "object"
+      },
+      "EnrollRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "session_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "session_id"
+        ],
+        "title": "EnrollRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "PublishMessageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 65536,
+            "title": "Body",
+            "type": "string"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ask",
+              "answer",
+              "steer",
+              "notice",
+              "actor_runtime",
+              "blocker",
+              "handoff_ping"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parent_message_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Message Id"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "body",
+          "idempotency_key"
+        ],
+        "title": "PublishMessageRequest",
+        "type": "object"
+      },
+      "RenewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "ttl_seconds": {
+            "maximum": 2592000,
+            "minimum": 60,
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ttl_seconds"
+        ],
+        "title": "RenewRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Synth Messaging API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/mq/enrollments": {
+      "get": {
+        "operationId": "list_enrollments_api_v1_mq_enrollments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Enrollments Api V1 Mq Enrollments Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Enrollments",
+        "tags": [
+          "mq-grants"
+        ]
+      },
+      "post": {
+        "operationId": "enroll_device_api_v1_mq_enrollments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enroll Device Api V1 Mq Enrollments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enroll Device",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/enrollments/{enrollment_id}": {
+      "get": {
+        "operationId": "get_enrollment_api_v1_mq_enrollments__enrollment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Enrollment Api V1 Mq Enrollments  Enrollment Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Enrollment",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/enrollments/{enrollment_id}/revoke": {
+      "post": {
+        "description": "Device sign-out. Idempotent; the enrollment cannot be re-enrolled.",
+        "operationId": "revoke_enrollment_api_v1_mq_enrollments__enrollment_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmptyRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Enrollment Api V1 Mq Enrollments  Enrollment Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Enrollment",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/grants": {
+      "get": {
+        "operationId": "list_grants_api_v1_mq_grants_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "enrollment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Enrollment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "thread_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Grants Api V1 Mq Grants Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Grants",
+        "tags": [
+          "mq-grants"
+        ]
+      },
+      "post": {
+        "operationId": "create_grant_api_v1_mq_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Grant Api V1 Mq Grants Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Grant",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/grants/{grant_id}": {
+      "get": {
+        "operationId": "get_grant_api_v1_mq_grants__grant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Grant Api V1 Mq Grants  Grant Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Grant",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/grants/{grant_id}/credential": {
+      "post": {
+        "description": "Short-lived (60-300 s) grant credential plus the verified MQ endpoint.",
+        "operationId": "issue_grant_credential_api_v1_mq_grants__grant_id__credential_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issue Grant Credential Api V1 Mq Grants  Grant Id  Credential Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Grant Credential",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/grants/{grant_id}/renew": {
+      "post": {
+        "operationId": "renew_grant_api_v1_mq_grants__grant_id__renew_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Renew Grant Api V1 Mq Grants  Grant Id  Renew Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Grant",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/grants/{grant_id}/restore": {
+      "post": {
+        "operationId": "restore_grant_api_v1_mq_grants__grant_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmptyRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Restore Grant Api V1 Mq Grants  Grant Id  Restore Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Grant",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/grants/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_grant_api_v1_mq_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmptyRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Grant Api V1 Mq Grants  Grant Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Grant",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/jwks.json": {
+      "get": {
+        "description": "Public verification keys for MQ. Contains no private material.",
+        "operationId": "get_mq_jwks_api_v1_mq_jwks_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Mq Jwks Api V1 Mq Jwks Json Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Mq Jwks",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/threads": {
+      "post": {
+        "operationId": "messaging.threads.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateThreadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Messaging.Threads.Create",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Thread",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/threads/{thread_id}": {
+      "get": {
+        "operationId": "messaging.threads.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Messaging.Threads.Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Thread",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/threads/{thread_id}/history": {
+      "get": {
+        "operationId": "messaging.threads.history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After Seq",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Messaging.Threads.History",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Thread History",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    },
+    "/api/v1/mq/threads/{thread_id}/messages": {
+      "post": {
+        "operationId": "messaging.threads.publish",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Messaging.Threads.Publish",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Thread Message",
+        "tags": [
+          "mq-grants"
+        ]
+      }
+    }
+  }
+}
