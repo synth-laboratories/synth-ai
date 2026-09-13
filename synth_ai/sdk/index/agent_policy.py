@@ -14,6 +14,7 @@ from .contracts import Identifier, IndexContract
 
 class IndexAccessPolicy(IndexContract):
     enabled: StrictBool = False
+    allow_draft_preparation: StrictBool = False
     visibility: Literal["public", "private"] = "public"
     collection_ids: tuple[Identifier, ...] = Field(default=(), max_length=16)
     max_searches: Annotated[StrictInt, Field(ge=0, le=100)] = 10
@@ -23,6 +24,8 @@ class IndexAccessPolicy(IndexContract):
 
     @model_validator(mode="after")
     def check_audience(self) -> Self:
+        if self.allow_draft_preparation and not self.enabled:
+            raise ValueError("Index draft preparation requires Index reads enabled")
         if self.visibility == "private":
             if not self.collection_ids or self.private_spend_cap_cents is None:
                 raise ValueError(
