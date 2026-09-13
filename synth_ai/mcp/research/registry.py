@@ -13,6 +13,9 @@ READ_SCOPE = "smr:read"
 WRITE_SCOPE = "smr:write"
 READ_SCOPES: tuple[str, ...] = (READ_SCOPE,)
 WRITE_SCOPES: tuple[str, ...] = (WRITE_SCOPE,)
+# Synth Index scopes are independent of research (smr:*) authority.
+INDEX_READ_SCOPES: tuple[str, ...] = ("index:read",)
+INDEX_WRITE_SCOPES: tuple[str, ...] = ("index:write",)
 
 # Keyed on the advertised `research_*` tool name as declared in `tools/`. A
 # tool absent from this table is a build-time error, not an unauthenticated

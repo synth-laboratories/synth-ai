@@ -46,7 +46,11 @@ from synth_ai.mcp.research.tools.factory_results import (
 )
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
-from synth_ai.mcp.research.tools.index import IndexClientFactory, build_index_tools
+from synth_ai.mcp.research.tools.index import (
+    INDEX_TOOL_NAMES,
+    IndexClientFactory,
+    build_index_tools,
+)
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
 from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
@@ -427,7 +431,7 @@ class ResearchMcpServer:
             if name in _STABLE_TOOL_NAMES
             or (
                 self._index_client_factory is not None
-                and name in {"research_index_search", "research_index_contents"}
+                and name in INDEX_TOOL_NAMES
             )
         }
 

@@ -1,0 +1,1944 @@
+{
+  "components": {
+    "schemas": {
+      "ArtifactObjectDeclaration": {
+        "additionalProperties": false,
+        "description": "One immutable manifest object addressed only by logical path and digest.",
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "logical_path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Logical Path",
+            "type": "string"
+          },
+          "media_type": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "logical_path",
+          "digest_sha256",
+          "size_bytes",
+          "media_type"
+        ],
+        "title": "ArtifactObjectDeclaration",
+        "type": "object"
+      },
+      "ArtifactPublicationFinalize": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id"
+        ],
+        "title": "ArtifactPublicationFinalize",
+        "type": "object"
+      },
+      "ArtifactPublicationPrepareResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "upload_targets": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactUploadTarget"
+            },
+            "maxItems": 100000,
+            "title": "Upload Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "publication_id",
+          "collection_id",
+          "revision",
+          "manifest_digest",
+          "upload_targets"
+        ],
+        "title": "ArtifactPublicationPrepareResponse",
+        "type": "object"
+      },
+      "ArtifactPublicationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ArtifactPublicationStatus"
+          }
+        },
+        "required": [
+          "publication_id",
+          "collection_id",
+          "revision",
+          "manifest_digest",
+          "status"
+        ],
+        "title": "ArtifactPublicationResponse",
+        "type": "object"
+      },
+      "ArtifactPublicationStatus": {
+        "enum": [
+          "building",
+          "committed",
+          "failed",
+          "superseded",
+          "deleted"
+        ],
+        "title": "ArtifactPublicationStatus",
+        "type": "string"
+      },
+      "ArtifactUploadTarget": {
+        "additionalProperties": false,
+        "description": "Create-only upload instructions without a provider storage locator.",
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "logical_path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Logical Path",
+            "type": "string"
+          },
+          "required_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "title": "Required Headers",
+            "type": "object"
+          },
+          "upload_url": {
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "logical_path",
+          "digest_sha256",
+          "upload_url",
+          "required_headers"
+        ],
+        "title": "ArtifactUploadTarget",
+        "type": "object"
+      },
+      "ContentsItem": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 65536,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "reference",
+          "status"
+        ],
+        "title": "ContentsItem",
+        "type": "object"
+      },
+      "ContentsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentsItem"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "items"
+        ],
+        "title": "ContentsResult",
+        "type": "object"
+      },
+      "ContentsSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "max_bytes": {
+            "default": 65536,
+            "maximum": 65536.0,
+            "minimum": 1.0,
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "References",
+            "type": "array"
+          },
+          "search_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Id"
+          }
+        },
+        "required": [
+          "references"
+        ],
+        "title": "ContentsSpec",
+        "type": "object"
+      },
+      "ContributionAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "license": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ArtifactObjectDeclaration"
+          },
+          "role": {
+            "enum": [
+              "summary",
+              "report",
+              "code",
+              "data",
+              "model",
+              "environment",
+              "evidence",
+              "reproduce"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "role",
+          "object",
+          "license"
+        ],
+        "title": "ContributionAsset",
+        "type": "object"
+      },
+      "ContributionAudience": {
+        "enum": [
+          "private",
+          "org",
+          "public"
+        ],
+        "title": "ContributionAudience",
+        "type": "string"
+      },
+      "ContributionClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "author_assessment": {
+            "enum": [
+              "supported",
+              "disproven",
+              "inconclusive",
+              "not_tested"
+            ],
+            "title": "Author Assessment",
+            "type": "string"
+          },
+          "claim_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "contradicting_evidence_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Contradicting Evidence Ids",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "empirical",
+              "composition",
+              "conformance",
+              "diagnostic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing_evidence_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Evidence Reason"
+          },
+          "scope": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          },
+          "statement": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          },
+          "supporting_evidence_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Supporting Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "claim_id",
+          "kind",
+          "statement",
+          "scope",
+          "author_assessment"
+        ],
+        "title": "ContributionClaim",
+        "type": "object"
+      },
+      "ContributionDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_revision": {
+            "const": 1,
+            "default": 1,
+            "title": "Artifact Revision",
+            "type": "integer"
+          },
+          "collection_id": {
+            "format": "uuid",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Manifest Schema Version",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "const": "draft",
+            "default": "draft",
+            "title": "Status",
+            "type": "string"
+          },
+          "visibility": {
+            "const": "private",
+            "default": "private",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "collection_id"
+        ],
+        "title": "ContributionDraft",
+        "type": "object"
+      },
+      "ContributionKind": {
+        "enum": [
+          "research_report",
+          "dataset",
+          "recipe",
+          "implementation",
+          "model",
+          "replication",
+          "engineering_note"
+        ],
+        "title": "ContributionKind",
+        "type": "string"
+      },
+      "ContributionOrigin": {
+        "enum": [
+          "user",
+          "synth",
+          "imported"
+        ],
+        "title": "ContributionOrigin",
+        "type": "string"
+      },
+      "ContributionPackage": {
+        "additionalProperties": false,
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "card": {
+            "$ref": "#/components/schemas/ResearchCard"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionClaim"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Claims",
+            "type": "array"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "maxItems": 512,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ContributionProvenance"
+          },
+          "reproduction": {
+            "$ref": "#/components/schemas/Reproduction"
+          },
+          "requested_audience": {
+            "$ref": "#/components/schemas/ContributionAudience",
+            "default": "private"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rights_attested": {
+            "title": "Rights Attested",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sensitive_data": {
+            "enum": [
+              "none_declared",
+              "declared",
+              "unknown"
+            ],
+            "title": "Sensitive Data",
+            "type": "string"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "kind",
+          "title",
+          "abstract",
+          "research_areas",
+          "workflow_stages",
+          "card",
+          "assets",
+          "claims",
+          "provenance",
+          "reproduction",
+          "rights_attested",
+          "sensitive_data"
+        ],
+        "title": "ContributionPackage",
+        "type": "object"
+      },
+      "ContributionProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditedContributor"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Contributors",
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContributionOrigin"
+          },
+          "tools": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Tools",
+            "type": "array"
+          },
+          "upstream": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 64,
+            "title": "Upstream",
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "contributors"
+        ],
+        "title": "ContributionProvenance",
+        "type": "object"
+      },
+      "ContributionReference": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id"
+        ],
+        "title": "ContributionReference",
+        "type": "object"
+      },
+      "ContributionSubmission": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RevisionStatus"
+          }
+        },
+        "required": [
+          "reference",
+          "status",
+          "manifest_digest"
+        ],
+        "title": "ContributionSubmission",
+        "type": "object"
+      },
+      "ContributionSubmitSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_id": {
+            "format": "uuid",
+            "title": "Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id"
+        ],
+        "title": "ContributionSubmitSpec",
+        "type": "object"
+      },
+      "ContributionUploadPrepared": {
+        "additionalProperties": false,
+        "description": "Transient transfer instructions; never store signed URLs in replay receipts.",
+        "properties": {
+          "descriptor_json": {
+            "maxLength": 1048576,
+            "title": "Descriptor Json",
+            "type": "string"
+          },
+          "transfer": {
+            "$ref": "#/components/schemas/ArtifactPublicationPrepareResponse"
+          }
+        },
+        "required": [
+          "descriptor_json",
+          "transfer"
+        ],
+        "title": "ContributionUploadPrepared",
+        "type": "object"
+      },
+      "ContributionUploadSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "package": {
+            "$ref": "#/components/schemas/ContributionPackage"
+          },
+          "publication_id": {
+            "format": "uuid",
+            "title": "Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id",
+          "package"
+        ],
+        "title": "ContributionUploadSpec",
+        "type": "object"
+      },
+      "CreateContributionSpec": {
+        "additionalProperties": false,
+        "description": "Creation accepts no client-selected identity, origin, or visibility.",
+        "properties": {},
+        "title": "CreateContributionSpec",
+        "type": "object"
+      },
+      "CreditedContributor": {
+        "additionalProperties": false,
+        "properties": {
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "research",
+                "code",
+                "data",
+                "evaluation",
+                "writing",
+                "replication"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "principal_id",
+          "roles"
+        ],
+        "title": "CreditedContributor",
+        "type": "object"
+      },
+      "EvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "evidence_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "comparison",
+              "experiment",
+              "evaluation",
+              "trace",
+              "manifest",
+              "conformance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "locator": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Locator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "kind",
+          "asset_id",
+          "locator"
+        ],
+        "title": "EvidenceReference",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IndexUsageSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "private": {
+            "$ref": "#/components/schemas/PrivateUsage"
+          },
+          "public": {
+            "$ref": "#/components/schemas/PublicUsage"
+          },
+          "resets_at": {
+            "format": "date-time",
+            "title": "Resets At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_start",
+          "resets_at",
+          "public",
+          "private"
+        ],
+        "title": "IndexUsageSummary",
+        "type": "object"
+      },
+      "PrivateUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "monthly_spend_cap_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Spend Cap Cents"
+          },
+          "requests_per_minute": {
+            "minimum": 0.0,
+            "title": "Requests Per Minute",
+            "type": "integer"
+          },
+          "spendable_wallet_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spendable Wallet Cents"
+          },
+          "spent_cents": {
+            "minimum": 0.0,
+            "title": "Spent Cents",
+            "type": "integer"
+          },
+          "successful_searches": {
+            "minimum": 0.0,
+            "title": "Successful Searches",
+            "type": "integer"
+          },
+          "unit_price_cents": {
+            "minimum": 0.0,
+            "title": "Unit Price Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "unit_price_cents",
+          "requests_per_minute",
+          "monthly_spend_cap_cents",
+          "spent_cents",
+          "successful_searches",
+          "spendable_wallet_cents"
+        ],
+        "title": "PrivateUsage",
+        "type": "object"
+      },
+      "PublicUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "contents_limit": {
+            "minimum": 0.0,
+            "title": "Contents Limit",
+            "type": "integer"
+          },
+          "contents_used": {
+            "minimum": 0.0,
+            "title": "Contents Used",
+            "type": "integer"
+          },
+          "requests_per_minute": {
+            "minimum": 0.0,
+            "title": "Requests Per Minute",
+            "type": "integer"
+          },
+          "searches_limit": {
+            "minimum": 0.0,
+            "title": "Searches Limit",
+            "type": "integer"
+          },
+          "searches_used": {
+            "minimum": 0.0,
+            "title": "Searches Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "searches_used",
+          "searches_limit",
+          "contents_used",
+          "contents_limit",
+          "requests_per_minute"
+        ],
+        "title": "PublicUsage",
+        "type": "object"
+      },
+      "Reproduction": {
+        "additionalProperties": false,
+        "properties": {
+          "entrypoint_asset_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrypoint Asset Id"
+          },
+          "environment_asset_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Environment Asset Ids",
+            "type": "array"
+          },
+          "expected_outputs": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Expected Outputs",
+            "type": "string"
+          },
+          "instructions": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "inspectable",
+              "runnable",
+              "reproduced",
+              "not_applicable"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "restrictions": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Restrictions",
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "instructions",
+          "expected_outputs",
+          "restrictions"
+        ],
+        "title": "Reproduction",
+        "type": "object"
+      },
+      "ResearchArea": {
+        "enum": [
+          "data",
+          "environment_design",
+          "evaluation",
+          "verifier",
+          "training_algorithm",
+          "optimization_search",
+          "retrieval",
+          "context",
+          "agent_harness",
+          "model",
+          "systems"
+        ],
+        "title": "ResearchArea",
+        "type": "string"
+      },
+      "ResearchCard": {
+        "additionalProperties": false,
+        "properties": {
+          "how_to_use": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "How To Use",
+            "type": "string"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "observed": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Observed",
+            "type": "string"
+          },
+          "resources": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Resources",
+            "type": "string"
+          },
+          "reusable": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reusable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reusable",
+          "how_to_use",
+          "observed",
+          "limitations",
+          "resources"
+        ],
+        "title": "ResearchCard",
+        "type": "object"
+      },
+      "RevisionStatus": {
+        "enum": [
+          "draft",
+          "submitted",
+          "changes_requested",
+          "rejected",
+          "qualified",
+          "published",
+          "withdrawn"
+        ],
+        "title": "RevisionStatus",
+        "type": "string"
+      },
+      "SearchContent": {
+        "additionalProperties": false,
+        "properties": {
+          "max_excerpts_per_result": {
+            "default": 2,
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Max Excerpts Per Result",
+            "type": "integer"
+          },
+          "max_results": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "type": "integer"
+          }
+        },
+        "title": "SearchContent",
+        "type": "object"
+      },
+      "SearchExcerpt": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          },
+          "text": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "text",
+          "start_byte",
+          "end_byte"
+        ],
+        "title": "SearchExcerpt",
+        "type": "object"
+      },
+      "SearchFilters": {
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionKind"
+            },
+            "maxItems": 7,
+            "title": "Kinds",
+            "type": "array"
+          },
+          "research_areas": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tags_all": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tags All",
+            "type": "array"
+          },
+          "tags_any": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tags Any",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "title": "SearchFilters",
+        "type": "object"
+      },
+      "SearchHit": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Assessment Ids",
+            "type": "array"
+          },
+          "author_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Author Ids",
+            "type": "array"
+          },
+          "highlights": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SearchExcerpt"
+            },
+            "maxItems": 2,
+            "title": "Highlights",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "title",
+          "url",
+          "author_ids",
+          "published_at",
+          "limitations",
+          "assessment_ids"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_generation": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Generation",
+            "type": "string"
+          },
+          "mode": {
+            "const": "fast",
+            "default": "fast",
+            "title": "Mode",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "ranker_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Ranker Version",
+            "type": "string"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "maxItems": 10,
+            "title": "Results",
+            "type": "array"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "completed",
+            "default": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "taxonomy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Taxonomy Version",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/SearchUsage"
+          }
+        },
+        "required": [
+          "search_id",
+          "request_id",
+          "corpus_generation",
+          "ranker_version",
+          "parser_version",
+          "taxonomy_version",
+          "results",
+          "usage"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "SearchScope": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Collection Ids",
+            "type": "array"
+          },
+          "visibility": {
+            "default": "public",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "title": "SearchScope",
+        "type": "object"
+      },
+      "SearchSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/SearchContent"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "mode": {
+            "const": "fast",
+            "default": "fast",
+            "title": "Mode",
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SearchScope"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchSpec",
+        "type": "object"
+      },
+      "SearchUsage": {
+        "additionalProperties": false,
+        "description": "Server-authored successful logical search receipt; never contributor earnings.",
+        "properties": {
+          "amount_cents": {
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "billing_scope": {
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Billing Scope",
+            "type": "string"
+          },
+          "logical_units": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Logical Units",
+            "type": "integer"
+          },
+          "price_version": {
+            "const": "synth.index.fast.v1",
+            "default": "synth.index.fast.v1",
+            "title": "Price Version",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "billing_scope",
+          "amount_cents",
+          "receipt_id"
+        ],
+        "title": "SearchUsage",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WorkflowStage": {
+        "enum": [
+          "data_preparation",
+          "training",
+          "optimization",
+          "evaluation",
+          "inference",
+          "research_operations"
+        ],
+        "title": "WorkflowStage",
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "title": "Synth Index API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/index/contents": {
+      "post": {
+        "operationId": "index.contents.retrieve",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentsSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contents",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/contributions": {
+      "post": {
+        "operationId": "index.contributions.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContributionSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/finalize": {
+      "post": {
+        "operationId": "index.contributions.upload.finalize",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactPublicationFinalize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactPublicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/submit": {
+      "post": {
+        "operationId": "index.contributions.submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContributionSubmitSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionSubmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/upload": {
+      "post": {
+        "operationId": "index.contributions.upload.prepare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContributionUploadSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionUploadPrepared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/me/usage": {
+      "get": {
+        "operationId": "index.me.usage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexUsageSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Usage",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/search": {
+      "post": {
+        "operationId": "index.search",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "index"
+        ]
+      }
+    }
+  }
+}
