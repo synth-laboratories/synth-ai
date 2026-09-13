@@ -31,7 +31,7 @@ from .lifecycle import (
     WithdrawalSpec,
 )
 from .package import ContributionPackage
-from .search import ContentsResult, ContentsSpec, SearchResult, SearchSpec
+from .search import ContentsResult, ContentsSpec, PublicSearchResult, SearchResult, SearchSpec
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 
 __all__ = [
@@ -61,6 +61,7 @@ __all__ = [
     "ProfileView",
     "PublicationSpec",
     "PublicationStatus",
+    "PublicSearchResult",
     "ReviewDecision",
     "ReviewSpec",
     "RevisionCreateSpec",
