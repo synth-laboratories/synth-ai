@@ -40,11 +40,13 @@ class TranscriptProjectionAuthority(StrEnum):
 
     LIVE_CONTROL_PLANE = "smr_control_plane.redis.live_transcript.v1"
     TERMINAL_ARCHIVE = "smr_transcript_events.terminal_archive.v1"
+    DURABLE_REPLAY = "smr_transcript_events.durable_replay.v1"
 
 
 class TranscriptReplayMode(StrEnum):
     LIVE_TAIL = "live_tail"
     TERMINAL_ARCHIVE = "terminal_archive"
+    DURABLE_REPLAY = "durable_replay"
 
 
 class TranscriptCursorKind(StrEnum):
@@ -276,7 +278,7 @@ class TranscriptFreshness:
             if not self.live_tail_available:
                 raise ValueError("live_tail requires live_tail_available=true")
         elif self.live_tail_available:
-            raise ValueError("terminal archive cannot advertise a live tail")
+            raise ValueError("durable replay cannot advertise a live tail")
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> TranscriptFreshness:

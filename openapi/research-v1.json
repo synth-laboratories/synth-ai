@@ -37537,16 +37537,18 @@
         "description": "Backend authority used to serve one transcript page.",
         "enum": [
           "smr_control_plane.redis.live_transcript.v1",
-          "smr_transcript_events.terminal_archive.v1"
+          "smr_transcript_events.terminal_archive.v1",
+          "smr_transcript_events.durable_replay.v1"
         ],
         "title": "TranscriptProjectionAuthority",
         "type": "string"
       },
       "TranscriptReplayMode": {
-        "description": "Ordering domain used by transcript page cursors.",
+        "description": "Ordering domain used by transcript page cursors.\n\n``live_tail`` pages come from the Redis live stream while the run is live.\n``terminal_archive`` pages replay durable transcript rows after the run is\nterminal. ``durable_replay`` pages replay durable rows for a live run whose\nlive stream no longer holds the requested range (trimmed or drained) or\nwhen the caller resumes with a durable cursor.",
         "enum": [
           "live_tail",
-          "terminal_archive"
+          "terminal_archive",
+          "durable_replay"
         ],
         "title": "TranscriptReplayMode",
         "type": "string"
