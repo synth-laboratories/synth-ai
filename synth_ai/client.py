@@ -10,6 +10,7 @@ from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 if TYPE_CHECKING:
     from synth_ai.pools import PoolClient
+    from synth_ai.sdk.messaging import AsyncMessagingClient, MessagingClient
     from synth_ai.sdk.optimizers import AsyncOptimizersClient, OptimizersClient
     from synth_ai.sdk.research import AsyncResearchClient
     from synth_ai.sdk.research.facade import ResearchClient
@@ -42,6 +43,20 @@ class SynthClient:
         self.timeout_seconds = timeout_seconds
         self._research_client: ResearchClient | None = None
         self._optimizers_client: OptimizersClient | None = None
+        self._messaging_client: MessagingClient | None = None
+
+    @property
+    def messaging(self) -> MessagingClient:
+        """Typed threads, history and explicit Workshop device grants."""
+        if self._messaging_client is None:
+            from synth_ai.sdk.messaging import MessagingClient
+
+            self._messaging_client = MessagingClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout_seconds,
+            )
+        return self._messaging_client
 
     @property
     def research(self) -> ResearchClient:
@@ -58,6 +73,9 @@ class SynthClient:
 
     def close(self) -> None:
         """Close all lazily opened SDK transports."""
+        if self._messaging_client is not None:
+            self._messaging_client.close()
+            self._messaging_client = None
         if self._research_client is not None:
             self._research_client.close()
             self._research_client = None
@@ -101,6 +119,20 @@ class AsyncSynthClient:
         self._async_research_client: AsyncResearchClient | None = None
         self._async_optimizers_client: AsyncOptimizersClient | None = None
         self._pool_client: PoolClient | None = None
+        self._async_messaging_client: AsyncMessagingClient | None = None
+
+    @property
+    def messaging(self) -> AsyncMessagingClient:
+        """Asynchronous threads, history and explicit Workshop device grants."""
+        if self._async_messaging_client is None:
+            from synth_ai.sdk.messaging import AsyncMessagingClient
+
+            self._async_messaging_client = AsyncMessagingClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout_seconds,
+            )
+        return self._async_messaging_client
 
     @property
     def research(self) -> AsyncResearchClient:
@@ -146,6 +178,9 @@ class AsyncSynthClient:
 
     async def close(self) -> None:
         """Close all asynchronous Research transports."""
+        if self._async_messaging_client is not None:
+            await self._async_messaging_client.close()
+            self._async_messaging_client = None
         try:
             if self._async_research_client is not None:
                 await self._async_research_client.close()
