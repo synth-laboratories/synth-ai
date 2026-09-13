@@ -1212,7 +1212,154 @@
         "title": "ContributionOrigin",
         "type": "string"
       },
-      "ContributionPackage": {
+      "ContributionPackage-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "card": {
+            "$ref": "#/components/schemas/ResearchCard"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionClaim"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Claims",
+            "type": "array"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "maxItems": 512,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ContributionProvenance"
+          },
+          "reproduction": {
+            "$ref": "#/components/schemas/Reproduction"
+          },
+          "requested_audience": {
+            "$ref": "#/components/schemas/ContributionAudience",
+            "default": "private"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rights_attested": {
+            "title": "Rights Attested",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sensitive_data": {
+            "enum": [
+              "none_declared",
+              "declared",
+              "unknown"
+            ],
+            "title": "Sensitive Data",
+            "type": "string"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "kind",
+          "title",
+          "abstract",
+          "research_areas",
+          "workflow_stages",
+          "card",
+          "assets",
+          "claims",
+          "provenance",
+          "reproduction",
+          "rights_attested",
+          "sensitive_data"
+        ],
+        "title": "ContributionPackage",
+        "type": "object"
+      },
+      "ContributionPackage-Output": {
         "additionalProperties": false,
         "properties": {
           "abstract": {
@@ -1485,7 +1632,7 @@
         "additionalProperties": false,
         "properties": {
           "package": {
-            "$ref": "#/components/schemas/ContributionPackage"
+            "$ref": "#/components/schemas/ContributionPackage-Input"
           },
           "publication_id": {
             "format": "uuid",
@@ -2352,6 +2499,72 @@
         "title": "ProfileView",
         "type": "object"
       },
+      "PublicSearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_cents": {
+            "const": 0,
+            "default": 0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "corpus_generation": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Generation",
+            "type": "string"
+          },
+          "mode": {
+            "const": "fast",
+            "default": "fast",
+            "title": "Mode",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "ranker_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Ranker Version",
+            "type": "string"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "maxItems": 10,
+            "title": "Results",
+            "type": "array"
+          },
+          "status": {
+            "const": "completed",
+            "default": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "taxonomy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Taxonomy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "corpus_generation",
+          "ranker_version",
+          "parser_version",
+          "taxonomy_version",
+          "results"
+        ],
+        "title": "PublicSearchResult",
+        "type": "object"
+      },
       "PublicUsage": {
         "additionalProperties": false,
         "properties": {
@@ -3039,7 +3252,7 @@
           "package": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ContributionPackage"
+                "$ref": "#/components/schemas/ContributionPackage-Output"
               },
               {
                 "type": "null"
@@ -3872,7 +4085,7 @@
   },
   "info": {
     "title": "Synth Index API",
-    "version": "1"
+    "version": "synth.index.api.v1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -5381,6 +5594,330 @@
         "summary": "Profile",
         "tags": [
           "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/public/capabilities": {
+      "get": {
+        "operationId": "index.public.capabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Discover",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contents": {
+      "post": {
+        "operationId": "index.public.contents.retrieve",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentsSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contents",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}": {
+      "get": {
+        "operationId": "index.public.contributions.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contribution",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}": {
+      "get": {
+        "operationId": "index.public.contributions.revisions.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revision",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/assets/{asset_id}": {
+      "get": {
+        "operationId": "index.public.contributions.assets.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Asset",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/profiles/{principal_id}": {
+      "get": {
+        "operationId": "index.public.profiles.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/search": {
+      "post": {
+        "operationId": "index.public.search",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/tags": {
+      "get": {
+        "operationId": "index.public.tags.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagRegistry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tags",
+        "tags": [
+          "index-public"
         ]
       }
     },
