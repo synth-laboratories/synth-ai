@@ -46,6 +46,7 @@ from synth_ai.mcp.research.tools.factory_results import (
 )
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
+from synth_ai.mcp.research.tools.index import IndexClientFactory, build_index_tools
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
 from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
@@ -409,16 +410,26 @@ class ResearchMcpServer:
         api_key: str | None = None,
         backend_base: str | None = None,
         include_advanced_tools: bool = False,
+        index_client_factory: IndexClientFactory | None = None,
     ) -> None:
         self._default_api_key = api_key
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
+        self._index_client_factory = index_client_factory
         self._tools = build_tool_registry(self._build_tools())
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
         if self._include_advanced_tools:
             return self._tools
-        return {name: tool for name, tool in self._tools.items() if name in _STABLE_TOOL_NAMES}
+        return {
+            name: tool
+            for name, tool in self._tools.items()
+            if name in _STABLE_TOOL_NAMES
+            or (
+                self._index_client_factory is not None
+                and name in {"research_index_search", "research_index_contents"}
+            )
+        }
 
     def available_tool_names(self) -> list[str]:
         names = sorted(self._advertised_tools())
@@ -468,6 +479,11 @@ class ResearchMcpServer:
 
     def _build_tools(self) -> list[ToolDefinition]:
         return [
+            *(
+                build_index_tools(self._index_client_factory)
+                if self._index_client_factory is not None
+                else []
+            ),
             *build_project_tools(self),
             *build_factory_tools(self),
             *build_factory_result_tools(self),
