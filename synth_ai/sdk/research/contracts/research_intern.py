@@ -348,6 +348,8 @@ class InternSyncSessionCreateRequest(_StrictContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
     execution_mode: Literal["fast", "standard", "deep"] = "standard"
     objective_bounds: dict[str, Any] | None = None
+    # Explicit Synth Index opt-in: public-only bounded reads + private drafts.
+    index_enabled: bool = False
 
 
 class SyncTracePublicationReceipt(_StrictContract):
@@ -646,6 +648,8 @@ class InternAsyncEnsureRequest(_StrictContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Bounded wait for Factory-ready before binding; 0 refuses immediately.
     factory_ready_wait_seconds: int = Field(default=0, ge=0, le=60)
+    # Explicit Synth Index opt-in: public-only bounded reads + private drafts.
+    index_enabled: bool = False
 
 
 class InternAsyncRuntimeSpend(_StrictContract):

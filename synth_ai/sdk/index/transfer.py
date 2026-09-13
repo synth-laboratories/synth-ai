@@ -63,6 +63,24 @@ def _transfer_content(
     return bodies
 
 
+def upload_bytes_sync(prepared: ContributionUploadPrepared, content: Mapping[str, bytes]) -> None:
+    """Blocking twin of ``upload_bytes`` with the same validation and client policy."""
+    bodies = _transfer_content(prepared, content)
+    with httpx.Client(timeout=30.0, follow_redirects=False, trust_env=False) as client:
+        for target in prepared.transfer.upload_targets:
+            client.cookies.clear()
+            with client.stream(
+                "PUT",
+                target.upload_url,
+                headers=target.required_headers,
+                content=bodies[target.logical_path],
+            ) as response:
+                if response.status_code not in (200, 201, 204):
+                    raise ValueError(
+                        f"Artifact byte transfer failed with HTTP {response.status_code}"
+                    )
+
+
 async def upload_bytes(prepared: ContributionUploadPrepared, content: Mapping[str, bytes]) -> None:
     """Transfer supplied assets after validating every target; finalize separately.
 
