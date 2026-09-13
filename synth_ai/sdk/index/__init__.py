@@ -5,6 +5,7 @@ from .contributions import ContributionDraft, ContributionUploadPrepared, Contri
 from .package import ContributionPackage
 from .search import ContentsResult, ContentsSpec, SearchResult, SearchSpec
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
+from .usage import IndexUsageSummary, PrivateUsage, PublicUsage
 
 __all__ = [
     "ContributionReference",
@@ -19,4 +20,7 @@ __all__ = [
     "ContentsSpec",
     "SearchResult",
     "SearchSpec",
+    "IndexUsageSummary",
+    "PrivateUsage",
+    "PublicUsage",
 ]

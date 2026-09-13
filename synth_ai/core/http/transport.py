@@ -287,6 +287,24 @@ class HttpTransport:
     def close(self) -> None:
         self.client.close()
 
+    def request_bounded_json(
+        self,
+        path: str,
+        *,
+        response_bytes_max: int,
+        deadline_seconds: float,
+        operation_id: str | None = None,
+    ) -> JsonValue:
+        """Single GET with byte and elapsed-time bounds; no redirects or retries.
+
+        See core/http/bounded.py for the synchronous cancellation limitation.
+        """
+        from synth_ai.core.http.bounded import JsonReadBudget, bounded_json_get
+
+        return bounded_json_get(
+            self, path, JsonReadBudget(response_bytes_max, deadline_seconds), operation_id
+        )
+
     def request_json(
         self,
         method: str,

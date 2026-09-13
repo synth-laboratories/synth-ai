@@ -57,6 +57,24 @@ class AsyncHttpTransport:
     async def close(self) -> None:
         await self.client.aclose()
 
+    async def request_bounded_json(
+        self,
+        path: str,
+        *,
+        response_bytes_max: int,
+        deadline_seconds: float,
+        operation_id: str | None = None,
+    ) -> JsonValue:
+        """Single GET with response-byte and cancellation deadlines; no retries.
+
+        See core/http/bounded.py for shared response and error boundaries.
+        """
+        from synth_ai.core.http.bounded import JsonReadBudget, bounded_json_get_async
+
+        return await bounded_json_get_async(
+            self, path, JsonReadBudget(response_bytes_max, deadline_seconds), operation_id
+        )
+
     async def request_json(
         self,
         method: str,

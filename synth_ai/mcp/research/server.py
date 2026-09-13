@@ -47,6 +47,10 @@ from synth_ai.mcp.research.tools.factory_results import (
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
 from synth_ai.mcp.research.tools.index import IndexClientFactory, build_index_tools
+from synth_ai.mcp.research.tools.index_contributions import (
+    INDEX_CONTRIBUTION_TOOL_NAMES,
+    build_index_contribution_tools,
+)
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
 from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
@@ -411,11 +415,17 @@ class ResearchMcpServer:
         backend_base: str | None = None,
         include_advanced_tools: bool = False,
         index_client_factory: IndexClientFactory | None = None,
+        enable_index_contributions: bool = False,
     ) -> None:
+        if enable_index_contributions and index_client_factory is None:
+            raise ValueError(
+                "Index contribution tools require an explicit authenticated client factory"
+            )
         self._default_api_key = api_key
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
         self._index_client_factory = index_client_factory
+        self._enable_index_contributions = enable_index_contributions
         self._tools = build_tool_registry(self._build_tools())
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
@@ -429,6 +439,7 @@ class ResearchMcpServer:
                 self._index_client_factory is not None
                 and name in {"research_index_search", "research_index_contents"}
             )
+            or (self._enable_index_contributions and name in INDEX_CONTRIBUTION_TOOL_NAMES)
         }
 
     def available_tool_names(self) -> list[str]:
@@ -479,6 +490,11 @@ class ResearchMcpServer:
 
     def _build_tools(self) -> list[ToolDefinition]:
         return [
+            *(
+                build_index_contribution_tools(self._index_client_factory)
+                if self._enable_index_contributions and self._index_client_factory is not None
+                else []
+            ),
             *(
                 build_index_tools(self._index_client_factory)
                 if self._index_client_factory is not None

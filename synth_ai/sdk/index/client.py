@@ -25,6 +25,7 @@ from .search import (
     SearchSpec,
 )
 from .submission import ContributionSubmission, ContributionSubmitSpec
+from .usage import IndexUsageSummary
 
 
 def _search_spec(
@@ -303,11 +304,52 @@ class AsyncContributionsAPI:
         return ContributionDraft.model_validate(payload)
 
 
+class IndexMeAPI:
+    """Read models scoped to the transport's authenticated organization."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def usage(self) -> IndexUsageSummary:
+        """Read current allowance and spend; no client cache or balance calculation.
+
+        See sibling docs/drafts/synth-index-pricing-economics-2026-09-12.md.
+        """
+        payload = self._transport.request_bounded_json(
+            "/api/v1/index/me/usage",
+            response_bytes_max=16_384,
+            deadline_seconds=5.0,
+            operation_id="index.me.usage",
+        )
+        return IndexUsageSummary.model_validate(payload)
+
+
+class AsyncIndexMeAPI:
+    """Async organization-scoped usage reads on the caller-owned transport."""
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def usage(self) -> IndexUsageSummary:
+        """Read backend-authored usage without inferring credits or earnings.
+
+        See sibling docs/drafts/synth-index-pricing-economics-2026-09-12.md.
+        """
+        payload = await self._transport.request_bounded_json(
+            "/api/v1/index/me/usage",
+            response_bytes_max=16_384,
+            deadline_seconds=5.0,
+            operation_id="index.me.usage",
+        )
+        return IndexUsageSummary.model_validate(payload)
+
+
 class IndexAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
         self.contents = ContentsAPI(transport)
         self.contributions = ContributionsAPI(transport)
+        self.me = IndexMeAPI(transport)
 
     def search(
         self,
@@ -359,6 +401,7 @@ class AsyncIndexAPI:
         self._transport = transport
         self.contents = AsyncContentsAPI(transport)
         self.contributions = AsyncContributionsAPI(transport)
+        self.me = AsyncIndexMeAPI(transport)
 
     async def search(
         self,

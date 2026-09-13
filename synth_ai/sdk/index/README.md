@@ -9,6 +9,19 @@ See `docs/drafts/synth-index-api-design-2026-09-12.md` and the frozen execution 
 Fast search is the MVP; deep execution handles are not implemented here. No
 published SDK capability or live backend route is claimed by these models.
 
+`SynthClient().index.me.usage()` (and its awaited async equivalent) reads
+`GET /api/v1/index/me/usage` using the existing authenticated transport. The
+typed `IndexUsageSummary` reports the organization's current accounting period,
+free public search/contents allowance, private enablement, server-set price,
+spend cap, successful searches, spend and spendable wallet balance. Nullable
+values remain `None`, not zero. These are consumer usage figures, not contributor
+earnings or a promise of promotional eligibility. Reads are not cached by the
+Index adapter; transport and contract errors propagate to the caller. Usage
+responses (including errors) are streamed with a 16 KiB cap, identity encoding,
+no redirects and no retries. The five-second deadline cancels async reads;
+sync reads check total elapsed time between chunks and use bounded per-I/O
+timeouts, but cannot preempt an in-flight blocking read exactly at the deadline.
+
 The unreleased `SynthClient().index.contributions` and async equivalent expose
 `create(idempotency_key=...)`, `prepare_upload(draft, spec)`, `finalize(draft, prepared)`, and
 `submit(reference, spec)`. Request/result types are exported from
@@ -30,5 +43,7 @@ transfer targets. Finalization verifies the complete Artifact publication.
 The managed PostgreSQL/MinIO integration test covers SDK prepare → byte transfer
 → SDK finalize → SDK submit, with in-process HTTP and injected principals. It is
 not evidence of deployed authentication or a published SDK release. Streaming
-datasets/files, review/publication client methods, and Workshop/MCP upload
-orchestration remain missing.
+datasets/files, review/publication client methods, and Workshop upload
+orchestration remain missing. MCP offers separately opt-in lifecycle adapters
+for create/prepare/finalize/submit, but does not transfer bytes or read local
+files; see `synth_ai/mcp/research/README.md` for registration and scope boundaries.

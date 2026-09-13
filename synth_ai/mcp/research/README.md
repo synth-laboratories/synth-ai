@@ -33,6 +33,22 @@ Boundary rule:
 
 ## Tool names
 
+Index contribution writes are separately opt-in through
+`ResearchMcpServer(index_client_factory=..., enable_index_contributions=True)`.
+Neither an Index retrieval factory alone nor advanced-tool mode enables writes.
+The four `research_index_contribution_*` tools create a private draft, prepare
+upload instructions, finalize uploaded bytes, or submit for qualification—one
+operation per call. They declare `smr:write`; hosted callers must enforce that
+scope and the backend remains the authorization authority. The stdio registry
+does not itself implement OAuth scope enforcement.
+
+Arguments must explicitly contain the canonical draft/package/publication refs;
+the tools never inspect a workspace, read files, transfer bytes, discover
+credentials, publish content, or award credits. Signed prepare responses are
+sensitive transient capabilities, not durable receipts. No status tool is
+advertised because the SDK has no canonical contribution status read yet.
+This is source-only opt-in wiring, not deployment enablement.
+
 Tool builders in `tools/` declare names as `research_*` directly, and that is
 what discovery advertises. For backward compatibility, every `research_*` tool
 also answers to the legacy `smr_*` spelling: `resolve_tool` treats `smr_<x>` as
