@@ -2905,8 +2905,10 @@ def _stdio_server() -> ResearchMcpServer:
     if enabled:
         api_key = os.environ.get("SYNTH_API_KEY", "").strip()
         backend_base = os.environ.get("SYNTH_BACKEND_URL", "").strip()
-        if not api_key or not backend_base:
-            raise ValueError("Index MCP requires explicit SYNTH_API_KEY and SYNTH_BACKEND_URL")
+        if not backend_base:
+            raise ValueError("Index MCP requires explicit SYNTH_BACKEND_URL")
+        if writes and not api_key:
+            raise ValueError("Index MCP writes require explicit SYNTH_API_KEY")
         from urllib.parse import urlsplit
 
         url = urlsplit(backend_base)
@@ -2924,10 +2926,20 @@ def _stdio_server() -> ResearchMcpServer:
 
         @contextmanager
         def configured_index_client():
-            from synth_ai import SynthClient
+            if api_key:
+                from synth_ai import SynthClient
 
-            with SynthClient(api_key=api_key, base_url=backend_base) as client:
-                yield client.index
+                with SynthClient(api_key=api_key, base_url=backend_base) as client:
+                    yield client.index
+                return
+            from synth_ai.core.http.transport import HttpTransport
+            from synth_ai.sdk.index.client import PublicIndexAPI
+
+            transport = HttpTransport(base_url=backend_base, headers={})
+            try:
+                yield PublicIndexAPI(transport)
+            finally:
+                transport.close()
 
         factory = configured_index_client
     return ResearchMcpServer(

@@ -19,22 +19,28 @@ Install the reviewed SDK package, then configure your agent's MCP server:
 }
 ```
 
-Supply `SYNTH_API_KEY` in the process environment through your authorized agent
-secret configuration. Replace the backend URL with the actual deployment URL.
-The executable does not discover Index credentials from home files or Keychain.
+Replace the backend URL with the actual deployment URL. Public read-only search,
+contents, Contribution lookup, and revision status require no API key. Supply
+`SYNTH_API_KEY` through your authorized agent secret configuration only for
+authenticated/private reads or explicitly enabled contribution tools. The
+executable does not discover Index credentials from home files or Keychain.
 Both Index flags accept only `true` or `false`. Missing Index opt-in means no
-Index tools. Enabling Index requires a nonempty explicit key and backend URL;
-initialization and tool discovery construct no SDK client and make no requests.
+Index tools. Enabling Index requires an explicit backend URL; enabling writes
+also requires a nonempty explicit key. Initialization and tool discovery
+construct no SDK client and make no requests.
 
 Read-only mode exposes search, exact contents, Contribution lookup, and revision
-status. To deliberately contribute from this machine, additionally set
+status. Without a key, those tools use only the credential-free
+`/api/v1/index/public/*` routes and reject private scope locally. With a key,
+reads use the authenticated Index routes and may request authorized private
+collections. To deliberately contribute from this machine, additionally set
 `SYNTH_INDEX_MCP_WRITE_ENABLED=true`; this exposes draft creation, explicit
 selected-file upload, and submission for review. Advanced Research tools do not
 bypass this write gate. Credentials never belong in tool arguments. Index calls
-use the captured process key and own/close one SDK client per invocation.
-Public search is free under backend rate limits; requesting private collections
-can be charged according to backend account policy. No MCP tool grants access,
-approves research, publishes Contributions, or awards credits.
+use captured process configuration and own/close one SDK transport per
+invocation. Public search is free under backend rate limits; requesting private
+collections can be charged according to backend account policy. No MCP tool
+grants access, approves research, publishes Contributions, or awards credits.
 
 Local MCP file upload requires POSIX descriptor-relative, no-follow file access
 and bounds actual bytes read; it refuses unsupported platforms. Windows users

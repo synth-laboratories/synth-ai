@@ -147,6 +147,29 @@ class SearchResult(IndexContract):
         return self
 
 
+class PublicSearchResult(IndexContract):
+    """Receipt-free anonymous search result from the public Index boundary."""
+
+    request_id: Identifier
+    mode: Literal["fast"] = "fast"
+    status: Literal["completed"] = "completed"
+    corpus_generation: Identifier
+    ranker_version: Identifier
+    parser_version: Identifier
+    taxonomy_version: Identifier
+    results: tuple[SearchHit, ...] = Field(max_length=10)
+    amount_cents: Literal[0] = 0
+
+    @model_validator(mode="after")
+    def check_grouped_references(self) -> Self:
+        require_unique(
+            tuple(hit.reference.contribution_id for hit in self.results),
+            "result contributions",
+        )
+        require_unique(tuple(hit.id for hit in self.results), "hit IDs")
+        return self
+
+
 class ContentsItem(IndexContract):
     model_config = ConfigDict(str_strip_whitespace=False)
     reference: ContributionReference

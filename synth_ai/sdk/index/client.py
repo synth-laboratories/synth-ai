@@ -68,6 +68,7 @@ from .lifecycle import (
 from .search import (
     ContentsResult,
     ContentsSpec,
+    PublicSearchResult,
     SearchContent,
     SearchFilters,
     SearchResult,
@@ -127,6 +128,19 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contests.entries.review": ("POST", f"{_K}/entries/{{entry_id}}/review"),
 }
 
+PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "index.public.search": ("POST", f"{_P}/public/search"),
+    "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
+    "index.public.contributions.retrieve": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}",
+    ),
+    "index.public.contributions.revisions.retrieve": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}",
+    ),
+}
+
 _IDENTIFIER = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
 
 
@@ -141,7 +155,10 @@ class _Call:
     raw: bool = False
 
     def request(self) -> tuple[str, str, dict[str, Any]]:
-        method, template = OPERATIONS[self.operation_id]
+        operation = OPERATIONS.get(self.operation_id) or PUBLIC_OPERATIONS.get(self.operation_id)
+        if operation is None:
+            raise ValueError(f"Unknown Index operation: {self.operation_id}")
+        method, template = operation
         for name, value in (self.path_parameters or {}).items():
             if not isinstance(value, str) or not _IDENTIFIER.fullmatch(value):
                 raise ValueError(f"{name} must be an Index identifier")
@@ -809,3 +826,92 @@ class AsyncIndexAPI(_IndexRoot):
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
         super().__init__(_async_runner(transport), asynchronous=True)
+
+
+class PublicContentsAPI(_Resource):
+    def retrieve(
+        self,
+        spec: ContentsSpec | None = None,
+        *,
+        references: Sequence[ContributionReference] | None = None,
+        max_bytes: int | None = None,
+    ) -> Any:
+        """Retrieve public exact-revision contents without account authority."""
+        spec = _contents_spec(spec, references, None, max_bytes)
+        if spec.search_id is not None:
+            raise ValueError("Anonymous public contents cannot use a search receipt")
+        return self._run(
+            _Call(
+                "index.public.contents.retrieve",
+                lambda payload: _contents_result(payload, spec),
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+
+class PublicRevisionsAPI(_Resource):
+    def retrieve(self, reference: ContributionReference) -> Any:
+        return self._run(
+            _Call(
+                "index.public.contributions.revisions.retrieve",
+                _bound(
+                    RevisionView,
+                    lambda view: view.reference == reference,
+                    "Revision response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+
+class PublicContributionsAPI(_Resource):
+    def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
+        super().__init__(run, asynchronous)
+        self.revisions = PublicRevisionsAPI(run, asynchronous)
+
+    def retrieve(self, contribution_id: str) -> Any:
+        return self._run(
+            _Call(
+                "index.public.contributions.retrieve",
+                _bound(
+                    ContributionView,
+                    lambda view: view.contribution_id == contribution_id,
+                    "Contribution response does not match the request",
+                ),
+                path_parameters={"contribution_id": contribution_id},
+            )
+        )
+
+
+class PublicIndexAPI(_Resource):
+    """Blocking, read-only client for the credential-free public boundary."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+        run = _sync_runner(transport)
+        super().__init__(run, asynchronous=False)
+        self.contents = PublicContentsAPI(run, asynchronous=False)
+        self.contributions = PublicContributionsAPI(run, asynchronous=False)
+
+    def search(
+        self,
+        spec: SearchSpec | None = None,
+        *,
+        query: str | None = None,
+        scope: SearchScope | None = None,
+        filters: SearchFilters | None = None,
+        max_results: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> PublicSearchResult:
+        """Search reviewed public Contributions with no account or usage receipt."""
+        del idempotency_key
+        spec = _search_spec(spec, query, scope, filters, max_results)
+        if spec.scope.visibility != "public" or spec.scope.collection_ids:
+            raise ValueError("Anonymous Index search is public-only")
+        return self._run(
+            _Call(
+                "index.public.search",
+                PublicSearchResult.model_validate,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
