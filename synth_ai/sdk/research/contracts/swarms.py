@@ -57,6 +57,7 @@ class ActorHarness(StrEnum):
 
 class ActiveActorModel(StrEnum):
     """First-class models allowed for shared top-level agent selection."""
+    OPENROUTER_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
 
     GPT_5_4_MINI = "gpt-5.4-mini"
     GPT_5_6_LUNA = "gpt-5.6-luna"
