@@ -15,15 +15,17 @@ deep execution handles are not implemented. No release is claimed by this code.
 | `search(...)`, `capabilities()` | `POST /search`, `GET /capabilities` |
 | `contents.retrieve(...)` | `POST /contents` |
 | `contributions.create / retrieve / prepare_upload / upload / finalize / submit` | contributor workflow |
-| `contributions.publish / withdraw` | publication authority only |
-| `contributions.revisions.create / retrieve` | revise after review; exact status |
-| `contributions.assessments.list / create` | reviewer decisions (never self-review) |
-| `tags.list()`, `collections.list()` | authorized listings |
-| `account.contributions() / usage() / rewards()` | caller's own work, usage, awarded credits |
+| `contributions.publish / withdraw` | `POST .../publication`, `.../withdrawal` (publisher grant / owner) |
+| `contributions.revisions.create / retrieve`, `contributions.assessments.list` | revise; exact status, sealed package, citation |
+| `reviews.list(status=)`, `contributions.reviews.create` | reviewer queue and decisions (never self-review) |
+| `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes |
+| `tags.list()`, `collections.list()`, `collections.grants.*` | taxonomy; owner-only explicit shares |
+| `account.retrieve / contributions / usage / rewards / update_profile / update_pins` | caller identity, work, usage, credits, profile |
+| `profiles.retrieve`, `rewards.award / reverse`, `contests.*` | public profiles; award/contest operator grants |
 
 Every operation is declared once in `client.OPERATIONS` and executed identically
-by sync and async clients. Routes marked pending in `test_index_openapi_parity`
-are not yet served by the backend; calling them returns the backend's 404.
+by sync and async clients. `test_index_openapi_parity` requires every SDK operation
+to hit a real backend route with the same operation ID, and vice versa.
 
 ## Errors
 
