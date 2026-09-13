@@ -258,11 +258,22 @@ def _search_result(payload: object, spec: SearchSpec) -> SearchResult:
     result = SearchResult.model_validate(payload)
     if result.usage.billing_scope != spec.scope.visibility:
         raise ValueError("Index response billing scope does not match the request")
+    _search_delivery_bounds(result, spec)
+    return result
+
+
+def _public_search_result(payload: object, spec: SearchSpec) -> PublicSearchResult:
+    result = PublicSearchResult.model_validate(payload)
+    _search_delivery_bounds(result, spec)
+    return result
+
+
+def _search_delivery_bounds(result: SearchResult | PublicSearchResult, spec: SearchSpec) -> None:
+    """Both delivery modes honor the caller's context bounds, not only global caps."""
     if len(result.results) > spec.content.max_results or any(
         len(hit.highlights) > spec.content.max_excerpts_per_result for hit in result.results
     ):
         raise ValueError("Index response exceeds requested result or excerpt bounds")
-    return result
 
 
 def _contents_result(payload: object, spec: ContentsSpec) -> ContentsResult:
@@ -911,7 +922,7 @@ class PublicIndexAPI(_Resource):
         return self._run(
             _Call(
                 "index.public.search",
-                PublicSearchResult.model_validate,
+                lambda payload: _public_search_result(payload, spec),
                 json_body=spec.model_dump(mode="json"),
             )
         )
