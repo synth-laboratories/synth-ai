@@ -10,7 +10,6 @@ runs on the caller's machine; the hosted server cannot read a client's disk.
 import re
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
-from pathlib import Path
 
 from pydantic import Field
 from synth_ai.mcp.research.registry import (
@@ -19,6 +18,7 @@ from synth_ai.mcp.research.registry import (
     JSONDict,
     ToolDefinition,
 )
+from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.sdk.index.client import IndexAPI
 from synth_ai.sdk.index.contracts import ContributionReference, Identifier, IndexContract
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
@@ -79,25 +79,15 @@ class SubmitRequest(IndexContract):
 
 def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]:
     """Read exactly the listed regular files; reject escapes, symlinks and secrets."""
-    base = Path(root).expanduser().resolve(strict=True)
-    if not base.is_dir():
-        raise ValueError("Upload root must be an existing directory")
     content: dict[str, bytes] = {}
     total = 0
-    for logical_path, relative in files.items():
-        candidate = base / relative
-        if Path(relative).is_absolute() or candidate.is_symlink():
-            raise ValueError(f"{logical_path}: absolute paths and symlinks are not uploaded")
-        resolved = candidate.resolve(strict=True)
-        if not resolved.is_relative_to(base) or not resolved.is_file():
-            raise ValueError(f"{logical_path}: must be a regular file inside the root")
-        total += resolved.stat().st_size
-        if total > _UPLOAD_MAX_BYTES:
-            raise ValueError("Selected files exceed the 64 MiB in-memory upload bound")
-        data = resolved.read_bytes()
-        if _CREDENTIAL.search(data):
-            raise ValueError(f"{logical_path}: possible credential; remove it before upload")
-        content[logical_path] = data
+    with SelectedFileReader(root) as reader:
+        for logical_path, relative in files.items():
+            data = reader.read(relative, _UPLOAD_MAX_BYTES - total)
+            total += len(data)
+            if _CREDENTIAL.search(data):
+                raise ValueError(f"{logical_path}: possible credential; remove it before upload")
+            content[logical_path] = data
     return content
 
 
