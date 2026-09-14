@@ -175,46 +175,6 @@
       "pricing_by_service_tier": {}
     },
     {
-      "id": "cursor/grok-4.5",
-      "display_name": "Cursor Grok 4.5",
-      "public": true,
-      "provider": "cursor",
-      "provider_model_id": "grok-4.5",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "cursor_pool",
-      "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "cursor"
-      ],
-      "aliases": [
-        "cursor-grok-4.5",
-        "grok-4.5"
-      ],
-      "supported_reasoning_efforts": [],
-      "default_reasoning_effort": null,
-      "supported_service_tiers": [],
-      "context_window_tokens": null,
-      "max_output_tokens": null,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.000002",
-        "cached_input_usd": "2E-7",
-        "output_usd": "0.000006",
-        "reasoning_output_usd": "0.000006",
-        "source": "cursor_grok_4_5_launch",
-        "observed_at": "2026-07-09"
-      },
-      "pricing_by_service_tier": {}
-    },
-    {
       "id": "gpt-5.4-mini",
       "display_name": "GPT-5.4 Mini",
       "public": true,

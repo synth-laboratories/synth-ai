@@ -405,6 +405,258 @@
         "title": "AgentConfigV1",
         "type": "object"
       },
+      "AsyncBlockerHandoffContextV1": {
+        "additionalProperties": false,
+        "properties": {
+          "action_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Action Digest",
+            "type": "string"
+          },
+          "action_kind": {
+            "title": "Action Kind",
+            "type": "string"
+          },
+          "action_schema_version": {
+            "title": "Action Schema Version",
+            "type": "string"
+          },
+          "async_assignment_id": {
+            "title": "Async Assignment Id",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/RuntimeBinding"
+          },
+          "blocker_id": {
+            "title": "Blocker Id",
+            "type": "string"
+          },
+          "evidence_resources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProducedResourceReferenceV1"
+            },
+            "title": "Evidence Resources",
+            "type": "array"
+          },
+          "preauthorization_rule": {
+            "title": "Preauthorization Rule",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "required_operator_capability": {
+            "title": "Required Operator Capability",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-handoff-context.v1",
+            "default": "smr.intern-async-blocker-handoff-context.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "blocker_id",
+          "async_assignment_id",
+          "binding",
+          "action_schema_version",
+          "action_kind",
+          "action_digest",
+          "summary",
+          "rationale",
+          "preauthorization_rule",
+          "required_operator_capability"
+        ],
+        "title": "AsyncBlockerHandoffContextV1",
+        "type": "object"
+      },
+      "AsyncBlockerHandoffReceiptV1": {
+        "additionalProperties": false,
+        "properties": {
+          "blocker_id": {
+            "title": "Blocker Id",
+            "type": "string"
+          },
+          "context": {
+            "$ref": "#/components/schemas/AsyncBlockerHandoffContextV1"
+          },
+          "context_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Context Digest",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "handoff_receipt_id": {
+            "title": "Handoff Receipt Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "opened_by_user_id": {
+            "title": "Opened By User Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-handoff-receipt.v1",
+            "default": "smr.intern-async-blocker-handoff-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sync_session_id": {
+            "title": "Sync Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "handoff_receipt_id",
+          "blocker_id",
+          "org_id",
+          "sync_session_id",
+          "opened_by_user_id",
+          "idempotency_key",
+          "context",
+          "context_digest",
+          "created_at"
+        ],
+        "title": "AsyncBlockerHandoffReceiptV1",
+        "type": "object"
+      },
+      "AsyncBlockerOpenSyncRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "AsyncBlockerOpenSyncRequest",
+        "type": "object"
+      },
+      "AsyncBlockerOpenSyncResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocker": {
+            "$ref": "#/components/schemas/AsyncBlockerResponse"
+          },
+          "handoff_receipt": {
+            "$ref": "#/components/schemas/AsyncBlockerHandoffReceiptV1"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-open-sync.v1",
+            "default": "smr.intern-async-blocker-open-sync.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sync_session": {
+            "$ref": "#/components/schemas/SyncSessionResponse"
+          }
+        },
+        "required": [
+          "blocker",
+          "sync_session",
+          "handoff_receipt"
+        ],
+        "title": "AsyncBlockerOpenSyncResponse",
+        "type": "object"
+      },
+      "AsyncBlockerResolveRequest": {
+        "additionalProperties": false,
+        "description": "Operator disposition for one exact Async-to-Sync handoff.",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "completed",
+              "denied",
+              "superseded"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "supporting_receipt_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 128,
+            "title": "Supporting Receipt Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "outcome"
+        ],
+        "title": "AsyncBlockerResolveRequest",
+        "type": "object"
+      },
+      "AsyncBlockerResolveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocker": {
+            "$ref": "#/components/schemas/AsyncBlockerResponse"
+          },
+          "continuation_command": {
+            "$ref": "#/components/schemas/InternRuntimeCommandReceipt"
+          },
+          "schema_version": {
+            "const": "smr.intern-async-blocker-resolution.v1",
+            "default": "smr.intern-async-blocker-resolution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "blocker",
+          "continuation_command"
+        ],
+        "title": "AsyncBlockerResolveResponse",
+        "type": "object"
+      },
       "AsyncBlockerResponse": {
         "additionalProperties": false,
         "properties": {
@@ -441,6 +693,17 @@
               }
             ],
             "title": "Action Schema Version"
+          },
+          "async_assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Async Assignment Id"
           },
           "binding": {
             "anyOf": [
@@ -8529,6 +8792,230 @@
         "title": "InternProgressClaimStatus",
         "type": "string"
       },
+      "InternResourceDisposition": {
+        "additionalProperties": false,
+        "description": "One enumerated resource. ``retained`` always names its owner and reason.",
+        "properties": {
+          "cleanup_owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Owner"
+          },
+          "cleanup_owner_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Owner Run Id"
+          },
+          "disposition": {
+            "enum": [
+              "settled",
+              "pending",
+              "unknown",
+              "excluded",
+              "retained"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "epoch": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epoch"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "self",
+              "owned",
+              "borrowed",
+              "shared",
+              "retained"
+            ],
+            "title": "Relation",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "title": "Resource Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_kind",
+          "resource_id",
+          "relation",
+          "disposition",
+          "reason"
+        ],
+        "title": "InternResourceDisposition",
+        "type": "object"
+      },
+      "InternResourceInventory": {
+        "additionalProperties": false,
+        "description": "``coverage_complete`` is creator coverage; ``disposition_complete`` is cleanup.\n\nPending and unknown entries may exist in a complete inventory.",
+        "properties": {
+          "coverage": {
+            "const": "registered-runtime-resources-v1",
+            "default": "registered-runtime-resources-v1",
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_complete": {
+            "default": false,
+            "title": "Coverage Complete",
+            "type": "boolean"
+          },
+          "creator_set": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creator Set"
+          },
+          "disposition_complete": {
+            "default": false,
+            "title": "Disposition Complete",
+            "type": "boolean"
+          },
+          "epochs": {
+            "items": {
+              "$ref": "#/components/schemas/InternRuntimeResourceEpoch"
+            },
+            "title": "Epochs",
+            "type": "array"
+          },
+          "incomplete_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incomplete Reasons",
+            "type": "array"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/InternResourceDisposition"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "runtime_id": {
+            "title": "Runtime Id",
+            "type": "string"
+          },
+          "runtime_kind": {
+            "enum": [
+              "sync",
+              "async"
+            ],
+            "title": "Runtime Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runtime_kind",
+          "runtime_id",
+          "observed_at",
+          "resources"
+        ],
+        "title": "InternResourceInventory",
+        "type": "object"
+      },
+      "InternResourceStopEffect": {
+        "additionalProperties": false,
+        "description": "An effect actually performed when a runtime epoch closed.",
+        "properties": {
+          "effect": {
+            "enum": [
+              "stop_requested",
+              "already_settled",
+              "retained",
+              "admission_fenced",
+              "stopped",
+              "already_terminal",
+              "stop_accepted",
+              "stop_failed"
+            ],
+            "title": "Effect",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "title": "Resource Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_kind",
+          "resource_id",
+          "effect",
+          "reason"
+        ],
+        "title": "InternResourceStopEffect",
+        "type": "object"
+      },
       "InternRuntimeCommandReceipt": {
         "additionalProperties": false,
         "properties": {
@@ -8749,6 +9236,203 @@
           "event"
         ],
         "title": "InternRuntimeEventStreamEnvelope",
+        "type": "object"
+      },
+      "InternRuntimeResourceEpoch": {
+        "additionalProperties": false,
+        "description": "One admission epoch; closed epochs remain enumerated for recovery.",
+        "properties": {
+          "admission": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Admission",
+            "type": "string"
+          },
+          "cleanup_settled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Settled At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closure_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "conversation_closed",
+                  "work_cancelled",
+                  "work_completed",
+                  "work_failed",
+                  "archived",
+                  "superseded_by_reopen"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closure Kind"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/InternResourceStopEffect"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "epoch": {
+            "minimum": 0.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "epoch",
+          "admission",
+          "opened_at"
+        ],
+        "title": "InternRuntimeResourceEpoch",
+        "type": "object"
+      },
+      "InternSessionUsageResponse": {
+        "additionalProperties": false,
+        "description": "Usage receipt for one Intern runtime: its direct inference plus the runs it launched.",
+        "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/InternUsageBillingState"
+          },
+          "bindings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Bindings",
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "origin_runtime_id": {
+            "title": "Origin Runtime Id",
+            "type": "string"
+          },
+          "origin_runtime_kind": {
+            "enum": [
+              "sync",
+              "async"
+            ],
+            "title": "Origin Runtime Kind",
+            "type": "string"
+          },
+          "run_count": {
+            "title": "Run Count",
+            "type": "integer"
+          },
+          "spend_cents": {
+            "title": "Spend Cents",
+            "type": "integer"
+          },
+          "token_count": {
+            "title": "Token Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "origin_runtime_kind",
+          "origin_runtime_id",
+          "org_id",
+          "spend_cents",
+          "token_count",
+          "run_count",
+          "billing",
+          "bindings",
+          "metadata"
+        ],
+        "title": "InternSessionUsageResponse",
+        "type": "object"
+      },
+      "InternUsageBillingState": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_failed_row_count": {
+            "title": "Billing Failed Row Count",
+            "type": "integer"
+          },
+          "billing_state": {
+            "enum": [
+              "settled",
+              "pending",
+              "stalled",
+              "failed",
+              "observability_only",
+              "not_applicable"
+            ],
+            "title": "Billing State",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "show_stalled_banner": {
+            "title": "Show Stalled Banner",
+            "type": "boolean"
+          },
+          "stalled_row_count": {
+            "title": "Stalled Row Count",
+            "type": "integer"
+          },
+          "stalled_spend_cents": {
+            "title": "Stalled Spend Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "billing_state",
+          "stalled_row_count",
+          "stalled_spend_cents",
+          "billing_failed_row_count",
+          "show_stalled_banner"
+        ],
+        "title": "InternUsageBillingState",
         "type": "object"
       },
       "JsonValue": {},
@@ -10205,6 +10889,14 @@
         ],
         "title": "OeqResolutionResponse",
         "type": "object"
+      },
+      "OriginRuntimeKind": {
+        "enum": [
+          "sync",
+          "async"
+        ],
+        "title": "OriginRuntimeKind",
+        "type": "string"
       },
       "ParentObjectiveKind": {
         "enum": [
@@ -12816,7 +13508,6 @@
           "synth_ai",
           "cursor",
           "deepseek",
-          "xai",
           "modal",
           "openai_chatgpt",
           "baseten"
@@ -13081,6 +13772,146 @@
         ],
         "title": "RunLifecycleEnqueueStatus",
         "type": "string"
+      },
+      "RunResourceSettlementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed"
+          },
+          "coverage": {
+            "enum": [
+              "untracked",
+              "explicit-v1"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_complete": {
+            "default": false,
+            "title": "Coverage Complete",
+            "type": "boolean"
+          },
+          "edge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edge Id"
+          },
+          "excluded": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "pending": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending"
+          },
+          "registered_tree_settled": {
+            "default": false,
+            "title": "Registered Tree Settled",
+            "type": "boolean"
+          },
+          "root_confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Confirmed"
+          },
+          "root_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Run Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "root_tree",
+                  "owned_subtree"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Kind"
+          },
+          "settled": {
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "unknown": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unknown"
+          }
+        },
+        "required": [
+          "run_id",
+          "observed_at",
+          "coverage",
+          "settled"
+        ],
+        "title": "RunResourceSettlementResponse",
+        "type": "object"
       },
       "RunbookKind": {
         "enum": [
@@ -13552,7 +14383,6 @@
           "gpt-5.6-luna",
           "gpt-5.6-sol",
           "gpt-5.6-terra",
-          "cursor/grok-4.5",
           "gpt-5.4",
           "gpt-5.4-mini",
           "nemotron-super",
@@ -13561,8 +14391,6 @@
           "cursor/composer-2.5",
           "cursor/gpt-5",
           "cursor/sonnet-4",
-          "x-ai/grok-4.3",
-          "x-ai/grok-build",
           "moonshotai/kimi-k2.6",
           "baseten/moonshotai/Kimi-K3",
           "modal/moonshotai/Kimi-K3",
@@ -14798,7 +15626,6 @@
           "openrouter",
           "poolside",
           "synth_internal",
-          "xai",
           "tinker"
         ],
         "title": "SmrCredentialProvider",
@@ -20598,8 +21425,7 @@
           "openrouter",
           "poolside",
           "synth",
-          "synth_internal",
-          "xai"
+          "synth_internal"
         ],
         "title": "SmrInferenceProvider",
         "type": "string"
@@ -22245,7 +23071,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -22597,7 +23423,7 @@
                 "type": "null"
               }
             ],
-            "description": "Declarative provider routing preferences. Use agent_inference for agent actor traffic and experiment_inference for benchmark/eval model traffic. Defaults require ZDR and US domicile/region for OpenAI, Baseten, Gemini, and Grok-family providers."
+            "description": "Declarative provider routing preferences. Use agent_inference for agent actor traffic and experiment_inference for benchmark/eval model traffic. Defaults require ZDR and US domicile/region for OpenAI, Baseten, and Gemini providers."
           },
           "providers": {
             "description": "Run-scoped resource bindings. This is independent from the inference provider selector.",
@@ -24497,6 +25323,18 @@
               }
             ],
             "title": "Requested State"
+          },
+          "resource_settlement": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Settlement"
           },
           "run_id": {
             "title": "Run Id",
@@ -27030,6 +27868,28 @@
           "org_id": {
             "title": "Org Id",
             "type": "string"
+          },
+          "origin_runtime_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Runtime Id"
+          },
+          "origin_runtime_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Runtime Kind"
           },
           "output_obligations": {
             "items": {
@@ -30588,6 +31448,7 @@
             "title": "Event Id"
           },
           "kind": {
+            "description": "Transcript event kind, e.g. message.completed, reasoning.summary, turn.completed, tool.call.completed, or task.completion_claimed (an accepted worker completion claim projected from its durable claim row; payload schema smr.task-completion-claimed.v1 with claim_id, task_key, participant_id, text and summary).",
             "minLength": 1,
             "title": "Kind",
             "type": "string"
@@ -33093,6 +33954,601 @@
           "bounded"
         ],
         "title": "SwarmNotebookResponse",
+        "type": "object"
+      },
+      "SwarmRolloutArtifact": {
+        "additionalProperties": false,
+        "description": "A rollout-owned retained artifact; storage location stays private.",
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "artifact_type": {
+            "title": "Artifact Type",
+            "type": "string"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "artifact_type",
+          "size_bytes"
+        ],
+        "title": "SwarmRolloutArtifact",
+        "type": "object"
+      },
+      "SwarmRolloutExecution": {
+        "additionalProperties": false,
+        "description": "What the Rhodes executor actually launched for this rollout.\n\nWritten by the worker from the resolved execution target and provider\nlaunch facts; never from request or result payloads. ``executed_image_digest``\nis set only when the launch reference was digest-pinned or the provider\nresolved the exact image ID; otherwise ``image_attestation`` says why not.",
+        "properties": {
+          "deployment_binding": {
+            "title": "Deployment Binding",
+            "type": "string"
+          },
+          "executed_image_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed Image Digest"
+          },
+          "executed_source_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed Source Digest"
+          },
+          "image_attestation": {
+            "title": "Image Attestation",
+            "type": "string"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "interface_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface Mode"
+          },
+          "launch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Launch Id"
+          },
+          "launches": {
+            "items": {
+              "$ref": "#/components/schemas/SwarmRolloutExecutionLaunch"
+            },
+            "title": "Launches",
+            "type": "array"
+          },
+          "lease": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmRolloutLease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lease_disposition": {
+            "$ref": "#/components/schemas/SwarmRolloutLeaseDisposition"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "recorded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By"
+          }
+        },
+        "required": [
+          "lease_disposition",
+          "deployment_binding",
+          "image_attestation"
+        ],
+        "title": "SwarmRolloutExecution",
+        "type": "object"
+      },
+      "SwarmRolloutExecutionLaunch": {
+        "additionalProperties": false,
+        "description": "One provider sandbox launch (Harbor: agent, then optional verifier).",
+        "properties": {
+          "executed_image_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed Image Digest"
+          },
+          "image_attestation": {
+            "title": "Image Attestation",
+            "type": "string"
+          },
+          "launch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Launch Id"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "image_attestation"
+        ],
+        "title": "SwarmRolloutExecutionLaunch",
+        "type": "object"
+      },
+      "SwarmRolloutLease": {
+        "additionalProperties": false,
+        "properties": {
+          "lease_id": {
+            "title": "Lease Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lease_id"
+        ],
+        "title": "SwarmRolloutLease",
+        "type": "object"
+      },
+      "SwarmRolloutLeaseDisposition": {
+        "additionalProperties": false,
+        "description": "Why ``lease`` is or is not set; never inferred from a nearby lease.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "recorded",
+              "not_applicable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason"
+        ],
+        "title": "SwarmRolloutLeaseDisposition",
+        "type": "object"
+      },
+      "SwarmRolloutLogicalIntent": {
+        "additionalProperties": false,
+        "description": "The one intended evaluation this rollout executes (server-bound scope).\n\n``accepted_submissions`` counts distinct submissions (request keys) that\nattached to this rollout instead of creating another paid execution.\n``intent_id`` is set only for an explicit caller intent.",
+        "properties": {
+          "accepted_submissions": {
+            "minimum": 1.0,
+            "title": "Accepted Submissions",
+            "type": "integer"
+          },
+          "intent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Id"
+          },
+          "intent_ref": {
+            "title": "Intent Ref",
+            "type": "string"
+          },
+          "scope_kind": {
+            "enum": [
+              "smr_run",
+              "intern_runtime",
+              "organization",
+              "intern_delegation"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "explicit",
+              "derived"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent_ref",
+          "source",
+          "scope_kind",
+          "accepted_submissions"
+        ],
+        "title": "SwarmRolloutLogicalIntent",
+        "type": "object"
+      },
+      "SwarmRolloutPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SwarmRolloutSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "items",
+          "limit"
+        ],
+        "title": "SwarmRolloutPage",
+        "type": "object"
+      },
+      "SwarmRolloutReleaseCoordinates": {
+        "additionalProperties": false,
+        "description": "Release identities frozen at acceptance, not a native execution attestation.",
+        "properties": {
+          "resolved_image_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Image Digest"
+          },
+          "runtime_image_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Image Release Id"
+          },
+          "shared_bundle_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Bundle Release Id"
+          },
+          "task_bundle_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Bundle Release Id"
+          }
+        },
+        "title": "SwarmRolloutReleaseCoordinates",
+        "type": "object"
+      },
+      "SwarmRolloutSummary": {
+        "additionalProperties": false,
+        "description": "One pool rollout whose verified budget parent is the swarm.\n\nBuilt field by field from the rollout row, never from the stored request,\nso task-provided environment and transport credentials cannot leak.",
+        "properties": {
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/SwarmRolloutArtifact"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "budget_parent_run_id": {
+            "title": "Budget Parent Run Id",
+            "type": "string"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmRolloutExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "logical_intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmRolloutLogicalIntent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pool_id": {
+            "title": "Pool Id",
+            "type": "string"
+          },
+          "release_coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmRolloutReleaseCoordinates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rollout_id": {
+            "title": "Rollout Id",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Success"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "trace_correlation_id": {
+            "title": "Trace Correlation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rollout_id",
+          "pool_id",
+          "adapter",
+          "status",
+          "seed",
+          "trace_correlation_id",
+          "budget_parent_run_id"
+        ],
+        "title": "SwarmRolloutSummary",
         "type": "object"
       },
       "SyncApprovalActionV1": {
@@ -36183,16 +37639,18 @@
         "description": "Backend authority used to serve one transcript page.",
         "enum": [
           "smr_control_plane.redis.live_transcript.v1",
-          "smr_transcript_events.terminal_archive.v1"
+          "smr_transcript_events.terminal_archive.v1",
+          "smr_transcript_events.durable_replay.v1"
         ],
         "title": "TranscriptProjectionAuthority",
         "type": "string"
       },
       "TranscriptReplayMode": {
-        "description": "Ordering domain used by transcript page cursors.",
+        "description": "Ordering domain used by transcript page cursors.\n\n``live_tail`` pages come from the Redis live stream while the run is live.\n``terminal_archive`` pages replay durable transcript rows after the run is\nterminal. ``durable_replay`` pages replay durable rows for a live run whose\nlive stream no longer holds the requested range (trimmed or drained) or\nwhen the caller resumes with a durable cursor.",
         "enum": [
           "live_tail",
-          "terminal_archive"
+          "terminal_archive",
+          "durable_replay"
         ],
         "title": "TranscriptReplayMode",
         "type": "string"
@@ -42859,6 +44317,42 @@
               "description": "Opaque pagination cursor. Accepted forms: '<created_at_iso>', '<created_at_iso>|<run_id>', or '<run_id>'.",
               "title": "Cursor"
             }
+          },
+          {
+            "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+            "in": "query",
+            "name": "origin_runtime_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OriginRuntimeKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+              "title": "Origin Runtime Kind"
+            }
+          },
+          {
+            "description": "Intern Sync session or Async assignment id that launched the run.",
+            "in": "query",
+            "name": "origin_runtime_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern Sync session or Async assignment id that launched the run.",
+              "title": "Origin Runtime Id"
+            }
           }
         ],
         "responses": {
@@ -44611,6 +46105,245 @@
           }
         },
         "summary": "Command Intern Async Assignment",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async-assignments/{assignment_id}/resources": {
+      "get": {
+        "description": "Read the exact recorded assignment, never silently substitute today's singleton.",
+        "operationId": "get_intern_async_assignment_resources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternResourceInventory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Async Assignment Resources",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async-assignments/{assignment_id}/usage": {
+      "get": {
+        "operationId": "get_intern_async_assignment_usage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternSessionUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Async Assignment Usage",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/blockers/{blocker_id}": {
+      "get": {
+        "description": "Read one exact blocker and its durable terminal resolution receipt.",
+        "operationId": "get_intern_async_blocker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncBlockerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Async Blocker",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/blockers/{blocker_id}/open-sync": {
+      "post": {
+        "description": "Open one exact-context Sync handoff without creating an approval.",
+        "operationId": "open_intern_async_blocker_sync",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsyncBlockerOpenSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncBlockerOpenSyncResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Intern Async Blocker Sync",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/async/blockers/{blocker_id}/resolve": {
+      "post": {
+        "description": "Record explicit Sync disposition and durably continue Async work.",
+        "operationId": "resolve_intern_async_blocker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsyncBlockerResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncBlockerResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Intern Async Blocker",
         "tags": [
           "smr",
           "research-intern"
@@ -47737,6 +49470,94 @@
         ]
       }
     },
+    "/smr/research-intern/sync-sessions/{sync_session_id}/resources": {
+      "get": {
+        "description": "See notes/specifications/tanha/current/systems/platform/intern_resource_inventory.md.",
+        "operationId": "get_intern_sync_session_resources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_session_id",
+            "required": true,
+            "schema": {
+              "title": "Sync Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternResourceInventory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Sync Session Resources",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/sync-sessions/{sync_session_id}/usage": {
+      "get": {
+        "description": "Session resource/usage panel projection (receipts only).",
+        "operationId": "get_intern_sync_session_usage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sync_session_id",
+            "required": true,
+            "schema": {
+              "title": "Sync Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternSessionUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Intern Sync Session Usage",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/tasks/{intern_task_id}": {
       "patch": {
         "operationId": "patch_intern_effort_task",
@@ -47911,6 +49732,42 @@
               ],
               "description": "Opaque pagination cursor. Accepted forms: '<created_at_iso>', '<created_at_iso>|<run_id>', or '<run_id>'.",
               "title": "Cursor"
+            }
+          },
+          {
+            "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+            "in": "query",
+            "name": "origin_runtime_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OriginRuntimeKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern runtime kind that launched the run; requires origin_runtime_id.",
+              "title": "Origin Runtime Kind"
+            }
+          },
+          {
+            "description": "Intern Sync session or Async assignment id that launched the run.",
+            "in": "query",
+            "name": "origin_runtime_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Intern Sync session or Async assignment id that launched the run.",
+              "title": "Origin Runtime Id"
             }
           }
         ],
@@ -48417,6 +50274,48 @@
         ]
       }
     },
+    "/smr/runs/{run_id}/resource-settlement": {
+      "get": {
+        "operationId": "get_run_resource_settlement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResourceSettlementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Resource Settlement",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/runs/{run_id}/resume": {
       "post": {
         "operationId": "resume_run",
@@ -48454,6 +50353,60 @@
           }
         },
         "summary": "Resume Run",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/rollouts": {
+      "get": {
+        "operationId": "list_swarm_rollouts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwarmRolloutPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the container-pool rollouts a swarm launched",
         "tags": [
           "smr"
         ]
@@ -49004,6 +50957,7 @@
                           "title": "Event Id"
                         },
                         "kind": {
+                          "description": "Transcript event kind, e.g. message.completed, reasoning.summary, turn.completed, tool.call.completed, or task.completion_claimed (an accepted worker completion claim projected from its durable claim row; payload schema smr.task-completion-claimed.v1 with claim_id, task_key, participant_id, text and summary).",
                           "minLength": 1,
                           "title": "Kind",
                           "type": "string"

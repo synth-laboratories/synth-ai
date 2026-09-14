@@ -892,6 +892,7 @@ class InternAsyncCheckpoint(_StrictContract):
 
 
 class InternAsyncBlocker(_StrictContract):
+    async_assignment_id: str | None = None
     """One Async blocker.
 
     Most fields are populated only once the blocker has been opened as a Sync

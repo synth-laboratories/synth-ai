@@ -58,6 +58,7 @@ class ActorHarness(StrEnum):
 
 class ActiveActorModel(StrEnum):
     """First-class models allowed for shared top-level agent selection."""
+    OPENROUTER_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
 
     GPT_5_4_MINI = "gpt-5.4-mini"
     GPT_5_6_LUNA = "gpt-5.6-luna"
@@ -85,8 +86,6 @@ class DeprecatedActorModel(StrEnum):
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
-    GROK_4_3 = "x-ai/grok-4.3"
-    GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
     KIMI_K3_BASETEN = "baseten/moonshotai/Kimi-K3"
     GLM_5_2 = "baseten/zai-org/GLM-5.2"
@@ -101,6 +100,7 @@ class ActorModel(StrEnum):
     :class:`DeprecatedActorModel` only for legacy actor-specific overrides.
     """
 
+    OPENROUTER_GPT_5_6_LUNA = ActiveActorModel.OPENROUTER_GPT_5_6_LUNA.value
     GPT_5_4_MINI = ActiveActorModel.GPT_5_4_MINI.value
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
@@ -122,8 +122,6 @@ class ActorModel(StrEnum):
     DEEPSEEK_REASONER = DeprecatedActorModel.DEEPSEEK_REASONER.value
     CURSOR_GPT_5 = DeprecatedActorModel.CURSOR_GPT_5.value
     CURSOR_SONNET_4 = DeprecatedActorModel.CURSOR_SONNET_4.value
-    GROK_4_3 = DeprecatedActorModel.GROK_4_3.value
-    GROK_BUILD = DeprecatedActorModel.GROK_BUILD.value
     KIMI_K2_6 = DeprecatedActorModel.KIMI_K2_6.value
     KIMI_K3_BASETEN = DeprecatedActorModel.KIMI_K3_BASETEN.value
     GLM_5_2 = DeprecatedActorModel.GLM_5_2.value
@@ -196,7 +194,6 @@ class ResourceProvider(StrEnum):
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
-    XAI = "xai"
     MODAL = "modal"
     OPENAI_CHATGPT = "openai_chatgpt"
     BASETEN = "baseten"
@@ -212,7 +209,6 @@ class CredentialProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
-    XAI = "xai"
     TINKER = "tinker"
     SYNTH_INTERNAL = "synth_internal"
 
@@ -227,7 +223,6 @@ class InferenceProvider(StrEnum):
     GOOGLE = "google"
     OPENROUTER = "openrouter"
     SYNTH = "synth"
-    XAI = "xai"
     SYNTH_INTERNAL = "synth_internal"
 
 
@@ -250,7 +245,6 @@ _PUBLIC_PROVIDER_SELECTIONS = frozenset(
         InferenceProvider.OPENAI.value,
         InferenceProvider.MODAL.value,
         InferenceProvider.SYNTH.value,
-        InferenceProvider.XAI.value,
         InferenceProvider.CURSOR.value,
     }
 )
@@ -280,7 +274,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, modal, openai, synth, xai, and cursor; "
+            "provider supports auto, modal, openai, synth, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):
@@ -1294,6 +1288,10 @@ class Swarm:
     finished_at: datetime | None = None
     terminal_outcome: SwarmTerminalOutcome | None = None
     work_completed: bool = False
+    # The Intern Sync session ("sync") or Async assignment ("async") that
+    # launched this swarm; both None for swarms no Intern runtime started.
+    origin_runtime_kind: str | None = None
+    origin_runtime_id: str | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Swarm:
@@ -1301,6 +1299,9 @@ class Swarm:
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
         terminal_outcome = optional_text(payload, "terminal_outcome")
+        origin_runtime_kind = optional_text(payload, "origin_runtime_kind")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"swarm origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         return cls(
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
@@ -1318,6 +1319,8 @@ class Swarm:
                 SwarmTerminalOutcome(terminal_outcome) if terminal_outcome is not None else None
             ),
             work_completed=optional_bool(payload, "work_completed"),
+            origin_runtime_kind=origin_runtime_kind,
+            origin_runtime_id=optional_text(payload, "origin_runtime_id"),
         )
 
     def require_terminal_outcome(self) -> SwarmTerminalOutcome:
