@@ -46,6 +46,12 @@ from synth_ai.mcp.research.tools.factory_results import (
 )
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
+from synth_ai.mcp.research.tools.index import (
+    INDEX_TOOL_NAMES,
+    INDEX_WRITE_TOOL_NAMES,
+    IndexClientFactory,
+    build_index_tools,
+)
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
 from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
@@ -409,16 +415,25 @@ class ResearchMcpServer:
         api_key: str | None = None,
         backend_base: str | None = None,
         include_advanced_tools: bool = False,
+        index_client_factory: IndexClientFactory | None = None,
+        index_write_enabled: bool = True,
     ) -> None:
         self._default_api_key = api_key
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
+        self._index_client_factory = index_client_factory
+        self._index_write_enabled = index_write_enabled
         self._tools = build_tool_registry(self._build_tools())
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
         if self._include_advanced_tools:
             return self._tools
-        return {name: tool for name, tool in self._tools.items() if name in _STABLE_TOOL_NAMES}
+        return {
+            name: tool
+            for name, tool in self._tools.items()
+            if name in _STABLE_TOOL_NAMES
+            or (self._index_client_factory is not None and name in INDEX_TOOL_NAMES)
+        }
 
     def available_tool_names(self) -> list[str]:
         names = sorted(self._advertised_tools())
@@ -468,6 +483,15 @@ class ResearchMcpServer:
 
     def _build_tools(self) -> list[ToolDefinition]:
         return [
+            *(
+                [
+                    tool
+                    for tool in build_index_tools(self._index_client_factory)
+                    if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
+                ]
+                if self._index_client_factory is not None
+                else []
+            ),
             *build_project_tools(self),
             *build_factory_tools(self),
             *build_factory_result_tools(self),
@@ -2856,9 +2880,80 @@ def _advanced_tools_requested() -> bool:
     return str(os.getenv(ADVANCED_TOOLS_ENV) or "").strip().lower() in {"1", "true", "yes"}
 
 
+def _explicit_index_flag(name: str) -> bool:
+    value = os.environ.get(name, "false").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false")
+    return value == "true"
+
+
+def _stdio_server() -> ResearchMcpServer:
+    """Capture explicit Index process config; construct clients only on invocation.
+
+    No credential discovery, home files, or network access during MCP discovery.
+    Each tool invocation owns and closes its explicitly authenticated SDK client.
+    """
+    from contextlib import contextmanager
+
+    enabled = _explicit_index_flag("SYNTH_INDEX_MCP_ENABLED")
+    writes = _explicit_index_flag("SYNTH_INDEX_MCP_WRITE_ENABLED")
+    if writes and not enabled:
+        raise ValueError("Index MCP writes require SYNTH_INDEX_MCP_ENABLED=true")
+    factory = None
+    api_key = None
+    backend_base = None
+    if enabled:
+        api_key = os.environ.get("SYNTH_API_KEY", "").strip()
+        backend_base = os.environ.get("SYNTH_BACKEND_URL", "").strip()
+        if not backend_base:
+            raise ValueError("Index MCP requires explicit SYNTH_BACKEND_URL")
+        if writes and not api_key:
+            raise ValueError("Index MCP writes require explicit SYNTH_API_KEY")
+        from urllib.parse import urlsplit
+
+        url = urlsplit(backend_base)
+        if (
+            url.scheme not in {"http", "https"}
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError(
+                "SYNTH_BACKEND_URL must be an HTTP(S) URL without credentials, query, or fragment"
+            )
+
+        @contextmanager
+        def configured_index_client():
+            if api_key:
+                from synth_ai import SynthClient
+
+                with SynthClient(api_key=api_key, base_url=backend_base) as client:
+                    yield client.index
+                return
+            from synth_ai.core.http.transport import HttpTransport
+            from synth_ai.sdk.index.client import PublicIndexAPI
+
+            transport = HttpTransport(base_url=backend_base, headers={})
+            try:
+                yield PublicIndexAPI(transport)
+            finally:
+                transport.close()
+
+        factory = configured_index_client
+    return ResearchMcpServer(
+        api_key=api_key,
+        backend_base=backend_base,
+        include_advanced_tools=_advanced_tools_requested(),
+        index_client_factory=factory,
+        index_write_enabled=writes,
+    )
+
+
 def main() -> None:
     """CLI entrypoint for the stdio MCP server."""
-    ResearchMcpServer(include_advanced_tools=_advanced_tools_requested()).serve_stdio()
+    _stdio_server().serve_stdio()
 
 
 __all__ = [
