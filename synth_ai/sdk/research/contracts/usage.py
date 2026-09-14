@@ -130,23 +130,33 @@ class TokenCounts:
         }
 
 
+_TOKEN_USAGE_FIELDS = frozenset({"sessions_seen", "session_snapshots_count", "totals", "by_model"})
+
+
 @dataclass(frozen=True, slots=True)
 class TokenUsage:
     sessions_seen: int
     session_snapshots_count: int
     totals: TokenCounts
     by_model: Mapping[str, TokenCounts]
+    # Backend SmrSwarmTokenUsageResponse.unattributed_sessions (default 0):
+    # sessions whose token rows carry no resolved model. Backends before
+    # 2026-07-26 omit it, so it is accepted but not required.
+    unattributed_sessions: int = 0
 
     def __post_init__(self) -> None:
         if self.session_snapshots_count != self.totals.snapshots:
             raise ValueError("session_snapshots_count must equal totals.snapshots")
+        if self.unattributed_sessions > self.sessions_seen:
+            raise ValueError("unattributed_sessions cannot exceed sessions_seen")
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> TokenUsage:
+        has_unattributed = isinstance(value, dict) and "unattributed_sessions" in value
         payload = _exact_object(
             value,
             label="swarm token usage",
-            fields=frozenset({"sessions_seen", "session_snapshots_count", "totals", "by_model"}),
+            fields=_TOKEN_USAGE_FIELDS | ({"unattributed_sessions"} if has_unattributed else set()),
         )
         models = object_value(payload["by_model"], operation_id="swarm token usage.by_model")
         return cls(
@@ -156,12 +166,16 @@ class TokenUsage:
             by_model=MappingProxyType(
                 {name: TokenCounts.from_wire(model) for name, model in models.items()}
             ),
+            unattributed_sessions=(
+                _non_negative_int(payload, "unattributed_sessions") if has_unattributed else 0
+            ),
         )
 
     def to_wire(self) -> JsonObject:
         return {
             "sessions_seen": self.sessions_seen,
             "session_snapshots_count": self.session_snapshots_count,
+            "unattributed_sessions": self.unattributed_sessions,
             "totals": self.totals.to_wire(),
             "by_model": {name: usage.to_wire() for name, usage in self.by_model.items()},
         }

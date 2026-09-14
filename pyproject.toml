@@ -20,6 +20,9 @@ synth-ai = "synth_ai.cli:cli"
 synth-ai-research-mcp = "synth_ai.mcp.research.server:main"
 
 [project.optional-dependencies]
+pools = [
+    "synth-containers>=0.4.3.dev2026091126,<0.5",
+]
 dev = [
     "build>=1.2.2.post1",
     "twine>=4.0.0",

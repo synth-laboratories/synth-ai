@@ -263,32 +263,42 @@ class EvidenceWorkProduct:
         }
 
 
+_FRESHNESS_FIELDS = frozenset(
+    {
+        "generated_at",
+        "artifact_count",
+        "work_product_count",
+        "run_is_terminal",
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceFreshness:
     generated_at: datetime
     artifact_count: int
     work_product_count: int
     run_is_terminal: bool
+    # Backend SmrSwarmEvidenceFreshnessResponse.tool_call_count (default 0);
+    # older backends omit it, so it is accepted but not required.
+    tool_call_count: int = 0
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> EvidenceFreshness:
+        has_tool_call_count = isinstance(value, dict) and "tool_call_count" in value
         payload = _exact_object(
             value,
             label="swarm evidence freshness",
-            fields=frozenset(
-                {
-                    "generated_at",
-                    "artifact_count",
-                    "work_product_count",
-                    "run_is_terminal",
-                }
-            ),
+            fields=_FRESHNESS_FIELDS | ({"tool_call_count"} if has_tool_call_count else set()),
         )
         return cls(
             generated_at=required_datetime(payload, "generated_at"),
             artifact_count=_non_negative_int(payload, "artifact_count"),
             work_product_count=_non_negative_int(payload, "work_product_count"),
             run_is_terminal=required_bool(payload, "run_is_terminal"),
+            tool_call_count=(
+                _non_negative_int(payload, "tool_call_count") if has_tool_call_count else 0
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -296,7 +306,90 @@ class EvidenceFreshness:
             "generated_at": self.generated_at.isoformat(),
             "artifact_count": self.artifact_count,
             "work_product_count": self.work_product_count,
+            "tool_call_count": self.tool_call_count,
             "run_is_terminal": self.run_is_terminal,
+        }
+
+
+class SwarmToolCallStatus(StrEnum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    UNKNOWN_TOOL = "unknown_tool"
+
+
+_TOOL_CALL_FIELDS = frozenset(
+    {
+        "tool_call_id",
+        "stable_actor_key",
+        "actor_role",
+        "correlation_id",
+        "bundle_name",
+        "tool_name",
+        "arguments_digest",
+        "status",
+        "error_code",
+        "retryable",
+        "duration_ms",
+        "occurred_at",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SwarmToolCallEvidence:
+    """Secret-safe durable outcome for one run-scoped MCP invocation.
+
+    Mirrors backend ``SmrSwarmToolCallEvidenceResponse``; arguments are only a
+    digest, never the values.
+    """
+
+    tool_call_id: str
+    actor_role: str
+    tool_name: str
+    arguments_digest: str
+    status: SwarmToolCallStatus
+    retryable: bool
+    duration_ms: int
+    occurred_at: datetime
+    stable_actor_key: str | None = None
+    correlation_id: str | None = None
+    bundle_name: str | None = None
+    error_code: str | None = None
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmToolCallEvidence:
+        payload = _exact_object(
+            value, label="retrieve_swarm_evidence.tool_calls", fields=_TOOL_CALL_FIELDS
+        )
+        return cls(
+            tool_call_id=required_text(payload, "tool_call_id"),
+            actor_role=required_text(payload, "actor_role"),
+            tool_name=required_text(payload, "tool_name"),
+            arguments_digest=required_text(payload, "arguments_digest"),
+            status=SwarmToolCallStatus(required_text(payload, "status")),
+            retryable=required_bool(payload, "retryable"),
+            duration_ms=_non_negative_int(payload, "duration_ms"),
+            occurred_at=required_datetime(payload, "occurred_at"),
+            stable_actor_key=optional_text(payload, "stable_actor_key"),
+            correlation_id=optional_text(payload, "correlation_id"),
+            bundle_name=optional_text(payload, "bundle_name"),
+            error_code=optional_text(payload, "error_code"),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "tool_call_id": self.tool_call_id,
+            "stable_actor_key": self.stable_actor_key,
+            "actor_role": self.actor_role,
+            "correlation_id": self.correlation_id,
+            "bundle_name": self.bundle_name,
+            "tool_name": self.tool_name,
+            "arguments_digest": self.arguments_digest,
+            "status": self.status.value,
+            "error_code": self.error_code,
+            "retryable": self.retryable,
+            "duration_ms": self.duration_ms,
+            "occurred_at": self.occurred_at.isoformat(),
         }
 
 
@@ -307,6 +400,7 @@ class SwarmEvidence:
     artifacts: tuple[EvidenceArtifact, ...]
     work_products: tuple[EvidenceWorkProduct, ...]
     freshness: EvidenceFreshness
+    tool_calls: tuple[SwarmToolCallEvidence, ...] = ()
 
     def __post_init__(self) -> None:
         if self.freshness.artifact_count != len(self.artifacts):
@@ -331,6 +425,8 @@ class SwarmEvidence:
                     # consume them yet.
                     "selected_artifact_contents",
                     "trace_publications",
+                    # Durable run-scoped MCP invocation outcomes (digests only).
+                    "tool_calls",
                     "freshness",
                 }
             ),
@@ -355,6 +451,13 @@ class SwarmEvidence:
                 )
             ),
             freshness=EvidenceFreshness.from_wire(payload["freshness"]),
+            tool_calls=tuple(
+                SwarmToolCallEvidence.from_wire(item)
+                for item in array_value(
+                    payload["tool_calls"],
+                    operation_id="retrieve_swarm_evidence.tool_calls",
+                )
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -366,6 +469,7 @@ class SwarmEvidence:
             "work_products": [item.to_wire() for item in self.work_products],
             "selected_artifact_contents": [],
             "trace_publications": [],
+            "tool_calls": [call.to_wire() for call in self.tool_calls],
             "freshness": self.freshness.to_wire(),
         }
 
@@ -376,6 +480,8 @@ __all__ = [
     "EvidenceFreshness",
     "EvidenceWorkProduct",
     "SwarmEvidence",
+    "SwarmToolCallEvidence",
+    "SwarmToolCallStatus",
     "WorkProductArtifactLink",
     "WorkProductArtifactRole",
     "WorkProductBlocker",
