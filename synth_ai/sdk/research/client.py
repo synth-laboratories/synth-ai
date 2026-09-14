@@ -45,7 +45,6 @@ class Client:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 30.0,
-        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = HttpTransport(
@@ -54,10 +53,7 @@ class Client:
             timeout_seconds=timeout_seconds,
         )
         self.projects = ProjectsAPI(self._transport)
-        self.intern = ResearchInternAPI(
-            self._transport,
-            allow_legacy_intern_sessions=allow_legacy_intern_sessions,
-        )
+        self.intern = ResearchInternAPI(self._transport)
         self.swarms = SwarmsAPI(self._transport)
         self.factories = FactoriesAPI(self._transport)
         self.environments = EnvironmentsAPI(self._transport)
@@ -119,7 +115,6 @@ class AsyncClient:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 30.0,
-        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = AsyncHttpTransport(
@@ -128,10 +123,7 @@ class AsyncClient:
             timeout_seconds=timeout_seconds,
         )
         self.projects = AsyncProjectsAPI(self._transport)
-        self.intern = AsyncResearchInternAPI(
-            self._transport,
-            allow_legacy_intern_sessions=allow_legacy_intern_sessions,
-        )
+        self.intern = AsyncResearchInternAPI(self._transport)
         self.swarms = AsyncSwarmsAPI(self._transport)
         self.factories = AsyncFactoriesAPI(self._transport)
         self.environments = AsyncEnvironmentsAPI(self._transport)
