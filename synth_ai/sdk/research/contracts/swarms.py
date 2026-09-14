@@ -10,6 +10,7 @@ from types import MappingProxyType
 from typing import TypeAlias, cast
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.sdk.index.agent_policy import IndexAccessPolicy
 from synth_ai.sdk.research.contracts._wire import (
     object_value,
     optional_bool,
@@ -444,6 +445,8 @@ class RunPolicy:
     funding_source: FundingSource | None = None
     access: RunPolicyAccess | None = None
     limits: RunPolicyLimits | None = None
+    # Opt-in Synth Index read tools for this run; None keeps existing runs unchanged.
+    index: IndexAccessPolicy | None = None
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {}
@@ -453,6 +456,8 @@ class RunPolicy:
             payload["access"] = self.access.to_wire()
         if self.limits is not None:
             payload["limits"] = self.limits.to_wire()
+        if self.index is not None:
+            payload["index"] = self.index.model_dump(mode="json")
         return payload
 
 

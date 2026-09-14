@@ -9,6 +9,10 @@ from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 if TYPE_CHECKING:
+    from synth_ai.core.http.async_transport import AsyncHttpTransport
+    from synth_ai.core.http.transport import HttpTransport
+    from synth_ai.sdk.index.client import AsyncIndexAPI, IndexAPI
+    from synth_ai.sdk.messaging import AsyncMessagingClient, MessagingClient
     from synth_ai.sdk.optimizers import AsyncOptimizersClient, OptimizersClient
     from synth_ai.sdk.research import AsyncResearchClient
     from synth_ai.sdk.research.facade import ResearchClient
@@ -41,6 +45,37 @@ class SynthClient:
         self.timeout_seconds = timeout_seconds
         self._research_client: ResearchClient | None = None
         self._optimizers_client: OptimizersClient | None = None
+        self._index_api: IndexAPI | None = None
+        self._index_transport: HttpTransport | None = None
+        self._messaging_client: MessagingClient | None = None
+
+    @property
+    def index(self) -> IndexAPI:
+        """Unreleased fast research search and exact-reference contents namespace."""
+        if self._index_api is None:
+            from synth_ai.core.http.transport import HttpTransport
+            from synth_ai.sdk.index.client import IndexAPI
+
+            self._index_transport = HttpTransport(
+                base_url=self.base_url,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout_seconds=self.timeout_seconds,
+            )
+            self._index_api = IndexAPI(self._index_transport)
+        return self._index_api
+
+    @property
+    def messaging(self) -> MessagingClient:
+        """Typed threads, history and explicit Workshop device grants."""
+        if self._messaging_client is None:
+            from synth_ai.sdk.messaging import MessagingClient
+
+            self._messaging_client = MessagingClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout_seconds,
+            )
+        return self._messaging_client
 
     @property
     def research(self) -> ResearchClient:
@@ -57,6 +92,13 @@ class SynthClient:
 
     def close(self) -> None:
         """Close all lazily opened SDK transports."""
+        if self._index_transport is not None:
+            self._index_transport.close()
+            self._index_transport = None
+            self._index_api = None
+        if self._messaging_client is not None:
+            self._messaging_client.close()
+            self._messaging_client = None
         if self._research_client is not None:
             self._research_client.close()
             self._research_client = None
@@ -99,6 +141,37 @@ class AsyncSynthClient:
         self.timeout_seconds = timeout_seconds
         self._async_research_client: AsyncResearchClient | None = None
         self._async_optimizers_client: AsyncOptimizersClient | None = None
+        self._index_api: AsyncIndexAPI | None = None
+        self._index_transport: AsyncHttpTransport | None = None
+        self._async_messaging_client: AsyncMessagingClient | None = None
+
+    @property
+    def index(self) -> AsyncIndexAPI:
+        """Unreleased asynchronous fast search and exact-reference contents."""
+        if self._index_api is None:
+            from synth_ai.core.http.async_transport import AsyncHttpTransport
+            from synth_ai.sdk.index.client import AsyncIndexAPI
+
+            self._index_transport = AsyncHttpTransport(
+                base_url=self.base_url,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout_seconds=self.timeout_seconds,
+            )
+            self._index_api = AsyncIndexAPI(self._index_transport)
+        return self._index_api
+
+    @property
+    def messaging(self) -> AsyncMessagingClient:
+        """Asynchronous threads, history and explicit Workshop device grants."""
+        if self._async_messaging_client is None:
+            from synth_ai.sdk.messaging import AsyncMessagingClient
+
+            self._async_messaging_client = AsyncMessagingClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout_seconds,
+            )
+        return self._async_messaging_client
 
     @property
     def research(self) -> AsyncResearchClient:
@@ -125,6 +198,13 @@ class AsyncSynthClient:
 
     async def close(self) -> None:
         """Close all asynchronous Research transports."""
+        if self._index_transport is not None:
+            await self._index_transport.close()
+            self._index_transport = None
+            self._index_api = None
+        if self._async_messaging_client is not None:
+            await self._async_messaging_client.close()
+            self._async_messaging_client = None
         if self._async_research_client is not None:
             await self._async_research_client.close()
             self._async_research_client = None
