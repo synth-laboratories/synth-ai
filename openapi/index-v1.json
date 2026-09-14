@@ -1916,6 +1916,7 @@
       },
       "IndexUsageSummary": {
         "additionalProperties": false,
+        "description": "Frozen shape: released SDKs validate it with ``extra=\"forbid\"``.\n\n``private.spent_cents`` counts wallet-funded searches only (the spend cap\nprotects customer money); promo-funded searches appear in\n``PromoCreditSummary`` instead. ``private.enabled`` is true for invited or\npromo-enrolled orgs.",
         "properties": {
           "period_start": {
             "format": "date-time",
@@ -2240,6 +2241,28 @@
         "title": "MyRewards",
         "type": "object"
       },
+      "PrivatePromoCredit": {
+        "additionalProperties": false,
+        "description": "Account/usage page balance; promotional allowance, never cash or earnings.",
+        "properties": {
+          "allocated_cents": {"minimum": 0.0, "title": "Allocated Cents", "type": "integer"},
+          "campaign_id": {"title": "Campaign Id", "type": "string"},
+          "carryover": {"const": false, "default": false, "title": "Carryover", "type": "boolean"},
+          "consumed_cents": {"minimum": 0.0, "title": "Consumed Cents", "type": "integer"},
+          "expires_at": {"format": "date-time", "title": "Expires At", "type": "string"},
+          "paid_overflow_enabled": {"title": "Paid Overflow Enabled", "type": "boolean"},
+          "period_start": {"format": "date-time", "title": "Period Start", "type": "string"},
+          "remaining_cents": {"minimum": 0.0, "title": "Remaining Cents", "type": "integer"},
+          "remaining_searches": {"minimum": 0.0, "title": "Remaining Searches", "type": "integer"},
+          "resets_at": {"anyOf": [{"format": "date-time", "type": "string"}, {"type": "null"}], "title": "Resets At"},
+          "status": {"enum": ["active", "exhausted", "expired", "revoked", "campaign_ended"], "title": "Status", "type": "string"},
+          "unit_price_cents": {"minimum": 0.0, "title": "Unit Price Cents", "type": "integer"},
+          "withdrawable": {"const": false, "default": false, "title": "Withdrawable", "type": "boolean"}
+        },
+        "required": ["campaign_id", "status", "period_start", "resets_at", "expires_at", "allocated_cents", "consumed_cents", "remaining_cents", "unit_price_cents", "remaining_searches", "paid_overflow_enabled"],
+        "title": "PrivatePromoCredit",
+        "type": "object"
+      },
       "PrivateSearchCapability": {
         "additionalProperties": false,
         "properties": {
@@ -2497,6 +2520,14 @@
           "reuse"
         ],
         "title": "ProfileView",
+        "type": "object"
+      },
+      "PromoCreditSummary": {
+        "additionalProperties": false,
+        "description": "Separate read model so the strict usage summary shape stays unchanged.",
+        "properties": {"credit": {"anyOf": [{"$ref": "#/components/schemas/PrivatePromoCredit"}, {"type": "null"}]}},
+        "required": ["credit"],
+        "title": "PromoCreditSummary",
         "type": "object"
       },
       "PublicSearchResult": {
@@ -5510,6 +5541,15 @@
         "tags": [
           "index-reads"
         ]
+      }
+    },
+    "/api/v1/index/me/promo-credit": {
+      "get": {
+        "description": "Current-org private-search promo balance; ``credit`` is null if not enrolled.",
+        "operationId": "index.me.promo_credit",
+        "responses": {"200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/PromoCreditSummary"}}}, "description": "Successful Response"}},
+        "summary": "Promo Credit",
+        "tags": ["index"]
       }
     },
     "/api/v1/index/me/rewards": {
