@@ -56,6 +56,13 @@ CONTAINER_POOL_OPERATIONS = {
             "/v1/pools/{pool_id}/tasks/{task_id}",
             mutation=True,
         ),
+        _operation(
+            "delete_container_pool_task",
+            HttpMethod.DELETE,
+            "/v1/pools/{pool_id}/tasks/{task_id}",
+            mutation=True,
+            idempotent=True,
+        ),
         # Runtime image releases — the deployment primitive.
         _operation(
             "list_container_pool_runtime_image_releases",
@@ -73,12 +80,49 @@ CONTAINER_POOL_OPERATIONS = {
             HttpMethod.GET,
             "/v1/pools/{pool_id}/runtime_image_releases/{release_id}",
         ),
+        _operation(
+            "delete_container_pool_runtime_image_release",
+            HttpMethod.DELETE,
+            "/v1/pools/{pool_id}/runtime_image_releases/{release_id}",
+            mutation=True,
+            idempotent=True,
+        ),
         # Bind is what actually builds the snapshot; it is not idempotent today.
         _operation(
             "bind_container_pool_runtime_image_release",
             HttpMethod.POST,
             "/v1/pools/{pool_id}/runtime_image_releases/{release_id}/bind",
             mutation=True,
+        ),
+        _operation(
+            "bind_container_pool_task_runtime_image_release",
+            HttpMethod.POST,
+            "/v1/pools/{pool_id}/tasks/{task_id}/runtime_image_releases/{release_id}/bind",
+            mutation=True,
+        ),
+        # Project-bound actor deployments. These are the shared mutation path
+        # for Workshop, Intern, swarms, and direct SDK consumers.
+        _operation(
+            "get_container_pool_deployment",
+            HttpMethod.GET,
+            "/v1/pools/{pool_id}/deployments/{task_id}",
+        ),
+        _operation(
+            "mutate_container_pool_deployment",
+            HttpMethod.POST,
+            "/v1/pools/{pool_id}/deployments/{task_id}/operations",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_container_pool_deployment_operation",
+            HttpMethod.GET,
+            "/v1/pools/{pool_id}/deployment-operations/{operation_id}",
+        ),
+        _operation(
+            "find_container_pool_deployment_operation",
+            HttpMethod.GET,
+            "/v1/pools/{pool_id}/deployments/{task_id}/operations",
         ),
         # Rollouts
         _operation(

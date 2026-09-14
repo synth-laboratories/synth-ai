@@ -23,6 +23,7 @@ from synth_ai.sdk.research.container_pools.contracts import (
     Pool,
     PoolId,
     PoolTask,
+    PoolTaskId,
     Rollout,
     RolloutArtifact,
     RolloutId,
@@ -153,6 +154,29 @@ class ContainerPoolsAPI:
             self._transport.execute(_request("create_container_pool_task", path, body=body))
         )
 
+    def update_task(
+        self,
+        pool_id: PoolId | str,
+        task_id: PoolTaskId | str,
+        request: Mapping[str, Any],
+    ) -> PoolTask:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/tasks/{_seg(task_id, field_name='task_id')}"
+        )
+        return PoolTask.from_wire(
+            self._transport.execute(
+                _request("update_container_pool_task", path, body=_json_object(request))
+            )
+        )
+
+    def delete_task(self, pool_id: PoolId | str, task_id: PoolTaskId | str) -> JsonValue:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/tasks/{_seg(task_id, field_name='task_id')}"
+        )
+        return self._transport.execute(_request("delete_container_pool_task", path))
+
     # -- releases -------------------------------------------------------
 
     def list_releases(self, pool_id: PoolId | str) -> tuple[RuntimeImageRelease, ...]:
@@ -266,6 +290,19 @@ class ContainerPoolsAPI:
             self._transport.execute(_request("get_container_pool_runtime_image_release", path))
         )
 
+    def delete_release(
+        self,
+        pool_id: PoolId | str,
+        release_id: RuntimeImageReleaseId | str,
+    ) -> JsonValue:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/runtime_image_releases/{_seg(release_id, field_name='release_id')}"
+        )
+        return self._transport.execute(
+            _request("delete_container_pool_runtime_image_release", path)
+        )
+
     def bind_release(
         self,
         pool_id: PoolId | str,
@@ -287,6 +324,117 @@ class ContainerPoolsAPI:
                 "bind_container_pool_runtime_image_release",
                 path,
                 timeout_seconds=bind_timeout_seconds,
+            )
+        )
+
+    def bind_task_release(
+        self,
+        pool_id: PoolId | str,
+        task_id: PoolTaskId | str,
+        release_id: RuntimeImageReleaseId | str,
+        *,
+        expected_release_id: RuntimeImageReleaseId | str | None = None,
+        bind_timeout_seconds: float = 1800.0,
+    ) -> JsonValue:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/tasks/{_seg(task_id, field_name='task_id')}"
+            f"/runtime_image_releases/{_seg(release_id, field_name='release_id')}/bind"
+        )
+        query: JsonObject = {}
+        if expected_release_id is not None:
+            query["expected_release_id"] = str(expected_release_id)
+        return self._transport.execute(
+            _request(
+                "bind_container_pool_task_runtime_image_release",
+                path,
+                query=query,
+                timeout_seconds=bind_timeout_seconds,
+            )
+        )
+
+    # -- project-bound deployments ------------------------------------
+
+    def get_deployment(
+        self,
+        pool_id: PoolId | str,
+        task_id: PoolTaskId | str,
+        *,
+        project_id: str,
+    ) -> JsonValue:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/deployments/{_seg(task_id, field_name='task_id')}"
+        )
+        return self._transport.execute(
+            _request("get_container_pool_deployment", path, query={"project_id": project_id})
+        )
+
+    def mutate_deployment(
+        self,
+        pool_id: PoolId | str,
+        task_id: PoolTaskId | str,
+        *,
+        project_id: str,
+        operation: str,
+        idempotency_key: str,
+        payload: Mapping[str, Any] | None = None,
+        expected_revision: str | None = None,
+    ) -> JsonValue:
+        if operation not in {"create", "update", "delete"}:
+            raise ValueError("operation must be create, update, or delete")
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/deployments/{_seg(task_id, field_name='task_id')}/operations"
+        )
+        body: JsonObject = {
+            "project_id": project_id,
+            "operation": operation,
+            "idempotency_key": idempotency_key,
+            "payload": _json_object(payload),
+        }
+        if expected_revision is not None:
+            body["expected_revision"] = expected_revision
+        return self._transport.execute(
+            _request("mutate_container_pool_deployment", path, body=body)
+        )
+
+    def get_deployment_operation(
+        self,
+        pool_id: PoolId | str,
+        operation_id: str,
+        *,
+        project_id: str,
+    ) -> JsonValue:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/deployment-operations/{_seg(operation_id, field_name='operation_id')}"
+        )
+        return self._transport.execute(
+            _request(
+                "get_container_pool_deployment_operation",
+                path,
+                query={"project_id": project_id},
+            )
+        )
+
+    def find_deployment_operation(
+        self,
+        pool_id: PoolId | str,
+        task_id: PoolTaskId | str,
+        *,
+        project_id: str,
+        idempotency_key: str,
+    ) -> JsonValue:
+        path = (
+            f"/v1/pools/{_seg(pool_id, field_name='pool_id')}"
+            f"/deployments/{_seg(task_id, field_name='task_id')}/operations"
+        )
+        return self._transport.execute(
+            _request(
+                "find_container_pool_deployment_operation",
+                path,
+                query={"project_id": project_id, "idempotency_key": idempotency_key},
             )
         )
 

@@ -25,8 +25,10 @@ from synth_ai.sdk.research.container_pools.contracts import (
     RuntimeImageReleaseId,
 )
 from synth_ai.sdk.research.container_pools.packaging import (
+    DockerContextArchive,
     HarborBundle,
     HarborBundleError,
+    build_docker_context_archive,
     build_harbor_bundle_archive,
 )
 
@@ -35,6 +37,7 @@ __all__ = [
     "HARBOR_CONTAINER_SUBTYPE",
     "TERMINAL_ROLLOUT_STATUSES",
     "ContainerPoolsAPI",
+    "DockerContextArchive",
     "HarborBundle",
     "HarborBundleError",
     "Pool",
@@ -47,5 +50,6 @@ __all__ = [
     "RolloutTimeoutError",
     "RuntimeImageRelease",
     "RuntimeImageReleaseId",
+    "build_docker_context_archive",
     "build_harbor_bundle_archive",
 ]
