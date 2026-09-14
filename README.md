@@ -1,12 +1,12 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.18.2-orange synth-ai==0.18.2 -->
+<!-- CI release pins: PyPI-0.19.0-orange synth-ai==0.19.0 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Managed Research and Research Factory.
+Python SDK and CLI for Synth Index, Managed Research, and Research Factory.
 
 **Documentation:** https://docs.usesynth.ai/sdk/overview
 
