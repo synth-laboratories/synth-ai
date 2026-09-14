@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .research_intern import (
     InternAsyncBlocker,
     InternAsyncCommandReceipt,
-    InternRuntimeBinding,
     InternProducedResourceReference,
+    InternRuntimeBinding,
     InternSyncSession,
 )
 

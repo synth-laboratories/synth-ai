@@ -47,6 +47,7 @@ from synth_ai.sdk.research.contracts.factory_operations import (
 from synth_ai.sdk.research.contracts.local_execution_profile import (
     LocalExecutionProfile,
 )
+from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.run_execution import RunExecutionProjection
 from synth_ai.sdk.research.contracts.run_launch import (
     RunLaunchRequest,
@@ -59,7 +60,6 @@ from synth_ai.sdk.research.contracts.run_observability import (
     RunTickingUpdate,
     RunTickMode,
 )
-from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.run_state import ManagedResearchRun
 from synth_ai.sdk.research.contracts.smr_actor_models import (
     SmrActorModelAssignment,

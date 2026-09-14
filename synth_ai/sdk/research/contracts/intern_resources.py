@@ -10,9 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-InternResourceDispositionValue = Literal[
-    "settled", "pending", "unknown", "excluded", "retained"
-]
+InternResourceDispositionValue = Literal["settled", "pending", "unknown", "excluded", "retained"]
 InternRuntimeClosureKind = Literal[
     "conversation_closed",
     "work_cancelled",

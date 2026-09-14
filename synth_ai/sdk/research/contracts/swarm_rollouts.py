@@ -199,7 +199,9 @@ class SwarmRolloutExecution:
         payload = _mapping(payload, "execution")
         if "lease" not in payload:
             raise ValueError("swarm rollout execution must state its lease (null when not used)")
-        lease = SwarmRolloutLease.from_wire(payload["lease"]) if payload["lease"] is not None else None
+        lease = (
+            SwarmRolloutLease.from_wire(payload["lease"]) if payload["lease"] is not None else None
+        )
         disposition = SwarmRolloutLeaseDisposition.from_wire(payload.get("lease_disposition"))
         if (disposition.status == "recorded") != (lease is not None):
             raise ValueError("swarm rollout lease and lease disposition disagree")
@@ -269,8 +271,7 @@ class SwarmRollout:
 
     @classmethod
     def from_wire(cls, payload: object) -> SwarmRollout:
-        if not isinstance(payload, Mapping):
-            raise ValueError("swarm rollout must be an object")
+        payload = _mapping(payload, "swarm rollout")
         seed = payload.get("seed")
         if isinstance(seed, bool) or not isinstance(seed, int):
             raise ValueError("swarm rollout seed must be an integer")
@@ -301,15 +302,18 @@ class SwarmRollout:
             cancelled_at=_optional_datetime(payload, "cancelled_at"),
             release_coordinates=(
                 SwarmRolloutReleaseCoordinates.from_wire(payload["release_coordinates"])
-                if payload.get("release_coordinates") is not None else None
+                if payload.get("release_coordinates") is not None
+                else None
             ),
             logical_intent=(
                 SwarmRolloutLogicalIntent.from_wire(payload["logical_intent"])
-                if payload.get("logical_intent") is not None else None
+                if payload.get("logical_intent") is not None
+                else None
             ),
             execution=(
                 SwarmRolloutExecution.from_wire(payload["execution"])
-                if payload.get("execution") is not None else None
+                if payload.get("execution") is not None
+                else None
             ),
             artifacts=tuple(SwarmRolloutArtifact.from_wire(item) for item in artifacts),
         )

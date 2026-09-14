@@ -25,8 +25,8 @@ from synth_ai.sdk.research.contracts.evidence import (
     SwarmEvidence,
 )
 from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
-from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
 from synth_ai.sdk.research.contracts.status import SwarmStatus
+from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
