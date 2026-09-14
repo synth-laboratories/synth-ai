@@ -237,7 +237,7 @@ class ContainerPoolsAPI:
         model_name: str,
         reasoning_effort: str = "medium",
         harness_subtype: str = "codex",
-        compute_provider: str = "daytona",
+        compute_provider: str | None = None,
         name: str | None = None,
         dockerfile_path: str | None = None,
         metadata: Mapping[str, Any] | None = None,
