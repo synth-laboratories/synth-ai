@@ -1,0 +1,6177 @@
+{
+  "components": {
+    "schemas": {
+      "ActivityDay": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "count"
+        ],
+        "title": "ActivityDay",
+        "type": "object"
+      },
+      "ArtifactObjectDeclaration": {
+        "additionalProperties": false,
+        "description": "One immutable manifest object addressed only by logical path and digest.",
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "logical_path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Logical Path",
+            "type": "string"
+          },
+          "media_type": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "logical_path",
+          "digest_sha256",
+          "size_bytes",
+          "media_type"
+        ],
+        "title": "ArtifactObjectDeclaration",
+        "type": "object"
+      },
+      "ArtifactPublicationFinalize": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id"
+        ],
+        "title": "ArtifactPublicationFinalize",
+        "type": "object"
+      },
+      "ArtifactPublicationPrepareResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "upload_targets": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactUploadTarget"
+            },
+            "maxItems": 100000,
+            "title": "Upload Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "publication_id",
+          "collection_id",
+          "revision",
+          "manifest_digest",
+          "upload_targets"
+        ],
+        "title": "ArtifactPublicationPrepareResponse",
+        "type": "object"
+      },
+      "ArtifactPublicationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ArtifactPublicationStatus"
+          }
+        },
+        "required": [
+          "publication_id",
+          "collection_id",
+          "revision",
+          "manifest_digest",
+          "status"
+        ],
+        "title": "ArtifactPublicationResponse",
+        "type": "object"
+      },
+      "ArtifactPublicationStatus": {
+        "enum": [
+          "building",
+          "committed",
+          "failed",
+          "superseded",
+          "deleted"
+        ],
+        "title": "ArtifactPublicationStatus",
+        "type": "string"
+      },
+      "ArtifactUploadTarget": {
+        "additionalProperties": false,
+        "description": "Create-only upload instructions without a provider storage locator.",
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "logical_path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Logical Path",
+            "type": "string"
+          },
+          "required_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "title": "Required Headers",
+            "type": "object"
+          },
+          "upload_url": {
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "logical_path",
+          "digest_sha256",
+          "upload_url",
+          "required_headers"
+        ],
+        "title": "ArtifactUploadTarget",
+        "type": "object"
+      },
+      "AssessmentView": {
+        "additionalProperties": false,
+        "description": "Comments/claim comments are null/empty for readers without review access.",
+        "properties": {
+          "assessment_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Assessment Id",
+            "type": "string"
+          },
+          "claim_comments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReviewClaimComment"
+            },
+            "maxItems": 128,
+            "title": "Claim Comments",
+            "type": "array"
+          },
+          "comments": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comments"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "reviewer_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevisionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "assessment_id",
+          "reference",
+          "revision_id",
+          "manifest_digest",
+          "reviewer_id",
+          "decision"
+        ],
+        "title": "AssessmentView",
+        "type": "object"
+      },
+      "Assessments": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentView"
+            },
+            "maxItems": 64,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Assessments",
+        "type": "object"
+      },
+      "Capabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "synth.index.api.v1",
+            "default": "synth.index.api.v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "contest_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contest Id"
+          },
+          "contribution_schema_versions": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "title": "Contribution Schema Versions",
+            "type": "array"
+          },
+          "deep_search": {
+            "const": false,
+            "default": false,
+            "title": "Deep Search",
+            "type": "boolean"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/SearchLimits"
+          },
+          "modes": {
+            "items": {
+              "const": "fast",
+              "type": "string"
+            },
+            "title": "Modes",
+            "type": "array"
+          },
+          "private_search": {
+            "$ref": "#/components/schemas/PrivateSearchCapability"
+          },
+          "publication": {
+            "$ref": "#/components/schemas/FeatureCapability"
+          },
+          "review": {
+            "$ref": "#/components/schemas/FeatureCapability"
+          },
+          "search_filters": {
+            "title": "Search Filters",
+            "type": "boolean"
+          },
+          "search_modes": {
+            "items": {
+              "const": "fast",
+              "type": "string"
+            },
+            "title": "Search Modes",
+            "type": "array"
+          },
+          "taxonomy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Taxonomy Version",
+            "type": "string"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/FeatureCapability"
+          },
+          "viewer_capabilities": {
+            "default": [],
+            "items": {
+              "enum": [
+                "award",
+                "contest",
+                "publish",
+                "review"
+              ],
+              "type": "string"
+            },
+            "title": "Viewer Capabilities",
+            "type": "array"
+          },
+          "visibilities": {
+            "items": {
+              "enum": [
+                "public",
+                "private"
+              ],
+              "type": "string"
+            },
+            "title": "Visibilities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contribution_schema_versions",
+          "taxonomy_version",
+          "modes",
+          "search_modes",
+          "visibilities",
+          "search_filters",
+          "private_search",
+          "upload",
+          "review",
+          "publication",
+          "limits"
+        ],
+        "title": "Capabilities",
+        "type": "object"
+      },
+      "Citation": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "manifest_digest",
+          "url"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "CollectionGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "grant_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "subject_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "subject_kind": {
+            "const": "user",
+            "title": "Subject Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "collection_id",
+          "subject_kind",
+          "subject_id",
+          "operations",
+          "created_at"
+        ],
+        "title": "CollectionGrant",
+        "type": "object"
+      },
+      "CollectionGrantRevoked": {
+        "additionalProperties": false,
+        "properties": {
+          "grant_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Grant Id",
+            "type": "string"
+          },
+          "revoked": {
+            "const": true,
+            "default": true,
+            "title": "Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "grant_id"
+        ],
+        "title": "CollectionGrantRevoked",
+        "type": "object"
+      },
+      "CollectionGrantSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "subject_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "subject_kind": {
+            "enum": [
+              "user",
+              "org"
+            ],
+            "title": "Subject Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_kind",
+          "subject_id"
+        ],
+        "title": "CollectionGrantSpec",
+        "type": "object"
+      },
+      "CollectionGrants": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionGrant"
+            },
+            "maxItems": 200,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CollectionGrants",
+        "type": "object"
+      },
+      "CollectionView": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "enum": [
+              "private",
+              "org"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "contribution_count": {
+            "default": 1,
+            "title": "Contribution Count",
+            "type": "integer"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "collection_id",
+          "contribution_id",
+          "name",
+          "audience"
+        ],
+        "title": "CollectionView",
+        "type": "object"
+      },
+      "Collections": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionView"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Collections",
+        "type": "object"
+      },
+      "ContentsItem": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 65536,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "reference",
+          "status"
+        ],
+        "title": "ContentsItem",
+        "type": "object"
+      },
+      "ContentsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentsItem"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "items"
+        ],
+        "title": "ContentsResult",
+        "type": "object"
+      },
+      "ContentsSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "max_bytes": {
+            "default": 65536,
+            "maximum": 65536.0,
+            "minimum": 1.0,
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "References",
+            "type": "array"
+          },
+          "search_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Id"
+          }
+        },
+        "required": [
+          "references"
+        ],
+        "title": "ContentsSpec",
+        "type": "object"
+      },
+      "ContestEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "contest_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contest Id",
+            "type": "string"
+          },
+          "entry_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "evaluator_receipt_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluator Receipt Digest"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "enum": [
+              "submitted",
+              "scored",
+              "reviewed",
+              "disqualified"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "submitted_by": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Submitted By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "contest_id",
+          "reference",
+          "manifest_digest",
+          "submitted_by",
+          "status",
+          "submitted_at"
+        ],
+        "title": "ContestEntry",
+        "type": "object"
+      },
+      "ContestEntrySpec": {
+        "additionalProperties": false,
+        "properties": {
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "ContestEntrySpec",
+        "type": "object"
+      },
+      "ContestReviewSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "comments": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Comments",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "accept",
+              "disqualify"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "comments"
+        ],
+        "title": "ContestReviewSpec",
+        "type": "object"
+      },
+      "ContestScoreSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluator_receipt_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evaluator Receipt Digest",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "score",
+          "evaluator_receipt_digest"
+        ],
+        "title": "ContestScoreSpec",
+        "type": "object"
+      },
+      "ContestSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "closes_at": {
+            "format": "date-time",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "contest_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contest Id",
+            "type": "string"
+          },
+          "rules_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Rules Digest",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contest_id",
+          "title",
+          "rules_digest",
+          "closes_at"
+        ],
+        "title": "ContestSpec",
+        "type": "object"
+      },
+      "ContestStatusSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ContestStatusSpec",
+        "type": "object"
+      },
+      "ContestView": {
+        "additionalProperties": false,
+        "properties": {
+          "closes_at": {
+            "format": "date-time",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "contest_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contest Id",
+            "type": "string"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "rules_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Rules Digest",
+            "type": "string"
+          },
+          "rules_version": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Rules Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contest_id",
+          "title",
+          "status",
+          "rules_version",
+          "rules_digest",
+          "closes_at"
+        ],
+        "title": "ContestView",
+        "type": "object"
+      },
+      "ContributionAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "license": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ArtifactObjectDeclaration"
+          },
+          "role": {
+            "enum": [
+              "summary",
+              "report",
+              "code",
+              "data",
+              "model",
+              "environment",
+              "evidence",
+              "reproduce"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "role",
+          "object",
+          "license"
+        ],
+        "title": "ContributionAsset",
+        "type": "object"
+      },
+      "ContributionAudience": {
+        "enum": [
+          "private",
+          "org",
+          "public"
+        ],
+        "title": "ContributionAudience",
+        "type": "string"
+      },
+      "ContributionClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "author_assessment": {
+            "enum": [
+              "supported",
+              "disproven",
+              "inconclusive",
+              "not_tested"
+            ],
+            "title": "Author Assessment",
+            "type": "string"
+          },
+          "claim_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "contradicting_evidence_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Contradicting Evidence Ids",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "empirical",
+              "composition",
+              "conformance",
+              "diagnostic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing_evidence_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Evidence Reason"
+          },
+          "scope": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          },
+          "statement": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          },
+          "supporting_evidence_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Supporting Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "claim_id",
+          "kind",
+          "statement",
+          "scope",
+          "author_assessment"
+        ],
+        "title": "ContributionClaim",
+        "type": "object"
+      },
+      "ContributionDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_revision": {
+            "const": 1,
+            "default": 1,
+            "title": "Artifact Revision",
+            "type": "integer"
+          },
+          "collection_id": {
+            "format": "uuid",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Manifest Schema Version",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "const": "draft",
+            "default": "draft",
+            "title": "Status",
+            "type": "string"
+          },
+          "visibility": {
+            "const": "private",
+            "default": "private",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "collection_id"
+        ],
+        "title": "ContributionDraft",
+        "type": "object"
+      },
+      "ContributionKind": {
+        "enum": [
+          "research_report",
+          "dataset",
+          "recipe",
+          "implementation",
+          "model",
+          "replication",
+          "engineering_note"
+        ],
+        "title": "ContributionKind",
+        "type": "string"
+      },
+      "ContributionOrigin": {
+        "enum": [
+          "user",
+          "synth",
+          "imported"
+        ],
+        "title": "ContributionOrigin",
+        "type": "string"
+      },
+      "ContributionPackage-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "card": {
+            "$ref": "#/components/schemas/ResearchCard"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionClaim"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Claims",
+            "type": "array"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "maxItems": 512,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ContributionProvenance"
+          },
+          "reproduction": {
+            "$ref": "#/components/schemas/Reproduction"
+          },
+          "requested_audience": {
+            "$ref": "#/components/schemas/ContributionAudience",
+            "default": "private"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rights_attested": {
+            "title": "Rights Attested",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sensitive_data": {
+            "enum": [
+              "none_declared",
+              "declared",
+              "unknown"
+            ],
+            "title": "Sensitive Data",
+            "type": "string"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "kind",
+          "title",
+          "abstract",
+          "research_areas",
+          "workflow_stages",
+          "card",
+          "assets",
+          "claims",
+          "provenance",
+          "reproduction",
+          "rights_attested",
+          "sensitive_data"
+        ],
+        "title": "ContributionPackage",
+        "type": "object"
+      },
+      "ContributionPackage-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "card": {
+            "$ref": "#/components/schemas/ResearchCard"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionClaim"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Claims",
+            "type": "array"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "maxItems": 512,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ContributionProvenance"
+          },
+          "reproduction": {
+            "$ref": "#/components/schemas/Reproduction"
+          },
+          "requested_audience": {
+            "$ref": "#/components/schemas/ContributionAudience",
+            "default": "private"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rights_attested": {
+            "title": "Rights Attested",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sensitive_data": {
+            "enum": [
+              "none_declared",
+              "declared",
+              "unknown"
+            ],
+            "title": "Sensitive Data",
+            "type": "string"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "kind",
+          "title",
+          "abstract",
+          "research_areas",
+          "workflow_stages",
+          "card",
+          "assets",
+          "claims",
+          "provenance",
+          "reproduction",
+          "rights_attested",
+          "sensitive_data"
+        ],
+        "title": "ContributionPackage",
+        "type": "object"
+      },
+      "ContributionProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditedContributor"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Contributors",
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContributionOrigin"
+          },
+          "tools": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Tools",
+            "type": "array"
+          },
+          "upstream": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 64,
+            "title": "Upstream",
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "contributors"
+        ],
+        "title": "ContributionProvenance",
+        "type": "object"
+      },
+      "ContributionReference": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id"
+        ],
+        "title": "ContributionReference",
+        "type": "object"
+      },
+      "ContributionSubmission": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RevisionStatus"
+          }
+        },
+        "required": [
+          "reference",
+          "status",
+          "manifest_digest"
+        ],
+        "title": "ContributionSubmission",
+        "type": "object"
+      },
+      "ContributionSubmitSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_id": {
+            "format": "uuid",
+            "title": "Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id"
+        ],
+        "title": "ContributionSubmitSpec",
+        "type": "object"
+      },
+      "ContributionUploadPrepared": {
+        "additionalProperties": false,
+        "description": "Transient transfer instructions; never store signed URLs in replay receipts.",
+        "properties": {
+          "descriptor_json": {
+            "maxLength": 1048576,
+            "title": "Descriptor Json",
+            "type": "string"
+          },
+          "transfer": {
+            "$ref": "#/components/schemas/ArtifactPublicationPrepareResponse"
+          }
+        },
+        "required": [
+          "descriptor_json",
+          "transfer"
+        ],
+        "title": "ContributionUploadPrepared",
+        "type": "object"
+      },
+      "ContributionUploadSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "package": {
+            "$ref": "#/components/schemas/ContributionPackage-Input"
+          },
+          "publication_id": {
+            "format": "uuid",
+            "title": "Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id",
+          "package"
+        ],
+        "title": "ContributionUploadSpec",
+        "type": "object"
+      },
+      "ContributionView": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAudience"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contest_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Contest Ids",
+            "type": "array"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevisionView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "generation": {
+            "minimum": 0.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "indexing_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "not_indexed",
+                  "pending",
+                  "indexed",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexing State"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContributionOrigin"
+          },
+          "owner_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "revisions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RevisionSummary"
+            },
+            "maxItems": 256,
+            "title": "Revisions",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "withdrawal_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Reason"
+          },
+          "withdrawn": {
+            "default": false,
+            "title": "Withdrawn",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "owner_id",
+          "origin",
+          "status",
+          "generation"
+        ],
+        "title": "ContributionView",
+        "type": "object"
+      },
+      "CreateContributionSpec": {
+        "additionalProperties": false,
+        "description": "Creation accepts no client-selected identity, origin, or visibility.",
+        "properties": {},
+        "title": "CreateContributionSpec",
+        "type": "object"
+      },
+      "CreditedContributor": {
+        "additionalProperties": false,
+        "properties": {
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "research",
+                "code",
+                "data",
+                "evaluation",
+                "writing",
+                "replication"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "principal_id",
+          "roles"
+        ],
+        "title": "CreditedContributor",
+        "type": "object"
+      },
+      "EvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "evidence_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "comparison",
+              "experiment",
+              "evaluation",
+              "trace",
+              "manifest",
+              "conformance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "locator": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Locator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "kind",
+          "asset_id",
+          "locator"
+        ],
+        "title": "EvidenceReference",
+        "type": "object"
+      },
+      "FeatureCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "FeatureCapability",
+        "type": "object"
+      },
+      "GithubIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "login": {
+            "title": "Login",
+            "type": "string"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "login",
+          "verified"
+        ],
+        "title": "GithubIdentity",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IndexUsageSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "private": {
+            "$ref": "#/components/schemas/PrivateUsage"
+          },
+          "public": {
+            "$ref": "#/components/schemas/PublicUsage"
+          },
+          "resets_at": {
+            "format": "date-time",
+            "title": "Resets At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_start",
+          "resets_at",
+          "public",
+          "private"
+        ],
+        "title": "IndexUsageSummary",
+        "type": "object"
+      },
+      "Leaderboard": {
+        "additionalProperties": false,
+        "properties": {
+          "contest_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contest Id",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardEntry"
+            },
+            "maxItems": 500,
+            "title": "Entries",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contest_id",
+          "status",
+          "entries"
+        ],
+        "title": "Leaderboard",
+        "type": "object"
+      },
+      "LeaderboardEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "evaluation_receipt_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evaluation Receipt Id",
+            "type": "string"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "score_label": {
+            "title": "Score Label",
+            "type": "string"
+          },
+          "submitted_by": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Submitted By",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "rank",
+          "entry_id",
+          "reference",
+          "submitted_by",
+          "score",
+          "score_label",
+          "evaluation_receipt_id"
+        ],
+        "title": "LeaderboardEntry",
+        "type": "object"
+      },
+      "MeView": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "default": [],
+            "items": {
+              "enum": [
+                "award",
+                "contest",
+                "publish",
+                "review"
+              ],
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "org_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "reviewer": {
+            "title": "Reviewer",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "principal_id",
+          "org_id",
+          "reviewer"
+        ],
+        "title": "MeView",
+        "type": "object"
+      },
+      "MyContribution": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAudience"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "generation": {
+            "minimum": 0.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RevisionStatus"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "reference",
+          "contribution_id",
+          "status",
+          "generation"
+        ],
+        "title": "MyContribution",
+        "type": "object"
+      },
+      "MyContributions": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyContribution"
+            },
+            "maxItems": 200,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "MyContributions",
+        "type": "object"
+      },
+      "MyRewards": {
+        "additionalProperties": false,
+        "properties": {
+          "available_credits_cents": {
+            "minimum": 0.0,
+            "title": "Available Credits Cents",
+            "type": "integer"
+          },
+          "awarded_cents": {
+            "minimum": 0.0,
+            "title": "Awarded Cents",
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RewardEntry"
+            },
+            "maxItems": 500,
+            "title": "Entries",
+            "type": "array"
+          },
+          "note": {
+            "default": "Awarded Synth cloud credits from reviewed programs; not cash or earnings owed. available_credits_cents excludes reversed and expired awards but is not reduced by later wallet spend.",
+            "title": "Note",
+            "type": "string"
+          },
+          "reversed_cents": {
+            "minimum": 0.0,
+            "title": "Reversed Cents",
+            "type": "integer"
+          },
+          "unit": {
+            "const": "synth_cloud_credit_cents",
+            "default": "synth_cloud_credit_cents",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available_credits_cents",
+          "awarded_cents",
+          "reversed_cents",
+          "entries"
+        ],
+        "title": "MyRewards",
+        "type": "object"
+      },
+      "PrivateSearchCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "activated": {
+            "title": "Activated",
+            "type": "boolean"
+          },
+          "price_cents_per_search": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents Per Search"
+          }
+        },
+        "required": [
+          "activated"
+        ],
+        "title": "PrivateSearchCapability",
+        "type": "object"
+      },
+      "PrivateUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "monthly_spend_cap_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Spend Cap Cents"
+          },
+          "requests_per_minute": {
+            "minimum": 0.0,
+            "title": "Requests Per Minute",
+            "type": "integer"
+          },
+          "spendable_wallet_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spendable Wallet Cents"
+          },
+          "spent_cents": {
+            "minimum": 0.0,
+            "title": "Spent Cents",
+            "type": "integer"
+          },
+          "successful_searches": {
+            "minimum": 0.0,
+            "title": "Successful Searches",
+            "type": "integer"
+          },
+          "unit_price_cents": {
+            "minimum": 0.0,
+            "title": "Unit Price Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "unit_price_cents",
+          "requests_per_minute",
+          "monthly_spend_cap_cents",
+          "spent_cents",
+          "successful_searches",
+          "spendable_wallet_cents"
+        ],
+        "title": "PrivateUsage",
+        "type": "object"
+      },
+      "ProfileCard": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "ProfileCard",
+        "type": "object"
+      },
+      "ProfilePinsSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Contribution Ids",
+            "type": "array"
+          }
+        },
+        "title": "ProfilePinsSpec",
+        "type": "object"
+      },
+      "ProfileSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "github_login": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Login"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "title": "ProfileSpec",
+        "type": "object"
+      },
+      "ProfileView": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProfileCard"
+            },
+            "maxItems": 200,
+            "title": "Accepted",
+            "type": "array"
+          },
+          "accepted_activity": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ActivityDay"
+            },
+            "maxItems": 366,
+            "title": "Accepted Activity",
+            "type": "array"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "github": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GithubIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pinned": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProfileCard"
+            },
+            "maxItems": 6,
+            "title": "Pinned",
+            "type": "array"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "reuse": {
+            "$ref": "#/components/schemas/ReuseSummary"
+          }
+        },
+        "required": [
+          "principal_id",
+          "reuse"
+        ],
+        "title": "ProfileView",
+        "type": "object"
+      },
+      "PublicSearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_cents": {
+            "const": 0,
+            "default": 0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "corpus_generation": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Generation",
+            "type": "string"
+          },
+          "mode": {
+            "const": "fast",
+            "default": "fast",
+            "title": "Mode",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "ranker_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Ranker Version",
+            "type": "string"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "maxItems": 10,
+            "title": "Results",
+            "type": "array"
+          },
+          "status": {
+            "const": "completed",
+            "default": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "taxonomy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Taxonomy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "corpus_generation",
+          "ranker_version",
+          "parser_version",
+          "taxonomy_version",
+          "results"
+        ],
+        "title": "PublicSearchResult",
+        "type": "object"
+      },
+      "PublicUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "contents_limit": {
+            "minimum": 0.0,
+            "title": "Contents Limit",
+            "type": "integer"
+          },
+          "contents_used": {
+            "minimum": 0.0,
+            "title": "Contents Used",
+            "type": "integer"
+          },
+          "requests_per_minute": {
+            "minimum": 0.0,
+            "title": "Requests Per Minute",
+            "type": "integer"
+          },
+          "searches_limit": {
+            "minimum": 0.0,
+            "title": "Searches Limit",
+            "type": "integer"
+          },
+          "searches_used": {
+            "minimum": 0.0,
+            "title": "Searches Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "searches_used",
+          "searches_limit",
+          "contents_used",
+          "contents_limit",
+          "requests_per_minute"
+        ],
+        "title": "PublicUsage",
+        "type": "object"
+      },
+      "PublicationSpec": {
+        "additionalProperties": false,
+        "description": "Omitted generation/assessment resolve to current state / latest approval.",
+        "properties": {
+          "assessment_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Id"
+          },
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "expected_generation": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Generation"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id",
+          "audience"
+        ],
+        "title": "PublicationSpec",
+        "type": "object"
+      },
+      "PublicationStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "generation": {
+            "minimum": 0.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "published",
+              "withdrawn",
+              "unpublished"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "generation",
+          "status"
+        ],
+        "title": "PublicationStatus",
+        "type": "object"
+      },
+      "Reproduction": {
+        "additionalProperties": false,
+        "properties": {
+          "entrypoint_asset_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrypoint Asset Id"
+          },
+          "environment_asset_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Environment Asset Ids",
+            "type": "array"
+          },
+          "expected_outputs": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Expected Outputs",
+            "type": "string"
+          },
+          "instructions": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "inspectable",
+              "runnable",
+              "reproduced",
+              "not_applicable"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "restrictions": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Restrictions",
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "instructions",
+          "expected_outputs",
+          "restrictions"
+        ],
+        "title": "Reproduction",
+        "type": "object"
+      },
+      "ResearchArea": {
+        "enum": [
+          "data",
+          "environment_design",
+          "evaluation",
+          "verifier",
+          "training_algorithm",
+          "optimization_search",
+          "retrieval",
+          "context",
+          "agent_harness",
+          "model",
+          "systems"
+        ],
+        "title": "ResearchArea",
+        "type": "string"
+      },
+      "ResearchCard": {
+        "additionalProperties": false,
+        "properties": {
+          "how_to_use": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "How To Use",
+            "type": "string"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "observed": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Observed",
+            "type": "string"
+          },
+          "resources": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Resources",
+            "type": "string"
+          },
+          "reusable": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reusable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reusable",
+          "how_to_use",
+          "observed",
+          "limitations",
+          "resources"
+        ],
+        "title": "ResearchCard",
+        "type": "object"
+      },
+      "ReuseSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Definition",
+            "type": "string"
+          },
+          "organic_contents_reads": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organic Contents Reads"
+          },
+          "organic_search_appearances": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organic Search Appearances"
+          },
+          "suppressed_below": {
+            "title": "Suppressed Below",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "suppressed_below",
+          "definition"
+        ],
+        "title": "ReuseSummary",
+        "type": "object"
+      },
+      "ReviewClaimComment": {
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "comment": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "comment"
+        ],
+        "title": "ReviewClaimComment",
+        "type": "object"
+      },
+      "ReviewDecision": {
+        "enum": [
+          "approve",
+          "request_changes",
+          "reject"
+        ],
+        "title": "ReviewDecision",
+        "type": "string"
+      },
+      "ReviewList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewListItem"
+            },
+            "maxItems": 50,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ReviewList",
+        "type": "object"
+      },
+      "ReviewListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "contributor_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Contributor Ids",
+            "type": "array"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifest_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Digest"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "requested_audience": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAudience"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/RevisionStatus"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "reference",
+          "status"
+        ],
+        "title": "ReviewListItem",
+        "type": "object"
+      },
+      "ReviewSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "claim_comments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReviewClaimComment"
+            },
+            "maxItems": 128,
+            "title": "Claim Comments",
+            "type": "array"
+          },
+          "comments": {
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Comments",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "manifest_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Digest"
+          }
+        },
+        "required": [
+          "decision",
+          "comments"
+        ],
+        "title": "ReviewSpec",
+        "type": "object"
+      },
+      "RevisionCreateSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "parent_revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parent Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_revision_id"
+        ],
+        "title": "RevisionCreateSpec",
+        "type": "object"
+      },
+      "RevisionStatus": {
+        "enum": [
+          "draft",
+          "submitted",
+          "changes_requested",
+          "rejected",
+          "qualified",
+          "published",
+          "withdrawn"
+        ],
+        "title": "RevisionStatus",
+        "type": "string"
+      },
+      "RevisionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "is_current": {
+            "default": false,
+            "title": "Is Current",
+            "type": "boolean"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RevisionStatus"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "revision_id",
+          "reference",
+          "status"
+        ],
+        "title": "RevisionSummary",
+        "type": "object"
+      },
+      "RevisionView": {
+        "additionalProperties": false,
+        "description": "Withdrawn tombstones carry identity and status only, never content.",
+        "properties": {
+          "assessments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AssessmentView"
+            },
+            "maxItems": 64,
+            "title": "Assessments",
+            "type": "array"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Citation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "indexing_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "not_indexed",
+                  "pending",
+                  "indexed",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexing State"
+          },
+          "is_current": {
+            "default": false,
+            "title": "Is Current",
+            "type": "boolean"
+          },
+          "manifest_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Digest"
+          },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionPackage-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "publication_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Id"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RevisionStatus"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "reference",
+          "status"
+        ],
+        "title": "RevisionView",
+        "type": "object"
+      },
+      "RewardAward": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_cents": {
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "award_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Award Id",
+            "type": "string"
+          },
+          "awarded_at": {
+            "format": "date-time",
+            "title": "Awarded At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "program_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Program Id",
+            "type": "string"
+          },
+          "recipient_user_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipient User Id",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reversed At"
+          },
+          "status": {
+            "enum": [
+              "awarded",
+              "reversed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "award_id",
+          "program_id",
+          "reference",
+          "recipient_user_id",
+          "amount_cents",
+          "expires_at",
+          "status",
+          "awarded_at"
+        ],
+        "title": "RewardAward",
+        "type": "object"
+      },
+      "RewardAwardSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_cents": {
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "program_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Program Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "program_id",
+          "reference",
+          "amount_cents",
+          "expires_at",
+          "reason"
+        ],
+        "title": "RewardAwardSpec",
+        "type": "object"
+      },
+      "RewardEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "award_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Award Id",
+            "type": "string"
+          },
+          "awarded_at": {
+            "format": "date-time",
+            "title": "Awarded At",
+            "type": "string"
+          },
+          "credits_cents": {
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Credits Cents",
+            "type": "integer"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "program": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Program",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "awarded",
+              "expired",
+              "reversed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "award_id",
+          "program",
+          "credits_cents",
+          "status",
+          "awarded_at",
+          "receipt_id"
+        ],
+        "title": "RewardEntry",
+        "type": "object"
+      },
+      "RewardReverseSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RewardReverseSpec",
+        "type": "object"
+      },
+      "SearchContent": {
+        "additionalProperties": false,
+        "properties": {
+          "max_excerpts_per_result": {
+            "default": 2,
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Max Excerpts Per Result",
+            "type": "integer"
+          },
+          "max_results": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "type": "integer"
+          }
+        },
+        "title": "SearchContent",
+        "type": "object"
+      },
+      "SearchExcerpt": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          },
+          "text": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "text",
+          "start_byte",
+          "end_byte"
+        ],
+        "title": "SearchExcerpt",
+        "type": "object"
+      },
+      "SearchFilters": {
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionKind"
+            },
+            "maxItems": 7,
+            "title": "Kinds",
+            "type": "array"
+          },
+          "research_areas": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tags_all": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tags All",
+            "type": "array"
+          },
+          "tags_any": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tags Any",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "title": "SearchFilters",
+        "type": "object"
+      },
+      "SearchHit": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Assessment Ids",
+            "type": "array"
+          },
+          "author_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Author Ids",
+            "type": "array"
+          },
+          "highlights": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SearchExcerpt"
+            },
+            "maxItems": 2,
+            "title": "Highlights",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "title",
+          "url",
+          "author_ids",
+          "published_at",
+          "limitations",
+          "assessment_ids"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "contents_max_bytes": {
+            "title": "Contents Max Bytes",
+            "type": "integer"
+          },
+          "max_excerpts_per_result": {
+            "title": "Max Excerpts Per Result",
+            "type": "integer"
+          },
+          "max_results": {
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query_max_bytes": {
+            "title": "Query Max Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_results",
+          "max_excerpts_per_result",
+          "query_max_bytes",
+          "contents_max_bytes"
+        ],
+        "title": "SearchLimits",
+        "type": "object"
+      },
+      "SearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_generation": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Generation",
+            "type": "string"
+          },
+          "mode": {
+            "const": "fast",
+            "default": "fast",
+            "title": "Mode",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "ranker_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Ranker Version",
+            "type": "string"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "maxItems": 10,
+            "title": "Results",
+            "type": "array"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "completed",
+            "default": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "taxonomy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Taxonomy Version",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/SearchUsage"
+          }
+        },
+        "required": [
+          "search_id",
+          "request_id",
+          "corpus_generation",
+          "ranker_version",
+          "parser_version",
+          "taxonomy_version",
+          "results",
+          "usage"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "SearchScope": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Collection Ids",
+            "type": "array"
+          },
+          "visibility": {
+            "default": "public",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "title": "SearchScope",
+        "type": "object"
+      },
+      "SearchSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/SearchContent"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "mode": {
+            "const": "fast",
+            "default": "fast",
+            "title": "Mode",
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SearchScope"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchSpec",
+        "type": "object"
+      },
+      "SearchUsage": {
+        "additionalProperties": false,
+        "description": "Server-authored successful logical search receipt; never contributor earnings.",
+        "properties": {
+          "amount_cents": {
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "billing_scope": {
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Billing Scope",
+            "type": "string"
+          },
+          "logical_units": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Logical Units",
+            "type": "integer"
+          },
+          "price_version": {
+            "const": "synth.index.fast.v1",
+            "default": "synth.index.fast.v1",
+            "title": "Price Version",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "billing_scope",
+          "amount_cents",
+          "receipt_id"
+        ],
+        "title": "SearchUsage",
+        "type": "object"
+      },
+      "TagRegistry": {
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionKind"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "registry_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Registry Version",
+            "type": "string"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagView"
+            },
+            "maxItems": 256,
+            "title": "Tags",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "registry_version",
+          "tags",
+          "kinds",
+          "research_areas",
+          "workflow_stages"
+        ],
+        "title": "TagRegistry",
+        "type": "object"
+      },
+      "TagView": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Definition",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "public_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Count"
+          },
+          "slug": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "tag_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Tag Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag_id",
+          "slug",
+          "label",
+          "definition"
+        ],
+        "title": "TagView",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WithdrawalSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_generation": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Generation"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawalSpec",
+        "type": "object"
+      },
+      "WorkflowStage": {
+        "enum": [
+          "data_preparation",
+          "training",
+          "optimization",
+          "evaluation",
+          "inference",
+          "research_operations"
+        ],
+        "title": "WorkflowStage",
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "title": "Synth Index API",
+    "version": "synth.index.api.v1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/index/capabilities": {
+      "get": {
+        "operationId": "index.capabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Discover",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/collections": {
+      "get": {
+        "operationId": "index.collections.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collections"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Collections",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/collections/{collection_id}/grants": {
+      "get": {
+        "operationId": "index.collections.grants.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionGrants"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grants",
+        "tags": [
+          "index-reads"
+        ]
+      },
+      "post": {
+        "operationId": "index.collections.grants.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectionGrantSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionGrant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/collections/{collection_id}/grants/{grant_id}": {
+      "delete": {
+        "operationId": "index.collections.grants.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionGrantRevoked"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/contents": {
+      "post": {
+        "operationId": "index.contents.retrieve",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentsSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contents",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/contests": {
+      "post": {
+        "operationId": "index.contests.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContestSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContestView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contest Create",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contests/{contest_id}": {
+      "get": {
+        "operationId": "index.contests.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contest_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contest Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContestView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contest",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contests/{contest_id}/entries": {
+      "post": {
+        "operationId": "index.contests.entries.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contest_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contest Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContestEntrySpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContestEntry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enter",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contests/{contest_id}/entries/{entry_id}/review": {
+      "post": {
+        "operationId": "index.contests.entries.review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contest_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contest Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContestReviewSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContestEntry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contests/{contest_id}/entries/{entry_id}/score": {
+      "post": {
+        "operationId": "index.contests.entries.score",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contest_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contest Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContestScoreSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContestEntry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Score",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contests/{contest_id}/leaderboard": {
+      "get": {
+        "operationId": "index.contests.leaderboard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contest_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contest Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leaderboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Board",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contests/{contest_id}/status": {
+      "post": {
+        "operationId": "index.contests.status.update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contest_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contest Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContestStatusSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContestView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contest Status",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/contributions": {
+      "post": {
+        "operationId": "index.contributions.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContributionSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}": {
+      "get": {
+        "operationId": "index.contributions.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contribution",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/publication": {
+      "post": {
+        "operationId": "index.contributions.publication.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish",
+        "tags": [
+          "index-review"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions": {
+      "post": {
+        "operationId": "index.contributions.revisions.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionCreateSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revise",
+        "tags": [
+          "index-review"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}": {
+      "get": {
+        "operationId": "index.contributions.revisions.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revision",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/assessments": {
+      "get": {
+        "operationId": "index.contributions.assessments.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assessments"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assessments",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/assets/{asset_id}": {
+      "get": {
+        "operationId": "index.contributions.assets.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Asset",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/finalize": {
+      "post": {
+        "operationId": "index.contributions.upload.finalize",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactPublicationFinalize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactPublicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/reviews": {
+      "post": {
+        "operationId": "index.contributions.reviews.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review",
+        "tags": [
+          "index-review"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/submit": {
+      "post": {
+        "operationId": "index.contributions.submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContributionSubmitSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionSubmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/upload": {
+      "post": {
+        "operationId": "index.contributions.upload.prepare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContributionUploadSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionUploadPrepared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/withdrawal": {
+      "post": {
+        "operationId": "index.contributions.withdrawal.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawalSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw",
+        "tags": [
+          "index-review"
+        ]
+      }
+    },
+    "/api/v1/index/me": {
+      "get": {
+        "operationId": "index.me.retrieve",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Whoami",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/me/contributions": {
+      "get": {
+        "operationId": "index.me.contributions.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyContributions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mine",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/me/profile": {
+      "put": {
+        "operationId": "index.me.profile.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit Profile",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/me/profile/pins": {
+      "put": {
+        "operationId": "index.me.profile.pins.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePinsSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pin",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/me/rewards": {
+      "get": {
+        "operationId": "index.me.rewards.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyRewards"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Rewards",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/me/usage": {
+      "get": {
+        "operationId": "index.me.usage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexUsageSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Usage",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/profiles/{principal_id}": {
+      "get": {
+        "operationId": "index.profiles.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/public/capabilities": {
+      "get": {
+        "operationId": "index.public.capabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Discover",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contents": {
+      "post": {
+        "operationId": "index.public.contents.retrieve",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentsSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contents",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}": {
+      "get": {
+        "operationId": "index.public.contributions.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contribution",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}": {
+      "get": {
+        "operationId": "index.public.contributions.revisions.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revision",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/assets/{asset_id}": {
+      "get": {
+        "operationId": "index.public.contributions.assets.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Asset",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/profiles/{principal_id}": {
+      "get": {
+        "operationId": "index.public.profiles.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/search": {
+      "post": {
+        "operationId": "index.public.search",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/tags": {
+      "get": {
+        "operationId": "index.public.tags.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagRegistry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tags",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/reviews": {
+      "get": {
+        "operationId": "index.reviews.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "submitted",
+              "enum": [
+                "submitted",
+                "qualified",
+                "published",
+                "changes_requested",
+                "rejected",
+                "withdrawn"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 160,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reviews",
+        "tags": [
+          "index-review"
+        ]
+      }
+    },
+    "/api/v1/index/rewards/awards": {
+      "post": {
+        "operationId": "index.rewards.award",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewardAwardSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardAward"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Award",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/rewards/awards/{award_id}/reverse": {
+      "post": {
+        "operationId": "index.rewards.reverse",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "award_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Award Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewardReverseSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardAward"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverse",
+        "tags": [
+          "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/search": {
+      "post": {
+        "operationId": "index.search",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/tags": {
+      "get": {
+        "operationId": "index.tags.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagRegistry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tags",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    }
+  }
+}

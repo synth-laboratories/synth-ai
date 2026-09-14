@@ -1027,6 +1027,16 @@
             "title": "Idempotency Key",
             "type": "string"
           },
+          "index_draft_enabled": {
+            "default": false,
+            "title": "Index Draft Enabled",
+            "type": "boolean"
+          },
+          "index_enabled": {
+            "default": false,
+            "title": "Index Enabled",
+            "type": "boolean"
+          },
           "metadata": {
             "additionalProperties": true,
             "title": "Metadata",
@@ -5946,6 +5956,77 @@
           "declaration"
         ],
         "title": "ImageReleaseUploadResponse",
+        "type": "object"
+      },
+      "IndexAccessPolicy": {
+        "additionalProperties": false,
+        "description": "Shared across every agent of one Swarm run or one Intern turn/cycle.\n\nDefaults follow the frozen fast-MVP integration plan: public-only, 10 searches,\n20 contents reads and 8,000 Index context tokens. Private access needs selected\ncollections and an explicit spend cap; enabling Index never enables charges.",
+        "properties": {
+          "allow_draft_preparation": {
+            "default": false,
+            "title": "Allow Draft Preparation",
+            "type": "boolean"
+          },
+          "collection_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Collection Ids",
+            "type": "array"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "max_contents": {
+            "default": 20,
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Max Contents",
+            "type": "integer"
+          },
+          "max_context_tokens": {
+            "default": 8000,
+            "maximum": 64000.0,
+            "minimum": 0.0,
+            "title": "Max Context Tokens",
+            "type": "integer"
+          },
+          "max_searches": {
+            "default": 10,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Max Searches",
+            "type": "integer"
+          },
+          "private_spend_cap_cents": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Private Spend Cap Cents"
+          },
+          "visibility": {
+            "default": "public",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "title": "IndexAccessPolicy",
         "type": "object"
       },
       "InternAcceptanceFixtureReceipt": {
@@ -27265,6 +27346,16 @@
               }
             ]
           },
+          "index": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexAccessPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "limits": {
             "anyOf": [
               {
@@ -34446,6 +34537,16 @@
             "minLength": 1,
             "title": "Idempotency Key",
             "type": "string"
+          },
+          "index_draft_enabled": {
+            "default": false,
+            "title": "Index Draft Enabled",
+            "type": "boolean"
+          },
+          "index_enabled": {
+            "default": false,
+            "title": "Index Enabled",
+            "type": "boolean"
           },
           "metadata": {
             "additionalProperties": true,
