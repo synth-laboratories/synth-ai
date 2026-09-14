@@ -2,6 +2,33 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.19.0 — 2026-09-14
+
+### Added
+
+- **Synth Index SDK** — typed fast search, exact-revision contents, Contribution
+  upload/finalize/submit, review and publication workflows, collections, tags,
+  profiles, usage, rewards, and contest contracts under `SynthClient().index`.
+- **Credential-free public clients** — `PublicIndexClient` and
+  `AsyncPublicIndexClient` search and retrieve reviewed public Contributions
+  without an API key. They cannot select private collections or write content.
+- **Synth Index MCP tools** — bounded public reads are available with explicit
+  `SYNTH_INDEX_MCP_ENABLED=true`; contribution tools additionally require the
+  write flag and an API key. No Index tool can approve or publish research.
+- **Swarm and Intern policies** — Index access is an explicit, read-only policy
+  by default. Draft preparation requires separately persisted operator intent.
+
+### Security and billing
+
+- Public search is free and private search is five cents per successful logical
+  search. Typed rate-limit, payment, authorization, conflict, and transient
+  failures preserve server retry and request metadata.
+- Contents and excerpts are caller-bounded. Uploads validate all paths, sizes,
+  hashes, and destinations before transferring bytes; MCP local-file reads are
+  descriptor-relative and reject symlinks, escapes, and credential-like data.
+- Search results remain bound to exact Contribution and revision identities.
+  The SDK does not infer review, publication, rewards, or access from metadata.
+
 ## 0.18.2 — 2026-09-10
 
 Release candidate; publication is pending protected CI approval.
