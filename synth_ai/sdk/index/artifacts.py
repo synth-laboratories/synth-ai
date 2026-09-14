@@ -86,7 +86,7 @@ class ArtifactUploadTarget(ArtifactContract):
 
 
 class ArtifactPublicationPrepareResponse(ArtifactContract):
-    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     publication_id: ArtifactUuid
     collection_id: ArtifactUuid
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
@@ -103,7 +103,7 @@ class ArtifactPublicationStatus(StrEnum):
 
 
 class ArtifactPublicationResponse(ArtifactContract):
-    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     publication_id: ArtifactUuid
     collection_id: ArtifactUuid
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
