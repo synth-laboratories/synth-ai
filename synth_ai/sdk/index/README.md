@@ -53,13 +53,30 @@ Draft preparation needs explicit persisted operator intent as well as an
 effective capability grant; metadata cannot authorize it. Draft opt-in never
 authorizes submission, approval, publication, or private-search charges.
 
-Unreleased typed Index client. Backend `packages/contributions/*` owns the wire
+The typed Index client mirrors backend `packages/contributions/*`, which owns the wire
 vocabulary and validators; this mirror must stay schema- and behavior-compatible.
 Do not import backend modules from the published package. Cross-repo parity
 checks live in `testing` (`test_index_openapi_parity`, clean-install script).
 
 See `docs/drafts/synth-index-api-design-2026-09-12.md`. Fast search is the MVP;
-deep execution handles are not implemented. No release is claimed by this code.
+deep execution handles are not implemented.
+
+## Free public search
+
+Public search needs no account or API key and cannot select private collections:
+
+```python
+from synth_ai.sdk.index import PublicIndexClient
+
+with PublicIndexClient() as index:
+    result = index.search(query="RLVR verifier design", max_results=5)
+    for hit in result.results:
+        print(hit.title, hit.url)
+```
+
+Use `AsyncPublicIndexClient` with `async with` for native async applications.
+Both clients own and close their HTTP transport. Authenticated and private
+operations remain under `SynthClient().index`.
 
 ## Surface (`SynthClient().index`, async twin on `AsyncSynthClient`)
 

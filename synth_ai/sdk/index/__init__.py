@@ -1,4 +1,4 @@
-"""Unreleased Synth Index contracts; backend routes remain the wire authority."""
+"""Synth Index clients and contracts; backend routes remain the wire authority."""
 
 from .agent_policy import IndexAccessPolicy
 from .catalog import (
@@ -37,11 +37,13 @@ from .lifecycle import (
     WithdrawalSpec,
 )
 from .package import ContributionPackage
+from .public import AsyncPublicIndexClient, PublicIndexClient
 from .search import ContentsResult, ContentsSpec, PublicSearchResult, SearchResult, SearchSpec
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 
 __all__ = [
     "Assessment",
+    "AsyncPublicIndexClient",
     "Capabilities",
     "CollectionGrant",
     "CollectionGrantSpec",
@@ -67,6 +69,7 @@ __all__ = [
     "ProfileView",
     "PublicationSpec",
     "PublicationStatus",
+    "PublicIndexClient",
     "PublicSearchResult",
     "ReviewDecision",
     "ReviewSpec",

@@ -1,4 +1,4 @@
-"""Unreleased Index transport adapters; no retry loop or local search fallback.
+"""Index transport adapters; no local search fallback.
 
 See sibling docs/drafts/synth-index-api-design-2026-09-12.md.
 Backend owns authorization and usage receipts. The injected transport owns its
@@ -894,15 +894,11 @@ class PublicContributionsAPI(_Resource):
         )
 
 
-class PublicIndexAPI(_Resource):
-    """Blocking, read-only client for the credential-free public boundary."""
-
-    def __init__(self, transport: HttpTransport) -> None:
-        self._transport = transport
-        run = _sync_runner(transport)
-        super().__init__(run, asynchronous=False)
-        self.contents = PublicContentsAPI(run, asynchronous=False)
-        self.contributions = PublicContributionsAPI(run, asynchronous=False)
+class _PublicIndexRoot(_Resource):
+    def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
+        super().__init__(run, asynchronous)
+        self.contents = PublicContentsAPI(run, asynchronous)
+        self.contributions = PublicContributionsAPI(run, asynchronous)
 
     def search(
         self,
@@ -926,3 +922,19 @@ class PublicIndexAPI(_Resource):
                 json_body=spec.model_dump(mode="json"),
             )
         )
+
+
+class PublicIndexAPI(_PublicIndexRoot):
+    """Blocking, read-only API over an injected credential-free transport."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+        super().__init__(_sync_runner(transport), asynchronous=False)
+
+
+class AsyncPublicIndexAPI(_PublicIndexRoot):
+    """Async, read-only API over an injected credential-free transport."""
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+        super().__init__(_async_runner(transport), asynchronous=True)
