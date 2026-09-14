@@ -718,7 +718,7 @@ class ResearchInternAcceptanceReceiptsAPI:
         receipt = ResearchInternAcceptanceReceiptPublicationResponse.from_wire(
             self._transport.execute(
                 _request(
-                    "get_research_intern_acceptance_receipt",
+                    "get_public_research_intern_acceptance_receipt",
                     f"/smr/research-intern/acceptance-receipts/{digest_hex}",
                 )
             )
@@ -1634,14 +1634,14 @@ class ResearchInternAsyncRuntimeAPI:
         runtime_id = self.get().async_runtime_id
         response = self._transport.execute(
             _request(
-                "list_intern_async_runtime_mcp_actions",
+                "list_intern_runtime_mcp_actions",
                 f"/smr/research-intern/runtimes/async/{runtime_id}/mcp-actions",
                 query={"limit": _bounded_limit(limit)},
             )
         )
         items = array_value(
             cast(JsonValue, response),
-            operation_id="list_intern_async_runtime_mcp_actions",
+            operation_id="list_intern_runtime_mcp_actions",
         )
         if any(not isinstance(item, dict) for item in items):
             raise ValueError("Async Intern MCP-action ledger must contain objects")
@@ -2569,7 +2569,7 @@ class AsyncResearchInternAcceptanceReceiptsAPI:
         receipt = ResearchInternAcceptanceReceiptPublicationResponse.from_wire(
             await self._transport.execute(
                 _request(
-                    "get_research_intern_acceptance_receipt",
+                    "get_public_research_intern_acceptance_receipt",
                     f"/smr/research-intern/acceptance-receipts/{digest_hex}",
                 )
             )
