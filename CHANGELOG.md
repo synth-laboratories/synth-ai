@@ -17,6 +17,9 @@ All notable changes to the `synth-ai` package are documented here.
   write flag and an API key. No Index tool can approve or publish research.
 - **Swarm and Intern policies** — Index access is an explicit, read-only policy
   by default. Draft preparation requires separately persisted operator intent.
+- **Intern Sync presence and approvals** — the synchronous runtime exposes
+  `presence`, `release_presence`, `approvals`, and `decide_approval` on both the
+  sync and native-async clients. `KickoffContract` includes `trace_capture`.
 
 ### Security and billing
 
@@ -28,6 +31,13 @@ All notable changes to the `synth-ai` package are documented here.
   descriptor-relative and reject symlinks, escapes, and credential-like data.
 - Search results remain bound to exact Contribution and revision identities.
   The SDK does not infer review, publication, rewards, or access from metadata.
+
+### Removed (breaking)
+
+- The legacy Research Intern sessions plane, including `client.intern.sessions`,
+  reactive session stream/turn/event types, legacy enablement flags, the old
+  `*_research_intern_session*` operations and aliases, and the legacy MCP session
+  tools. Use `client.intern.sync_` or `client.intern.async_`.
 
 ## 0.18.2 — 2026-09-10
 
