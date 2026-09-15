@@ -242,7 +242,7 @@ _PUBLIC_PROVIDER_SELECTIONS = frozenset(
         InferenceProvider.AUTO.value,
         InferenceProvider.MODAL.value,
         InferenceProvider.OPENAI.value,
-        InferenceProvider.MODAL.value,
+        InferenceProvider.OPENROUTER.value,
         InferenceProvider.SYNTH.value,
         InferenceProvider.CURSOR.value,
     }
@@ -273,7 +273,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, modal, openai, synth, and cursor; "
+            "provider supports auto, modal, openai, openrouter, synth, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):
