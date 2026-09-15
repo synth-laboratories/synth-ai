@@ -45,7 +45,12 @@ from .catalog import (
     TagRegistry,
 )
 from .contracts import ContributionReference
-from .contributions import ContributionDraft, ContributionUploadPrepared, ContributionUploadSpec
+from .contributions import (
+    ContributionDraft,
+    ContributionUploadPrepared,
+    ContributionUploadSpec,
+    ResearchDraftSpec,
+)
 from .lifecycle import (
     Assessment,
     Assessments,
@@ -84,6 +89,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.search": ("POST", f"{_P}/search"),
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
+    "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
     "index.contributions.retrieve": ("GET", _C),
     "index.contributions.publication.create": ("POST", f"{_C}/publication"),
     "index.contributions.withdrawal.create": ("POST", f"{_C}/withdrawal"),
@@ -477,6 +483,21 @@ class ContributionsAPI(_Resource):
                 ContributionDraft.model_validate,
                 json_body={},
                 headers=_key(idempotency_key, required="Draft creation"),
+            )
+        )
+
+    def create_research(self, spec: ResearchDraftSpec, *, idempotency_key: str) -> Any:
+        """Allocate a private SYNTH-origin draft for a vetted export.
+
+        The backend requires an active research-import grant and checks source
+        paths. Reuse the same key and spec after an uncertain response.
+        """
+        return self._run(
+            _Call(
+                "index.contributions.research.create",
+                ContributionDraft.model_validate,
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="Research draft creation"),
             )
         )
 

@@ -16,7 +16,13 @@ from .catalog import (
     TagRegistry,
 )
 from .contracts import ContributionReference
-from .contributions import ContributionDraft, ContributionUploadPrepared, ContributionUploadSpec
+from .contributions import (
+    ContributionDraft,
+    ContributionUploadPrepared,
+    ContributionUploadSpec,
+    ResearchDraftSpec,
+    ResearchSource,
+)
 from .errors import IndexErrorCode, index_error_code
 from .lifecycle import (
     Assessment,
@@ -70,6 +76,8 @@ __all__ = [
     "RevisionCreateSpec",
     "RevisionStatus",
     "RevisionView",
+	"ResearchDraftSpec",
+	"ResearchSource",
     "RewardAward",
     "SearchResult",
     "SearchSpec",
