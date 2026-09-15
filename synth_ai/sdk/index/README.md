@@ -44,3 +44,25 @@ They never read files, finalize, submit or retry. Retry by preparing again with 
 same publication ID. The MCP `index_contribution_upload` tool reads only explicitly
 listed files under an explicit root and rejects symlinks, escapes and credential-like
 content before calling this path.
+
+## Research bundle intake
+
+`synth-ai index research preview <conversion-dir>` verifies the converted
+`package/` bytes and the offline receipt, then shows source, evidence, private
+audience, pending qualification and unattested rights. It makes no API call.
+The backend research-bundle converter must produce this directory from a sealed
+`synth.research.export-bundle.v1`; this SDK does not parse raw sessions.
+
+`synth-ai index research submit <conversion-dir>` allocates a private SYNTH-origin
+draft through `POST /index/contributions/research`, rebinds only its server-issued
+Contribution/revision IDs, prepares exact bytes, streams the requested objects,
+finalizes them, and submits the private revision for review. The server can keep
+rights pending while barring any org/public release. Use `--finalize-only` to stop
+after upload when an arc must be held before review. The backend enforces its
+mandatory submission and release gates in either case.
+The backend requires an active `research_import`
+grant and independently rejects prohibited REB source paths. Re-running the command
+reuses the same draft key and publication ID in `.research-intake-state.json`,
+obtains fresh targets and lets prepare omit already-present objects. The state file
+contains no API key or signed upload URL. Intake never sets rights attestation,
+qualifies, publishes, or broadens the private audience.

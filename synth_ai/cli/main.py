@@ -2,6 +2,7 @@
 
 import click
 
+from synth_ai.cli.index import index
 from synth_ai.cli.research import research
 
 
@@ -24,3 +25,4 @@ def cli(ctx):
 
 
 cli.add_command(research)
+cli.add_command(index)
