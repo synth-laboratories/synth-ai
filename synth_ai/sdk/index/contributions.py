@@ -3,6 +3,8 @@
 See sibling backend/packages/contributions/upload.py and cross-repo schema tests.
 """
 
+import ipaddress
+import re
 from datetime import date, datetime
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
@@ -15,6 +17,16 @@ from .contracts import ContributionReference, IndexContract
 from .package import ContributionPackage
 
 NonEmpty = Annotated[str, StringConstraints(min_length=1, max_length=2048)]
+_URL_SECRET_PATTERNS = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"\bsk-[A-Za-z0-9_-]{20,}",
+        r"\bAKIA[0-9A-Z]{16}\b",
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+        r"\bghp_[A-Za-z0-9]{30,}",
+        r"\bxox[bpas]-[A-Za-z0-9-]{10,}",
+    )
+)
 
 
 class ContributionDraft(IndexContract):
@@ -45,17 +57,26 @@ class ResearchSource(IndexContract):
     @classmethod
     def validate_repository_url(cls, value: str) -> str:
         url = urlsplit(value)
+        hostname = url.hostname
         if (
-            url.scheme not in {"https", "http"}
-            or not url.hostname
-            or url.username
-            or url.password
+            url.scheme != "https"
+            or not hostname
+            or url.username is not None
+            or url.password is not None
             or url.query
             or url.fragment
+            or url.port not in (None, 443)
+            or hostname.lower() in {"localhost", "localhost.localdomain"}
+            or hostname.lower().endswith((".local", ".internal"))
+            or any(pattern.search(value) for pattern in _URL_SECRET_PATTERNS)
         ):
-            raise ValueError(
-                "repository URL must be HTTP(S) without embedded credentials or query data"
-            )
+            raise ValueError("repository URL must be credential-free public HTTPS")
+        try:
+            address = ipaddress.ip_address(hostname)
+        except ValueError:
+            address = None
+        if address is not None and not address.is_global:
+            raise ValueError("repository URL must be credential-free public HTTPS")
         return value
 
     @model_validator(mode="after")
