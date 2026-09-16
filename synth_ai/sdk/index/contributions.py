@@ -38,6 +38,30 @@ class ContributionDraft(IndexContract):
     manifest_schema_version: Literal["synth.contribution.v1"] = "synth.contribution.v1"
 
 
+class CreateContributionSpec(IndexContract):
+    """Draft creation body: the server chooses identity, origin and visibility."""
+
+
+class ResearchLookupView(IndexContract):
+    """What the server holds for one research allocation key, read without mutating.
+
+    ``revision_status`` is the allocated revision's current lifecycle state, so a
+    caller that lost an allocation response learns both the identity and how far
+    the work has already advanced.
+    """
+
+    draft: ContributionDraft
+    revision_status: Literal[
+        "draft",
+        "submitted",
+        "changes_requested",
+        "rejected",
+        "qualified",
+        "published",
+        "withdrawn",
+    ]
+
+
 class ResearchSource(IndexContract):
     """Immutable source identity accepted by the private research-draft route."""
 

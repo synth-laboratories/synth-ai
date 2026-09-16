@@ -1,5 +1,6 @@
 """Synth Index clients and contracts; backend routes remain the wire authority."""
 
+from . import surfaces
 from .agent_policy import IndexAccessPolicy
 from .catalog import (
     Capabilities,
@@ -23,6 +24,7 @@ from .contributions import (
     ContributionUploadPrepared,
     ContributionUploadSpec,
     ResearchDraftSpec,
+    ResearchLookupView,
     ResearchSource,
 )
 from .errors import IndexErrorCode, index_error_code
@@ -76,6 +78,7 @@ __all__ = [
     "PublicationSpec",
     "PublicationStatus",
     "ResearchDraftSpec",
+    "ResearchLookupView",
     "ResearchSource",
     "ReviewDecision",
     "ReviewSpec",
@@ -88,4 +91,5 @@ __all__ = [
     "TagRegistry",
     "WithdrawalSpec",
     "index_error_code",
+    "surfaces",
 ]

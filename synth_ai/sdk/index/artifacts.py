@@ -102,6 +102,13 @@ class ArtifactPublicationStatus(StrEnum):
     DELETED = "deleted"
 
 
+class ArtifactPublicationFinalize(ArtifactContract):
+    """Finalize request: names the prepared publication whose bytes to verify."""
+
+    publication_id: ArtifactUuid
+    schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+
+
 class ArtifactPublicationResponse(ArtifactContract):
     schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     publication_id: ArtifactUuid

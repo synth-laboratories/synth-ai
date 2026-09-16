@@ -15,10 +15,12 @@ from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
+from pydantic import BaseModel
+
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
-from .artifacts import ArtifactPublicationResponse
+from .artifacts import ArtifactPublicationFinalize, ArtifactPublicationResponse
 from .catalog import (
     Capabilities,
     CollectionGrant,
@@ -50,7 +52,9 @@ from .contributions import (
     ContributionDraft,
     ContributionUploadPrepared,
     ContributionUploadSpec,
+    CreateContributionSpec,
     ResearchDraftSpec,
+    ResearchLookupView,
 )
 from .lifecycle import (
     Assessment,
@@ -91,6 +95,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
+    "index.contributions.research.lookup": ("POST", f"{_P}/contributions/research/lookup"),
     "index.contributions.retrieve": ("GET", _C),
     "index.contributions.publication.create": ("POST", f"{_C}/publication"),
     "index.contributions.withdrawal.create": ("POST", f"{_C}/withdrawal"),
@@ -159,13 +164,36 @@ _IDENTIFIER = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
 
 @dataclass(frozen=True, slots=True)
 class _Call:
+    """One declared request: the typed body it sends and the model it parses.
+
+    ``body`` is the request model itself, not a pre-serialized dict, so the model
+    each operation sends is inspectable next to the one it parses; the parity
+    gate compares both against the backend contract. ``keep_none`` preserves
+    explicit ``null`` fields for bodies whose wire form always carries them.
+    """
+
     operation_id: str
     parse: Callable[[Any], Any]
     path_parameters: Mapping[str, str] | None = None
-    json_body: dict[str, Any] | None = None
+    body: BaseModel | None = None
+    keep_none: bool = False
     headers: dict[str, str] | None = None
     params: dict[str, Any] | None = None
     raw: bool = False
+
+    @property
+    def request_model(self) -> type[BaseModel] | None:
+        return None if self.body is None else type(self.body)
+
+    @property
+    def response_model(self) -> type[BaseModel] | None:
+        """The model ``parse`` validates, or ``None`` for raw asset bytes."""
+        if self.raw:
+            return None
+        model = getattr(self.parse, "model", None) or getattr(self.parse, "__self__", None)
+        if not (isinstance(model, type) and issubclass(model, BaseModel)):
+            raise TypeError(f"{self.operation_id} parses no declared response model")
+        return model
 
     def request(self) -> tuple[str, str, dict[str, Any]]:
         operation = OPERATIONS.get(self.operation_id) or PUBLIC_OPERATIONS.get(self.operation_id)
@@ -179,8 +207,10 @@ class _Call:
         if self.params:
             kwargs["params"] = self.params
         if not self.raw:
-            if self.json_body is not None:
-                kwargs["json_body"] = self.json_body
+            if self.body is not None:
+                kwargs["json_body"] = self.body.model_dump(
+                    mode="json", exclude_none=not self.keep_none
+                )
             if self.headers is not None:
                 kwargs["headers"] = self.headers
         return method, template.format(**(self.path_parameters or {})), kwargs
@@ -219,8 +249,10 @@ def _key(idempotency_key: str | None, *, required: str | None = None) -> dict[st
     return {"Idempotency-Key": key}
 
 
-def _body(spec: Any) -> dict[str, Any]:
-    return spec.model_dump(mode="json", exclude_none=True)
+def _parser(model: type[BaseModel], parse: Callable[[object], Any]) -> Callable[[object], Any]:
+    """Name the model a response-checking parser validates."""
+    parse.model = model  # type: ignore[attr-defined]
+    return parse
 
 
 def _revision(reference: ContributionReference) -> dict[str, str]:
@@ -351,7 +383,7 @@ def _bound(model: Any, check: Callable[[Any], bool], message: str) -> Callable[[
             raise ValueError(message)
         return result
 
-    return parse
+    return _parser(model, parse)
 
 
 class _Resource:
@@ -374,8 +406,8 @@ class ContentsAPI(_Resource):
         return self._run(
             _Call(
                 "index.contents.retrieve",
-                lambda payload: _contents_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
+                _parser(ContentsResult, lambda payload: _contents_result(payload, spec)),
+                body=spec, keep_none=True,
             )
         )
 
@@ -394,7 +426,7 @@ class RevisionsAPI(_Resource):
                     "Revision draft does not match requested Contribution",
                 ),
                 path_parameters={"contribution_id": contribution_id},
-                json_body=_body(spec),
+                body=spec,
                 headers=_key(idempotency_key, required="Revision creation"),
             )
         )
@@ -461,8 +493,11 @@ class ReviewsAPI(_Resource):
                     "Assessment does not bind the requested sealed revision",
                 ),
                 path_parameters=_revision(reference),
-                json_body=_body(spec),
-                headers=None if idempotency_key is None else _key(idempotency_key),
+                body=spec,
+                # The route requires the header. A generated key still makes one
+                # call retry-safe inside the transport; pass your own to make an
+                # application-level retry return the original decision.
+                headers=_key(idempotency_key),
             )
         )
 
@@ -494,7 +529,7 @@ class ContributionsAPI(_Resource):
             _Call(
                 "index.contributions.create",
                 ContributionDraft.model_validate,
-                json_body={},
+                body=CreateContributionSpec(),
                 headers=_key(idempotency_key, required="Draft creation"),
             )
         )
@@ -509,8 +544,27 @@ class ContributionsAPI(_Resource):
             _Call(
                 "index.contributions.research.create",
                 ContributionDraft.model_validate,
-                json_body=spec.model_dump(mode="json"),
+                body=spec, keep_none=True,
                 headers=_key(idempotency_key, required="Research draft creation"),
+            )
+        )
+
+    def lookup_research(self, spec: ResearchDraftSpec, *, idempotency_key: str) -> Any:
+        """Read what one research allocation key produced, without allocating.
+
+        This is the recovery read for an allocation whose response was lost, and
+        for saved intake state from an older client: the server answers from the
+        caller's own receipt for ``idempotency_key`` and the exact ``spec``.
+        A 404 ``research_receipt_absent`` means nothing was allocated under that
+        key for this account; a 409 means the key was used for different input.
+        """
+        return self._run(
+            _Call(
+                "index.contributions.research.lookup",
+                ResearchLookupView.model_validate,
+                body=spec,
+                keep_none=True,
+                headers=_key(idempotency_key, required="Research allocation lookup"),
             )
         )
 
@@ -539,9 +593,12 @@ class ContributionsAPI(_Resource):
         return self._run(
             _Call(
                 "index.contributions.upload.prepare",
-                lambda payload: _upload_result(payload, draft, spec),
+                _parser(
+                    ContributionUploadPrepared,
+                    lambda payload: _upload_result(payload, draft, spec),
+                ),
                 path_parameters=_revision(reference),
-                json_body=spec.model_dump(mode="json"),
+                body=spec, keep_none=True,
             )
         )
 
@@ -561,9 +618,13 @@ class ContributionsAPI(_Resource):
         return self._run(
             _Call(
                 "index.contributions.upload.finalize",
-                lambda payload: _finalize_result(payload, prepared),
+                _parser(
+                    ArtifactPublicationResponse,
+                    lambda payload: _finalize_result(payload, prepared),
+                ),
                 path_parameters=_revision(draft.reference),
-                json_body={"publication_id": prepared.transfer.publication_id},
+                body=ArtifactPublicationFinalize(publication_id=prepared.transfer.publication_id),
+                keep_none=True,
             )
         )
 
@@ -578,7 +639,7 @@ class ContributionsAPI(_Resource):
                     "Submission response does not match requested revision",
                 ),
                 path_parameters=_revision(reference),
-                json_body=spec.model_dump(mode="json"),
+                body=spec, keep_none=True,
             )
         )
 
@@ -594,7 +655,7 @@ class ContributionsAPI(_Resource):
                     "Publication response does not match requested Contribution",
                 ),
                 path_parameters={"contribution_id": contribution_id},
-                json_body=_body(spec),
+                body=spec,
                 headers=_key(idempotency_key),
             )
         )
@@ -639,7 +700,7 @@ class CollectionGrantsAPI(_Resource):
                 "index.collections.grants.create",
                 CollectionGrant.model_validate,
                 path_parameters={"collection_id": collection_id},
-                json_body=_body(spec),
+                body=spec,
             )
         )
 
@@ -690,12 +751,12 @@ class AccountAPI(_Resource):
 
     def update_profile(self, spec: ProfileSpec) -> Any:
         return self._run(
-            _Call("index.me.profile.update", ProfileView.model_validate, json_body=_body(spec))
+            _Call("index.me.profile.update", ProfileView.model_validate, body=spec)
         )
 
     def update_pins(self, spec: ProfilePinsSpec) -> Any:
         return self._run(
-            _Call("index.me.profile.pins.update", ProfileView.model_validate, json_body=_body(spec))
+            _Call("index.me.profile.pins.update", ProfileView.model_validate, body=spec)
         )
 
 
@@ -718,7 +779,7 @@ class RewardsAPI(_Resource):
             _Call(
                 "index.rewards.award",
                 RewardAward.model_validate,
-                json_body=_body(spec),
+                body=spec,
                 headers=_key(idempotency_key, required="Reward award"),
             )
         )
@@ -729,7 +790,7 @@ class RewardsAPI(_Resource):
                 "index.rewards.reverse",
                 RewardAward.model_validate,
                 path_parameters={"award_id": award_id},
-                json_body=_body(spec),
+                body=spec,
             )
         )
 
@@ -741,7 +802,7 @@ class ContestEntriesAPI(_Resource):
                 "index.contests.entries.create",
                 ContestEntry.model_validate,
                 path_parameters={"contest_id": contest_id},
-                json_body=_body(spec),
+                body=spec,
             )
         )
 
@@ -751,7 +812,7 @@ class ContestEntriesAPI(_Resource):
                 "index.contests.entries.score",
                 ContestEntry.model_validate,
                 path_parameters={"contest_id": contest_id, "entry_id": entry_id},
-                json_body=_body(spec),
+                body=spec,
             )
         )
 
@@ -761,7 +822,7 @@ class ContestEntriesAPI(_Resource):
                 "index.contests.entries.review",
                 ContestEntry.model_validate,
                 path_parameters={"contest_id": contest_id, "entry_id": entry_id},
-                json_body=_body(spec),
+                body=spec,
             )
         )
 
@@ -773,7 +834,7 @@ class ContestsAPI(_Resource):
 
     def create(self, spec: ContestSpec) -> Any:
         return self._run(
-            _Call("index.contests.create", ContestView.model_validate, json_body=_body(spec))
+            _Call("index.contests.create", ContestView.model_validate, body=spec)
         )
 
     def retrieve(self, contest_id: str) -> Any:
@@ -791,7 +852,7 @@ class ContestsAPI(_Resource):
                 "index.contests.status.update",
                 ContestView.model_validate,
                 path_parameters={"contest_id": contest_id},
-                json_body=_body(spec),
+                body=spec,
             )
         )
 
@@ -840,8 +901,8 @@ class _IndexRoot(_Resource):
         return self._run(
             _Call(
                 "index.search",
-                lambda payload: _search_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
+                _parser(SearchResult, lambda payload: _search_result(payload, spec)),
+                body=spec, keep_none=True,
                 headers=_key(idempotency_key),
             )
         )
@@ -878,8 +939,8 @@ class PublicContentsAPI(_Resource):
         return self._run(
             _Call(
                 "index.public.contents.retrieve",
-                lambda payload: _contents_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
+                _parser(ContentsResult, lambda payload: _contents_result(payload, spec)),
+                body=spec, keep_none=True,
             )
         )
 
@@ -982,8 +1043,8 @@ class _PublicIndexRoot(_Resource):
         return self._run(
             _Call(
                 "index.public.search",
-                lambda payload: _public_search_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
+                _parser(PublicSearchResult, lambda payload: _public_search_result(payload, spec)),
+                body=spec, keep_none=True,
             )
         )
 

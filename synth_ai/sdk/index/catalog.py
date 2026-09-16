@@ -22,6 +22,11 @@ from .contracts import (
 from .lifecycle import Capability, Digest, Title
 
 Count = Annotated[StrictInt, Field(ge=0)]
+CREDIT_NOTE = (
+    "Awarded Synth cloud credits from reviewed programs; not cash or earnings "
+    "owed. available_credits_cents excludes reversed and expired awards but is "
+    "not reduced by later wallet spend."
+)
 
 # Capabilities ----------------------------------------------------------------
 
@@ -280,7 +285,9 @@ class MyRewards(IndexContract):
     awarded_cents: Count
     reversed_cents: Count
     entries: tuple[RewardEntry, ...] = Field(max_length=500)
-    note: str
+    # The backend always sends its note; the contract marks it optional because
+    # the field has a server default, so a response without it must still parse.
+    note: str = CREDIT_NOTE
 
 
 # Contest -------------------------------------------------------------------------
