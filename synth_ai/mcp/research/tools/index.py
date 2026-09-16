@@ -19,6 +19,7 @@ from synth_ai.mcp.research.registry import (
     ToolDefinition,
 )
 from synth_ai.mcp.research.tools.local_files import SelectedFileReader
+from synth_ai.sdk.index.answer import AnswerSpec
 from synth_ai.sdk.index.client import IndexAPI
 from synth_ai.sdk.index.contracts import ContributionReference, Identifier, IndexContract
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
@@ -29,6 +30,7 @@ IndexClientFactory = Callable[[], AbstractContextManager[IndexAPI]]
 
 INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_search",
+    "index_answer",
     "index_get_contribution",
     "index_get_contents",
     "index_contribution_status",
@@ -50,6 +52,11 @@ _KEY = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_.-]+$")
 
 class IndexSearchRequest(IndexContract):
     search: SearchSpec
+    idempotency_key: str = _KEY
+
+
+class IndexAnswerRequest(IndexContract):
+    answer: AnswerSpec
     idempotency_key: str = _KEY
 
 
@@ -91,11 +98,14 @@ def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]
     return content
 
 
-def build_index_tools(client_factory: IndexClientFactory) -> list[ToolDefinition]:
+def build_index_tools(
+    client_factory: IndexClientFactory, *, include_answer: bool = True
+) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.
 
-    Search requires an explicit stable key because private searches may be billed.
-    Backend authorization and usage remain authoritative; no local search fallback.
+    Search requires an explicit stable key because private or deep searches may
+    consume bounded service resources. Backend authorization, execution and usage
+    remain authoritative; no local search or model fallback is installed.
     """
 
     def search(arguments: JSONDict) -> JSONDict:
@@ -109,6 +119,13 @@ def build_index_tools(client_factory: IndexClientFactory) -> list[ToolDefinition
         request = ContentsSpec.model_validate(arguments)
         with client_factory() as client:
             return client.contents.retrieve(request).model_dump(mode="json")
+
+    def answer(arguments: JSONDict) -> JSONDict:
+        request = IndexAnswerRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.answer(
+                request.answer, idempotency_key=request.idempotency_key
+            ).model_dump(mode="json")
 
     def contribution(arguments: JSONDict) -> JSONDict:
         request = ContributionRequest.model_validate(arguments)
@@ -151,12 +168,19 @@ def build_index_tools(client_factory: IndexClientFactory) -> list[ToolDefinition
 
     read = INDEX_READ_SCOPES
     write = INDEX_WRITE_SCOPES
-    return [
+    tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index research Contributions. Public scope is free; explicitly selected authorized private scope may incur usage charges. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
+            description="Search reviewed Synth Index research Contributions in fast or durable deep mode. Deep is a bounded hosted evidence loop and never silently falls back to fast. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_answer",
+            description="Return a fail-closed cited answer over fast or durable deep Synth Index evidence. Every claim cites an exact authorized source span; unsupported queries return insufficient_evidence. Reuse the idempotency key when retrying.",
+            input_schema=IndexAnswerRequest.model_json_schema(),
+            handler=answer,
             required_scopes=read,
         ),
         ToolDefinition(
@@ -202,3 +226,4 @@ def build_index_tools(client_factory: IndexClientFactory) -> list[ToolDefinition
             required_scopes=write,
         ),
     ]
+    return [tool for tool in tools if include_answer or tool.name != "index_answer"]

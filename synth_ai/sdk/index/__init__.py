@@ -1,6 +1,14 @@
 """Synth Index clients and contracts; backend routes remain the wire authority."""
 
 from .agent_policy import IndexAccessPolicy
+from .answer import (
+    AnswerCitation,
+    AnswerClaim,
+    AnswerResult,
+    AnswerSpec,
+    AnswerStatus,
+    AnswerUsage,
+)
 from .catalog import (
     Capabilities,
     CollectionGrant,
@@ -40,11 +48,48 @@ from .lifecycle import (
 )
 from .package import ContributionPackage
 from .public import AsyncPublicIndexClient, PublicIndexClient
-from .search import ContentsResult, ContentsSpec, PublicSearchResult, SearchResult, SearchSpec
+from .search import (
+    ContentsResult,
+    ContentsSpec,
+    PublicSearchResult,
+    Search,
+    SearchCancellation,
+    SearchEvent,
+    SearchEventPage,
+    SearchExecutionCancelledError,
+    SearchExecutionFailedError,
+    SearchExecutionLimits,
+    SearchExecutionVersions,
+    SearchMode,
+    SearchPartialReason,
+    SearchResult,
+    SearchSpec,
+    SearchState,
+    SearchWaitTimeoutError,
+)
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
+from .usage_accounting import (
+    CustomerCharge,
+    MeasurementState,
+    OperationUsage,
+    SearchUsageReceipt,
+    SearchUsageSummary,
+    SearchUsageSummaryRow,
+    SettlementState,
+    UsageEventStatus,
+    UsageMetric,
+    UsageOperationKind,
+    UsageTotal,
+)
 
 __all__ = [
     "Assessment",
+    "AnswerCitation",
+    "AnswerClaim",
+    "AnswerResult",
+    "AnswerSpec",
+    "AnswerStatus",
+    "AnswerUsage",
     "AsyncPublicIndexClient",
     "Capabilities",
     "CollectionGrant",
@@ -52,6 +97,7 @@ __all__ = [
     "Collections",
     "ContentsResult",
     "ContentsSpec",
+    "CustomerCharge",
     "ContestEntry",
     "ContestView",
     "ContributionDraft",
@@ -67,7 +113,9 @@ __all__ = [
     "IndexUsageSummary",
     "Leaderboard",
     "MeView",
+    "MeasurementState",
     "MyRewards",
+    "OperationUsage",
     "PrivatePromoCredit",
     "ProfileView",
     "PromoCreditSummary",
@@ -83,9 +131,29 @@ __all__ = [
     "RevisionStatus",
     "RevisionView",
     "RewardAward",
+    "Search",
+    "SearchCancellation",
+    "SearchEvent",
+    "SearchEventPage",
+    "SearchExecutionCancelledError",
+    "SearchExecutionFailedError",
+    "SearchExecutionLimits",
+    "SearchExecutionVersions",
+    "SearchMode",
+    "SearchPartialReason",
     "SearchResult",
     "SearchSpec",
+    "SearchState",
+    "SearchUsageReceipt",
+    "SearchUsageSummary",
+    "SearchUsageSummaryRow",
+    "SearchWaitTimeoutError",
+    "SettlementState",
     "TagRegistry",
+    "UsageEventStatus",
+    "UsageMetric",
+    "UsageOperationKind",
+    "UsageTotal",
     "WithdrawalSpec",
     "index_error_code",
 ]

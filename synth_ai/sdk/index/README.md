@@ -58,8 +58,34 @@ vocabulary and validators; this mirror must stay schema- and behavior-compatible
 Do not import backend modules from the published package. Cross-repo parity
 checks live in `testing` (`test_index_openapi_parity`, clean-install script).
 
-See `docs/drafts/synth-index-api-design-2026-09-12.md`. Fast search is the MVP;
-deep execution handles are not implemented.
+See `docs/drafts/synth-index-api-design-2026-09-12.md`. Fast search is the
+bounded retrieval path. Deep search uses a durable server execution and never
+silently falls back to fast search.
+
+Grounded answers are a separate authenticated operation. Search continues to
+return evidence; `answer(...)` performs fast or deep retrieval, fail-closed
+evidence admission and cited synthesis under one explicit idempotency key:
+
+```python
+from uuid import uuid4
+
+from synth_ai import SynthClient
+
+with SynthClient() as synth:
+    result = synth.index.answer(
+        query="Why did the retrieval experiment reject launch readiness?",
+        mode="fast",
+        idempotency_key=str(uuid4()),
+    )
+    if result.status == "answered":
+        print(result.answer, result.citations)
+    else:
+        print(result.insufficient_evidence_reason)
+```
+
+Every returned claim names exact digest-bound citation spans. Unsupported or
+revoked evidence returns `insufficient_evidence`, never uncited prose. The
+credential-free public client intentionally does not expose answer generation.
 
 ## Free public search
 
@@ -77,6 +103,40 @@ with PublicIndexClient() as index:
 Use `AsyncPublicIndexClient` with `async with` for native async applications.
 Both clients own and close their HTTP transport. Authenticated and private
 operations remain under `SynthClient().index`.
+
+Deep search requires the authenticated client and a deployment whose
+capabilities advertise deep mode. The convenience call waits for the same
+durable Search identity through completion:
+
+```python
+from synth_ai import SynthClient
+
+with SynthClient() as synth:
+    result = synth.index.search(
+        query="Compare the evidence for the two retrieval designs",
+        mode="deep",
+    )
+    print(result.search_id, result.status)
+```
+
+For reconnect, progress, events, explicit cancellation, or a local wait timeout,
+create the handle directly. A local timeout preserves `handle.search_id` and does
+not cancel the server execution:
+
+```python
+from uuid import uuid4
+
+from synth_ai.sdk.index import SearchSpec
+
+handle = synth.index.searches.create(
+    SearchSpec(
+        query="Trace the qualified evidence and identify unresolved questions",
+        mode="deep",
+    ),
+    idempotency_key=str(uuid4()),
+)
+result = handle.wait(timeout_seconds=30)
+```
 
 The credential-free surface is the complete set of eight customer operations
 that need no account at all:
@@ -98,6 +158,8 @@ against `SynthClient().index` reads the same against `PublicIndexClient`.
 | Call | Route |
 | --- | --- |
 | `search(...)`, `capabilities()` | `POST /search`, `GET /capabilities` |
+| `answer(...)` | `POST /answer` cited fast/deep answer or explicit insufficient evidence |
+| `searches.create / retrieve / result / events / cancel` | durable fast/deep execution lifecycle under `/searches` |
 | `contents.retrieve(...)` | `POST /contents` |
 | `contributions.create / retrieve / prepare_upload / upload / finalize / submit` | contributor workflow |
 | `contributions.publish / withdraw` | `POST .../publication`, `.../withdrawal` (publisher grant / owner) |
@@ -111,8 +173,7 @@ against `SynthClient().index` reads the same against `PublicIndexClient`.
 Every operation is declared once in `client.OPERATIONS` or
 `client.PUBLIC_OPERATIONS` and executed identically by sync and async clients.
 `test_index_openapi_parity` requires every SDK operation to hit a real backend
-route with the same operation ID, and vice versa. The SDK covers 47 of the
-backend's 48 declared operations. The one exclusion is deliberate:
+route with the same operation ID, and vice versa. The one exclusion is deliberate:
 `index.contributions.research.lookup` is the operator acceptance lookup, used by
 operator tooling to observe an allocation receipt, and is not a customer
 operation.
