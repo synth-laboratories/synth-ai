@@ -19,6 +19,31 @@ All notable changes to the `synth-ai` package are documented here.
 - **Intern Sync presence and approvals** — the synchronous runtime exposes
   `presence`, `release_presence`, `approvals`, and `decide_approval` on both the
   sync and native-async clients. `KickoffContract` includes `trace_capture`.
+- **Synth Index surface completion** — `contributions.lookup_research` (the
+  non-mutating allocation recovery read) brings the typed clients to all 48
+  backend operations. `synth-ai index` gains `capabilities`, `tags`, `search`,
+  `contents`, `contribution`, `revision`, `asset`, `account`,
+  `my-contributions`, `usage`, `promo-credit` and `research recover-state`;
+  MCP gains `index_capabilities`, `index_list_tags`, `index_get_asset` and,
+  with a key, `index_account`, `index_my_contributions`, `index_usage` and
+  `index_promo_credit`. `synth_ai.sdk.index.surfaces` records what each command
+  and tool sends and why the rest is excluded.
+- **Key rotation for long-running CLI/MCP sessions** — `SYNTH_API_KEY_FILE` /
+  `--api-key-file` is re-read on use; a 401 re-reads it once and retries, and an
+  unchanged rejected key raises `CredentialRevokedError`
+  (`synth_ai.core.auth.renewal`).
+- **Research intake hardening** — lost allocation, finalize and submit responses
+  are resolved by server reads, never by replaying the mutation; an OS file lock
+  (released on crash) and fsync'd atomic writes guard saved state; v1 state is
+  converted by `research recover-state` without duplicate submissions.
+
+### Changed
+
+- `IndexErrorCode` now names every code the Index routes return (and no longer
+  names the never-returned `lifecycle_conflict`). `contributions.reviews.create`
+  always sends the `Idempotency-Key` the route requires, generating one when
+  none is passed. Draft finalize sends the full `ArtifactPublicationFinalize`
+  body, and `MyRewards.note` defaults to the backend's note.
 
 ### Removed (breaking)
 

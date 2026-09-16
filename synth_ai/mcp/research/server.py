@@ -413,12 +413,14 @@ class ResearchMcpServer:
         include_advanced_tools: bool = False,
         index_client_factory: IndexClientFactory | None = None,
         index_write_enabled: bool = True,
+        index_authenticated: bool = True,
     ) -> None:
         self._default_api_key = api_key
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
         self._index_client_factory = index_client_factory
         self._index_write_enabled = index_write_enabled
+        self._index_authenticated = index_authenticated
         self._tools = build_tool_registry(self._build_tools())
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
@@ -482,7 +484,9 @@ class ResearchMcpServer:
             *(
                 [
                     tool
-                    for tool in build_index_tools(self._index_client_factory)
+                    for tool in build_index_tools(
+                        self._index_client_factory, authenticated=self._index_authenticated
+                    )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
                 ]
                 if self._index_client_factory is not None
@@ -2888,6 +2892,9 @@ def _stdio_server() -> ResearchMcpServer:
 
     No credential discovery, home files, or network access during MCP discovery.
     Each tool invocation owns and closes its explicitly authenticated SDK client.
+    ``SYNTH_API_KEY`` is captured once; ``SYNTH_API_KEY_FILE`` names a key file
+    that is re-read on each invocation, so a long-running server follows key
+    rotation, and a key the backend rejects is reported as revoked.
     """
     from contextlib import contextmanager
 
@@ -2898,13 +2905,20 @@ def _stdio_server() -> ResearchMcpServer:
     factory = None
     api_key = None
     backend_base = None
+    authenticated = False
     if enabled:
         api_key = os.environ.get("SYNTH_API_KEY", "").strip()
+        key_file = os.environ.get("SYNTH_API_KEY_FILE", "").strip()
         backend_base = os.environ.get("SYNTH_BACKEND_URL", "").strip()
         if not backend_base:
             raise ValueError("Index MCP requires explicit SYNTH_BACKEND_URL")
-        if writes and not api_key:
-            raise ValueError("Index MCP writes require explicit SYNTH_API_KEY")
+        if api_key and key_file:
+            raise ValueError("Set SYNTH_API_KEY or SYNTH_API_KEY_FILE for Index MCP, not both")
+        if writes and not (api_key or key_file):
+            raise ValueError(
+                "Index MCP writes require explicit SYNTH_API_KEY or SYNTH_API_KEY_FILE"
+            )
+        authenticated = bool(api_key or key_file)
         from urllib.parse import urlsplit
 
         url = urlsplit(backend_base)
@@ -2921,13 +2935,7 @@ def _stdio_server() -> ResearchMcpServer:
             )
 
         @contextmanager
-        def configured_index_client():
-            if api_key:
-                from synth_ai import SynthClient
-
-                with SynthClient(api_key=api_key, base_url=backend_base) as client:
-                    yield client.index
-                return
+        def public_index_client():
             from synth_ai.core.http.transport import HttpTransport
             from synth_ai.sdk.index.client import PublicIndexAPI
 
@@ -2937,13 +2945,29 @@ def _stdio_server() -> ResearchMcpServer:
             finally:
                 transport.close()
 
-        factory = configured_index_client
+        if authenticated:
+            from synth_ai.core.auth.renewal import (
+                RenewableCredential,
+                file_source,
+                static_source,
+            )
+            from synth_ai.mcp.research.tools.index import RenewingIndexClientFactory
+
+            source = (
+                file_source(key_file)
+                if key_file
+                else static_source(api_key, "SYNTH_API_KEY captured at server start")
+            )
+            factory = RenewingIndexClientFactory(RenewableCredential(source), backend_base)
+        else:
+            factory = public_index_client
     return ResearchMcpServer(
         api_key=api_key,
         backend_base=backend_base,
         include_advanced_tools=_advanced_tools_requested(),
         index_client_factory=factory,
         index_write_enabled=writes,
+        index_authenticated=authenticated,
     )
 
 

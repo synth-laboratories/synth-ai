@@ -20,14 +20,28 @@ Install the reviewed SDK package, then configure your agent's MCP server:
 ```
 
 Replace the backend URL with the actual deployment URL. Public read-only search,
-contents, Contribution lookup, and revision status require no API key. Supply
-`SYNTH_API_KEY` through your authorized agent secret configuration only for
-authenticated/private reads or explicitly enabled contribution tools. The
+contents, Contribution lookup, revision status, asset bytes, capabilities and
+tags require no API key. Supply `SYNTH_API_KEY` or `SYNTH_API_KEY_FILE` through
+your authorized agent secret configuration only for authenticated/private reads,
+account reads (identity, own Contributions, usage, promo balance) or explicitly
+enabled contribution tools. The
 executable does not discover Index credentials from home files or Keychain.
 Both Index flags accept only `true` or `false`. Missing Index opt-in means no
 Index tools. Enabling Index requires an explicit backend URL; enabling writes
-also requires a nonempty explicit key. Initialization and tool discovery
-construct no SDK client and make no requests.
+also requires a key (`SYNTH_API_KEY` or `SYNTH_API_KEY_FILE`, not both).
+Initialization and tool discovery construct no SDK client, read no key file and
+make no requests.
+
+### Long-running sessions: key rotation and revocation
+
+`SYNTH_API_KEY` is captured once at start, so an agent cannot change a running
+server's identity. For sessions that outlive a key, set `SYNTH_API_KEY_FILE` to
+a mode-600 regular file holding the key: it is read on every tool invocation, so
+replacing its content rotates the key without a restart. When the backend
+answers 401, the tool re-reads the file once; a different key reruns the tool
+(the rejected request never executed), an unchanged key raises
+`CredentialRevokedError`. A 403 is a permission decision and is returned as is.
+The CLI behaves the same with `--api-key-file` / `SYNTH_API_KEY_FILE`.
 
 Read-only mode exposes search, exact contents, Contribution lookup, and revision
 status. Without a key, those tools use only the credential-free
@@ -108,14 +122,36 @@ against `SynthClient().index` reads the same against `PublicIndexClient`.
 | `account.retrieve / contributions / usage / promo_credit / rewards / update_profile / update_pins` | caller identity, work, usage, promo balance, credits, profile |
 | `profiles.retrieve`, `rewards.award / reverse`, `contests.*` | public profiles; award/contest operator grants |
 
+| `contributions.create_research / lookup_research` | private research allocation and its non-mutating recovery read |
+
 Every operation is declared once in `client.OPERATIONS` or
 `client.PUBLIC_OPERATIONS` and executed identically by sync and async clients.
-`test_index_openapi_parity` requires every SDK operation to hit a real backend
-route with the same operation ID, and vice versa. The SDK covers 47 of the
-backend's 48 declared operations. The one exclusion is deliberate:
-`index.contributions.research.lookup` is the operator acceptance lookup, used by
-operator tooling to observe an allocation receipt, and is not a customer
-operation.
+The typed clients cover all 48 backend operations. The release parity gate
+(`testing/backend/test_index_operation_parity.py`) checks each one in both
+directions against the backend contract: method and path; path, query and
+header parameters (the required `Idempotency-Key` is always sent, the operator
+`Synth-Acceptance-*` headers never are); request and response models field by
+field, recursively; byte responses; and that the sync and async clients send
+identical requests.
+
+### CLI and MCP coverage
+
+`synth_ai.sdk.index.surfaces` declares which operations each `synth-ai index`
+command and each MCP tool sends, with and without a key, and the reason for
+every operation a surface leaves out (reviewer, publisher, sharing, reward,
+contest and profile-editing workflows stay in the typed client and web app).
+`test_index_surface_parity.py` fails when a backend operation has no decision on
+a surface or a command/tool sends something it does not declare.
+
+| CLI (`synth-ai index ...`) | MCP tool |
+| --- | --- |
+| `capabilities`, `tags` | `index_capabilities`, `index_list_tags` |
+| `search [--private]` | `index_search` |
+| `contents`, `contribution`, `revision` | `index_get_contents`, `index_get_contribution`, `index_contribution_status` |
+| `asset --output FILE` | `index_get_asset` (at most 1 MiB, base64) |
+| `account`, `my-contributions`, `usage`, `promo-credit` | `index_account`, `index_my_contributions`, `index_usage`, `index_promo_credit` |
+| `research preview / submit / recover-state` | — (intake reads local files and keeps local state) |
+| — | `index_contribution_create / upload / submit` (write opt-in) |
 
 ## Errors
 
@@ -124,6 +160,11 @@ Transport raises typed `SynthError` subclasses: `RateLimitedError` (with
 wallet), `AuthorizationError` (including uninvited private scope), `ConflictError`,
 `TransientServiceError`. `index_error_code(error)` returns the stable
 `IndexErrorCode`. An unavailable service is never reported as an empty result.
+`IndexErrorCode` names every code an Index route can return; the two
+acceptance-run codes a customer credential cannot provoke are listed in
+`OPERATOR_ONLY_ERROR_CODES`. `test_index_error_parity.py` scans the backend
+source and fails on any code the SDK does not name, or names but the backend
+never returns. Unknown future codes stay available as `error.failure.code`.
 
 ## Upload
 
@@ -163,12 +204,56 @@ whose response was lost is recovered rather than repeated; a revision the server
 has already advanced to `qualified` or `published` is reported as it stands; and
 a `rejected`, `withdrawn` or `changes_requested` revision raises
 `TerminalRevision` instead of being submitted again. If storage refuses a signed
-target because it expired, intake prepares again once and transfers only what is
-still missing.
+target because it expired, intake prepares again (up to three times per run) and
+transfers only what is still missing; re-running continues from there.
+
+Every mutation is protected against a lost response, in the same run and in a
+later one:
+
+- allocation: the state records that the key was sent *before* sending it. If
+  the response is lost, intake asks
+  `POST /index/contributions/research/lookup` (`contributions.lookup_research`),
+  a read of the caller's own receipt for that key; it allocates only when the
+  server answers `research_receipt_absent`. The allocation is never replayed.
+- finalize and submit: a failure is followed by one revision read; if the
+  server committed, intake carries on. If that read also fails, the original
+  error is raised and the next run reconciles first.
 
 State (`synth.index.research-intake-state.v2`) names the backend, organization
 and account it was allocated under, and is refused against any other — an
-allocated draft and its idempotency keys mean nothing there. A `.lock` sidecar
-holds the state file for one process at a time and names its holder, so a stale
-lock is cleared deliberately. Corrupt or foreign state is reported with what to
-do about it; it is never silently discarded.
+allocated draft and its idempotency keys mean nothing there. An operating-system
+lock on a `.lock` sidecar holds the state file for one process at a time; it is
+released automatically if the process dies, and the sidecar names the current
+holder. State is written with a same-directory temporary file, `fsync` and an
+atomic rename. Corrupt, linked or unknown-schema state is reported with what to
+do about it; it is never silently discarded, and nothing is sent.
+
+### Recovering v1 saved state
+
+Intake state written by earlier development builds
+(`synth.index.research-intake-state.v1`) recorded the draft key and publication
+ID but not the backend or account. Current intake refuses to resume it, and
+deleting it is unsafe: a fresh state file would allocate a second draft if the
+first run had already reached the server. Convert it instead, with the account
+and backend the old run used:
+
+```bash
+synth-ai index research recover-state <conversion-dir> \
+  --backend-url https://<the backend the old run used> \
+  --api-key-file ~/.config/synth/index-key   # or SYNTH_API_KEY
+# then resume exactly as before:
+synth-ai index research submit <conversion-dir> --backend-url ... --api-key-file ...
+```
+
+`recover-state` (`research_intake.recover_v1_state`) never allocates, uploads,
+finalizes or submits. It reads the server's receipt for the saved key:
+
+| Server answer | Result |
+| --- | --- |
+| a draft under this key | v2 state bound to that draft, its server status (`finalized`/`submitted` carried forward; terminal statuses stay terminal on resume) |
+| nothing allocated, and v1 state recorded no server work | v2 state with the same key and publication ID, marked so the next run looks before allocating |
+| nothing allocated, but v1 state names a draft or progress | refused, nothing changed: the state belongs to another backend or account |
+| key used for different input, lookup forbidden, or still committing | refused, nothing changed |
+
+The original file is kept beside the new one as `<state>.v1-backup`. Running
+`recover-state` again on converted state reports `recovered: false`.
