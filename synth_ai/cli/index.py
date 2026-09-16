@@ -59,7 +59,12 @@ def submit(
 
     from synth_ai import SynthClient
     from synth_ai.core.errors import SynthError
-    from synth_ai.sdk.index.research_intake import submit_conversion
+    from synth_ai.sdk.index.research_intake import (
+        IntakeLocked,
+        IntakeStateError,
+        TerminalRevision,
+        submit_conversion,
+    )
 
     if not api_key:
         raise click.ClickException("SYNTH_API_KEY or --api-key is required for research intake")
@@ -69,6 +74,16 @@ def submit(
             result = submit_conversion(
                 client.index, conversion, state_path, finalize_only=finalize_only
             )
-    except (OSError, ValueError, KeyError, TypeError, SynthError, HTTPError) as error:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        SynthError,
+        HTTPError,
+        IntakeLocked,
+        IntakeStateError,
+        TerminalRevision,
+    ) as error:
         raise click.ClickException(str(error)) from error
     click.echo(json.dumps(result, indent=2, sort_keys=True))

@@ -78,6 +78,21 @@ Use `AsyncPublicIndexClient` with `async with` for native async applications.
 Both clients own and close their HTTP transport. Authenticated and private
 operations remain under `SynthClient().index`.
 
+The credential-free surface is the complete set of eight customer operations
+that need no account at all:
+
+| Call | Route |
+| --- | --- |
+| `search(...)`, `capabilities()` | `POST /public/search`, `GET /public/capabilities` |
+| `contents.retrieve(...)` | `POST /public/contents` |
+| `tags.list()` | `GET /public/tags` |
+| `contributions.retrieve(...)`, `contributions.revisions.retrieve(...)` | published Contribution and exact revision |
+| `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes of a published revision |
+| `profiles.retrieve(principal_id)` | contributor profile as an anonymous reader sees it |
+
+Each one is the public twin of an authenticated operation, so code written
+against `SynthClient().index` reads the same against `PublicIndexClient`.
+
 ## Surface (`SynthClient().index`, async twin on `AsyncSynthClient`)
 
 | Call | Route |
@@ -90,12 +105,17 @@ operations remain under `SynthClient().index`.
 | `reviews.list(status=)`, `contributions.reviews.create` | reviewer queue and decisions (never self-review) |
 | `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes |
 | `tags.list()`, `collections.list()`, `collections.grants.*` | taxonomy; owner-only explicit shares |
-| `account.retrieve / contributions / usage / rewards / update_profile / update_pins` | caller identity, work, usage, credits, profile |
+| `account.retrieve / contributions / usage / promo_credit / rewards / update_profile / update_pins` | caller identity, work, usage, promo balance, credits, profile |
 | `profiles.retrieve`, `rewards.award / reverse`, `contests.*` | public profiles; award/contest operator grants |
 
-Every operation is declared once in `client.OPERATIONS` and executed identically
-by sync and async clients. `test_index_openapi_parity` requires every SDK operation
-to hit a real backend route with the same operation ID, and vice versa.
+Every operation is declared once in `client.OPERATIONS` or
+`client.PUBLIC_OPERATIONS` and executed identically by sync and async clients.
+`test_index_openapi_parity` requires every SDK operation to hit a real backend
+route with the same operation ID, and vice versa. The SDK covers 47 of the
+backend's 48 declared operations. The one exclusion is deliberate:
+`index.contributions.research.lookup` is the operator acceptance lookup, used by
+operator tooling to observe an allocation receipt, and is not a customer
+operation.
 
 ## Errors
 
@@ -136,3 +156,19 @@ reuses the same draft key and publication ID in `.research-intake-state.json`,
 obtains fresh targets and lets prepare omit already-present objects. The state file
 contains no API key or signed upload URL. Intake never sets rights attestation,
 qualifies, publishes, or broadens the private audience.
+
+Resuming is answered by the server, not by the saved file. Each run reconciles
+the saved reference against the current revision before acting, so a mutation
+whose response was lost is recovered rather than repeated; a revision the server
+has already advanced to `qualified` or `published` is reported as it stands; and
+a `rejected`, `withdrawn` or `changes_requested` revision raises
+`TerminalRevision` instead of being submitted again. If storage refuses a signed
+target because it expired, intake prepares again once and transfers only what is
+still missing.
+
+State (`synth.index.research-intake-state.v2`) names the backend, organization
+and account it was allocated under, and is refused against any other — an
+allocated draft and its idempotency keys mean nothing there. A `.lock` sidecar
+holds the state file for one process at a time and names its holder, so a stale
+lock is cleared deliberately. Corrupt or foreign state is reported with what to
+do about it; it is never silently discarded.

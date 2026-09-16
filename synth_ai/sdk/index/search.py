@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from .artifacts import ArtifactDigest
 from .contracts import (
     ContributionKind,
     ContributionReference,
@@ -82,11 +83,21 @@ class ContentsSpec(IndexContract):
 
 
 class SearchExcerpt(IndexContract):
+    """One citation: an exact byte span of one asset of one sealed revision.
+
+    ``asset_digest_sha256`` names the bytes the span belongs to, bound by the
+    backend from the revision's sealed descriptor. With the revision on the
+    enclosing hit and the parser version on the enclosing result, a citation can
+    be resolved to exact bytes or re-verified later. It is optional here only
+    because the same shape carries retrieval evidence inside the backend.
+    """
+
     model_config = ConfigDict(str_strip_whitespace=False)
     asset_id: Identifier
     text: Annotated[str, Field(min_length=1, max_length=2048)]
     start_byte: Annotated[StrictInt, Field(ge=0)]
     end_byte: Annotated[StrictInt, Field(gt=0)]
+    asset_digest_sha256: ArtifactDigest | None = None
 
     @model_validator(mode="after")
     def check_source_span(self) -> Self:
@@ -171,18 +182,38 @@ class PublicSearchResult(IndexContract):
 
 
 class ContentsItem(IndexContract):
+    """Delivered text bound to the exact asset bytes it was rendered from."""
+
     model_config = ConfigDict(str_strip_whitespace=False)
     reference: ContributionReference
     status: Literal["available", "unavailable"]
     asset_id: Identifier | None = None
     text: Annotated[str, Field(max_length=65_536)] | None = None
+    asset_digest_sha256: ArtifactDigest | None = None
+    logical_path: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
+    start_byte: Annotated[StrictInt, Field(ge=0)] | None = None
+    end_byte: Annotated[StrictInt, Field(ge=0)] | None = None
 
     @model_validator(mode="after")
     def check_delivery(self) -> Self:
-        if self.status == "available" and (self.asset_id is None or self.text is None):
-            raise ValueError("available contents require an exact asset and text")
-        if self.status == "unavailable" and (self.asset_id is not None or self.text is not None):
+        located = (
+            self.asset_id,
+            self.text,
+            self.asset_digest_sha256,
+            self.logical_path,
+            self.start_byte,
+            self.end_byte,
+        )
+        if self.status == "available" and any(value is None for value in located):
+            raise ValueError(
+                "available contents require an exact asset, digest, locator and text"
+            )
+        if self.status == "unavailable" and any(value is not None for value in located):
             raise ValueError("unavailable contents cannot disclose asset metadata or text")
+        if self.status == "available" and self.end_byte - self.start_byte != len(
+            self.text.encode("utf-8")
+        ):
+            raise ValueError("contents span must match the delivered bytes")
         return self
 
 
