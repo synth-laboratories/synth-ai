@@ -148,6 +148,15 @@ class SearchResult(IndexContract):
     results: tuple[SearchHit, ...] = Field(max_length=10)
     usage: SearchUsage
 
+    @property
+    def abstained(self) -> bool:
+        """No supported answer: a real outcome, not an error or an outage.
+
+        The backend marks an empty result list ``X-Index-Result-State:
+        abstained``; failures always arrive as typed errors instead.
+        """
+        return not self.results
+
     @model_validator(mode="after")
     def check_grouped_references(self) -> Self:
         require_unique(
@@ -170,6 +179,15 @@ class PublicSearchResult(IndexContract):
     taxonomy_version: Identifier
     results: tuple[SearchHit, ...] = Field(max_length=10)
     amount_cents: Literal[0] = 0
+
+    @property
+    def abstained(self) -> bool:
+        """No supported answer: a real outcome, not an error or an outage.
+
+        The backend marks an empty result list ``X-Index-Result-State:
+        abstained``; failures always arrive as typed errors instead.
+        """
+        return not self.results
 
     @model_validator(mode="after")
     def check_grouped_references(self) -> Self:

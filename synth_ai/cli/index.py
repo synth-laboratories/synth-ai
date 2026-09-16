@@ -52,7 +52,14 @@ def _failure(error: BaseException) -> click.ClickException:
     from synth_ai.sdk.index.errors import index_error_code
 
     code = index_error_code(error)
-    return click.ClickException(f"{error} [{code.value}]" if code else str(error))
+    message = f"{error} [{code.value}]" if code else str(error)
+    retry_after = getattr(error, "retry_after_seconds", None)
+    if retry_after is not None:
+        message += (
+            f" Retry after {retry_after:g}s with the same --idempotency-key; "
+            "the retry is not charged twice."
+        )
+    return click.ClickException(message)
 
 
 def _handled() -> tuple[type[BaseException], ...]:

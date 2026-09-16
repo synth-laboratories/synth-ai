@@ -166,6 +166,20 @@ acceptance-run codes a customer credential cannot provoke are listed in
 source and fails on any code the SDK does not name, or names but the backend
 never returns. Unknown future codes stay available as `error.failure.code`.
 
+Search outcomes to handle distinctly:
+
+| Outcome | How it arrives | What to do |
+| --- | --- | --- |
+| no supported answer | a normal result with `result.abstained` true (empty `results`) | show "no supported answer"; it is not an error |
+| `index_overloaded` | 503 `TransientServiceError`, `error.retry_after_seconds` set | wait that long, retry with the same idempotency key |
+| `index_unavailable` | 503 `TransientServiceError` | infrastructure fault; retry later |
+| `index_deadline_exceeded` | 504 `TransientServiceError` | retry with the same key |
+| `index_request_cancelled` | 499 (the caller disconnected; nothing was charged) | retry with the same key if still wanted |
+| `index_private_credit_exhausted` | 402 `PaymentRequiredError` | read `account.promo_credit()` for the reset time |
+
+The backend's `X-Index-Dispatch-Id` and `X-Index-Result-State` response headers
+are not yet surfaced by the typed client (the JSON transport returns bodies only).
+
 ## Upload
 
 `contributions.upload(prepared, content)` (sync) and the async twin transfer an

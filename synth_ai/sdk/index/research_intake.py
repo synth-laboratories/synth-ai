@@ -439,7 +439,12 @@ def _lookup(api: IndexAPI, spec: ResearchDraftSpec, draft_key: str) -> ResearchL
                 "This state's draft key was used on this backend for different research "
                 "input; it cannot be resumed for this conversion"
             ) from error
-        if code in (IndexErrorCode.RESEARCH_LOOKUP_FORBIDDEN, IndexErrorCode.FORBIDDEN):
+        if code in (
+            IndexErrorCode.RESEARCH_LOOKUP_FORBIDDEN,
+            IndexErrorCode.RESEARCH_ACTOR_ORG_MISMATCH,
+            IndexErrorCode.RESEARCH_ACTOR_USER_MISMATCH,
+            IndexErrorCode.FORBIDDEN,
+        ):
             raise IntakeStateError(
                 "This account cannot read the allocation this state names; the state "
                 "belongs to another account or organization"
@@ -491,6 +496,13 @@ def _allocate(api: IndexAPI, spec: ResearchDraftSpec, state: dict, path: Path) -
         # The allocation may have committed before the failure. Ask once.
         found = _ask_once(error, lambda: _lookup(api, spec, state["draft_key"]))
         if found is None:
+            if index_error_code(error) is IndexErrorCode.RESEARCH_MANIFEST_ALREADY_REGISTERED:
+                raise IntakeStateError(
+                    "This research bundle is already registered to an allocation made "
+                    "under a different intake key, so this state file is not the one "
+                    "that allocated it. Resume with the original state file (or "
+                    "`research recover-state` if it is v1); nothing new was allocated."
+                ) from error
             raise
         draft = found.draft
     _bind(state, draft, path)

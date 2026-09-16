@@ -30,6 +30,13 @@ class IndexErrorCode(StrEnum):
     IDEMPOTENCY_CONFLICT = "index_idempotency_conflict"
     UNAVAILABLE = "index_unavailable"
     DEADLINE_EXCEEDED = "index_deadline_exceeded"
+    # Bounded admission, connection pool or retrieval queue is full: a 503 with
+    # Retry-After, distinct from UNAVAILABLE. Retry the same idempotency key
+    # after ``error.retry_after_seconds``.
+    OVERLOADED = "index_overloaded"
+    # 499: the client went away and the search was rolled back (no receipt, no
+    # charge). A retry with the same key is a fresh or replayed search.
+    REQUEST_CANCELLED = "index_request_cancelled"
     SCOPE_INVALID = "index_scope_invalid"
     USER_REQUIRED = "user_required"
 
@@ -131,6 +138,10 @@ class IndexErrorCode(StrEnum):
     RESEARCH_REGISTRATION_INVALID = "research_registration_invalid"
     RESEARCH_ACTOR_ORG_MISMATCH = "research_actor_org_mismatch"
     RESEARCH_ACTOR_UNBOUND = "research_actor_unbound"
+    RESEARCH_ACTOR_USER_MISMATCH = "research_actor_user_mismatch"
+    # The bundle's manifest is already registered to an allocation. Resume that
+    # allocation through the lookup with its original idempotency key.
+    RESEARCH_MANIFEST_ALREADY_REGISTERED = "research_manifest_already_registered"
     RESEARCH_ORG_CONTEXT_INVALID = "research_org_context_invalid"
     RESEARCH_ORG_CONTEXT_UNBOUND = "research_org_context_unbound"
     RESEARCH_PACKAGE_POLICY = "research_package_policy"
@@ -156,6 +167,7 @@ class IndexErrorCode(StrEnum):
     RESEARCH_RUN_PROVENANCE_MISMATCH = "research_run_provenance_mismatch"
     RESEARCH_SCAN_LIMIT = "research_scan_limit"
     RESEARCH_SECRET_DETECTED = "research_secret_detected"
+    RESEARCH_RAW_TRANSCRIPT = "research_raw_transcript"
 
 
 # Codes an Index route can return only inside an operator acceptance run, which
