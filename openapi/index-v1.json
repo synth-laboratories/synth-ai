@@ -22,6 +22,322 @@
         "title": "ActivityDay",
         "type": "object"
       },
+      "AnswerCitation": {
+        "additionalProperties": false,
+        "description": "A model-visible citation bound to one delivered immutable source span.",
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "chunk_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "citation_id": {
+            "pattern": "^c[1-9][0-9]{0,2}$",
+            "title": "Citation Id",
+            "type": "string"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "quote": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Quote",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "citation_id",
+          "reference",
+          "asset_id",
+          "chunk_id",
+          "content_sha256",
+          "start_byte",
+          "end_byte",
+          "quote"
+        ],
+        "title": "AnswerCitation",
+        "type": "object"
+      },
+      "AnswerClaim": {
+        "additionalProperties": false,
+        "description": "One answer statement and the exact evidence asserted to support it.",
+        "properties": {
+          "citation_ids": {
+            "items": {
+              "pattern": "^c[1-9][0-9]{0,2}$",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Citation Ids",
+            "type": "array"
+          },
+          "text": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "citation_ids"
+        ],
+        "title": "AnswerClaim",
+        "type": "object"
+      },
+      "AnswerResult": {
+        "additionalProperties": false,
+        "properties": {
+          "admission_policy_version": {
+            "const": "synth.index.answer-admission.v1",
+            "default": "synth.index.answer-admission.v1",
+            "title": "Admission Policy Version",
+            "type": "string"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "answer_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Answer Id",
+            "type": "string"
+          },
+          "citations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AnswerCitation"
+            },
+            "maxItems": 20,
+            "title": "Citations",
+            "type": "array"
+          },
+          "claims": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AnswerClaim"
+            },
+            "maxItems": 16,
+            "title": "Claims",
+            "type": "array"
+          },
+          "insufficient_evidence_reason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insufficient Evidence Reason"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_./-]{0,255}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "request_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "retrieval_versions": {
+            "$ref": "#/components/schemas/SearchExecutionVersions"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnswerStatus"
+          },
+          "synthesis_policy_version": {
+            "const": "synth.index.cited-synthesis.v1",
+            "default": "synth.index.cited-synthesis.v1",
+            "title": "Synthesis Policy Version",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/AnswerUsage"
+          }
+        },
+        "required": [
+          "answer_id",
+          "search_id",
+          "request_id",
+          "query",
+          "mode",
+          "status",
+          "retrieval_versions"
+        ],
+        "title": "AnswerResult",
+        "type": "object"
+      },
+      "AnswerSpec": {
+        "additionalProperties": false,
+        "description": "One grounded answer request; retrieval depth and response are separate.",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/SearchContent"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchExecutionLimits"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_answer_cost_usd_micros": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Answer Cost Usd Micros"
+          },
+          "max_answer_tokens": {
+            "default": 1024,
+            "maximum": 4096.0,
+            "minimum": 64.0,
+            "title": "Max Answer Tokens",
+            "type": "integer"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode",
+            "default": "fast"
+          },
+          "query": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SearchScope"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "AnswerSpec",
+        "type": "object"
+      },
+      "AnswerStatus": {
+        "enum": [
+          "answered",
+          "insufficient_evidence"
+        ],
+        "title": "AnswerStatus",
+        "type": "string"
+      },
+      "AnswerUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "admission_input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Admission Input Tokens",
+            "type": "integer"
+          },
+          "admission_output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Admission Output Tokens",
+            "type": "integer"
+          },
+          "inference_cost_usd_micros": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Inference Cost Usd Micros",
+            "type": "integer"
+          },
+          "retrieval_input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Retrieval Input Tokens",
+            "type": "integer"
+          },
+          "retrieval_output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Retrieval Output Tokens",
+            "type": "integer"
+          },
+          "synthesis_input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Synthesis Input Tokens",
+            "type": "integer"
+          },
+          "synthesis_output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Synthesis Output Tokens",
+            "type": "integer"
+          }
+        },
+        "title": "AnswerUsage",
+        "type": "object"
+      },
       "ArtifactObjectDeclaration": {
         "additionalProperties": false,
         "description": "One immutable manifest object addressed only by logical path and digest.",
@@ -357,7 +673,6 @@
             "type": "array"
           },
           "deep_search": {
-            "const": false,
             "default": false,
             "title": "Deep Search",
             "type": "boolean"
@@ -367,8 +682,7 @@
           },
           "modes": {
             "items": {
-              "const": "fast",
-              "type": "string"
+              "$ref": "#/components/schemas/SearchMode"
             },
             "title": "Modes",
             "type": "array"
@@ -388,8 +702,7 @@
           },
           "search_modes": {
             "items": {
-              "const": "fast",
-              "type": "string"
+              "$ref": "#/components/schemas/SearchMode"
             },
             "title": "Search Modes",
             "type": "array"
@@ -1898,6 +2211,84 @@
         "title": "CreditedContributor",
         "type": "object"
       },
+      "CustomerCharge": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "default": "USD",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "ledger_reference": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ledger Reference"
+          },
+          "price_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Version"
+          },
+          "refunded_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Refunded Microcents",
+            "type": "integer"
+          },
+          "released_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Released Microcents",
+            "type": "integer"
+          },
+          "reservation_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reservation Id"
+          },
+          "reserved_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Reserved Microcents",
+            "type": "integer"
+          },
+          "settled_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Settled Microcents",
+            "type": "integer"
+          },
+          "settlement_state": {
+            "$ref": "#/components/schemas/SettlementState",
+            "default": "not_applicable"
+          }
+        },
+        "title": "CustomerCharge",
+        "type": "object"
+      },
       "EvidenceReference": {
         "additionalProperties": false,
         "properties": {
@@ -2015,6 +2406,7 @@
         "title": "IndexUsageSummary",
         "type": "object"
       },
+      "JsonValue": {},
       "Leaderboard": {
         "additionalProperties": false,
         "properties": {
@@ -2172,6 +2564,15 @@
         "title": "MeView",
         "type": "object"
       },
+      "MeasurementState": {
+        "enum": [
+          "complete",
+          "estimated",
+          "pending"
+        ],
+        "title": "MeasurementState",
+        "type": "string"
+      },
       "MyContribution": {
         "additionalProperties": false,
         "properties": {
@@ -2311,6 +2712,62 @@
           "entries"
         ],
         "title": "MyRewards",
+        "type": "object"
+      },
+      "OperationUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "operation_kind": {
+            "$ref": "#/components/schemas/UsageOperationKind"
+          },
+          "parent_operation_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Operation Id"
+          },
+          "physical_attempts": {
+            "minimum": 0.0,
+            "title": "Physical Attempts",
+            "type": "integer"
+          },
+          "statuses": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/UsageEventStatus"
+            },
+            "maxItems": 5,
+            "title": "Statuses",
+            "type": "array"
+          },
+          "totals": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/UsageTotal"
+            },
+            "maxItems": 40,
+            "title": "Totals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operation_id",
+          "parent_operation_id",
+          "operation_kind",
+          "physical_attempts"
+        ],
+        "title": "OperationUsage",
         "type": "object"
       },
       "PrivatePromoCredit": {
@@ -3854,6 +4311,101 @@
         "title": "RewardReverseSpec",
         "type": "object"
       },
+      "Search": {
+        "additionalProperties": false,
+        "description": "Authorized lifecycle snapshot; a client wait timeout does not mutate it.",
+        "properties": {
+          "cancellation_requested": {
+            "default": false,
+            "title": "Cancellation Requested",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effective_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "result_available": {
+            "default": false,
+            "title": "Result Available",
+            "type": "boolean"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/SearchSpec-Output"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SearchState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "spec",
+          "state",
+          "requested_mode",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Search",
+        "type": "object"
+      },
+      "SearchCancellation": {
+        "additionalProperties": false,
+        "properties": {
+          "cancellation_requested": {
+            "const": true,
+            "default": true,
+            "title": "Cancellation Requested",
+            "type": "boolean"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SearchState"
+          }
+        },
+        "required": [
+          "search_id",
+          "state"
+        ],
+        "title": "SearchCancellation",
+        "type": "object"
+      },
       "SearchContent": {
         "additionalProperties": false,
         "properties": {
@@ -3873,6 +4425,102 @@
           }
         },
         "title": "SearchContent",
+        "type": "object"
+      },
+      "SearchEvent": {
+        "additionalProperties": false,
+        "description": "Reconnectable public execution event; no private model reasoning.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SearchEventKind"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "payload": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Payload",
+            "type": "object"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "search_id",
+          "sequence",
+          "kind",
+          "created_at"
+        ],
+        "title": "SearchEvent",
+        "type": "object"
+      },
+      "SearchEventKind": {
+        "enum": [
+          "created",
+          "claimed",
+          "tool_completed",
+          "checkpointed",
+          "cancellation_requested",
+          "completed",
+          "partial",
+          "failed",
+          "cancelled"
+        ],
+        "title": "SearchEventKind",
+        "type": "string"
+      },
+      "SearchEventPage": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SearchEvent"
+            },
+            "maxItems": 200,
+            "title": "Events",
+            "type": "array"
+          },
+          "next_after": {
+            "minimum": 0.0,
+            "title": "Next After",
+            "type": "integer"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "next_after"
+        ],
+        "title": "SearchEventPage",
         "type": "object"
       },
       "SearchExcerpt": {
@@ -3896,6 +4544,11 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "chunk_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Chunk Id",
+            "type": "string"
+          },
           "end_byte": {
             "exclusiveMinimum": 0.0,
             "title": "End Byte",
@@ -3915,11 +4568,181 @@
         },
         "required": [
           "asset_id",
+          "chunk_id",
           "text",
           "start_byte",
           "end_byte"
         ],
         "title": "SearchExcerpt",
+        "type": "object"
+      },
+      "SearchExecutionLimits": {
+        "additionalProperties": false,
+        "description": "Caller ceilings for deep execution; server policy may only tighten them.",
+        "properties": {
+          "deadline_seconds": {
+            "default": 90,
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Deadline Seconds",
+            "type": "integer"
+          },
+          "max_active_context_tokens": {
+            "default": 32768,
+            "maximum": 32768.0,
+            "minimum": 1024.0,
+            "title": "Max Active Context Tokens",
+            "type": "integer"
+          },
+          "max_cost_usd_micros": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cost Usd Micros"
+          },
+          "max_inference_tokens": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Inference Tokens"
+          },
+          "max_model_turns": {
+            "default": 6,
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Max Model Turns",
+            "type": "integer"
+          },
+          "max_reads": {
+            "default": 12,
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Max Reads",
+            "type": "integer"
+          },
+          "max_searches": {
+            "default": 8,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Max Searches",
+            "type": "integer"
+          }
+        },
+        "title": "SearchExecutionLimits",
+        "type": "object"
+      },
+      "SearchExecutionVersions": {
+        "additionalProperties": false,
+        "description": "Exact implementation identities used by one result.",
+        "properties": {
+          "agent_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Version"
+          },
+          "corpus_generation": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Generation",
+            "type": "string"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_./-]{0,255}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "ranker_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Ranker Version",
+            "type": "string"
+          },
+          "reranker_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reranker Version"
+          },
+          "taxonomy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Taxonomy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_generation",
+          "ranker_version",
+          "parser_version",
+          "taxonomy_version"
+        ],
+        "title": "SearchExecutionVersions",
+        "type": "object"
+      },
+      "SearchFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "retryable"
+        ],
+        "title": "SearchFailure",
         "type": "object"
       },
       "SearchFilters": {
@@ -4082,6 +4905,25 @@
         "title": "SearchLimits",
         "type": "object"
       },
+      "SearchMode": {
+        "enum": [
+          "fast",
+          "deep"
+        ],
+        "title": "SearchMode",
+        "type": "string"
+      },
+      "SearchPartialReason": {
+        "enum": [
+          "deadline_exceeded",
+          "token_budget_exhausted",
+          "cost_budget_exhausted",
+          "tool_limit_exhausted",
+          "evidence_revoked"
+        ],
+        "title": "SearchPartialReason",
+        "type": "string"
+      },
       "SearchResult": {
         "additionalProperties": false,
         "properties": {
@@ -4090,16 +4932,26 @@
             "title": "Corpus Generation",
             "type": "string"
           },
-          "mode": {
-            "const": "fast",
-            "default": "fast",
-            "title": "Mode",
-            "type": "string"
+          "effective_mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "execution_versions": {
+            "$ref": "#/components/schemas/SearchExecutionVersions"
           },
           "parser_version": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Parser Version",
             "type": "string"
+          },
+          "partial_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchPartialReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "ranker_version": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -4110,6 +4962,9 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Request Id",
             "type": "string"
+          },
+          "requested_mode": {
+            "$ref": "#/components/schemas/SearchMode"
           },
           "results": {
             "items": {
@@ -4125,8 +4980,11 @@
             "type": "string"
           },
           "status": {
-            "const": "completed",
             "default": "completed",
+            "enum": [
+              "completed",
+              "partial"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -4135,6 +4993,17 @@
             "title": "Taxonomy Version",
             "type": "string"
           },
+          "unresolved_evidence_needs": {
+            "default": [],
+            "items": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Unresolved Evidence Needs",
+            "type": "array"
+          },
           "usage": {
             "$ref": "#/components/schemas/SearchUsage"
           }
@@ -4142,10 +5011,13 @@
         "required": [
           "search_id",
           "request_id",
+          "requested_mode",
+          "effective_mode",
           "corpus_generation",
           "ranker_version",
           "parser_version",
           "taxonomy_version",
+          "execution_versions",
           "results",
           "usage"
         ],
@@ -4178,7 +5050,7 @@
         "title": "SearchScope",
         "type": "object"
       },
-      "SearchSpec": {
+      "SearchSpec-Input": {
         "additionalProperties": false,
         "properties": {
           "content": {
@@ -4187,11 +5059,19 @@
           "filters": {
             "$ref": "#/components/schemas/SearchFilters"
           },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchExecutionLimits"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mode": {
-            "const": "fast",
-            "default": "fast",
-            "title": "Mode",
-            "type": "string"
+            "$ref": "#/components/schemas/SearchMode",
+            "default": "fast"
           },
           "query": {
             "maxLength": 8192,
@@ -4209,12 +5089,61 @@
         "title": "SearchSpec",
         "type": "object"
       },
+      "SearchSpec-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/SearchContent"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchExecutionLimits"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode",
+            "default": "fast"
+          },
+          "query": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SearchScope"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchSpec",
+        "type": "object"
+      },
+      "SearchState": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "SearchState",
+        "type": "string"
+      },
       "SearchUsage": {
         "additionalProperties": false,
         "description": "Server-authored successful logical search receipt; never contributor earnings.",
         "properties": {
           "amount_cents": {
-            "maximum": 5.0,
             "minimum": 0.0,
             "title": "Amount Cents",
             "type": "integer"
@@ -4227,6 +5156,18 @@
             "title": "Billing Scope",
             "type": "string"
           },
+          "inference_cost_usd_micros": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Inference Cost Usd Micros",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
           "logical_units": {
             "default": 1,
             "maximum": 1.0,
@@ -4234,16 +5175,45 @@
             "title": "Logical Units",
             "type": "integer"
           },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode",
+            "default": "fast"
+          },
+          "output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
+          },
           "price_version": {
-            "const": "synth.index.fast.v1",
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": "synth.index.fast.v1",
-            "title": "Price Version",
-            "type": "string"
+            "title": "Price Version"
+          },
+          "read_calls": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Read Calls",
+            "type": "integer"
           },
           "receipt_id": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Receipt Id",
             "type": "string"
+          },
+          "search_calls": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Search Calls",
+            "type": "integer"
           }
         },
         "required": [
@@ -4253,6 +5223,219 @@
         ],
         "title": "SearchUsage",
         "type": "object"
+      },
+      "SearchUsageReceiptV1": {
+        "additionalProperties": false,
+        "properties": {
+          "charge": {
+            "$ref": "#/components/schemas/CustomerCharge"
+          },
+          "effective_mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "event_count": {
+            "minimum": 0.0,
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "infrastructure_cost_usd_micros": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Infrastructure Cost Usd Micros",
+            "type": "integer"
+          },
+          "measurement_state": {
+            "$ref": "#/components/schemas/MeasurementState"
+          },
+          "observed_consumption": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/UsageTotal"
+            },
+            "maxItems": 40,
+            "title": "Observed Consumption",
+            "type": "array"
+          },
+          "operation_count": {
+            "minimum": 0.0,
+            "title": "Operation Count",
+            "type": "integer"
+          },
+          "operations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OperationUsage"
+            },
+            "maxItems": 100,
+            "title": "Operations",
+            "type": "array"
+          },
+          "org_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "physical_attempt_count": {
+            "minimum": 0.0,
+            "title": "Physical Attempt Count",
+            "type": "integer"
+          },
+          "requested_mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "search_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Search Id",
+            "type": "string"
+          },
+          "unallocated_cost_usd_micros": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Unallocated Cost Usd Micros",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "search_id",
+          "org_id",
+          "requested_mode",
+          "effective_mode",
+          "event_count",
+          "operation_count",
+          "physical_attempt_count",
+          "measurement_state",
+          "charge",
+          "generated_at"
+        ],
+        "title": "SearchUsageReceiptV1",
+        "type": "object"
+      },
+      "SearchUsageSummaryPage": {
+        "additionalProperties": false,
+        "properties": {
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "rows": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SearchUsageSummaryRow"
+            },
+            "maxItems": 500,
+            "title": "Rows",
+            "type": "array"
+          },
+          "total_rows": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end"
+        ],
+        "title": "SearchUsageSummaryPage",
+        "type": "object"
+      },
+      "SearchUsageSummaryRow": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_charge_microcents": {
+            "minimum": 0.0,
+            "title": "Customer Charge Microcents",
+            "type": "integer"
+          },
+          "infrastructure_cost_usd_micros": {
+            "minimum": 0.0,
+            "title": "Infrastructure Cost Usd Micros",
+            "type": "integer"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "model_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Identity"
+          },
+          "pending_event_count": {
+            "minimum": 0.0,
+            "title": "Pending Event Count",
+            "type": "integer"
+          },
+          "physical_attempt_count": {
+            "minimum": 0.0,
+            "title": "Physical Attempt Count",
+            "type": "integer"
+          },
+          "search_count": {
+            "minimum": 0.0,
+            "title": "Search Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "search_count",
+          "physical_attempt_count",
+          "infrastructure_cost_usd_micros",
+          "customer_charge_microcents",
+          "pending_event_count"
+        ],
+        "title": "SearchUsageSummaryRow",
+        "type": "object"
+      },
+      "SettlementState": {
+        "enum": [
+          "not_applicable",
+          "reserved",
+          "settled",
+          "released",
+          "refunded",
+          "pending"
+        ],
+        "title": "SettlementState",
+        "type": "string"
       },
       "TagRegistry": {
         "additionalProperties": false,
@@ -4349,8 +5532,112 @@
         "title": "TagView",
         "type": "object"
       },
+      "UsageEventStatus": {
+        "enum": [
+          "started",
+          "completed",
+          "failed",
+          "cancelled",
+          "unreconciled"
+        ],
+        "title": "UsageEventStatus",
+        "type": "string"
+      },
+      "UsageMetric": {
+        "enum": [
+          "physical_calls",
+          "physical_batches",
+          "candidates_returned",
+          "candidates_scored",
+          "results_returned",
+          "query_encodings",
+          "document_encodings",
+          "query_tokens",
+          "document_tokens",
+          "input_tokens",
+          "output_tokens",
+          "cached_input_tokens",
+          "reasoning_tokens",
+          "vector_count",
+          "cache_hits",
+          "cache_misses",
+          "read_calls",
+          "bytes_read",
+          "steps",
+          "tool_calls",
+          "retained_evidence",
+          "discarded_evidence",
+          "elapsed_microseconds",
+          "accelerator_microseconds",
+          "cpu_microseconds",
+          "storage_byte_seconds",
+          "egress_bytes",
+          "infrastructure_cost_usd_micros",
+          "unallocated_cost_usd_micros"
+        ],
+        "title": "UsageMetric",
+        "type": "string"
+      },
+      "UsageOperationKind": {
+        "enum": [
+          "bm25_query",
+          "dense_query",
+          "colbert_rerank",
+          "content_read",
+          "model_call",
+          "deep_step",
+          "tool_call",
+          "host_allocation"
+        ],
+        "title": "UsageOperationKind",
+        "type": "string"
+      },
+      "UsageTotal": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_quantity": {
+            "minimum": 0.0,
+            "title": "Estimated Quantity",
+            "type": "integer"
+          },
+          "measured_quantity": {
+            "minimum": 0.0,
+            "title": "Measured Quantity",
+            "type": "integer"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/UsageMetric"
+          },
+          "pending_events": {
+            "minimum": 0.0,
+            "title": "Pending Events",
+            "type": "integer"
+          },
+          "quantity": {
+            "minimum": 0.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "metric",
+          "quantity",
+          "measured_quantity",
+          "estimated_quantity",
+          "pending_events"
+        ],
+        "title": "UsageTotal",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -4430,6 +5717,61 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/index/answer": {
+      "post": {
+        "operationId": "index.answer",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer",
+        "tags": [
+          "index"
+        ]
+      }
+    },
     "/api/v1/index/capabilities": {
       "get": {
         "operationId": "index.capabilities",
@@ -6384,6 +7726,179 @@
         ]
       }
     },
+    "/api/v1/index/me/usage/operations": {
+      "get": {
+        "operationId": "index.me.operation_usage_summary",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period_start",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Period Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_end",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Period End",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchUsageSummaryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Operation Usage Summary",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/me/usage/operations/export": {
+      "get": {
+        "description": "Export the same tenant-scoped aggregate as the typed JSON endpoint.",
+        "operationId": "index.me.operation_usage_export",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period_start",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Period Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_end",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Period End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Operation Usage Export",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/me/usage/searches/{search_id}": {
+      "get": {
+        "description": "Typed operation receipt; both query and RLS bind the current tenant.",
+        "operationId": "index.me.search_usage_receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchUsageReceiptV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Usage Receipt",
+        "tags": [
+          "index"
+        ]
+      }
+    },
     "/api/v1/index/profiles/{principal_id}": {
       "get": {
         "operationId": "index.profiles.retrieve",
@@ -6696,7 +8211,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchSpec"
+                "$ref": "#/components/schemas/SearchSpec-Input"
               }
             }
           },
@@ -6948,7 +8463,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchSpec"
+                "$ref": "#/components/schemas/SearchSpec-Input"
               }
             }
           },
@@ -6977,6 +8492,256 @@
           }
         },
         "summary": "Search",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/searches": {
+      "post": {
+        "operationId": "index.searches.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Search"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/searches/{search_id}": {
+      "get": {
+        "operationId": "index.searches.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Search"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/searches/{search_id}/cancel": {
+      "post": {
+        "operationId": "index.searches.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchCancellation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/searches/{search_id}/events": {
+      "get": {
+        "operationId": "index.searches.events",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEventPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/searches/{search_id}/result": {
+      "get": {
+        "operationId": "index.searches.result",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Result",
         "tags": [
           "index"
         ]
