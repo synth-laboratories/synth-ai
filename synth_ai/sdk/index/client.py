@@ -39,6 +39,7 @@ from .catalog import (
     ProfilePinsSpec,
     ProfileSpec,
     ProfileView,
+    PromoCreditSummary,
     RewardAward,
     RewardAwardSpec,
     RewardReverseSpec,
@@ -113,6 +114,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.me.retrieve": ("GET", f"{_P}/me"),
     "index.me.contributions.list": ("GET", f"{_P}/me/contributions"),
     "index.me.usage": ("GET", f"{_P}/me/usage"),
+    "index.me.promo_credit": ("GET", f"{_P}/me/promo-credit"),
     "index.me.rewards.list": ("GET", f"{_P}/me/rewards"),
     "index.me.profile.update": ("PUT", f"{_P}/me/profile"),
     "index.me.profile.pins.update": ("PUT", f"{_P}/me/profile/pins"),
@@ -128,9 +130,14 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contests.entries.review": ("POST", f"{_K}/entries/{{entry_id}}/review"),
 }
 
+# The complete credential-free customer surface: the eight operations a reader
+# can call with no account at all. Every one of them is also reachable on the
+# authenticated client, which sees private work in addition.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
+    "index.public.capabilities": ("GET", f"{_P}/public/capabilities"),
+    "index.public.tags.list": ("GET", f"{_P}/public/tags"),
     "index.public.contributions.retrieve": (
         "GET",
         f"{_P}/public/contributions/{{contribution_id}}",
@@ -139,6 +146,12 @@ PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
         "GET",
         f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}",
     ),
+    "index.public.contributions.assets.retrieve": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}"
+        f"/assets/{{asset_id}}",
+    ),
+    "index.public.profiles.retrieve": ("GET", f"{_P}/public/profiles/{{principal_id}}"),
 }
 
 _IDENTIFIER = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
@@ -658,6 +671,17 @@ class AccountAPI(_Resource):
     def contributions(self) -> Any:
         return self._run(_Call("index.me.contributions.list", MyContributions.model_validate))
 
+    def promo_credit(self) -> Any:
+        """Read the current private-search promo balance for this organization.
+
+        Returns a summary whose ``credit`` is ``None`` when the organization is
+        not enrolled. An exhausted balance is a balance, not an error: the
+        refusal only happens when a private search is actually attempted.
+        """
+        return self._run(
+            _Call("index.me.promo_credit", PromoCreditSummary.model_validate)
+        )
+
     def usage(self) -> Any:
         return self._run(_Call("index.me.usage", IndexUsageSummary.model_validate))
 
@@ -860,6 +884,37 @@ class PublicContentsAPI(_Resource):
         )
 
 
+class PublicAssetsAPI(_Resource):
+    def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
+        """Download one declared asset of a published revision, with no account."""
+        return self._run(
+            _Call(
+                "index.public.contributions.assets.retrieve",
+                bytes,
+                path_parameters={**_revision(reference), "asset_id": asset_id},
+                raw=True,
+            )
+        )
+
+
+class PublicProfilesAPI(_Resource):
+    def retrieve(self, principal_id: str) -> Any:
+        """Read a contributor profile as an anonymous reader sees it."""
+        return self._run(
+            _Call(
+                "index.public.profiles.retrieve",
+                ProfileView.model_validate,
+                path_parameters={"principal_id": principal_id},
+            )
+        )
+
+
+class PublicTagsAPI(_Resource):
+    def list(self) -> Any:
+        """Read the public tag registry used by search filters."""
+        return self._run(_Call("index.public.tags.list", TagRegistry.model_validate))
+
+
 class PublicRevisionsAPI(_Resource):
     def retrieve(self, reference: ContributionReference) -> Any:
         return self._run(
@@ -879,6 +934,7 @@ class PublicContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.revisions = PublicRevisionsAPI(run, asynchronous)
+        self.assets = PublicAssetsAPI(run, asynchronous)
 
     def retrieve(self, contribution_id: str) -> Any:
         return self._run(
@@ -899,6 +955,14 @@ class _PublicIndexRoot(_Resource):
         super().__init__(run, asynchronous)
         self.contents = PublicContentsAPI(run, asynchronous)
         self.contributions = PublicContributionsAPI(run, asynchronous)
+        self.tags = PublicTagsAPI(run, asynchronous)
+        self.profiles = PublicProfilesAPI(run, asynchronous)
+
+    def capabilities(self) -> Any:
+        """Discover the public surface: public visibility only, no write features."""
+        return self._run(
+            _Call("index.public.capabilities", Capabilities.model_validate)
+        )
 
     def search(
         self,

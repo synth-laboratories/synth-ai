@@ -409,7 +409,8 @@
                 "award",
                 "contest",
                 "publish",
-                "review"
+                "review",
+                "research_import"
               ],
               "type": "string"
             },
@@ -655,7 +656,20 @@
       },
       "ContentsItem": {
         "additionalProperties": false,
+        "description": "Delivered text bound to the exact asset bytes it was rendered from.\n\nAvailable text names its asset, that asset's sealed digest, its logical path\nand the byte span delivered, so the caller can resolve the same bytes again\nor verify a quotation without trusting this response. Unavailable items stay\nsilent: they disclose no asset metadata at all.",
         "properties": {
+          "asset_digest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Digest Sha256"
+          },
           "asset_id": {
             "anyOf": [
               {
@@ -668,8 +682,45 @@
             ],
             "title": "Asset Id"
           },
+          "end_byte": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Byte"
+          },
+          "logical_path": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logical Path"
+          },
           "reference": {
             "$ref": "#/components/schemas/ContributionReference"
+          },
+          "start_byte": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Byte"
           },
           "status": {
             "enum": [
@@ -1794,6 +1845,26 @@
         "title": "CreateContributionSpec",
         "type": "object"
       },
+      "CreateResearchContributionSpec": {
+        "additionalProperties": false,
+        "description": "Reviewed export identity, never caller-selected origin or rights state.",
+        "properties": {
+          "bundle_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Bundle Digest",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ResearchSource"
+          }
+        },
+        "required": [
+          "bundle_digest",
+          "source"
+        ],
+        "title": "CreateResearchContributionSpec",
+        "type": "object"
+      },
       "CreditedContributor": {
         "additionalProperties": false,
         "properties": {
@@ -2059,7 +2130,8 @@
                 "award",
                 "contest",
                 "publish",
-                "review"
+                "review",
+                "research_import"
               ],
               "type": "string"
             },
@@ -2245,21 +2317,98 @@
         "additionalProperties": false,
         "description": "Account/usage page balance; promotional allowance, never cash or earnings.",
         "properties": {
-          "allocated_cents": {"minimum": 0.0, "title": "Allocated Cents", "type": "integer"},
-          "campaign_id": {"title": "Campaign Id", "type": "string"},
-          "carryover": {"const": false, "default": false, "title": "Carryover", "type": "boolean"},
-          "consumed_cents": {"minimum": 0.0, "title": "Consumed Cents", "type": "integer"},
-          "expires_at": {"format": "date-time", "title": "Expires At", "type": "string"},
-          "paid_overflow_enabled": {"title": "Paid Overflow Enabled", "type": "boolean"},
-          "period_start": {"format": "date-time", "title": "Period Start", "type": "string"},
-          "remaining_cents": {"minimum": 0.0, "title": "Remaining Cents", "type": "integer"},
-          "remaining_searches": {"minimum": 0.0, "title": "Remaining Searches", "type": "integer"},
-          "resets_at": {"anyOf": [{"format": "date-time", "type": "string"}, {"type": "null"}], "title": "Resets At"},
-          "status": {"enum": ["active", "exhausted", "expired", "revoked", "campaign_ended"], "title": "Status", "type": "string"},
-          "unit_price_cents": {"minimum": 0.0, "title": "Unit Price Cents", "type": "integer"},
-          "withdrawable": {"const": false, "default": false, "title": "Withdrawable", "type": "boolean"}
+          "allocated_cents": {
+            "minimum": 0.0,
+            "title": "Allocated Cents",
+            "type": "integer"
+          },
+          "campaign_id": {
+            "title": "Campaign Id",
+            "type": "string"
+          },
+          "carryover": {
+            "const": false,
+            "default": false,
+            "title": "Carryover",
+            "type": "boolean"
+          },
+          "consumed_cents": {
+            "minimum": 0.0,
+            "title": "Consumed Cents",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "paid_overflow_enabled": {
+            "title": "Paid Overflow Enabled",
+            "type": "boolean"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "remaining_cents": {
+            "minimum": 0.0,
+            "title": "Remaining Cents",
+            "type": "integer"
+          },
+          "remaining_searches": {
+            "minimum": 0.0,
+            "title": "Remaining Searches",
+            "type": "integer"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resets At"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "exhausted",
+              "expired",
+              "revoked",
+              "campaign_ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unit_price_cents": {
+            "minimum": 0.0,
+            "title": "Unit Price Cents",
+            "type": "integer"
+          },
+          "withdrawable": {
+            "const": false,
+            "default": false,
+            "title": "Withdrawable",
+            "type": "boolean"
+          }
         },
-        "required": ["campaign_id", "status", "period_start", "resets_at", "expires_at", "allocated_cents", "consumed_cents", "remaining_cents", "unit_price_cents", "remaining_searches", "paid_overflow_enabled"],
+        "required": [
+          "campaign_id",
+          "status",
+          "period_start",
+          "resets_at",
+          "expires_at",
+          "allocated_cents",
+          "consumed_cents",
+          "remaining_cents",
+          "unit_price_cents",
+          "remaining_searches",
+          "paid_overflow_enabled"
+        ],
         "title": "PrivatePromoCredit",
         "type": "object"
       },
@@ -2525,8 +2674,21 @@
       "PromoCreditSummary": {
         "additionalProperties": false,
         "description": "Separate read model so the strict usage summary shape stays unchanged.",
-        "properties": {"credit": {"anyOf": [{"$ref": "#/components/schemas/PrivatePromoCredit"}, {"type": "null"}]}},
-        "required": ["credit"],
+        "properties": {
+          "credit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrivatePromoCredit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "credit"
+        ],
         "title": "PromoCreditSummary",
         "type": "object"
       },
@@ -2844,6 +3006,148 @@
           "resources"
         ],
         "title": "ResearchCard",
+        "type": "object"
+      },
+      "ResearchLookupView": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/ContributionDraft"
+          },
+          "revision_status": {
+            "enum": [
+              "draft",
+              "submitted",
+              "changes_requested",
+              "rejected",
+              "qualified",
+              "published",
+              "withdrawn"
+            ],
+            "title": "Revision Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft",
+          "revision_status"
+        ],
+        "title": "ResearchLookupView",
+        "type": "object"
+      },
+      "ResearchSource": {
+        "additionalProperties": false,
+        "properties": {
+          "arc_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Arc Id",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "observed_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Date"
+          },
+          "organization_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "session_ids": {
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Session Ids",
+            "type": "array"
+          },
+          "source_paths": {
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Source Paths",
+            "type": "array"
+          },
+          "source_repository_url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Source Repository Url",
+            "type": "string"
+          },
+          "source_revision": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Revision",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "tools": {
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "arc_id",
+          "source_repository_url",
+          "source_revision",
+          "session_ids",
+          "tools",
+          "source_paths"
+        ],
+        "title": "ResearchSource",
         "type": "object"
       },
       "ReuseSummary": {
@@ -3573,7 +3877,20 @@
       },
       "SearchExcerpt": {
         "additionalProperties": false,
+        "description": "One citation: an exact byte span of one asset of one sealed revision.\n\n``asset_digest_sha256`` is absent in retrieval evidence and present in every\ndelivered citation. The ranker names the span; the digest is bound here from\nthe revision's sealed descriptor, which is the backend's own authority, so a\nprojection can never assert which bytes a citation points at. The revision is\non the enclosing hit and the parser version on the enclosing result, which\ntogether make a citation resolvable to exact bytes and re-verifiable later.",
         "properties": {
+          "asset_digest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Digest Sha256"
+          },
           "asset_id": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Asset Id",
@@ -4034,13 +4351,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
@@ -4123,6 +4433,40 @@
     "/api/v1/index/capabilities": {
       "get": {
         "operationId": "index.capabilities",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4133,6 +4477,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Discover",
@@ -4764,6 +5118,181 @@
         ]
       }
     },
+    "/api/v1/index/contributions/research": {
+      "post": {
+        "operationId": "index.contributions.research.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResearchContributionSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Research",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/research/lookup": {
+      "post": {
+        "description": "Resolve an uncertain allocation without replaying a mutation.",
+        "operationId": "index.contributions.research.lookup",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResearchContributionSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchLookupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lookup Research",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}": {
       "get": {
         "operationId": "index.contributions.retrieve",
@@ -4776,6 +5305,38 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Contribution Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
             }
           }
         ],
@@ -4831,6 +5392,38 @@
               "pattern": "^[a-zA-Z0-9_.-]+$",
               "title": "Idempotency-Key",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
             }
           }
         ],
@@ -4960,6 +5553,38 @@
               "title": "Revision Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
           }
         ],
         "responses": {
@@ -5012,6 +5637,38 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Revision Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
             }
           }
         ],
@@ -5075,6 +5732,38 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Asset Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
             }
           }
         ],
@@ -5187,6 +5876,50 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Revision Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
             }
           }
         ],
@@ -5422,6 +6155,40 @@
     "/api/v1/index/me": {
       "get": {
         "operationId": "index.me.retrieve",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5432,6 +6199,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Whoami",
@@ -5547,9 +6324,22 @@
       "get": {
         "description": "Current-org private-search promo balance; ``credit`` is null if not enrolled.",
         "operationId": "index.me.promo_credit",
-        "responses": {"200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/PromoCreditSummary"}}}, "description": "Successful Response"}},
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoCreditSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
         "summary": "Promo Credit",
-        "tags": ["index"]
+        "tags": [
+          "index"
+        ]
       }
     },
     "/api/v1/index/me/rewards": {

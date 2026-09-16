@@ -145,6 +145,41 @@ class IndexUsageSummary(IndexContract):
     private: PrivateUsage
 
 
+PromoCreditStatus = Literal[
+    "active", "exhausted", "expired", "revoked", "campaign_ended"
+]
+
+
+class PrivatePromoCredit(IndexContract):
+    """Promotional private-search allowance: never cash, earnings or carryover.
+
+    ``remaining_searches`` is what the balance can still fund at
+    ``unit_price_cents``. When it reaches zero a private search is refused with
+    ``IndexErrorCode.PRIVATE_CREDIT_EXHAUSTED`` unless the organization has paid
+    authority, and ``resets_at`` says when the next allocation lands.
+    """
+
+    campaign_id: str
+    status: PromoCreditStatus
+    period_start: AwareDatetime
+    resets_at: AwareDatetime | None
+    expires_at: AwareDatetime
+    allocated_cents: Count
+    consumed_cents: Count
+    remaining_cents: Count
+    unit_price_cents: Count
+    remaining_searches: Count
+    paid_overflow_enabled: StrictBool
+    carryover: Literal[False] = False
+    withdrawable: Literal[False] = False
+
+
+class PromoCreditSummary(IndexContract):
+    """``credit`` is null when the organization is not enrolled in the promotion."""
+
+    credit: PrivatePromoCredit | None
+
+
 # Profiles ------------------------------------------------------------------------
 
 

@@ -14,6 +14,11 @@ from synth_ai.core.errors import SynthError
 class IndexErrorCode(StrEnum):
     FORBIDDEN = "index_forbidden"
     PAYMENT_REQUIRED = "index_payment_required"
+    # A private search refused because the promotional balance is spent and the
+    # organization has no paid authority. It arrives inside the same 402
+    # PaymentRequiredError as PAYMENT_REQUIRED and is never a charge: recheck
+    # ``account.promo_credit()`` for the reset instant before retrying.
+    PRIVATE_CREDIT_EXHAUSTED = "index_private_credit_exhausted"
     RATE_LIMITED = "index_rate_limited"
     IDEMPOTENCY_CONFLICT = "index_idempotency_conflict"
     UNAVAILABLE = "index_unavailable"

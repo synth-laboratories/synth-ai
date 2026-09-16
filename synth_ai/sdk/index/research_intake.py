@@ -11,20 +11,27 @@ from __future__ import annotations
 import json
 import os
 import re
+import socket
+from collections.abc import Iterator
+from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from .client import IndexAPI
 from .contracts import ContributionAudience, ContributionOrigin, ContributionReference
-from .contributions import ContributionUploadSpec, ResearchDraftSpec, ResearchSource
+from .contributions import ContributionDraft, ContributionUploadSpec, ResearchDraftSpec, ResearchSource
+from .lifecycle import MeView, RevisionView
 from .package import ContributionPackage
 from .submission import ContributionSubmitSpec, RevisionStatus
-from .transfer import upload_directory_sync, verify_package_directory
+from .transfer import TransferTargetsExpired, upload_directory_sync, verify_package_directory
 
 _RECEIPT_SCHEMA = "synth.index.research-bundle-conversion.v1"
 _SOURCE_SCHEMA = "synth.index.research-source.v1"
-_STATE_SCHEMA = "synth.index.research-intake-state.v1"
+# v2 binds saved state to its backend and verified account; v1 state named
+# neither and cannot be resumed safely.
+_STATE_SCHEMA = "synth.index.research-intake-state.v2"
 _DENIED = frozenset(
     {
         "reference",
@@ -157,35 +164,155 @@ def preview_conversion(directory: Path) -> tuple[ContributionPackage, ResearchDr
     return package, spec, summary
 
 
-def _state(path: Path, bundle_digest: str) -> dict:
-    if path.exists():
-        if path.is_symlink():
-            raise ValueError("Intake state may not be a link")
-        state = json.loads(path.read_bytes())
-        if (
-            state.get("schema_version") != _STATE_SCHEMA
-            or state.get("bundle_digest") != bundle_digest
-        ):
-            raise ValueError("Intake state belongs to a different research bundle")
-        UUID(state["publication_id"])
-        if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,128}", state["draft_key"]):
-            raise ValueError("Intake state has an invalid draft key")
-        return state
-    state = {
+class IntakeStateError(RuntimeError):
+    """Saved intake state cannot be trusted; recovery is a deliberate decision."""
+
+
+class IntakeLocked(RuntimeError):
+    """Another intake process holds this state file."""
+
+
+class TerminalRevision(RuntimeError):
+    """The server has decided this revision; resubmitting it would be wrong."""
+
+
+# Statuses the server can reach after a submission that mean the submitted work
+# is still the same work. Reaching one of these is success for a resumed intake,
+# not a reason to submit again.
+_ADVANCED = frozenset(
+    {RevisionStatus.SUBMITTED, RevisionStatus.QUALIFIED, RevisionStatus.PUBLISHED}
+)
+# Statuses that end this revision. A caller must decide what to do next; the
+# intake never silently starts over.
+_TERMINAL = frozenset(
+    {
+        RevisionStatus.REJECTED,
+        RevisionStatus.WITHDRAWN,
+        RevisionStatus.CHANGES_REQUESTED,
+    }
+)
+
+
+def _backend_identity(api: IndexAPI) -> str:
+    """The canonical backend this state belongs to, without any credential."""
+    url = urlsplit(getattr(api._transport, "base_url", "").rstrip("/"))
+    if not url.scheme or not url.hostname:
+        raise IntakeStateError("Index client has no usable backend base URL")
+    port = f":{url.port}" if url.port else ""
+    return f"{url.scheme}://{url.hostname.lower()}{port}{url.path.rstrip('/')}"
+
+
+@contextmanager
+def _state_lock(path: Path) -> Iterator[None]:
+    """Hold an exclusive sidecar lock for the whole intake.
+
+    Atomic replacement keeps a state file readable, but it does not stop two
+    intakes from allocating, uploading and submitting against the same saved
+    identity at once. The lock names its holder so a stale one can be cleared
+    deliberately rather than guessed at.
+    """
+    lock_path = path.with_name(f"{path.name}.lock")
+    holder = json.dumps(
+        {"pid": os.getpid(), "host": socket.gethostname()}, sort_keys=True
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as error:
+        try:
+            current = lock_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            current = "unknown"
+        raise IntakeLocked(
+            f"Another research intake holds {lock_path} ({current}). Wait for it to "
+            "finish, or remove that file if the process is gone."
+        ) from error
+    try:
+        with os.fdopen(descriptor, "w") as handle:
+            handle.write(holder + "\n")
+        yield
+    finally:
+        lock_path.unlink(missing_ok=True)
+
+
+def _new_state(bundle_digest: str, backend: str, account: MeView) -> dict:
+    return {
         "schema_version": _STATE_SCHEMA,
         "bundle_digest": bundle_digest,
+        "backend": backend,
+        "org_id": account.org_id,
+        "principal_id": account.principal_id,
         "draft_key": uuid4().hex,
         "publication_id": str(uuid4()),
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w") as handle:
-        json.dump(state, handle, sort_keys=True)
-        handle.write("\n")
+
+
+def _state(path: Path, bundle_digest: str, backend: str, account: MeView) -> dict:
+    """Load state bound to this bundle, backend and verified account, or start one.
+
+    Saved state names the exact identities it was created under. Resuming against
+    a different backend, organization or account is refused rather than replayed:
+    an allocated draft and its idempotency keys mean nothing there, and reusing
+    them could attach this work to the wrong owner.
+    """
+    if not path.exists():
+        state = _new_state(bundle_digest, backend, account)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w") as handle:
+            json.dump(state, handle, sort_keys=True)
+            handle.write("\n")
+        return state
+    if path.is_symlink():
+        raise IntakeStateError("Intake state may not be a link")
+    try:
+        state = json.loads(path.read_bytes())
+    except (OSError, ValueError) as error:
+        raise IntakeStateError(
+            f"Intake state at {path} is unreadable or corrupt. Inspect it, then "
+            "delete it to start a fresh allocation."
+        ) from error
+    if not isinstance(state, dict) or state.get("schema_version") != _STATE_SCHEMA:
+        raise IntakeStateError(
+            f"Intake state at {path} has schema {state.get('schema_version') if isinstance(state, dict) else 'unknown'!r}, "
+            f"not {_STATE_SCHEMA!r}. Delete it to start a fresh allocation."
+        )
+    if state.get("bundle_digest") != bundle_digest:
+        raise IntakeStateError("Intake state belongs to a different research bundle")
+    if state.get("backend") != backend:
+        raise IntakeStateError(
+            f"Intake state was allocated against {state.get('backend')!r}, not {backend!r}"
+        )
+    if (state.get("org_id"), state.get("principal_id")) != (
+        account.org_id,
+        account.principal_id,
+    ):
+        raise IntakeStateError(
+            "Intake state belongs to a different account or organization"
+        )
+    try:
+        UUID(state["publication_id"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise IntakeStateError("Intake state has no usable publication ID") from error
+    if not isinstance(state.get("draft_key"), str) or not re.fullmatch(
+        r"[a-zA-Z0-9_.-]{1,128}", state["draft_key"]
+    ):
+        raise IntakeStateError("Intake state has an invalid draft key")
+    if state.get("reference") is not None:
+        ContributionReference.model_validate(state["reference"])
+    if state.get("manifest_digest") is not None and not re.fullmatch(
+        r"[0-9a-f]{64}", str(state["manifest_digest"])
+    ):
+        raise IntakeStateError("Intake state has an invalid manifest digest")
     return state
 
 
 def _save_state(path: Path, state: dict) -> None:
+    """Replace the state file atomically, under the caller's exclusive lock.
+
+    Replacement keeps a reader from ever seeing a half-written file; it is the
+    lock in ``_state_lock`` that keeps a second intake from writing at all.
+    """
     temporary = path.with_name(f".{path.name}.tmp-{uuid4().hex}")
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w") as handle:
@@ -201,67 +328,143 @@ def _rebind(package: ContributionPackage, reference: ContributionReference) -> C
     return ContributionPackage.model_validate(payload)
 
 
+def _reconcile(api: IndexAPI, state: dict) -> RevisionView | None:
+    """Ask the server what actually happened, when a mutation's answer was lost.
+
+    Any allocation, finalize or submit call can fail after the server committed
+    it. The saved identities are stable across retries, so the authoritative
+    answer is always one read away; guessing from a local flag is not allowed.
+    """
+    if state.get("reference") is None:
+        return None
+    reference = ContributionReference.model_validate(state["reference"])
+    return api.contributions.revisions.retrieve(reference)
+
+
+def _server_status(view: RevisionView, state: dict) -> RevisionStatus:
+    """Read one revision's status, refusing a manifest that is not ours."""
+    if (
+        view.manifest_digest is not None
+        and state.get("manifest_digest") is not None
+        and view.manifest_digest != state["manifest_digest"]
+    ):
+        raise IntakeStateError(
+            "Server revision carries a different manifest than this intake prepared"
+        )
+    return view.status
+
+
+def _result(summary: dict, state: dict, status: str) -> dict:
+    return {
+        **summary,
+        "reference": state.get("reference"),
+        "manifest_digest": state.get("manifest_digest"),
+        "status": status,
+    }
+
+
+def _allocate(api: IndexAPI, spec: ResearchDraftSpec, state: dict, state_path: Path):
+    """Allocate the draft, or recover the one a lost response already created."""
+    draft = api.contributions.create_research(spec, idempotency_key=state["draft_key"])
+    allocated = draft.reference.model_dump(mode="json")
+    if state.get("reference") not in (None, allocated):
+        raise IntakeStateError(
+            "Research draft replay returned a different server identity"
+        )
+    if state.get("reference") != allocated:
+        state["reference"] = allocated
+        _save_state(state_path, state)
+    return draft
+
+
+def _upload_and_finalize(
+    api: IndexAPI,
+    draft: ContributionDraft,
+    package: ContributionPackage,
+    directory: Path,
+    state: dict,
+    state_path: Path,
+) -> None:
+    """Transfer and finalize, preparing again if storage refused a stale target.
+
+    Preparing again is safe and does not discard completed work: the server
+    omits objects it already holds under this publication ID, so the second
+    attempt transfers only what is still missing.
+    """
+    rebound = _rebind(package, draft.reference)
+    upload_spec = ContributionUploadSpec(
+        publication_id=UUID(state["publication_id"]), package=rebound
+    )
+    prepared = api.contributions.prepare_upload(draft, upload_spec)
+    try:
+        upload_directory_sync(prepared, directory / "package")
+    except TransferTargetsExpired:
+        prepared = api.contributions.prepare_upload(draft, upload_spec)
+        upload_directory_sync(prepared, directory / "package")
+    api.contributions.finalize(draft, prepared)
+    state["status"] = "finalized"
+    state["manifest_digest"] = prepared.transfer.manifest_digest
+    _save_state(state_path, state)
+
+
 def submit_conversion(
     api: IndexAPI, directory: Path, state_path: Path, *, finalize_only: bool = False
 ) -> dict:
     """Resume private allocation/upload; submit only when review gates allow.
 
-    Re-running reuses immutable IDs and obtains fresh storage targets. The
-    backend may omit objects already stored under the publication ID.
+    Re-running reuses immutable IDs and obtains fresh storage targets. Every
+    resumption reconciles against the server before acting, so a response lost
+    after the server committed it is recovered instead of repeated. A revision
+    the server has already advanced past submission is reported as it stands; a
+    revision the server has decided against raises ``TerminalRevision`` rather
+    than being quietly submitted again. One process at a time holds the state
+    file.
     """
     package, spec, summary = preview_conversion(directory)
-    state = _state(state_path, spec.bundle_digest)
-    if state.get("status") == "submitted":
-        reference = ContributionReference.model_validate(state["reference"])
-        view = api.contributions.revisions.retrieve(reference)
-        if view.status != RevisionStatus.SUBMITTED or view.manifest_digest != state.get(
-            "manifest_digest"
-        ):
-            raise ValueError("Saved submission state differs from the server revision")
-        return {
-            **summary,
-            "reference": reference.model_dump(mode="json"),
-            "manifest_digest": view.manifest_digest,
-            "status": "submitted",
-        }
-    draft = api.contributions.create_research(spec, idempotency_key=state["draft_key"])
-    if state.get("reference") and state["reference"] != draft.reference.model_dump(mode="json"):
-        raise ValueError("Research draft replay returned a different server identity")
-    state["reference"] = draft.reference.model_dump(mode="json")
-    _save_state(state_path, state)
-    if state.get("status") != "finalized":
-        rebound = _rebind(package, draft.reference)
-        prepared = api.contributions.prepare_upload(
-            draft,
-            ContributionUploadSpec(publication_id=UUID(state["publication_id"]), package=rebound),
+    backend = _backend_identity(api)
+    account = api.account.retrieve()
+    with _state_lock(state_path):
+        state = _state(state_path, spec.bundle_digest, backend, account)
+        view = _reconcile(api, state)
+        if view is not None:
+            status = _server_status(view, state)
+            if status in _TERMINAL:
+                raise TerminalRevision(
+                    f"Server revision is {status.value}; decide explicitly before "
+                    "preparing another revision"
+                )
+            if status in _ADVANCED:
+                # Submitted, qualified or published: the same work moved on.
+                state["status"] = "submitted"
+                state["manifest_digest"] = (
+                    view.manifest_digest or state.get("manifest_digest")
+                )
+                _save_state(state_path, state)
+                return _result(summary, state, status.value)
+            if status is RevisionStatus.DRAFT and view.manifest_digest is not None:
+                # Finalize landed even though its answer did not reach us.
+                state["status"] = "finalized"
+                state["manifest_digest"] = view.manifest_digest
+                _save_state(state_path, state)
+        draft = _allocate(api, spec, state, state_path)
+        if state.get("status") != "finalized":
+            _upload_and_finalize(
+                api, draft, package, directory, state, state_path
+            )
+        if finalize_only:
+            return _result(summary, state, "finalized_private_draft")
+        submitted = api.contributions.submit(
+            draft.reference,
+            ContributionSubmitSpec(publication_id=UUID(state["publication_id"])),
         )
-        upload_directory_sync(prepared, directory / "package")
-        api.contributions.finalize(draft, prepared)
-        state["status"] = "finalized"
-        state["manifest_digest"] = prepared.transfer.manifest_digest
+        if (
+            submitted.status not in _ADVANCED
+            or submitted.manifest_digest != state["manifest_digest"]
+        ):
+            raise IntakeStateError(
+                "Submitted revision differs from the prepared manifest"
+            )
+        state["status"] = "submitted"
+        state["manifest_digest"] = submitted.manifest_digest
         _save_state(state_path, state)
-    if finalize_only:
-        return {
-            **summary,
-            "reference": state["reference"],
-            "manifest_digest": state["manifest_digest"],
-            "status": "finalized_private_draft",
-        }
-    submitted = api.contributions.submit(
-        draft.reference,
-        ContributionSubmitSpec(publication_id=UUID(state["publication_id"])),
-    )
-    if (
-        submitted.status != RevisionStatus.SUBMITTED
-        or submitted.manifest_digest != state["manifest_digest"]
-    ):
-        raise ValueError("Submitted revision differs from the prepared manifest")
-    state["status"] = "submitted"
-    state["manifest_digest"] = submitted.manifest_digest
-    _save_state(state_path, state)
-    return {
-        **summary,
-        "reference": state["reference"],
-        "manifest_digest": submitted.manifest_digest,
-        "status": "submitted",
-    }
+        return _result(summary, state, submitted.status.value)
