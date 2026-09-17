@@ -23,9 +23,12 @@ class IndexErrorCode(StrEnum):
     # PaymentRequiredError as PAYMENT_REQUIRED and is never a charge: recheck
     # ``account.promo_credit()`` for the reset instant before retrying.
     PRIVATE_CREDIT_EXHAUSTED = "index_private_credit_exhausted"
+    DEEP_ALLOWANCE_EXHAUSTED = "index_deep_allowance_exhausted"
     RATE_LIMITED = "index_rate_limited"
+    CONCURRENCY_LIMITED = "index_concurrency_limited"
     IDEMPOTENCY_CONFLICT = "index_idempotency_conflict"
     UNAVAILABLE = "index_unavailable"
+    ENTITLEMENT_UNAVAILABLE = "index_entitlement_unavailable"
     DEADLINE_EXCEEDED = "index_deadline_exceeded"
     REQUEST_TOO_LARGE = "index_request_too_large"
     CONTRIBUTION_FORBIDDEN = "contribution_forbidden"

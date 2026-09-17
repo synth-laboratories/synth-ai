@@ -75,6 +75,7 @@ from .search import (
     ContentsSpec,
     PublicSearchResult,
     Search,
+    SearchBillingConstraints,
     SearchCancellation,
     SearchContent,
     SearchEventPage,
@@ -258,9 +259,13 @@ def _search_spec(
     max_results: int | None,
     mode: SearchMode | str | None = None,
     limits: SearchExecutionLimits | None = None,
+    billing: SearchBillingConstraints | None = None,
 ) -> SearchSpec:
     if spec is not None:
-        if any(value is not None for value in (query, scope, filters, max_results, mode, limits)):
+        if any(
+            value is not None
+            for value in (query, scope, filters, max_results, mode, limits, billing)
+        ):
             raise ValueError("Pass either SearchSpec or search keyword arguments, not both")
         return spec
     if query is None:
@@ -272,6 +277,7 @@ def _search_spec(
         filters=filters if filters is not None else SearchFilters(),
         content=SearchContent(max_results=5 if max_results is None else max_results),
         limits=limits,
+        billing=billing if billing is not None else SearchBillingConstraints(),
     )
 
 
@@ -1131,6 +1137,7 @@ class _IndexRoot(_Resource):
         max_results: int | None = None,
         mode: SearchMode | str | None = None,
         limits: SearchExecutionLimits | None = None,
+        billing: SearchBillingConstraints | None = None,
         idempotency_key: str | None = None,
     ) -> Any:
         """Execute fast immediately or create-and-wait for one durable deep Search.
@@ -1139,7 +1146,7 @@ class _IndexRoot(_Resource):
         raises ``SearchWaitTimeoutError`` with its Search ID and does not cancel or
         resubmit work.
         """
-        spec = _search_spec(spec, query, scope, filters, max_results, mode, limits)
+        spec = _search_spec(spec, query, scope, filters, max_results, mode, limits, billing)
         if spec.mode == SearchMode.DEEP:
             key = _key(idempotency_key)["Idempotency-Key"]
             handle = self.searches.create(spec, idempotency_key=key)

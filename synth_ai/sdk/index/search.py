@@ -72,6 +72,13 @@ class SearchExecutionLimits(IndexContract):
     max_cost_usd_micros: Annotated[StrictInt, Field(ge=1)] | None = None
 
 
+class SearchBillingConstraints(IndexContract):
+    """Per-request retail ceiling; organization wallet consent is also required."""
+
+    allow_wallet: bool = False
+    max_charge_cents: Annotated[StrictInt, Field(ge=0, le=1_000_000)] | None = None
+
+
 class SearchSpec(IndexContract):
     query: Annotated[str, Field(min_length=1, max_length=8192)]
     mode: SearchMode = SearchMode.FAST
@@ -79,6 +86,7 @@ class SearchSpec(IndexContract):
     filters: SearchFilters = Field(default_factory=SearchFilters)
     content: SearchContent = Field(default_factory=SearchContent)
     limits: SearchExecutionLimits | None = None
+    billing: SearchBillingConstraints = Field(default_factory=SearchBillingConstraints)
 
     @field_validator("query")
     @classmethod
@@ -152,6 +160,16 @@ class SearchHit(IndexContract):
         return self
 
 
+class SearchSettlementOutcome(StrEnum):
+    COMPLETE = "complete"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    USABLE_PARTIAL = "usable_partial"
+    NO_DELIVERABLE = "no_deliverable"
+    INFRASTRUCTURE_FAILURE = "infrastructure_failure"
+    CANCELLED = "cancelled"
+    ACCESS_REVOKED = "access_revoked"
+
+
 class SearchUsage(IndexContract):
     """Server-authored successful logical search receipt; never contributor earnings."""
 
@@ -165,7 +183,14 @@ class SearchUsage(IndexContract):
     read_calls: Annotated[StrictInt, Field(ge=0)] = 0
     input_tokens: Annotated[StrictInt, Field(ge=0)] = 0
     output_tokens: Annotated[StrictInt, Field(ge=0)] = 0
-    inference_cost_usd_micros: Annotated[StrictInt, Field(ge=0)] = 0
+    # Operator-only diagnostics are absent from ordinary customer responses.
+    inference_cost_usd_micros: Annotated[StrictInt, Field(ge=0)] | None = None
+    funding_source: Literal["none", "promo_credit", "deep_beta", "wallet"] = "none"
+    settlement_outcome: SearchSettlementOutcome | None = None
+    retail_amount_cents: Annotated[StrictInt, Field(ge=0)] | None = None
+    allowance_units_consumed: Annotated[StrictInt, Field(ge=0, le=1)] = 0
+    allowance_value_cents: Annotated[StrictInt, Field(ge=0)] = 0
+    wallet_debit_cents: Annotated[StrictInt, Field(ge=0)] = 0
 
     @model_validator(mode="after")
     def check_published_rate(self) -> Self:
