@@ -295,6 +295,7 @@ def _answer_spec(
     limits: SearchExecutionLimits | None,
     max_answer_tokens: int | None,
     max_answer_cost_usd_micros: int | None,
+    billing: SearchBillingConstraints | None = None,
 ) -> AnswerSpec:
     if spec is not None:
         if any(
@@ -308,6 +309,7 @@ def _answer_spec(
                 limits,
                 max_answer_tokens,
                 max_answer_cost_usd_micros,
+                billing,
             )
         ):
             raise ValueError("Pass either AnswerSpec or answer keyword arguments, not both")
@@ -326,6 +328,7 @@ def _answer_spec(
         limits=limits,
         max_answer_tokens=(1024 if max_answer_tokens is None else max_answer_tokens),
         max_answer_cost_usd_micros=max_answer_cost_usd_micros,
+        billing=billing if billing is not None else SearchBillingConstraints(),
     )
 
 
@@ -1204,12 +1207,15 @@ class _IndexRoot(_Resource):
         limits: SearchExecutionLimits | None = None,
         max_answer_tokens: int | None = None,
         max_answer_cost_usd_micros: int | None = None,
+        billing: SearchBillingConstraints | None = None,
         idempotency_key: str,
     ) -> Any:
         """Return a fail-closed cited answer over fast or deep evidence.
 
         Search remains evidence-only. The explicit key identifies the complete
         retrieval, admission and synthesis operation for safe replay.
+        Billing carries the retrieval wallet opt-in and maximum retail charge;
+        organization consent remains server-owned, as for SearchSpec.
         """
         spec = _answer_spec(
             spec,
@@ -1221,6 +1227,7 @@ class _IndexRoot(_Resource):
             limits,
             max_answer_tokens,
             max_answer_cost_usd_micros,
+            billing,
         )
         return self._run(
             _Call(

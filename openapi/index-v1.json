@@ -226,6 +226,9 @@
         "additionalProperties": false,
         "description": "One grounded answer request; retrieval depth and response are separate.",
         "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/SearchBillingConstraints"
+          },
           "content": {
             "$ref": "#/components/schemas/SearchContent"
           },
@@ -2248,11 +2251,23 @@
       "CustomerCharge": {
         "additionalProperties": false,
         "properties": {
+          "adjustment_microcents": {
+            "default": 0,
+            "title": "Adjustment Microcents",
+            "type": "integer"
+          },
           "currency": {
             "default": "USD",
             "pattern": "^[A-Z]{3}$",
             "title": "Currency",
             "type": "string"
+          },
+          "funding_source": {
+            "anyOf": [
+              { "enum": ["none", "promo_credit", "deep_beta", "wallet"], "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Funding Source"
           },
           "ledger_reference": {
             "anyOf": [
@@ -2318,6 +2333,12 @@
           "settlement_state": {
             "$ref": "#/components/schemas/SettlementState",
             "default": "not_applicable"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/SearchSettlementOutcome" },
+              { "type": "null" }
+            ]
           }
         },
         "title": "CustomerCharge",
@@ -5476,12 +5497,6 @@
             "title": "Generated At",
             "type": "string"
           },
-          "infrastructure_cost_usd_micros": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Infrastructure Cost Usd Micros",
-            "type": "integer"
-          },
           "measurement_state": {
             "$ref": "#/components/schemas/MeasurementState"
           },
@@ -5533,12 +5548,6 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Search Id",
             "type": "string"
-          },
-          "unallocated_cost_usd_micros": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Unallocated Cost Usd Micros",
-            "type": "integer"
           }
         },
         "required": [
@@ -5607,38 +5616,63 @@
       "SearchUsageSummaryRow": {
         "additionalProperties": false,
         "properties": {
-          "cached_input_tokens": {
+          "adjustment_microcents": {
             "default": 0,
-            "minimum": 0.0,
-            "title": "Cached Input Tokens",
+            "title": "Adjustment Microcents",
             "type": "integer"
+          },
+          "cached_input_tokens": {
+            "anyOf": [
+              { "minimum": 0.0, "type": "integer" },
+              { "type": "null" }
+            ],
+            "default": null,
+            "title": "Cached Input Tokens"
           },
           "colbert_batches": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Colbert Batches",
-            "type": "integer"
+            "anyOf": [
+              { "minimum": 0.0, "type": "integer" },
+              { "type": "null" }
+            ],
+            "default": null,
+            "title": "Colbert Batches"
           },
           "content_read_calls": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Content Read Calls",
-            "type": "integer"
+            "anyOf": [
+              { "minimum": 0.0, "type": "integer" },
+              { "type": "null" }
+            ],
+            "default": null,
+            "title": "Content Read Calls"
           },
           "customer_charge_microcents": {
             "minimum": 0.0,
             "title": "Customer Charge Microcents",
             "type": "integer"
           },
-          "infrastructure_cost_usd_micros": {
-            "minimum": 0.0,
-            "title": "Infrastructure Cost Usd Micros",
-            "type": "integer"
+          "funding_source": {
+            "anyOf": [
+              { "enum": ["none", "promo_credit", "deep_beta", "wallet"], "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Funding Source"
           },
           "input_tokens": {
+            "anyOf": [
+              { "minimum": 0.0, "type": "integer" },
+              { "type": "null" }
+            ],
+            "default": null,
+            "title": "Input Tokens"
+          },
+          "measurement_state": {
+            "$ref": "#/components/schemas/MeasurementState",
+            "default": "pending"
+          },
+          "unmeasured_search_count": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Input Tokens",
+            "title": "Unmeasured Search Count",
             "type": "integer"
           },
           "mode": {
@@ -5656,10 +5690,12 @@
             "title": "Model Identity"
           },
           "output_tokens": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Output Tokens",
-            "type": "integer"
+            "anyOf": [
+              { "minimum": 0.0, "type": "integer" },
+              { "type": "null" }
+            ],
+            "default": null,
+            "title": "Output Tokens"
           },
           "pending_event_count": {
             "minimum": 0.0,
@@ -5675,13 +5711,47 @@
             "minimum": 0.0,
             "title": "Search Count",
             "type": "integer"
+          },
+          "price_version": {
+            "anyOf": [
+              { "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$", "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Price Version"
+          },
+          "reserved_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Reserved Microcents",
+            "type": "integer"
+          },
+          "released_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Released Microcents",
+            "type": "integer"
+          },
+          "refunded_microcents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Refunded Microcents",
+            "type": "integer"
+          },
+          "settlement_state": {
+            "$ref": "#/components/schemas/SettlementState",
+            "default": "not_applicable"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/SearchSettlementOutcome" },
+              { "type": "null" }
+            ]
           }
         },
         "required": [
           "mode",
           "search_count",
           "physical_attempt_count",
-          "infrastructure_cost_usd_micros",
           "customer_charge_microcents",
           "pending_event_count"
         ],

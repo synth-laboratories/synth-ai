@@ -1,17 +1,18 @@
 """Typed Index operation usage receipts and aggregate export contracts.
 
-The backend remains the wire and settlement authority. These models preserve
-the separation between physical consumption, infrastructure cost, and the
-customer charge visible on a search receipt.
+The backend remains the wire and settlement authority. Customer receipts expose
+physical consumption and retail accounting, never internal infrastructure costs.
+See backend notes/specifications/synth-index/search-usage-accounting.md and
+notes/specifications/synth-index/search-access-funding.md.
 """
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
-from pydantic import AwareDatetime, Field, StrictInt
+from pydantic import AwareDatetime, Field, StrictInt, model_validator
 
 from .contracts import Identifier, IndexContract
-from .search import SearchMode
+from .search import SearchMode, SearchSettlementOutcome
 
 NonNegative = Annotated[StrictInt, Field(ge=0)]
 
@@ -100,15 +101,38 @@ class OperationUsage(IndexContract):
 
 
 class CustomerCharge(IndexContract):
+    """Net customer settlement with corrections already applied by the server."""
+
     currency: str = "USD"
     price_version: Identifier | None = None
     reserved_microcents: NonNegative = 0
     settled_microcents: NonNegative = 0
     released_microcents: NonNegative = 0
     refunded_microcents: NonNegative = 0
+    adjustment_microcents: StrictInt = 0
     settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     reservation_id: Identifier | None = None
     ledger_reference: str | None = None
+    funding_source: Literal["none", "promo_credit", "deep_beta", "wallet"] | None = None
+    terminal_outcome: SearchSettlementOutcome | None = None
+
+    @model_validator(mode="after")
+    def check_charge(self) -> Self:
+        if (
+            self.released_microcents + self.settled_microcents + self.refunded_microcents
+            > self.reserved_microcents
+        ):
+            raise ValueError("net settlement, refunds, and releases exceed reservation")
+        if (
+            self.adjustment_microcents > 0
+            or -self.adjustment_microcents > self.refunded_microcents
+        ):
+            raise ValueError("signed corrections must reconcile outstanding refunds")
+        if self.price_version is None and any(
+            (self.reserved_microcents, self.settled_microcents)
+        ):
+            raise ValueError("unpriced usage cannot be charged")
+        return self
 
 
 class SearchUsageReceipt(IndexContract):
@@ -123,8 +147,6 @@ class SearchUsageReceipt(IndexContract):
     measurement_state: MeasurementState
     observed_consumption: tuple[UsageTotal, ...] = Field(default=(), max_length=40)
     operations: tuple[OperationUsage, ...] = Field(default=(), max_length=100)
-    infrastructure_cost_usd_micros: NonNegative | None = None
-    unallocated_cost_usd_micros: NonNegative | None = None
     charge: CustomerCharge
     generated_at: AwareDatetime
 
@@ -132,11 +154,20 @@ class SearchUsageReceipt(IndexContract):
 class SearchUsageSummaryRow(IndexContract):
     mode: SearchMode
     model_identity: str | None = None
+    price_version: Identifier | None = None
+    funding_source: Literal["none", "promo_credit", "deep_beta", "wallet"] | None = None
+    terminal_outcome: SearchSettlementOutcome | None = None
+    settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     search_count: NonNegative
     physical_attempt_count: NonNegative
-    infrastructure_cost_usd_micros: NonNegative | None = None
+    reserved_microcents: NonNegative = 0
     customer_charge_microcents: NonNegative
+    released_microcents: NonNegative = 0
+    refunded_microcents: NonNegative = 0
+    adjustment_microcents: StrictInt = 0
     pending_event_count: NonNegative
+    measurement_state: MeasurementState = MeasurementState.PENDING
+    unmeasured_search_count: NonNegative = 0
     input_tokens: NonNegative | None = None
     output_tokens: NonNegative | None = None
     cached_input_tokens: NonNegative | None = None

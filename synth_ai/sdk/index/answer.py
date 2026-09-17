@@ -7,6 +7,7 @@ from pydantic import Field, StrictInt, field_validator, model_validator
 
 from .contracts import ContributionReference, Identifier, IndexContract, require_unique
 from .search import (
+    SearchBillingConstraints,
     SearchContent,
     SearchExecutionLimits,
     SearchExecutionVersions,
@@ -30,6 +31,7 @@ class AnswerSpec(IndexContract):
         default_factory=lambda: SearchContent(max_results=5, max_excerpts_per_result=2)
     )
     limits: SearchExecutionLimits | None = None
+    billing: SearchBillingConstraints = Field(default_factory=SearchBillingConstraints)
     max_answer_tokens: Annotated[StrictInt, Field(ge=64, le=4096)] = 1024
     max_answer_cost_usd_micros: Annotated[StrictInt, Field(ge=1)] | None = None
 

@@ -14,11 +14,19 @@ from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 from .client import AsyncPublicIndexAPI, PublicIndexAPI
 
+# See the joined candidate's RUNTIME_DEADLINES.md: the 31.7-second public
+# search wrapper precedes a separately bounded monitor (up to 60 seconds).
+# Explicit caller timeouts still win; disconnect never cancels server state.
+_PUBLIC_INDEX_TIMEOUT_SECONDS = 120.0
+
 
 class PublicIndexClient(PublicIndexAPI):
     """Owned synchronous client for free, anonymous public Index reads."""
 
-    def __init__(self, *, base_url: str | None = None, timeout_seconds: float = 30.0) -> None:
+    def __init__(
+        self, *, base_url: str | None = None,
+        timeout_seconds: float = _PUBLIC_INDEX_TIMEOUT_SECONDS,
+    ) -> None:
         transport = HttpTransport(
             base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
             headers={},
@@ -44,7 +52,10 @@ class PublicIndexClient(PublicIndexAPI):
 class AsyncPublicIndexClient(AsyncPublicIndexAPI):
     """Owned asynchronous client for free, anonymous public Index reads."""
 
-    def __init__(self, *, base_url: str | None = None, timeout_seconds: float = 30.0) -> None:
+    def __init__(
+        self, *, base_url: str | None = None,
+        timeout_seconds: float = _PUBLIC_INDEX_TIMEOUT_SECONDS,
+    ) -> None:
         transport = AsyncHttpTransport(
             base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
             headers={},

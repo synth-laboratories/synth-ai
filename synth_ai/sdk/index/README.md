@@ -178,6 +178,55 @@ route with the same operation ID, and vice versa. The one exclusion is deliberat
 operator tooling to observe an allocation receipt, and is not a customer
 operation.
 
+## Customer usage accounting
+
+The backend `search_funding` service owns funding and settlement. The accounting
+models in `usage_accounting.py` project that authority; they do not quote prices,
+grant access, infer consent, or derive charges from token or infrastructure cost.
+Funding values are `none`, `promo_credit`, `deep_beta`, and `wallet` (or null when
+no funding fact exists). `index_deep_beta` is not a wire value.
+
+`CustomerCharge` adds `funding_source`, `terminal_outcome`, and
+`adjustment_microcents` to the existing
+currency, price, reservation, settlement, release, refund, and ledger fields.
+`SearchUsageSummaryRow` adds `price_version`, `funding_source`, `terminal_outcome`,
+`settlement_state`, `reserved_microcents`, `released_microcents`, and
+`refunded_microcents`, and `adjustment_microcents`. Existing consumption counters
+and pagination remain.
+Terminal outcomes use `SearchSettlementOutcome`, including `complete` and
+`insufficient_evidence`; `grounded` is not an accounting outcome.
+
+Receipt `settled_microcents` and summary/CSV `customer_charge_microcents` carry
+the backend's corrected settlement totals. Consumers must not add corrections
+again or subtract the separately reported refunds a second time. Reserved and
+released values describe reservation history, not the live wallet hold balance.
+Microcents convert to USD by dividing by 100,000,000.
+
+Correction totals are signed and informational: outstanding refunds equal the
+stored original refund baseline minus the sum of signed adjustments; customer
+settlement equals immutable gross settlement minus outstanding refunds.
+Net settlement plus refunds plus releases cannot exceed the original reservation.
+Neither refunds nor positive reversals reopen beta units or reset gross caps.
+Summary periods follow original settlement creation (first observed usage for
+searches without settlement), so later corrections remain in the original cohort.
+
+Settlement-backed receipts exist even without physical events: their observation
+arrays are empty, recorded counts are zero, and measurement state is `pending`.
+Summary rows add `measurement_state` and `unmeasured_search_count`; consumption
+is null for groups with unmeasured searches. A missing physical write never erases
+financial facts or invents measured zero usage. Server mode sources must agree
+before one Search contributes one charge to a summary.
+
+Customer receipt and summary models omit infrastructure and unallocated costs.
+The backend must also filter internal cost metrics from customer operation totals
+and CSV exports; the shared metric vocabulary does not authorize disclosure.
+
+This integration was edited locally without tests, builds, schema generation,
+or live requests. Parent integration must reconcile the final backend DTOs,
+customer metric filtering, receipt/summary/CSV amounts and grouping, and the
+vendored `openapi/index-v1.json` before claiming parity. The OpenAPI changes are
+manual schema edits, not a regenerated or validated backend export.
+
 ## Errors
 
 Transport raises typed `SynthError` subclasses: `RateLimitedError` (with
