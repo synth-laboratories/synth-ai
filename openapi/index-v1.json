@@ -5340,12 +5340,6 @@
             "title": "Generated At",
             "type": "string"
           },
-          "infrastructure_cost_usd_micros": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Infrastructure Cost Usd Micros",
-            "type": "integer"
-          },
           "measurement_state": {
             "$ref": "#/components/schemas/MeasurementState"
           },
@@ -5397,12 +5391,6 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Search Id",
             "type": "string"
-          },
-          "unallocated_cost_usd_micros": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Unallocated Cost Usd Micros",
-            "type": "integer"
           }
         },
         "required": [
@@ -5496,11 +5484,6 @@
             ],
             "title": "Funding Source"
           },
-          "infrastructure_cost_usd_micros": {
-            "minimum": 0.0,
-            "title": "Infrastructure Cost Usd Micros",
-            "type": "integer"
-          },
           "mode": {
             "$ref": "#/components/schemas/SearchMode"
           },
@@ -5581,7 +5564,6 @@
           "mode",
           "search_count",
           "physical_attempt_count",
-          "infrastructure_cost_usd_micros",
           "customer_charge_microcents",
           "pending_event_count"
         ],

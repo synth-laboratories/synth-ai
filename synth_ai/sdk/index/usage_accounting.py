@@ -128,8 +128,6 @@ class SearchUsageReceipt(IndexContract):
     measurement_state: MeasurementState
     observed_consumption: tuple[UsageTotal, ...] = Field(default=(), max_length=40)
     operations: tuple[OperationUsage, ...] = Field(default=(), max_length=100)
-    infrastructure_cost_usd_micros: NonNegative = 0
-    unallocated_cost_usd_micros: NonNegative = 0
     charge: CustomerCharge
     generated_at: AwareDatetime
 
@@ -143,7 +141,6 @@ class SearchUsageSummaryRow(IndexContract):
     settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     search_count: NonNegative
     physical_attempt_count: NonNegative
-    infrastructure_cost_usd_micros: NonNegative
     reserved_microcents: NonNegative = 0
     customer_charge_microcents: NonNegative
     released_microcents: NonNegative = 0

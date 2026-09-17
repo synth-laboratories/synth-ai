@@ -41,7 +41,6 @@ def test_installed_sdk_accepts_reconciled_deep_summary_row():
         settlement_state="settled",
         search_count=1,
         physical_attempt_count=1,
-        infrastructure_cost_usd_micros=420,
         reserved_microcents=100_000_000,
         customer_charge_microcents=50_000_000,
         released_microcents=50_000_000,
