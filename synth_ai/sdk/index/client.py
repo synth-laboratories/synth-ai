@@ -959,6 +959,7 @@ class AccountAPI(_Resource):
                 params={
                     "period_start": period_start.isoformat(),
                     "period_end": period_end.isoformat(),
+                    "include_consumption": "true",
                     "limit": limit,
                     "offset": offset,
                 },
@@ -976,6 +977,7 @@ class AccountAPI(_Resource):
                 params={
                     "period_start": period_start.isoformat(),
                     "period_end": period_end.isoformat(),
+                    "include_consumption": "true",
                 },
                 raw=True,
             )

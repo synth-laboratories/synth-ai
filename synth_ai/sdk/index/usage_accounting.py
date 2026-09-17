@@ -137,6 +137,11 @@ class SearchUsageSummaryRow(IndexContract):
     infrastructure_cost_usd_micros: NonNegative
     customer_charge_microcents: NonNegative
     pending_event_count: NonNegative
+    input_tokens: NonNegative | None = None
+    output_tokens: NonNegative | None = None
+    cached_input_tokens: NonNegative | None = None
+    colbert_batches: NonNegative | None = None
+    content_read_calls: NonNegative | None = None
 
 
 class SearchUsageSummary(IndexContract):
