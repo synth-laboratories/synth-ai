@@ -2214,11 +2214,50 @@
       "CustomerCharge": {
         "additionalProperties": false,
         "properties": {
+          "allowance_period_key": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-[0-9]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowance Period Key"
+          },
           "currency": {
             "default": "USD",
             "pattern": "^[A-Z]{3}$",
             "title": "Currency",
             "type": "string"
+          },
+          "funding_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "index_deep_beta",
+                  "wallet"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funding Source"
+          },
+          "intent_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Hash"
           },
           "ledger_reference": {
             "anyOf": [
@@ -2284,6 +2323,18 @@
           "settlement_state": {
             "$ref": "#/components/schemas/SettlementState",
             "default": "not_applicable"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Outcome"
           }
         },
         "title": "CustomerCharge",
@@ -5156,6 +5207,23 @@
             "title": "Billing Scope",
             "type": "string"
           },
+          "funding_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "index_deep_beta",
+                  "wallet",
+                  "promo_credit",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funding Source"
+          },
           "inference_cost_usd_micros": {
             "default": 0,
             "minimum": 0.0,
@@ -5209,11 +5277,35 @@
             "title": "Receipt Id",
             "type": "string"
           },
+          "released_cents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Released Cents",
+            "type": "integer"
+          },
+          "reserved_cents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Reserved Cents",
+            "type": "integer"
+          },
           "search_calls": {
             "default": 1,
             "minimum": 1.0,
             "title": "Search Calls",
             "type": "integer"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Outcome"
           }
         },
         "required": [

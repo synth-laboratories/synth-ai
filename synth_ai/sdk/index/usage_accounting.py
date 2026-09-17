@@ -6,7 +6,7 @@ customer charge visible on a search receipt.
 """
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, Field, StrictInt
 
@@ -109,6 +109,10 @@ class CustomerCharge(IndexContract):
     settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     reservation_id: Identifier | None = None
     ledger_reference: str | None = None
+    funding_source: Literal["index_deep_beta", "wallet"] | None = None
+    intent_hash: str | None = None
+    allowance_period_key: str | None = None
+    terminal_outcome: Identifier | None = None
 
 
 class SearchUsageReceipt(IndexContract):

@@ -161,6 +161,10 @@ class SearchUsage(IndexContract):
     price_version: Identifier | None = "synth.index.fast.v1"
     amount_cents: Annotated[StrictInt, Field(ge=0)]
     receipt_id: Identifier
+    funding_source: Literal["index_deep_beta", "wallet", "promo_credit", "none"] | None = None
+    reserved_cents: Annotated[StrictInt, Field(ge=0)] = 0
+    released_cents: Annotated[StrictInt, Field(ge=0)] = 0
+    terminal_outcome: Identifier | None = None
     search_calls: Annotated[StrictInt, Field(ge=1)] = 1
     read_calls: Annotated[StrictInt, Field(ge=0)] = 0
     input_tokens: Annotated[StrictInt, Field(ge=0)] = 0
@@ -178,10 +182,24 @@ class SearchUsage(IndexContract):
                 or self.input_tokens
                 or self.output_tokens
                 or self.inference_cost_usd_micros
+                or self.reserved_cents
+                or self.released_cents
+                or self.terminal_outcome is not None
             ):
                 raise ValueError("fast usage must use its published rate and no deep inference")
         elif self.price_version == "synth.index.fast.v1":
             raise ValueError("deep usage cannot use the fast-search price version")
+        elif self.price_version == "synth.index.deep.v1" and (
+            self.billing_scope != "private" or self.amount_cents not in {0, 50, 100}
+        ):
+            raise ValueError("deep v1 usage must use a 0, 50, or 100 cent outcome")
+        elif self.price_version == "synth.index.deep.v1" and (
+            self.funding_source not in {"index_deep_beta", "wallet"}
+            or self.reserved_cents != 100
+            or self.released_cents + self.amount_cents != self.reserved_cents
+            or self.terminal_outcome is None
+        ):
+            raise ValueError("deep v1 usage must carry its complete settlement")
         elif self.price_version is None and self.amount_cents:
             raise ValueError("unpriced deep usage cannot report a charged amount")
         return self
