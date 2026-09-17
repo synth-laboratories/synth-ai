@@ -1,5 +1,5 @@
 from synth_ai.sdk.index.search import SearchMode, SearchUsage
-from synth_ai.sdk.index.usage_accounting import CustomerCharge
+from synth_ai.sdk.index.usage_accounting import CustomerCharge, SearchUsageSummaryRow
 
 
 def test_installed_sdk_accepts_deep_v1_settlement_fields():
@@ -27,3 +27,25 @@ def test_installed_sdk_accepts_deep_v1_settlement_fields():
         terminal_outcome="usable_partial",
     )
     assert receipt.funding_source == usage.funding_source
+
+
+def test_installed_sdk_accepts_reconciled_deep_summary_row():
+    row = SearchUsageSummaryRow(
+        mode=SearchMode.DEEP,
+        model_identity="qualification-model",
+        price_version="synth.index.deep.v1",
+        funding_source="index_deep_beta",
+        terminal_outcome="usable_partial",
+        settlement_state="settled",
+        search_count=1,
+        physical_attempt_count=1,
+        infrastructure_cost_usd_micros=420,
+        reserved_microcents=100_000_000,
+        customer_charge_microcents=50_000_000,
+        released_microcents=50_000_000,
+        refunded_microcents=0,
+        pending_event_count=0,
+    )
+    assert row.reserved_microcents == (
+        row.customer_charge_microcents + row.released_microcents
+    )

@@ -136,10 +136,17 @@ class SearchUsageReceipt(IndexContract):
 class SearchUsageSummaryRow(IndexContract):
     mode: SearchMode
     model_identity: str | None = None
+    price_version: Identifier | None = None
+    funding_source: Literal["index_deep_beta", "wallet"] | None = None
+    terminal_outcome: Identifier | None = None
+    settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     search_count: NonNegative
     physical_attempt_count: NonNegative
     infrastructure_cost_usd_micros: NonNegative
+    reserved_microcents: NonNegative = 0
     customer_charge_microcents: NonNegative
+    released_microcents: NonNegative = 0
+    refunded_microcents: NonNegative = 0
     pending_event_count: NonNegative
 
 
