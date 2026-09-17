@@ -2214,6 +2214,11 @@
       "CustomerCharge": {
         "additionalProperties": false,
         "properties": {
+          "adjustment_microcents": {
+            "default": 0,
+            "title": "Adjustment Microcents",
+            "type": "integer"
+          },
           "allowance_period_key": {
             "anyOf": [
               {
@@ -5466,6 +5471,11 @@
       "SearchUsageSummaryRow": {
         "additionalProperties": false,
         "properties": {
+          "adjustment_microcents": {
+            "default": 0,
+            "title": "Adjustment Microcents",
+            "type": "integer"
+          },
           "customer_charge_microcents": {
             "minimum": 0.0,
             "title": "Customer Charge Microcents",

@@ -106,6 +106,7 @@ class CustomerCharge(IndexContract):
     settled_microcents: NonNegative = 0
     released_microcents: NonNegative = 0
     refunded_microcents: NonNegative = 0
+    adjustment_microcents: StrictInt = 0
     settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     reservation_id: Identifier | None = None
     ledger_reference: str | None = None
@@ -147,6 +148,7 @@ class SearchUsageSummaryRow(IndexContract):
     customer_charge_microcents: NonNegative
     released_microcents: NonNegative = 0
     refunded_microcents: NonNegative = 0
+    adjustment_microcents: StrictInt = 0
     pending_event_count: NonNegative
 
 

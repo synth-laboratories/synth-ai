@@ -20,6 +20,7 @@ def test_installed_sdk_accepts_deep_v1_settlement_fields():
         reserved_microcents=100_000_000,
         settled_microcents=50_000_000,
         released_microcents=50_000_000,
+        adjustment_microcents=-10_000_000,
         settlement_state="settled",
         funding_source="index_deep_beta",
         intent_hash="a" * 64,
@@ -27,6 +28,7 @@ def test_installed_sdk_accepts_deep_v1_settlement_fields():
         terminal_outcome="usable_partial",
     )
     assert receipt.funding_source == usage.funding_source
+    assert receipt.settled_microcents + receipt.adjustment_microcents == 40_000_000
 
 
 def test_installed_sdk_accepts_reconciled_deep_summary_row():
@@ -44,8 +46,10 @@ def test_installed_sdk_accepts_reconciled_deep_summary_row():
         customer_charge_microcents=50_000_000,
         released_microcents=50_000_000,
         refunded_microcents=0,
+        adjustment_microcents=-10_000_000,
         pending_event_count=0,
     )
     assert row.reserved_microcents == (
         row.customer_charge_microcents + row.released_microcents
     )
+    assert row.customer_charge_microcents + row.adjustment_microcents == 40_000_000
