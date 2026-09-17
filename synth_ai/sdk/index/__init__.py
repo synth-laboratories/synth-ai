@@ -10,6 +10,9 @@ from .answer import (
     AnswerUsage,
 )
 from .catalog import (
+    AccessFundingAccount,
+    AccessFundingMode,
+    BillingPolicyUpdate,
     Capabilities,
     CollectionGrant,
     CollectionGrantSpec,
@@ -86,6 +89,8 @@ from .usage_accounting import (
 
 __all__ = [
     "Assessment",
+    "AccessFundingAccount",
+    "AccessFundingMode",
     "AnswerCitation",
     "AnswerClaim",
     "AnswerResult",
@@ -94,6 +99,7 @@ __all__ = [
     "AnswerUsage",
     "AsyncPublicIndexClient",
     "Capabilities",
+    "BillingPolicyUpdate",
     "CollectionGrant",
     "CollectionGrantSpec",
     "Collections",

@@ -643,6 +643,40 @@
         "title": "Assessments",
         "type": "object"
       },
+      "BillingPolicyUpdate": {
+        "properties": {
+          "concurrency_limit": {
+            "default": 1,
+            "maximum": 32.0,
+            "minimum": 1.0,
+            "title": "Concurrency Limit",
+            "type": "integer"
+          },
+          "consent_terms_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Consent Terms Version",
+            "type": "string"
+          },
+          "monthly_cap_cents": {
+            "default": 0,
+            "maximum": 10000000.0,
+            "minimum": 0.0,
+            "title": "Monthly Cap Cents",
+            "type": "integer"
+          },
+          "wallet_enabled": {
+            "default": false,
+            "title": "Wallet Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "consent_terms_version"
+        ],
+        "title": "BillingPolicyUpdate",
+        "type": "object"
+      },
       "Capabilities": {
         "additionalProperties": false,
         "properties": {
@@ -2289,6 +2323,47 @@
         "title": "CustomerCharge",
         "type": "object"
       },
+      "DeepBetaGrantRequest": {
+        "properties": {
+          "cohort": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Cohort",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "monthly_units": {
+            "default": 10,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Monthly Units",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sponsor_compute_ceiling_usd_micros": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sponsor Compute Ceiling Usd Micros",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cohort",
+          "sponsor_compute_ceiling_usd_micros",
+          "expires_at",
+          "reason"
+        ],
+        "title": "DeepBetaGrantRequest",
+        "type": "object"
+      },
       "EvidenceReference": {
         "additionalProperties": false,
         "properties": {
@@ -2572,6 +2647,66 @@
         ],
         "title": "MeasurementState",
         "type": "string"
+      },
+      "ModeGrantRequest": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "fast",
+              "deep"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "expires_at",
+          "reason"
+        ],
+        "title": "ModeGrantRequest",
+        "type": "object"
+      },
+      "ModeRevocationRequest": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "fast",
+              "deep"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "expires_at",
+          "reason"
+        ],
+        "title": "ModeRevocationRequest",
+        "type": "object"
       },
       "MyContribution": {
         "additionalProperties": false,
@@ -4381,6 +4516,32 @@
         "title": "Search",
         "type": "object"
       },
+      "SearchBillingConstraints": {
+        "additionalProperties": false,
+        "description": "Caller-owned retail spending bounds; never an execution-cost budget.\n\nSee ``notes/specifications/synth-index/search-access-funding.md``.  Both\nfields are part of the immutable Search intent.  Organization consent is\nstill required; this object can only narrow that authority.",
+        "properties": {
+          "allow_wallet": {
+            "default": false,
+            "title": "Allow Wallet",
+            "type": "boolean"
+          },
+          "max_charge_cents": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Charge Cents"
+          }
+        },
+        "title": "SearchBillingConstraints",
+        "type": "object"
+      },
       "SearchCancellation": {
         "additionalProperties": false,
         "properties": {
@@ -5050,9 +5211,26 @@
         "title": "SearchScope",
         "type": "object"
       },
+      "SearchSettlementOutcome": {
+        "description": "Server-derived retail outcome, distinct from lifecycle state.",
+        "enum": [
+          "complete",
+          "insufficient_evidence",
+          "usable_partial",
+          "no_deliverable",
+          "infrastructure_failure",
+          "cancelled",
+          "access_revoked"
+        ],
+        "title": "SearchSettlementOutcome",
+        "type": "string"
+      },
       "SearchSpec-Input": {
         "additionalProperties": false,
         "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/SearchBillingConstraints"
+          },
           "content": {
             "$ref": "#/components/schemas/SearchContent"
           },
@@ -5092,6 +5270,9 @@
       "SearchSpec-Output": {
         "additionalProperties": false,
         "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/SearchBillingConstraints"
+          },
           "content": {
             "$ref": "#/components/schemas/SearchContent"
           },
@@ -5143,6 +5324,19 @@
         "additionalProperties": false,
         "description": "Server-authored successful logical search receipt; never contributor earnings.",
         "properties": {
+          "allowance_units_consumed": {
+            "default": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Allowance Units Consumed",
+            "type": "integer"
+          },
+          "allowance_value_cents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Allowance Value Cents",
+            "type": "integer"
+          },
           "amount_cents": {
             "minimum": 0.0,
             "title": "Amount Cents",
@@ -5154,6 +5348,17 @@
               "private"
             ],
             "title": "Billing Scope",
+            "type": "string"
+          },
+          "funding_source": {
+            "default": "none",
+            "enum": [
+              "none",
+              "promo_credit",
+              "deep_beta",
+              "wallet"
+            ],
+            "title": "Funding Source",
             "type": "string"
           },
           "inference_cost_usd_micros": {
@@ -5209,10 +5414,38 @@
             "title": "Receipt Id",
             "type": "string"
           },
+          "retail_amount_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retail Amount Cents"
+          },
           "search_calls": {
             "default": 1,
             "minimum": 1.0,
             "title": "Search Calls",
+            "type": "integer"
+          },
+          "settlement_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchSettlementOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet_debit_cents": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Wallet Debit Cents",
             "type": "integer"
           }
         },
@@ -5353,7 +5586,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchUsageSummaryRow"
             },
-            "maxItems": 500,
+            "maxItems": 10001,
             "title": "Rows",
             "type": "array"
           },
@@ -5374,6 +5607,24 @@
       "SearchUsageSummaryRow": {
         "additionalProperties": false,
         "properties": {
+          "cached_input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Cached Input Tokens",
+            "type": "integer"
+          },
+          "colbert_batches": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Colbert Batches",
+            "type": "integer"
+          },
+          "content_read_calls": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Content Read Calls",
+            "type": "integer"
+          },
           "customer_charge_microcents": {
             "minimum": 0.0,
             "title": "Customer Charge Microcents",
@@ -5382,6 +5633,12 @@
           "infrastructure_cost_usd_micros": {
             "minimum": 0.0,
             "title": "Infrastructure Cost Usd Micros",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Input Tokens",
             "type": "integer"
           },
           "mode": {
@@ -5397,6 +5654,12 @@
               }
             ],
             "title": "Model Identity"
+          },
+          "output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
           },
           "pending_event_count": {
             "minimum": 0.0,
@@ -7559,6 +7822,87 @@
         ]
       }
     },
+    "/api/v1/index/me/access-funding": {
+      "get": {
+        "operationId": "index.me.access_funding",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Index.Me.Access Funding",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Account",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/api/v1/index/me/access-funding/{mode}": {
+      "put": {
+        "operationId": "index.me.access_funding.update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mode",
+            "required": true,
+            "schema": {
+              "enum": [
+                "fast",
+                "deep"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingPolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Index.Me.Access Funding.Update",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Policy",
+        "tags": [
+          "index"
+        ]
+      }
+    },
     "/api/v1/index/me/contributions": {
       "get": {
         "operationId": "index.me.contributions.list",
@@ -7772,6 +8116,16 @@
               "title": "Offset",
               "type": "integer"
             }
+          },
+          {
+            "in": "query",
+            "name": "include_consumption",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Consumption",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -7825,6 +8179,16 @@
               "format": "date-time",
               "title": "Period End",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_consumption",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Consumption",
+              "type": "boolean"
             }
           }
         ],
@@ -7896,6 +8260,336 @@
         "summary": "Search Usage Receipt",
         "tags": [
           "index"
+        ]
+      }
+    },
+    "/api/v1/index/operator/billing-diagnostics": {
+      "get": {
+        "operationId": "billing_diagnostics_api_v1_index_operator_billing_diagnostics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_start",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Period Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_end",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Period End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Billing Diagnostics Api V1 Index Operator Billing Diagnostics Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Billing Diagnostics",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/operator/deep-beta-grants/{grant_id}": {
+      "delete": {
+        "operationId": "revoke_beta_grant_api_v1_index_operator_deep_beta_grants__grant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operator-Reason",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "X-Operator-Reason",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Beta Grant Api V1 Index Operator Deep Beta Grants  Grant Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Beta Grant",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/operator/orgs/{org_id}/deep-beta-grants": {
+      "post": {
+        "operationId": "create_beta_grant_api_v1_index_operator_orgs__org_id__deep_beta_grants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepBetaGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Beta Grant Api V1 Index Operator Orgs  Org Id  Deep Beta Grants Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Beta Grant",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/operator/orgs/{org_id}/mode-grants": {
+      "post": {
+        "operationId": "create_mode_grant_api_v1_index_operator_orgs__org_id__mode_grants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Mode Grant Api V1 Index Operator Orgs  Org Id  Mode Grants Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Mode Grant",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/operator/orgs/{org_id}/mode-revocations": {
+      "post": {
+        "operationId": "revoke_mode_grant_api_v1_index_operator_orgs__org_id__mode_revocations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeRevocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Mode Grant Api V1 Index Operator Orgs  Org Id  Mode Revocations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Mode Grant",
+        "tags": [
+          "index-operator"
         ]
       }
     },

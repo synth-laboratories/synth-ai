@@ -146,9 +146,7 @@ class IndexUsageSummary(IndexContract):
     private: PrivateUsage
 
 
-PromoCreditStatus = Literal[
-    "active", "exhausted", "expired", "revoked", "campaign_ended"
-]
+PromoCreditStatus = Literal["active", "exhausted", "expired", "revoked", "campaign_ended"]
 
 
 class PrivatePromoCredit(IndexContract):
@@ -179,6 +177,43 @@ class PromoCreditSummary(IndexContract):
     """``credit`` is null when the organization is not enrolled in the promotion."""
 
     credit: PrivatePromoCredit | None
+
+
+class AccessFundingMode(IndexContract):
+    mode: SearchMode
+    access: StrictBool
+    wallet_enabled: StrictBool
+    monthly_cap_cents: Count
+    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=32)]
+    consent_terms_version: str | None = None
+    policy_revision: Count | None = None
+
+
+class DeepBetaFunding(IndexContract):
+    grant_id: str
+    cohort: str
+    status: Literal["active", "revoked", "expired"]
+    monthly_units: Count
+    expires_at: AwareDatetime
+    reserved_units: Count
+    consumed_units: Count
+
+
+class AccessFundingAccount(IndexContract):
+    org_id: str
+    can_manage_policy: StrictBool
+    modes: tuple[AccessFundingMode, ...]
+    deep_beta: DeepBetaFunding | None = None
+    live_wallet_holds_microcents: Count
+    wallet_available_microcents: Count
+    generated_at: AwareDatetime
+
+
+class BillingPolicyUpdate(IndexContract):
+    wallet_enabled: StrictBool = False
+    monthly_cap_cents: Count = 0
+    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=32)] = 1
+    consent_terms_version: Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 
 # Profiles ------------------------------------------------------------------------

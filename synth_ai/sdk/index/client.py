@@ -24,6 +24,8 @@ from synth_ai.core.http.transport import HttpTransport
 from .answer import AnswerResult, AnswerSpec
 from .artifacts import ArtifactPublicationResponse
 from .catalog import (
+    AccessFundingAccount,
+    BillingPolicyUpdate,
     Capabilities,
     CollectionGrant,
     CollectionGrantRevoked,
@@ -139,6 +141,8 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.me.operation_usage_summary": ("GET", f"{_P}/me/usage/operations"),
     "index.me.operation_usage_export": ("GET", f"{_P}/me/usage/operations/export"),
     "index.me.promo_credit": ("GET", f"{_P}/me/promo-credit"),
+    "index.me.access_funding": ("GET", f"{_P}/me/access-funding"),
+    "index.me.access_funding.update": ("PUT", f"{_P}/me/access-funding/{{mode}}"),
     "index.me.rewards.list": ("GET", f"{_P}/me/rewards"),
     "index.me.profile.update": ("PUT", f"{_P}/me/profile"),
     "index.me.profile.pins.update": ("PUT", f"{_P}/me/profile/pins"),
@@ -934,6 +938,22 @@ class AccountAPI(_Resource):
 
     def usage(self) -> Any:
         return self._run(_Call("index.me.usage", IndexUsageSummary.model_validate))
+
+    def access_funding(self) -> Any:
+        """Read effective Fast/Deep access, consent, allowances, and wallet holds."""
+        return self._run(_Call("index.me.access_funding", AccessFundingAccount.model_validate))
+
+    def update_billing_policy(self, mode: SearchMode | str, policy: BillingPolicyUpdate) -> Any:
+        """Replace this org's versioned wallet consent and cap for one mode."""
+        selected = SearchMode(mode)
+        return self._run(
+            _Call(
+                "index.me.access_funding.update",
+                lambda payload: payload,
+                path_parameters={"mode": selected.value},
+                json_body=policy.model_dump(mode="json"),
+            )
+        )
 
     def search_usage(self, search_id: str) -> Any:
         """Return the physical-consumption and charge receipt for one search."""
