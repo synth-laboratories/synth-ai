@@ -105,6 +105,7 @@ class ActorModel(StrEnum):
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
     KIMI_K3 = ActiveActorModel.KIMI_K3.value
+    OPENROUTER_GPT_5_6_LUNA = ActiveActorModel.OPENROUTER_GPT_5_6_LUNA.value
     OPENROUTER_LAGUNA_S_2_1 = ActiveActorModel.OPENROUTER_LAGUNA_S_2_1.value
     LAGUNA_S_2_1_NVFP4 = ActiveActorModel.LAGUNA_S_2_1_NVFP4.value
     META_MUSE_SPARK_1_2 = ActiveActorModel.META_MUSE_SPARK_1_2.value
@@ -1395,10 +1396,50 @@ def _format_preflight_blocker_message(
 
 
 @dataclass(frozen=True, slots=True)
+class SwarmPreflightBlocker:
+    """Structured launch refusal evidence preserved from the backend."""
+
+    stage: str | None
+    http_status: int | None
+    error_code: str | None
+    message: str
+    retryable: bool
+    retry_after_seconds: int | None
+    reason_class: str | None
+    observation_id: str | None
+    detail: FrozenJsonValue
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmPreflightBlocker:
+        if isinstance(value, str):
+            return cls(None, None, None, value, False, None, None, None, None)
+        payload = object_value(value, operation_id="swarm preflight blocker")
+        message = payload.get("message") or payload.get("detail") or payload.get("code")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("preflight blocker must include message, detail, or code")
+        http_status = payload.get("http_status")
+        retry_after_seconds = payload.get("retry_after_seconds")
+        return cls(
+            stage=optional_text(payload, "stage"),
+            http_status=http_status if isinstance(http_status, int) else None,
+            error_code=optional_text(payload, "error_code") or optional_text(payload, "code"),
+            message=message.strip(),
+            retryable=bool(payload.get("retryable", False)),
+            retry_after_seconds=(
+                retry_after_seconds if isinstance(retry_after_seconds, int) else None
+            ),
+            reason_class=optional_text(payload, "reason_class"),
+            observation_id=optional_text(payload, "observation_id"),
+            detail=_freeze_json(cast(JsonValue, payload.get("detail"))),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
     blockers: tuple[str, ...]
+    blocker_details: tuple[SwarmPreflightBlocker, ...] = ()
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmPreflight:
@@ -1409,7 +1450,9 @@ class SwarmPreflight:
         if not isinstance(raw_blockers, list):
             raise ValueError("preflight blockers must be an array")
         blockers: list[str] = []
+        blocker_details: list[SwarmPreflightBlocker] = []
         for blocker in raw_blockers:
+            blocker_details.append(SwarmPreflightBlocker.from_wire(cast(JsonValue, blocker)))
             if isinstance(blocker, str):
                 blockers.append(blocker)
             elif isinstance(blocker, dict):
@@ -1433,6 +1476,7 @@ class SwarmPreflight:
             ProjectId(required_text(payload, "project_id")),
             required_bool(payload, "clear_to_trigger"),
             tuple(blockers),
+            tuple(blocker_details),
         )
 
 
@@ -1540,6 +1584,7 @@ __all__ = [
     "BranchResult",
     "SwarmSpec",
     "SwarmPreflight",
+    "SwarmPreflightBlocker",
     "SwarmState",
     "ResearchSwarm",
     "ResearchSwarmBranchRequest",
