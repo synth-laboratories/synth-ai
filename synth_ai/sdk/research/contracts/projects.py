@@ -42,6 +42,7 @@ class ProjectSpec:
     environment_kind: EnvironmentKind
     orchestrator_profile_id: ProfileId
     default_worker_profile_id: ProfileId
+    idempotency_key: str | None = None
     worker_profile_ids: tuple[ProfileId, ...] = ()
     reviewer_profile_id: ProfileId | None = None
     actor_profile_id: ProfileId | None = None
@@ -66,6 +67,8 @@ class ProjectSpec:
             require_text(value, field_name=name)
         if self.reviewer_profile_id is not None:
             require_text(self.reviewer_profile_id, field_name="reviewer_profile_id")
+        if self.idempotency_key is not None:
+            require_text(self.idempotency_key, field_name="idempotency_key")
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {
@@ -82,6 +85,7 @@ class ProjectSpec:
             "metered_infra": dict(self.metered_infra),
         }
         for name, value in (
+            ("idempotency_key", self.idempotency_key),
             ("reviewer_profile_id", self.reviewer_profile_id),
             ("actor_profile_id", self.actor_profile_id),
             ("runtime_artifact_release_id", self.runtime_artifact_release_id),

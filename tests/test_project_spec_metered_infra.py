@@ -42,3 +42,17 @@ def test_project_spec_defaults_to_an_empty_metered_infra_contract() -> None:
     )
 
     assert spec.to_wire()["metered_infra"] == {}
+
+
+def test_project_spec_serializes_idempotency_key_when_provided() -> None:
+    spec = ProjectSpec(
+        name="Retry-safe project",
+        pool_id="default",
+        runtime_kind="sandbox_agent",
+        environment_kind="harbor",
+        orchestrator_profile_id="orchestrator",
+        default_worker_profile_id="worker",
+        idempotency_key="dock-project:stable",
+    )
+
+    assert spec.to_wire()["idempotency_key"] == "dock-project:stable"
