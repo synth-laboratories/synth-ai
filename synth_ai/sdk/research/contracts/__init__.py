@@ -429,6 +429,8 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     SwarmRuntimeSnapshot,
 )
 from synth_ai.sdk.research.contracts.swarms import (
+    AiCacheMode,
+    AiCachePolicy,
     ActiveActorModel,
     ActorHarness,
     ActorImageBinding,
@@ -608,6 +610,8 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "AiCacheMode",
+    "AiCachePolicy",
     "ActiveActorModel",
     "ActivityActor",
     "ActivityActorState",

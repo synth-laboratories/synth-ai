@@ -1051,6 +1051,75 @@ class KickoffArtifact:
         }
 
 
+class AiCacheMode(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    READWRITE = "readwrite"
+
+
+@dataclass(frozen=True, slots=True)
+class AiCachePolicy:
+    """Local integration-test inference routing for one Swarm run."""
+
+    mode: AiCacheMode
+    namespace: str
+    proxy_root_url: str
+    canonicalizer: str
+    provider: str | None = None
+    phase: str | None = None
+    deterministic_replay: bool | None = None
+    allow_model_suffixes: bool = False
+    live_provider_allowed: bool | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("namespace", "proxy_root_url", "canonicalizer"):
+            require_text(getattr(self, name), field_name=f"ai_cache.{name}")
+        if any(
+            character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+            for character in self.namespace
+        ):
+            raise ValueError("ai_cache.namespace contains unsafe characters")
+        if not self.proxy_root_url.startswith(("http://", "https://")):
+            raise ValueError("ai_cache.proxy_root_url must be an HTTP(S) URL")
+        if self.provider is not None:
+            require_text(self.provider, field_name="ai_cache.provider")
+            if any(
+                character
+                not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+                for character in self.provider
+            ):
+                raise ValueError("ai_cache.provider contains unsafe characters")
+        replay = self.mode is AiCacheMode.READ
+        if self.deterministic_replay is not None and self.deterministic_replay != replay:
+            raise ValueError("ai_cache deterministic_replay must match read mode")
+        live_allowed = self.live_provider_allowed
+        if live_allowed is None:
+            live_allowed = self.mode in {AiCacheMode.WRITE, AiCacheMode.READWRITE}
+            object.__setattr__(self, "live_provider_allowed", live_allowed)
+        if replay and live_allowed:
+            raise ValueError("ai_cache read mode forbids live provider access")
+        if self.phase is not None and self.phase not in {"record", "replay"}:
+            raise ValueError("ai_cache.phase must be 'record' or 'replay'")
+        if self.phase == "replay" and not replay:
+            raise ValueError("ai_cache replay phase requires read mode")
+
+    def to_wire(self) -> JsonObject:
+        replay = self.mode is AiCacheMode.READ
+        payload: JsonObject = {
+            "mode": self.mode.value,
+            "phase": self.phase or ("replay" if replay else "record"),
+            "namespace": self.namespace,
+            "proxy_root_url": self.proxy_root_url.rstrip("/"),
+            "canonicalizer": self.canonicalizer,
+            "deterministic_replay": replay,
+            "allow_model_suffixes": self.allow_model_suffixes,
+            "live_provider_allowed": bool(self.live_provider_allowed),
+        }
+        if self.provider is not None:
+            payload["provider"] = self.provider
+        return payload
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmSpec:
     objective: str
@@ -1073,6 +1142,7 @@ class SwarmSpec:
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
     kickoff_contract: Mapping[str, JsonValue] | None = None
+    ai_cache: AiCachePolicy | None = None
     execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
@@ -1128,6 +1198,8 @@ class SwarmSpec:
             if not isinstance(frozen_contract, Mapping):
                 raise ValueError("kickoff_contract must be a JSON object")
             object.__setattr__(self, "kickoff_contract", frozen_contract)
+        if self.ai_cache is not None and not isinstance(self.ai_cache, AiCachePolicy):
+            raise ValueError("ai_cache must be AiCachePolicy")
         if self.provider_policy is not None and not isinstance(
             self.provider_policy,
             ProviderPolicy,
@@ -1254,6 +1326,8 @@ class SwarmSpec:
                 JsonObject,
                 _thaw_json(cast(FrozenJsonValue, self.kickoff_contract)),
             )
+        if self.ai_cache is not None:
+            payload["ai_cache"] = self.ai_cache.to_wire()
         if self.execution_target is not None:
             payload["execution_target"] = self.execution_target.to_wire()
         if self.actor_image_overrides:
@@ -1572,6 +1646,8 @@ ResearchSwarmState = SwarmState
 
 
 __all__ = [
+    "AiCacheMode",
+    "AiCachePolicy",
     "ActiveActorModel",
     "ActorHarness",
     "ActorImageBinding",
