@@ -199,6 +199,7 @@ from synth_ai.sdk.research.contracts.image_releases import (
     ImageReleaseFinalizeRequest,
     ImageReleaseFinalizeResponse,
     ImageReleaseId,
+    ImageSecurityAdmission,
     ImageReleaseKind,
     ImageReleaseStorageIdentity,
     ImageReleaseUpload,
@@ -212,8 +213,15 @@ from synth_ai.sdk.research.contracts.image_releases import (
     RuntimeImageReleaseId,
     RuntimeImageReleaseListResponse,
     RuntimeImageReleaseStatus,
+    SecurityAdmissionState,
     declaration_from_wire,
     image_release_from_wire,
+)
+from synth_ai.sdk.research.contracts.placement import (
+    PlacementMode,
+    PlacementPolicy,
+    RunEnvironmentCatalog,
+    SharedPlacementGroup,
 )
 from synth_ai.sdk.research.contracts.intern_program import (
     InternEffortBoardResponse,
@@ -646,6 +654,12 @@ __all__ = [
     "ActorRuntimeImageReleaseArchive",
     "ActorRuntimeImageReleaseDeclaration",
     "ActorRuntimeImageReleaseList",
+    "ImageSecurityAdmission",
+    "SecurityAdmissionState",
+    "PlacementMode",
+    "PlacementPolicy",
+    "RunEnvironmentCatalog",
+    "SharedPlacementGroup",
     "ActorSubtype",
     "ActorTokenUsage",
     "ActorType",

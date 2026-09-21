@@ -910,6 +910,27 @@ RESEARCH_OPERATIONS = {
             "/smr/v1/image-releases/{runtime_image_release_id}/archive",
             mutation=True,
         ),
+        _operation(
+            "retry_customer_actor_image_security",
+            HttpMethod.POST,
+            "/smr/v1/image-releases/{runtime_image_release_id}/security/retry",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "revoke_customer_actor_image_security",
+            HttpMethod.POST,
+            "/smr/v1/image-releases/{runtime_image_release_id}/security/revoke",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "reevaluate_customer_actor_image_security",
+            HttpMethod.POST,
+            "/smr/v1/image-releases/{runtime_image_release_id}/security/reevaluate",
+            mutation=True,
+            idempotent=True,
+        ),
         _operation("retrieve_effort", HttpMethod.GET, "/smr/efforts/{effort_id}", idempotent=True),
         _operation(
             "retrieve_factory", HttpMethod.GET, "/smr/factories/{factory_id}", idempotent=True
