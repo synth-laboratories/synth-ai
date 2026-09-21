@@ -31,6 +31,8 @@ from synth_ai.sdk.research.contracts import (
     WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
     WORKSPACE_UPLOAD_FILE_LIMIT,
     ActiveActorModel,
+    AiCacheMode,
+    AiCachePolicy,
     ActivityActor,
     ActivityActorState,
     ActivityCursor,
@@ -434,6 +436,7 @@ from synth_ai.sdk.research.contracts import (
     WorkspaceFileEncoding,
     WorkspaceFileId,
     WorkspaceFileKind,
+    WorkspaceFileMode,
     WorkspaceFilesBatchUploadProgress,
     WorkspaceFilesBatchUploadReceipt,
     WorkspaceFilesBatchUploadRequest,
@@ -529,6 +532,8 @@ from synth_ai.sdk.research.visuals import AsyncVisualsAPI, VisualsAPI
 
 __all__ = [
     "ActiveActorModel",
+    "AiCacheMode",
+    "AiCachePolicy",
     "ActivityActor",
     "ActivityActorState",
     "ActivityCursor",
@@ -998,6 +1003,7 @@ __all__ = [
     "WorkspaceFileEncoding",
     "WorkspaceFileId",
     "WorkspaceFileKind",
+    "WorkspaceFileMode",
     "WorkspaceFilesBatchUploadProgress",
     "WorkspaceFilesBatchUploadReceipt",
     "WorkspaceFilesBatchUploadRequest",

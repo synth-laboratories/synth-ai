@@ -446,6 +446,8 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     SwarmRuntimeSnapshot,
 )
 from synth_ai.sdk.research.contracts.swarms import (
+    AiCacheMode,
+    AiCachePolicy,
     ActiveActorModel,
     ActorHarness,
     ActorImageBinding,
@@ -495,6 +497,7 @@ from synth_ai.sdk.research.contracts.swarms import (
     Swarm,
     SwarmEnvironment,
     SwarmPreflight,
+    SwarmPreflightBlocker,
     SwarmSpec,
     SwarmState,
     SwarmTerminalOutcome,
@@ -574,6 +577,7 @@ from synth_ai.sdk.research.contracts.workspaces import (
     ProjectWorkspaceInputs,
     WorkspaceFileEncoding,
     WorkspaceFileKind,
+    WorkspaceFileMode,
     WorkspaceFilesBatchUploadProgress,
     WorkspaceFilesBatchUploadReceipt,
     WorkspaceFilesBatchUploadRequest,
@@ -620,6 +624,8 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "AiCacheMode",
+    "AiCachePolicy",
     "ActiveActorModel",
     "ActivityActor",
     "ActivityActorState",
@@ -1068,6 +1074,7 @@ __all__ = [
     "SwarmId",
     "SwarmLivenessPhase",
     "SwarmPreflight",
+    "SwarmPreflightBlocker",
     "SwarmRuntimeSnapshot",
     "SwarmSpec",
     "SwarmState",
@@ -1144,6 +1151,7 @@ __all__ = [
     "WorkspaceFileEncoding",
     "WorkspaceFileId",
     "WorkspaceFileKind",
+    "WorkspaceFileMode",
     "WorkspaceFilesBatchUploadProgress",
     "WorkspaceFilesBatchUploadReceipt",
     "WorkspaceFilesBatchUploadRequest",

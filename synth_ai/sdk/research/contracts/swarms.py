@@ -105,6 +105,7 @@ class ActorModel(StrEnum):
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
     KIMI_K3 = ActiveActorModel.KIMI_K3.value
+    OPENROUTER_GPT_5_6_LUNA = ActiveActorModel.OPENROUTER_GPT_5_6_LUNA.value
     OPENROUTER_LAGUNA_S_2_1 = ActiveActorModel.OPENROUTER_LAGUNA_S_2_1.value
     LAGUNA_S_2_1_NVFP4 = ActiveActorModel.LAGUNA_S_2_1_NVFP4.value
     META_MUSE_SPARK_1_2 = ActiveActorModel.META_MUSE_SPARK_1_2.value
@@ -1052,6 +1053,75 @@ class KickoffArtifact:
         }
 
 
+class AiCacheMode(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    READWRITE = "readwrite"
+
+
+@dataclass(frozen=True, slots=True)
+class AiCachePolicy:
+    """Local integration-test inference routing for one Swarm run."""
+
+    mode: AiCacheMode
+    namespace: str
+    proxy_root_url: str
+    canonicalizer: str
+    provider: str | None = None
+    phase: str | None = None
+    deterministic_replay: bool | None = None
+    allow_model_suffixes: bool = False
+    live_provider_allowed: bool | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("namespace", "proxy_root_url", "canonicalizer"):
+            require_text(getattr(self, name), field_name=f"ai_cache.{name}")
+        if any(
+            character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+            for character in self.namespace
+        ):
+            raise ValueError("ai_cache.namespace contains unsafe characters")
+        if not self.proxy_root_url.startswith(("http://", "https://")):
+            raise ValueError("ai_cache.proxy_root_url must be an HTTP(S) URL")
+        if self.provider is not None:
+            require_text(self.provider, field_name="ai_cache.provider")
+            if any(
+                character
+                not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+                for character in self.provider
+            ):
+                raise ValueError("ai_cache.provider contains unsafe characters")
+        replay = self.mode is AiCacheMode.READ
+        if self.deterministic_replay is not None and self.deterministic_replay != replay:
+            raise ValueError("ai_cache deterministic_replay must match read mode")
+        live_allowed = self.live_provider_allowed
+        if live_allowed is None:
+            live_allowed = self.mode in {AiCacheMode.WRITE, AiCacheMode.READWRITE}
+            object.__setattr__(self, "live_provider_allowed", live_allowed)
+        if replay and live_allowed:
+            raise ValueError("ai_cache read mode forbids live provider access")
+        if self.phase is not None and self.phase not in {"record", "replay"}:
+            raise ValueError("ai_cache.phase must be 'record' or 'replay'")
+        if self.phase == "replay" and not replay:
+            raise ValueError("ai_cache replay phase requires read mode")
+
+    def to_wire(self) -> JsonObject:
+        replay = self.mode is AiCacheMode.READ
+        payload: JsonObject = {
+            "mode": self.mode.value,
+            "phase": self.phase or ("replay" if replay else "record"),
+            "namespace": self.namespace,
+            "proxy_root_url": self.proxy_root_url.rstrip("/"),
+            "canonicalizer": self.canonicalizer,
+            "deterministic_replay": replay,
+            "allow_model_suffixes": self.allow_model_suffixes,
+            "live_provider_allowed": bool(self.live_provider_allowed),
+        }
+        if self.provider is not None:
+            payload["provider"] = self.provider
+        return payload
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmSpec:
     objective: str
@@ -1073,6 +1143,7 @@ class SwarmSpec:
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
+    ai_cache: AiCachePolicy | None = None
     execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
@@ -1117,6 +1188,8 @@ class SwarmSpec:
             KickoffArtifact,
         ):
             raise ValueError("kickoff_artifact must be KickoffArtifact")
+        if self.ai_cache is not None and not isinstance(self.ai_cache, AiCachePolicy):
+            raise ValueError("ai_cache must be AiCachePolicy")
         if self.provider_policy is not None and not isinstance(
             self.provider_policy,
             ProviderPolicy,
@@ -1238,6 +1311,8 @@ class SwarmSpec:
             ]
         if self.kickoff_artifact is not None:
             payload["kickoff_contract"] = self.kickoff_artifact.to_wire()
+        if self.ai_cache is not None:
+            payload["ai_cache"] = self.ai_cache.to_wire()
         if self.execution_target is not None:
             payload["execution_target"] = self.execution_target.to_wire()
         if self.actor_image_overrides:
@@ -1395,10 +1470,50 @@ def _format_preflight_blocker_message(
 
 
 @dataclass(frozen=True, slots=True)
+class SwarmPreflightBlocker:
+    """Structured launch refusal evidence preserved from the backend."""
+
+    stage: str | None
+    http_status: int | None
+    error_code: str | None
+    message: str
+    retryable: bool
+    retry_after_seconds: int | None
+    reason_class: str | None
+    observation_id: str | None
+    detail: FrozenJsonValue
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmPreflightBlocker:
+        if isinstance(value, str):
+            return cls(None, None, None, value, False, None, None, None, None)
+        payload = object_value(value, operation_id="swarm preflight blocker")
+        message = payload.get("message") or payload.get("detail") or payload.get("code")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("preflight blocker must include message, detail, or code")
+        http_status = payload.get("http_status")
+        retry_after_seconds = payload.get("retry_after_seconds")
+        return cls(
+            stage=optional_text(payload, "stage"),
+            http_status=http_status if isinstance(http_status, int) else None,
+            error_code=optional_text(payload, "error_code") or optional_text(payload, "code"),
+            message=message.strip(),
+            retryable=bool(payload.get("retryable", False)),
+            retry_after_seconds=(
+                retry_after_seconds if isinstance(retry_after_seconds, int) else None
+            ),
+            reason_class=optional_text(payload, "reason_class"),
+            observation_id=optional_text(payload, "observation_id"),
+            detail=_freeze_json(cast(JsonValue, payload.get("detail"))),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
     blockers: tuple[str, ...]
+    blocker_details: tuple[SwarmPreflightBlocker, ...] = ()
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmPreflight:
@@ -1409,7 +1524,9 @@ class SwarmPreflight:
         if not isinstance(raw_blockers, list):
             raise ValueError("preflight blockers must be an array")
         blockers: list[str] = []
+        blocker_details: list[SwarmPreflightBlocker] = []
         for blocker in raw_blockers:
+            blocker_details.append(SwarmPreflightBlocker.from_wire(cast(JsonValue, blocker)))
             if isinstance(blocker, str):
                 blockers.append(blocker)
             elif isinstance(blocker, dict):
@@ -1433,6 +1550,7 @@ class SwarmPreflight:
             ProjectId(required_text(payload, "project_id")),
             required_bool(payload, "clear_to_trigger"),
             tuple(blockers),
+            tuple(blocker_details),
         )
 
 
@@ -1504,6 +1622,8 @@ ResearchSwarmState = SwarmState
 
 
 __all__ = [
+    "AiCacheMode",
+    "AiCachePolicy",
     "ActiveActorModel",
     "ActorHarness",
     "ActorImageBinding",
@@ -1540,6 +1660,7 @@ __all__ = [
     "BranchResult",
     "SwarmSpec",
     "SwarmPreflight",
+    "SwarmPreflightBlocker",
     "SwarmState",
     "ResearchSwarm",
     "ResearchSwarmBranchRequest",
