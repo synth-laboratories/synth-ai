@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.19.0-orange synth-ai==0.19.0 -->
+<!-- CI release pins: PyPI-0.20.0-orange synth-ai==0.20.0 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -139,6 +139,32 @@ CLI discovery:
 ```bash
 synth-ai research --help
 ```
+
+Project creation also accepts the backend-owned `ProjectSpec.policy` mapping.
+For example, a server-enabled fresh project can request
+`policy={"host_resource_custody_mode": "horizons_docker_sessions_only"}`.
+The backend validates this restricted mode and owns its immutable resource
+binding; SDK serialization does not grant additional authority.
+
+## Container pools
+
+The optional `synth-ai[pools]` extra exposes the canonical `synth-containers`
+client through `AsyncSynthClient.pools`. It uses the same configured backend
+credential and keeps hosted admission, resource ownership, and recovery in the
+backend. The enclosing async client closes the pool transport.
+
+```python
+from synth_ai import AsyncSynthClient
+
+async def inspect_lease(lease_id: str, task_id: str):
+    async with AsyncSynthClient() as client:
+        return await client.pools.get_lease_interactive(lease_id, task_id=task_id)
+```
+
+For explicit lifetime management, `from synth_ai.pools import PoolClient`
+re-exports the same implementation. Research-only installations do not import
+this optional dependency. Development candidates must install the exact pinned
+containers wheel; an unpublished candidate extra is not a release claim.
 
 ## CLI
 

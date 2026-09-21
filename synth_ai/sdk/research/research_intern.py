@@ -24,6 +24,8 @@ from synth_ai.sdk.research.contracts.factory_role_receipts import (
     FactoryRoleReceiptMintRequest,
     FactoryRoleReceiptResponse,
 )
+from synth_ai.sdk.research.contracts.intern_resources import InternResourceInventory
+from synth_ai.sdk.research.contracts.intern_usage import InternSessionUsage
 from synth_ai.sdk.research.contracts.project_runtime import (
     ProjectComputerExecuteRequest,
     ProjectComputerInspectRequest,
@@ -718,7 +720,7 @@ class ResearchInternAcceptanceReceiptsAPI:
         receipt = ResearchInternAcceptanceReceiptPublicationResponse.from_wire(
             self._transport.execute(
                 _request(
-                    "get_research_intern_acceptance_receipt",
+                    "get_public_research_intern_acceptance_receipt",
                     f"/smr/research-intern/acceptance-receipts/{digest_hex}",
                 )
             )
@@ -1032,6 +1034,39 @@ class ResearchInternSyncRuntimeAPI:
             raise ValueError("Sync Intern approval card identity drifted")
         return cards
 
+    def usage(self, sync_session_id: str) -> InternSessionUsage:
+        """Usage receipt for this session: direct inference plus the runs it launched.
+
+        ``spend_cents`` is settled run spend; until ``billing.billing_state`` is
+        ``settled`` the total is incomplete, not a final zero.
+        """
+
+        usage = InternSessionUsage.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_sync_session_usage",
+                    f"{self._PATH}/{sync_session_id}/usage",
+                )
+            )
+        )
+        if usage.origin_runtime_kind != "sync" or usage.origin_runtime_id != sync_session_id:
+            raise ValueError("Sync Intern usage identity drifted")
+        return usage
+
+    def resources(self, sync_session_id: str) -> InternResourceInventory:
+        """Fresh recorded-session inventory; incomplete coverage remains explicit."""
+        inventory = InternResourceInventory.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_sync_session_resources",
+                    f"{self._PATH}/{sync_session_id}/resources",
+                )
+            )
+        )
+        if (inventory.runtime_kind, inventory.runtime_id) != ("sync", sync_session_id):
+            raise ValueError("Sync Intern inventory identity drifted")
+        return inventory
+
     def decide_approval(
         self,
         approval_id: str,
@@ -1309,6 +1344,12 @@ class ResearchInternSyncRuntimeAPI:
 
 
 class ResearchInternAsyncRuntimeAPI:
+    @property
+    def blockers(self):
+        from .intern_blockers import InternBlockersAPI
+
+        return InternBlockersAPI(self._transport)
+
     """Synchronous transport for the organization's singleton Async Intern."""
 
     _PATH = "/smr/research-intern/async"
@@ -1345,6 +1386,34 @@ class ResearchInternAsyncRuntimeAPI:
         return InternAsyncRuntime.from_wire(
             self._transport.execute(_request("get_intern_async_runtime", self._PATH))
         )
+
+    def resources(self, assignment_id: str) -> InternResourceInventory:
+        """Read the exact recorded assignment, never substitute the current singleton."""
+        inventory = InternResourceInventory.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_async_assignment_resources",
+                    f"/smr/research-intern/async-assignments/{assignment_id}/resources",
+                )
+            )
+        )
+        if (inventory.runtime_kind, inventory.runtime_id) != ("async", assignment_id):
+            raise ValueError("Async Intern inventory identity drifted")
+        return inventory
+
+    def usage(self, assignment_id: str) -> InternSessionUsage:
+        """Read recorded-assignment usage; unsettled billing remains incomplete."""
+        usage = InternSessionUsage.from_wire(
+            self._transport.execute(
+                _request(
+                    "get_intern_async_assignment_usage",
+                    f"/smr/research-intern/async-assignments/{assignment_id}/usage",
+                )
+            )
+        )
+        if (usage.origin_runtime_kind, usage.origin_runtime_id) != ("async", assignment_id):
+            raise ValueError("Async Intern usage identity drifted")
+        return usage
 
     def command(self, request: InternAsyncCommandRequest) -> InternAsyncCommandReceipt:
         """Submit a fenced Async command and reject command receipt identity drift."""
@@ -1634,14 +1703,14 @@ class ResearchInternAsyncRuntimeAPI:
         runtime_id = self.get().async_runtime_id
         response = self._transport.execute(
             _request(
-                "list_intern_async_runtime_mcp_actions",
+                "list_intern_runtime_mcp_actions",
                 f"/smr/research-intern/runtimes/async/{runtime_id}/mcp-actions",
                 query={"limit": _bounded_limit(limit)},
             )
         )
         items = array_value(
             cast(JsonValue, response),
-            operation_id="list_intern_async_runtime_mcp_actions",
+            operation_id="list_intern_runtime_mcp_actions",
         )
         if any(not isinstance(item, dict) for item in items):
             raise ValueError("Async Intern MCP-action ledger must contain objects")
@@ -2569,7 +2638,7 @@ class AsyncResearchInternAcceptanceReceiptsAPI:
         receipt = ResearchInternAcceptanceReceiptPublicationResponse.from_wire(
             await self._transport.execute(
                 _request(
-                    "get_research_intern_acceptance_receipt",
+                    "get_public_research_intern_acceptance_receipt",
                     f"/smr/research-intern/acceptance-receipts/{digest_hex}",
                 )
             )
@@ -2723,6 +2792,34 @@ class AsyncResearchInternSyncRuntimeAPI:
     """Native async transport for operator-present Sync sessions."""
 
     _PATH = "/smr/research-intern/sync-sessions"
+
+    async def usage(self, sync_session_id: str) -> InternSessionUsage:
+        """Read session usage; unsettled billing remains incomplete."""
+        usage = InternSessionUsage.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_sync_session_usage",
+                    f"{self._PATH}/{sync_session_id}/usage",
+                )
+            )
+        )
+        if (usage.origin_runtime_kind, usage.origin_runtime_id) != ("sync", sync_session_id):
+            raise ValueError("Sync Intern usage identity drifted")
+        return usage
+
+    async def resources(self, sync_session_id: str) -> InternResourceInventory:
+        """Fresh recorded-session inventory; incomplete coverage remains explicit."""
+        inventory = InternResourceInventory.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_sync_session_resources",
+                    f"{self._PATH}/{sync_session_id}/resources",
+                )
+            )
+        )
+        if (inventory.runtime_kind, inventory.runtime_id) != ("sync", sync_session_id):
+            raise ValueError("Sync Intern inventory identity drifted")
+        return inventory
 
     def __init__(
         self,
@@ -3145,9 +3242,43 @@ class AsyncResearchInternSyncRuntimeAPI:
 
 
 class AsyncResearchInternAsyncRuntimeAPI:
+    @property
+    def blockers(self):
+        from .intern_blockers import AsyncInternBlockersAPI
+
+        return AsyncInternBlockersAPI(self._transport)
+
     """Native async transport for the organization's singleton Async Intern."""
 
     _PATH = "/smr/research-intern/async"
+
+    async def usage(self, assignment_id: str) -> InternSessionUsage:
+        """Read recorded-assignment usage; unsettled billing remains incomplete."""
+        usage = InternSessionUsage.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_async_assignment_usage",
+                    f"/smr/research-intern/async-assignments/{assignment_id}/usage",
+                )
+            )
+        )
+        if (usage.origin_runtime_kind, usage.origin_runtime_id) != ("async", assignment_id):
+            raise ValueError("Async Intern usage identity drifted")
+        return usage
+
+    async def resources(self, assignment_id: str) -> InternResourceInventory:
+        """Read the exact recorded assignment, never substitute the current singleton."""
+        inventory = InternResourceInventory.from_wire(
+            await self._transport.execute(
+                _request(
+                    "get_intern_async_assignment_resources",
+                    f"/smr/research-intern/async-assignments/{assignment_id}/resources",
+                )
+            )
+        )
+        if (inventory.runtime_kind, inventory.runtime_id) != ("async", assignment_id):
+            raise ValueError("Async Intern inventory identity drifted")
+        return inventory
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport

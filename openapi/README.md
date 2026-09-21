@@ -5,6 +5,28 @@
   - `research-v1.json` (Research / SMR contract)
 - Version: OpenAPI 3.1
 
+## Index readiness integration
+
+`index-v1.json` retains the access/funding candidate's routes and consent shapes.
+Customer accounting adds funding and terminal outcome to charges, and price,
+funding, terminal outcome, settlement state, reservation, release, and refund
+fields to summary rows while retaining consumption and pagination. Customer
+charges and summary rows also include signed `adjustment_microcents`; settlement
+totals already include those corrections and outstanding refunds. Customer
+receipt/summary infrastructure-cost fields are removed. Funding uses
+`deep_beta`, not `index_deep_beta`, and outcomes reference
+`SearchSettlementOutcome`.
+
+Summary rows also expose `measurement_state` and `unmeasured_search_count`.
+Consumption counters are nullable for missing measurements. Settlement-only
+receipts carry pending measurement state and empty observation arrays. Operator
+physical costs use separate backend diagnostics DTOs, outside customer contracts.
+
+These are manual schema edits for the local integration, not a backend export.
+No backend import, generation, test, build, or parity check was run. Parent
+integration owns final backend/OpenAPI/SDK parity, including customer redaction
+and corrected receipt/summary/CSV amount agreement.
+
 ## v0.18.2 release contract refresh
 
 The bounded Research registry includes the existing backend meta-thread and

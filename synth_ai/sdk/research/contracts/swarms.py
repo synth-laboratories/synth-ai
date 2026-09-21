@@ -59,11 +59,15 @@ class ActorHarness(StrEnum):
 class ActiveActorModel(StrEnum):
     """First-class models allowed for shared top-level agent selection."""
 
+    OPENROUTER_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
+
     GPT_5_4_MINI = "gpt-5.4-mini"
     GPT_5_6_LUNA = "gpt-5.6-luna"
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     KIMI_K3 = "modal/moonshotai/Kimi-K3"
+    OPENROUTER_LAGUNA_S_2_1 = "openrouter/poolside/laguna-s-2.1"
     LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
+    META_MUSE_SPARK_1_2 = "meta/muse-spark-1.2"
 
 
 class DeprecatedActorModel(StrEnum):
@@ -83,8 +87,6 @@ class DeprecatedActorModel(StrEnum):
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
-    GROK_4_3 = "x-ai/grok-4.3"
-    GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
     KIMI_K3_BASETEN = "baseten/moonshotai/Kimi-K3"
     GLM_5_2 = "baseten/zai-org/GLM-5.2"
@@ -103,7 +105,10 @@ class ActorModel(StrEnum):
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
     KIMI_K3 = ActiveActorModel.KIMI_K3.value
+    OPENROUTER_GPT_5_6_LUNA = ActiveActorModel.OPENROUTER_GPT_5_6_LUNA.value
+    OPENROUTER_LAGUNA_S_2_1 = ActiveActorModel.OPENROUTER_LAGUNA_S_2_1.value
     LAGUNA_S_2_1_NVFP4 = ActiveActorModel.LAGUNA_S_2_1_NVFP4.value
+    META_MUSE_SPARK_1_2 = ActiveActorModel.META_MUSE_SPARK_1_2.value
     GPT_5_4 = DeprecatedActorModel.GPT_5_4.value
     GPT_5_5 = DeprecatedActorModel.GPT_5_5.value
     GPT_5_CODEX = DeprecatedActorModel.GPT_5_CODEX.value
@@ -118,8 +123,6 @@ class ActorModel(StrEnum):
     DEEPSEEK_REASONER = DeprecatedActorModel.DEEPSEEK_REASONER.value
     CURSOR_GPT_5 = DeprecatedActorModel.CURSOR_GPT_5.value
     CURSOR_SONNET_4 = DeprecatedActorModel.CURSOR_SONNET_4.value
-    GROK_4_3 = DeprecatedActorModel.GROK_4_3.value
-    GROK_BUILD = DeprecatedActorModel.GROK_BUILD.value
     KIMI_K2_6 = DeprecatedActorModel.KIMI_K2_6.value
     KIMI_K3_BASETEN = DeprecatedActorModel.KIMI_K3_BASETEN.value
     GLM_5_2 = DeprecatedActorModel.GLM_5_2.value
@@ -192,7 +195,6 @@ class ResourceProvider(StrEnum):
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
-    XAI = "xai"
     MODAL = "modal"
     OPENAI_CHATGPT = "openai_chatgpt"
     BASETEN = "baseten"
@@ -208,7 +210,6 @@ class CredentialProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
-    XAI = "xai"
     TINKER = "tinker"
     SYNTH_INTERNAL = "synth_internal"
 
@@ -223,7 +224,6 @@ class InferenceProvider(StrEnum):
     GOOGLE = "google"
     OPENROUTER = "openrouter"
     SYNTH = "synth"
-    XAI = "xai"
     SYNTH_INTERNAL = "synth_internal"
 
 
@@ -246,7 +246,6 @@ _PUBLIC_PROVIDER_SELECTIONS = frozenset(
         InferenceProvider.OPENAI.value,
         InferenceProvider.MODAL.value,
         InferenceProvider.SYNTH.value,
-        InferenceProvider.XAI.value,
         InferenceProvider.CURSOR.value,
     }
 )
@@ -276,7 +275,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, modal, openai, synth, xai, and cursor; "
+            "provider supports auto, modal, openai, synth, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):
@@ -1290,6 +1289,10 @@ class Swarm:
     finished_at: datetime | None = None
     terminal_outcome: SwarmTerminalOutcome | None = None
     work_completed: bool = False
+    # The Intern Sync session ("sync") or Async assignment ("async") that
+    # launched this swarm; both None for swarms no Intern runtime started.
+    origin_runtime_kind: str | None = None
+    origin_runtime_id: str | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Swarm:
@@ -1297,6 +1300,9 @@ class Swarm:
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
         terminal_outcome = optional_text(payload, "terminal_outcome")
+        origin_runtime_kind = optional_text(payload, "origin_runtime_kind")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"swarm origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         return cls(
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
@@ -1314,6 +1320,8 @@ class Swarm:
                 SwarmTerminalOutcome(terminal_outcome) if terminal_outcome is not None else None
             ),
             work_completed=optional_bool(payload, "work_completed"),
+            origin_runtime_kind=origin_runtime_kind,
+            origin_runtime_id=optional_text(payload, "origin_runtime_id"),
         )
 
     def require_terminal_outcome(self) -> SwarmTerminalOutcome:
@@ -1379,11 +1387,83 @@ class ResolvedSwarmConfiguration:
         }
 
 
+def _format_preflight_blocker_message(
+    *,
+    message: str,
+    error_code: object = None,
+    detail: object = None,
+) -> str:
+    """Collapse structured preflight blockers into a single Dock-readable string."""
+
+    parts = [message]
+    code = str(error_code).strip() if isinstance(error_code, str) else ""
+    if code and code not in message:
+        parts.append(f"error_code={code}")
+    reasons: list[str] = []
+    if isinstance(detail, Mapping):
+        violations = detail.get("violations")
+        if isinstance(violations, list):
+            for violation in violations:
+                if not isinstance(violation, Mapping):
+                    continue
+                reason = violation.get("reason")
+                if isinstance(reason, str) and reason.strip():
+                    reasons.append(reason.strip())
+        detail_code = detail.get("error_code") or detail.get("code")
+        nested_code = detail_code.strip() if isinstance(detail_code, str) else ""
+        if nested_code and nested_code not in {code, *reasons}:
+            reasons.insert(0, nested_code)
+    if reasons:
+        unique_reasons = list(dict.fromkeys(reasons))
+        parts.append("violations=" + ",".join(unique_reasons))
+    return "; ".join(parts)
+
+
+@dataclass(frozen=True, slots=True)
+class SwarmPreflightBlocker:
+    """Structured launch refusal evidence preserved from the backend."""
+
+    stage: str | None
+    http_status: int | None
+    error_code: str | None
+    message: str
+    retryable: bool
+    retry_after_seconds: int | None
+    reason_class: str | None
+    observation_id: str | None
+    detail: FrozenJsonValue
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmPreflightBlocker:
+        if isinstance(value, str):
+            return cls(None, None, None, value, False, None, None, None, None)
+        payload = object_value(value, operation_id="swarm preflight blocker")
+        message = payload.get("message") or payload.get("detail") or payload.get("code")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("preflight blocker must include message, detail, or code")
+        http_status = payload.get("http_status")
+        retry_after_seconds = payload.get("retry_after_seconds")
+        return cls(
+            stage=optional_text(payload, "stage"),
+            http_status=http_status if isinstance(http_status, int) else None,
+            error_code=optional_text(payload, "error_code") or optional_text(payload, "code"),
+            message=message.strip(),
+            retryable=bool(payload.get("retryable", False)),
+            retry_after_seconds=(
+                retry_after_seconds if isinstance(retry_after_seconds, int) else None
+            ),
+            reason_class=optional_text(payload, "reason_class"),
+            observation_id=optional_text(payload, "observation_id"),
+            detail=_freeze_json(cast(JsonValue, payload.get("detail"))),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
     blockers: tuple[str, ...]
+    blocker_details: tuple[SwarmPreflightBlocker, ...] = ()
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmPreflight:
@@ -1394,7 +1474,9 @@ class SwarmPreflight:
         if not isinstance(raw_blockers, list):
             raise ValueError("preflight blockers must be an array")
         blockers: list[str] = []
+        blocker_details: list[SwarmPreflightBlocker] = []
         for blocker in raw_blockers:
+            blocker_details.append(SwarmPreflightBlocker.from_wire(cast(JsonValue, blocker)))
             if isinstance(blocker, str):
                 blockers.append(blocker)
             elif isinstance(blocker, dict):
@@ -1405,13 +1487,20 @@ class SwarmPreflight:
                     message = blocker.get("code")
                 if not isinstance(message, str) or not message.strip():
                     raise ValueError("preflight blocker must include message, detail, or code")
-                blockers.append(message.strip())
+                blockers.append(
+                    _format_preflight_blocker_message(
+                        message=message.strip(),
+                        error_code=blocker.get("error_code") or blocker.get("code"),
+                        detail=blocker.get("detail"),
+                    )
+                )
             else:
                 raise ValueError("preflight blocker must be a string or object")
         return cls(
             ProjectId(required_text(payload, "project_id")),
             required_bool(payload, "clear_to_trigger"),
             tuple(blockers),
+            tuple(blocker_details),
         )
 
 
@@ -1519,6 +1608,7 @@ __all__ = [
     "BranchResult",
     "SwarmSpec",
     "SwarmPreflight",
+    "SwarmPreflightBlocker",
     "SwarmState",
     "ResearchSwarm",
     "ResearchSwarmBranchRequest",

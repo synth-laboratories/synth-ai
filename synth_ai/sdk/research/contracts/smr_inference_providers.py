@@ -15,7 +15,6 @@ class SmrInferenceProvider(StrEnum):
     POOLSIDE = "poolside"
     SYNTH = "synth"
     SYNTH_INTERNAL = "synth_internal"
-    XAI = "xai"
 
 
 SMR_INFERENCE_PROVIDER_VALUES: tuple[str, ...] = tuple(

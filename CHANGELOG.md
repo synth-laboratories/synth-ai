@@ -2,6 +2,39 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+## 0.20.0 — 2026-09-14
+
+### Added
+
+- **Typed Container Pools** — `SynthClient().research.container_pools` exposes
+  backend-owned pool deployment and reconciliation. Packaging validates Docker
+  contexts, applies supported `.dockerignore` rules, and rejects credential-like
+  files before upload.
+- **Current Swarm, Intern, and Workshop contracts** — resource inventory,
+  settlement, rollout provenance, durable transcript replay, authenticated
+  Workshop messaging, and project-bound deployment capabilities are available
+  through the canonical Research SDK and MCP server.
+- **Intern Sync presence and approvals** — the synchronous runtime exposes
+  `presence`, `release_presence`, `approvals`, and `decide_approval` on both the
+  sync and native-async clients. `KickoffContract` includes `trace_capture`.
+
+### Removed (breaking)
+
+- **Grok / xAI** (breaking enum change). `SmrAgentModel.X_AI_GROK_BUILD`,
+  `SmrAgentModel.CURSOR_GROK_4_5`, `ActorModel.GROK_BUILD` /
+  `DeprecatedActorModel.GROK_BUILD`, and the `xai` member of
+  `ResourceProvider`, `SmrCredentialProvider`, `SmrInferenceProvider`,
+  `CredentialProvider`, and `InferenceProvider` are gone, as is `xai` from the
+  public provider selection. The backend no longer serves `x-ai/grok-build`
+  or `cursor/grok-4.5`; use `openrouter/openai/gpt-5.6-luna`.
+- **Legacy Research Intern sessions** — `client.intern.sessions`, reactive
+  session stream/turn/event types, legacy enablement flags, the old
+  `*_research_intern_session*` operations and aliases, and the legacy MCP
+  session tools are removed. Use `client.intern.sync_` or
+  `client.intern.async_`.
+
 ## 0.19.0 — 2026-09-14
 
 ### Added

@@ -107,7 +107,9 @@ _STABLE_TOOL_NAMES = frozenset(
         "intern_async_ensure",
         "intern_async_events",
         "intern_async_get",
+        "intern_async_handoff_model",
         "intern_async_intervene",
+        "intern_async_list_handoffs",
         "intern_async_pause",
         "intern_async_provide_input",
         "intern_async_redirect_objective",
@@ -115,6 +117,11 @@ _STABLE_TOOL_NAMES = frozenset(
         "intern_async_resume",
         "intern_async_send",
         "intern_async_tail",
+        # Effort-first product surface + spine memory (WP4 M1 / WP6 E6).
+        "intern_effort_board",
+        "intern_effort_detail",
+        "intern_memory_get",
+        "intern_memory_search",
         "intern_sync_answer",
         "intern_sync_close",
         "intern_sync_command",
@@ -475,7 +482,10 @@ class ResearchMcpServer:
             *(
                 [
                     tool
-                    for tool in build_index_tools(self._index_client_factory)
+                    for tool in build_index_tools(
+                        self._index_client_factory,
+                        include_answer=self._default_api_key is not None,
+                    )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
                 ]
                 if self._index_client_factory is not None

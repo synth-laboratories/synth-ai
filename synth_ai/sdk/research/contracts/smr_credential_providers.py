@@ -9,7 +9,6 @@ class SmrCredentialProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
-    XAI = "xai"
     TINKER = "tinker"
 
 

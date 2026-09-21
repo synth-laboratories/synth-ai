@@ -23,6 +23,13 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
+            "detach_research_intern_factory",
+            HttpMethod.DELETE,
+            "/smr/research-intern/factories/{factory_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "create_intern_acceptance_fixture",
             HttpMethod.POST,
             "/smr/research-intern/fixtures",
@@ -199,12 +206,6 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
-            "instruct_intern_craftax_campaign",
-            HttpMethod.POST,
-            "/smr/research-intern/async/craftax-campaigns/instructions",
-            mutation=True,
-        ),
-        _operation(
             "list_factory_runtime_policy_history",
             HttpMethod.GET,
             "/smr/factories/{factory_id}/runtime-policy/history",
@@ -268,12 +269,6 @@ RESEARCH_OPERATIONS = {
             "patch_factory_runtime_policy",
             HttpMethod.PATCH,
             "/smr/factories/{factory_id}/runtime-policy",
-            mutation=True,
-        ),
-        _operation(
-            "publish_intern_craftax_evidence",
-            HttpMethod.POST,
-            "/smr/research-intern/async/craftax-campaigns/evidence",
             mutation=True,
         ),
         _operation(
@@ -432,6 +427,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "get_intern_sync_deploy_packet",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/deploy-packet",
+            idempotent=True,
+        ),
+        _operation(
             "command_intern_sync_session",
             HttpMethod.POST,
             "/smr/research-intern/sync-sessions/{sync_session_id}/commands",
@@ -485,6 +486,14 @@ RESEARCH_OPERATIONS = {
             "stream_intern_runtime_events",
             HttpMethod.GET,
             "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/events/stream",
+            idempotent=True,
+        ),
+        # Runtime-kind-generic: the same ledger route serves Sync and Async
+        # runtimes, so the operation id carries no runtime kind either.
+        _operation(
+            "list_intern_runtime_mcp_actions",
+            HttpMethod.GET,
+            "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions",
             idempotent=True,
         ),
         _operation(
@@ -1252,6 +1261,60 @@ RESEARCH_OPERATIONS = {
             "retrieve_swarm_usage",
             HttpMethod.GET,
             "/smr/runs/{run_id}/usage-summary",
+            idempotent=True,
+        ),
+        _operation(
+            "get_run_resource_settlement",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/resource-settlement",
+            idempotent=True,
+        ),
+        _operation(
+            "list_swarm_rollouts",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/rollouts",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_sync_session_usage",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/usage",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_sync_session_resources",
+            HttpMethod.GET,
+            "/smr/research-intern/sync-sessions/{sync_session_id}/resources",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_async_assignment_resources",
+            HttpMethod.GET,
+            "/smr/research-intern/async-assignments/{assignment_id}/resources",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_async_assignment_usage",
+            HttpMethod.GET,
+            "/smr/research-intern/async-assignments/{assignment_id}/usage",
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_async_blocker",
+            HttpMethod.GET,
+            "/smr/research-intern/async/blockers/{blocker_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "open_intern_async_blocker_sync",
+            HttpMethod.POST,
+            "/smr/research-intern/async/blockers/{blocker_id}/open-sync",
+            idempotent=True,
+        ),
+        _operation(
+            "resolve_intern_async_blocker",
+            HttpMethod.POST,
+            "/smr/research-intern/async/blockers/{blocker_id}/resolve",
             idempotent=True,
         ),
         _operation(

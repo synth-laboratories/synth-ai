@@ -2,6 +2,51 @@
   "version": 1,
   "models": [
     {
+      "id": "openrouter/openai/gpt-5.6-luna",
+      "display_name": "GPT-5.6 Luna (OpenRouter)",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "openai/gpt-5.6-luna",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_direct_api",
+      "route_kind": "direct_api",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [
+        "openrouter-gpt-5.6-luna",
+        "gpt-5.6-luna-openrouter"
+      ],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_reasoning_effort": "high",
+      "supported_service_tiers": [],
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000,
+      "usage_required": false,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "2E-7",
+        "cached_input_usd": "2E-8",
+        "output_usd": "0.0000012",
+        "reasoning_output_usd": "0.0000012",
+        "source": "openai_api_pricing_via_openrouter",
+        "observed_at": "2026-07-30"
+      },
+      "pricing_by_service_tier": {}
+    },
+    {
       "id": "gpt-5.6-luna",
       "display_name": "GPT-5.6 Luna",
       "public": true,
@@ -175,46 +220,6 @@
       "pricing_by_service_tier": {}
     },
     {
-      "id": "cursor/grok-4.5",
-      "display_name": "Cursor Grok 4.5",
-      "public": true,
-      "provider": "cursor",
-      "provider_model_id": "grok-4.5",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "cursor_pool",
-      "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "cursor"
-      ],
-      "aliases": [
-        "cursor-grok-4.5",
-        "grok-4.5"
-      ],
-      "supported_reasoning_efforts": [],
-      "default_reasoning_effort": null,
-      "supported_service_tiers": [],
-      "context_window_tokens": null,
-      "max_output_tokens": null,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.000002",
-        "cached_input_usd": "2E-7",
-        "output_usd": "0.000006",
-        "reasoning_output_usd": "0.000006",
-        "source": "cursor_grok_4_5_launch",
-        "observed_at": "2026-07-09"
-      },
-      "pricing_by_service_tier": {}
-    },
-    {
       "id": "gpt-5.4-mini",
       "display_name": "GPT-5.4 Mini",
       "public": true,
@@ -317,8 +322,7 @@
       ],
       "aliases": [
         "kimi-k3",
-        "modal-kimi-k3",
-        "moonshotai/Kimi-K3"
+        "modal-kimi-k3"
       ],
       "supported_reasoning_efforts": [
         "low"
@@ -345,6 +349,50 @@
       "source_model_license": "Kimi K3 License",
       "provider_catalog_entry_sha256": "a22f5b6d1a743123c2f49191dc9517abe2e265c60f4ae1b619b1a320e48595b0",
       "provider_revision_attested": false
+    },
+    {
+      "id": "meta/muse-spark-1.2",
+      "display_name": "Meta Muse Spark 1.2",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "meta/muse-spark-1.2",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "meta_direct_api",
+      "route_kind": "direct_api",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [
+        "muse-spark-1.2",
+        "meta-muse-spark-1.2"
+      ],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_reasoning_effort": "high",
+      "supported_service_tiers": [],
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 131072,
+      "usage_required": false,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.00000125",
+        "cached_input_usd": "1.5E-7",
+        "output_usd": "0.00000425",
+        "reasoning_output_usd": "0.00000425",
+        "source": "https://developer.meta.com/ai/resources/blog/build-with-muse-code/",
+        "observed_at": "2026-08-11"
+      },
+      "pricing_by_service_tier": {}
     },
     {
       "id": "synth_internal/laguna-s-2.1-nvfp4",

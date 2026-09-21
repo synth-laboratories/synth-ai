@@ -58,8 +58,34 @@ vocabulary and validators; this mirror must stay schema- and behavior-compatible
 Do not import backend modules from the published package. Cross-repo parity
 checks live in `testing` (`test_index_openapi_parity`, clean-install script).
 
-See `docs/drafts/synth-index-api-design-2026-09-12.md`. Fast search is the MVP;
-deep execution handles are not implemented.
+See `docs/drafts/synth-index-api-design-2026-09-12.md`. Fast search is the
+bounded retrieval path. Deep search uses a durable server execution and never
+silently falls back to fast search.
+
+Grounded answers are a separate authenticated operation. Search continues to
+return evidence; `answer(...)` performs fast or deep retrieval, fail-closed
+evidence admission and cited synthesis under one explicit idempotency key:
+
+```python
+from uuid import uuid4
+
+from synth_ai import SynthClient
+
+with SynthClient() as synth:
+    result = synth.index.answer(
+        query="Why did the retrieval experiment reject launch readiness?",
+        mode="fast",
+        idempotency_key=str(uuid4()),
+    )
+    if result.status == "answered":
+        print(result.answer, result.citations)
+    else:
+        print(result.insufficient_evidence_reason)
+```
+
+Every returned claim names exact digest-bound citation spans. Unsupported or
+revoked evidence returns `insufficient_evidence`, never uncited prose. The
+credential-free public client intentionally does not expose answer generation.
 
 ## Free public search
 
@@ -78,11 +104,62 @@ Use `AsyncPublicIndexClient` with `async with` for native async applications.
 Both clients own and close their HTTP transport. Authenticated and private
 operations remain under `SynthClient().index`.
 
+Deep search requires the authenticated client and a deployment whose
+capabilities advertise deep mode. The convenience call waits for the same
+durable Search identity through completion:
+
+```python
+from synth_ai import SynthClient
+
+with SynthClient() as synth:
+    result = synth.index.search(
+        query="Compare the evidence for the two retrieval designs",
+        mode="deep",
+    )
+    print(result.search_id, result.status)
+```
+
+For reconnect, progress, events, explicit cancellation, or a local wait timeout,
+create the handle directly. A local timeout preserves `handle.search_id` and does
+not cancel the server execution:
+
+```python
+from uuid import uuid4
+
+from synth_ai.sdk.index import SearchSpec
+
+handle = synth.index.searches.create(
+    SearchSpec(
+        query="Trace the qualified evidence and identify unresolved questions",
+        mode="deep",
+    ),
+    idempotency_key=str(uuid4()),
+)
+result = handle.wait(timeout_seconds=30)
+```
+
+The credential-free surface is the complete set of eight customer operations
+that need no account at all:
+
+| Call | Route |
+| --- | --- |
+| `search(...)`, `capabilities()` | `POST /public/search`, `GET /public/capabilities` |
+| `contents.retrieve(...)` | `POST /public/contents` |
+| `tags.list()` | `GET /public/tags` |
+| `contributions.retrieve(...)`, `contributions.revisions.retrieve(...)` | published Contribution and exact revision |
+| `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes of a published revision |
+| `profiles.retrieve(principal_id)` | contributor profile as an anonymous reader sees it |
+
+Each one is the public twin of an authenticated operation, so code written
+against `SynthClient().index` reads the same against `PublicIndexClient`.
+
 ## Surface (`SynthClient().index`, async twin on `AsyncSynthClient`)
 
 | Call | Route |
 | --- | --- |
 | `search(...)`, `capabilities()` | `POST /search`, `GET /capabilities` |
+| `answer(...)` | `POST /answer` cited fast/deep answer or explicit insufficient evidence |
+| `searches.create / retrieve / result / events / cancel` | durable fast/deep execution lifecycle under `/searches` |
 | `contents.retrieve(...)` | `POST /contents` |
 | `contributions.create / retrieve / prepare_upload / upload / finalize / submit` | contributor workflow |
 | `contributions.publish / withdraw` | `POST .../publication`, `.../withdrawal` (publisher grant / owner) |
@@ -90,12 +167,65 @@ operations remain under `SynthClient().index`.
 | `reviews.list(status=)`, `contributions.reviews.create` | reviewer queue and decisions (never self-review) |
 | `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes |
 | `tags.list()`, `collections.list()`, `collections.grants.*` | taxonomy; owner-only explicit shares |
-| `account.retrieve / contributions / usage / rewards / update_profile / update_pins` | caller identity, work, usage, credits, profile |
+| `account.retrieve / contributions / usage / promo_credit / rewards / update_profile / update_pins` | caller identity, work, usage, promo balance, credits, profile |
 | `profiles.retrieve`, `rewards.award / reverse`, `contests.*` | public profiles; award/contest operator grants |
 
-Every operation is declared once in `client.OPERATIONS` and executed identically
-by sync and async clients. `test_index_openapi_parity` requires every SDK operation
-to hit a real backend route with the same operation ID, and vice versa.
+Every operation is declared once in `client.OPERATIONS` or
+`client.PUBLIC_OPERATIONS` and executed identically by sync and async clients.
+`test_index_openapi_parity` requires every SDK operation to hit a real backend
+route with the same operation ID, and vice versa. The one exclusion is deliberate:
+`index.contributions.research.lookup` is the operator acceptance lookup, used by
+operator tooling to observe an allocation receipt, and is not a customer
+operation.
+
+## Customer usage accounting
+
+The backend `search_funding` service owns funding and settlement. The accounting
+models in `usage_accounting.py` project that authority; they do not quote prices,
+grant access, infer consent, or derive charges from token or infrastructure cost.
+Funding values are `none`, `promo_credit`, `deep_beta`, and `wallet` (or null when
+no funding fact exists). `index_deep_beta` is not a wire value.
+
+`CustomerCharge` adds `funding_source`, `terminal_outcome`, and
+`adjustment_microcents` to the existing
+currency, price, reservation, settlement, release, refund, and ledger fields.
+`SearchUsageSummaryRow` adds `price_version`, `funding_source`, `terminal_outcome`,
+`settlement_state`, `reserved_microcents`, `released_microcents`, and
+`refunded_microcents`, and `adjustment_microcents`. Existing consumption counters
+and pagination remain.
+Terminal outcomes use `SearchSettlementOutcome`, including `complete` and
+`insufficient_evidence`; `grounded` is not an accounting outcome.
+
+Receipt `settled_microcents` and summary/CSV `customer_charge_microcents` carry
+the backend's corrected settlement totals. Consumers must not add corrections
+again or subtract the separately reported refunds a second time. Reserved and
+released values describe reservation history, not the live wallet hold balance.
+Microcents convert to USD by dividing by 100,000,000.
+
+Correction totals are signed and informational: outstanding refunds equal the
+stored original refund baseline minus the sum of signed adjustments; customer
+settlement equals immutable gross settlement minus outstanding refunds.
+Net settlement plus refunds plus releases cannot exceed the original reservation.
+Neither refunds nor positive reversals reopen beta units or reset gross caps.
+Summary periods follow original settlement creation (first observed usage for
+searches without settlement), so later corrections remain in the original cohort.
+
+Settlement-backed receipts exist even without physical events: their observation
+arrays are empty, recorded counts are zero, and measurement state is `pending`.
+Summary rows add `measurement_state` and `unmeasured_search_count`; consumption
+is null for groups with unmeasured searches. A missing physical write never erases
+financial facts or invents measured zero usage. Server mode sources must agree
+before one Search contributes one charge to a summary.
+
+Customer receipt and summary models omit infrastructure and unallocated costs.
+The backend must also filter internal cost metrics from customer operation totals
+and CSV exports; the shared metric vocabulary does not authorize disclosure.
+
+This integration was edited locally without tests, builds, schema generation,
+or live requests. Parent integration must reconcile the final backend DTOs,
+customer metric filtering, receipt/summary/CSV amounts and grouping, and the
+vendored `openapi/index-v1.json` before claiming parity. The OpenAPI changes are
+manual schema edits, not a regenerated or validated backend export.
 
 ## Errors
 
@@ -114,3 +244,41 @@ They never read files, finalize, submit or retry. Retry by preparing again with 
 same publication ID. The MCP `index_contribution_upload` tool reads only explicitly
 listed files under an explicit root and rejects symlinks, escapes and credential-like
 content before calling this path.
+
+## Research bundle intake
+
+`synth-ai index research preview <conversion-dir>` verifies the converted
+`package/` bytes and the offline receipt, then shows source, evidence, private
+audience, pending qualification and unattested rights. It makes no API call.
+The backend research-bundle converter must produce this directory from a sealed
+`synth.research.export-bundle.v1`; this SDK does not parse raw sessions.
+
+`synth-ai index research submit <conversion-dir>` allocates a private SYNTH-origin
+draft through `POST /index/contributions/research`, rebinds only its server-issued
+Contribution/revision IDs, prepares exact bytes, streams the requested objects,
+finalizes them, and submits the private revision for review. The server can keep
+rights pending while barring any org/public release. Use `--finalize-only` to stop
+after upload when an arc must be held before review. The backend enforces its
+mandatory submission and release gates in either case.
+The backend requires an active `research_import`
+grant and independently rejects prohibited REB source paths. Re-running the command
+reuses the same draft key and publication ID in `.research-intake-state.json`,
+obtains fresh targets and lets prepare omit already-present objects. The state file
+contains no API key or signed upload URL. Intake never sets rights attestation,
+qualifies, publishes, or broadens the private audience.
+
+Resuming is answered by the server, not by the saved file. Each run reconciles
+the saved reference against the current revision before acting, so a mutation
+whose response was lost is recovered rather than repeated; a revision the server
+has already advanced to `qualified` or `published` is reported as it stands; and
+a `rejected`, `withdrawn` or `changes_requested` revision raises
+`TerminalRevision` instead of being submitted again. If storage refuses a signed
+target because it expired, intake prepares again once and transfers only what is
+still missing.
+
+State (`synth.index.research-intake-state.v2`) names the backend, organization
+and account it was allocated under, and is refused against any other — an
+allocated draft and its idempotency keys mean nothing there. A `.lock` sidecar
+holds the state file for one process at a time and names its holder, so a stale
+lock is cleared deliberately. Corrupt or foreign state is reported with what to
+do about it; it is never silently discarded.

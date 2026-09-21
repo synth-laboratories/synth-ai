@@ -16,7 +16,6 @@ class SmrAgentModel(StrEnum):
     GPT_5_6_LUNA = "gpt-5.6-luna"
     GPT_5_6_SOL = "gpt-5.6-sol"
     GPT_5_6_TERRA = "gpt-5.6-terra"
-    CURSOR_GROK_4_5 = "cursor/grok-4.5"
     GPT_5_4 = "gpt-5.4"
     GPT_5_4_MINI = "gpt-5.4-mini"
     NEMOTRON_SUPER = "nemotron-super"
@@ -25,8 +24,6 @@ class SmrAgentModel(StrEnum):
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
-    X_AI_GROK_4_3 = "x-ai/grok-4.3"
-    X_AI_GROK_BUILD = "x-ai/grok-build"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"
     BASETEN_MOONSHOTAI_KIMI_K3 = "baseten/moonshotai/Kimi-K3"
     MODAL_MOONSHOTAI_KIMI_K3 = "modal/moonshotai/Kimi-K3"
@@ -37,7 +34,10 @@ class SmrAgentModel(StrEnum):
     DEEPSEEK_DEEPSEEK_CHAT = "deepseek/deepseek-chat"
     DEEPSEEK_DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     POOLSIDE_LAGUNA_S_2_1 = "poolside/laguna-s-2.1"
+    OPENROUTER_POOLSIDE_LAGUNA_S_2_1 = "openrouter/poolside/laguna-s-2.1"
+    META_MUSE_SPARK_1_2 = "meta/muse-spark-1.2"
     SYNTH_INTERNAL_LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
+    OPENROUTER_OPENAI_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
 
 
 SMR_AGENT_MODEL_VALUES: tuple[str, ...] = tuple(model.value for model in SmrAgentModel)

@@ -103,6 +103,9 @@ class InternCapabilityOperation(StrEnum):
     TRACE_READ = "trace.read"
     TRACE_INGEST = "trace.ingest"
     POOL_READ = "pool.read"
+    POOL_DEPLOYMENT_CREATE = "pool.deployment_create"
+    POOL_DEPLOYMENT_UPDATE = "pool.deployment_update"
+    POOL_DEPLOYMENT_DELETE = "pool.deployment_delete"
     POOL_ASSIGN = "pool.assign"
     POOL_RELEASE = "pool.release"
     POOL_REMOUNT = "pool.remount"
@@ -110,6 +113,10 @@ class InternCapabilityOperation(StrEnum):
     GRADING_REQUEST = "grading.request"
     SPINE_HANDOFF = "intern.spine.handoff"
     MEMORY_READ = "intern.memory.read"
+    # Synth-wiki project memory. Distinct from intern.memory.* (the spine).
+    WIKI_READ = "wiki.read"
+    WIKI_PROPOSE = "wiki.propose"
+    WIKI_LIBRARIAN = "wiki.librarian"
     # Effort-primary Async plus the subordinate Intern objective/milestone/task
     # store. Every row these write is Effort-bound and lives in the Intern
     # store; none of them crosses into SMR write authority.
@@ -129,6 +136,8 @@ class InternMcpActionKind(StrEnum):
     CALL_TOOL = "call_tool"
     READ_RESOURCE = "read_resource"
     CREATE_FACTORY = "create_factory"
+    ATTACH_FACTORY = "attach_factory"
+    DETACH_FACTORY = "detach_factory"
     CREATE_PROJECT = "create_project"
     CREATE_EFFORT = "create_effort"
     START_FACTORY_RUN = "start_factory_run"

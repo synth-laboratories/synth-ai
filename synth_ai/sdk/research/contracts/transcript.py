@@ -40,11 +40,13 @@ class TranscriptProjectionAuthority(StrEnum):
 
     LIVE_CONTROL_PLANE = "smr_control_plane.redis.live_transcript.v1"
     TERMINAL_ARCHIVE = "smr_transcript_events.terminal_archive.v1"
+    DURABLE_REPLAY = "smr_transcript_events.durable_replay.v1"
 
 
 class TranscriptReplayMode(StrEnum):
     LIVE_TAIL = "live_tail"
     TERMINAL_ARCHIVE = "terminal_archive"
+    DURABLE_REPLAY = "durable_replay"
 
 
 class TranscriptCursorKind(StrEnum):
@@ -276,7 +278,7 @@ class TranscriptFreshness:
             if not self.live_tail_available:
                 raise ValueError("live_tail requires live_tail_available=true")
         elif self.live_tail_available:
-            raise ValueError("terminal archive cannot advertise a live tail")
+            raise ValueError("durable replay cannot advertise a live tail")
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> TranscriptFreshness:
@@ -456,3 +458,50 @@ __all__ = [
     "TranscriptView",
     "TranscriptVisibilityDecision",
 ]
+
+
+TASK_COMPLETION_CLAIMED_EVENT_KIND = "task.completion_claimed"
+TASK_COMPLETION_CLAIMED_SCHEMA_VERSION = "smr.task-completion-claimed.v1"
+
+
+@dataclass(frozen=True, slots=True)
+class TaskCompletionClaimedEvent:
+    """A worker's accepted completion claim, projected into the transcript.
+
+    The backend derives it from the durable claim row: ``text`` is the
+    worker's stated result (bounded, redacted) and ``participant_id`` is the
+    worker's stable actor key, distinct per worker.
+    """
+
+    event_id: TranscriptEventId
+    participant_session_id: ParticipantSessionId
+    participant_id: str
+    turn_id: str | None
+    claim_id: str
+    task_key: str
+    claimed_state: str
+    text: str | None
+    summary: str | None
+    text_truncated: bool
+
+    @classmethod
+    def from_transcript_event(cls, event: SwarmTranscriptEvent) -> TaskCompletionClaimedEvent:
+        if event.kind != TASK_COMPLETION_CLAIMED_EVENT_KIND:
+            raise ValueError(f"not a {TASK_COMPLETION_CLAIMED_EVENT_KIND} event: {event.kind}")
+        if event.event_id is None:
+            raise ValueError("task.completion_claimed requires a durable event_id")
+        payload = event.payload
+        if required_string(payload, "schema_version") != TASK_COMPLETION_CLAIMED_SCHEMA_VERSION:
+            raise ValueError("unsupported task.completion_claimed schema_version")
+        return cls(
+            event_id=event.event_id,
+            participant_session_id=event.participant_session_id,
+            participant_id=required_string(payload, "participant_id"),
+            turn_id=event.turn_id,
+            claim_id=required_string(payload, "claim_id"),
+            task_key=required_string(payload, "task_key"),
+            claimed_state=required_string(payload, "claimed_state"),
+            text=optional_string(payload, "text"),
+            summary=optional_string(payload, "summary"),
+            text_truncated=bool(payload.get("text_truncated", False)),
+        )

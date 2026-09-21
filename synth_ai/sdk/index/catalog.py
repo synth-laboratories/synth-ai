@@ -20,6 +20,7 @@ from .contracts import (
     WorkflowStage,
 )
 from .lifecycle import Capability, Digest, Title
+from .search import SearchMode
 
 Count = Annotated[StrictInt, Field(ge=0)]
 
@@ -46,10 +47,10 @@ class Capabilities(IndexContract):
     api_version: Literal["synth.index.api.v1"] = "synth.index.api.v1"
     contribution_schema_versions: tuple[Identifier, ...]
     taxonomy_version: Identifier
-    modes: tuple[Literal["fast"], ...]
-    search_modes: tuple[Literal["fast"], ...]
+    modes: tuple[SearchMode, ...]
+    search_modes: tuple[SearchMode, ...]
     visibilities: tuple[Literal["public", "private"], ...]
-    deep_search: Literal[False] = False
+    deep_search: bool = False
     search_filters: bool
     private_search: PrivateSearchCapability
     upload: FeatureCapability
@@ -143,6 +144,76 @@ class IndexUsageSummary(IndexContract):
     resets_at: AwareDatetime
     public: PublicUsage
     private: PrivateUsage
+
+
+PromoCreditStatus = Literal["active", "exhausted", "expired", "revoked", "campaign_ended"]
+
+
+class PrivatePromoCredit(IndexContract):
+    """Promotional private-search allowance: never cash, earnings or carryover.
+
+    ``remaining_searches`` is what the balance can still fund at
+    ``unit_price_cents``. When it reaches zero a private search is refused with
+    ``IndexErrorCode.PRIVATE_CREDIT_EXHAUSTED`` unless the organization has paid
+    authority, and ``resets_at`` says when the next allocation lands.
+    """
+
+    campaign_id: str
+    status: PromoCreditStatus
+    period_start: AwareDatetime
+    resets_at: AwareDatetime | None
+    expires_at: AwareDatetime
+    allocated_cents: Count
+    consumed_cents: Count
+    remaining_cents: Count
+    unit_price_cents: Count
+    remaining_searches: Count
+    paid_overflow_enabled: StrictBool
+    carryover: Literal[False] = False
+    withdrawable: Literal[False] = False
+
+
+class PromoCreditSummary(IndexContract):
+    """``credit`` is null when the organization is not enrolled in the promotion."""
+
+    credit: PrivatePromoCredit | None
+
+
+class AccessFundingMode(IndexContract):
+    mode: SearchMode
+    access: StrictBool
+    wallet_enabled: StrictBool
+    monthly_cap_cents: Count
+    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=32)]
+    consent_terms_version: str | None = None
+    policy_revision: Count | None = None
+
+
+class DeepBetaFunding(IndexContract):
+    grant_id: str
+    cohort: str
+    status: Literal["active", "revoked", "expired"]
+    monthly_units: Count
+    expires_at: AwareDatetime
+    reserved_units: Count
+    consumed_units: Count
+
+
+class AccessFundingAccount(IndexContract):
+    org_id: str
+    can_manage_policy: StrictBool
+    modes: tuple[AccessFundingMode, ...]
+    deep_beta: DeepBetaFunding | None = None
+    live_wallet_holds_microcents: Count
+    wallet_available_microcents: Count
+    generated_at: AwareDatetime
+
+
+class BillingPolicyUpdate(IndexContract):
+    wallet_enabled: StrictBool = False
+    monthly_cap_cents: Count = 0
+    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=32)] = 1
+    consent_terms_version: Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 
 # Profiles ------------------------------------------------------------------------

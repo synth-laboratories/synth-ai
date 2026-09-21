@@ -1,5 +1,8 @@
 include README.md
 include LICENSE
+include openapi/index-v1.json
+include openapi/research-v1.json
+include openapi/messaging-v1.json
 recursive-include synth_ai *.py
 recursive-include synth_ai *.md
 # Prune heavy example/demo/test/data trees from the sdist (keep code)
