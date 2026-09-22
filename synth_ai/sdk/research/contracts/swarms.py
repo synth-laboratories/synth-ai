@@ -191,6 +191,7 @@ class HostKind(StrEnum):
 
 class ResourceProvider(StrEnum):
     OPENROUTER = "openrouter"
+    OPENAI = "openai"
     TINKER = "tinker"
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"

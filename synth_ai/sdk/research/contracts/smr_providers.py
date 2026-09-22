@@ -16,6 +16,7 @@ class ResourceProvider(StrEnum):
     """
 
     OPENROUTER = "openrouter"
+    OPENAI = "openai"
     TINKER = "tinker"
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"
@@ -60,6 +61,7 @@ DEFAULT_PROVIDER_POLICY_ALLOWED_REGIONS: tuple[str, ...] = ("us",)
 
 ACTOR_RESOURCE_CAPABILITIES: dict[Provider, frozenset[ActorResourceCapability]] = {
     Provider.OPENROUTER: frozenset({ActorResourceCapability.INFERENCE}),
+    Provider.OPENAI: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.TINKER: frozenset(
         {
             ActorResourceCapability.INFERENCE,
@@ -205,6 +207,7 @@ ProviderConfig = OpenRouterConfig | TinkerConfig | SynthAIConfig | OpenAIChatGPT
 
 DEFAULT_CONFIGS: dict[Provider, ProviderConfig] = {
     Provider.OPENROUTER: OpenRouterConfig(),
+    Provider.OPENAI: SynthAIConfig(),
     Provider.TINKER: TinkerConfig(),
     Provider.SYNTH_AI: SynthAIConfig(),
     Provider.CURSOR: SynthAIConfig(),
