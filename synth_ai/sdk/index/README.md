@@ -30,7 +30,10 @@ also requires a nonempty explicit key. Initialization and tool discovery
 construct no SDK client and make no requests.
 
 Read-only mode exposes search, exact contents, Contribution lookup, and revision
-status. Without a key, those tools use only the credential-free
+status. With a key, it also exposes `index_search_create`,
+`index_search_get`, `index_search_result`, `index_search_events`, and
+`index_search_cancel` for durable fast/deep Search recovery. Without a key,
+those lifecycle tools are not advertised; the remaining tools use only the credential-free
 `/api/v1/index/public/*` routes and reject private scope locally. With a key,
 reads use the authenticated Index routes and may request authorized private
 collections. To deliberately contribute from this machine, additionally set
@@ -138,6 +141,20 @@ handle = synth.index.searches.create(
 result = handle.wait(timeout_seconds=30)
 ```
 
+The CLI provides the same lifecycle through `synth-ai index searches create`,
+`get`, `result`, `events`, and `cancel`. `create` requires an idempotency key and
+prints the Search ID immediately. `events --after N` pages progress without
+restarting the Search. `result` reads the saved Search specification first, so
+the result is validated against the original request. These commands require
+`SYNTH_API_KEY` or `--api-key`. An unfinished result returns the backend's
+typed `index_search_result_not_ready` failure.
+
+HTTP failures expose their stable Index code through `error.failure.code`,
+request and correlation IDs when supplied by the backend, and a retry directive.
+`index_error_code(error)` maps known values to `IndexErrorCode`; unknown future
+codes remain available as raw strings. A failed durable execution records its
+terminal `Search.failure.code` and `retryable` status in the Search snapshot.
+
 The credential-free surface is the complete set of eight customer operations
 that need no account at all:
 
@@ -173,10 +190,10 @@ against `SynthClient().index` reads the same against `PublicIndexClient`.
 Every operation is declared once in `client.OPERATIONS` or
 `client.PUBLIC_OPERATIONS` and executed identically by sync and async clients.
 `test_index_openapi_parity` requires every SDK operation to hit a real backend
-route with the same operation ID, and vice versa. The one exclusion is deliberate:
-`index.contributions.research.lookup` is the operator acceptance lookup, used by
-operator tooling to observe an allocation receipt, and is not a customer
-operation.
+route with the same operation ID. Six backend operations are deliberately outside
+the customer SDK: `index.contributions.research.lookup` is an operator acceptance
+receipt lookup, and five `/operator/*` routes manage grants and billing
+diagnostics.
 
 ## Customer usage accounting
 

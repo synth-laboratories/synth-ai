@@ -180,6 +180,155 @@ def answer(
     click.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
 
 
+@index.group("searches")
+def searches() -> None:
+    """Create, reconnect to, inspect, and cancel a durable Search.
+
+    # See: docs/drafts/synth-index-api-design-2026-09-12.md
+    """
+
+
+@searches.command("create")
+@click.argument("query")
+@click.option("--mode", type=click.Choice(("fast", "deep")), default="deep", show_default=True)
+@click.option("--max-results", type=click.IntRange(1, 10), default=5, show_default=True)
+@click.option("--deadline-seconds", type=click.IntRange(1, 90), default=90, show_default=True)
+@click.option("--private-collection", "private_collections", multiple=True)
+@click.option(
+    "--idempotency-key", required=True, help="Reuse this key after an uncertain response."
+)
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL")
+@click.option("--api-key", envvar="SYNTH_API_KEY")
+def searches_create(
+    query: str,
+    mode: str,
+    max_results: int,
+    deadline_seconds: int,
+    private_collections: tuple[str, ...],
+    idempotency_key: str,
+    backend_url: str | None,
+    api_key: str | None,
+) -> None:
+    """Create one Search and print its durable identity before waiting."""
+    from httpx import HTTPError
+
+    from synth_ai import SynthClient
+    from synth_ai.core.errors import SynthError
+    from synth_ai.sdk.index.search import (
+        SearchContent,
+        SearchExecutionLimits,
+        SearchMode,
+        SearchScope,
+        SearchSpec,
+    )
+
+    if not api_key:
+        raise click.ClickException("SYNTH_API_KEY or --api-key is required")
+    selected_mode = SearchMode(mode)
+    try:
+        spec = SearchSpec(
+            query=query,
+            mode=selected_mode,
+            content=SearchContent(max_results=max_results),
+            scope=(
+                SearchScope(visibility="private", collection_ids=private_collections)
+                if private_collections
+                else SearchScope()
+            ),
+            limits=(
+                SearchExecutionLimits(deadline_seconds=deadline_seconds)
+                if selected_mode is SearchMode.DEEP
+                else None
+            ),
+        )
+        with SynthClient(api_key=api_key, base_url=backend_url) as client:
+            snapshot = client.index.searches.create(spec, idempotency_key=idempotency_key).snapshot
+    except (ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(json.dumps(snapshot.model_dump(mode="json"), indent=2, sort_keys=True))
+
+
+def _read_search(
+    operation: str,
+    search_id: str,
+    backend_url: str | None,
+    api_key: str | None,
+    *,
+    after: int = 0,
+    limit: int = 200,
+) -> None:
+    """Read the same durable identity; result validation uses its stored spec."""
+    from httpx import HTTPError
+
+    from synth_ai import SynthClient
+    from synth_ai.core.errors import SynthError
+
+    if not api_key:
+        raise click.ClickException("SYNTH_API_KEY or --api-key is required")
+    try:
+        with SynthClient(api_key=api_key, base_url=backend_url) as client:
+            resource = client.index.searches
+            if operation == "get":
+                value = resource.get(search_id)
+            elif operation == "result":
+                snapshot = resource.get(search_id)
+                value = resource.result(search_id, snapshot.spec)
+            elif operation == "events":
+                value = resource.events(search_id, after=after, limit=limit)
+            elif operation == "cancel":
+                value = resource.cancel(search_id)
+            else:
+                raise AssertionError(f"Unknown Search read operation: {operation}")
+    except (ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(json.dumps(value.model_dump(mode="json"), indent=2, sort_keys=True))
+
+
+def _search_identity_options(command):
+    command = click.option("--api-key", envvar="SYNTH_API_KEY")(command)
+    return click.option("--backend-url", envvar="SYNTH_BACKEND_URL")(command)
+
+
+@searches.command("get")
+@click.argument("search_id")
+@_search_identity_options
+def searches_get(search_id: str, backend_url: str | None, api_key: str | None) -> None:
+    """Read current Search state without resubmitting it."""
+    _read_search("get", search_id, backend_url, api_key)
+
+
+@searches.command("result")
+@click.argument("search_id")
+@_search_identity_options
+def searches_result(search_id: str, backend_url: str | None, api_key: str | None) -> None:
+    """Read a completed Search result under current authorization."""
+    _read_search("result", search_id, backend_url, api_key)
+
+
+@searches.command("events")
+@click.argument("search_id")
+@click.option("--after", type=click.IntRange(min=0), default=0, show_default=True)
+@click.option("--limit", type=click.IntRange(1, 200), default=200, show_default=True)
+@_search_identity_options
+def searches_events(
+    search_id: str,
+    after: int,
+    limit: int,
+    backend_url: str | None,
+    api_key: str | None,
+) -> None:
+    """Page ordered Search progress from a reconnectable cursor."""
+    _read_search("events", search_id, backend_url, api_key, after=after, limit=limit)
+
+
+@searches.command("cancel")
+@click.argument("search_id")
+@_search_identity_options
+def searches_cancel(search_id: str, backend_url: str | None, api_key: str | None) -> None:
+    """Request durable cancellation; already incurred usage remains recorded."""
+    _read_search("cancel", search_id, backend_url, api_key)
+
+
 @index.group()
 def research() -> None:
     """Intake a verified research export conversion."""

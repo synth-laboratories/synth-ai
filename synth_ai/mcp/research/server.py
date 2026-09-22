@@ -485,6 +485,7 @@ class ResearchMcpServer:
                     for tool in build_index_tools(
                         self._index_client_factory,
                         include_answer=self._default_api_key is not None,
+                        include_lifecycle=self._default_api_key is not None,
                     )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
                 ]

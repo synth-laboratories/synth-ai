@@ -4,10 +4,18 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
-## 0.20.0 — 2026-09-14
+## 0.20.0 — proposed 2026-09-22
 
 ### Added
 
+- **Durable Index Search** — typed fast/deep Search lifecycle and grounded
+  answer operations. Authenticated CLI and MCP callers can create a Search,
+  reconnect by ID, inspect ordered events, read the completed result, and
+  request cancellation. A local wait timeout leaves the server Search running.
+- **Index contract and failures** — the SDK's Index OpenAPI export matches the
+  backend's generated contract. `IndexErrorCode` names current Search and
+  Contribution failures while retaining prior values for existing clients;
+  unknown future codes remain available through `error.failure.code`.
 - **Typed Container Pools** — `SynthClient().research.container_pools` exposes
   backend-owned pool deployment and reconciliation. Packaging validates Docker
   contexts, applies supported `.dockerignore` rules, and rejects credential-like
@@ -22,13 +30,6 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Removed (breaking)
 
-- **Grok / xAI** (breaking enum change). `SmrAgentModel.X_AI_GROK_BUILD`,
-  `SmrAgentModel.CURSOR_GROK_4_5`, `ActorModel.GROK_BUILD` /
-  `DeprecatedActorModel.GROK_BUILD`, and the `xai` member of
-  `ResourceProvider`, `SmrCredentialProvider`, `SmrInferenceProvider`,
-  `CredentialProvider`, and `InferenceProvider` are gone, as is `xai` from the
-  public provider selection. The backend no longer serves `x-ai/grok-build`
-  or `cursor/grok-4.5`; use `openrouter/openai/gpt-5.6-luna`.
 - **Legacy Research Intern sessions** — `client.intern.sessions`, reactive
   session stream/turn/event types, legacy enablement flags, the old
   `*_research_intern_session*` operations and aliases, and the legacy MCP

@@ -10,8 +10,9 @@ runs on the caller's machine; the hosted server cannot read a client's disk.
 import re
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
+from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, StrictInt
 from synth_ai.mcp.research.registry import (
     INDEX_READ_SCOPES,
     INDEX_WRITE_SCOPES,
@@ -30,6 +31,11 @@ IndexClientFactory = Callable[[], AbstractContextManager[IndexAPI]]
 
 INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_search",
+    "index_search_create",
+    "index_search_get",
+    "index_search_result",
+    "index_search_events",
+    "index_search_cancel",
     "index_answer",
     "index_get_contribution",
     "index_get_contents",
@@ -58,6 +64,15 @@ class IndexSearchRequest(IndexContract):
 class IndexAnswerRequest(IndexContract):
     answer: AnswerSpec
     idempotency_key: str = _KEY
+
+
+class SearchIdentityRequest(IndexContract):
+    search_id: Identifier
+
+
+class SearchEventsRequest(SearchIdentityRequest):
+    after: Annotated[StrictInt, Field(ge=0)] = 0
+    limit: Annotated[StrictInt, Field(ge=1, le=200)] = 200
 
 
 class ContributionRequest(IndexContract):
@@ -99,7 +114,10 @@ def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]
 
 
 def build_index_tools(
-    client_factory: IndexClientFactory, *, include_answer: bool = True
+    client_factory: IndexClientFactory,
+    *,
+    include_answer: bool = True,
+    include_lifecycle: bool = True,
 ) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.
 
@@ -114,6 +132,36 @@ def build_index_tools(
             return client.search(
                 request.search, idempotency_key=request.idempotency_key
             ).model_dump(mode="json")
+
+    def search_create(arguments: JSONDict) -> JSONDict:
+        request = IndexSearchRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.create(
+                request.search, idempotency_key=request.idempotency_key
+            ).snapshot.model_dump(mode="json")
+
+    def search_get(arguments: JSONDict) -> JSONDict:
+        request = SearchIdentityRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.get(request.search_id).model_dump(mode="json")
+
+    def search_result(arguments: JSONDict) -> JSONDict:
+        request = SearchIdentityRequest.model_validate(arguments)
+        with client_factory() as client:
+            snapshot = client.searches.get(request.search_id)
+            return client.searches.result(request.search_id, snapshot.spec).model_dump(mode="json")
+
+    def search_events(arguments: JSONDict) -> JSONDict:
+        request = SearchEventsRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.events(
+                request.search_id, after=request.after, limit=request.limit
+            ).model_dump(mode="json")
+
+    def search_cancel(arguments: JSONDict) -> JSONDict:
+        request = SearchIdentityRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.cancel(request.search_id).model_dump(mode="json")
 
     def contents(arguments: JSONDict) -> JSONDict:
         request = ContentsSpec.model_validate(arguments)
@@ -171,9 +219,44 @@ def build_index_tools(
     tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index research Contributions in fast or durable deep mode. Deep is a bounded hosted evidence loop and never silently falls back to fast. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
+            description="Search reviewed Synth Index research Contributions. Public callers can use fast mode; authenticated callers can use durable deep mode. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_create",
+            description="Create one durable fast or deep Search. Return its Search ID and state immediately; reuse the idempotency key after uncertain responses.",
+            input_schema=IndexSearchRequest.model_json_schema(),
+            handler=search_create,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_get",
+            description="Read current durable Search state without restarting or charging for execution.",
+            input_schema=SearchIdentityRequest.model_json_schema(),
+            handler=search_get,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_result",
+            description="Read the completed Search result using its stored specification for validation; an unfinished Search returns a typed not-ready error.",
+            input_schema=SearchIdentityRequest.model_json_schema(),
+            handler=search_result,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_events",
+            description="Page durable Search progress after a sequence cursor. Reuse next_after to reconnect without losing events.",
+            input_schema=SearchEventsRequest.model_json_schema(),
+            handler=search_events,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_cancel",
+            description="Request cancellation of your durable Search without creating another execution.",
+            input_schema=SearchIdentityRequest.model_json_schema(),
+            handler=search_cancel,
             required_scopes=read,
         ),
         ToolDefinition(
@@ -226,4 +309,16 @@ def build_index_tools(
             required_scopes=write,
         ),
     ]
-    return [tool for tool in tools if include_answer or tool.name != "index_answer"]
+    lifecycle_names = {
+        "index_search_create",
+        "index_search_get",
+        "index_search_result",
+        "index_search_events",
+        "index_search_cancel",
+    }
+    return [
+        tool
+        for tool in tools
+        if (include_answer or tool.name != "index_answer")
+        and (include_lifecycle or tool.name not in lifecycle_names)
+    ]

@@ -2250,6 +2250,7 @@
       },
       "CustomerCharge": {
         "additionalProperties": false,
+        "description": "Customer net settlement; immutable gross funding still owns caps.\n\nSee ``notes/specifications/synth-index/deep-invoice-reconciliation.md``.\nNet settlement plus outstanding refunds recovers the original settlement.",
         "properties": {
           "adjustment_microcents": {
             "default": 0,
@@ -2264,8 +2265,18 @@
           },
           "funding_source": {
             "anyOf": [
-              { "enum": ["none", "promo_credit", "deep_beta", "wallet"], "type": "string" },
-              { "type": "null" }
+              {
+                "enum": [
+                  "none",
+                  "promo_credit",
+                  "deep_beta",
+                  "wallet"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Funding Source"
           },
@@ -2336,8 +2347,12 @@
           },
           "terminal_outcome": {
             "anyOf": [
-              { "$ref": "#/components/schemas/SearchSettlementOutcome" },
-              { "type": "null" }
+              {
+                "$ref": "#/components/schemas/SearchSettlementOutcome"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         },
@@ -5623,26 +5638,38 @@
           },
           "cached_input_tokens": {
             "anyOf": [
-              { "minimum": 0.0, "type": "integer" },
-              { "type": "null" }
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "default": null,
             "title": "Cached Input Tokens"
           },
           "colbert_batches": {
             "anyOf": [
-              { "minimum": 0.0, "type": "integer" },
-              { "type": "null" }
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "default": null,
             "title": "Colbert Batches"
           },
           "content_read_calls": {
             "anyOf": [
-              { "minimum": 0.0, "type": "integer" },
-              { "type": "null" }
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "default": null,
             "title": "Content Read Calls"
           },
           "customer_charge_microcents": {
@@ -5652,28 +5679,36 @@
           },
           "funding_source": {
             "anyOf": [
-              { "enum": ["none", "promo_credit", "deep_beta", "wallet"], "type": "string" },
-              { "type": "null" }
+              {
+                "enum": [
+                  "none",
+                  "promo_credit",
+                  "deep_beta",
+                  "wallet"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Funding Source"
           },
           "input_tokens": {
             "anyOf": [
-              { "minimum": 0.0, "type": "integer" },
-              { "type": "null" }
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "default": null,
             "title": "Input Tokens"
           },
           "measurement_state": {
             "$ref": "#/components/schemas/MeasurementState",
             "default": "pending"
-          },
-          "unmeasured_search_count": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Unmeasured Search Count",
-            "type": "integer"
           },
           "mode": {
             "$ref": "#/components/schemas/SearchMode"
@@ -5691,10 +5726,14 @@
           },
           "output_tokens": {
             "anyOf": [
-              { "minimum": 0.0, "type": "integer" },
-              { "type": "null" }
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "default": null,
             "title": "Output Tokens"
           },
           "pending_event_count": {
@@ -5707,22 +5746,22 @@
             "title": "Physical Attempt Count",
             "type": "integer"
           },
-          "search_count": {
-            "minimum": 0.0,
-            "title": "Search Count",
-            "type": "integer"
-          },
           "price_version": {
             "anyOf": [
-              { "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$", "type": "string" },
-              { "type": "null" }
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Price Version"
           },
-          "reserved_microcents": {
+          "refunded_microcents": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Reserved Microcents",
+            "title": "Refunded Microcents",
             "type": "integer"
           },
           "released_microcents": {
@@ -5731,10 +5770,15 @@
             "title": "Released Microcents",
             "type": "integer"
           },
-          "refunded_microcents": {
+          "reserved_microcents": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Refunded Microcents",
+            "title": "Reserved Microcents",
+            "type": "integer"
+          },
+          "search_count": {
+            "minimum": 0.0,
+            "title": "Search Count",
             "type": "integer"
           },
           "settlement_state": {
@@ -5743,9 +5787,19 @@
           },
           "terminal_outcome": {
             "anyOf": [
-              { "$ref": "#/components/schemas/SearchSettlementOutcome" },
-              { "type": "null" }
+              {
+                "$ref": "#/components/schemas/SearchSettlementOutcome"
+              },
+              {
+                "type": "null"
+              }
             ]
+          },
+          "unmeasured_search_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Unmeasured Search Count",
+            "type": "integer"
           }
         },
         "required": [
