@@ -57,9 +57,7 @@ class _Transport:
                 "research_intern_id": "intern-1",
                 "source_meta_thread_id": request.body["source_meta_thread_id"],
                 "source_kind": "async",
-                "destination_meta_thread_id": request.body[
-                    "destination_meta_thread_id"
-                ],
+                "destination_meta_thread_id": request.body["destination_meta_thread_id"],
                 "destination_kind": "sync",
                 "kind": request.body["kind"],
                 "idempotency_key": request.body["idempotency_key"],
@@ -114,9 +112,7 @@ def test_message_id_has_http_sdk_and_mcp_parity() -> None:
 
     tools = {
         tool.name: tool
-        for tool in build_research_intern_tools(
-            lambda _args: cast(Any, _ClientContext(transport))
-        )
+        for tool in build_research_intern_tools(lambda _args: cast(Any, _ClientContext(transport)))
     }
     mcp_message = tools["intern_meta_send"].handler(
         {
@@ -137,11 +133,7 @@ def test_mcp_sync_list_is_branch_alias() -> None:
     transport = _Transport()
     tools = {
         tool.name: tool
-        for tool in build_research_intern_tools(
-            lambda _args: cast(Any, _ClientContext(transport))
-        )
+        for tool in build_research_intern_tools(lambda _args: cast(Any, _ClientContext(transport)))
     }
-    assert tools["intern_sync_list"].handler({}) == tools[
-        "intern_sync_branches"
-    ].handler({})
+    assert tools["intern_sync_list"].handler({}) == tools["intern_sync_branches"].handler({})
     assert tools["intern_sync_list"].handler({})[0]["segment_id"] == "segment-a"
