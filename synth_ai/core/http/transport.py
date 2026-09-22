@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -15,6 +16,7 @@ import httpx
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import (
+    HTTP_ERROR_BODY_CAPTURE_CHARS_MAX,
     AuthorizationError,
     ConflictError,
     ContractMismatchError,
@@ -59,23 +61,18 @@ def raise_http_error(response: httpx.Response, operation_id: str | None = None) 
     """Translate one failed response into the stable SDK failure hierarchy."""
 
     detail: JsonValue | None = None
-    message = f"{response.request.method} {response.request.url.path} failed"
+    fallback = f"{response.request.method} {response.request.url.path} failed"
     try:
         decoded = _decode_json_value(response.json(), context="error response")
     except (json.JSONDecodeError, ValueError):
         decoded = None
     if isinstance(decoded, dict):
         detail = decoded
-        raw_message = decoded.get("message")
-        if isinstance(raw_message, str) and raw_message.strip():
-            message = raw_message.strip()
-        nested = decoded.get("detail")
-        if isinstance(nested, str) and nested.strip():
-            message = nested.strip()
-        elif isinstance(nested, dict):
-            nested_message = nested.get("message") or nested.get("error")
-            if isinstance(nested_message, str) and nested_message.strip():
-                message = nested_message.strip()
+    message = _response_message(decoded, fallback=fallback)
+    if message == fallback and not isinstance(decoded, dict):
+        # Plain-text provider failures can put the decisive cause well after
+        # the former 200-character excerpt. Keep it in the structured failure.
+        message = response.text.strip()[:HTTP_ERROR_BODY_CAPTURE_CHARS_MAX] or fallback
     failure = _failure_from_response(
         response,
         decoded=detail,
@@ -99,13 +96,32 @@ def raise_http_error(response: httpx.Response, operation_id: str | None = None) 
         status=response.status_code,
         url=str(response.request.url),
         message=message,
-        body_snippet=response.text[:200] or None,
+        body_snippet=response.text[:HTTP_ERROR_BODY_CAPTURE_CHARS_MAX] or None,
         detail=detail,
         failure=failure,
     )
     if response.status_code == 402:
         raise PaymentRequiredError.from_http_error(error)
     raise error
+
+
+def _response_message(decoded: JsonValue | None, *, fallback: str) -> str:
+    """Use the deepest declared cause before a generic outer message."""
+    if isinstance(decoded, str) and decoded.strip():
+        return decoded.strip()
+    if not isinstance(decoded, dict):
+        return fallback
+    nested = decoded.get("detail")
+    if isinstance(nested, str) and nested.strip():
+        return nested.strip()
+    for source in (nested, decoded):
+        if not isinstance(source, dict):
+            continue
+        for key in ("message", "detail", "cause", "error"):
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return fallback
 
 
 def _failure_from_response(
@@ -133,8 +149,12 @@ def _failure_from_response(
         "correlation_id",
         "x-correlation-id",
     )
-    retry_after_seconds = _retry_after_seconds(response)
+    retry_after_seconds = _retry_after_seconds(response, sources=sources)
     category = _error_category(response.status_code)
+    retryable = next(
+        (value for source in sources if isinstance((value := source.get("retryable")), bool)),
+        category in {SynthErrorCategory.RATE_LIMITED, SynthErrorCategory.TRANSIENT_SERVICE},
+    )
     return SynthFailure(
         code=SynthErrorCode(error_code),
         category=category,
@@ -142,8 +162,7 @@ def _failure_from_response(
         request_id=request_id,
         correlation_id=correlation_id,
         retry=RetryDirective(
-            retryable=category
-            in {SynthErrorCategory.RATE_LIMITED, SynthErrorCategory.TRANSIENT_SERVICE},
+            retryable=retryable,
             retry_after_seconds=retry_after_seconds,
         ),
         status=response.status_code,
@@ -167,15 +186,30 @@ def _response_identity(
     return None
 
 
-def _retry_after_seconds(response: httpx.Response) -> float | None:
+def _retry_after_seconds(
+    response: httpx.Response, *, sources: tuple[JsonObject, ...]
+) -> float | None:
     value = response.headers.get("retry-after")
-    if value is None:
-        return None
-    try:
-        seconds = float(value)
-    except ValueError:
-        return None
-    return seconds if seconds >= 0 else None
+    if value is not None:
+        try:
+            seconds = float(value)
+        except ValueError:
+            pass
+        else:
+            if math.isfinite(seconds) and seconds >= 0:
+                return seconds
+    for source in sources:
+        for key in ("retry_after_seconds", "retry_after"):
+            value = source.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+                continue
+            try:
+                seconds = float(value)
+            except ValueError:
+                continue
+            if math.isfinite(seconds) and seconds >= 0:
+                return seconds
+    return None
 
 
 def _error_category(status: int) -> SynthErrorCategory:
@@ -248,7 +282,7 @@ def raise_json_decode_error(
         response.status_code,
         str(response.request.url),
         f"{method} {path} response was not valid JSON",
-        response.text[:200],
+        response.text[:HTTP_ERROR_BODY_CAPTURE_CHARS_MAX],
         failure=SynthFailure(
             code=SynthErrorCode("response_not_json"),
             category=SynthErrorCategory.CONTRACT_MISMATCH,

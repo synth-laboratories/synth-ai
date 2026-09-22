@@ -8,9 +8,46 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+
+HTTP_ERROR_BODY_CAPTURE_CHARS_MAX = 8192
+_DISPLAY_MESSAGE_CHARS_MAX = 4096
+_DISPLAY_BODY_CHARS_MAX = 4096
+_DISPLAY_URL_CHARS_MAX = 1024
+_SENSITIVE_NAME = (
+    r"(?:[A-Za-z0-9]+[_-]+)*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|"
+    r"client[_-]?secret|password|authorization|secret|payment[_-]?signature|"
+    r"payment[_-]?required[_-]?header)"
+)
+_SENSITIVE_FIELD = re.compile(
+    r"""(?i)(?P<prefix>["']""" + _SENSITIVE_NAME + r"""["']\s*:\s*["'])"""
+    r"""[^"']*(?P<suffix>["'])"""
+)
+_SENSITIVE_PARAMETER = re.compile(
+    r"(?i)(?P<prefix>(?:[?&]|\b)" + _SENSITIVE_NAME + r"\s*[:=]\s*)"
+    r"[^&#\s,;]+"
+)
+_AUTHORIZATION_HEADER = re.compile(r"(?i)\bauthorization\s*:\s*(?:Bearer|Basic)\s+[^\s\"',;]+")
+_BEARER_TOKEN = re.compile(r"(?i)\bBearer\s+[^\s\"',;]+")
+_SK_TOKEN = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
+_URL_USERINFO = re.compile(r"(?P<scheme>https?://)[^/@\s]+@")
+
+
+def _safe_error_display(value: str, *, limit: int) -> str:
+    """Bound and redact exception text before it enters logs or a terminal."""
+    clean = re.sub(r"[\x00-\x1f\x7f]", " ", value)
+    clean = _SENSITIVE_FIELD.sub(r"\g<prefix>[REDACTED]\g<suffix>", clean)
+    clean = _AUTHORIZATION_HEADER.sub("Authorization: [REDACTED]", clean)
+    clean = _SENSITIVE_PARAMETER.sub(r"\g<prefix>[REDACTED]", clean)
+    clean = _BEARER_TOKEN.sub("Bearer [REDACTED]", clean)
+    clean = _SK_TOKEN.sub("[REDACTED]", clean)
+    clean = _URL_USERINFO.sub(r"\g<scheme>[REDACTED]@", clean)
+    if len(clean) <= limit:
+        return clean
+    return f"{clean[:limit]}…[truncated {len(clean) - limit} chars]"
 
 
 class SynthErrorCode(str):
@@ -119,12 +156,24 @@ class HTTPError(SynthError):
         self.url = url
         self.body_snippet = body_snippet
         self.detail = detail
-        super().__init__(message, failure=failure)
+        # Exception repr and args are display surfaces too. Retain the raw
+        # message on the structured fields while keeping those surfaces safe.
+        super().__init__(
+            _safe_error_display(message, limit=_DISPLAY_MESSAGE_CHARS_MAX),
+            failure=failure,
+        )
+        self.message = message
 
     def __str__(self) -> str:
-        base = f"HTTP {self.status} for {self.url}: {self.message}"
+        # Query strings and fragments are caller-controlled and may carry
+        # credentials under names the redactor cannot anticipate.
+        display_url = self.url.partition("?")[0].partition("#")[0]
+        url = _safe_error_display(display_url, limit=_DISPLAY_URL_CHARS_MAX)
+        message = _safe_error_display(self.message, limit=_DISPLAY_MESSAGE_CHARS_MAX)
+        base = f"HTTP {self.status} for {url}: {message}"
         if self.body_snippet:
-            base += f" | body[0:200]={self.body_snippet[:200]}"
+            body = _safe_error_display(self.body_snippet, limit=_DISPLAY_BODY_CHARS_MAX)
+            base += f" | body_excerpt={body}"
         return base
 
 
