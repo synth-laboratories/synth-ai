@@ -428,6 +428,7 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     RuntimeWorkersSnapshot,
     SwarmRuntimeSnapshot,
 )
+from synth_ai.sdk.research.contracts.scope_limits import LimitScope, ScopeLimit
 from synth_ai.sdk.research.contracts.spend_limits import (
     LimitAction,
     Resource,
@@ -903,6 +904,7 @@ __all__ = [
     "KickoffMessage",
     "KickoffMessageMode",
     "LimitAction",
+    "LimitScope",
     "LocalExecution",
     "MAGI_CANONICAL_USER_BY_MODE",
     "MagiActuationStatus",
@@ -1035,6 +1037,7 @@ __all__ = [
     "RuntimeTimelineMetadata",
     "RuntimeTimelineSnapshot",
     "RuntimeWorkersSnapshot",
+    "ScopeLimit",
     "SealedDatasetRevision",
     "SpendLimit",
     "SpendMetric",

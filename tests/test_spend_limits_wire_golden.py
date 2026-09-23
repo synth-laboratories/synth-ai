@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from synth_ai.sdk.research.contracts.swarms import (
     ProviderBinding,
     ResourceLimit,

@@ -240,6 +240,7 @@ from synth_ai.sdk.research.session.prs import PrsAPI
 from synth_ai.sdk.research.session.readiness import ReadinessAPI
 from synth_ai.sdk.research.session.repositories import RepositoriesAPI
 from synth_ai.sdk.research.session.runs import RunsAPI
+from synth_ai.sdk.research.session.scope_limits import ScopeLimitsAPI
 from synth_ai.sdk.research.session.secrets import SecretsAPI
 from synth_ai.sdk.research.session.setup import SetupAPI
 from synth_ai.sdk.research.session.tag import TagAPI
@@ -1119,6 +1120,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
+    _scope_limits_api: ScopeLimitsAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
@@ -1328,6 +1330,14 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         if self._usage_api is None:
             self._usage_api = UsageAPI(self)
         return self._usage_api
+
+    @property
+    def scope_limits(self) -> ScopeLimitsAPI:
+        """Create, read, update and delete a run's or objective's caps."""
+
+        if self._scope_limits_api is None:
+            self._scope_limits_api = ScopeLimitsAPI(self)
+        return self._scope_limits_api
 
     @property
     def trained_models(self) -> TrainedModelsAPI:
