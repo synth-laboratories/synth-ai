@@ -211,6 +211,13 @@ class WorkspaceFileKind(StrEnum):
     SOURCE_BUNDLE = "source_bundle"
 
 
+class WorkspaceFileMode(StrEnum):
+    """Portable Git file modes accepted by the workspace boundary."""
+
+    REGULAR = "100644"
+    EXECUTABLE = "100755"
+
+
 @dataclass(frozen=True, slots=True)
 class WorkspaceMetadata:
     """Immutable JSON metadata owned by the backend resource contract."""
@@ -413,6 +420,7 @@ class WorkspaceFileUpload:
     content_type: Optional[str] = None
     encoding: Optional[WorkspaceFileEncoding] = None
     kind: Optional[WorkspaceFileKind] = None
+    mode: Optional[WorkspaceFileMode] = None
     metadata: WorkspaceMetadata = field(default_factory=WorkspaceMetadata)
 
     def __post_init__(self) -> None:
@@ -432,6 +440,8 @@ class WorkspaceFileUpload:
             payload["encoding"] = self.encoding.value
         if self.kind is not None:
             payload["kind"] = self.kind.value
+        if self.mode is not None:
+            payload["mode"] = self.mode.value
         return payload
 
 
@@ -929,6 +939,7 @@ __all__ = [
     "ProjectWorkspaceInputs",
     "WorkspaceFileEncoding",
     "WorkspaceFileKind",
+    "WorkspaceFileMode",
     "WorkspaceFileScope",
     "WorkspaceFilesUploadReceipt",
     "WorkspaceFilesUploadRequest",
