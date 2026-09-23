@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from synth_ai.sdk.research.contracts.spend_limits import Resource
 from synth_ai.sdk.research.contracts.types import (
     _float_value,
     _int_value,
@@ -302,6 +303,25 @@ class SmrResourceLimitSelector:
     actor_type: str | None
     actor_id: str | None
     resource_id: str | None
+    # Spend-limit selectors; older backends omit them.
+    resource: str | None = None
+    sku: str | None = None
+
+    @property
+    def spend_resource(self) -> Resource | None:
+        """The typed resource this cap selects, or None when absent or unknown.
+
+        The unselected ALL dollar cap keeps ``kind="run"`` for backward compatibility,
+        so read the resource from here rather than from ``kind``.
+        """
+
+        if self.resource is None:
+            return None
+        try:
+            return Resource(self.resource)
+        except ValueError:
+            # A resource added after this SDK was released; stay readable.
+            return None
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrResourceLimitSelector:
@@ -314,6 +334,8 @@ class SmrResourceLimitSelector:
             actor_type=_optional_string(mapping, "actor_type"),
             actor_id=_optional_string(mapping, "actor_id"),
             resource_id=_optional_string(mapping, "resource_id"),
+            resource=_optional_string(mapping, "resource"),
+            sku=_optional_string(mapping, "sku"),
         )
 
 

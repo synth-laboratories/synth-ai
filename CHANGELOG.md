@@ -2,6 +2,29 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+### Added
+
+- **Unified Swarm spend limits (phase 1)** — `SwarmSpec(spend=SpendLimit(...))` sets
+  one total dollar cap (`max_usd`) plus per-resource `ResourceCap`s selected by
+  `Resource` (`all`, `inference`, `training`, `gpu`, `sandbox`, `browser`, `vm`,
+  `wallclock`, `misc`) and optionally by provider, model, sku and actor type. Each cap
+  takes exactly one measure (`usd`, `tokens`, `train_tokens`, `sample_tokens`,
+  `hours` or `seconds`) and may override `on_exhaustion` (`LimitAction.PAUSE` or
+  `STOP`). Dollars travel as exact integer cents; sub-cent amounts are rejected.
+  The backend does not meter hours or training tokens yet and answers those caps
+  with `spend_metric_not_metered`; the SDK builds them so it needs no change later.
+- `SmrResourceLimitSelector` reads the new `resource` and `sku` selector fields,
+  with `spend_resource` parsing them into `Resource`.
+
+### Changed
+
+- Setting `spend` together with a legacy limit (`limit.max_spend_usd`,
+  `limit.max_tokens`, `run_policy.limits.total_cost_cents`, `providers[].limit`)
+  that compiles to a different cap raises `ValueError`. The legacy fields keep
+  working unchanged on their own.
+
 ## 0.19.0 — 2026-09-14
 
 ### Added

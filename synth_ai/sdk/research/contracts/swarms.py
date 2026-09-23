@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
 from typing import TypeAlias, cast
@@ -26,6 +27,14 @@ from synth_ai.sdk.research.contracts.common import (
     ProjectId,
     SwarmId,
     require_text,
+)
+from synth_ai.sdk.research.contracts.spend_limits import (
+    LegacyCompiledCap,
+    Resource,
+    SpendCapSelector,
+    SpendLimit,
+    SpendMetric,
+    check_legacy_agreement,
 )
 
 FrozenJsonScalar: TypeAlias = str | int | float | bool | None
@@ -1074,6 +1083,9 @@ class SwarmSpec:
     provider_policy: ProviderPolicy | None = None
     limit: ResourceLimit | None = None
     run_policy: RunPolicy | None = None
+    # The typed spend envelope. Legacy limit fields still work; set together with it
+    # they must compile to the same caps (backend: spend_conflicts_with_legacy_limit).
+    spend: SpendLimit | None = None
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
@@ -1140,6 +1152,10 @@ class SwarmSpec:
             raise ValueError("provider_policy must be ProviderPolicy")
         if self.run_policy is not None and not isinstance(self.run_policy, RunPolicy):
             raise ValueError("run_policy must be RunPolicy")
+        if self.spend is not None:
+            if not isinstance(self.spend, SpendLimit):
+                raise ValueError("spend must be SpendLimit")
+            check_legacy_agreement(self.spend, self._legacy_spend_caps())
         if self.environment is not None and not isinstance(
             self.environment,
             SwarmEnvironment,
@@ -1196,6 +1212,64 @@ class SwarmSpec:
             if value is not None:
                 require_text(value, field_name=name)
 
+    def _legacy_spend_caps(self) -> list[LegacyCompiledCap]:
+        """The caps the backend compiles from legacy limit fields (phase 1 contract)."""
+
+        compiled: list[LegacyCompiledCap] = []
+        total_candidates: list[tuple[str, Decimal]] = []
+        if self.limit is not None and self.limit.max_spend_usd is not None:
+            total_candidates.append(
+                ("limit.max_spend_usd", Decimal(str(self.limit.max_spend_usd)) * 100)
+            )
+        limits = self.run_policy.limits if self.run_policy is not None else None
+        if limits is not None and limits.total_cost_cents is not None:
+            total_candidates.append(
+                ("run_policy.limits.total_cost_cents", Decimal(limits.total_cost_cents))
+            )
+        if total_candidates:
+            # Both legacy totals compile to one ALL cap, and the smaller one wins.
+            source, cents = min(total_candidates, key=lambda candidate: candidate[1])
+            compiled.append(
+                LegacyCompiledCap(
+                    source=source,
+                    selector=SpendCapSelector(Resource.ALL),
+                    metric=SpendMetric.SPEND_USD_CENTS,
+                    limit=cents,
+                )
+            )
+        if self.limit is not None and self.limit.max_tokens is not None:
+            compiled.append(
+                LegacyCompiledCap(
+                    source="limit.max_tokens",
+                    selector=SpendCapSelector(Resource.INFERENCE),
+                    metric=SpendMetric.TOKENS,
+                    limit=Decimal(self.limit.max_tokens),
+                )
+            )
+        for index, binding in enumerate(self.providers):
+            if binding.limit is None:
+                continue
+            selector = SpendCapSelector(Resource.INFERENCE, provider=binding.provider.value)
+            if binding.limit.max_spend_usd is not None:
+                compiled.append(
+                    LegacyCompiledCap(
+                        source=f"providers[{index}].limit.max_spend_usd",
+                        selector=selector,
+                        metric=SpendMetric.SPEND_USD_CENTS,
+                        limit=Decimal(str(binding.limit.max_spend_usd)) * 100,
+                    )
+                )
+            if binding.limit.max_tokens is not None:
+                compiled.append(
+                    LegacyCompiledCap(
+                        source=f"providers[{index}].limit.max_tokens",
+                        selector=selector,
+                        metric=SpendMetric.TOKENS,
+                        limit=Decimal(binding.limit.max_tokens),
+                    )
+                )
+        return compiled
+
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {"objective": self.objective}
         enum_values = (
@@ -1246,6 +1320,8 @@ class SwarmSpec:
             payload["limit"] = self.limit.to_wire()
         if self.run_policy is not None:
             payload["run_policy"] = self.run_policy.to_wire()
+        if self.spend is not None:
+            payload["spend"] = self.spend.to_wire()
         if self.required_capabilities:
             payload["required_capabilities"] = list(self.required_capabilities)
         if self.kickoff_messages:

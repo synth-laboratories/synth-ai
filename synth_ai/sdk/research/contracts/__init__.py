@@ -428,6 +428,13 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     RuntimeWorkersSnapshot,
     SwarmRuntimeSnapshot,
 )
+from synth_ai.sdk.research.contracts.spend_limits import (
+    LimitAction,
+    Resource,
+    ResourceCap,
+    SpendLimit,
+    SpendMetric,
+)
 from synth_ai.sdk.research.contracts.swarms import (
     ActiveActorModel,
     ActorHarness,
@@ -895,6 +902,7 @@ __all__ = [
     "KickoffArtifact",
     "KickoffMessage",
     "KickoffMessageMode",
+    "LimitAction",
     "LocalExecution",
     "MAGI_CANONICAL_USER_BY_MODE",
     "MagiActuationStatus",
@@ -1002,6 +1010,8 @@ __all__ = [
     "ResearchVisualPromotionRequest",
     "ResearchVisualVersions",
     "ResolvedSwarmConfiguration",
+    "Resource",
+    "ResourceCap",
     "ResourceLimit",
     "ResourceMetadata",
     "ResourceProvider",
@@ -1026,6 +1036,8 @@ __all__ = [
     "RuntimeTimelineSnapshot",
     "RuntimeWorkersSnapshot",
     "SealedDatasetRevision",
+    "SpendLimit",
+    "SpendMetric",
     "Swarm",
     "SwarmActivity",
     "SwarmEnvironment",
