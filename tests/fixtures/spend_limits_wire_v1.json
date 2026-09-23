@@ -1,0 +1,224 @@
+{
+  "schema": "spend_limits_wire.v1",
+  "cases": [
+    {
+      "name": "total_only",
+      "expect": "ok",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "max_usd_cents": 2500,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        }
+      }
+    },
+    {
+      "name": "empty",
+      "expect": "ok",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        }
+      }
+    },
+    {
+      "name": "per_resource_detail",
+      "expect": "ok",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "max_usd_cents": 2500,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": [
+            {
+              "selector": {
+                "resource": "inference",
+                "model": "openai/gpt-5.6-luna"
+              },
+              "metric": "spend_usd_cents",
+              "limit": 800
+            },
+            {
+              "selector": {
+                "resource": "inference",
+                "actor_type": "worker"
+              },
+              "metric": "tokens",
+              "limit": 2000000,
+              "on_exhaustion": "stop"
+            },
+            {
+              "selector": {
+                "resource": "all",
+                "provider": "modal"
+              },
+              "metric": "spend_usd_cents",
+              "limit": 1500
+            },
+            {
+              "selector": {
+                "resource": "gpu",
+                "provider": "modal",
+                "sku": "H100"
+              },
+              "metric": "spend_usd_cents",
+              "limit": 1000
+            },
+            {
+              "selector": {
+                "resource": "misc",
+                "provider": "exa"
+              },
+              "metric": "spend_usd_cents",
+              "limit": 500
+            },
+            {
+              "selector": {
+                "resource": "wallclock"
+              },
+              "metric": "wallclock_seconds",
+              "limit": 600,
+              "on_exhaustion": "stop"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "legacy_agrees",
+      "expect": "ok",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "max_usd_cents": 2500,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        },
+        "limit": {
+          "max_spend_usd": 25
+        }
+      }
+    },
+    {
+      "name": "legacy_run_policy_minimum_agrees",
+      "expect": "ok",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "max_usd_cents": 2500,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        },
+        "limit": {
+          "max_spend_usd": 30
+        },
+        "run_policy": {
+          "limits": {
+            "total_cost_cents": 2500
+          }
+        }
+      }
+    },
+    {
+      "name": "legacy_gpu_hours_never_conflicts",
+      "expect": "ok",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "max_usd_cents": 2500,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        },
+        "limit": {
+          "max_gpu_hours": 2
+        }
+      }
+    },
+    {
+      "name": "gpu_hours_not_metered",
+      "expect": "spend_metric_not_metered",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": [
+            {
+              "selector": {
+                "resource": "gpu"
+              },
+              "metric": "gpu_hours",
+              "limit": 4
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "training_tokens_not_metered",
+      "expect": "spend_metric_not_metered",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": [
+            {
+              "selector": {
+                "resource": "training"
+              },
+              "metric": "train_tokens",
+              "limit": 1000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "legacy_disagrees",
+      "expect": "spend_conflicts_with_legacy_limit",
+      "sdk_builds": false,
+      "request": {
+        "spend": {
+          "max_usd_cents": 3000,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        },
+        "limit": {
+          "max_spend_usd": 25
+        }
+      }
+    },
+    {
+      "name": "legacy_provider_cap_omitted",
+      "expect": "spend_conflicts_with_legacy_limit",
+      "sdk_builds": false,
+      "request": {
+        "spend": {
+          "max_usd_cents": 2500,
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": []
+        },
+        "providers": [
+          {
+            "provider": "openrouter",
+            "limit": {
+              "max_spend_usd": 8
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
