@@ -503,3 +503,37 @@ def test_unselected_all_cap_keeps_run_kind() -> None:
     )
     assert selector.kind == "run"
     assert selector.spend_resource is Resource.ALL
+
+
+def test_extension_payload_addresses_selected_caps_and_accepts_unpriced_usage() -> None:
+    from synth_ai.sdk.research.contracts.canonical_usage import SmrResourceLimitSelector
+    from synth_ai.sdk.research.session.usage import _limit_extension_payload
+
+    selector = SmrResourceLimitSelector.from_wire(
+        {"kind": "resource", "resource": "gpu", "provider": "modal", "sku": "H100"}
+    )
+    common: dict[str, object] = {
+        "expected_revision": 2,
+        "limit_value": None,
+        "additional_value": 5.0,
+        "reason": None,
+        "selector": selector,
+        "resource_limit_id": None,
+        "metric": "spend_usd_cents",
+        "unit": "cents",
+        "resolve_blockers": True,
+        "resume": True,
+        "idempotency_key": None,
+    }
+    payload = _limit_extension_payload(**common)
+    assert payload["selector"]["resource"] == "gpu"
+    assert payload["selector"]["sku"] == "H100"
+    assert "accept_unpriced_usage" not in payload
+    assert (
+        _limit_extension_payload(**common, accept_unpriced_usage=True)["accept_unpriced_usage"]
+        is True
+    )
+    run_scoped = _limit_extension_payload(
+        **{**common, "selector": SmrResourceLimitSelector.from_wire({"kind": "run"})}
+    )
+    assert "resource" not in run_scoped["selector"]

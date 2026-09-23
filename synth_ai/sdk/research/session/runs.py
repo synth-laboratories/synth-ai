@@ -977,6 +977,7 @@ class RunHandle:
         resolve_blockers: bool = False,
         resume: bool = False,
         idempotency_key: str | None = None,
+        accept_unpriced_usage: bool = False,
     ) -> SmrResourceLimitExtension:
         return self._client.extend_project_run_resource_limit(
             self.project_id,
@@ -992,6 +993,7 @@ class RunHandle:
             resolve_blockers=resolve_blockers,
             resume=resume,
             idempotency_key=idempotency_key,
+            accept_unpriced_usage=accept_unpriced_usage,
         )
 
     def checkpoints(self) -> List[Checkpoint]:
@@ -1518,6 +1520,7 @@ class RunsAPI(_ClientNamespace):
         resolve_blockers: bool = False,
         resume: bool = False,
         idempotency_key: str | None = None,
+        accept_unpriced_usage: bool = False,
     ) -> SmrResourceLimitExtension:
         if project_id:
             return self._client.extend_project_run_resource_limit(
@@ -1534,6 +1537,7 @@ class RunsAPI(_ClientNamespace):
                 resolve_blockers=resolve_blockers,
                 resume=resume,
                 idempotency_key=idempotency_key,
+                accept_unpriced_usage=accept_unpriced_usage,
             )
         return self._client.extend_run_resource_limit(
             run_id,
@@ -1548,6 +1552,7 @@ class RunsAPI(_ClientNamespace):
             resolve_blockers=resolve_blockers,
             resume=resume,
             idempotency_key=idempotency_key,
+            accept_unpriced_usage=accept_unpriced_usage,
         )
 
     def get_observability_snapshot(

@@ -47,6 +47,10 @@ def _selector_to_wire(
             "actor_type": selector.actor_type,
             "actor_id": selector.actor_id,
             "resource_id": selector.resource_id,
+            # Selector-scoped caps are addressed by resource and sku too; sent
+            # only when present so run-scoped selectors are unchanged.
+            **({"resource": selector.resource} if selector.resource else {}),
+            **({"sku": selector.sku} if selector.sku else {}),
         }
     if isinstance(selector, Mapping):
         return dict(selector)
@@ -66,6 +70,7 @@ def _limit_extension_payload(
     resolve_blockers: bool,
     resume: bool,
     idempotency_key: str | None,
+    accept_unpriced_usage: bool = False,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "expected_revision": int(expected_revision),
@@ -89,6 +94,9 @@ def _limit_extension_payload(
         payload["reason"] = reason
     if idempotency_key is not None:
         payload["idempotency_key"] = idempotency_key
+    if accept_unpriced_usage:
+        # Sent only when set, so older backends never see an unknown field.
+        payload["accept_unpriced_usage"] = True
     return payload
 
 
@@ -168,6 +176,7 @@ class UsageAPI(_ClientNamespace):
         resolve_blockers: bool = False,
         resume: bool = False,
         idempotency_key: str | None = None,
+        accept_unpriced_usage: bool = False,
     ) -> SmrResourceLimitExtension:
         return SmrResourceLimitExtension.from_wire(
             _raise_on_error_payload(
@@ -186,6 +195,7 @@ class UsageAPI(_ClientNamespace):
                         resolve_blockers=resolve_blockers,
                         resume=resume,
                         idempotency_key=idempotency_key,
+                        accept_unpriced_usage=accept_unpriced_usage,
                     ),
                 )
             )
@@ -256,6 +266,7 @@ class UsageAPI(_ClientNamespace):
         resolve_blockers: bool = False,
         resume: bool = False,
         idempotency_key: str | None = None,
+        accept_unpriced_usage: bool = False,
     ) -> SmrResourceLimitExtension:
         return SmrResourceLimitExtension.from_wire(
             _raise_on_error_payload(
@@ -274,6 +285,7 @@ class UsageAPI(_ClientNamespace):
                         resolve_blockers=resolve_blockers,
                         resume=resume,
                         idempotency_key=idempotency_key,
+                        accept_unpriced_usage=accept_unpriced_usage,
                     ),
                 )
             )

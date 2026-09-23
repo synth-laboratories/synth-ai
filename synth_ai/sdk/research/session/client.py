@@ -1500,6 +1500,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         resolve_blockers: bool = False,
         resume: bool = False,
         idempotency_key: str | None = None,
+        accept_unpriced_usage: bool = False,
     ) -> SmrResourceLimitExtension:
         return self.usage.extend_run_resource_limit(
             run_id,
@@ -1514,6 +1515,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             resolve_blockers=resolve_blockers,
             resume=resume,
             idempotency_key=idempotency_key,
+            accept_unpriced_usage=accept_unpriced_usage,
         )
 
     def get_project_run_resource_limits(
@@ -1564,6 +1566,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         resolve_blockers: bool = False,
         resume: bool = False,
         idempotency_key: str | None = None,
+        accept_unpriced_usage: bool = False,
     ) -> SmrResourceLimitExtension:
         return self.usage.extend_project_run_resource_limit(
             project_id,
@@ -1579,6 +1582,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             resolve_blockers=resolve_blockers,
             resume=resume,
             idempotency_key=idempotency_key,
+            accept_unpriced_usage=accept_unpriced_usage,
         )
 
     def get_project_usage(self, project_id: str) -> SmrProjectUsage:
