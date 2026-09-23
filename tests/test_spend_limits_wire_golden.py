@@ -104,8 +104,20 @@ _CASES = (
         legacy={"limit": ResourceLimit(max_gpu_hours=2)},
     ),
     _Case(
-        "gpu_hours_not_metered",
-        SpendLimit(resources=(ResourceCap(Resource.GPU, hours=4),)),
+        "wall_clock_hours",
+        SpendLimit(
+            resources=(
+                ResourceCap(Resource.GPU, hours=4),
+                ResourceCap(Resource.GPU, hours=1.5, provider="modal", sku="H100"),
+                ResourceCap(Resource.SANDBOX, hours=6),
+                ResourceCap(Resource.VM, hours=1),
+            )
+        ),
+        "ok",
+    ),
+    _Case(
+        "browser_hours_not_metered",
+        SpendLimit(resources=(ResourceCap(Resource.BROWSER, hours=1),)),
         "spend_metric_not_metered",
     ),
     _Case(

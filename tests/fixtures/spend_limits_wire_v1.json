@@ -144,8 +144,8 @@
       }
     },
     {
-      "name": "gpu_hours_not_metered",
-      "expect": "spend_metric_not_metered",
+      "name": "wall_clock_hours",
+      "expect": "ok",
       "sdk_builds": true,
       "request": {
         "spend": {
@@ -158,6 +158,49 @@
               },
               "metric": "gpu_hours",
               "limit": 4
+            },
+            {
+              "selector": {
+                "resource": "gpu",
+                "provider": "modal",
+                "sku": "H100"
+              },
+              "metric": "gpu_hours",
+              "limit": 1.5
+            },
+            {
+              "selector": {
+                "resource": "sandbox"
+              },
+              "metric": "sandbox_hours",
+              "limit": 6
+            },
+            {
+              "selector": {
+                "resource": "vm"
+              },
+              "metric": "vm_hours",
+              "limit": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "browser_hours_not_metered",
+      "expect": "spend_metric_not_metered",
+      "sdk_builds": true,
+      "request": {
+        "spend": {
+          "on_exhaustion": "pause",
+          "warn_at_fraction": 0.9,
+          "caps": [
+            {
+              "selector": {
+                "resource": "browser"
+              },
+              "metric": "browser_hours",
+              "limit": 1
             }
           ]
         }
