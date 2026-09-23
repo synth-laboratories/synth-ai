@@ -36,6 +36,14 @@ Status, 2026-09-23: **phase 1 and most of phase 2 are implemented** on unpushed 
 - **Inference admission read selector-scoped caps as the run's caps.** A worker-only tokens cap made the whole run token-governed and could be reserved against in place of the primary row. Admission now reads primary rows only. The Postgres test fails on the old code.
 - **SDK extension selectors dropped `resource`/`sku`.** A per-resource cap read from the progress model could not be extended. Now they are carried.
 
+**D1 resolved: Modal rates** (backend `a3afaa91a`).
+- **The rates file:** Modal's list prices from modal.com/pricing (fetched 2026-09-23) live in the dedicated `core/billing/resources/modal.toml`. It covers 11 GPUs, CPU and memory for functions and for sandboxes, the region and non-preemptible multipliers, and Modal's size defaults. `modal_rates.py` loads it as exact decimals.
+- **What metered infra records:** each Modal window is priced at GPU + CPU + memory, with pricing policy `backend_priced_estimated_usage`. The price list's GPU name is recorded as `gpu_type`, which is the cap `sku`. The rate-card provenance and any defaulted sizes go on the record.
+- **Unknown GPUs:** a window with an unknown GPU stays unpriced, so fail-closed still applies to it.
+- **Billing is unchanged:** Modal is not charged to customers.
+- **Behaviour change:** Modal usage now counts toward every dollar cap, legacy caps included, where it used to count as $0. A run that uses Modal can therefore reach its existing total spend cap sooner.
+- **What the prices assume:** base region and preemptible (`default_multiplier = 1.0`). Raise the multiplier if our Modal usage is region-pinned or non-preemptible.
+
 **Not done, with reasons:**
 
 | Item | Status |
@@ -45,7 +53,7 @@ Status, 2026-09-23: **phase 1 and most of phase 2 are implemented** on unpushed 
 | B12 (reservation) | Per-call reservation still covers only the run's primary spend and tokens caps. Selected caps are evaluated on every spend write in the threshold band and by the 15 s ticker and sweeper, so they can overshoot by up to ~15 s of spend. Reserving against them needs per-selector counters. |
 | B12 (402) | An OpenRouter 402 (account out of credit) as a limit blocker is not done. It lives in the actor/gateway error path, not in limits. |
 | B13 | Reconciliation is not built. Limits sum whatever usage facts say, so correction facts from provider-usage ingest would flow through automatically. Whether Modal and Tinker ingest writes corrections is unverified. |
-| B14 | Blocked on D1. Per-token pricing for shared Modal serving apps needs the product-set Modal rates, which would be a contract-rate route in the gateway. |
+| B14 | Per-token pricing for shared Modal serving apps is still open. Modal container rates now exist, but a shared app's per-token rate is a gateway contract-rate route that nobody has set yet. |
 | B16 | Not done on purpose. The legacy `spend_recording` enforcers are being migrated under a measured shadow-equivalence rollout (`smr.limit_wallclock_shadow_equivalence.v1`). Removing them belongs to that rollout. |
 | B17 | A rollout step, not a code change. The envelope mode comes from `SMR_LIMIT_ENVELOPE_MODE` and `SMR_LIMIT_ENVELOPE_MODE_<LANE>` (default `shadow`). Before setting `enforce` for a lane, check that shadow refusals are near zero: count run-start receipts whose limit-envelope status is `shadow_refused`, per funding lane. |
 | B18 | Project and org scopes need product decisions before code: the reset window (calendar month or rolling), which runs count (project-owned only?), and whether a scope cap pauses every run or refuses new launches. `scope_kind` is `run|objective` today, with a DB check. |
