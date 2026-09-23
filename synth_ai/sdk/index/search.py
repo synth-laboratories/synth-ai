@@ -30,6 +30,8 @@ from .contracts import (
     require_unique,
 )
 
+EMPTY_SEARCH_RESPONSE = "No matching evidence was found."
+
 
 class SearchScope(IndexContract):
     visibility: Literal["public", "private"] = "public"
@@ -53,6 +55,25 @@ class SearchFilters(IndexContract):
 class SearchContent(IndexContract):
     max_results: Annotated[StrictInt, Field(ge=1, le=10)] = 5
     max_excerpts_per_result: Annotated[StrictInt, Field(ge=0, le=2)] = 2
+    relative_score_floor: Annotated[
+        float,
+        Field(
+            ge=0,
+            le=1,
+            allow_inf_nan=False,
+            description=(
+                "After ColBERT, drop hits below this fraction of the top MaxSim. "
+                "Omit for 0.85; 0 fills max_results."
+            ),
+        ),
+    ] = 0.85
+
+    @field_validator("relative_score_floor", mode="before")
+    @classmethod
+    def reject_bool_relative_score_floor(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("relative_score_floor must be a number")
+        return value
 
 
 class SearchMode(StrEnum):
@@ -361,6 +382,17 @@ class SearchResult(IndexContract):
     parser_version: Identifier
     taxonomy_version: Identifier
     execution_versions: SearchExecutionVersions
+    response: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=16_384,
+            description=(
+                "Luna-rewritten answer for the caller. Ranked hits in results are "
+                "citations for that text, not the response body."
+            ),
+        ),
+    ] = EMPTY_SEARCH_RESPONSE
     results: tuple[SearchHit, ...] = Field(max_length=10)
     usage: SearchUsage
 
@@ -406,6 +438,17 @@ class PublicSearchResult(IndexContract):
     ranker_version: Identifier
     parser_version: Identifier
     taxonomy_version: Identifier
+    response: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=16_384,
+            description=(
+                "Luna-rewritten answer for the caller. Ranked hits in results are "
+                "citations for that text, not the response body."
+            ),
+        ),
+    ] = EMPTY_SEARCH_RESPONSE
     results: tuple[SearchHit, ...] = Field(max_length=10)
     amount_cents: Literal[0] = 0
 

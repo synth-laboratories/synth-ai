@@ -3355,6 +3355,14 @@
             "title": "Request Id",
             "type": "string"
           },
+          "response": {
+            "default": "No matching evidence was found.",
+            "description": "Luna-rewritten answer for the caller. Ranked hits in results are citations for that text, not the response body.",
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Response",
+            "type": "string"
+          },
           "results": {
             "items": {
               "$ref": "#/components/schemas/SearchHit"
@@ -4619,6 +4627,14 @@
             "minimum": 1.0,
             "title": "Max Results",
             "type": "integer"
+          },
+          "relative_score_floor": {
+            "default": 0.85,
+            "description": "After ColBERT, drop hits below this fraction of the top MaxSim. Omit for 0.85; 0 fills max_results.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Relative Score Floor",
+            "type": "number"
           }
         },
         "title": "SearchContent",
@@ -5162,6 +5178,14 @@
           },
           "requested_mode": {
             "$ref": "#/components/schemas/SearchMode"
+          },
+          "response": {
+            "default": "No matching evidence was found.",
+            "description": "Luna-rewritten answer for the caller. Ranked hits in results are citations for that text, not the response body.",
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Response",
+            "type": "string"
           },
           "results": {
             "items": {
