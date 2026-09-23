@@ -86,7 +86,7 @@ spec = SwarmSpec(
 
 ### Rules, validated in `__post_init__` and again in the backend
 
-- **`Resource` is a closed enum:** `INFERENCE`, `TRAINING`, `GPU`, `SANDBOX`, `BROWSER`, `VM`, `WALLCLOCK`, `MISC`.
+- **`Resource` is a closed enum:** `ALL`, `INFERENCE`, `TRAINING`, `GPU`, `SANDBOX`, `BROWSER`, `VM`, `WALLCLOCK`, `MISC`.
   Each has one fixed native unit:
 
   | Resource | Native unit |
@@ -99,8 +99,18 @@ spec = SwarmSpec(
   | `VM` | hours |
   | `WALLCLOCK` | seconds |
   | `MISC` | none: dollars only |
+  | `ALL` | none: dollars only |
 
   Wall-clock time has no dollar cap.
+- **`ALL` is the aggregate cap.** It sums every priced charge across every resource, `MISC` included.
+  `SpendLimit.max_usd` is shorthand for `ResourceCap(Resource.ALL, usd=…)` with no selector, and they compile to the
+  same row. Because `ALL` takes the same selectors as any other cap, it can bound one slice of total spend across
+  every resource type:
+  - `ResourceCap(Resource.ALL, usd=15, provider="modal")` caps all Modal spend: GPU, sandbox and serving.
+  - `ResourceCap(Resource.ALL, usd=5, actor_type="reviewer")` caps everything reviewers cause.
+
+  It is in dollars only, because units can't be summed across resources. It wins over nothing and nothing wins over
+  it: every cap applies, and the first to exhaust acts.
 - **`MISC` is the catch-all.** Any metered charge that doesn't map to a dedicated resource is recorded as `MISC`.
   That covers metered tools, third-party APIs, and a new provider before it gets its own type. So `max_usd` always
   covers it, and nothing escapes the total. `MISC` caps are in dollars only, because there is no common unit, and
