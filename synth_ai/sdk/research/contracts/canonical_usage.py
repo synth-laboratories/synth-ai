@@ -367,7 +367,6 @@ class SmrResourceLimit:
     selector: SmrResourceLimitSelector
     metric: str
     limit_value: float | None
-    limit_quantity: SmrLimitQuantity | None
     unit: str
     blocks_at_limit: bool
     warning_threshold_percent: float | None
@@ -395,7 +394,6 @@ class SmrResourceLimit:
             selector=SmrResourceLimitSelector.from_wire(mapping.get("selector")),
             metric=_require_string(mapping, "metric", label="resource limit.metric"),
             limit_value=_optional_float_value(mapping, "limit_value"),
-            limit_quantity=SmrLimitQuantity.from_wire(mapping.get("limit_quantity")),
             unit=_require_string(mapping, "unit", label="resource limit.unit"),
             blocks_at_limit=bool(mapping.get("blocks_at_limit", True)),
             warning_threshold_percent=_optional_float_value(
@@ -496,7 +494,6 @@ class SmrResourceLimitProgressItem:
     limit_value: float | None
     current_value: float | None
     remaining_value: float | None
-    limit_quantity: SmrLimitQuantity | None
     current_quantity: SmrLimitQuantity | None
     remaining_quantity: SmrLimitQuantity | None
     used_percent: float | None
@@ -544,7 +541,6 @@ class SmrResourceLimitProgressItem:
             limit_value=_optional_float_value(mapping, "limit_value"),
             current_value=_optional_float_value(mapping, "current_value"),
             remaining_value=_optional_float_value(mapping, "remaining_value"),
-            limit_quantity=SmrLimitQuantity.from_wire(mapping.get("limit_quantity")),
             current_quantity=SmrLimitQuantity.from_wire(mapping.get("current_quantity")),
             remaining_quantity=SmrLimitQuantity.from_wire(mapping.get("remaining_quantity")),
             used_percent=_optional_float_value(mapping, "used_percent"),
@@ -603,7 +599,6 @@ class SmrResourceLimitProgressItem:
             selector=self.selector,
             metric=self.metric,
             limit_value=self.limit_value,
-            limit_quantity=self.limit_quantity,
             unit=self.unit,
             blocks_at_limit=self.blocks_at_limit,
             warning_threshold_percent=self.warning_threshold_percent,
