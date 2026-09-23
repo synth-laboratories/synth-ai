@@ -86,7 +86,7 @@ spec = SwarmSpec(
 
 ### Rules, validated in `__post_init__` and again in the backend
 
-- **`Resource` is a closed enum:** `INFERENCE`, `TRAINING`, `GPU`, `SANDBOX`, `BROWSER`, `VM`, `WALLCLOCK`.
+- **`Resource` is a closed enum:** `INFERENCE`, `TRAINING`, `GPU`, `SANDBOX`, `BROWSER`, `VM`, `WALLCLOCK`, `MISC`.
   Each has one fixed native unit:
 
   | Resource | Native unit |
@@ -98,8 +98,16 @@ spec = SwarmSpec(
   | `BROWSER` | hours |
   | `VM` | hours |
   | `WALLCLOCK` | seconds |
+  | `MISC` | none: dollars only |
 
   Wall-clock time has no dollar cap.
+- **`MISC` is the catch-all.** Any metered charge that doesn't map to a dedicated resource is recorded as `MISC`.
+  That covers metered tools, third-party APIs, and a new provider before it gets its own type. So `max_usd` always
+  covers it, and nothing escapes the total. `MISC` caps are in dollars only, because there is no common unit, and
+  can be narrowed by `provider` and a free-form `sku`, e.g. `ResourceCap(Resource.MISC, usd=5, provider="exa")`.
+  A charge still needs a price: `provider_reported` or `rate_card`. The fail-closed rule applies to `MISC` too.
+  When a `MISC` provider becomes significant, it graduates to its own `Resource`, and old caps keep matching
+  through the provider selector.
 - **Each `ResourceCap` sets exactly one measure:** either `usd=` or the resource's native unit. Setting
   both is an error, and so is using the wrong unit, such as `ResourceCap(Resource.GPU, tokens=...)`.
 - **Selectors (`provider`, `model`, `sku` for GPU type, `actor_type`) are optional and narrow a cap.** Two caps with the same
