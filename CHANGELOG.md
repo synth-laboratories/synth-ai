@@ -13,10 +13,24 @@ All notable changes to the `synth-ai` package are documented here.
   takes exactly one measure (`usd`, `tokens`, `train_tokens`, `sample_tokens`,
   `hours` or `seconds`) and may override `on_exhaustion` (`LimitAction.PAUSE` or
   `STOP`). Dollars travel as exact integer cents; sub-cent amounts are rejected.
-  The backend does not meter hours or training tokens yet and answers those caps
-  with `spend_metric_not_metered`; the SDK builds them so it needs no change later.
+  The backend meters GPU, sandbox and VM hours. It answers caps on browser hours
+  and training tokens with `spend_metric_not_metered`; the SDK builds them anyway,
+  so it needs no change when they are metered.
 - `SmrResourceLimitSelector` reads the new `resource` and `sku` selector fields,
   with `spend_resource` parsing them into `Resource`.
+- `session.scope_limits` lists, reads, creates, updates and deletes a run's or
+  objective's `(scope, dimension)` caps (`LimitScope`, `ScopeLimit`). `update()` keeps
+  the cap unless `cap_amount` is given (`KEEP_CAP`), because an explicit `None`
+  removes the cap.
+- `extend_*resource_limit` methods take `accept_unpriced_usage=True`, which clears
+  a dollar cap's fail-closed pause on usage recorded without a price. Extension
+  selectors now carry `resource` and `sku`, so per-resource caps can be extended.
+
+### Removed
+
+- `SmrResourceLimit.limit_quantity` and `SmrResourceLimitProgressItem.limit_quantity`.
+  The backend never sent the field, so it was always `None`. Read `limit_value` and
+  `unit` instead.
 
 ### Changed
 
