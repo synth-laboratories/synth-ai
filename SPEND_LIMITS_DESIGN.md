@@ -86,12 +86,13 @@ spec = SwarmSpec(
 
 ### Rules, validated in `__post_init__` and again in the backend
 
-- **`Resource` is a closed enum:** `INFERENCE`, `GPU`, `SANDBOX`, `BROWSER`, `VM`, `WALLCLOCK`.
+- **`Resource` is a closed enum:** `INFERENCE`, `TRAINING`, `GPU`, `SANDBOX`, `BROWSER`, `VM`, `WALLCLOCK`.
   Each has one fixed native unit:
 
   | Resource | Native unit |
   |---|---|
   | `INFERENCE` | tokens |
+  | `TRAINING` | tokens (train and sample) |
   | `GPU` | hours |
   | `SANDBOX` | hours |
   | `BROWSER` | hours |
@@ -101,7 +102,7 @@ spec = SwarmSpec(
   Wall-clock time has no dollar cap.
 - **Each `ResourceCap` sets exactly one measure:** either `usd=` or the resource's native unit. Setting
   both is an error, and so is using the wrong unit, such as `ResourceCap(Resource.GPU, tokens=...)`.
-- **Selectors (`provider`, `model`, `actor_type`) are optional and narrow a cap.** Two caps with the same
+- **Selectors (`provider`, `model`, `sku` for GPU type, `actor_type`) are optional and narrow a cap.** Two caps with the same
   selector and measure are an error. Overlapping caps all apply, and the first to exhaust acts.
 - **`max_usd` always applies to the sum.** Per-resource dollar caps don't need to add up to it, and a
   cap larger than `max_usd` is allowed but reported as redundant in the preflight.
@@ -142,6 +143,43 @@ The old fields keep working, but they're compiled into `SpendLimit`, so nothing 
 
 Passing both `spend=` and a legacy field that disagrees with it is a validation error.
 
+## Provider fit: OpenRouter, Modal, Tinker
+
+The first draft of this proposal didn't fit all three providers. The changes below are part of the proposal now.
+
+| Provider | What it bills | Fits the first draft? | Change |
+|---|---|---|---|
+| **OpenRouter** | Inference, per token, per model. The price varies with the serving stack it routes to, and hidden reasoning tokens are billed. | Yes: `ResourceCap(INFERENCE, provider="openrouter", model=…)` | Price from the cost OpenRouter reports, not our rate card. The gateway already parses `cost` / `cost_usd` (`services/smr/inference/gateway/usage.py:38`). Token caps count reasoning tokens. Reserve before each call so a cap isn't overshot by one large completion. An OpenRouter 402 (account out of credit) becomes a limit blocker naming the provider, not an actor crash. |
+| **Modal** | GPU seconds priced by GPU type; CPU/memory seconds for CPU-only containers; scale-to-zero serving apps (the Laguna vLLM apps) | Partly. `GPU hours` mixes H100 and A10G, which have very different prices, and Modal is recorded at $0 today (`metered_infra_registry.py:374-416`, "unbilled until product sets a Modal container rate"). | Add a `sku` selector, e.g. `ResourceCap(GPU, hours=2, provider="modal", sku="H100")`. CPU-only Modal containers count as `SANDBOX` with `provider="modal"`. Price Modal from its GPU-type rate table, and reconcile against Modal's billing later. Until Modal has a rate, the fail-closed rule refuses dollar-capped runs that use Modal (decision 2). |
+| **Tinker** | Training and sampling, per token, by base model: prefill, sample and train tokens | **No.** It is neither `INFERENCE` nor `GPU`. The backend already classifies it separately (`metered_infra_registry.py:441` → `third_party_training`; `usage_metering.py:229` → `tinker_request`). | Add `Resource.TRAINING`, native unit tokens, with metrics `train_tokens` and `sample_tokens`, e.g. `ResourceCap(TRAINING, usd=20, provider="tinker", model="Qwen3-8B")`. Price by base model from Tinker's rate table. |
+
+### Where each price comes from
+
+Every resource cap needs to know where its cost figure comes from. The rate card gains a `cost_source` for each provider:
+
+| cost_source | Used for |
+|---|---|
+| `provider_reported` | OpenRouter. The cost is exact, per call. |
+| `rate_card` | Our own infra, Daytona, and Modal by GPU type |
+| `rate_card_then_reconciled` | Modal and Tinker. Estimate live, then correct from provider billing. The correction can push a run over its cap after the fact, so each progress item reports it. |
+
+### Shared deployments
+
+A scale-to-zero Modal app that serves many runs, such as `laguna-vllm`, can't be charged by GPU time to one run.
+Options:
+- (a) charge its calls as `INFERENCE provider="modal"` at an internal per-token rate;
+- (b) leave it out of run caps and cap it at project or org scope (phase 3).
+
+Option (a) is proposed.
+
+### Tinker scope
+
+The SDK and backend both reject Tinker for new Swarm launches
+(`swarms.py` `ProviderBinding`; backend `contracts/run_policy.py:63-71`). Today's Tinker spend (gold loops, the REB
+broker with its task-wide cap) runs outside Swarms. `Resource.TRAINING` is still worth defining, so that those
+brokers can report and enforce against the same limit model at project scope. Whether Swarms should accept
+Tinker again is a separate decision (decision 6).
+
 ## Backend changes
 
 1. **Storage (migration).** Add `limit_id` as the primary key to `smr_limits`, plus the columns
@@ -178,3 +216,6 @@ Passing both `spend=` and a legacy field that disagrees with it is a validation 
 2. **Unpriced resources under a dollar cap.** Refuse launch (proposed), or allow with a warning?
 3. **Default action on exhaustion.** `pause` (the current default, which lets someone extend the cap) or `stop`?
 4. **Should per-resource dollar caps be allowed to exceed `max_usd`?** Proposed: yes, reported as redundant.
+5. **Shared Modal serving apps.** Charge per token to the calling run (proposed), or cap only at project/org scope?
+6. **Tinker in Swarms.** Keep it rejected, with `TRAINING` used only by the external brokers (proposed), or re-admit it?
+7. **Modal rate.** Product needs to set a Modal GPU/CPU rate table. Without it, dollar-capped Modal runs are refused.
