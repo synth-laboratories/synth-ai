@@ -44,6 +44,13 @@ Status, 2026-09-23: **phase 1 and most of phase 2 are implemented** on unpushed 
 - **Behaviour change:** Modal usage now counts toward every dollar cap, legacy caps included, where it used to count as $0. A run that uses Modal can therefore reach its existing total spend cap sooner.
 - **What the prices assume:** base region and preemptible (`default_multiplier = 1.0`). Raise the multiplier if our Modal usage is region-pinned or non-preemptible.
 
+**Deferred to the Better Swarms and Interns resources project** (plan: backend `notes/plans/PLAN_better_swarms_and_interns_resources_2026-09-23.md`, `e92820d7a`). That covers:
+- recording GPU type and real running time for agent-launched Modal sandboxes;
+- hard limits;
+- backend-owned GPU launches.
+
+Until the project ships, Modal access for Swarms and Interns is planned to be switched off in prod and staging.
+
 **Not done, with reasons:**
 
 | Item | Status |
