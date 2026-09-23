@@ -237,3 +237,93 @@ Tinker again is a separate decision (decision 6).
 5. **Shared Modal serving apps.** Charge per token to the calling run (proposed), or cap only at project/org scope?
 6. **Tinker in Swarms.** Keep it rejected, with `TRAINING` used only by the external brokers (proposed), or re-admit it?
 7. **Modal rate.** Product needs to set a Modal GPU/CPU rate table. Without it, dollar-capped Modal runs are refused.
+
+## Phase 1 wire contract (binding for the SDK and backend implementations)
+
+### Request
+
+Both run-create routes, `POST /smr/runs:one-off` and `POST /smr/projects/{id}/trigger`, accept an optional `spend` object:
+
+```json
+"spend": {
+  "max_usd_cents": 2500,
+  "on_exhaustion": "pause",
+  "warn_at_fraction": 0.9,
+  "caps": [
+    {"selector": {"resource": "gpu", "provider": "modal", "sku": "H100"}, "metric": "spend_usd_cents", "limit": 1000},
+    {"selector": {"resource": "inference", "actor_type": "worker"}, "metric": "tokens", "limit": 2000000, "on_exhaustion": "stop"},
+    {"selector": {"resource": "all", "provider": "modal"}, "metric": "spend_usd_cents", "limit": 1500}
+  ]
+}
+```
+
+**Top-level fields:**
+- `max_usd_cents`: optional int ≥ 0. It compiles to the cap `{selector: {resource: "all"}, metric: "spend_usd_cents"}`.
+- `on_exhaustion`: `"pause"` or `"stop"`. The default is `"pause"`. It is the default for every cap.
+- `warn_at_fraction`: optional float in (0, 1]. The default is 0.9.
+
+**Selector:** `resource` is required. `provider`, `model`, `sku` and `actor_type` are optional strings.
+`actor_type` must be one of the backend's actor types (orchestrator, worker, reviewer, …).
+
+**Metric, allowed per resource:**
+
+| resource | allowed metrics |
+|---|---|
+| `all` | `spend_usd_cents` |
+| `inference` | `spend_usd_cents`, `tokens` |
+| `training` | `spend_usd_cents`, `train_tokens`, `sample_tokens` |
+| `gpu` | `spend_usd_cents`, `gpu_hours` |
+| `sandbox` | `spend_usd_cents`, `sandbox_hours` |
+| `browser` | `spend_usd_cents`, `browser_hours` |
+| `vm` | `spend_usd_cents`, `vm_hours` |
+| `wallclock` | `wallclock_seconds`; no provider, model, sku or actor_type allowed |
+| `misc` | `spend_usd_cents` |
+
+**Limit values:**
+- `limit` must be ≥ 0.
+- `spend_usd_cents`, `tokens`, `train_tokens`, `sample_tokens` and `wallclock_seconds` are integers.
+- `*_hours` metrics are decimals with at most 4 places.
+
+**Rejections, all HTTP 422 with a stable `code`:**
+- `spend_cap_duplicate`: two caps share the same (selector, metric).
+- `spend_cap_metric_not_allowed`: the metric isn't allowed for the resource.
+- `spend_metric_not_metered`: phase 1 does not meter `gpu_hours`, `sandbox_hours`, `browser_hours`, `vm_hours`, `train_tokens` or `sample_tokens`. It rejects caps on them rather than accept a cap it can't enforce. Phase 2 lifts this.
+- `spend_conflicts_with_legacy_limit`: `spend` is given together with a legacy limit field whose compiled cap disagrees.
+
+### How the old inputs compile
+
+The backend compiles the legacy inputs into the same cap list when `spend` is absent:
+
+| Legacy input | Compiled cap |
+|---|---|
+| `limit.max_spend_usd` and `run_policy.limits.total_cost_cents` | `all`/`spend_usd_cents`, taking the minimum. Both at once is a warning. |
+| `providers[i].limit.max_spend_usd` | `inference`/`spend_usd_cents` with `provider` = that provider. This input was dropped before. |
+| `providers[i].limit.max_tokens` | `inference`/`tokens` with `provider` |
+| `limit.max_tokens` | `inference`/`tokens` |
+| `limit.max_wallclock_seconds`, `timebox_seconds` | `wallclock`/`wallclock_seconds`, stricter value wins, `stop` for the timebox (unchanged) |
+| `limit.max_gpu_hours` | Kept as today: stored, reported as `accounting_incomplete`, not enforced. Legacy callers aren't broken in phase 1, and the create response carries a warning. |
+
+### Classifying usage into resources
+
+Every existing spend-ledger or usage-fact row maps to exactly one resource:
+
+| Usage | Resource |
+|---|---|
+| inference/model usage | `inference` |
+| `tinker_request` / `third_party_training` | `training` |
+| `gpu_seconds` / `third_party_gpus` | `gpu` |
+| `sandbox_seconds` / Daytona container time | `sandbox` |
+| browser/kernel | `browser` |
+| cloud VM deployment | `vm` |
+| anything else, metered tools included | `misc` |
+
+`all` matches every row.
+
+A cap's usage is the sum over rows matching its selector: resource, plus provider, model, sku and actor_type when each is set.
+
+### Read model
+
+`GET .../resource-limits` and the progress endpoints return one item per stored cap. `selector` gains `resource` and
+`sku`. `selector.kind` is `"resource"` for every cap. The one exception is the unselected `all` spend cap, which keeps
+`kind: "run"` for backward compatibility. `metric` is the new metric name. Extensions accept any stored cap's
+selector plus metric, and no longer only `{kind: "run"}`.
