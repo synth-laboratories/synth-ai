@@ -1,10 +1,56 @@
 # Swarm spend limits: one cap, with per-resource detail
 
-Status: **phase 1 implemented**, 2026-09-23, on unpushed branches `claude/spend-limits-20260923`:
-- SDK: `1d3bc466` plus the golden wire test;
-- backend: `5d1ed6e49`, `0022ab358`, `d8a282555` and the golden test, off origin/dev.
+Status, 2026-09-23: **phase 1 and most of phase 2 are implemented** on unpushed branches `claude/spend-limits-20260923`.
 
-Phases 2 and 3 are not started.
+**Backend (off origin/dev):**
+- `48c497a08` phase 1
+- `ee65159a8` golden wire test
+- `86f63e8b2` hour metering
+- `46be295ed` fail closed on unpriced usage
+- `bf7ec693e` `accept_unpriced_usage` extensions
+- `a34a9d80b` inference admission fix
+
+**SDK (off origin/main):**
+- `1d3bc466` types
+- `936b0046`, `4406a60b` golden wire file
+- `b18246b2` extensions
+- `29b0907c` per-scope limit CRUD client
+
+## Progress against the handoff (B1–B20)
+
+**Done:**
+
+| Item | What was done |
+|---|---|
+| B2 | Read-model change checked. No consumer filters on `selector.kind`. `{"kind":"run"}` still addresses every primary row, and primary `resource_limit_id`s are unchanged. Only the label changes, for unselected `tokens`/`wallclock_seconds` caps. |
+| B3 | The backend branch is rewritten so every commit builds and tests on its own. Phase 1 is one commit, and the tree is identical to before. |
+| B7 | `gpu_hours` is enforced: wall-clock seconds of GPU usage / 3600. GPU type (`sku`) comes from the linked spend-ledger row's `metadata.gpu_type`. A metered-infra container that carries a GPU type classifies as GPU; Modal GPU containers are recorded as `sandbox_seconds`, so this rule is what makes Modal GPU caps work. The legacy `max_gpu_hours` cap is enforced through the same path, and its "not enforced" warning is gone. |
+| B8 | `sandbox_hours` and `vm_hours` are enforced from the wall-clock meters (`sandbox_seconds`, `modal_sandbox_seconds`, `dev_environment_uptime_seconds`, `cloud_deployment_vm_seconds`). A matched meter with no wall-clock basis, e.g. Daytona vCPU- or GiB-seconds, makes the cap incomplete rather than guessed. |
+| B11 | Fail closed. Usage recorded without a price (`observability_only_modal`, `observability_only_unpriced_gpu`) is reported under every dollar cap that covers it. A cap whose policy sets `fail_closed_on_unpriced` pauses or stops the run with reason `unpriced_usage_under_spend_cap`. **Only caps from the `spend` API set it.** Legacy and runbook caps keep counting unpriced usage as $0, so existing Modal runs are unaffected, but their receipts now name the unpriced usage. The flag is written only when set, so legacy policy payloads are unchanged. |
+| B11 follow-up | A run paused this way can be resumed. An extension with `accept_unpriced_usage=true` clears the flag in the same revisioned update, and the cap may stay the same. It is available in the SDK on every `extend_*resource_limit` method. |
+| B12 | Largely already true. Token totals include hidden reasoning tokens (provider `total_tokens`, or input + output where output includes reasoning). The gateway prices from the provider-reported `cost` before falling back to contract rates (`gateway/usage.py`). |
+| B15 | The not-metered rejection is lifted for `gpu_hours`, `sandbox_hours` and `vm_hours`. The golden file is updated in both repos. |
+| B19 | SDK `session.scope_limits`: list, get, create, update and delete for run/objective caps. `update()` keeps the cap unless one is given (`KEEP_CAP`), because the route treats an explicit `null` as removing it. |
+
+**Found and fixed along the way:**
+- **Inference admission read selector-scoped caps as the run's caps.** A worker-only tokens cap made the whole run token-governed and could be reserved against in place of the primary row. Admission now reads primary rows only. The Postgres test fails on the old code.
+- **SDK extension selectors dropped `resource`/`sku`.** A per-resource cap read from the progress model could not be extended. Now they are carried.
+
+**Not done, with reasons:**
+
+| Item | Status |
+|---|---|
+| Still not metered | `browser_hours` (browser usage is metered in GB-seconds, not wall time) and Tinker `train_tokens`/`sample_tokens` (Tinker reports per job with a cost, no token split). Dollar caps on BROWSER and TRAINING work. |
+| B10 rate-card consolidation | Deferred. Limits need usage with a recorded cost plus a pricing policy that says when it's unpriced, and both exist. Merging `PricingEngine`, the VM rate and the dev-environment rate into one module is a billing refactor with its own risk and no limit behaviour depending on it. |
+| B12 (reservation) | Per-call reservation still covers only the run's primary spend and tokens caps. Selected caps are evaluated on every spend write in the threshold band and by the 15 s ticker and sweeper, so they can overshoot by up to ~15 s of spend. Reserving against them needs per-selector counters. |
+| B12 (402) | An OpenRouter 402 (account out of credit) as a limit blocker is not done. It lives in the actor/gateway error path, not in limits. |
+| B13 | Reconciliation is not built. Limits sum whatever usage facts say, so correction facts from provider-usage ingest would flow through automatically. Whether Modal and Tinker ingest writes corrections is unverified. |
+| B14 | Blocked on D1. Per-token pricing for shared Modal serving apps needs the product-set Modal rates, which would be a contract-rate route in the gateway. |
+| B16 | Not done on purpose. The legacy `spend_recording` enforcers are being migrated under a measured shadow-equivalence rollout (`smr.limit_wallclock_shadow_equivalence.v1`). Removing them belongs to that rollout. |
+| B17 | A rollout step, not a code change. The envelope mode comes from `SMR_LIMIT_ENVELOPE_MODE` and `SMR_LIMIT_ENVELOPE_MODE_<LANE>` (default `shadow`). Before setting `enforce` for a lane, check that shadow refusals are near zero: count run-start receipts whose limit-envelope status is `shadow_refused`, per funding lane. |
+| B18 | Project and org scopes need product decisions before code: the reset window (calendar month or rolling), which runs count (project-owned only?), and whether a scope cap pauses every run or refuses new launches. `scope_kind` is `run|objective` today, with a DB check. |
+| B20 | `limit_quantity` is still parsed by the SDK and never sent by the backend. It is harmless (always `None`). Remove it or populate it in a follow-up. |
+| B1, B4, B5 | Pushing, PRs, the migration rollout and the SDK release are waiting for the user's go-ahead. |
 
 ## Phase 1 as built
 
