@@ -82,11 +82,13 @@ evidence admission and cited synthesis under one explicit idempotency key:
 from uuid import uuid4
 
 from synth_ai import SynthClient
+from synth_ai.sdk.index import SearchBillingConstraints
 
 with SynthClient() as synth:
     result = synth.index.answer(
         query="Why did the retrieval experiment reject launch readiness?",
         mode="fast",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
         idempotency_key=str(uuid4()),
     )
     if result.status == "answered":
@@ -95,7 +97,9 @@ with SynthClient() as synth:
         print(result.insufficient_evidence_reason)
 ```
 
-Every returned claim names exact digest-bound citation spans. Unsupported or
+The answer call performs a funded Search internally, so it needs the same
+explicit wallet consent and charge ceiling as a FAST search. Every returned
+claim names exact digest-bound citation spans. Unsupported or
 revoked evidence returns `insufficient_evidence`, never uncited prose. The
 credential-free public client intentionally does not expose answer generation.
 
@@ -185,6 +189,19 @@ restarting the Search. `result` reads the saved Search specification first, so
 the result is validated against the original request. These commands require
 `SYNTH_API_KEY` or `--api-key`. An unfinished result returns the backend's
 typed `index_search_result_not_ready` failure.
+
+For wallet-funded CLI searches, provide explicit consent and a retail ceiling:
+
+```sh
+synth-ai index search "RLVR verifier design" --allow-wallet --max-charge-cents 5 --idempotency-key YOUR_UNIQUE_REQUEST_ID
+synth-ai index searches create "Compare the retrieval designs" --mode deep --allow-wallet --max-charge-cents 25 --idempotency-key YOUR_OTHER_UNIQUE_REQUEST_ID
+```
+
+`synth-ai index answer` takes the same `--allow-wallet` and
+`--max-charge-cents` options for its underlying Search. Omitting them does not
+grant wallet consent; an already-funded promo policy may still apply. Durable
+Deep CLI commands accept the backend's 300-second execution maximum, while the
+synchronous `answer` route remains bounded to 90 seconds.
 
 HTTP failures expose their stable Index code through `error.failure.code`,
 request and correlation IDs when supplied by the backend, and a retry directive.
