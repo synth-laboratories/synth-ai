@@ -57,7 +57,14 @@ _KEY = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_.-]+$")
 
 
 class IndexSearchRequest(IndexContract):
-    search: SearchSpec
+    search: SearchSpec = Field(
+        description=(
+            "Search intent and caller-owned billing bound. Current FAST public and private "
+            "searches cost 5 cents; wallet funding needs billing.allow_wallet=true and "
+            "billing.max_charge_cents>=5. DEEP needs a mode grant and a ceiling of "
+            "at least 10 cents. Never infer funding consent from the query."
+        )
+    )
     idempotency_key: str = _KEY
 
 
@@ -220,14 +227,14 @@ def build_index_tools(
     tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index research Contributions with an authenticated funding identity. Public-scope fast search requires explicit wallet consent and a sufficient charge ceiling. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
+            description="Search reviewed Synth Index Contributions with an authenticated funding identity. Current FAST public and private searches cost 5 cents; wallet funding requires search.billing.allow_wallet=true and max_charge_cents>=5. Do not infer consent. Reuse the same idempotency key for uncertain retries and preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
             required_scopes=read,
         ),
         ToolDefinition(
             name="index_search_create",
-            description="Create one durable fast or deep Search. Return its Search ID and state immediately; reuse the idempotency key after uncertain responses.",
+            description="Create one durable FAST or DEEP Search. Current FAST public/private wallet searches need explicit consent and a ceiling of at least 5 cents; DEEP needs a mode grant and at least 10 cents. Return its Search ID and state immediately; reuse the idempotency key after uncertain responses.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search_create,
             required_scopes=read,

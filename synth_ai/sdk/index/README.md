@@ -1,5 +1,9 @@
 # Synth Index SDK
 
+For an API/MCP-only coding-agent integration, use the copyable
+[setup prompt](AGENT_SETUP_PROMPT.md). It does not run a paid search or create a
+product UI.
+
 ## External agents over stdio MCP
 
 Install the reviewed SDK package, then configure your agent's MCP server:
