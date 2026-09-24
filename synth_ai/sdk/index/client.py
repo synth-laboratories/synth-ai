@@ -75,7 +75,6 @@ from .lifecycle import (
 from .search import (
     ContentsResult,
     ContentsSpec,
-    PublicSearchResult,
     Search,
     SearchBillingConstraints,
     SearchCancellation,
@@ -158,11 +157,9 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contests.entries.review": ("POST", f"{_K}/entries/{{entry_id}}/review"),
 }
 
-# The complete credential-free customer surface: the eight operations a reader
-# can call with no account at all. Every one of them is also reachable on the
-# authenticated client, which sees private work in addition.
+# Anonymous callers may browse published research, but search requires an
+# authenticated funding identity and uses index.search instead.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
-    "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
     "index.public.capabilities": ("GET", f"{_P}/public/capabilities"),
     "index.public.tags.list": ("GET", f"{_P}/public/tags"),
@@ -370,14 +367,8 @@ def _answer_result(payload: object, spec: AnswerSpec) -> AnswerResult:
     return result
 
 
-def _public_search_result(payload: object, spec: SearchSpec) -> PublicSearchResult:
-    result = PublicSearchResult.model_validate(payload)
-    _search_delivery_bounds(result, spec)
-    return result
-
-
-def _search_delivery_bounds(result: SearchResult | PublicSearchResult, spec: SearchSpec) -> None:
-    """Citations are a subset of the caller-bounded, private retrieval set."""
+def _search_delivery_bounds(result: SearchResult, spec: SearchSpec) -> None:
+    """Citations stay within the caller's requested result bound."""
     if len(result.citations) > spec.content.max_results:
         raise ValueError("Index response exceeds requested citation bound")
 
@@ -1352,36 +1343,8 @@ class _PublicIndexRoot(_Resource):
         """Discover the public surface: public visibility only, no write features."""
         return self._run(_Call("index.public.capabilities", Capabilities.model_validate))
 
-    def search(
-        self,
-        spec: SearchSpec | None = None,
-        *,
-        query: str | None = None,
-        scope: SearchScope | None = None,
-        filters: SearchFilters | None = None,
-        max_results: int | None = None,
-        idempotency_key: str | None = None,
-    ) -> PublicSearchResult:
-        """Search reviewed public Contributions with no account or usage receipt."""
-        del idempotency_key
-        spec = _search_spec(spec, query, scope, filters, max_results)
-        if (
-            spec.mode != SearchMode.FAST
-            or spec.scope.visibility != "public"
-            or spec.scope.collection_ids
-        ):
-            raise ValueError("Anonymous Index search is public-only and fast-only")
-        return self._run(
-            _Call(
-                "index.public.search",
-                lambda payload: _public_search_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
-            )
-        )
-
-
 class PublicIndexAPI(_PublicIndexRoot):
-    """Blocking, read-only API over an injected credential-free transport."""
+    """Blocking, browse-only API over an injected credential-free transport."""
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -1389,7 +1352,7 @@ class PublicIndexAPI(_PublicIndexRoot):
 
 
 class AsyncPublicIndexAPI(_PublicIndexRoot):
-    """Async, read-only API over an injected credential-free transport."""
+    """Async, browse-only API over an injected credential-free transport."""
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport

@@ -116,6 +116,7 @@ def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]
 def build_index_tools(
     client_factory: IndexClientFactory,
     *,
+    include_search: bool = True,
     include_answer: bool = True,
     include_lifecycle: bool = True,
 ) -> list[ToolDefinition]:
@@ -219,7 +220,7 @@ def build_index_tools(
     tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index research Contributions. Public callers can use fast mode; authenticated callers can use durable deep mode. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
+            description="Search reviewed Synth Index research Contributions with an authenticated funding identity. Public-scope fast search requires explicit wallet consent and a sufficient charge ceiling. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
             required_scopes=read,
@@ -319,6 +320,7 @@ def build_index_tools(
     return [
         tool
         for tool in tools
-        if (include_answer or tool.name != "index_answer")
+        if (include_search or tool.name != "index_search")
+        and (include_answer or tool.name != "index_answer")
         and (include_lifecycle or tool.name not in lifecycle_names)
     ]

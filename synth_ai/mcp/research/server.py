@@ -414,7 +414,7 @@ class ResearchMcpServer:
         index_client_factory: IndexClientFactory | None = None,
         index_write_enabled: bool = True,
     ) -> None:
-        self._default_api_key = api_key
+        self._default_api_key = api_key or None
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
         self._index_client_factory = index_client_factory
@@ -484,6 +484,7 @@ class ResearchMcpServer:
                     tool
                     for tool in build_index_tools(
                         self._index_client_factory,
+                        include_search=self._default_api_key is not None,
                         include_answer=self._default_api_key is not None,
                         include_lifecycle=self._default_api_key is not None,
                     )
@@ -2903,7 +2904,7 @@ def _stdio_server() -> ResearchMcpServer:
     api_key = None
     backend_base = None
     if enabled:
-        api_key = os.environ.get("SYNTH_API_KEY", "").strip()
+        api_key = os.environ.get("SYNTH_API_KEY", "").strip() or None
         backend_base = os.environ.get("SYNTH_BACKEND_URL", "").strip()
         if not backend_base:
             raise ValueError("Index MCP requires explicit SYNTH_BACKEND_URL")

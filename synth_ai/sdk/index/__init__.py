@@ -54,7 +54,6 @@ from .public import AsyncPublicIndexClient, PublicIndexClient
 from .search import (
     ContentsResult,
     ContentsSpec,
-    PublicSearchResult,
     Search,
     SearchBillingConstraints,
     SearchCancellation,
@@ -128,7 +127,6 @@ __all__ = [
     "ProfileView",
     "PromoCreditSummary",
     "PublicIndexClient",
-    "PublicSearchResult",
     "PublicationSpec",
     "PublicationStatus",
     "ResearchDraftSpec",

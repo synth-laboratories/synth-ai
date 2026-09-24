@@ -194,6 +194,7 @@ class SearchSettlementOutcome(StrEnum):
     COMPLETE = "complete"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
     USABLE_PARTIAL = "usable_partial"
+    INFRASTRUCTURE_STOPPED = "infrastructure_stopped"
     NO_DELIVERABLE = "no_deliverable"
     INFRASTRUCTURE_FAILURE = "infrastructure_failure"
     CANCELLED = "cancelled"
@@ -206,7 +207,7 @@ class SearchUsage(IndexContract):
     mode: SearchMode = SearchMode.FAST
     billing_scope: Literal["public", "private"]
     logical_units: Annotated[StrictInt, Field(ge=1, le=1)] = 1
-    price_version: Identifier | None = "synth.index.fast.v1"
+    price_version: Identifier | None = "synth.index.fast.v2"
     amount_cents: Annotated[StrictInt, Field(ge=0)]
     receipt_id: Identifier
     search_calls: Annotated[StrictInt, Field(ge=1)] = 1
@@ -225,17 +226,16 @@ class SearchUsage(IndexContract):
     @model_validator(mode="after")
     def check_published_rate(self) -> Self:
         if self.mode == SearchMode.FAST:
-            expected = 0 if self.billing_scope == "public" else 5
-            if (
-                self.price_version != "synth.index.fast.v1"
-                or self.amount_cents != expected
-                or self.read_calls
-                or self.input_tokens
-                or self.output_tokens
-                or self.inference_cost_usd_micros
-            ):
-                raise ValueError("fast usage must use its published rate and no deep inference")
-        elif self.price_version == "synth.index.fast.v1":
+            # v1 is historical only; new public and private FAST both cost 5 cents.
+            if self.price_version == "synth.index.fast.v2":
+                expected = 5
+            elif self.price_version == "synth.index.fast.v1":
+                expected = 0 if self.billing_scope == "public" else 5
+            else:
+                expected = None
+            if expected is None or self.amount_cents != expected or self.read_calls:
+                raise ValueError("fast usage must use its published rate and no deep tool reads")
+        elif self.price_version in {"synth.index.fast.v1", "synth.index.fast.v2"}:
             raise ValueError("deep usage cannot use the fast-search price version")
         elif self.price_version is None and self.amount_cents:
             raise ValueError("unpriced deep usage cannot report a charged amount")
@@ -420,31 +420,6 @@ class SearchResult(IndexContract):
             raise ValueError("execution versions must match canonical result versions")
         if self.status == "partial" and self.effective_mode != SearchMode.DEEP:
             raise ValueError("only deep search may return a partial result")
-        return self
-
-
-class PublicSearchResult(IndexContract):
-    """Receipt-free anonymous answer text and cited Contribution IDs."""
-
-    request_id: Identifier
-    mode: Literal["fast"] = "fast"
-    status: Literal["completed"] = "completed"
-    corpus_generation: Identifier
-    ranker_version: Identifier
-    parser_version: Identifier
-    taxonomy_version: Identifier
-    response: Annotated[str, Field(min_length=1, max_length=16_384)]
-    citations: tuple[ContributionReference, ...] = Field(max_length=MAX_SEARCH_CITATIONS)
-    amount_cents: Literal[0] = 0
-
-    @model_validator(mode="after")
-    def check_citations(self) -> Self:
-        inline = tuple(dict.fromkeys(INLINE_CITATION.findall(self.response)))
-        listed = tuple(item.contribution_id for item in self.citations)
-        if inline != listed:
-            raise ValueError("inline citations must equal listed citations in first-appearance order")
-        if not self.citations and self.response != EMPTY_SEARCH_RESPONSE:
-            raise ValueError("an uncited response must be the fixed abstention")
         return self
 
 
