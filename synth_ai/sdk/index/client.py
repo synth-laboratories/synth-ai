@@ -8,7 +8,9 @@ one resource tree serves both clients: the sync client runs calls on the sync
 transport, the async client returns awaitables from the async transport.
 """
 
+import asyncio
 import re
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
@@ -70,11 +72,17 @@ from .search import (
     ContentsResult,
     ContentsSpec,
     PublicSearchResult,
+    Search,
+    SearchCancellation,
     SearchContent,
+    SearchEventPage,
+    SearchExecutionLimits,
     SearchFilters,
+    SearchMode,
     SearchResult,
     SearchScope,
     SearchSpec,
+    SearchState,
 )
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 from .transfer import upload_bytes, upload_bytes_sync
@@ -83,11 +91,17 @@ _P = "/api/v1/index"
 _C = f"{_P}/contributions/{{contribution_id}}"
 _R = f"{_C}/revisions/{{revision_id}}"
 _K = f"{_P}/contests/{{contest_id}}"
+_S = f"{_P}/searches/{{search_id}}"
 
 # operation_id -> (HTTP method, path template). Mirrors backend operation IDs.
 OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.capabilities": ("GET", f"{_P}/capabilities"),
     "index.search": ("POST", f"{_P}/search"),
+    "index.searches.create": ("POST", f"{_P}/searches"),
+    "index.searches.get": ("GET", _S),
+    "index.searches.result": ("GET", f"{_S}/result"),
+    "index.searches.events": ("GET", f"{_S}/events"),
+    "index.searches.cancel": ("POST", f"{_S}/cancel"),
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
@@ -230,21 +244,28 @@ def _revision(reference: ContributionReference) -> dict[str, str]:
 def _search_spec(
     spec: SearchSpec | None,
     query: str | None,
+    mode: SearchMode | None,
     scope: SearchScope | None,
     filters: SearchFilters | None,
     max_results: int | None,
+    limits: SearchExecutionLimits | None,
 ) -> SearchSpec:
     if spec is not None:
-        if any(value is not None for value in (query, scope, filters, max_results)):
+        if any(
+            value is not None
+            for value in (query, mode, scope, filters, max_results, limits)
+        ):
             raise ValueError("Pass either SearchSpec or search keyword arguments, not both")
         return spec
     if query is None:
         raise ValueError("Index search requires a query or SearchSpec")
     return SearchSpec(
         query=query,
+        mode=SearchMode.FAST if mode is None else mode,
         scope=scope if scope is not None else SearchScope(),
         filters=filters if filters is not None else SearchFilters(),
         content=SearchContent(max_results=5 if max_results is None else max_results),
+        limits=limits,
     )
 
 
@@ -358,6 +379,212 @@ class _Resource:
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         self._run = run
         self._asynchronous = asynchronous
+
+
+class SearchExecutionError(RuntimeError):
+    """A durable search reached a failed or cancelled terminal state."""
+
+    def __init__(self, search: Search) -> None:
+        self.search = search
+        code = search.failure.code if search.failure is not None else search.state.value
+        super().__init__(f"Search {search.search_id} ended with {code}")
+
+
+class SearchWaitTimeoutError(TimeoutError):
+    """Local wait elapsed; the durable search remains available by ID."""
+
+    def __init__(self, search: Search) -> None:
+        self.search = search
+        self.search_id = search.search_id
+        super().__init__(f"Timed out waiting for search {search.search_id}")
+
+
+class SearchHandle:
+    """Blocking handle for one durable search execution."""
+
+    def __init__(self, searches: "SearchesAPI", snapshot: Search) -> None:
+        self._searches = searches
+        self.snapshot = snapshot
+
+    @property
+    def search_id(self) -> str:
+        return self.snapshot.search_id
+
+    def refresh(self) -> Search:
+        self.snapshot = self._searches.get(self.search_id)
+        return self.snapshot
+
+    def result(self) -> SearchResult:
+        return self._searches.result(self.search_id)
+
+    def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        return self._searches.events(self.search_id, after=after, limit=limit)
+
+    def cancel(self) -> SearchCancellation:
+        return self._searches.cancel(self.search_id)
+
+    def wait(
+        self, *, timeout_seconds: float = 120.0, poll_interval_seconds: float = 0.5
+    ) -> SearchResult:
+        _check_wait_arguments(timeout_seconds, poll_interval_seconds)
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            if self.snapshot.state == SearchState.COMPLETED:
+                return self.result()
+            if self.snapshot.state in {SearchState.FAILED, SearchState.CANCELLED}:
+                raise SearchExecutionError(self.snapshot)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise SearchWaitTimeoutError(self.snapshot)
+            time.sleep(min(poll_interval_seconds, remaining))
+            self.refresh()
+
+
+class AsyncSearchHandle:
+    """Async handle for one durable search execution."""
+
+    def __init__(self, searches: "SearchesAPI", snapshot: Search) -> None:
+        self._searches = searches
+        self.snapshot = snapshot
+
+    @property
+    def search_id(self) -> str:
+        return self.snapshot.search_id
+
+    async def refresh(self) -> Search:
+        self.snapshot = await self._searches.get(self.search_id)
+        return self.snapshot
+
+    async def result(self) -> SearchResult:
+        return await self._searches.result(self.search_id)
+
+    async def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        return await self._searches.events(self.search_id, after=after, limit=limit)
+
+    async def cancel(self) -> SearchCancellation:
+        return await self._searches.cancel(self.search_id)
+
+    async def wait(
+        self, *, timeout_seconds: float = 120.0, poll_interval_seconds: float = 0.5
+    ) -> SearchResult:
+        _check_wait_arguments(timeout_seconds, poll_interval_seconds)
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            if self.snapshot.state == SearchState.COMPLETED:
+                return await self.result()
+            if self.snapshot.state in {SearchState.FAILED, SearchState.CANCELLED}:
+                raise SearchExecutionError(self.snapshot)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise SearchWaitTimeoutError(self.snapshot)
+            await asyncio.sleep(min(poll_interval_seconds, remaining))
+            await self.refresh()
+
+
+def _check_wait_arguments(timeout_seconds: float, poll_interval_seconds: float) -> None:
+    if timeout_seconds < 0:
+        raise ValueError("timeout_seconds must be non-negative")
+    if poll_interval_seconds <= 0:
+        raise ValueError("poll_interval_seconds must be positive")
+
+
+class SearchesAPI(_Resource):
+    """Durable search executions with reconnectable state and events."""
+
+    def create(
+        self,
+        spec: SearchSpec | None = None,
+        *,
+        query: str | None = None,
+        mode: SearchMode | None = None,
+        scope: SearchScope | None = None,
+        filters: SearchFilters | None = None,
+        max_results: int | None = None,
+        limits: SearchExecutionLimits | None = None,
+        idempotency_key: str | None = None,
+    ) -> Any:
+        """Create one durable execution; retry with the same idempotency key."""
+        request = _search_spec(
+            spec, query, mode, scope, filters, max_results, limits
+        )
+        def handle(payload: object) -> SearchHandle | AsyncSearchHandle:
+            snapshot = Search.model_validate(payload)
+            if snapshot.spec != request:
+                raise ValueError(
+                    "Search response does not match the requested specification"
+                )
+            handle_type = AsyncSearchHandle if self._asynchronous else SearchHandle
+            return handle_type(self, snapshot)
+
+        return self._run(
+            _Call(
+                "index.searches.create",
+                handle,
+                json_body=_body(request),
+                headers=_key(idempotency_key),
+            )
+        )
+
+    def get(self, search_id: str) -> Any:
+        """Read state without starting or resubmitting execution."""
+        return self._run(
+            _Call(
+                "index.searches.get",
+                _bound(
+                    Search,
+                    lambda search: search.search_id == search_id,
+                    "Search response does not match the requested search",
+                ),
+                path_parameters={"search_id": search_id},
+            )
+        )
+
+    def result(self, search_id: str) -> Any:
+        """Read an available terminal result; never converts pending into empty."""
+        return self._run(
+            _Call(
+                "index.searches.result",
+                _bound(
+                    SearchResult,
+                    lambda result: result.search_id == search_id,
+                    "Search result does not match the requested search",
+                ),
+                path_parameters={"search_id": search_id},
+            )
+        )
+
+    def events(self, search_id: str, *, after: int = 0, limit: int = 200) -> Any:
+        """Read an ordered, reconnectable page after an event sequence number."""
+        if after < 0:
+            raise ValueError("after must be non-negative")
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        return self._run(
+            _Call(
+                "index.searches.events",
+                _bound(
+                    SearchEventPage,
+                    lambda page: page.search_id == search_id,
+                    "Search event page does not match the requested search",
+                ),
+                path_parameters={"search_id": search_id},
+                params={"after": after, "limit": limit},
+            )
+        )
+
+    def cancel(self, search_id: str) -> Any:
+        """Request durable cancellation without claiming immediate termination."""
+        return self._run(
+            _Call(
+                "index.searches.cancel",
+                _bound(
+                    SearchCancellation,
+                    lambda cancellation: cancellation.search_id == search_id,
+                    "Search cancellation does not match the requested search",
+                ),
+                path_parameters={"search_id": search_id},
+            )
+        )
 
 
 class ContentsAPI(_Resource):
@@ -808,6 +1035,7 @@ class ContestsAPI(_Resource):
 class _IndexRoot(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
+        self.searches = SearchesAPI(run, asynchronous)
         self.contents = ContentsAPI(run, asynchronous)
         self.contributions = ContributionsAPI(run, asynchronous)
         self.reviews = self.contributions.reviews
@@ -827,16 +1055,20 @@ class _IndexRoot(_Resource):
         spec: SearchSpec | None = None,
         *,
         query: str | None = None,
+        mode: SearchMode | None = None,
         scope: SearchScope | None = None,
         filters: SearchFilters | None = None,
         max_results: int | None = None,
+        limits: SearchExecutionLimits | None = None,
         idempotency_key: str | None = None,
     ) -> Any:
         """Execute one fast search; reuse an explicit key for application-level retries.
 
         Failures propagate as typed errors; they never become empty results.
         """
-        spec = _search_spec(spec, query, scope, filters, max_results)
+        spec = _search_spec(
+            spec, query, mode, scope, filters, max_results, limits
+        )
         return self._run(
             _Call(
                 "index.search",
@@ -969,16 +1201,22 @@ class _PublicIndexRoot(_Resource):
         spec: SearchSpec | None = None,
         *,
         query: str | None = None,
+        mode: SearchMode | None = None,
         scope: SearchScope | None = None,
         filters: SearchFilters | None = None,
         max_results: int | None = None,
+        limits: SearchExecutionLimits | None = None,
         idempotency_key: str | None = None,
     ) -> PublicSearchResult:
         """Search reviewed public Contributions with no account or usage receipt."""
         del idempotency_key
-        spec = _search_spec(spec, query, scope, filters, max_results)
+        spec = _search_spec(
+            spec, query, mode, scope, filters, max_results, limits
+        )
         if spec.scope.visibility != "public" or spec.scope.collection_ids:
             raise ValueError("Anonymous Index search is public-only")
+        if spec.mode != SearchMode.FAST:
+            raise ValueError("Anonymous Index search supports fast mode only")
         return self._run(
             _Call(
                 "index.public.search",

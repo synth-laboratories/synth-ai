@@ -12,6 +12,10 @@ from synth_ai.core.errors import SynthError
 
 
 class IndexErrorCode(StrEnum):
+    SEARCH_MODE_UNSUPPORTED = "index_search_mode_unsupported"
+    SEARCH_NOT_FOUND = "index_search_not_found"
+    SEARCH_RESULT_NOT_READY = "index_search_result_not_ready"
+    SEARCH_NOT_CANCELLABLE = "index_search_not_cancellable"
     FORBIDDEN = "index_forbidden"
     PAYMENT_REQUIRED = "index_payment_required"
     # A private search refused because the promotional balance is spent and the
