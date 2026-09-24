@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
 synth-ai-research-mcp = "synth_ai.mcp.research.server:main"
+synth-ai-index-mcp = "synth_ai.mcp.research.server:main_index"
 
 [project.optional-dependencies]
 pools = [

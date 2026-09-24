@@ -47,6 +47,13 @@ becoming callable without a scope.
 
 ## What the entrypoint advertises
 
+`synth-ai-index-mcp` is the Index-only stdio entrypoint. It requires an explicit
+`SYNTH_BACKEND_URL`, advertises no unrelated Research tools, and defaults to
+read-only. Without `SYNTH_API_KEY` it advertises public browse tools only;
+authenticated search and durable-search lifecycle tools require the key.
+`SYNTH_INDEX_MCP_WRITE_ENABLED=true` separately enables Contribution draft,
+upload, and submission tools. Tool discovery performs no backend request.
+
 `synth-ai-research-mcp` advertises the stable subset (64 of 254 tools). The rest
 are built but hidden, and because `call_tool` resolves against the advertised
 set they are also uncallable. Set `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` to

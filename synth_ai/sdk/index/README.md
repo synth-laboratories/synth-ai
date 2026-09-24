@@ -12,9 +12,8 @@ Install the reviewed SDK package, then configure your agent's MCP server:
 {
   "mcpServers": {
     "synth-index": {
-      "command": "synth-ai-research-mcp",
+      "command": "synth-ai-index-mcp",
       "env": {
-        "SYNTH_INDEX_MCP_ENABLED": "true",
         "SYNTH_INDEX_MCP_WRITE_ENABLED": "false",
         "SYNTH_BACKEND_URL": "https://your-configured-synth-backend.example"
       }
@@ -23,13 +22,16 @@ Install the reviewed SDK package, then configure your agent's MCP server:
 }
 ```
 
+The dedicated entrypoint advertises only Index tools; it does not advertise
+unrelated Managed Research tools. The general `synth-ai-research-mcp` remains
+available and requires `SYNTH_INDEX_MCP_ENABLED=true` to add Index tools.
 Replace the backend URL with the actual deployment URL. Anonymous public
 browse (contents, Contribution lookup, and revision status) requires no API key.
 Search, including public-scope FAST, requires `SYNTH_API_KEY` through your
 authorized agent secret configuration. The
 executable does not discover Index credentials from home files or Keychain.
-Both Index flags accept only `true` or `false`. Missing Index opt-in means no
-Index tools. Enabling Index requires an explicit backend URL; enabling writes
+Index flags accept only `true` or `false`. The dedicated entrypoint enables
+Index without a flag and requires an explicit backend URL; enabling writes
 also requires a nonempty explicit key. Initialization and tool discovery
 construct no SDK client and make no requests.
 

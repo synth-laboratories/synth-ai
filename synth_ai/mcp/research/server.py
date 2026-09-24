@@ -413,15 +413,23 @@ class ResearchMcpServer:
         include_advanced_tools: bool = False,
         index_client_factory: IndexClientFactory | None = None,
         index_write_enabled: bool = True,
+        index_only: bool = False,
     ) -> None:
         self._default_api_key = api_key or None
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
         self._index_client_factory = index_client_factory
         self._index_write_enabled = index_write_enabled
+        self._index_only = index_only
         self._tools = build_tool_registry(self._build_tools())
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
+        if self._index_only:
+            return {
+                name: tool
+                for name, tool in self._tools.items()
+                if name in INDEX_TOOL_NAMES
+            }
         if self._include_advanced_tools:
             return self._tools
         return {
@@ -2800,7 +2808,10 @@ class ResearchMcpServer:
                     "id": request_id,
                     "result": {
                         "protocolVersion": DEFAULT_PROTOCOL_VERSION,
-                        "serverInfo": {"name": SERVER_NAME, "version": __version__},
+                        "serverInfo": {
+                            "name": "synth-index" if self._index_only else SERVER_NAME,
+                            "version": __version__,
+                        },
                         "capabilities": {"tools": {}},
                     },
                 }
@@ -2888,7 +2899,7 @@ def _explicit_index_flag(name: str) -> bool:
     return value == "true"
 
 
-def _stdio_server() -> ResearchMcpServer:
+def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
     """Capture explicit Index process config; construct clients only on invocation.
 
     No credential discovery, home files, or network access during MCP discovery.
@@ -2896,7 +2907,7 @@ def _stdio_server() -> ResearchMcpServer:
     """
     from contextlib import contextmanager
 
-    enabled = _explicit_index_flag("SYNTH_INDEX_MCP_ENABLED")
+    enabled = index_only or _explicit_index_flag("SYNTH_INDEX_MCP_ENABLED")
     writes = _explicit_index_flag("SYNTH_INDEX_MCP_WRITE_ENABLED")
     if writes and not enabled:
         raise ValueError("Index MCP writes require SYNTH_INDEX_MCP_ENABLED=true")
@@ -2949,12 +2960,18 @@ def _stdio_server() -> ResearchMcpServer:
         include_advanced_tools=_advanced_tools_requested(),
         index_client_factory=factory,
         index_write_enabled=writes,
+        index_only=index_only,
     )
 
 
 def main() -> None:
     """CLI entrypoint for the stdio MCP server."""
     _stdio_server().serve_stdio()
+
+
+def main_index() -> None:
+    """Index-only stdio MCP entrypoint; no unrelated Research tools."""
+    _stdio_server(index_only=True).serve_stdio()
 
 
 __all__ = [
@@ -2965,4 +2982,5 @@ __all__ = [
     "SUPPORTED_PROTOCOL_VERSIONS",
     "_read_message",
     "main",
+    "main_index",
 ]

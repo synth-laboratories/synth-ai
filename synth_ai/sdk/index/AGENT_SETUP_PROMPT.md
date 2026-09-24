@@ -6,13 +6,13 @@ configures an API/MCP integration; it does not ask the agent to build an Index
 product UI or to run a paid search during setup.
 
 > Set up Synth Index for this coding project through the `synth-ai` Python SDK
-> and its `synth-ai-research-mcp` stdio server. Index usage is API/MCP-only. Do
+> and its `synth-ai-index-mcp` stdio server. Index usage is API/MCP-only. Do
 > not add a search page, browser proxy, or customer-facing product workflow.
 >
 > First inspect the project's existing Python environment and coding-agent MCP
 > configuration. Use the supported `synth-ai` package and verify that the
-> `synth-ai-research-mcp` executable is available. Configure one MCP server with
-> `SYNTH_INDEX_MCP_ENABLED=true`, `SYNTH_INDEX_MCP_WRITE_ENABLED=false`, and an
+> `synth-ai-index-mcp` executable is available. Configure one MCP server with
+> `SYNTH_INDEX_MCP_WRITE_ENABLED=false` and an
 > explicit `SYNTH_BACKEND_URL` for the environment I named. Supply
 > `SYNTH_API_KEY` only through this project's already-authorized, non-committed
 > secret-injection mechanism. Never print, commit, paste into chat, or place the
