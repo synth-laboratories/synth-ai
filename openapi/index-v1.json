@@ -3322,12 +3322,21 @@
       },
       "PublicSearchResult": {
         "additionalProperties": false,
+        "description": "Anonymous public search: text citing contribution IDs, like every Index search.\n\nSame response rule as the authenticated ``SearchResult`` (inline\n``[<contribution_id>]`` markers equal ``citations`` in first-appearance\norder); no ranked hits, excerpts, titles or URLs.",
         "properties": {
           "amount_cents": {
             "const": 0,
             "default": 0,
             "title": "Amount Cents",
             "type": "integer"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 10,
+            "title": "Citations",
+            "type": "array"
           },
           "corpus_generation": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -3356,20 +3365,10 @@
             "type": "string"
           },
           "response": {
-            "default": "No matching evidence was found.",
-            "description": "Luna-rewritten answer for the caller. Ranked hits in results are citations for that text, not the response body.",
             "maxLength": 16384,
             "minLength": 1,
             "title": "Response",
             "type": "string"
-          },
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/SearchHit"
-            },
-            "maxItems": 10,
-            "title": "Results",
-            "type": "array"
           },
           "status": {
             "const": "completed",
@@ -3389,7 +3388,8 @@
           "ranker_version",
           "parser_version",
           "taxonomy_version",
-          "results"
+          "response",
+          "citations"
         ],
         "title": "PublicSearchResult",
         "type": "object"
@@ -4736,66 +4736,13 @@
         "title": "SearchEventPage",
         "type": "object"
       },
-      "SearchExcerpt": {
-        "additionalProperties": false,
-        "description": "One citation: an exact byte span of one asset of one sealed revision.\n\n``asset_digest_sha256`` is absent in retrieval evidence and present in every\ndelivered citation. The ranker names the span; the digest is bound here from\nthe revision's sealed descriptor, which is the backend's own authority, so a\nprojection can never assert which bytes a citation points at. The revision is\non the enclosing hit and the parser version on the enclosing result, which\ntogether make a citation resolvable to exact bytes and re-verifiable later.",
-        "properties": {
-          "asset_digest_sha256": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-f]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Asset Digest Sha256"
-          },
-          "asset_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Asset Id",
-            "type": "string"
-          },
-          "chunk_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Chunk Id",
-            "type": "string"
-          },
-          "end_byte": {
-            "exclusiveMinimum": 0.0,
-            "title": "End Byte",
-            "type": "integer"
-          },
-          "start_byte": {
-            "minimum": 0.0,
-            "title": "Start Byte",
-            "type": "integer"
-          },
-          "text": {
-            "maxLength": 2048,
-            "minLength": 1,
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "asset_id",
-          "chunk_id",
-          "text",
-          "start_byte",
-          "end_byte"
-        ],
-        "title": "SearchExcerpt",
-        "type": "object"
-      },
       "SearchExecutionLimits": {
         "additionalProperties": false,
-        "description": "Caller ceilings for deep execution; server policy may only tighten them.",
+        "description": "Caller ceilings for deep execution; server policy may only tighten them.\n\nDEEP is usage-priced, so tool use is bounded by what the caller authorizes\n(``billing.max_charge_cents`` caps model spend) and by the deadline; these\ncounts are safety maxima, sized so one Search's usage receipt stays within\nthe monitor's 1024-operation bound. See search-access-funding.md.",
         "properties": {
           "deadline_seconds": {
-            "default": 90,
-            "maximum": 90.0,
+            "default": 180,
+            "maximum": 300.0,
             "minimum": 1.0,
             "title": "Deadline Seconds",
             "type": "integer"
@@ -4832,22 +4779,22 @@
             "title": "Max Inference Tokens"
           },
           "max_model_turns": {
-            "default": 6,
-            "maximum": 6.0,
+            "default": 16,
+            "maximum": 24.0,
             "minimum": 1.0,
             "title": "Max Model Turns",
             "type": "integer"
           },
           "max_reads": {
-            "default": 12,
-            "maximum": 12.0,
+            "default": 64,
+            "maximum": 96.0,
             "minimum": 1.0,
             "title": "Max Reads",
             "type": "integer"
           },
           "max_searches": {
-            "default": 8,
-            "maximum": 8.0,
+            "default": 32,
+            "maximum": 48.0,
             "minimum": 1.0,
             "title": "Max Searches",
             "type": "integer"
@@ -5012,83 +4959,6 @@
         "title": "SearchFilters",
         "type": "object"
       },
-      "SearchHit": {
-        "additionalProperties": false,
-        "properties": {
-          "assessment_ids": {
-            "items": {
-              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-              "type": "string"
-            },
-            "maxItems": 16,
-            "minItems": 1,
-            "title": "Assessment Ids",
-            "type": "array"
-          },
-          "author_ids": {
-            "items": {
-              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-              "type": "string"
-            },
-            "maxItems": 32,
-            "minItems": 1,
-            "title": "Author Ids",
-            "type": "array"
-          },
-          "highlights": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/SearchExcerpt"
-            },
-            "maxItems": 2,
-            "title": "Highlights",
-            "type": "array"
-          },
-          "id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "limitations": {
-            "maxLength": 2048,
-            "minLength": 1,
-            "title": "Limitations",
-            "type": "string"
-          },
-          "published_at": {
-            "format": "date-time",
-            "title": "Published At",
-            "type": "string"
-          },
-          "reference": {
-            "$ref": "#/components/schemas/ContributionReference"
-          },
-          "title": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          },
-          "url": {
-            "format": "uri",
-            "minLength": 1,
-            "title": "Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "reference",
-          "title",
-          "url",
-          "author_ids",
-          "published_at",
-          "limitations",
-          "assessment_ids"
-        ],
-        "title": "SearchHit",
-        "type": "object"
-      },
       "SearchLimits": {
         "additionalProperties": false,
         "properties": {
@@ -5139,7 +5009,16 @@
       },
       "SearchResult": {
         "additionalProperties": false,
+        "description": "What every Index search delivers, FAST and DEEP alike.\n\nText whose claims cite contribution IDs inline (``[<contribution_id>]``) and\nthe list of those contributions in first-appearance order. No ranked hits,\nexcerpts, titles or URLs: callers fetch contributions they want by ID. The\nmodes differ only behind the scenes. The monitor releases this shape by\nfixed rules (OpenMonitor ``monitor/index_cited_summary.py``).",
         "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 10,
+            "title": "Citations",
+            "type": "array"
+          },
           "corpus_generation": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Corpus Generation",
@@ -5180,20 +5059,10 @@
             "$ref": "#/components/schemas/SearchMode"
           },
           "response": {
-            "default": "No matching evidence was found.",
-            "description": "Luna-rewritten answer for the caller. Ranked hits in results are citations for that text, not the response body.",
             "maxLength": 16384,
             "minLength": 1,
             "title": "Response",
             "type": "string"
-          },
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/SearchHit"
-            },
-            "maxItems": 10,
-            "title": "Results",
-            "type": "array"
           },
           "search_id": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -5201,7 +5070,6 @@
             "type": "string"
           },
           "status": {
-            "default": "completed",
             "enum": [
               "completed",
               "partial"
@@ -5214,17 +5082,6 @@
             "title": "Taxonomy Version",
             "type": "string"
           },
-          "unresolved_evidence_needs": {
-            "default": [],
-            "items": {
-              "maxLength": 512,
-              "minLength": 1,
-              "type": "string"
-            },
-            "maxItems": 16,
-            "title": "Unresolved Evidence Needs",
-            "type": "array"
-          },
           "usage": {
             "$ref": "#/components/schemas/SearchUsage"
           }
@@ -5234,13 +5091,16 @@
           "request_id",
           "requested_mode",
           "effective_mode",
+          "status",
+          "partial_reason",
           "corpus_generation",
           "ranker_version",
           "parser_version",
           "taxonomy_version",
           "execution_versions",
-          "results",
-          "usage"
+          "usage",
+          "response",
+          "citations"
         ],
         "title": "SearchResult",
         "type": "object"
@@ -5558,7 +5418,7 @@
             "items": {
               "$ref": "#/components/schemas/OperationUsage"
             },
-            "maxItems": 100,
+            "maxItems": 1024,
             "title": "Operations",
             "type": "array"
           },

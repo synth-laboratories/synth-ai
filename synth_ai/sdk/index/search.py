@@ -5,6 +5,7 @@ Private selection is explicit and never an access grant. Token limits are checke
 again by the pinned encoder; UTF-8 byte bounds here do not claim token equivalence.
 """
 
+import re
 from enum import StrEnum
 from typing import Annotated, Literal, Self
 
@@ -31,6 +32,10 @@ from .contracts import (
 )
 
 EMPTY_SEARCH_RESPONSE = "No matching evidence was found."
+INLINE_CITATION = re.compile(
+    r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]"
+)
+MAX_SEARCH_CITATIONS = 10
 
 
 class SearchScope(IndexContract):
@@ -82,12 +87,16 @@ class SearchMode(StrEnum):
 
 
 class SearchExecutionLimits(IndexContract):
-    """Caller ceilings for deep execution; server policy may only tighten them."""
+    """Backend-authored Deep ceilings; POST /search waits at most 90 seconds.
 
-    deadline_seconds: Annotated[StrictInt, Field(ge=1, le=90)] = 90
-    max_model_turns: Annotated[StrictInt, Field(ge=1, le=6)] = 6
-    max_searches: Annotated[StrictInt, Field(ge=1, le=8)] = 8
-    max_reads: Annotated[StrictInt, Field(ge=1, le=12)] = 12
+    Durable ``searches.create`` and ``searches.wait`` honor the full execution
+    deadline. See backend's synth-index/fast-deep-search-contract.md.
+    """
+
+    deadline_seconds: Annotated[StrictInt, Field(ge=1, le=300)] = 180
+    max_model_turns: Annotated[StrictInt, Field(ge=1, le=24)] = 16
+    max_searches: Annotated[StrictInt, Field(ge=1, le=48)] = 32
+    max_reads: Annotated[StrictInt, Field(ge=1, le=96)] = 64
     max_active_context_tokens: Annotated[StrictInt, Field(ge=1024, le=32_768)] = 32_768
     max_inference_tokens: Annotated[StrictInt, Field(ge=1)] | None = None
     max_cost_usd_micros: Annotated[StrictInt, Field(ge=1)] | None = None
@@ -368,51 +377,37 @@ class SearchExecutionCancelledError(RuntimeError):
 
 
 class SearchResult(IndexContract):
+    """Delivered answer text and cited Contribution IDs, never ranked hits."""
+
     search_id: Identifier
     request_id: Identifier
     requested_mode: SearchMode
     effective_mode: SearchMode
-    status: Literal["completed", "partial"] = "completed"
-    partial_reason: SearchPartialReason | None = None
-    unresolved_evidence_needs: tuple[Annotated[str, Field(min_length=1, max_length=512)], ...] = (
-        Field(default=(), max_length=16)
-    )
+    status: Literal["completed", "partial"]
+    partial_reason: SearchPartialReason | None
     corpus_generation: Identifier
     ranker_version: Identifier
     parser_version: Identifier
     taxonomy_version: Identifier
     execution_versions: SearchExecutionVersions
-    response: Annotated[
-        str,
-        Field(
-            min_length=1,
-            max_length=16_384,
-            description=(
-                "Luna-rewritten answer for the caller. Ranked hits in results are "
-                "citations for that text, not the response body."
-            ),
-        ),
-    ] = EMPTY_SEARCH_RESPONSE
-    results: tuple[SearchHit, ...] = Field(max_length=10)
+    response: Annotated[str, Field(min_length=1, max_length=16_384)]
+    citations: tuple[ContributionReference, ...] = Field(max_length=MAX_SEARCH_CITATIONS)
     usage: SearchUsage
 
     @model_validator(mode="after")
-    def check_grouped_references(self) -> Self:
-        require_unique(
-            tuple(hit.reference.contribution_id for hit in self.results),
-            "result contributions",
-        )
-        require_unique(tuple(hit.id for hit in self.results), "hit IDs")
+    def check_citations(self) -> Self:
+        inline = tuple(dict.fromkeys(INLINE_CITATION.findall(self.response)))
+        listed = tuple(item.contribution_id for item in self.citations)
+        if inline != listed:
+            raise ValueError("inline citations must equal listed citations in first-appearance order")
+        if not self.citations and self.response != EMPTY_SEARCH_RESPONSE:
+            raise ValueError("an uncited response must be the fixed abstention")
         if self.requested_mode != self.effective_mode:
             raise ValueError("requested and effective mode must match")
         if self.usage.mode != self.effective_mode:
             raise ValueError("usage mode must match the effective search mode")
-        if self.status == "completed" and (
-            self.partial_reason is not None or self.unresolved_evidence_needs
-        ):
-            raise ValueError("completed search cannot carry partial outcome fields")
-        if self.status == "partial" and self.partial_reason is None:
-            raise ValueError("partial search requires a typed partial reason")
+        if (self.status == "partial") != (self.partial_reason is not None):
+            raise ValueError("partial status and partial reason must agree")
         if any(
             getattr(self.execution_versions, name) != getattr(self, name)
             for name in (
@@ -429,7 +424,7 @@ class SearchResult(IndexContract):
 
 
 class PublicSearchResult(IndexContract):
-    """Receipt-free anonymous search result from the public Index boundary."""
+    """Receipt-free anonymous answer text and cited Contribution IDs."""
 
     request_id: Identifier
     mode: Literal["fast"] = "fast"
@@ -438,27 +433,18 @@ class PublicSearchResult(IndexContract):
     ranker_version: Identifier
     parser_version: Identifier
     taxonomy_version: Identifier
-    response: Annotated[
-        str,
-        Field(
-            min_length=1,
-            max_length=16_384,
-            description=(
-                "Luna-rewritten answer for the caller. Ranked hits in results are "
-                "citations for that text, not the response body."
-            ),
-        ),
-    ] = EMPTY_SEARCH_RESPONSE
-    results: tuple[SearchHit, ...] = Field(max_length=10)
+    response: Annotated[str, Field(min_length=1, max_length=16_384)]
+    citations: tuple[ContributionReference, ...] = Field(max_length=MAX_SEARCH_CITATIONS)
     amount_cents: Literal[0] = 0
 
     @model_validator(mode="after")
-    def check_grouped_references(self) -> Self:
-        require_unique(
-            tuple(hit.reference.contribution_id for hit in self.results),
-            "result contributions",
-        )
-        require_unique(tuple(hit.id for hit in self.results), "hit IDs")
+    def check_citations(self) -> Self:
+        inline = tuple(dict.fromkeys(INLINE_CITATION.findall(self.response)))
+        listed = tuple(item.contribution_id for item in self.citations)
+        if inline != listed:
+            raise ValueError("inline citations must equal listed citations in first-appearance order")
+        if not self.citations and self.response != EMPTY_SEARCH_RESPONSE:
+            raise ValueError("an uncited response must be the fixed abstention")
         return self
 
 

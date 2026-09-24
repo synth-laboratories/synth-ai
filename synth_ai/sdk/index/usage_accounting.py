@@ -146,7 +146,7 @@ class SearchUsageReceipt(IndexContract):
     physical_attempt_count: NonNegative
     measurement_state: MeasurementState
     observed_consumption: tuple[UsageTotal, ...] = Field(default=(), max_length=40)
-    operations: tuple[OperationUsage, ...] = Field(default=(), max_length=100)
+    operations: tuple[OperationUsage, ...] = Field(default=(), max_length=1024)
     charge: CustomerCharge
     generated_at: AwareDatetime
 

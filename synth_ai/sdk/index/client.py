@@ -377,11 +377,9 @@ def _public_search_result(payload: object, spec: SearchSpec) -> PublicSearchResu
 
 
 def _search_delivery_bounds(result: SearchResult | PublicSearchResult, spec: SearchSpec) -> None:
-    """Both delivery modes honor the caller's context bounds, not only global caps."""
-    if len(result.results) > spec.content.max_results or any(
-        len(hit.highlights) > spec.content.max_excerpts_per_result for hit in result.results
-    ):
-        raise ValueError("Index response exceeds requested result or excerpt bounds")
+    """Citations are a subset of the caller-bounded, private retrieval set."""
+    if len(result.citations) > spec.content.max_results:
+        raise ValueError("Index response exceeds requested citation bound")
 
 
 def _contents_result(payload: object, spec: ContentsSpec) -> ContentsResult:
