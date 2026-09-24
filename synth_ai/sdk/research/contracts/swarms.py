@@ -1089,8 +1089,7 @@ class AiCachePolicy:
         if self.provider is not None:
             require_text(self.provider, field_name="ai_cache.provider")
             if any(
-                character
-                not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+                character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
                 for character in self.provider
             ):
                 raise ValueError("ai_cache.provider contains unsafe characters")

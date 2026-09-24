@@ -429,8 +429,6 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     SwarmRuntimeSnapshot,
 )
 from synth_ai.sdk.research.contracts.swarms import (
-    AiCacheMode,
-    AiCachePolicy,
     ActiveActorModel,
     ActorHarness,
     ActorImageBinding,
@@ -438,6 +436,8 @@ from synth_ai.sdk.research.contracts.swarms import (
     ActorModelAssignment,
     ActorSubtype,
     ActorType,
+    AiCacheMode,
+    AiCachePolicy,
     BoundRuntimeExecutionTarget,
     BranchMode,
     BranchResult,
