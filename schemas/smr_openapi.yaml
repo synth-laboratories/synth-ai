@@ -86848,11 +86848,15 @@ components:
           type: integer
           title: Attempt Count
         max_attempts:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
           title: Max Attempts
         deliver_after:
-          type: string
-          format: date-time
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
           title: Deliver After
         last_error_code:
           anyOf:
@@ -86865,8 +86869,6 @@ components:
       - delivery_job_id
       - status
       - attempt_count
-      - max_attempts
-      - deliver_after
       title: SmrRunLimitWarningDeliveryResponse
     SmrRunLimitWarningEvidenceResponse:
       properties:
@@ -95457,6 +95459,14 @@ components:
             - source_bundle
           - type: 'null'
           title: Kind
+        mode:
+          anyOf:
+          - type: string
+            enum:
+            - '100644'
+            - '100755'
+          - type: 'null'
+          title: Mode
         metadata:
           additionalProperties:
             $ref: '#/components/schemas/JsonValue'
