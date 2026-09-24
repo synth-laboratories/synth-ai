@@ -107,6 +107,58 @@ class RuntimeImageReleaseStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class SecurityAdmissionState(StrEnum):
+    QUARANTINED = "quarantined"
+    SCANNING = "scanning"
+    APPROVED = "approved"
+    RECHECKING = "rechecking"
+    CHECK_FAILED = "check_failed"
+    REJECTED = "rejected"
+    REVOKED = "revoked"
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSecurityAdmission:
+    admission_id: str
+    state: SecurityAdmissionState
+    manifest_digest: str
+    policy_version: str
+    generation: int
+    expires_at: datetime | None = None
+    revocation_reason: str | None = None
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> ImageSecurityAdmission:
+        payload = _obj(
+            value,
+            "image security admission",
+            frozenset({"admission_id", "state", "manifest_digest", "policy_version", "generation", "expires_at", "revocation_reason"}),
+        )
+        expires = payload.get("expires_at")
+        return cls(
+            admission_id=str(UUID(_t(payload["admission_id"], "admission_id", maximum=64))),
+            state=SecurityAdmissionState(_t(payload["state"], "state", maximum=32)),
+            manifest_digest=digest(payload["manifest_digest"], field="manifest_digest"),
+            policy_version=_t(payload["policy_version"], "policy_version", maximum=128),
+            generation=integer(
+                payload["generation"], field="generation", minimum=1, maximum=2_147_483_647
+            ),
+            expires_at=None if expires is None else _datetime(expires, "expires_at"),
+            revocation_reason=None if payload.get("revocation_reason") is None else _t(payload["revocation_reason"], "revocation_reason", maximum=2000),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "admission_id": self.admission_id,
+            "state": self.state.value,
+            "manifest_digest": self.manifest_digest,
+            "policy_version": self.policy_version,
+            "generation": self.generation,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "revocation_reason": self.revocation_reason,
+        }
+
+
 def _obj(
     value: JsonValue, label: str, required: frozenset[str], optional: frozenset[str] = frozenset()
 ) -> JsonObject:
@@ -648,6 +700,7 @@ class ActorRuntimeImageMaterialization:
     daytona_pullable: bool
     package_release_timestamps: TimestampMap = field(default_factory=dict)
     recipe_digest: str | None = None
+    security_admission: ImageSecurityAdmission | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -728,7 +781,7 @@ class ActorRuntimeImageMaterialization:
                     "daytona_pullable",
                 }
             ),
-            frozenset({"recipe_digest"}),
+            frozenset({"recipe_digest", "security_admission"}),
         )
         return cls(
             schema_version=_const(
@@ -760,10 +813,15 @@ class ActorRuntimeImageMaterialization:
             ),
             image_substrates=_strings(payload["image_substrates"], "image_substrates", maximum=2),
             daytona_pullable=required_bool(payload, "daytona_pullable"),
+            security_admission=(
+                ImageSecurityAdmission.from_wire(payload["security_admission"])
+                if payload.get("security_admission") is not None
+                else None
+            ),
         )
 
     def to_wire(self) -> JsonObject:
-        return {
+        payload: JsonObject = {
             "schema_version": self.schema_version,
             "runtime_image_release_id": self.runtime_image_release_id,
             "status": self.status.value,
@@ -780,6 +838,9 @@ class ActorRuntimeImageMaterialization:
             "image_substrates": list(self.image_substrates),
             "daytona_pullable": self.daytona_pullable,
         }
+        if self.security_admission is not None:
+            payload["security_admission"] = self.security_admission.to_wire()
+        return payload
 
 
 def _check_receipt(
@@ -1299,6 +1360,7 @@ __all__ = [
     "ImageReleaseFinalizeRequest",
     "ImageReleaseFinalizeResponse",
     "ImageReleaseId",
+    "ImageSecurityAdmission",
     "ImageReleaseKind",
     "ImageReleaseStorageIdentity",
     "ImageReleaseUpload",
@@ -1310,6 +1372,7 @@ __all__ = [
     "RuntimeImageReleaseId",
     "RuntimeImageReleaseListResponse",
     "RuntimeImageReleaseStatus",
+    "SecurityAdmissionState",
     "declaration_from_wire",
     "image_release_from_wire",
 ]

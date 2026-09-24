@@ -24,6 +24,7 @@ from synth_ai.sdk.research.contracts.image_releases import (
     ImageReleaseId,
     ImageReleaseUpload,
     ImageReleaseUploadRequest,
+    ImageSecurityAdmission,
     RegistryActorRuntimeImageRegistration,
     RegistryActorRuntimeImageRegistrationRequest,
     RuntimeImageReleaseId,
@@ -83,6 +84,35 @@ def _retrieve(value: object, *, release_id: ImageReleaseId) -> ImageRelease:
     if release.release_id != release_id:
         raise ValueError("image retrieve response changed its release identity")
     return release
+
+
+def _security_mutation(value: object) -> ImageSecurityAdmission:
+    if (
+        not isinstance(value, dict)
+        or value.get("schema_version") != "smr-image-security-mutation-v1"
+    ):
+        raise ValueError("image security mutation response is unsupported")
+    if set(value) != {"schema_version", "security_admission"}:
+        raise ValueError("image security mutation response fields drifted")
+    return ImageSecurityAdmission.from_wire(cast(JsonValue, value["security_admission"]))
+
+
+def _security_body(
+    *, reason: str, idempotency_key: str, policy_version: str | None = None
+) -> JsonObject:
+    reason = reason.strip()
+    idempotency_key = idempotency_key.strip()
+    if not 3 <= len(reason) <= 1000:
+        raise ValueError("reason must contain 3 through 1000 characters")
+    if not 8 <= len(idempotency_key) <= 128:
+        raise ValueError("idempotency_key must contain 8 through 128 characters")
+    body: JsonObject = {"reason": reason, "idempotency_key": idempotency_key}
+    if policy_version is not None:
+        policy_version = policy_version.strip()
+        if not policy_version or len(policy_version) > 128:
+            raise ValueError("policy_version must contain 1 through 128 characters")
+        body["policy_version"] = policy_version
+    return body
 
 
 def _archive_path(
@@ -272,6 +302,52 @@ class ImageReleasesAPI:
         """
         return self.retrieve(release_id)
 
+    def retry_security_checks(
+        self, runtime_image_release_id: RuntimeImageReleaseId, *, reason: str, idempotency_key: str
+    ) -> ImageSecurityAdmission:
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        value = self._transport.execute(
+            _request(
+                "retry_customer_actor_image_security",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/security/retry",
+                body=_security_body(reason=reason, idempotency_key=idempotency_key),
+            )
+        )
+        return _security_mutation(value)
+
+    def revoke_security_admission(
+        self, runtime_image_release_id: RuntimeImageReleaseId, *, reason: str, idempotency_key: str
+    ) -> ImageSecurityAdmission:
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        value = self._transport.execute(
+            _request(
+                "revoke_customer_actor_image_security",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/security/revoke",
+                body=_security_body(reason=reason, idempotency_key=idempotency_key),
+            )
+        )
+        return _security_mutation(value)
+
+    def reevaluate_security_admission(
+        self,
+        runtime_image_release_id: RuntimeImageReleaseId,
+        *,
+        reason: str,
+        idempotency_key: str,
+        policy_version: str | None = None,
+    ) -> ImageSecurityAdmission:
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        value = self._transport.execute(
+            _request(
+                "reevaluate_customer_actor_image_security",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/security/reevaluate",
+                body=_security_body(
+                    reason=reason, idempotency_key=idempotency_key, policy_version=policy_version
+                ),
+            )
+        )
+        return _security_mutation(value)
+
 
 class AsyncImageReleasesAPI:
     """Native-async peer of :class:`ImageReleasesAPI`."""
@@ -405,6 +481,52 @@ class AsyncImageReleasesAPI:
     async def get(self, release_id: ImageReleaseId) -> ImageRelease:
         """Native-async peer of :meth:`ImageReleasesAPI.get`."""
         return await self.retrieve(release_id)
+
+    async def retry_security_checks(
+        self, runtime_image_release_id: RuntimeImageReleaseId, *, reason: str, idempotency_key: str
+    ) -> ImageSecurityAdmission:
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        value = await self._transport.execute(
+            _request(
+                "retry_customer_actor_image_security",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/security/retry",
+                body=_security_body(reason=reason, idempotency_key=idempotency_key),
+            )
+        )
+        return _security_mutation(value)
+
+    async def revoke_security_admission(
+        self, runtime_image_release_id: RuntimeImageReleaseId, *, reason: str, idempotency_key: str
+    ) -> ImageSecurityAdmission:
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        value = await self._transport.execute(
+            _request(
+                "revoke_customer_actor_image_security",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/security/revoke",
+                body=_security_body(reason=reason, idempotency_key=idempotency_key),
+            )
+        )
+        return _security_mutation(value)
+
+    async def reevaluate_security_admission(
+        self,
+        runtime_image_release_id: RuntimeImageReleaseId,
+        *,
+        reason: str,
+        idempotency_key: str,
+        policy_version: str | None = None,
+    ) -> ImageSecurityAdmission:
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        value = await self._transport.execute(
+            _request(
+                "reevaluate_customer_actor_image_security",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/security/reevaluate",
+                body=_security_body(
+                    reason=reason, idempotency_key=idempotency_key, policy_version=policy_version
+                ),
+            )
+        )
+        return _security_mutation(value)
 
 
 __all__ = ["AsyncImageReleasesAPI", "ImageReleasesAPI"]
