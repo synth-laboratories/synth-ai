@@ -342,6 +342,8 @@ class InternSyncCommandKind(StrEnum):
 
 
 class InternSyncSessionCreateRequest(_StrictContract):
+    # Private execution routing; never included in the agent binding or objective.
+    runtime_binding_reference_id: str | None = Field(default=None, min_length=1, max_length=512)
     # Empty until the first send_message; Effort objectives live on Intern MCP.
     objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
@@ -753,6 +755,8 @@ class InternAsyncRuntimeBudget(_StrictContract):
 
 
 class InternAsyncEnsureRequest(_StrictContract):
+    # Private execution routing; never included in the agent binding or objective.
+    runtime_binding_reference_id: str | None = Field(default=None, min_length=1, max_length=512)
     # Empty until the first async_.send; Effort objectives live on Intern MCP.
     objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
@@ -913,7 +917,6 @@ class InternAsyncEffortWorkSummary(_StrictContract):
     # Fairness cursor for the round-robin fan-out across Efforts: the cycle in
     # which this Effort last held a cycle slot (0 = never advanced).
     last_advanced_cycle: int = Field(default=0, ge=0)
-
 
 
 class InternResumeCondition(_StrictContract):

@@ -190,6 +190,7 @@ INTERN_EFFORT_PROGRAM_CAPABILITIES: frozenset[InternCapabilityOperation] = froze
 INTERN_KICKOFF_AND_POLL_TOOLS: Mapping[str, InternCapabilityOperation] = MappingProxyType(
     {
         "smr_project_trigger_run": InternCapabilityOperation.SWARM_DEPLOY,
+        "smr_trigger_one_off_run": InternCapabilityOperation.SWARM_DEPLOY,
         "smr_factory_wake_due": InternCapabilityOperation.EFFORT_WAKE,
         "smr_run_get": InternCapabilityOperation.RUN_READ,
         "smr_swarm_status": InternCapabilityOperation.SWARM_READ,
@@ -205,6 +206,7 @@ INTERN_KICKOFF_AND_POLL_TOOLS: Mapping[str, InternCapabilityOperation] = Mapping
 _KICKOFF_ACTION_KINDS: Mapping[str, InternMcpActionKind] = MappingProxyType(
     {
         "smr_project_trigger_run": InternMcpActionKind.DEPLOY_SWARM,
+        "smr_trigger_one_off_run": InternMcpActionKind.DEPLOY_SWARM,
         "smr_factory_wake_due": InternMcpActionKind.START_FACTORY_RUN,
         "smr_run_get": InternMcpActionKind.INSPECT_FACTORY_RUN,
         "smr_swarm_status": InternMcpActionKind.INSPECT_SWARM,
