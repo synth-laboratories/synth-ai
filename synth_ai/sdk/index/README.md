@@ -99,8 +99,9 @@ from synth_ai.sdk.index import PublicIndexClient
 
 with PublicIndexClient() as index:
     result = index.search(query="RLVR verifier design", max_results=5)
-    for hit in result.results:
-        print(hit.title, hit.url)
+    print(result.response)
+    for citation in result.citations:
+        print(citation.contribution_id, citation.revision_id)
 ```
 
 Use `AsyncPublicIndexClient` with `async with` for native async applications.
@@ -238,11 +239,13 @@ Customer receipt and summary models omit infrastructure and unallocated costs.
 The backend must also filter internal cost metrics from customer operation totals
 and CSV exports; the shared metric vocabulary does not authorize disclosure.
 
-This integration was edited locally without tests, builds, schema generation,
-or live requests. Parent integration must reconcile the final backend DTOs,
-customer metric filtering, receipt/summary/CSV amounts and grouping, and the
-vendored `openapi/index-v1.json` before claiming parity. The OpenAPI changes are
-manual schema edits, not a regenerated or validated backend export.
+The vendored `openapi/index-v1.json` is copied from the selected backend's
+router-generated `contracts/synth_index_openapi.json`. The SDK mirrors the
+backend's cited-only Search delivery, 180-second default / 300-second maximum
+durable Deep execution, and 1,024-operation receipt bound. Synchronous
+`POST /search` remains limited to a 90-second Deep wait; the SDK's Deep
+convenience path uses durable create/wait instead. Source and schema parity do
+not replace an installed-wheel test against the matching deployed backend.
 
 ## Errors
 
