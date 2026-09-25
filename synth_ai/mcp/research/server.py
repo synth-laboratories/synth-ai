@@ -425,11 +425,7 @@ class ResearchMcpServer:
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
         if self._index_only:
-            return {
-                name: tool
-                for name, tool in self._tools.items()
-                if name in INDEX_TOOL_NAMES
-            }
+            return {name: tool for name, tool in self._tools.items() if name in INDEX_TOOL_NAMES}
         if self._include_advanced_tools:
             return self._tools
         return {

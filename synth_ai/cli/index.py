@@ -32,7 +32,9 @@ def index() -> None:
 )
 @click.option("--idempotency-key", help="Stable retry identity for this logical search.")
 @click.option("--allow-wallet", is_flag=True, help="Explicitly allow wallet funding.")
-@click.option("--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum charge in cents.")
+@click.option(
+    "--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum charge in cents."
+)
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Synth backend base URL.")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Authorized Synth API key.")
 def search(
@@ -134,7 +136,11 @@ def search(
     help="Stable retry identity for retrieval, admission and synthesis.",
 )
 @click.option("--allow-wallet", is_flag=True, help="Explicitly allow wallet funding for retrieval.")
-@click.option("--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum retrieval charge in cents.")
+@click.option(
+    "--max-charge-cents",
+    type=click.IntRange(0, 1_000_000),
+    help="Maximum retrieval charge in cents.",
+)
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Synth backend base URL.")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Authorized Synth API key.")
 def answer(
@@ -214,7 +220,9 @@ def searches() -> None:
     "--idempotency-key", required=True, help="Reuse this key after an uncertain response."
 )
 @click.option("--allow-wallet", is_flag=True, help="Explicitly allow wallet funding.")
-@click.option("--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum charge in cents.")
+@click.option(
+    "--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum charge in cents."
+)
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL")
 @click.option("--api-key", envvar="SYNTH_API_KEY")
 def searches_create(
@@ -400,9 +408,9 @@ def submit(
     from synth_ai import SynthClient
     from synth_ai.core.errors import SynthError
     from synth_ai.sdk.index.research_intake import (
-        IntakeLocked,
+        IntakeLockedError,
         IntakeStateError,
-        TerminalRevision,
+        TerminalRevisionError,
         submit_conversion,
     )
 
@@ -421,9 +429,9 @@ def submit(
         TypeError,
         SynthError,
         HTTPError,
-        IntakeLocked,
+        IntakeLockedError,
         IntakeStateError,
-        TerminalRevision,
+        TerminalRevisionError,
     ) as error:
         raise click.ClickException(str(error)) from error
     click.echo(json.dumps(result, indent=2, sort_keys=True))

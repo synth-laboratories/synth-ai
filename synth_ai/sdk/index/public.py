@@ -24,7 +24,9 @@ class PublicIndexClient(PublicIndexAPI):
     """Owned synchronous client for anonymous public Index browse."""
 
     def __init__(
-        self, *, base_url: str | None = None,
+        self,
+        *,
+        base_url: str | None = None,
         timeout_seconds: float = _PUBLIC_INDEX_TIMEOUT_SECONDS,
     ) -> None:
         transport = HttpTransport(
@@ -53,7 +55,9 @@ class AsyncPublicIndexClient(AsyncPublicIndexAPI):
     """Owned asynchronous client for anonymous public Index browse."""
 
     def __init__(
-        self, *, base_url: str | None = None,
+        self,
+        *,
+        base_url: str | None = None,
         timeout_seconds: float = _PUBLIC_INDEX_TIMEOUT_SECONDS,
     ) -> None:
         transport = AsyncHttpTransport(

@@ -32,9 +32,7 @@ from .contracts import (
 )
 
 EMPTY_SEARCH_RESPONSE = "No matching evidence was found."
-INLINE_CITATION = re.compile(
-    r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]"
-)
+INLINE_CITATION = re.compile(r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]")
 MAX_SEARCH_CITATIONS = 10
 
 
@@ -402,7 +400,9 @@ class SearchResult(IndexContract):
         inline = tuple(dict.fromkeys(INLINE_CITATION.findall(self.response)))
         listed = tuple(item.contribution_id for item in self.citations)
         if inline != listed:
-            raise ValueError("inline citations must equal listed citations in first-appearance order")
+            raise ValueError(
+                "inline citations must equal listed citations in first-appearance order"
+            )
         if not self.citations and self.response != EMPTY_SEARCH_RESPONSE:
             raise ValueError("an uncited response must be the fixed abstention")
         if self.requested_mode != self.effective_mode:
@@ -449,14 +449,22 @@ class ContentsItem(IndexContract):
             self.start_byte,
             self.end_byte,
         )
-        if self.status == "available" and any(value is None for value in located):
-            raise ValueError("available contents require an exact asset, digest, locator and text")
-        if self.status == "unavailable" and any(value is not None for value in located):
+        if self.status == "available":
+            if (
+                self.asset_id is None
+                or self.text is None
+                or self.asset_digest_sha256 is None
+                or self.logical_path is None
+                or self.start_byte is None
+                or self.end_byte is None
+            ):
+                raise ValueError(
+                    "available contents require an exact asset, digest, locator and text"
+                )
+            if self.end_byte - self.start_byte != len(self.text.encode("utf-8")):
+                raise ValueError("contents span must match the delivered bytes")
+        elif any(value is not None for value in located):
             raise ValueError("unavailable contents cannot disclose asset metadata or text")
-        if self.status == "available" and self.end_byte - self.start_byte != len(
-            self.text.encode("utf-8")
-        ):
-            raise ValueError("contents span must match the delivered bytes")
         return self
 
 

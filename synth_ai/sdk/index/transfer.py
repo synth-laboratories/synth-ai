@@ -29,7 +29,7 @@ _ACCEPTED = (200, 201, 204)
 _EXPIRED = (400, 401, 403, 409)
 
 
-class TransferTargetsExpired(RuntimeError):
+class TransferTargetsExpiredError(RuntimeError):
     """Storage refused a signed target; prepare again and transfer what remains."""
 
 
@@ -111,13 +111,11 @@ def _check_transfer_response(status_code: int, logical_path: str) -> None:
     if status_code in _ACCEPTED:
         return
     if status_code in _EXPIRED:
-        raise TransferTargetsExpired(
+        raise TransferTargetsExpiredError(
             f"Storage refused the target for {logical_path} with HTTP {status_code}; "
             "prepare the upload again to obtain fresh targets"
         )
-    raise ValueError(
-        f"Artifact byte transfer failed for {logical_path} with HTTP {status_code}"
-    )
+    raise ValueError(f"Artifact byte transfer failed for {logical_path} with HTTP {status_code}")
 
 
 def verify_package_directory(root: Path) -> ContributionPackage:
@@ -204,7 +202,7 @@ def upload_directory_sync(prepared: ContributionUploadPrepared, root: Path) -> N
 
     ``root`` retains the converter's original descriptor. The server-issued
     descriptor is transferred from ``prepared`` after server ID rebinding. A
-    refused signed target raises ``TransferTargetsExpired`` so the caller can
+    refused signed target raises ``TransferTargetsExpiredError`` so the caller can
     prepare again and transfer only what is still missing.
     """
     directory, sizes, descriptor = _plan_directory_transfer(prepared, root)
@@ -242,7 +240,7 @@ async def upload_directory(
     backend credential, so API authority is never forwarded to object storage and
     nothing storage returns is carried to the next target. The whole transfer is
     bounded, and so is each request; a refused signed target raises
-    ``TransferTargetsExpired`` rather than being retried silently.
+    ``TransferTargetsExpiredError`` rather than being retried silently.
     """
     if not 1 <= concurrency <= 16:
         raise ValueError("Directory transfer concurrency must be between 1 and 16")
@@ -275,9 +273,7 @@ async def upload_directory(
                 follow_redirects=False,
                 trust_env=False,
             ) as client:
-                response = await client.put(
-                    target.upload_url, headers=headers, content=content
-                )
+                response = await client.put(target.upload_url, headers=headers, content=content)
             _check_transfer_response(response.status_code, target.logical_path)
 
     async with asyncio.timeout(DIRECTORY_TRANSFER_BUDGET_SECONDS):

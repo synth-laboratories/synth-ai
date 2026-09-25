@@ -344,7 +344,7 @@ the saved reference against the current revision before acting, so a mutation
 whose response was lost is recovered rather than repeated; a revision the server
 has already advanced to `qualified` or `published` is reported as it stands; and
 a `rejected`, `withdrawn` or `changes_requested` revision raises
-`TerminalRevision` instead of being submitted again. If storage refuses a signed
+`TerminalRevisionError` instead of being submitted again. If storage refuses a signed
 target because it expired, intake prepares again once and transfers only what is
 still missing.
 

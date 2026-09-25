@@ -21,11 +21,16 @@ from uuid import UUID, uuid4
 
 from .client import IndexAPI
 from .contracts import ContributionAudience, ContributionOrigin, ContributionReference
-from .contributions import ContributionDraft, ContributionUploadSpec, ResearchDraftSpec, ResearchSource
+from .contributions import (
+    ContributionDraft,
+    ContributionUploadSpec,
+    ResearchDraftSpec,
+    ResearchSource,
+)
 from .lifecycle import MeView, RevisionView
 from .package import ContributionPackage
 from .submission import ContributionSubmitSpec, RevisionStatus
-from .transfer import TransferTargetsExpired, upload_directory_sync, verify_package_directory
+from .transfer import TransferTargetsExpiredError, upload_directory_sync, verify_package_directory
 
 _RECEIPT_SCHEMA = "synth.index.research-bundle-conversion.v1"
 _SOURCE_SCHEMA = "synth.index.research-source.v1"
@@ -168,11 +173,11 @@ class IntakeStateError(RuntimeError):
     """Saved intake state cannot be trusted; recovery is a deliberate decision."""
 
 
-class IntakeLocked(RuntimeError):
+class IntakeLockedError(RuntimeError):
     """Another intake process holds this state file."""
 
 
-class TerminalRevision(RuntimeError):
+class TerminalRevisionError(RuntimeError):
     """The server has decided this revision; resubmitting it would be wrong."""
 
 
@@ -212,9 +217,7 @@ def _state_lock(path: Path) -> Iterator[None]:
     deliberately rather than guessed at.
     """
     lock_path = path.with_name(f"{path.name}.lock")
-    holder = json.dumps(
-        {"pid": os.getpid(), "host": socket.gethostname()}, sort_keys=True
-    )
+    holder = json.dumps({"pid": os.getpid(), "host": socket.gethostname()}, sort_keys=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -223,7 +226,7 @@ def _state_lock(path: Path) -> Iterator[None]:
             current = lock_path.read_text(encoding="utf-8").strip()
         except OSError:
             current = "unknown"
-        raise IntakeLocked(
+        raise IntakeLockedError(
             f"Another research intake holds {lock_path} ({current}). Wait for it to "
             "finish, or remove that file if the process is gone."
         ) from error
@@ -287,9 +290,7 @@ def _state(path: Path, bundle_digest: str, backend: str, account: MeView) -> dic
         account.org_id,
         account.principal_id,
     ):
-        raise IntakeStateError(
-            "Intake state belongs to a different account or organization"
-        )
+        raise IntakeStateError("Intake state belongs to a different account or organization")
     try:
         UUID(state["publication_id"])
     except (KeyError, TypeError, ValueError) as error:
@@ -368,9 +369,7 @@ def _allocate(api: IndexAPI, spec: ResearchDraftSpec, state: dict, state_path: P
     draft = api.contributions.create_research(spec, idempotency_key=state["draft_key"])
     allocated = draft.reference.model_dump(mode="json")
     if state.get("reference") not in (None, allocated):
-        raise IntakeStateError(
-            "Research draft replay returned a different server identity"
-        )
+        raise IntakeStateError("Research draft replay returned a different server identity")
     if state.get("reference") != allocated:
         state["reference"] = allocated
         _save_state(state_path, state)
@@ -398,7 +397,7 @@ def _upload_and_finalize(
     prepared = api.contributions.prepare_upload(draft, upload_spec)
     try:
         upload_directory_sync(prepared, directory / "package")
-    except TransferTargetsExpired:
+    except TransferTargetsExpiredError:
         prepared = api.contributions.prepare_upload(draft, upload_spec)
         upload_directory_sync(prepared, directory / "package")
     api.contributions.finalize(draft, prepared)
@@ -416,7 +415,7 @@ def submit_conversion(
     resumption reconciles against the server before acting, so a response lost
     after the server committed it is recovered instead of repeated. A revision
     the server has already advanced past submission is reported as it stands; a
-    revision the server has decided against raises ``TerminalRevision`` rather
+    revision the server has decided against raises ``TerminalRevisionError`` rather
     than being quietly submitted again. One process at a time holds the state
     file.
     """
@@ -429,16 +428,14 @@ def submit_conversion(
         if view is not None:
             status = _server_status(view, state)
             if status in _TERMINAL:
-                raise TerminalRevision(
+                raise TerminalRevisionError(
                     f"Server revision is {status.value}; decide explicitly before "
                     "preparing another revision"
                 )
             if status in _ADVANCED:
                 # Submitted, qualified or published: the same work moved on.
                 state["status"] = "submitted"
-                state["manifest_digest"] = (
-                    view.manifest_digest or state.get("manifest_digest")
-                )
+                state["manifest_digest"] = view.manifest_digest or state.get("manifest_digest")
                 _save_state(state_path, state)
                 return _result(summary, state, status.value)
             if status is RevisionStatus.DRAFT and view.manifest_digest is not None:
@@ -448,9 +445,7 @@ def submit_conversion(
                 _save_state(state_path, state)
         draft = _allocate(api, spec, state, state_path)
         if state.get("status") != "finalized":
-            _upload_and_finalize(
-                api, draft, package, directory, state, state_path
-            )
+            _upload_and_finalize(api, draft, package, directory, state, state_path)
         if finalize_only:
             return _result(summary, state, "finalized_private_draft")
         submitted = api.contributions.submit(
@@ -461,9 +456,7 @@ def submit_conversion(
             submitted.status not in _ADVANCED
             or submitted.manifest_digest != state["manifest_digest"]
         ):
-            raise IntakeStateError(
-                "Submitted revision differs from the prepared manifest"
-            )
+            raise IntakeStateError("Submitted revision differs from the prepared manifest")
         state["status"] = "submitted"
         state["manifest_digest"] = submitted.manifest_digest
         _save_state(state_path, state)
