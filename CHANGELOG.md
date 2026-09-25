@@ -34,7 +34,10 @@ backend from this release onward (see Changed (breaking) below).
   `index_get_contribution`, `index_contribution_status`). It requires an
   explicit `SYNTH_BACKEND_URL`; search and answer tools need `SYNTH_API_KEY`.
   `synth-ai-research-mcp` adds the same Index tools when
-  `SYNTH_INDEX_MCP_ENABLED=true`. Neither server takes command-line options.
+  `SYNTH_INDEX_MCP_ENABLED=true`. Both accept `--help` and `--version` (exit 0);
+  missing or invalid configuration such as an absent `SYNTH_BACKEND_URL` exits 2
+  with one line (`McpConfigurationError`, a `ValueError` subclass), not a
+  traceback. Unknown arguments are rejected.
 - **Index contract and failures** — the SDK's Index OpenAPI export matches the
   backend's generated contract. `IndexErrorCode` names current Search and
   Contribution failures while retaining prior values for existing clients;

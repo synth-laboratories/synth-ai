@@ -2894,10 +2894,18 @@ def _advanced_tools_requested() -> bool:
     return str(os.getenv(ADVANCED_TOOLS_ENV) or "").strip().lower() in {"1", "true", "yes"}
 
 
+class McpConfigurationError(ValueError):
+    """Invalid MCP process configuration, reported as one line at startup.
+
+    Subclasses ``ValueError`` so callers that caught the previous untyped error
+    keep working.
+    """
+
+
 def _explicit_index_flag(name: str) -> bool:
     value = os.environ.get(name, "false").strip().lower()
     if value not in {"true", "false"}:
-        raise ValueError(f"{name} must be true or false")
+        raise McpConfigurationError(f"{name} must be true or false")
     return value == "true"
 
 
@@ -2912,7 +2920,7 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
     enabled = index_only or _explicit_index_flag("SYNTH_INDEX_MCP_ENABLED")
     writes = _explicit_index_flag("SYNTH_INDEX_MCP_WRITE_ENABLED")
     if writes and not enabled:
-        raise ValueError("Index MCP writes require SYNTH_INDEX_MCP_ENABLED=true")
+        raise McpConfigurationError("Index MCP writes require SYNTH_INDEX_MCP_ENABLED=true")
     factory = None
     api_key = None
     backend_base = None
@@ -2920,9 +2928,9 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
         api_key = os.environ.get("SYNTH_API_KEY", "").strip() or None
         backend_base = os.environ.get("SYNTH_BACKEND_URL", "").strip()
         if not backend_base:
-            raise ValueError("Index MCP requires explicit SYNTH_BACKEND_URL")
+            raise McpConfigurationError("Index MCP requires explicit SYNTH_BACKEND_URL")
         if writes and not api_key:
-            raise ValueError("Index MCP writes require explicit SYNTH_API_KEY")
+            raise McpConfigurationError("Index MCP writes require explicit SYNTH_API_KEY")
         from urllib.parse import urlsplit
 
         url = urlsplit(backend_base)
@@ -2934,7 +2942,7 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
             or url.query
             or url.fragment
         ):
-            raise ValueError(
+            raise McpConfigurationError(
                 "SYNTH_BACKEND_URL must be an HTTP(S) URL without credentials, query, or fragment"
             )
 
@@ -2974,19 +2982,76 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
     )
 
 
-def main() -> None:
+_INDEX_ENVIRONMENT_HELP = """\
+environment:
+  SYNTH_BACKEND_URL              backend base URL (required when Index tools are enabled)
+  SYNTH_API_KEY                  API key; enables authenticated Search and answer tools
+  SYNTH_INDEX_MCP_WRITE_ENABLED  true|false; Contribution write tools (needs SYNTH_API_KEY)
+"""
+
+_RESEARCH_ENVIRONMENT_HELP = (
+    _INDEX_ENVIRONMENT_HELP
+    + """\
+  SYNTH_INDEX_MCP_ENABLED        true|false; add Index tools to the Research server
+"""
+)
+
+
+def _parse_entrypoint_args(
+    prog: str, description: str, environment_help: str, argv: list[str] | None
+) -> None:
+    """Handle ``--help``/``--version`` before any server configuration is read."""
+    import argparse
+
+    from synth_ai import __version__
+
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description=description,
+        epilog=environment_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--version", action="version", version=f"{prog} {__version__}")
+    parser.parse_args(argv)
+
+
+def _run_stdio_entrypoint(prog: str, *, index_only: bool) -> None:
+    try:
+        server = _stdio_server(index_only=index_only)
+    except McpConfigurationError as error:
+        sys.stderr.write(f"{prog}: error: {error}\n")
+        raise SystemExit(2) from None
+    server.serve_stdio()
+
+
+def main(argv: list[str] | None = None) -> None:
     """CLI entrypoint for the stdio MCP server."""
-    _stdio_server().serve_stdio()
+    prog = "synth-ai-research-mcp"
+    _parse_entrypoint_args(
+        prog,
+        "Synth Research MCP server over stdio (JSON-RPC on stdin/stdout).",
+        _RESEARCH_ENVIRONMENT_HELP,
+        argv,
+    )
+    _run_stdio_entrypoint(prog, index_only=False)
 
 
-def main_index() -> None:
+def main_index(argv: list[str] | None = None) -> None:
     """Index-only stdio MCP entrypoint; no unrelated Research tools."""
-    _stdio_server(index_only=True).serve_stdio()
+    prog = "synth-ai-index-mcp"
+    _parse_entrypoint_args(
+        prog,
+        "Synth Index MCP server over stdio (JSON-RPC on stdin/stdout); Index tools only.",
+        _INDEX_ENVIRONMENT_HELP,
+        argv,
+    )
+    _run_stdio_entrypoint(prog, index_only=True)
 
 
 __all__ = [
     "ADVANCED_TOOLS_ENV",
     "DEFAULT_PROTOCOL_VERSION",
+    "McpConfigurationError",
     "ResearchMcpServer",
     "SERVER_NAME",
     "SUPPORTED_PROTOCOL_VERSIONS",
