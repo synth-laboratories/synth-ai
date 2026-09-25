@@ -70,6 +70,7 @@ from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
+from synth_ai.sdk.index.timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
 from synth_ai.sdk.research.auth import get_api_key
 from synth_ai.sdk.research.client import Client as CoreResearchClient
 from synth_ai.sdk.research.contracts.activity import ActivityWindow
@@ -87,6 +88,11 @@ SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "synth-research"
 MCP_CLIENT_TIMEOUT_SECONDS = 30.0
+# Index delivery includes a separately bounded monitor after retrieval. Keep
+# stdio Index calls aligned with PublicIndexClient's 120-second transport bound;
+# an MCP timeout must not prematurely turn a valid monitored response into an
+# ambiguous retry. Research tools retain their separate 30-second default.
+INDEX_MCP_CLIENT_TIMEOUT_SECONDS = INDEX_TRANSPORT_TIMEOUT_SECONDS
 
 # The stdio entrypoint advertises the stable subset. Set this to 1/true/yes to
 # advertise the full built tree instead; without it the advanced tools are not
@@ -413,15 +419,19 @@ class ResearchMcpServer:
         include_advanced_tools: bool = False,
         index_client_factory: IndexClientFactory | None = None,
         index_write_enabled: bool = True,
+        index_only: bool = False,
     ) -> None:
-        self._default_api_key = api_key
+        self._default_api_key = api_key or None
         self._default_backend_base = backend_base
         self._include_advanced_tools = include_advanced_tools
         self._index_client_factory = index_client_factory
         self._index_write_enabled = index_write_enabled
+        self._index_only = index_only
         self._tools = build_tool_registry(self._build_tools())
 
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
+        if self._index_only:
+            return {name: tool for name, tool in self._tools.items() if name in INDEX_TOOL_NAMES}
         if self._include_advanced_tools:
             return self._tools
         return {
@@ -482,7 +492,12 @@ class ResearchMcpServer:
             *(
                 [
                     tool
-                    for tool in build_index_tools(self._index_client_factory)
+                    for tool in build_index_tools(
+                        self._index_client_factory,
+                        include_search=self._default_api_key is not None,
+                        include_answer=self._default_api_key is not None,
+                        include_lifecycle=self._default_api_key is not None,
+                    )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
                 ]
                 if self._index_client_factory is not None
@@ -2795,7 +2810,10 @@ class ResearchMcpServer:
                     "id": request_id,
                     "result": {
                         "protocolVersion": DEFAULT_PROTOCOL_VERSION,
-                        "serverInfo": {"name": SERVER_NAME, "version": __version__},
+                        "serverInfo": {
+                            "name": "synth-index" if self._index_only else SERVER_NAME,
+                            "version": __version__,
+                        },
                         "capabilities": {"tools": {}},
                     },
                 }
@@ -2876,14 +2894,22 @@ def _advanced_tools_requested() -> bool:
     return str(os.getenv(ADVANCED_TOOLS_ENV) or "").strip().lower() in {"1", "true", "yes"}
 
 
+class McpConfigurationError(ValueError):
+    """Invalid MCP process configuration, reported as one line at startup.
+
+    Subclasses ``ValueError`` so callers that caught the previous untyped error
+    keep working.
+    """
+
+
 def _explicit_index_flag(name: str) -> bool:
     value = os.environ.get(name, "false").strip().lower()
     if value not in {"true", "false"}:
-        raise ValueError(f"{name} must be true or false")
+        raise McpConfigurationError(f"{name} must be true or false")
     return value == "true"
 
 
-def _stdio_server() -> ResearchMcpServer:
+def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
     """Capture explicit Index process config; construct clients only on invocation.
 
     No credential discovery, home files, or network access during MCP discovery.
@@ -2891,20 +2917,20 @@ def _stdio_server() -> ResearchMcpServer:
     """
     from contextlib import contextmanager
 
-    enabled = _explicit_index_flag("SYNTH_INDEX_MCP_ENABLED")
+    enabled = index_only or _explicit_index_flag("SYNTH_INDEX_MCP_ENABLED")
     writes = _explicit_index_flag("SYNTH_INDEX_MCP_WRITE_ENABLED")
     if writes and not enabled:
-        raise ValueError("Index MCP writes require SYNTH_INDEX_MCP_ENABLED=true")
+        raise McpConfigurationError("Index MCP writes require SYNTH_INDEX_MCP_ENABLED=true")
     factory = None
     api_key = None
     backend_base = None
     if enabled:
-        api_key = os.environ.get("SYNTH_API_KEY", "").strip()
+        api_key = os.environ.get("SYNTH_API_KEY", "").strip() or None
         backend_base = os.environ.get("SYNTH_BACKEND_URL", "").strip()
         if not backend_base:
-            raise ValueError("Index MCP requires explicit SYNTH_BACKEND_URL")
+            raise McpConfigurationError("Index MCP requires explicit SYNTH_BACKEND_URL")
         if writes and not api_key:
-            raise ValueError("Index MCP writes require explicit SYNTH_API_KEY")
+            raise McpConfigurationError("Index MCP writes require explicit SYNTH_API_KEY")
         from urllib.parse import urlsplit
 
         url = urlsplit(backend_base)
@@ -2916,7 +2942,7 @@ def _stdio_server() -> ResearchMcpServer:
             or url.query
             or url.fragment
         ):
-            raise ValueError(
+            raise McpConfigurationError(
                 "SYNTH_BACKEND_URL must be an HTTP(S) URL without credentials, query, or fragment"
             )
 
@@ -2925,13 +2951,21 @@ def _stdio_server() -> ResearchMcpServer:
             if api_key:
                 from synth_ai import SynthClient
 
-                with SynthClient(api_key=api_key, base_url=backend_base) as client:
+                with SynthClient(
+                    api_key=api_key,
+                    base_url=backend_base,
+                    timeout_seconds=INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
+                ) as client:
                     yield client.index
                 return
             from synth_ai.core.http.transport import HttpTransport
             from synth_ai.sdk.index.client import PublicIndexAPI
 
-            transport = HttpTransport(base_url=backend_base, headers={})
+            transport = HttpTransport(
+                base_url=backend_base,
+                headers={},
+                timeout_seconds=INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
+            )
             try:
                 yield PublicIndexAPI(transport)
             finally:
@@ -2944,20 +2978,84 @@ def _stdio_server() -> ResearchMcpServer:
         include_advanced_tools=_advanced_tools_requested(),
         index_client_factory=factory,
         index_write_enabled=writes,
+        index_only=index_only,
     )
 
 
-def main() -> None:
+_INDEX_ENVIRONMENT_HELP = """\
+environment:
+  SYNTH_BACKEND_URL              backend base URL (required when Index tools are enabled)
+  SYNTH_API_KEY                  API key; enables authenticated Search and answer tools
+  SYNTH_INDEX_MCP_WRITE_ENABLED  true|false; Contribution write tools (needs SYNTH_API_KEY)
+"""
+
+_RESEARCH_ENVIRONMENT_HELP = (
+    _INDEX_ENVIRONMENT_HELP
+    + """\
+  SYNTH_INDEX_MCP_ENABLED        true|false; add Index tools to the Research server
+"""
+)
+
+
+def _parse_entrypoint_args(
+    prog: str, description: str, environment_help: str, argv: list[str] | None
+) -> None:
+    """Handle ``--help``/``--version`` before any server configuration is read."""
+    import argparse
+
+    from synth_ai import __version__
+
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description=description,
+        epilog=environment_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--version", action="version", version=f"{prog} {__version__}")
+    parser.parse_args(argv)
+
+
+def _run_stdio_entrypoint(prog: str, *, index_only: bool) -> None:
+    try:
+        server = _stdio_server(index_only=index_only)
+    except McpConfigurationError as error:
+        sys.stderr.write(f"{prog}: error: {error}\n")
+        raise SystemExit(2) from None
+    server.serve_stdio()
+
+
+def main(argv: list[str] | None = None) -> None:
     """CLI entrypoint for the stdio MCP server."""
-    _stdio_server().serve_stdio()
+    prog = "synth-ai-research-mcp"
+    _parse_entrypoint_args(
+        prog,
+        "Synth Research MCP server over stdio (JSON-RPC on stdin/stdout).",
+        _RESEARCH_ENVIRONMENT_HELP,
+        argv,
+    )
+    _run_stdio_entrypoint(prog, index_only=False)
+
+
+def main_index(argv: list[str] | None = None) -> None:
+    """Index-only stdio MCP entrypoint; no unrelated Research tools."""
+    prog = "synth-ai-index-mcp"
+    _parse_entrypoint_args(
+        prog,
+        "Synth Index MCP server over stdio (JSON-RPC on stdin/stdout); Index tools only.",
+        _INDEX_ENVIRONMENT_HELP,
+        argv,
+    )
+    _run_stdio_entrypoint(prog, index_only=True)
 
 
 __all__ = [
     "ADVANCED_TOOLS_ENV",
     "DEFAULT_PROTOCOL_VERSION",
+    "McpConfigurationError",
     "ResearchMcpServer",
     "SERVER_NAME",
     "SUPPORTED_PROTOCOL_VERSIONS",
     "_read_message",
     "main",
+    "main_index",
 ]

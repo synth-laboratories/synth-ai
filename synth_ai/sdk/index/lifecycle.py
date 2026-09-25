@@ -27,7 +27,7 @@ Digest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 Title = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 ReviewComments = Annotated[str, StringConstraints(min_length=1, max_length=16_384)]
 ClaimCommentText = Annotated[str, StringConstraints(min_length=1, max_length=4096)]
-Capability = Literal["award", "contest", "publish", "review"]
+Capability = Literal["award", "contest", "publish", "review", "research_import"]
 Generation = Annotated[StrictInt, Field(ge=0)]
 IndexingState = Literal["not_indexed", "pending", "indexed", "failed"]
 

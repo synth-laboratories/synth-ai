@@ -474,6 +474,18 @@ class InternSyncSession(_StrictContract):
     updated_at: datetime
     closed_at: datetime | None = None
 
+    def to_wire(self) -> dict[str, Any]:
+        """Preserve pre-budget projections without inventing a new wire field.
+
+        The backend added ``budget`` after older Sync sessions were captured.
+        A default typed value is useful to readers, but it must not change the
+        canonical digest of an older response that omitted the field.
+        """
+        wire = super().to_wire()
+        if "budget" not in self.model_fields_set:
+            wire.pop("budget", None)
+        return wire
+
 
 class InternSyncCommandRequest(_StrictContract):
     command_id: str = Field(min_length=1, max_length=512)
@@ -892,6 +904,7 @@ class InternAsyncCheckpoint(_StrictContract):
 
 
 class InternAsyncBlocker(_StrictContract):
+    async_assignment_id: str | None = None
     """One Async blocker.
 
     Most fields are populated only once the blocker has been opened as a Sync

@@ -75,11 +75,23 @@ class ManagedResearchRunControlError(ResearchApiError):
             status_code=status_code,
             response_text=response_text,
         )
-        self.error_code = error_code
-        self.retryable = retryable
+        # SynthError exposes error_code and retryable as read-only properties;
+        # assigning them raised AttributeError on every refused lifecycle
+        # control (a stop of an already-terminal run crashed CardCode's
+        # interrupt cleanup, 2026-09-23).
+        self._run_control_error_code = error_code
+        self._run_control_retryable = retryable
         self.current_state = current_state
         self.run_id = run_id
         self.detail: dict[str, object] = dict(detail) if detail else {}
+
+    @property
+    def error_code(self) -> RunLifecycleControlErrorCode:  # type: ignore[override]
+        return self._run_control_error_code
+
+    @property
+    def retryable(self) -> bool:
+        return self._run_control_retryable
 
     @classmethod
     def from_response(

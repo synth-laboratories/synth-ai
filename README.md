@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.19.0-orange synth-ai==0.19.0 -->
+<!-- CI release pins: PyPI-0.20.0-orange synth-ai==0.20.0 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -140,6 +140,32 @@ CLI discovery:
 synth-ai research --help
 ```
 
+Project creation also accepts the backend-owned `ProjectSpec.policy` mapping.
+For example, a server-enabled fresh project can request
+`policy={"host_resource_custody_mode": "horizons_docker_sessions_only"}`.
+The backend validates this restricted mode and owns its immutable resource
+binding; SDK serialization does not grant additional authority.
+
+## Container pools
+
+The optional `synth-ai[pools]` extra exposes the canonical `synth-containers`
+client through `AsyncSynthClient.pools`. It uses the same configured backend
+credential and keeps hosted admission, resource ownership, and recovery in the
+backend. The enclosing async client closes the pool transport.
+
+```python
+from synth_ai import AsyncSynthClient
+
+async def inspect_lease(lease_id: str, task_id: str):
+    async with AsyncSynthClient() as client:
+        return await client.pools.get_lease_interactive(lease_id, task_id=task_id)
+```
+
+For explicit lifetime management, `from synth_ai.pools import PoolClient`
+re-exports the same implementation. Research-only installations do not import
+this optional dependency. Development candidates must install the exact pinned
+containers wheel; an unpublished candidate extra is not a release claim.
+
 ## CLI
 
 ```bash
@@ -153,11 +179,39 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
+| **Index** | `client.index` | Authenticated, funded FAST/DEEP Search and Contribution lifecycle. |
 | **Research / Factory** | `client.research` | Typed hosted projects, swarms, Factory lifecycles, and Efforts. |
-| CLI | `synth-ai` | Terminal access to Research commands. |
+| CLI / MCP | `synth-ai`, `synth-ai-index-mcp` | Terminal commands and an Index-only coding-agent server. |
 
-There are no infrastructure client namespaces (containers, tunnels, pools) on
-`SynthClient`; the package is Research-only as of 0.18.0.
+Index is an API/MCP product, not a browser search page. Anonymous public
+catalog and known-ID Contribution reads use `PublicIndexClient`; even a
+public-scope Search requires an API key, an authorized organization, and
+funding. An Index-only MCP server starts read-only, advertising public browse
+without a key and Search only when a key is configured. Contribution writes
+require a separate explicit opt-in and grant.
+
+```python
+from uuid import uuid4
+
+from synth_ai import SynthClient
+from synth_ai.sdk.index import SearchBillingConstraints
+
+request_key = str(uuid4())  # Persist this before sending; reuse it on uncertain retry.
+with SynthClient() as synth:  # Reads SYNTH_API_KEY.
+    result = synth.index.search(
+        query="What evidence supports the retrieval design?",
+        mode="fast",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
+        idempotency_key=request_key,
+    )
+    print(result.response, result.usage)
+```
+
+FAST's five-cent ceiling is explicit wallet consent, not a claim that DEEP has
+the same price. See the [Index SDK guide](https://github.com/synth-laboratories/synth-ai/blob/main/synth_ai/sdk/index/README.md) for
+DEEP's durable Search ID, reconnect/cancel, private collections, receipts, and
+coding-agent MCP setup. These calls require a deployed Index API; installing
+the SDK alone does not make a Search available.
 
 Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
 want hosted research workers, repo runs, evidence, checkpoints, MCP, or final

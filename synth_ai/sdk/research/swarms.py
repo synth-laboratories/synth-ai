@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Mapping
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import SynthError
@@ -24,7 +24,9 @@ from synth_ai.sdk.research.contracts.evidence import (
     ContentDisposition,
     SwarmEvidence,
 )
+from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.status import SwarmStatus
+from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
@@ -53,12 +55,14 @@ def _request(
     *,
     query: JsonObject | None = None,
     body: JsonObject | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> HttpRequest:
     return HttpRequest(
         research_operation(operation_id),
         path,
         query=query or {},
         body=body,
+        headers=headers or {},
     )
 
 
@@ -313,12 +317,16 @@ class SwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        runtime_binding_context_id: str | None = None,
     ) -> SwarmHandle:
         """Create a Swarm from a typed Swarm specification.
 
+        # See: backend/app/api/v1/managed_research/projects.py (project trigger)
         Args:
             request: Swarm specification to serialize into the create request body.
             project_id: Optional Project that should own the Swarm.
+            runtime_binding_context_id: Opaque manager-issued placement context
+                redeemed by the backend for this project trigger only.
 
         Returns:
             A handle for the created Swarm.
@@ -329,7 +337,18 @@ class SwarmsAPI:
         else:
             operation_id = "trigger_project_run"
             path = f"/smr/projects/{project_id}/trigger"
-        value = self._transport.execute(_request(operation_id, path, body=request.to_wire()))
+        headers: dict[str, str] = {}
+        if runtime_binding_context_id is not None:
+            if project_id is None:
+                raise ValueError("runtime binding context requires a project")
+            if not runtime_binding_context_id.strip() or any(
+                character in runtime_binding_context_id for character in "\r\n"
+            ):
+                raise ValueError("runtime_binding_context_id must be a non-empty header value")
+            headers["X-Synth-Runtime-Binding-Context"] = runtime_binding_context_id
+        value = self._transport.execute(
+            _request(operation_id, path, body=request.to_wire(), headers=headers)
+        )
         return SwarmHandle(self, Swarm.from_wire(value))
 
     def list(
@@ -338,6 +357,8 @@ class SwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
+        origin_runtime_kind: str | None = None,
+        origin_runtime_id: str | None = None,
     ) -> SyncPage[Swarm]:
         """List Swarms for a Project.
 
@@ -345,13 +366,23 @@ class SwarmsAPI:
             project_id: Project whose Swarms to list.
             limit: Maximum number of Swarms to request.
             cursor: Optional pagination cursor returned by the backend.
+            origin_runtime_kind: ``"sync"`` or ``"async"``; with
+                ``origin_runtime_id``, list only the Swarms that Intern runtime launched.
+            origin_runtime_id: Intern Sync session or Async assignment id.
 
         Returns:
             A typed page containing Swarms and any continuation cursor.
         """
+        if (origin_runtime_kind is None) != (origin_runtime_id is None):
+            raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
+        if origin_runtime_kind is not None and origin_runtime_id is not None:
+            query["origin_runtime_kind"] = origin_runtime_kind
+            query["origin_runtime_id"] = origin_runtime_id
         value = self._transport.execute(
             _request(
                 "list_project_runs",
@@ -392,6 +423,31 @@ class SwarmsAPI:
             )
         )
         return SwarmUsage.from_wire(value)
+
+    def rollouts(self, swarm_id: SwarmId, *, limit: int = 100) -> tuple[SwarmRollout, ...]:
+        """Container-pool rollouts this Swarm launched (verified budget parent only)."""
+        value = self._transport.execute(
+            _request(
+                "list_swarm_rollouts",
+                f"/smr/runs/{swarm_id}/rollouts",
+                query={"limit": limit},
+            )
+        )
+        return swarm_rollouts_from_wire(value, swarm_id=str(swarm_id))
+
+    def resource_settlement(self, swarm_id: SwarmId) -> RunResourceSettlement:
+        """Fresh read of whether the resources this Swarm registered are disposed.
+
+        ``settled`` covers registered resources only; ``coverage_complete`` says
+        whether that inventory is complete. ``coverage="untracked"`` is no claim.
+        """
+        value = self._transport.execute(
+            _request(
+                "get_run_resource_settlement",
+                f"/smr/runs/{swarm_id}/resource-settlement",
+            )
+        )
+        return RunResourceSettlement.from_wire(value)
 
     def evidence(self, swarm_id: SwarmId) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
@@ -875,12 +931,16 @@ class AsyncSwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        runtime_binding_context_id: str | None = None,
     ) -> AsyncSwarmHandle:
         """Create a Swarm from a typed Swarm specification.
 
+        # See: backend/app/api/v1/managed_research/projects.py (project trigger)
         Args:
             request: Swarm specification to serialize into the create request body.
             project_id: Optional Project that should own the Swarm.
+            runtime_binding_context_id: Opaque manager-issued placement context
+                redeemed by the backend for this project trigger only.
 
         Returns:
             A handle for the created Swarm.
@@ -891,7 +951,18 @@ class AsyncSwarmsAPI:
         else:
             operation_id = "trigger_project_run"
             path = f"/smr/projects/{project_id}/trigger"
-        value = await self._transport.execute(_request(operation_id, path, body=request.to_wire()))
+        headers: dict[str, str] = {}
+        if runtime_binding_context_id is not None:
+            if project_id is None:
+                raise ValueError("runtime binding context requires a project")
+            if not runtime_binding_context_id.strip() or any(
+                character in runtime_binding_context_id for character in "\r\n"
+            ):
+                raise ValueError("runtime_binding_context_id must be a non-empty header value")
+            headers["X-Synth-Runtime-Binding-Context"] = runtime_binding_context_id
+        value = await self._transport.execute(
+            _request(operation_id, path, body=request.to_wire(), headers=headers)
+        )
         return AsyncSwarmHandle(self, Swarm.from_wire(value))
 
     async def list(
@@ -900,6 +971,8 @@ class AsyncSwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
+        origin_runtime_kind: str | None = None,
+        origin_runtime_id: str | None = None,
     ) -> SyncPage[Swarm]:
         """List Swarms for a Project.
 
@@ -907,13 +980,23 @@ class AsyncSwarmsAPI:
             project_id: Project whose Swarms to list.
             limit: Maximum number of Swarms to request.
             cursor: Optional pagination cursor returned by the backend.
+            origin_runtime_kind: ``"sync"`` or ``"async"``; with
+                ``origin_runtime_id``, list only the Swarms that Intern runtime launched.
+            origin_runtime_id: Intern Sync session or Async assignment id.
 
         Returns:
             A typed page containing Swarms and any continuation cursor.
         """
+        if (origin_runtime_kind is None) != (origin_runtime_id is None):
+            raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
+        if origin_runtime_kind is not None and origin_runtime_id is not None:
+            query["origin_runtime_kind"] = origin_runtime_kind
+            query["origin_runtime_id"] = origin_runtime_id
         value = await self._transport.execute(
             _request("list_project_runs", f"/smr/projects/{project_id}/runs", query=query)
         )
@@ -950,6 +1033,17 @@ class AsyncSwarmsAPI:
             )
         )
         return SwarmUsage.from_wire(value)
+
+    async def rollouts(self, swarm_id: SwarmId, *, limit: int = 100) -> tuple[SwarmRollout, ...]:
+        """Container-pool rollouts this Swarm launched (verified budget parent only)."""
+        value = await self._transport.execute(
+            _request(
+                "list_swarm_rollouts",
+                f"/smr/runs/{swarm_id}/rollouts",
+                query={"limit": limit},
+            )
+        )
+        return swarm_rollouts_from_wire(value, swarm_id=str(swarm_id))
 
     async def evidence(self, swarm_id: SwarmId) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""

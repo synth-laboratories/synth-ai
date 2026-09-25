@@ -59,10 +59,14 @@ class ActorHarness(StrEnum):
 class ActiveActorModel(StrEnum):
     """First-class models allowed for shared top-level agent selection."""
 
+    OPENROUTER_GPT_5_6_LUNA = "openrouter/openai/gpt-5.6-luna"
+
     GPT_5_4_MINI = "gpt-5.4-mini"
     GPT_5_6_LUNA = "gpt-5.6-luna"
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     KIMI_K3 = "modal/moonshotai/Kimi-K3"
+    OPENAI_API_GPT_5_6_LUNA = "openai-api/gpt-5.6-luna"
+    OPENAI_API_GPT_6_LUNA = "openai-api/gpt-6-luna"
     OPENROUTER_LAGUNA_S_2_1 = "openrouter/poolside/laguna-s-2.1"
     LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
     META_MUSE_SPARK_1_2 = "meta/muse-spark-1.2"
@@ -85,8 +89,6 @@ class DeprecatedActorModel(StrEnum):
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
-    GROK_4_3 = "x-ai/grok-4.3"
-    GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
     KIMI_K3_BASETEN = "baseten/moonshotai/Kimi-K3"
     GLM_5_2 = "baseten/zai-org/GLM-5.2"
@@ -105,6 +107,9 @@ class ActorModel(StrEnum):
     GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
     CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
     KIMI_K3 = ActiveActorModel.KIMI_K3.value
+    OPENROUTER_GPT_5_6_LUNA = ActiveActorModel.OPENROUTER_GPT_5_6_LUNA.value
+    OPENAI_API_GPT_5_6_LUNA = ActiveActorModel.OPENAI_API_GPT_5_6_LUNA.value
+    OPENAI_API_GPT_6_LUNA = ActiveActorModel.OPENAI_API_GPT_6_LUNA.value
     OPENROUTER_LAGUNA_S_2_1 = ActiveActorModel.OPENROUTER_LAGUNA_S_2_1.value
     LAGUNA_S_2_1_NVFP4 = ActiveActorModel.LAGUNA_S_2_1_NVFP4.value
     META_MUSE_SPARK_1_2 = ActiveActorModel.META_MUSE_SPARK_1_2.value
@@ -122,8 +127,6 @@ class ActorModel(StrEnum):
     DEEPSEEK_REASONER = DeprecatedActorModel.DEEPSEEK_REASONER.value
     CURSOR_GPT_5 = DeprecatedActorModel.CURSOR_GPT_5.value
     CURSOR_SONNET_4 = DeprecatedActorModel.CURSOR_SONNET_4.value
-    GROK_4_3 = DeprecatedActorModel.GROK_4_3.value
-    GROK_BUILD = DeprecatedActorModel.GROK_BUILD.value
     KIMI_K2_6 = DeprecatedActorModel.KIMI_K2_6.value
     KIMI_K3_BASETEN = DeprecatedActorModel.KIMI_K3_BASETEN.value
     GLM_5_2 = DeprecatedActorModel.GLM_5_2.value
@@ -192,11 +195,11 @@ class HostKind(StrEnum):
 
 class ResourceProvider(StrEnum):
     OPENROUTER = "openrouter"
+    OPENAI = "openai"
     TINKER = "tinker"
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
-    XAI = "xai"
     MODAL = "modal"
     OPENAI_CHATGPT = "openai_chatgpt"
     BASETEN = "baseten"
@@ -212,7 +215,6 @@ class CredentialProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
-    XAI = "xai"
     TINKER = "tinker"
     SYNTH_INTERNAL = "synth_internal"
 
@@ -227,7 +229,6 @@ class InferenceProvider(StrEnum):
     GOOGLE = "google"
     OPENROUTER = "openrouter"
     SYNTH = "synth"
-    XAI = "xai"
     SYNTH_INTERNAL = "synth_internal"
 
 
@@ -250,7 +251,6 @@ _PUBLIC_PROVIDER_SELECTIONS = frozenset(
         InferenceProvider.OPENAI.value,
         InferenceProvider.MODAL.value,
         InferenceProvider.SYNTH.value,
-        InferenceProvider.XAI.value,
         InferenceProvider.CURSOR.value,
     }
 )
@@ -280,7 +280,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, modal, openai, synth, xai, and cursor; "
+            "provider supports auto, modal, openai, synth, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):
@@ -1056,6 +1056,74 @@ class KickoffArtifact:
         }
 
 
+class AiCacheMode(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    READWRITE = "readwrite"
+
+
+@dataclass(frozen=True, slots=True)
+class AiCachePolicy:
+    """Local integration-test inference routing for one Swarm run."""
+
+    mode: AiCacheMode
+    namespace: str
+    proxy_root_url: str
+    canonicalizer: str
+    provider: str | None = None
+    phase: str | None = None
+    deterministic_replay: bool | None = None
+    allow_model_suffixes: bool = False
+    live_provider_allowed: bool | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("namespace", "proxy_root_url", "canonicalizer"):
+            require_text(getattr(self, name), field_name=f"ai_cache.{name}")
+        if any(
+            character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+            for character in self.namespace
+        ):
+            raise ValueError("ai_cache.namespace contains unsafe characters")
+        if not self.proxy_root_url.startswith(("http://", "https://")):
+            raise ValueError("ai_cache.proxy_root_url must be an HTTP(S) URL")
+        if self.provider is not None:
+            require_text(self.provider, field_name="ai_cache.provider")
+            if any(
+                character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+                for character in self.provider
+            ):
+                raise ValueError("ai_cache.provider contains unsafe characters")
+        replay = self.mode is AiCacheMode.READ
+        if self.deterministic_replay is not None and self.deterministic_replay != replay:
+            raise ValueError("ai_cache deterministic_replay must match read mode")
+        live_allowed = self.live_provider_allowed
+        if live_allowed is None:
+            live_allowed = self.mode in {AiCacheMode.WRITE, AiCacheMode.READWRITE}
+            object.__setattr__(self, "live_provider_allowed", live_allowed)
+        if replay and live_allowed:
+            raise ValueError("ai_cache read mode forbids live provider access")
+        if self.phase is not None and self.phase not in {"record", "replay"}:
+            raise ValueError("ai_cache.phase must be 'record' or 'replay'")
+        if self.phase == "replay" and not replay:
+            raise ValueError("ai_cache replay phase requires read mode")
+
+    def to_wire(self) -> JsonObject:
+        replay = self.mode is AiCacheMode.READ
+        payload: JsonObject = {
+            "mode": self.mode.value,
+            "phase": self.phase or ("replay" if replay else "record"),
+            "namespace": self.namespace,
+            "proxy_root_url": self.proxy_root_url.rstrip("/"),
+            "canonicalizer": self.canonicalizer,
+            "deterministic_replay": replay,
+            "allow_model_suffixes": self.allow_model_suffixes,
+            "live_provider_allowed": bool(self.live_provider_allowed),
+        }
+        if self.provider is not None:
+            payload["provider"] = self.provider
+        return payload
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmSpec:
     objective: str
@@ -1078,6 +1146,7 @@ class SwarmSpec:
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
     kickoff_contract: Mapping[str, JsonValue] | None = None
+    ai_cache: AiCachePolicy | None = None
     execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
@@ -1133,6 +1202,8 @@ class SwarmSpec:
             if not isinstance(frozen_contract, Mapping):
                 raise ValueError("kickoff_contract must be a JSON object")
             object.__setattr__(self, "kickoff_contract", frozen_contract)
+        if self.ai_cache is not None and not isinstance(self.ai_cache, AiCachePolicy):
+            raise ValueError("ai_cache must be AiCachePolicy")
         if self.provider_policy is not None and not isinstance(
             self.provider_policy,
             ProviderPolicy,
@@ -1259,6 +1330,8 @@ class SwarmSpec:
                 JsonObject,
                 _thaw_json(cast(FrozenJsonValue, self.kickoff_contract)),
             )
+        if self.ai_cache is not None:
+            payload["ai_cache"] = self.ai_cache.to_wire()
         if self.execution_target is not None:
             payload["execution_target"] = self.execution_target.to_wire()
         if self.actor_image_overrides:
@@ -1294,6 +1367,10 @@ class Swarm:
     finished_at: datetime | None = None
     terminal_outcome: SwarmTerminalOutcome | None = None
     work_completed: bool = False
+    # The Intern Sync session ("sync") or Async assignment ("async") that
+    # launched this swarm; both None for swarms no Intern runtime started.
+    origin_runtime_kind: str | None = None
+    origin_runtime_id: str | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Swarm:
@@ -1301,6 +1378,9 @@ class Swarm:
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
         terminal_outcome = optional_text(payload, "terminal_outcome")
+        origin_runtime_kind = optional_text(payload, "origin_runtime_kind")
+        if origin_runtime_kind not in {None, "sync", "async"}:
+            raise ValueError(f"swarm origin_runtime_kind is invalid: {origin_runtime_kind!r}")
         return cls(
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
@@ -1318,6 +1398,8 @@ class Swarm:
                 SwarmTerminalOutcome(terminal_outcome) if terminal_outcome is not None else None
             ),
             work_completed=optional_bool(payload, "work_completed"),
+            origin_runtime_kind=origin_runtime_kind,
+            origin_runtime_id=optional_text(payload, "origin_runtime_id"),
         )
 
     def require_terminal_outcome(self) -> SwarmTerminalOutcome:
@@ -1416,10 +1498,50 @@ def _format_preflight_blocker_message(
 
 
 @dataclass(frozen=True, slots=True)
+class SwarmPreflightBlocker:
+    """Structured launch refusal evidence preserved from the backend."""
+
+    stage: str | None
+    http_status: int | None
+    error_code: str | None
+    message: str
+    retryable: bool
+    retry_after_seconds: int | None
+    reason_class: str | None
+    observation_id: str | None
+    detail: FrozenJsonValue
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmPreflightBlocker:
+        if isinstance(value, str):
+            return cls(None, None, None, value, False, None, None, None, None)
+        payload = object_value(value, operation_id="swarm preflight blocker")
+        message = payload.get("message") or payload.get("detail") or payload.get("code")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("preflight blocker must include message, detail, or code")
+        http_status = payload.get("http_status")
+        retry_after_seconds = payload.get("retry_after_seconds")
+        return cls(
+            stage=optional_text(payload, "stage"),
+            http_status=http_status if isinstance(http_status, int) else None,
+            error_code=optional_text(payload, "error_code") or optional_text(payload, "code"),
+            message=message.strip(),
+            retryable=bool(payload.get("retryable", False)),
+            retry_after_seconds=(
+                retry_after_seconds if isinstance(retry_after_seconds, int) else None
+            ),
+            reason_class=optional_text(payload, "reason_class"),
+            observation_id=optional_text(payload, "observation_id"),
+            detail=_freeze_json(cast(JsonValue, payload.get("detail"))),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
     blockers: tuple[str, ...]
+    blocker_details: tuple[SwarmPreflightBlocker, ...] = ()
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmPreflight:
@@ -1430,7 +1552,9 @@ class SwarmPreflight:
         if not isinstance(raw_blockers, list):
             raise ValueError("preflight blockers must be an array")
         blockers: list[str] = []
+        blocker_details: list[SwarmPreflightBlocker] = []
         for blocker in raw_blockers:
+            blocker_details.append(SwarmPreflightBlocker.from_wire(cast(JsonValue, blocker)))
             if isinstance(blocker, str):
                 blockers.append(blocker)
             elif isinstance(blocker, dict):
@@ -1454,6 +1578,7 @@ class SwarmPreflight:
             ProjectId(required_text(payload, "project_id")),
             required_bool(payload, "clear_to_trigger"),
             tuple(blockers),
+            tuple(blocker_details),
         )
 
 
@@ -1525,6 +1650,8 @@ ResearchSwarmState = SwarmState
 
 
 __all__ = [
+    "AiCacheMode",
+    "AiCachePolicy",
     "ActiveActorModel",
     "ActorHarness",
     "ActorImageBinding",
@@ -1561,6 +1688,7 @@ __all__ = [
     "BranchResult",
     "SwarmSpec",
     "SwarmPreflight",
+    "SwarmPreflightBlocker",
     "SwarmState",
     "ResearchSwarm",
     "ResearchSwarmBranchRequest",

@@ -47,6 +47,7 @@ from synth_ai.sdk.research.contracts.factory_operations import (
 from synth_ai.sdk.research.contracts.local_execution_profile import (
     LocalExecutionProfile,
 )
+from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.run_execution import RunExecutionProjection
 from synth_ai.sdk.research.contracts.run_launch import (
     RunLaunchRequest,
@@ -168,7 +169,8 @@ from synth_ai.sdk.research.session._client_helpers import (
     _coerce_dict_list,
     _fencing_headers,
     _guess_content_type,
-    _is_source_bundle_entry,
+    _normalize_resource_uploaded_file,
+    _normalize_uploaded_file,
     _optional_mapping,
     _optional_non_empty_string,
     _positive_int_env,
@@ -963,59 +965,6 @@ def _build_project_run_payload_from_request(
 _DEFAULT_WORKSPACE_UPLOAD_CHUNK_SIZE = 100
 
 
-def _normalize_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:
-    path = str(entry.get("path") or "").strip()
-    if not path:
-        raise ValueError("workspace file entries require a non-empty path")
-    content = entry.get("content")
-    content_path = entry.get("content_path")
-    content_type = str(entry.get("content_type") or _guess_content_type(path)).strip()
-    encoding = str(entry.get("encoding") or "").strip().lower() or None
-    if content_path is not None:
-        file_path = Path(str(content_path))
-        raw_bytes = file_path.read_bytes()
-        if _is_source_bundle_entry(path, {**dict(entry), "content_type": content_type}):
-            content = base64.b64encode(raw_bytes).decode("ascii")
-            encoding = encoding or "base64"
-        else:
-            try:
-                content = raw_bytes.decode("utf-8")
-                encoding = encoding or "utf-8"
-            except UnicodeDecodeError:
-                content = base64.b64encode(raw_bytes).decode("ascii")
-                encoding = encoding or "base64"
-    if content is None:
-        raise ValueError("workspace file entries require either content or content_path")
-    if isinstance(content, bytes):
-        content = base64.b64encode(content).decode("ascii")
-        encoding = encoding or "base64"
-    if not isinstance(content, str):
-        raise ValueError("workspace file content must be text or bytes")
-    normalized: dict[str, Any] = {
-        "path": path,
-        "content": content,
-        "content_type": content_type,
-        "encoding": encoding or "utf-8",
-    }
-    kind = str(entry.get("kind") or "").strip()
-    if kind:
-        normalized["kind"] = kind
-    metadata = entry.get("metadata")
-    if metadata is not None:
-        if not isinstance(metadata, Mapping):
-            raise ValueError("uploaded file metadata must be a mapping when provided")
-        normalized["metadata"] = dict(metadata)
-    return normalized
-
-
-def _normalize_resource_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:
-    normalized = _normalize_uploaded_file(entry)
-    visibility = str(entry.get("visibility") or "").strip()
-    if visibility:
-        normalized["visibility"] = visibility
-    return normalized
-
-
 def _source_bundle_file_entry(
     bundle_path: str | os.PathLike[str],
     *,
@@ -1462,6 +1411,9 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return self.usage.get_run_usage(run_id)
+
+    def get_run_resource_settlement(self, run_id: str) -> RunResourceSettlement:
+        return self.usage.get_run_resource_settlement(run_id)
 
     def get_run_resource_limits(self, run_id: str) -> SmrResourceLimits:
         return self.usage.get_run_resource_limits(run_id)
@@ -3032,6 +2984,38 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 params=build_query_params(visibility=visibility, limit=limit),
             ),
             label="list_project_files",
+        )
+
+    def create_org_file(
+        self,
+        *,
+        name: str,
+        content: str,
+        encoding: str = "utf-8",
+        content_type: str | None = None,
+        sync_session_id: str | None = None,
+        project_id: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a file using the backend's org-file contract.
+
+        # See: backend/app/api/v1/managed_research/files.py::create_file
+        """
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/files",
+                json_body={
+                    "name": name,
+                    "content": content,
+                    "encoding": encoding,
+                    "content_type": content_type,
+                    "sync_session_id": sync_session_id,
+                    "project_id": project_id,
+                    "metadata": dict(metadata or {}),
+                },
+            ),
+            label="create_org_file",
         )
 
     def create_project_files(
@@ -5790,13 +5774,22 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         public_state: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
+        origin_runtime_kind: str | None = None,
+        origin_runtime_id: str | None = None,
     ) -> list[dict[str, Any]]:
+        """List runs; pass both origin fields to get the runs one Intern runtime launched."""
+        if (origin_runtime_kind is None) != (origin_runtime_id is None):
+            raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
         if active_only:
+            if origin_runtime_id is not None:
+                raise ValueError("active_only does not combine with an origin filter")
             return self.list_active_runs(project_id)
         params = build_query_params(
             public_state=public_state,
             limit=limit,
             cursor=cursor,
+            origin_runtime_kind=origin_runtime_kind,
+            origin_runtime_id=origin_runtime_id,
         )
         return _coerce_dict_list(
             self._request_json("GET", f"/smr/projects/{project_id}/runs", params=params),
