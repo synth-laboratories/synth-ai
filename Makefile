@@ -1,4 +1,4 @@
-.PHONY: test test-unit docs-gen docs-dev docs-check
+.PHONY: test test-unit test-index-client docs-gen docs-dev docs-check
 
 # This repo is the published package and nothing else. The gates, the specs, the
 # guardrail manifest and the docs build moved out on 2026-07-29:
@@ -50,8 +50,12 @@ test test-unit:
 		uv run python scripts/check_research_migration_boundaries.py \
 			--backend-root $(BACKEND) --evals-root $(EVALS) && \
 		uv run python scripts/validate_synth_ai_contract.py && \
-		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \
+		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1 && \
+		python scripts/run_index_client_gate.py --sdk "$(CURDIR)" --backend "$(BACKEND)"; \
 	else \
 		echo "Missing $(TESTING) checkout; clone synth-laboratories/testing beside synth-ai"; \
 		exit 1; \
 	fi
+
+test-index-client:
+	cd $(TESTING) && python scripts/run_index_client_gate.py --sdk "$(CURDIR)" --backend "$(BACKEND)"
