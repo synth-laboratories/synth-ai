@@ -19,10 +19,10 @@ def index() -> None:
 @click.option("--max-results", type=click.IntRange(1, 10), default=5, show_default=True)
 @click.option(
     "--deadline-seconds",
-    type=click.IntRange(1, 90),
-    default=90,
+    type=click.IntRange(1, 300),
+    default=180,
     show_default=True,
-    help="Deep execution ceiling; ignored for fast only by omitting it from the request.",
+    help="Durable Deep execution ceiling; omitted from fast requests.",
 )
 @click.option(
     "--private-collection",
@@ -31,6 +31,10 @@ def index() -> None:
     help="Search only these authorized private collection IDs.",
 )
 @click.option("--idempotency-key", help="Stable retry identity for this logical search.")
+@click.option("--allow-wallet", is_flag=True, help="Explicitly allow wallet funding.")
+@click.option(
+    "--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum charge in cents."
+)
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Synth backend base URL.")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Authorized Synth API key.")
 def search(
@@ -40,6 +44,8 @@ def search(
     deadline_seconds: int,
     private_collections: tuple[str, ...],
     idempotency_key: str | None,
+    allow_wallet: bool,
+    max_charge_cents: int | None,
     backend_url: str | None,
     api_key: str | None,
 ) -> None:
@@ -49,6 +55,7 @@ def search(
     from synth_ai import SynthClient
     from synth_ai.core.errors import SynthError
     from synth_ai.sdk.index.search import (
+        SearchBillingConstraints,
         SearchExecutionCancelledError,
         SearchExecutionFailedError,
         SearchExecutionLimits,
@@ -78,6 +85,9 @@ def search(
                 scope=scope,
                 max_results=max_results,
                 limits=limits,
+                billing=SearchBillingConstraints(
+                    allow_wallet=allow_wallet, max_charge_cents=max_charge_cents
+                ),
                 idempotency_key=idempotency_key,
             )
     except (
@@ -125,6 +135,12 @@ def search(
     required=True,
     help="Stable retry identity for retrieval, admission and synthesis.",
 )
+@click.option("--allow-wallet", is_flag=True, help="Explicitly allow wallet funding for retrieval.")
+@click.option(
+    "--max-charge-cents",
+    type=click.IntRange(0, 1_000_000),
+    help="Maximum retrieval charge in cents.",
+)
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Synth backend base URL.")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Authorized Synth API key.")
 def answer(
@@ -136,6 +152,8 @@ def answer(
     deadline_seconds: int,
     private_collections: tuple[str, ...],
     idempotency_key: str,
+    allow_wallet: bool,
+    max_charge_cents: int | None,
     backend_url: str | None,
     api_key: str | None,
 ) -> None:
@@ -145,6 +163,7 @@ def answer(
     from synth_ai import SynthClient
     from synth_ai.core.errors import SynthError
     from synth_ai.sdk.index.search import (
+        SearchBillingConstraints,
         SearchExecutionLimits,
         SearchMode,
         SearchScope,
@@ -173,6 +192,9 @@ def answer(
                 limits=limits,
                 max_answer_tokens=max_answer_tokens,
                 max_answer_cost_usd_micros=max_answer_cost_usd_micros,
+                billing=SearchBillingConstraints(
+                    allow_wallet=allow_wallet, max_charge_cents=max_charge_cents
+                ),
                 idempotency_key=idempotency_key,
             )
     except (ValueError, SynthError, HTTPError) as error:
@@ -192,10 +214,14 @@ def searches() -> None:
 @click.argument("query")
 @click.option("--mode", type=click.Choice(("fast", "deep")), default="deep", show_default=True)
 @click.option("--max-results", type=click.IntRange(1, 10), default=5, show_default=True)
-@click.option("--deadline-seconds", type=click.IntRange(1, 90), default=90, show_default=True)
+@click.option("--deadline-seconds", type=click.IntRange(1, 300), default=180, show_default=True)
 @click.option("--private-collection", "private_collections", multiple=True)
 @click.option(
     "--idempotency-key", required=True, help="Reuse this key after an uncertain response."
+)
+@click.option("--allow-wallet", is_flag=True, help="Explicitly allow wallet funding.")
+@click.option(
+    "--max-charge-cents", type=click.IntRange(0, 1_000_000), help="Maximum charge in cents."
 )
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL")
 @click.option("--api-key", envvar="SYNTH_API_KEY")
@@ -206,6 +232,8 @@ def searches_create(
     deadline_seconds: int,
     private_collections: tuple[str, ...],
     idempotency_key: str,
+    allow_wallet: bool,
+    max_charge_cents: int | None,
     backend_url: str | None,
     api_key: str | None,
 ) -> None:
@@ -215,6 +243,7 @@ def searches_create(
     from synth_ai import SynthClient
     from synth_ai.core.errors import SynthError
     from synth_ai.sdk.index.search import (
+        SearchBillingConstraints,
         SearchContent,
         SearchExecutionLimits,
         SearchMode,
@@ -239,6 +268,9 @@ def searches_create(
                 SearchExecutionLimits(deadline_seconds=deadline_seconds)
                 if selected_mode is SearchMode.DEEP
                 else None
+            ),
+            billing=SearchBillingConstraints(
+                allow_wallet=allow_wallet, max_charge_cents=max_charge_cents
             ),
         )
         with SynthClient(api_key=api_key, base_url=backend_url) as client:
@@ -376,9 +408,9 @@ def submit(
     from synth_ai import SynthClient
     from synth_ai.core.errors import SynthError
     from synth_ai.sdk.index.research_intake import (
-        IntakeLocked,
+        IntakeLockedError,
         IntakeStateError,
-        TerminalRevision,
+        TerminalRevisionError,
         submit_conversion,
     )
 
@@ -397,9 +429,9 @@ def submit(
         TypeError,
         SynthError,
         HTTPError,
-        IntakeLocked,
+        IntakeLockedError,
         IntakeStateError,
-        TerminalRevision,
+        TerminalRevisionError,
     ) as error:
         raise click.ClickException(str(error)) from error
     click.echo(json.dumps(result, indent=2, sort_keys=True))

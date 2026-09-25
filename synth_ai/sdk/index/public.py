@@ -1,7 +1,7 @@
-"""Credential-free public Synth Index clients.
+"""Credential-free clients for browsing published Synth Index Contributions.
 
-The public boundary can search and retrieve published Contributions only. It
-does not accept a credential, private collection selection, or write methods.
+Search requires an authenticated funding identity and uses ``SynthClient().index``.
+This boundary accepts no credential, private collection, or write method.
 """
 
 from __future__ import annotations
@@ -21,10 +21,12 @@ _PUBLIC_INDEX_TIMEOUT_SECONDS = 120.0
 
 
 class PublicIndexClient(PublicIndexAPI):
-    """Owned synchronous client for free, anonymous public Index reads."""
+    """Owned synchronous client for anonymous public Index browse."""
 
     def __init__(
-        self, *, base_url: str | None = None,
+        self,
+        *,
+        base_url: str | None = None,
         timeout_seconds: float = _PUBLIC_INDEX_TIMEOUT_SECONDS,
     ) -> None:
         transport = HttpTransport(
@@ -50,10 +52,12 @@ class PublicIndexClient(PublicIndexAPI):
 
 
 class AsyncPublicIndexClient(AsyncPublicIndexAPI):
-    """Owned asynchronous client for free, anonymous public Index reads."""
+    """Owned asynchronous client for anonymous public Index browse."""
 
     def __init__(
-        self, *, base_url: str | None = None,
+        self,
+        *,
+        base_url: str | None = None,
         timeout_seconds: float = _PUBLIC_INDEX_TIMEOUT_SECONDS,
     ) -> None:
         transport = AsyncHttpTransport(

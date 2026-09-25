@@ -123,14 +123,9 @@ class CustomerCharge(IndexContract):
             > self.reserved_microcents
         ):
             raise ValueError("net settlement, refunds, and releases exceed reservation")
-        if (
-            self.adjustment_microcents > 0
-            or -self.adjustment_microcents > self.refunded_microcents
-        ):
+        if self.adjustment_microcents > 0 or -self.adjustment_microcents > self.refunded_microcents:
             raise ValueError("signed corrections must reconcile outstanding refunds")
-        if self.price_version is None and any(
-            (self.reserved_microcents, self.settled_microcents)
-        ):
+        if self.price_version is None and any((self.reserved_microcents, self.settled_microcents)):
             raise ValueError("unpriced usage cannot be charged")
         return self
 

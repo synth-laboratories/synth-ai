@@ -1,11 +1,9 @@
-"""Index transport adapters; no local search fallback.
+"""Authenticated and public Index clients over backend-owned Search state.
 
-See sibling docs/drafts/synth-index-api-design-2026-09-12.md.
-Backend owns authorization and usage receipts. The injected transport owns its
-lifetime; these adapters do not discover credentials or create extra clients.
-Every operation is declared once in ``OPERATIONS`` (method, path template), and
-one resource tree serves both clients: the sync client runs calls on the sync
-transport, the async client returns awaitables from the async transport.
+The service, not this package, owns authorization, funding, and usage receipts.
+Sync and async clients share the same resource tree; neither silently falls
+back to local search or creates another transport. Retain a durable Search ID
+after an uncertain response and reconcile it before starting new work.
 """
 
 import asyncio
@@ -75,7 +73,6 @@ from .lifecycle import (
 from .search import (
     ContentsResult,
     ContentsSpec,
-    PublicSearchResult,
     Search,
     SearchBillingConstraints,
     SearchCancellation,
@@ -158,11 +155,9 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contests.entries.review": ("POST", f"{_K}/entries/{{entry_id}}/review"),
 }
 
-# The complete credential-free customer surface: the eight operations a reader
-# can call with no account at all. Every one of them is also reachable on the
-# authenticated client, which sees private work in addition.
+# Anonymous callers may browse published research, but search requires an
+# authenticated funding identity and uses index.search instead.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
-    "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
     "index.public.capabilities": ("GET", f"{_P}/public/capabilities"),
     "index.public.tags.list": ("GET", f"{_P}/public/tags"),
@@ -370,14 +365,8 @@ def _answer_result(payload: object, spec: AnswerSpec) -> AnswerResult:
     return result
 
 
-def _public_search_result(payload: object, spec: SearchSpec) -> PublicSearchResult:
-    result = PublicSearchResult.model_validate(payload)
-    _search_delivery_bounds(result, spec)
-    return result
-
-
-def _search_delivery_bounds(result: SearchResult | PublicSearchResult, spec: SearchSpec) -> None:
-    """Citations are a subset of the caller-bounded, private retrieval set."""
+def _search_delivery_bounds(result: SearchResult, spec: SearchSpec) -> None:
+    """Citations stay within the caller's requested result bound."""
     if len(result.citations) > spec.content.max_results:
         raise ValueError("Index response exceeds requested citation bound")
 
@@ -462,22 +451,32 @@ class SearchHandle:
 
     @property
     def search_id(self) -> str:
+        """Stable server Search ID to retain for reconnects and receipts."""
         return self.snapshot.search_id
 
     def refresh(self) -> Search:
+        """Fetch the latest durable lifecycle state without creating another Search."""
         self.snapshot = self._searches.get(self.search_id)
         return self.snapshot
 
     def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        """Read lifecycle events after a sequence cursor; does not wait for completion."""
         return self._searches.events(self.search_id, after=after, limit=limit)
 
     def cancel(self) -> SearchCancellation:
+        """Request cancellation of this Search; completion may race the request."""
         return self._searches.cancel(self.search_id)
 
     def result(self) -> SearchResult:
+        """Fetch the delivered result and validate it against the original request."""
         return self._searches.result(self.search_id, self.snapshot.spec)
 
     def wait(self, *, timeout_seconds: float = 120.0, poll_seconds: float = 0.25) -> SearchResult:
+        """Poll until terminal, without cancelling or resubmitting on local timeout.
+
+        Raises ``SearchWaitTimeoutError`` with the Search ID when the local
+        deadline expires. Keep that ID and reconnect to the same Search.
+        """
         if timeout_seconds <= 0 or not 0.01 <= poll_seconds <= 5:
             raise ValueError(
                 "wait timeout must be positive and poll interval within 0.01..5 seconds"
@@ -506,24 +505,34 @@ class AsyncSearchHandle:
 
     @property
     def search_id(self) -> str:
+        """Stable server Search ID to retain for reconnects and receipts."""
         return self.snapshot.search_id
 
     async def refresh(self) -> Search:
+        """Fetch the latest durable lifecycle state without creating another Search."""
         self.snapshot = await self._searches.get(self.search_id)
         return self.snapshot
 
     async def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        """Read lifecycle events after a sequence cursor; does not wait for completion."""
         return await self._searches.events(self.search_id, after=after, limit=limit)
 
     async def cancel(self) -> SearchCancellation:
+        """Request cancellation of this Search; completion may race the request."""
         return await self._searches.cancel(self.search_id)
 
     async def result(self) -> SearchResult:
+        """Fetch the delivered result and validate it against the original request."""
         return await self._searches.result(self.search_id, self.snapshot.spec)
 
     async def wait(
         self, *, timeout_seconds: float = 120.0, poll_seconds: float = 0.25
     ) -> SearchResult:
+        """Poll until terminal without cancelling or resubmitting on local timeout.
+
+        Raises ``SearchWaitTimeoutError`` with the Search ID when the local
+        deadline expires. Keep that ID and reconnect to the same Search.
+        """
         if timeout_seconds <= 0 or not 0.01 <= poll_seconds <= 5:
             raise ValueError(
                 "wait timeout must be positive and poll interval within 0.01..5 seconds"
@@ -547,6 +556,11 @@ class SearchesAPI(_Resource):
     """Durable Search lifecycle over the backend-owned execution ledger."""
 
     def create(self, spec: SearchSpec, *, idempotency_key: str) -> Any:
+        """Create one durable Search and return its handle.
+
+        Reuse the same ``idempotency_key`` and request after an uncertain
+        response; a retry is not a new logical Search.
+        """
         value = self._run(
             _Call(
                 "index.searches.create",
@@ -564,6 +578,7 @@ class SearchesAPI(_Resource):
         return SearchHandle(self, value)
 
     def get(self, search_id: str) -> Any:
+        """Retrieve a Search's latest state by its stable server ID."""
         return self._run(
             _Call(
                 "index.searches.get",
@@ -573,6 +588,8 @@ class SearchesAPI(_Resource):
         )
 
     def result(self, search_id: str, spec: SearchSpec) -> Any:
+        """Retrieve a delivered result, bound to its Search ID and request spec."""
+
         def parse(payload: object) -> SearchResult:
             result = _search_result(payload, spec)
             if result.search_id != search_id:
@@ -588,6 +605,7 @@ class SearchesAPI(_Resource):
         )
 
     def events(self, search_id: str, *, after: int = 0, limit: int = 200) -> Any:
+        """Read up to ``limit`` lifecycle events after the sequence cursor."""
         if after < 0 or not 1 <= limit <= 200:
             raise ValueError("Search event cursor or limit is out of bounds")
         return self._run(
@@ -604,6 +622,7 @@ class SearchesAPI(_Resource):
         )
 
     def cancel(self, search_id: str) -> Any:
+        """Request cancellation of an existing durable Search."""
         return self._run(
             _Call(
                 "index.searches.cancel",
@@ -1352,36 +1371,9 @@ class _PublicIndexRoot(_Resource):
         """Discover the public surface: public visibility only, no write features."""
         return self._run(_Call("index.public.capabilities", Capabilities.model_validate))
 
-    def search(
-        self,
-        spec: SearchSpec | None = None,
-        *,
-        query: str | None = None,
-        scope: SearchScope | None = None,
-        filters: SearchFilters | None = None,
-        max_results: int | None = None,
-        idempotency_key: str | None = None,
-    ) -> PublicSearchResult:
-        """Search reviewed public Contributions with no account or usage receipt."""
-        del idempotency_key
-        spec = _search_spec(spec, query, scope, filters, max_results)
-        if (
-            spec.mode != SearchMode.FAST
-            or spec.scope.visibility != "public"
-            or spec.scope.collection_ids
-        ):
-            raise ValueError("Anonymous Index search is public-only and fast-only")
-        return self._run(
-            _Call(
-                "index.public.search",
-                lambda payload: _public_search_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
-            )
-        )
-
 
 class PublicIndexAPI(_PublicIndexRoot):
-    """Blocking, read-only API over an injected credential-free transport."""
+    """Blocking, browse-only API over an injected credential-free transport."""
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -1389,7 +1381,7 @@ class PublicIndexAPI(_PublicIndexRoot):
 
 
 class AsyncPublicIndexAPI(_PublicIndexRoot):
-    """Async, read-only API over an injected credential-free transport."""
+    """Async, browse-only API over an injected credential-free transport."""
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport

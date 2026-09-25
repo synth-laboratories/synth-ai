@@ -650,7 +650,7 @@
         "properties": {
           "concurrency_limit": {
             "default": 1,
-            "maximum": 32.0,
+            "maximum": 50.0,
             "minimum": 1.0,
             "title": "Concurrency Limit",
             "type": "integer"
@@ -3320,80 +3320,6 @@
         "title": "PromoCreditSummary",
         "type": "object"
       },
-      "PublicSearchResult": {
-        "additionalProperties": false,
-        "description": "Anonymous public search: text citing contribution IDs, like every Index search.\n\nSame response rule as the authenticated ``SearchResult`` (inline\n``[<contribution_id>]`` markers equal ``citations`` in first-appearance\norder); no ranked hits, excerpts, titles or URLs.",
-        "properties": {
-          "amount_cents": {
-            "const": 0,
-            "default": 0,
-            "title": "Amount Cents",
-            "type": "integer"
-          },
-          "citations": {
-            "items": {
-              "$ref": "#/components/schemas/ContributionReference"
-            },
-            "maxItems": 10,
-            "title": "Citations",
-            "type": "array"
-          },
-          "corpus_generation": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Corpus Generation",
-            "type": "string"
-          },
-          "mode": {
-            "const": "fast",
-            "default": "fast",
-            "title": "Mode",
-            "type": "string"
-          },
-          "parser_version": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Parser Version",
-            "type": "string"
-          },
-          "ranker_version": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Ranker Version",
-            "type": "string"
-          },
-          "request_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Request Id",
-            "type": "string"
-          },
-          "response": {
-            "maxLength": 16384,
-            "minLength": 1,
-            "title": "Response",
-            "type": "string"
-          },
-          "status": {
-            "const": "completed",
-            "default": "completed",
-            "title": "Status",
-            "type": "string"
-          },
-          "taxonomy_version": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Taxonomy Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "request_id",
-          "corpus_generation",
-          "ranker_version",
-          "parser_version",
-          "taxonomy_version",
-          "response",
-          "citations"
-        ],
-        "title": "PublicSearchResult",
-        "type": "object"
-      },
       "PublicUsage": {
         "additionalProperties": false,
         "properties": {
@@ -4805,7 +4731,7 @@
       },
       "SearchExecutionVersions": {
         "additionalProperties": false,
-        "description": "Exact implementation identities used by one result.",
+        "description": "Exact implementation identities used by one result.\n\nAn identity the execution did not use is omitted, never ``null``.",
         "properties": {
           "agent_version": {
             "anyOf": [
@@ -5137,6 +5063,7 @@
           "complete",
           "insufficient_evidence",
           "usable_partial",
+          "infrastructure_stopped",
           "no_deliverable",
           "infrastructure_failure",
           "cancelled",
@@ -5320,7 +5247,7 @@
                 "type": "null"
               }
             ],
-            "default": "synth.index.fast.v1",
+            "default": "synth.index.fast.v2",
             "title": "Price Version"
           },
           "read_calls": {
@@ -8901,47 +8828,6 @@
           }
         },
         "summary": "Profile",
-        "tags": [
-          "index-public"
-        ]
-      }
-    },
-    "/api/v1/index/public/search": {
-      "post": {
-        "operationId": "index.public.search",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SearchSpec-Input"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicSearchResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Search",
         "tags": [
           "index-public"
         ]

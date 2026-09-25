@@ -184,7 +184,7 @@ class AccessFundingMode(IndexContract):
     access: StrictBool
     wallet_enabled: StrictBool
     monthly_cap_cents: Count
-    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=32)]
+    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=50)]
     consent_terms_version: str | None = None
     policy_revision: Count | None = None
 
@@ -212,7 +212,7 @@ class AccessFundingAccount(IndexContract):
 class BillingPolicyUpdate(IndexContract):
     wallet_enabled: StrictBool = False
     monthly_cap_cents: Count = 0
-    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=32)] = 1
+    concurrency_limit: Annotated[StrictInt, Field(ge=1, le=50)] = 1
     consent_terms_version: Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 

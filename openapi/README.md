@@ -7,7 +7,15 @@
 
 ## Index readiness integration
 
-`index-v1.json` retains the access/funding candidate's routes and consent shapes.
+`index-v1.json` mirrors backend
+`contracts/synth_index_openapi.json` at
+`2313a44bc152043990b0cf6d32a2bec3b15d34de` (SHA-256
+`6114ccabe355ad5a23fc8e89bb1f4c52e5461f3af09ec8e0b7257fe53d095b47`).
+Byte parity was rechecked against backend `dev` at
+`155ac05771a910cb5b0804045cb26771ec0eacf0` on 2026-09-24.
+Anonymous browsing has no search route; public-scope search uses the
+authenticated, funded `/api/v1/index/search` contract. Rebind this vendor file
+to the final frozen backend commit before publication.
 Customer accounting adds funding and terminal outcome to charges, and price,
 funding, terminal outcome, settlement state, reservation, release, and refund
 fields to summary rows while retaining consumption and pagination. Customer
@@ -22,10 +30,9 @@ Consumption counters are nullable for missing measurements. Settlement-only
 receipts carry pending measurement state and empty observation arrays. Operator
 physical costs use separate backend diagnostics DTOs, outside customer contracts.
 
-These are manual schema edits for the local integration, not a backend export.
-No backend import, generation, test, build, or parity check was run. Parent
-integration owns final backend/OpenAPI/SDK parity, including customer redaction
-and corrected receipt/summary/CSV amount agreement.
+The Index file above is a backend export rather than a hand-edited schema.
+Final integration still owns the exact deployed backend/OpenAPI/SDK parity,
+customer redaction, and corrected receipt/summary/CSV amount agreement.
 
 ## v0.18.2 release contract refresh
 

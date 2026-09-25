@@ -169,7 +169,8 @@ from synth_ai.sdk.research.session._client_helpers import (
     _coerce_dict_list,
     _fencing_headers,
     _guess_content_type,
-    _is_source_bundle_entry,
+    _normalize_resource_uploaded_file,
+    _normalize_uploaded_file,
     _optional_mapping,
     _optional_non_empty_string,
     _positive_int_env,
@@ -962,59 +963,6 @@ def _build_project_run_payload_from_request(
 
 
 _DEFAULT_WORKSPACE_UPLOAD_CHUNK_SIZE = 100
-
-
-def _normalize_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:
-    path = str(entry.get("path") or "").strip()
-    if not path:
-        raise ValueError("workspace file entries require a non-empty path")
-    content = entry.get("content")
-    content_path = entry.get("content_path")
-    content_type = str(entry.get("content_type") or _guess_content_type(path)).strip()
-    encoding = str(entry.get("encoding") or "").strip().lower() or None
-    if content_path is not None:
-        file_path = Path(str(content_path))
-        raw_bytes = file_path.read_bytes()
-        if _is_source_bundle_entry(path, {**dict(entry), "content_type": content_type}):
-            content = base64.b64encode(raw_bytes).decode("ascii")
-            encoding = encoding or "base64"
-        else:
-            try:
-                content = raw_bytes.decode("utf-8")
-                encoding = encoding or "utf-8"
-            except UnicodeDecodeError:
-                content = base64.b64encode(raw_bytes).decode("ascii")
-                encoding = encoding or "base64"
-    if content is None:
-        raise ValueError("workspace file entries require either content or content_path")
-    if isinstance(content, bytes):
-        content = base64.b64encode(content).decode("ascii")
-        encoding = encoding or "base64"
-    if not isinstance(content, str):
-        raise ValueError("workspace file content must be text or bytes")
-    normalized: dict[str, Any] = {
-        "path": path,
-        "content": content,
-        "content_type": content_type,
-        "encoding": encoding or "utf-8",
-    }
-    kind = str(entry.get("kind") or "").strip()
-    if kind:
-        normalized["kind"] = kind
-    metadata = entry.get("metadata")
-    if metadata is not None:
-        if not isinstance(metadata, Mapping):
-            raise ValueError("uploaded file metadata must be a mapping when provided")
-        normalized["metadata"] = dict(metadata)
-    return normalized
-
-
-def _normalize_resource_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:
-    normalized = _normalize_uploaded_file(entry)
-    visibility = str(entry.get("visibility") or "").strip()
-    if visibility:
-        normalized["visibility"] = visibility
-    return normalized
 
 
 def _source_bundle_file_entry(

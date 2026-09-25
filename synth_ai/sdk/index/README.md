@@ -1,5 +1,9 @@
 # Synth Index SDK
 
+For an API/MCP-only coding-agent integration, use the copyable
+[setup prompt](AGENT_SETUP_PROMPT.md). It does not run a paid search or create a
+product UI.
+
 ## External agents over stdio MCP
 
 Install the reviewed SDK package, then configure your agent's MCP server:
@@ -8,9 +12,8 @@ Install the reviewed SDK package, then configure your agent's MCP server:
 {
   "mcpServers": {
     "synth-index": {
-      "command": "synth-ai-research-mcp",
+      "command": "synth-ai-index-mcp",
       "env": {
-        "SYNTH_INDEX_MCP_ENABLED": "true",
         "SYNTH_INDEX_MCP_WRITE_ENABLED": "false",
         "SYNTH_BACKEND_URL": "https://your-configured-synth-backend.example"
       }
@@ -19,31 +22,37 @@ Install the reviewed SDK package, then configure your agent's MCP server:
 }
 ```
 
-Replace the backend URL with the actual deployment URL. Public read-only search,
-contents, Contribution lookup, and revision status require no API key. Supply
-`SYNTH_API_KEY` through your authorized agent secret configuration only for
-authenticated/private reads or explicitly enabled contribution tools. The
+The dedicated entrypoint advertises only Index tools; it does not advertise
+unrelated Managed Research tools. The general `synth-ai-research-mcp` remains
+available and requires `SYNTH_INDEX_MCP_ENABLED=true` to add Index tools.
+Replace the backend URL with the actual deployment URL. Anonymous public
+browse (contents, Contribution lookup, and revision status) requires no API key.
+Search, including public-scope FAST, requires `SYNTH_API_KEY` through your
+authorized agent secret configuration. The
 executable does not discover Index credentials from home files or Keychain.
-Both Index flags accept only `true` or `false`. Missing Index opt-in means no
-Index tools. Enabling Index requires an explicit backend URL; enabling writes
+Index flags accept only `true` or `false`. The dedicated entrypoint enables
+Index without a flag and requires an explicit backend URL; enabling writes
 also requires a nonempty explicit key. Initialization and tool discovery
 construct no SDK client and make no requests.
 
-Read-only mode exposes search, exact contents, Contribution lookup, and revision
-status. With a key, it also exposes `index_search_create`,
+Read-only mode without a key exposes exact contents, Contribution lookup, and
+revision status, but not search. With a key, it also exposes `index_search`,
+`index_search_create`,
 `index_search_get`, `index_search_result`, `index_search_events`, and
 `index_search_cancel` for durable fast/deep Search recovery. Without a key,
 those lifecycle tools are not advertised; the remaining tools use only the credential-free
 `/api/v1/index/public/*` routes and reject private scope locally. With a key,
 reads use the authenticated Index routes and may request authorized private
-collections. To deliberately contribute from this machine, additionally set
+collections. Public-scope FAST search needs explicit wallet consent and a
+charge ceiling of at least 5 cents. To deliberately contribute from this machine,
+additionally set
 `SYNTH_INDEX_MCP_WRITE_ENABLED=true`; this exposes draft creation, explicit
 selected-file upload, and submission for review. Advanced Research tools do not
 bypass this write gate. Credentials never belong in tool arguments. Index calls
 use captured process configuration and own/close one SDK transport per
-invocation. Public search is free under backend rate limits; requesting private
-collections can be charged according to backend account policy. No MCP tool
-grants access, approves research, publishes Contributions, or awards credits.
+invocation. Every search is funded and charged according to backend account
+policy. No MCP tool grants access, approves research, publishes Contributions,
+or awards credits.
 
 Local MCP file upload requires POSIX descriptor-relative, no-follow file access
 and bounds actual bytes read; it refuses unsupported platforms. Windows users
@@ -73,11 +82,13 @@ evidence admission and cited synthesis under one explicit idempotency key:
 from uuid import uuid4
 
 from synth_ai import SynthClient
+from synth_ai.sdk.index import SearchBillingConstraints
 
 with SynthClient() as synth:
     result = synth.index.answer(
         query="Why did the retrieval experiment reject launch readiness?",
         mode="fast",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
         idempotency_key=str(uuid4()),
     )
     if result.status == "answered":
@@ -86,42 +97,72 @@ with SynthClient() as synth:
         print(result.insufficient_evidence_reason)
 ```
 
-Every returned claim names exact digest-bound citation spans. Unsupported or
+The answer call performs a funded Search internally, so it needs the same
+explicit wallet consent and charge ceiling as a FAST search. Every returned
+claim names exact digest-bound citation spans. Unsupported or
 revoked evidence returns `insufficient_evidence`, never uncited prose. The
 credential-free public client intentionally does not expose answer generation.
 
-## Free public search
+## Anonymous public browse and funded search
 
-Public search needs no account or API key and cannot select private collections:
+Reading public capabilities, tags, and a known published Contribution ID needs
+no account or API key. The anonymous API does not list Contribution IDs;
+discovering IDs through Search requires an authenticated, funded request:
 
 ```python
 from synth_ai.sdk.index import PublicIndexClient
 
 with PublicIndexClient() as index:
-    result = index.search(query="RLVR verifier design", max_results=5)
-    print(result.response)
-    for citation in result.citations:
-        print(citation.contribution_id, citation.revision_id)
+    print(index.capabilities())
+    print(index.tags.list())
 ```
 
 Use `AsyncPublicIndexClient` with `async with` for native async applications.
-Both clients own and close their HTTP transport. Authenticated and private
-operations remain under `SynthClient().index`.
+Both clients own and close their HTTP transport. Search uses the authenticated
+client, even when its scope is public. For FAST, explicitly consent to wallet
+funding and bound the maximum charge; the organization must also have a valid
+funding policy and sufficient balance:
+
+```python
+from synth_ai import SynthClient
+from synth_ai.sdk.index import SearchBillingConstraints
+
+with SynthClient() as synth:  # SYNTH_API_KEY is required
+    result = synth.index.search(
+        query="RLVR verifier design",
+        mode="fast",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
+    )
+    print(result.response, result.usage)
+```
+
+The 5-cent value is a caller ceiling for the current public FAST price, not a
+claim that another mode or a future price is free. A declined or exhausted
+funding source fails before a search result is delivered.
 
 Deep search requires the authenticated client and a deployment whose
 capabilities advertise deep mode. The convenience call waits for the same
 durable Search identity through completion:
 
 ```python
+from uuid import uuid4
+
 from synth_ai import SynthClient
+from synth_ai.sdk.index import SearchBillingConstraints
 
 with SynthClient() as synth:
     result = synth.index.search(
         query="Compare the evidence for the two retrieval designs",
         mode="deep",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=25),
+        idempotency_key=str(uuid4()),
     )
     print(result.search_id, result.status)
 ```
+
+Public or private DEEP requires a mode grant and funding. This wallet example
+authorizes at most 25 cents; the backend may stop at that bound. The current
+per-search ceiling is $1, and DEEP requires a ceiling of at least 10 cents.
 
 For reconnect, progress, events, explicit cancellation, or a local wait timeout,
 create the handle directly. A local timeout preserves `handle.search_id` and does
@@ -130,12 +171,13 @@ not cancel the server execution:
 ```python
 from uuid import uuid4
 
-from synth_ai.sdk.index import SearchSpec
+from synth_ai.sdk.index import SearchBillingConstraints, SearchSpec
 
 handle = synth.index.searches.create(
     SearchSpec(
         query="Trace the qualified evidence and identify unresolved questions",
         mode="deep",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=25),
     ),
     idempotency_key=str(uuid4()),
 )
@@ -150,26 +192,39 @@ the result is validated against the original request. These commands require
 `SYNTH_API_KEY` or `--api-key`. An unfinished result returns the backend's
 typed `index_search_result_not_ready` failure.
 
+For wallet-funded CLI searches, provide explicit consent and a retail ceiling:
+
+```sh
+synth-ai index search "RLVR verifier design" --allow-wallet --max-charge-cents 5 --idempotency-key YOUR_UNIQUE_REQUEST_ID
+synth-ai index searches create "Compare the retrieval designs" --mode deep --allow-wallet --max-charge-cents 25 --idempotency-key YOUR_OTHER_UNIQUE_REQUEST_ID
+```
+
+`synth-ai index answer` takes the same `--allow-wallet` and
+`--max-charge-cents` options for its underlying Search. Omitting them does not
+grant wallet consent; an already-funded promo policy may still apply. Durable
+Deep CLI commands accept the backend's 300-second execution maximum, while the
+synchronous `answer` route remains bounded to 90 seconds.
+
 HTTP failures expose their stable Index code through `error.failure.code`,
 request and correlation IDs when supplied by the backend, and a retry directive.
 `index_error_code(error)` maps known values to `IndexErrorCode`; unknown future
 codes remain available as raw strings. A failed durable execution records its
 terminal `Search.failure.code` and `retryable` status in the Search snapshot.
 
-The credential-free surface is the complete set of eight customer operations
-that need no account at all:
+The credential-free surface contains only public known-ID and catalog-metadata
+reads:
 
 | Call | Route |
 | --- | --- |
-| `search(...)`, `capabilities()` | `POST /public/search`, `GET /public/capabilities` |
+| `capabilities()` | `GET /public/capabilities` |
 | `contents.retrieve(...)` | `POST /public/contents` |
 | `tags.list()` | `GET /public/tags` |
 | `contributions.retrieve(...)`, `contributions.revisions.retrieve(...)` | published Contribution and exact revision |
 | `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes of a published revision |
 | `profiles.retrieve(principal_id)` | contributor profile as an anonymous reader sees it |
 
-Each one is the public twin of an authenticated operation, so code written
-against `SynthClient().index` reads the same against `PublicIndexClient`.
+Each browse operation is the public twin of an authenticated operation. Search
+is deliberately absent from `PublicIndexClient` and uses `SynthClient().index`.
 
 ## Surface (`SynthClient().index`, async twin on `AsyncSynthClient`)
 
@@ -292,7 +347,7 @@ the saved reference against the current revision before acting, so a mutation
 whose response was lost is recovered rather than repeated; a revision the server
 has already advanced to `qualified` or `published` is reported as it stands; and
 a `rejected`, `withdrawn` or `changes_requested` revision raises
-`TerminalRevision` instead of being submitted again. If storage refuses a signed
+`TerminalRevisionError` instead of being submitted again. If storage refuses a signed
 target because it expired, intake prepares again once and transfers only what is
 still missing.
 
