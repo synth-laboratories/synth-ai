@@ -4731,7 +4731,7 @@
       },
       "SearchExecutionVersions": {
         "additionalProperties": false,
-        "description": "Exact implementation identities used by one result.",
+        "description": "Exact implementation identities used by one result.\n\nAn identity the execution did not use is omitted, never ``null``.",
         "properties": {
           "agent_version": {
             "anyOf": [

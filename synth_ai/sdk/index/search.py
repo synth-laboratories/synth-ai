@@ -243,7 +243,10 @@ class SearchUsage(IndexContract):
 
 
 class SearchExecutionVersions(IndexContract):
-    """Exact implementation identities used by one result."""
+    """Exact implementation identities used by one result.
+
+    An identity the execution did not use is omitted, never ``null``.
+    """
 
     corpus_generation: Identifier
     ranker_version: Identifier
