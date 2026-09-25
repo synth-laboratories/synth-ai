@@ -70,6 +70,7 @@ from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
+from synth_ai.sdk.index.timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
 from synth_ai.sdk.research.auth import get_api_key
 from synth_ai.sdk.research.client import Client as CoreResearchClient
 from synth_ai.sdk.research.contracts.activity import ActivityWindow
@@ -91,7 +92,7 @@ MCP_CLIENT_TIMEOUT_SECONDS = 30.0
 # stdio Index calls aligned with PublicIndexClient's 120-second transport bound;
 # an MCP timeout must not prematurely turn a valid monitored response into an
 # ambiguous retry. Research tools retain their separate 30-second default.
-INDEX_MCP_CLIENT_TIMEOUT_SECONDS = 120.0
+INDEX_MCP_CLIENT_TIMEOUT_SECONDS = INDEX_TRANSPORT_TIMEOUT_SECONDS
 
 # The stdio entrypoint advertises the stable subset. Set this to 1/true/yes to
 # advertise the full built tree instead; without it the advanced tools are not

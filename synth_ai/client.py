@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.sdk.index.timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
 
 if TYPE_CHECKING:
     from synth_ai.core.http.async_transport import AsyncHttpTransport
@@ -39,11 +40,14 @@ class SynthClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
-        self.timeout_seconds = timeout_seconds
+        self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
+        self._index_timeout_seconds = (
+            INDEX_TRANSPORT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+        )
         self._research_client: ResearchClient | None = None
         self._optimizers_client: OptimizersClient | None = None
         self._index_api: IndexAPI | None = None
@@ -60,7 +64,7 @@ class SynthClient:
             self._index_transport = HttpTransport(
                 base_url=self.base_url,
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout_seconds=self.timeout_seconds,
+                timeout_seconds=self._index_timeout_seconds,
             )
             self._index_api = IndexAPI(self._index_transport)
         return self._index_api
@@ -135,11 +139,14 @@ class AsyncSynthClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
-        self.timeout_seconds = timeout_seconds
+        self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
+        self._index_timeout_seconds = (
+            INDEX_TRANSPORT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+        )
         self._async_research_client: AsyncResearchClient | None = None
         self._async_optimizers_client: AsyncOptimizersClient | None = None
         self._index_api: AsyncIndexAPI | None = None
@@ -157,7 +164,7 @@ class AsyncSynthClient:
             self._index_transport = AsyncHttpTransport(
                 base_url=self.base_url,
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout_seconds=self.timeout_seconds,
+                timeout_seconds=self._index_timeout_seconds,
             )
             self._index_api = AsyncIndexAPI(self._index_transport)
         return self._index_api
