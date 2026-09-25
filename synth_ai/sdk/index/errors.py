@@ -98,6 +98,7 @@ class IndexErrorCode(StrEnum):
     UNQUALIFIED_REVISION = "unqualified_revision"
     AUDIENCE_MISMATCH = "audience_mismatch"
     RIGHTS_NOT_ATTESTED = "rights_not_attested"
+    ASSET_LICENSE_NOT_PUBLIC = "asset_license_not_public"
     RELEASE_ISOLATION_REQUIRED = "release_isolation_required"
 
     # Sharing and profiles.
