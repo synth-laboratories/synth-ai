@@ -4,18 +4,42 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
-## 0.20.0 — proposed 2026-09-22
+## 0.20.0 — 2026-09-25 (ships with Synth Index cut 1)
+
+Upgrade required: 0.19.x cannot parse the Index search response served by the
+backend from this release onward (see Changed (breaking) below).
 
 ### Added
 
-- **Durable Index Search** — typed fast/deep Search lifecycle and grounded
-  answer operations. Authenticated CLI and MCP callers can create a Search,
-  reconnect by ID, inspect ordered events, read the completed result, and
-  request cancellation. A local wait timeout leaves the server Search running.
+- **Index Search API (FAST and DEEP)** — `SynthClient().index.search(...)`
+  returns a `SearchResult`: a delivered `response` text with inline citations
+  plus `citations`, a tuple of exact `ContributionReference`s (contribution and
+  revision) listed in first-appearance order. An uncited response is always the
+  fixed abstention text. `mode="fast"` runs immediately; `mode="deep"` creates
+  a durable Search and waits for it. `index.answer(...)` returns a grounded
+  answer; every delivered citation must support a claim.
+- **Durable Search lifecycle** — create a Search, reconnect by ID, page ordered
+  events, read the completed result and request cancellation (sync and async
+  handles). A local wait timeout leaves the server Search running.
+- **fast.v2 pricing** — `SearchUsage.price_version` defaults to
+  `synth.index.fast.v2`: public and private FAST searches both cost 5 cents per
+  successful logical search. Wallet funding requires
+  `billing.allow_wallet=true` and `max_charge_cents>=5`. `synth.index.fast.v1`
+  receipts (public free, private 5 cents) still validate for historical usage.
+  DEEP usage never carries a fast price version.
+- **MCP entry points** — `synth-ai-index-mcp` is a dedicated stdio server that
+  advertises only Index tools (`index_search`, `index_search_create`,
+  `index_search_get`, `index_search_result`, `index_search_events`,
+  `index_search_cancel`, `index_answer`, `index_get_contents`,
+  `index_get_contribution`, `index_contribution_status`). It requires an
+  explicit `SYNTH_BACKEND_URL`; search and answer tools need `SYNTH_API_KEY`.
+  `synth-ai-research-mcp` adds the same Index tools when
+  `SYNTH_INDEX_MCP_ENABLED=true`. Neither server takes command-line options.
 - **Index contract and failures** — the SDK's Index OpenAPI export matches the
   backend's generated contract. `IndexErrorCode` names current Search and
   Contribution failures while retaining prior values for existing clients;
-  unknown future codes remain available through `error.failure.code`.
+  unknown future codes remain available through `error.failure.code`. Direct
+  Index clients and the Index MCP use a bounded default transport timeout.
 - **Typed Container Pools** — `SynthClient().research.container_pools` exposes
   backend-owned pool deployment and reconciliation. Packaging validates Docker
   contexts, applies supported `.dockerignore` rules, and rejects credential-like
@@ -24,9 +48,22 @@ All notable changes to the `synth-ai` package are documented here.
   settlement, rollout provenance, durable transcript replay, authenticated
   Workshop messaging, and project-bound deployment capabilities are available
   through the canonical Research SDK and MCP server.
-- **Intern Sync presence and approvals** — the synchronous runtime exposes
-  `presence`, `release_presence`, `approvals`, and `decide_approval` on both the
-  sync and native-async clients. `KickoffContract` includes `trace_capture`.
+
+### Changed (breaking)
+
+- **Search response shape** — `SearchResult.results` (a tuple of ranked
+  `SearchHit`s) is replaced by `response` + `citations`. The 0.19 FAST-only
+  `price_version: Literal["synth.index.fast.v1"]` is replaced by an identifier
+  that defaults to `synth.index.fast.v2`. A 0.19.x client fails validation on
+  every current search response.
+
+  Migration: upgrade with `pip install -U "synth-ai>=0.20.0"`. Replace
+  `for hit in result.results:` with `result.response` for the answer text and
+  `result.citations` for the cited `contribution_id`/`revision_id`; fetch
+  content, when there are citations, with
+  `index.contents.retrieve(references=result.citations, search_id=result.search_id)`. Read `result.usage.amount_cents` rather than
+  assuming public search is free. MCP callers read `citations` from
+  `index_search` output instead of `results`.
 
 ### Removed (breaking)
 
