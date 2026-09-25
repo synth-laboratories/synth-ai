@@ -179,11 +179,39 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
+| **Index** | `client.index` | Authenticated, funded FAST/DEEP Search and Contribution lifecycle. |
 | **Research / Factory** | `client.research` | Typed hosted projects, swarms, Factory lifecycles, and Efforts. |
-| CLI | `synth-ai` | Terminal access to Research commands. |
+| CLI / MCP | `synth-ai`, `synth-ai-index-mcp` | Terminal commands and an Index-only coding-agent server. |
 
-There are no infrastructure client namespaces (containers, tunnels, pools) on
-`SynthClient`; the package is Research-only as of 0.18.0.
+Index is an API/MCP product, not a browser search page. Anonymous public
+catalog and known-ID Contribution reads use `PublicIndexClient`; even a
+public-scope Search requires an API key, an authorized organization, and
+funding. An Index-only MCP server starts read-only, advertising public browse
+without a key and Search only when a key is configured. Contribution writes
+require a separate explicit opt-in and grant.
+
+```python
+from uuid import uuid4
+
+from synth_ai import SynthClient
+from synth_ai.sdk.index import SearchBillingConstraints
+
+request_key = str(uuid4())  # Persist this before sending; reuse it on uncertain retry.
+with SynthClient() as synth:  # Reads SYNTH_API_KEY.
+    result = synth.index.search(
+        query="What evidence supports the retrieval design?",
+        mode="fast",
+        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
+        idempotency_key=request_key,
+    )
+    print(result.response, result.usage)
+```
+
+FAST's five-cent ceiling is explicit wallet consent, not a claim that DEEP has
+the same price. See the [Index SDK guide](synth_ai/sdk/index/README.md) for
+DEEP's durable Search ID, reconnect/cancel, private collections, receipts, and
+coding-agent MCP setup. These calls require a deployed Index API; installing
+the SDK alone does not make a Search available.
 
 Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
 want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
