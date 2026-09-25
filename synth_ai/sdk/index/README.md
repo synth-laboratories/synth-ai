@@ -105,7 +105,9 @@ credential-free public client intentionally does not expose answer generation.
 
 ## Anonymous public browse and funded search
 
-Browsing published Contributions needs no account or API key:
+Reading public capabilities, tags, and a known published Contribution ID needs
+no account or API key. The anonymous API does not list Contribution IDs;
+discovering IDs through Search requires an authenticated, funded request:
 
 ```python
 from synth_ai.sdk.index import PublicIndexClient
@@ -209,7 +211,8 @@ request and correlation IDs when supplied by the backend, and a retry directive.
 codes remain available as raw strings. A failed durable execution records its
 terminal `Search.failure.code` and `retryable` status in the Search snapshot.
 
-The credential-free surface contains only public browse operations:
+The credential-free surface contains only public known-ID and catalog-metadata
+reads:
 
 | Call | Route |
 | --- | --- |
