@@ -84,12 +84,13 @@ from uuid import uuid4
 from synth_ai import SynthClient
 from synth_ai.sdk.index import SearchBillingConstraints
 
+request_key = str(uuid4())  # Save this with your job before sending the request.
 with SynthClient() as synth:
     result = synth.index.answer(
         query="Why did the retrieval experiment reject launch readiness?",
         mode="fast",
         billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
-        idempotency_key=str(uuid4()),
+        idempotency_key=request_key,
     )
     if result.status == "answered":
         print(result.answer, result.citations)
@@ -124,14 +125,18 @@ funding and bound the maximum charge; the organization must also have a valid
 funding policy and sufficient balance:
 
 ```python
+from uuid import uuid4
+
 from synth_ai import SynthClient
 from synth_ai.sdk.index import SearchBillingConstraints
 
+request_key = str(uuid4())  # Save this with your job before sending the request.
 with SynthClient() as synth:  # SYNTH_API_KEY is required
     result = synth.index.search(
         query="RLVR verifier design",
         mode="fast",
         billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
+        idempotency_key=request_key,
     )
     print(result.response, result.usage)
 ```
@@ -150,12 +155,13 @@ from uuid import uuid4
 from synth_ai import SynthClient
 from synth_ai.sdk.index import SearchBillingConstraints
 
+request_key = str(uuid4())  # Save this with your job before sending the request.
 with SynthClient() as synth:
     result = synth.index.search(
         query="Compare the evidence for the two retrieval designs",
         mode="deep",
         billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=25),
-        idempotency_key=str(uuid4()),
+        idempotency_key=request_key,
     )
     print(result.search_id, result.status)
 ```
@@ -171,17 +177,20 @@ not cancel the server execution:
 ```python
 from uuid import uuid4
 
+from synth_ai import SynthClient
 from synth_ai.sdk.index import SearchBillingConstraints, SearchSpec
 
-handle = synth.index.searches.create(
-    SearchSpec(
-        query="Trace the qualified evidence and identify unresolved questions",
-        mode="deep",
-        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=25),
-    ),
-    idempotency_key=str(uuid4()),
-)
-result = handle.wait(timeout_seconds=30)
+request_key = str(uuid4())  # Save this with your job before sending the request.
+with SynthClient() as synth:
+    handle = synth.index.searches.create(
+        SearchSpec(
+            query="Trace the qualified evidence and identify unresolved questions",
+            mode="deep",
+            billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=25),
+        ),
+        idempotency_key=request_key,
+    )
+    result = handle.wait(timeout_seconds=30)
 ```
 
 The CLI provides the same lifecycle through `synth-ai index searches create`,
