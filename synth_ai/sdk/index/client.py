@@ -453,22 +453,32 @@ class SearchHandle:
 
     @property
     def search_id(self) -> str:
+        """Stable server Search ID to retain for reconnects and receipts."""
         return self.snapshot.search_id
 
     def refresh(self) -> Search:
+        """Fetch the latest durable lifecycle state without creating another Search."""
         self.snapshot = self._searches.get(self.search_id)
         return self.snapshot
 
     def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        """Read lifecycle events after a sequence cursor; does not wait for completion."""
         return self._searches.events(self.search_id, after=after, limit=limit)
 
     def cancel(self) -> SearchCancellation:
+        """Request cancellation of this Search; completion may race the request."""
         return self._searches.cancel(self.search_id)
 
     def result(self) -> SearchResult:
+        """Fetch the delivered result and validate it against the original request."""
         return self._searches.result(self.search_id, self.snapshot.spec)
 
     def wait(self, *, timeout_seconds: float = 120.0, poll_seconds: float = 0.25) -> SearchResult:
+        """Poll until terminal, without cancelling or resubmitting on local timeout.
+
+        Raises ``SearchWaitTimeoutError`` with the Search ID when the local
+        deadline expires. Keep that ID and reconnect to the same Search.
+        """
         if timeout_seconds <= 0 or not 0.01 <= poll_seconds <= 5:
             raise ValueError(
                 "wait timeout must be positive and poll interval within 0.01..5 seconds"
@@ -497,24 +507,34 @@ class AsyncSearchHandle:
 
     @property
     def search_id(self) -> str:
+        """Stable server Search ID to retain for reconnects and receipts."""
         return self.snapshot.search_id
 
     async def refresh(self) -> Search:
+        """Fetch the latest durable lifecycle state without creating another Search."""
         self.snapshot = await self._searches.get(self.search_id)
         return self.snapshot
 
     async def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        """Read lifecycle events after a sequence cursor; does not wait for completion."""
         return await self._searches.events(self.search_id, after=after, limit=limit)
 
     async def cancel(self) -> SearchCancellation:
+        """Request cancellation of this Search; completion may race the request."""
         return await self._searches.cancel(self.search_id)
 
     async def result(self) -> SearchResult:
+        """Fetch the delivered result and validate it against the original request."""
         return await self._searches.result(self.search_id, self.snapshot.spec)
 
     async def wait(
         self, *, timeout_seconds: float = 120.0, poll_seconds: float = 0.25
     ) -> SearchResult:
+        """Poll until terminal without cancelling or resubmitting on local timeout.
+
+        Raises ``SearchWaitTimeoutError`` with the Search ID when the local
+        deadline expires. Keep that ID and reconnect to the same Search.
+        """
         if timeout_seconds <= 0 or not 0.01 <= poll_seconds <= 5:
             raise ValueError(
                 "wait timeout must be positive and poll interval within 0.01..5 seconds"
@@ -538,6 +558,11 @@ class SearchesAPI(_Resource):
     """Durable Search lifecycle over the backend-owned execution ledger."""
 
     def create(self, spec: SearchSpec, *, idempotency_key: str) -> Any:
+        """Create one durable Search and return its handle.
+
+        Reuse the same ``idempotency_key`` and request after an uncertain
+        response; a retry is not a new logical Search.
+        """
         value = self._run(
             _Call(
                 "index.searches.create",
@@ -555,6 +580,7 @@ class SearchesAPI(_Resource):
         return SearchHandle(self, value)
 
     def get(self, search_id: str) -> Any:
+        """Retrieve a Search's latest state by its stable server ID."""
         return self._run(
             _Call(
                 "index.searches.get",
@@ -564,6 +590,8 @@ class SearchesAPI(_Resource):
         )
 
     def result(self, search_id: str, spec: SearchSpec) -> Any:
+        """Retrieve a delivered result, bound to its Search ID and request spec."""
+
         def parse(payload: object) -> SearchResult:
             result = _search_result(payload, spec)
             if result.search_id != search_id:
@@ -579,6 +607,7 @@ class SearchesAPI(_Resource):
         )
 
     def events(self, search_id: str, *, after: int = 0, limit: int = 200) -> Any:
+        """Read up to ``limit`` lifecycle events after the sequence cursor."""
         if after < 0 or not 1 <= limit <= 200:
             raise ValueError("Search event cursor or limit is out of bounds")
         return self._run(
@@ -595,6 +624,7 @@ class SearchesAPI(_Resource):
         )
 
     def cancel(self, search_id: str) -> Any:
+        """Request cancellation of an existing durable Search."""
         return self._run(
             _Call(
                 "index.searches.cancel",
@@ -1342,6 +1372,7 @@ class _PublicIndexRoot(_Resource):
     def capabilities(self) -> Any:
         """Discover the public surface: public visibility only, no write features."""
         return self._run(_Call("index.public.capabilities", Capabilities.model_validate))
+
 
 class PublicIndexAPI(_PublicIndexRoot):
     """Blocking, browse-only API over an injected credential-free transport."""
