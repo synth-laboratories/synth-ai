@@ -9,8 +9,10 @@
 
 `index-v1.json` mirrors backend
 `contracts/synth_index_openapi.json` at
-`2bdf3bd7ceda6fa53a2f50e11fa8ed46919a79cb` (SHA-256
-`c866daddce3d1ddba6b978f41f184fb8c87b841d9397958c922c17dafd0904b8`).
+`2313a44bc152043990b0cf6d32a2bec3b15d34de` (SHA-256
+`6114ccabe355ad5a23fc8e89bb1f4c52e5461f3af09ec8e0b7257fe53d095b47`).
+Byte parity was rechecked against backend `dev` at
+`155ac05771a910cb5b0804045cb26771ec0eacf0` on 2026-09-24.
 Anonymous browsing has no search route; public-scope search uses the
 authenticated, funded `/api/v1/index/search` contract. Rebind this vendor file
 to the final frozen backend commit before publication.
