@@ -208,7 +208,7 @@ with SynthClient() as synth:  # Reads SYNTH_API_KEY.
 ```
 
 FAST's five-cent ceiling is explicit wallet consent, not a claim that DEEP has
-the same price. See the [Index SDK guide](synth_ai/sdk/index/README.md) for
+the same price. See the [Index SDK guide](https://github.com/synth-laboratories/synth-ai/blob/main/synth_ai/sdk/index/README.md) for
 DEEP's durable Search ID, reconnect/cancel, private collections, receipts, and
 coding-agent MCP setup. These calls require a deployed Index API; installing
 the SDK alone does not make a Search available.
