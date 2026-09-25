@@ -1,11 +1,9 @@
-"""Index transport adapters; no local search fallback.
+"""Authenticated and public Index clients over backend-owned Search state.
 
-See sibling docs/drafts/synth-index-api-design-2026-09-12.md.
-Backend owns authorization and usage receipts. The injected transport owns its
-lifetime; these adapters do not discover credentials or create extra clients.
-Every operation is declared once in ``OPERATIONS`` (method, path template), and
-one resource tree serves both clients: the sync client runs calls on the sync
-transport, the async client returns awaitables from the async transport.
+The service, not this package, owns authorization, funding, and usage receipts.
+Sync and async clients share the same resource tree; neither silently falls
+back to local search or creates another transport. Retain a durable Search ID
+after an uncertain response and reconcile it before starting new work.
 """
 
 import asyncio
