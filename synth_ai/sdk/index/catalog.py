@@ -1,8 +1,9 @@
-"""Capabilities, taxonomy, sharing, usage, profiles, rewards and contest wire mirrors.
+"""Capabilities, taxonomy, sharing, usage, profiles and award wire mirrors.
 
-Mirrors backend ``packages/contributions/{views,usage}.py``. Public search stays
-free even for paid organizations. Rewards are awarded Synth cloud credits from
-reviewed programs — never cash, earnings owed or attribution estimates.
+Mirrors backend ``packages/contributions/{views,usage}.py``. Search over public
+or private scope requires an authenticated, funded organization; FAST uses the
+published per-search price. Award types describe a possible separately funded
+program, not an entitlement from uploading or publishing a Contribution.
 """
 
 import datetime as dt
@@ -309,7 +310,11 @@ class RewardEntry(IndexContract):
 
 
 class MyRewards(IndexContract):
-    """Awarded cloud credits; ``available_credits_cents`` is not reduced by later spend."""
+    """Account view for an explicitly funded credit-award program, if enabled.
+
+    This wire type does not promise an award for any Contribution.
+    ``available_credits_cents`` is not reduced by later spend.
+    """
 
     unit: Literal["synth_cloud_credit_cents"] = "synth_cloud_credit_cents"
     available_credits_cents: Count
