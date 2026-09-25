@@ -1344,13 +1344,14 @@ class ResearchInternSyncRuntimeAPI:
 
 
 class ResearchInternAsyncRuntimeAPI:
+    """Synchronous transport for the organization's singleton Async Intern."""
+
     @property
     def blockers(self):
+        """Access blockers for the organization's Async Intern."""
         from .intern_blockers import InternBlockersAPI
 
         return InternBlockersAPI(self._transport)
-
-    """Synchronous transport for the organization's singleton Async Intern."""
 
     _PATH = "/smr/research-intern/async"
 
@@ -3242,13 +3243,14 @@ class AsyncResearchInternSyncRuntimeAPI:
 
 
 class AsyncResearchInternAsyncRuntimeAPI:
+    """Native async transport for the organization's singleton Async Intern."""
+
     @property
     def blockers(self):
+        """Access blockers for the organization's Async Intern."""
         from .intern_blockers import AsyncInternBlockersAPI
 
         return AsyncInternBlockersAPI(self._transport)
-
-    """Native async transport for the organization's singleton Async Intern."""
 
     _PATH = "/smr/research-intern/async"
 
