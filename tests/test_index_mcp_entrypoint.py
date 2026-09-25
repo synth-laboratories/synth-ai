@@ -6,7 +6,11 @@ import importlib.metadata
 
 import pytest
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.mcp.research.server import _stdio_server
+from synth_ai.mcp.research.server import (
+    INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
+    MCP_CLIENT_TIMEOUT_SECONDS,
+    _stdio_server,
+)
 from synth_ai.mcp.research.tools.index import (
     INDEX_READ_TOOL_NAMES,
     INDEX_WRITE_TOOL_NAMES,
@@ -76,3 +80,32 @@ def test_index_entrypoint_requires_explicit_safe_backend_url(
     monkeypatch.setenv("SYNTH_BACKEND_URL", "https://user:secret@api.example.test")
     with pytest.raises(ValueError, match="without credentials"):
         _stdio_server(index_only=True)
+
+
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_index_mcp_client_waits_for_monitored_delivery(
+    monkeypatch: pytest.MonkeyPatch, authenticated: bool
+) -> None:
+    if authenticated:
+        monkeypatch.setenv("SYNTH_API_KEY", "sk-test")
+    constructed: list[dict[str, object]] = []
+
+    def capture_transport(self: HttpTransport, **kwargs: object) -> None:
+        constructed.append(kwargs)
+
+    monkeypatch.setattr(HttpTransport, "__init__", capture_transport)
+    monkeypatch.setattr(HttpTransport, "close", lambda self: None)
+    server = _stdio_server(index_only=True)
+    assert server._index_client_factory is not None
+    with server._index_client_factory():
+        pass
+
+    assert MCP_CLIENT_TIMEOUT_SECONDS == 30.0
+    assert INDEX_MCP_CLIENT_TIMEOUT_SECONDS == 120.0
+    assert constructed == [
+        {
+            "base_url": "https://api.example.test",
+            "headers": {"Authorization": "Bearer sk-test"} if authenticated else {},
+            "timeout_seconds": INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
+        }
+    ]
