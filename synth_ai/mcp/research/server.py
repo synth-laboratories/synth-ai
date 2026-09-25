@@ -87,6 +87,11 @@ SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "synth-research"
 MCP_CLIENT_TIMEOUT_SECONDS = 30.0
+# Index delivery includes a separately bounded monitor after retrieval. Keep
+# stdio Index calls aligned with PublicIndexClient's 120-second transport bound;
+# an MCP timeout must not prematurely turn a valid monitored response into an
+# ambiguous retry. Research tools retain their separate 30-second default.
+INDEX_MCP_CLIENT_TIMEOUT_SECONDS = 120.0
 
 # The stdio entrypoint advertises the stable subset. Set this to 1/true/yes to
 # advertise the full built tree instead; without it the advanced tools are not
@@ -2937,13 +2942,21 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
             if api_key:
                 from synth_ai import SynthClient
 
-                with SynthClient(api_key=api_key, base_url=backend_base) as client:
+                with SynthClient(
+                    api_key=api_key,
+                    base_url=backend_base,
+                    timeout_seconds=INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
+                ) as client:
                     yield client.index
                 return
             from synth_ai.core.http.transport import HttpTransport
             from synth_ai.sdk.index.client import PublicIndexAPI
 
-            transport = HttpTransport(base_url=backend_base, headers={})
+            transport = HttpTransport(
+                base_url=backend_base,
+                headers={},
+                timeout_seconds=INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
+            )
             try:
                 yield PublicIndexAPI(transport)
             finally:
