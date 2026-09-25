@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from synth_ai.sdk.research.account import ResearchAccountAPI
 from synth_ai.sdk.research.client import Client as CoreResearchClient
+from synth_ai.sdk.research.container_pools.api import ContainerPoolsAPI
 from synth_ai.sdk.research.environments import EnvironmentsAPI
 from synth_ai.sdk.research.experiments import ResearchExperimentsAPI
 from synth_ai.sdk.research.factories import FactoriesAPI
@@ -115,7 +116,6 @@ class Client:
         api_key: str,
         base_url: str,
         timeout_seconds: float = 120.0,
-        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url
@@ -124,7 +124,6 @@ class Client:
             api_key=api_key,
             base_url=base_url,
             timeout_seconds=timeout_seconds,
-            allow_legacy_intern_sessions=allow_legacy_intern_sessions,
         )
         self._session: ResearchSession | None = None
         self._advanced: ResearchAdvancedAPI | None = None
@@ -210,6 +209,16 @@ class Client:
     def image_releases(self) -> ImageReleasesAPI:
         """Immutable customer image-release receipts and actor runtime images."""
         return self._core.image_releases
+
+    @property
+    def container_pools(self) -> ContainerPoolsAPI:
+        """Container pools, their runtime image releases, and graded rollouts.
+
+        Distinct from `image_releases` above, which is the SMR actor runtime
+        surface at `/smr/v1/image-releases`. A pool's deployable image is a
+        *runtime image release* under `container_pools.create_release`.
+        """
+        return self._core.container_pools
 
     @property
     def files(self) -> FilesAPI:

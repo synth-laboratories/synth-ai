@@ -90,7 +90,7 @@ def _provider_bindings_schema() -> dict[str, Any]:
 
 
 def _provider_selection_schema() -> dict[str, Any]:
-    public = ["auto", "openai", "synth", "xai", "cursor"]
+    public = ["auto", "openai", "synth", "cursor"]
     return {
         "oneOf": [
             {"type": "string", "enum": public},

@@ -2,6 +2,80 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+## 0.20.0 — 2026-09-25 (ships with Synth Index cut 1)
+
+Upgrade required: 0.19.x cannot parse the Index search response served by the
+backend from this release onward (see Changed (breaking) below).
+
+### Added
+
+- **Index Search API (FAST and DEEP)** — `SynthClient().index.search(...)`
+  returns a `SearchResult`: a delivered `response` text with inline citations
+  plus `citations`, a tuple of exact `ContributionReference`s (contribution and
+  revision) listed in first-appearance order. An uncited response is always the
+  fixed abstention text. `mode="fast"` runs immediately; `mode="deep"` creates
+  a durable Search and waits for it. `index.answer(...)` returns a grounded
+  answer; every delivered citation must support a claim.
+- **Durable Search lifecycle** — create a Search, reconnect by ID, page ordered
+  events, read the completed result and request cancellation (sync and async
+  handles). A local wait timeout leaves the server Search running.
+- **fast.v2 pricing** — `SearchUsage.price_version` defaults to
+  `synth.index.fast.v2`: public and private FAST searches both cost 5 cents per
+  successful logical search. Wallet funding requires
+  `billing.allow_wallet=true` and `max_charge_cents>=5`. `synth.index.fast.v1`
+  receipts (public free, private 5 cents) still validate for historical usage.
+  DEEP usage never carries a fast price version.
+- **MCP entry points** — `synth-ai-index-mcp` is a dedicated stdio server that
+  advertises only Index tools (`index_search`, `index_search_create`,
+  `index_search_get`, `index_search_result`, `index_search_events`,
+  `index_search_cancel`, `index_answer`, `index_get_contents`,
+  `index_get_contribution`, `index_contribution_status`). It requires an
+  explicit `SYNTH_BACKEND_URL`; search and answer tools need `SYNTH_API_KEY`.
+  `synth-ai-research-mcp` adds the same Index tools when
+  `SYNTH_INDEX_MCP_ENABLED=true`. Both accept `--help` and `--version` (exit 0);
+  missing or invalid configuration such as an absent `SYNTH_BACKEND_URL` exits 2
+  with one line (`McpConfigurationError`, a `ValueError` subclass), not a
+  traceback. Unknown arguments are rejected.
+- **Index contract and failures** — the SDK's Index OpenAPI export matches the
+  backend's generated contract. `IndexErrorCode` names current Search and
+  Contribution failures while retaining prior values for existing clients;
+  unknown future codes remain available through `error.failure.code`. Direct
+  Index clients and the Index MCP use a bounded default transport timeout.
+- **Typed Container Pools** — `SynthClient().research.container_pools` exposes
+  backend-owned pool deployment and reconciliation. Packaging validates Docker
+  contexts, applies supported `.dockerignore` rules, and rejects credential-like
+  files before upload.
+- **Current Swarm, Intern, and Workshop contracts** — resource inventory,
+  settlement, rollout provenance, durable transcript replay, authenticated
+  Workshop messaging, and project-bound deployment capabilities are available
+  through the canonical Research SDK and MCP server.
+
+### Changed (breaking)
+
+- **Search response shape** — `SearchResult.results` (a tuple of ranked
+  `SearchHit`s) is replaced by `response` + `citations`. The 0.19 FAST-only
+  `price_version: Literal["synth.index.fast.v1"]` is replaced by an identifier
+  that defaults to `synth.index.fast.v2`. A 0.19.x client fails validation on
+  every current search response.
+
+  Migration: upgrade with `pip install -U "synth-ai>=0.20.0"`. Replace
+  `for hit in result.results:` with `result.response` for the answer text and
+  `result.citations` for the cited `contribution_id`/`revision_id`; fetch
+  content, when there are citations, with
+  `index.contents.retrieve(references=result.citations, search_id=result.search_id)`. Read `result.usage.amount_cents` rather than
+  assuming public search is free. MCP callers read `citations` from
+  `index_search` output instead of `results`.
+
+### Removed (breaking)
+
+- **Legacy Research Intern sessions** — `client.intern.sessions`, reactive
+  session stream/turn/event types, legacy enablement flags, the old
+  `*_research_intern_session*` operations and aliases, and the legacy MCP
+  session tools are removed. Use `client.intern.sync_` or
+  `client.intern.async_`.
+
 ## 0.19.0 — 2026-09-14
 
 ### Added
@@ -17,6 +91,9 @@ All notable changes to the `synth-ai` package are documented here.
   write flag and an API key. No Index tool can approve or publish research.
 - **Swarm and Intern policies** — Index access is an explicit, read-only policy
   by default. Draft preparation requires separately persisted operator intent.
+- **Intern Sync presence and approvals** — the synchronous runtime exposes
+  `presence`, `release_presence`, `approvals`, and `decide_approval` on both the
+  sync and native-async clients. `KickoffContract` includes `trace_capture`.
 
 ### Security and billing
 
@@ -28,6 +105,13 @@ All notable changes to the `synth-ai` package are documented here.
   descriptor-relative and reject symlinks, escapes, and credential-like data.
 - Search results remain bound to exact Contribution and revision identities.
   The SDK does not infer review, publication, rewards, or access from metadata.
+
+### Removed (breaking)
+
+- The legacy Research Intern sessions plane, including `client.intern.sessions`,
+  reactive session stream/turn/event types, legacy enablement flags, the old
+  `*_research_intern_session*` operations and aliases, and the legacy MCP session
+  tools. Use `client.intern.sync_` or `client.intern.async_`.
 
 ## 0.18.2 — 2026-09-10
 

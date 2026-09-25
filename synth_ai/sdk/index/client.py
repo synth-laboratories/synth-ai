@@ -1,16 +1,17 @@
-"""Index transport adapters; no local search fallback.
+"""Authenticated and public Index clients over backend-owned Search state.
 
-See sibling docs/drafts/synth-index-api-design-2026-09-12.md.
-Backend owns authorization and usage receipts. The injected transport owns its
-lifetime; these adapters do not discover credentials or create extra clients.
-Every operation is declared once in ``OPERATIONS`` (method, path template), and
-one resource tree serves both clients: the sync client runs calls on the sync
-transport, the async client returns awaitables from the async transport.
+The service, not this package, owns authorization, funding, and usage receipts.
+Sync and async clients share the same resource tree; neither silently falls
+back to local search or creates another transport. Retain a durable Search ID
+after an uncertain response and reconcile it before starting new work.
 """
 
+import asyncio
 import re
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from hashlib import sha256
 from typing import Any
 from uuid import uuid4
@@ -18,8 +19,11 @@ from uuid import uuid4
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
+from .answer import AnswerResult, AnswerSpec
 from .artifacts import ArtifactPublicationResponse
 from .catalog import (
+    AccessFundingAccount,
+    BillingPolicyUpdate,
     Capabilities,
     CollectionGrant,
     CollectionGrantRevoked,
@@ -39,13 +43,19 @@ from .catalog import (
     ProfilePinsSpec,
     ProfileSpec,
     ProfileView,
+    PromoCreditSummary,
     RewardAward,
     RewardAwardSpec,
     RewardReverseSpec,
     TagRegistry,
 )
 from .contracts import ContributionReference
-from .contributions import ContributionDraft, ContributionUploadPrepared, ContributionUploadSpec
+from .contributions import (
+    ContributionDraft,
+    ContributionUploadPrepared,
+    ContributionUploadSpec,
+    ResearchDraftSpec,
+)
 from .lifecycle import (
     Assessment,
     Assessments,
@@ -63,15 +73,25 @@ from .lifecycle import (
 from .search import (
     ContentsResult,
     ContentsSpec,
-    PublicSearchResult,
+    Search,
+    SearchBillingConstraints,
+    SearchCancellation,
     SearchContent,
+    SearchEventPage,
+    SearchExecutionCancelledError,
+    SearchExecutionFailedError,
+    SearchExecutionLimits,
     SearchFilters,
+    SearchMode,
     SearchResult,
     SearchScope,
     SearchSpec,
+    SearchState,
+    SearchWaitTimeoutError,
 )
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 from .transfer import upload_bytes, upload_bytes_sync
+from .usage_accounting import SearchUsageReceipt, SearchUsageSummary
 
 _P = "/api/v1/index"
 _C = f"{_P}/contributions/{{contribution_id}}"
@@ -82,8 +102,15 @@ _K = f"{_P}/contests/{{contest_id}}"
 OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.capabilities": ("GET", f"{_P}/capabilities"),
     "index.search": ("POST", f"{_P}/search"),
+    "index.answer": ("POST", f"{_P}/answer"),
+    "index.searches.create": ("POST", f"{_P}/searches"),
+    "index.searches.get": ("GET", f"{_P}/searches/{{search_id}}"),
+    "index.searches.result": ("GET", f"{_P}/searches/{{search_id}}/result"),
+    "index.searches.events": ("GET", f"{_P}/searches/{{search_id}}/events"),
+    "index.searches.cancel": ("POST", f"{_P}/searches/{{search_id}}/cancel"),
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
+    "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
     "index.contributions.retrieve": ("GET", _C),
     "index.contributions.publication.create": ("POST", f"{_C}/publication"),
     "index.contributions.withdrawal.create": ("POST", f"{_C}/withdrawal"),
@@ -107,6 +134,12 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.me.retrieve": ("GET", f"{_P}/me"),
     "index.me.contributions.list": ("GET", f"{_P}/me/contributions"),
     "index.me.usage": ("GET", f"{_P}/me/usage"),
+    "index.me.search_usage_receipt": ("GET", f"{_P}/me/usage/searches/{{search_id}}"),
+    "index.me.operation_usage_summary": ("GET", f"{_P}/me/usage/operations"),
+    "index.me.operation_usage_export": ("GET", f"{_P}/me/usage/operations/export"),
+    "index.me.promo_credit": ("GET", f"{_P}/me/promo-credit"),
+    "index.me.access_funding": ("GET", f"{_P}/me/access-funding"),
+    "index.me.access_funding.update": ("PUT", f"{_P}/me/access-funding/{{mode}}"),
     "index.me.rewards.list": ("GET", f"{_P}/me/rewards"),
     "index.me.profile.update": ("PUT", f"{_P}/me/profile"),
     "index.me.profile.pins.update": ("PUT", f"{_P}/me/profile/pins"),
@@ -122,9 +155,12 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contests.entries.review": ("POST", f"{_K}/entries/{{entry_id}}/review"),
 }
 
+# Anonymous callers may browse published research, but search requires an
+# authenticated funding identity and uses index.search instead.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
-    "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
+    "index.public.capabilities": ("GET", f"{_P}/public/capabilities"),
+    "index.public.tags.list": ("GET", f"{_P}/public/tags"),
     "index.public.contributions.retrieve": (
         "GET",
         f"{_P}/public/contributions/{{contribution_id}}",
@@ -133,6 +169,12 @@ PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
         "GET",
         f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}",
     ),
+    "index.public.contributions.assets.retrieve": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}"
+        f"/assets/{{asset_id}}",
+    ),
+    "index.public.profiles.retrieve": ("GET", f"{_P}/public/profiles/{{principal_id}}"),
 }
 
 _IDENTIFIER = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
@@ -214,18 +256,74 @@ def _search_spec(
     scope: SearchScope | None,
     filters: SearchFilters | None,
     max_results: int | None,
+    mode: SearchMode | str | None = None,
+    limits: SearchExecutionLimits | None = None,
+    billing: SearchBillingConstraints | None = None,
 ) -> SearchSpec:
     if spec is not None:
-        if any(value is not None for value in (query, scope, filters, max_results)):
+        if any(
+            value is not None
+            for value in (query, scope, filters, max_results, mode, limits, billing)
+        ):
             raise ValueError("Pass either SearchSpec or search keyword arguments, not both")
         return spec
     if query is None:
         raise ValueError("Index search requires a query or SearchSpec")
     return SearchSpec(
         query=query,
+        mode=SearchMode.FAST if mode is None else SearchMode(mode),
         scope=scope if scope is not None else SearchScope(),
         filters=filters if filters is not None else SearchFilters(),
         content=SearchContent(max_results=5 if max_results is None else max_results),
+        limits=limits,
+        billing=billing if billing is not None else SearchBillingConstraints(),
+    )
+
+
+def _answer_spec(
+    spec: AnswerSpec | None,
+    query: str | None,
+    scope: SearchScope | None,
+    filters: SearchFilters | None,
+    max_results: int | None,
+    mode: SearchMode | str | None,
+    limits: SearchExecutionLimits | None,
+    max_answer_tokens: int | None,
+    max_answer_cost_usd_micros: int | None,
+    billing: SearchBillingConstraints | None = None,
+) -> AnswerSpec:
+    if spec is not None:
+        if any(
+            value is not None
+            for value in (
+                query,
+                scope,
+                filters,
+                max_results,
+                mode,
+                limits,
+                max_answer_tokens,
+                max_answer_cost_usd_micros,
+                billing,
+            )
+        ):
+            raise ValueError("Pass either AnswerSpec or answer keyword arguments, not both")
+        return spec
+    if query is None:
+        raise ValueError("Index answer requires a query or AnswerSpec")
+    return AnswerSpec(
+        query=query,
+        mode=SearchMode.FAST if mode is None else SearchMode(mode),
+        scope=scope if scope is not None else SearchScope(),
+        filters=filters if filters is not None else SearchFilters(),
+        content=SearchContent(
+            max_results=5 if max_results is None else max_results,
+            max_excerpts_per_result=2,
+        ),
+        limits=limits,
+        max_answer_tokens=(1024 if max_answer_tokens is None else max_answer_tokens),
+        max_answer_cost_usd_micros=max_answer_cost_usd_micros,
+        billing=billing if billing is not None else SearchBillingConstraints(),
     )
 
 
@@ -250,24 +348,27 @@ def _contents_spec(
 
 def _search_result(payload: object, spec: SearchSpec) -> SearchResult:
     result = SearchResult.model_validate(payload)
-    if result.usage.billing_scope != spec.scope.visibility:
+    if (
+        result.requested_mode != spec.mode
+        or result.effective_mode != spec.mode
+        or result.usage.billing_scope != spec.scope.visibility
+    ):
         raise ValueError("Index response billing scope does not match the request")
     _search_delivery_bounds(result, spec)
     return result
 
 
-def _public_search_result(payload: object, spec: SearchSpec) -> PublicSearchResult:
-    result = PublicSearchResult.model_validate(payload)
-    _search_delivery_bounds(result, spec)
+def _answer_result(payload: object, spec: AnswerSpec) -> AnswerResult:
+    result = AnswerResult.model_validate(payload)
+    if result.query != spec.query or result.mode is not spec.mode:
+        raise ValueError("Index answer does not match the requested query or mode")
     return result
 
 
-def _search_delivery_bounds(result: SearchResult | PublicSearchResult, spec: SearchSpec) -> None:
-    """Both delivery modes honor the caller's context bounds, not only global caps."""
-    if len(result.results) > spec.content.max_results or any(
-        len(hit.highlights) > spec.content.max_excerpts_per_result for hit in result.results
-    ):
-        raise ValueError("Index response exceeds requested result or excerpt bounds")
+def _search_delivery_bounds(result: SearchResult, spec: SearchSpec) -> None:
+    """Citations stay within the caller's requested result bound."""
+    if len(result.citations) > spec.content.max_results:
+        raise ValueError("Index response exceeds requested citation bound")
 
 
 def _contents_result(payload: object, spec: ContentsSpec) -> ContentsResult:
@@ -339,6 +440,200 @@ class _Resource:
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         self._run = run
         self._asynchronous = asynchronous
+
+
+class SearchHandle:
+    """Blocking durable Search handle; local timeout never mutates server state."""
+
+    def __init__(self, searches: "SearchesAPI", snapshot: Search) -> None:
+        self._searches = searches
+        self.snapshot = snapshot
+
+    @property
+    def search_id(self) -> str:
+        """Stable server Search ID to retain for reconnects and receipts."""
+        return self.snapshot.search_id
+
+    def refresh(self) -> Search:
+        """Fetch the latest durable lifecycle state without creating another Search."""
+        self.snapshot = self._searches.get(self.search_id)
+        return self.snapshot
+
+    def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        """Read lifecycle events after a sequence cursor; does not wait for completion."""
+        return self._searches.events(self.search_id, after=after, limit=limit)
+
+    def cancel(self) -> SearchCancellation:
+        """Request cancellation of this Search; completion may race the request."""
+        return self._searches.cancel(self.search_id)
+
+    def result(self) -> SearchResult:
+        """Fetch the delivered result and validate it against the original request."""
+        return self._searches.result(self.search_id, self.snapshot.spec)
+
+    def wait(self, *, timeout_seconds: float = 120.0, poll_seconds: float = 0.25) -> SearchResult:
+        """Poll until terminal, without cancelling or resubmitting on local timeout.
+
+        Raises ``SearchWaitTimeoutError`` with the Search ID when the local
+        deadline expires. Keep that ID and reconnect to the same Search.
+        """
+        if timeout_seconds <= 0 or not 0.01 <= poll_seconds <= 5:
+            raise ValueError(
+                "wait timeout must be positive and poll interval within 0.01..5 seconds"
+            )
+        deadline = time.monotonic() + timeout_seconds
+        while self.snapshot.state in {SearchState.QUEUED, SearchState.RUNNING}:
+            if time.monotonic() >= deadline:
+                raise SearchWaitTimeoutError(self.search_id)
+            time.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
+            self.refresh()
+        if self.snapshot.state == SearchState.FAILED:
+            if self.snapshot.failure is None:
+                raise ValueError("failed Search omitted its typed failure")
+            raise SearchExecutionFailedError(self.search_id, self.snapshot.failure)
+        if self.snapshot.state == SearchState.CANCELLED:
+            raise SearchExecutionCancelledError(self.search_id)
+        return self.result()
+
+
+class AsyncSearchHandle:
+    """Async durable Search handle; local timeout never mutates server state."""
+
+    def __init__(self, searches: "SearchesAPI", snapshot: Search) -> None:
+        self._searches = searches
+        self.snapshot = snapshot
+
+    @property
+    def search_id(self) -> str:
+        """Stable server Search ID to retain for reconnects and receipts."""
+        return self.snapshot.search_id
+
+    async def refresh(self) -> Search:
+        """Fetch the latest durable lifecycle state without creating another Search."""
+        self.snapshot = await self._searches.get(self.search_id)
+        return self.snapshot
+
+    async def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
+        """Read lifecycle events after a sequence cursor; does not wait for completion."""
+        return await self._searches.events(self.search_id, after=after, limit=limit)
+
+    async def cancel(self) -> SearchCancellation:
+        """Request cancellation of this Search; completion may race the request."""
+        return await self._searches.cancel(self.search_id)
+
+    async def result(self) -> SearchResult:
+        """Fetch the delivered result and validate it against the original request."""
+        return await self._searches.result(self.search_id, self.snapshot.spec)
+
+    async def wait(
+        self, *, timeout_seconds: float = 120.0, poll_seconds: float = 0.25
+    ) -> SearchResult:
+        """Poll until terminal without cancelling or resubmitting on local timeout.
+
+        Raises ``SearchWaitTimeoutError`` with the Search ID when the local
+        deadline expires. Keep that ID and reconnect to the same Search.
+        """
+        if timeout_seconds <= 0 or not 0.01 <= poll_seconds <= 5:
+            raise ValueError(
+                "wait timeout must be positive and poll interval within 0.01..5 seconds"
+            )
+        deadline = time.monotonic() + timeout_seconds
+        while self.snapshot.state in {SearchState.QUEUED, SearchState.RUNNING}:
+            if time.monotonic() >= deadline:
+                raise SearchWaitTimeoutError(self.search_id)
+            await asyncio.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
+            await self.refresh()
+        if self.snapshot.state == SearchState.FAILED:
+            if self.snapshot.failure is None:
+                raise ValueError("failed Search omitted its typed failure")
+            raise SearchExecutionFailedError(self.search_id, self.snapshot.failure)
+        if self.snapshot.state == SearchState.CANCELLED:
+            raise SearchExecutionCancelledError(self.search_id)
+        return await self.result()
+
+
+class SearchesAPI(_Resource):
+    """Durable Search lifecycle over the backend-owned execution ledger."""
+
+    def create(self, spec: SearchSpec, *, idempotency_key: str) -> Any:
+        """Create one durable Search and return its handle.
+
+        Reuse the same ``idempotency_key`` and request after an uncertain
+        response; a retry is not a new logical Search.
+        """
+        value = self._run(
+            _Call(
+                "index.searches.create",
+                Search.model_validate,
+                json_body=_body(spec),
+                headers=_key(idempotency_key, required="Durable Search creation"),
+            )
+        )
+        if self._asynchronous:
+
+            async def asynchronous_handle() -> AsyncSearchHandle:
+                return AsyncSearchHandle(self, await value)
+
+            return asynchronous_handle()
+        return SearchHandle(self, value)
+
+    def get(self, search_id: str) -> Any:
+        """Retrieve a Search's latest state by its stable server ID."""
+        return self._run(
+            _Call(
+                "index.searches.get",
+                _bound(Search, lambda item: item.search_id == search_id, "Search ID mismatch"),
+                path_parameters={"search_id": search_id},
+            )
+        )
+
+    def result(self, search_id: str, spec: SearchSpec) -> Any:
+        """Retrieve a delivered result, bound to its Search ID and request spec."""
+
+        def parse(payload: object) -> SearchResult:
+            result = _search_result(payload, spec)
+            if result.search_id != search_id:
+                raise ValueError("Search result ID mismatch")
+            return result
+
+        return self._run(
+            _Call(
+                "index.searches.result",
+                parse,
+                path_parameters={"search_id": search_id},
+            )
+        )
+
+    def events(self, search_id: str, *, after: int = 0, limit: int = 200) -> Any:
+        """Read up to ``limit`` lifecycle events after the sequence cursor."""
+        if after < 0 or not 1 <= limit <= 200:
+            raise ValueError("Search event cursor or limit is out of bounds")
+        return self._run(
+            _Call(
+                "index.searches.events",
+                _bound(
+                    SearchEventPage,
+                    lambda page: page.search_id == search_id,
+                    "Search event page ID mismatch",
+                ),
+                path_parameters={"search_id": search_id},
+                params={"after": after, "limit": limit},
+            )
+        )
+
+    def cancel(self, search_id: str) -> Any:
+        """Request cancellation of an existing durable Search."""
+        return self._run(
+            _Call(
+                "index.searches.cancel",
+                _bound(
+                    SearchCancellation,
+                    lambda item: item.search_id == search_id,
+                    "Search cancellation ID mismatch",
+                ),
+                path_parameters={"search_id": search_id},
+            )
+        )
 
 
 class ContentsAPI(_Resource):
@@ -477,6 +772,21 @@ class ContributionsAPI(_Resource):
                 ContributionDraft.model_validate,
                 json_body={},
                 headers=_key(idempotency_key, required="Draft creation"),
+            )
+        )
+
+    def create_research(self, spec: ResearchDraftSpec, *, idempotency_key: str) -> Any:
+        """Allocate a private SYNTH-origin draft for a vetted export.
+
+        The backend requires an active research-import grant and checks source
+        paths. Reuse the same key and spec after an uncertain response.
+        """
+        return self._run(
+            _Call(
+                "index.contributions.research.create",
+                ContributionDraft.model_validate,
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="Research draft creation"),
             )
         )
 
@@ -637,8 +947,87 @@ class AccountAPI(_Resource):
     def contributions(self) -> Any:
         return self._run(_Call("index.me.contributions.list", MyContributions.model_validate))
 
+    def promo_credit(self) -> Any:
+        """Read the current private-search promo balance for this organization.
+
+        Returns a summary whose ``credit`` is ``None`` when the organization is
+        not enrolled. An exhausted balance is a balance, not an error: the
+        refusal only happens when a private search is actually attempted.
+        """
+        return self._run(_Call("index.me.promo_credit", PromoCreditSummary.model_validate))
+
     def usage(self) -> Any:
         return self._run(_Call("index.me.usage", IndexUsageSummary.model_validate))
+
+    def access_funding(self) -> Any:
+        """Read effective Fast/Deep access, consent, allowances, and wallet holds."""
+        return self._run(_Call("index.me.access_funding", AccessFundingAccount.model_validate))
+
+    def update_billing_policy(self, mode: SearchMode | str, policy: BillingPolicyUpdate) -> Any:
+        """Replace this org's versioned wallet consent and cap for one mode."""
+        selected = SearchMode(mode)
+        return self._run(
+            _Call(
+                "index.me.access_funding.update",
+                lambda payload: payload,
+                path_parameters={"mode": selected.value},
+                json_body=policy.model_dump(mode="json"),
+            )
+        )
+
+    def search_usage(self, search_id: str) -> Any:
+        """Return the physical-consumption and charge receipt for one search."""
+        return self._run(
+            _Call(
+                "index.me.search_usage_receipt",
+                SearchUsageReceipt.model_validate,
+                path_parameters={"search_id": search_id},
+            )
+        )
+
+    def operation_usage(
+        self,
+        period_start: datetime,
+        period_end: datetime,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Any:
+        """Aggregate search attempts, cost, and charges for an aware time range."""
+        if period_start.tzinfo is None or period_end.tzinfo is None:
+            raise ValueError("Index usage periods must be timezone-aware")
+        if not 1 <= limit <= 500 or offset < 0:
+            raise ValueError("Index usage page must use limit 1..500 and offset >= 0")
+        return self._run(
+            _Call(
+                "index.me.operation_usage_summary",
+                SearchUsageSummary.model_validate,
+                params={
+                    "period_start": period_start.isoformat(),
+                    "period_end": period_end.isoformat(),
+                    "include_consumption": "true",
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+        )
+
+    def export_operation_usage(self, period_start: datetime, period_end: datetime) -> Any:
+        """Download the tenant-scoped operation aggregate as CSV bytes."""
+        if period_start.tzinfo is None or period_end.tzinfo is None:
+            raise ValueError("Index usage periods must be timezone-aware")
+        return self._run(
+            _Call(
+                "index.me.operation_usage_export",
+                lambda payload: payload,
+                params={
+                    "period_start": period_start.isoformat(),
+                    "period_end": period_end.isoformat(),
+                    "include_consumption": "true",
+                },
+                raw=True,
+            )
+        )
 
     def rewards(self) -> Any:
         return self._run(_Call("index.me.rewards.list", MyRewards.model_validate))
@@ -764,6 +1153,7 @@ class _IndexRoot(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.contents = ContentsAPI(run, asynchronous)
+        self.searches = SearchesAPI(run, asynchronous)
         self.contributions = ContributionsAPI(run, asynchronous)
         self.reviews = self.contributions.reviews
         self.tags = TagsAPI(run, asynchronous)
@@ -785,19 +1175,83 @@ class _IndexRoot(_Resource):
         scope: SearchScope | None = None,
         filters: SearchFilters | None = None,
         max_results: int | None = None,
+        mode: SearchMode | str | None = None,
+        limits: SearchExecutionLimits | None = None,
+        billing: SearchBillingConstraints | None = None,
         idempotency_key: str | None = None,
     ) -> Any:
-        """Execute one fast search; reuse an explicit key for application-level retries.
+        """Execute fast immediately or create-and-wait for one durable deep Search.
 
-        Failures propagate as typed errors; they never become empty results.
+        Reuse the key after an uncertain response. A local deep wait timeout
+        raises ``SearchWaitTimeoutError`` with its Search ID and does not cancel or
+        resubmit work.
         """
-        spec = _search_spec(spec, query, scope, filters, max_results)
+        spec = _search_spec(spec, query, scope, filters, max_results, mode, limits, billing)
+        if spec.mode == SearchMode.DEEP:
+            key = _key(idempotency_key)["Idempotency-Key"]
+            handle = self.searches.create(spec, idempotency_key=key)
+            if self._asynchronous:
+
+                async def await_deep() -> SearchResult:
+                    asynchronous_handle = await handle
+                    return await asynchronous_handle.wait(
+                        timeout_seconds=(spec.limits or SearchExecutionLimits()).deadline_seconds
+                        + 5
+                    )
+
+                return await_deep()
+            return handle.wait(
+                timeout_seconds=(spec.limits or SearchExecutionLimits()).deadline_seconds + 5
+            )
         return self._run(
             _Call(
                 "index.search",
                 lambda payload: _search_result(payload, spec),
                 json_body=spec.model_dump(mode="json"),
                 headers=_key(idempotency_key),
+            )
+        )
+
+    def answer(
+        self,
+        spec: AnswerSpec | None = None,
+        *,
+        query: str | None = None,
+        scope: SearchScope | None = None,
+        filters: SearchFilters | None = None,
+        max_results: int | None = None,
+        mode: SearchMode | str | None = None,
+        limits: SearchExecutionLimits | None = None,
+        max_answer_tokens: int | None = None,
+        max_answer_cost_usd_micros: int | None = None,
+        billing: SearchBillingConstraints | None = None,
+        idempotency_key: str,
+    ) -> Any:
+        """Return a fail-closed cited answer over fast or deep evidence.
+
+        Search remains evidence-only. The explicit key identifies the complete
+        retrieval, admission and synthesis operation for safe replay.
+        Billing carries the retrieval wallet opt-in and maximum retail charge;
+        organization consent remains server-owned, as for SearchSpec.
+        """
+        spec = _answer_spec(
+            spec,
+            query,
+            scope,
+            filters,
+            max_results,
+            mode,
+            limits,
+            max_answer_tokens,
+            max_answer_cost_usd_micros,
+            billing,
+        )
+        return self._run(
+            _Call(
+                "index.answer",
+                lambda payload: _answer_result(payload, spec),
+                json_body=_body(spec),
+                headers=_key(idempotency_key, required="Index answer"),
             )
         )
 
@@ -839,6 +1293,37 @@ class PublicContentsAPI(_Resource):
         )
 
 
+class PublicAssetsAPI(_Resource):
+    def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
+        """Download one declared asset of a published revision, with no account."""
+        return self._run(
+            _Call(
+                "index.public.contributions.assets.retrieve",
+                bytes,
+                path_parameters={**_revision(reference), "asset_id": asset_id},
+                raw=True,
+            )
+        )
+
+
+class PublicProfilesAPI(_Resource):
+    def retrieve(self, principal_id: str) -> Any:
+        """Read a contributor profile as an anonymous reader sees it."""
+        return self._run(
+            _Call(
+                "index.public.profiles.retrieve",
+                ProfileView.model_validate,
+                path_parameters={"principal_id": principal_id},
+            )
+        )
+
+
+class PublicTagsAPI(_Resource):
+    def list(self) -> Any:
+        """Read the public tag registry used by search filters."""
+        return self._run(_Call("index.public.tags.list", TagRegistry.model_validate))
+
+
 class PublicRevisionsAPI(_Resource):
     def retrieve(self, reference: ContributionReference) -> Any:
         return self._run(
@@ -858,6 +1343,7 @@ class PublicContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.revisions = PublicRevisionsAPI(run, asynchronous)
+        self.assets = PublicAssetsAPI(run, asynchronous)
 
     def retrieve(self, contribution_id: str) -> Any:
         return self._run(
@@ -878,33 +1364,16 @@ class _PublicIndexRoot(_Resource):
         super().__init__(run, asynchronous)
         self.contents = PublicContentsAPI(run, asynchronous)
         self.contributions = PublicContributionsAPI(run, asynchronous)
+        self.tags = PublicTagsAPI(run, asynchronous)
+        self.profiles = PublicProfilesAPI(run, asynchronous)
 
-    def search(
-        self,
-        spec: SearchSpec | None = None,
-        *,
-        query: str | None = None,
-        scope: SearchScope | None = None,
-        filters: SearchFilters | None = None,
-        max_results: int | None = None,
-        idempotency_key: str | None = None,
-    ) -> PublicSearchResult:
-        """Search reviewed public Contributions with no account or usage receipt."""
-        del idempotency_key
-        spec = _search_spec(spec, query, scope, filters, max_results)
-        if spec.scope.visibility != "public" or spec.scope.collection_ids:
-            raise ValueError("Anonymous Index search is public-only")
-        return self._run(
-            _Call(
-                "index.public.search",
-                lambda payload: _public_search_result(payload, spec),
-                json_body=spec.model_dump(mode="json"),
-            )
-        )
+    def capabilities(self) -> Any:
+        """Discover the public surface: public visibility only, no write features."""
+        return self._run(_Call("index.public.capabilities", Capabilities.model_validate))
 
 
 class PublicIndexAPI(_PublicIndexRoot):
-    """Blocking, read-only API over an injected credential-free transport."""
+    """Blocking, browse-only API over an injected credential-free transport."""
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -912,7 +1381,7 @@ class PublicIndexAPI(_PublicIndexRoot):
 
 
 class AsyncPublicIndexAPI(_PublicIndexRoot):
-    """Async, read-only API over an injected credential-free transport."""
+    """Async, browse-only API over an injected credential-free transport."""
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport

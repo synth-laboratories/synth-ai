@@ -42,6 +42,7 @@ class ProjectSpec:
     environment_kind: EnvironmentKind
     orchestrator_profile_id: ProfileId
     default_worker_profile_id: ProfileId
+    idempotency_key: str | None = None
     worker_profile_ids: tuple[ProfileId, ...] = ()
     reviewer_profile_id: ProfileId | None = None
     actor_profile_id: ProfileId | None = None
@@ -52,6 +53,7 @@ class ProjectSpec:
     execution_policy: JsonObject = field(default_factory=dict)
     research: JsonObject = field(default_factory=dict)
     metered_infra: JsonObject = field(default_factory=dict)
+    policy: JsonObject = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -66,6 +68,8 @@ class ProjectSpec:
             require_text(value, field_name=name)
         if self.reviewer_profile_id is not None:
             require_text(self.reviewer_profile_id, field_name="reviewer_profile_id")
+        if self.idempotency_key is not None:
+            require_text(self.idempotency_key, field_name="idempotency_key")
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {
@@ -80,8 +84,10 @@ class ProjectSpec:
             "execution_policy": dict(self.execution_policy),
             "research": dict(self.research),
             "metered_infra": dict(self.metered_infra),
+            "policy": dict(self.policy),
         }
         for name, value in (
+            ("idempotency_key", self.idempotency_key),
             ("reviewer_profile_id", self.reviewer_profile_id),
             ("actor_profile_id", self.actor_profile_id),
             ("runtime_artifact_release_id", self.runtime_artifact_release_id),

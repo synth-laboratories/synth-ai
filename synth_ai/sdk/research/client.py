@@ -8,6 +8,7 @@ from synth_ai.core.auth.credentials import ApiCredential, resolve_api_credential
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.sdk.research.container_pools.api import ContainerPoolsAPI
 from synth_ai.sdk.research.environments import AsyncEnvironmentsAPI, EnvironmentsAPI
 from synth_ai.sdk.research.factories import AsyncFactoriesAPI, FactoriesAPI
 from synth_ai.sdk.research.image_releases import (
@@ -45,7 +46,6 @@ class Client:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 30.0,
-        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = HttpTransport(
@@ -54,14 +54,12 @@ class Client:
             timeout_seconds=timeout_seconds,
         )
         self.projects = ProjectsAPI(self._transport)
-        self.intern = ResearchInternAPI(
-            self._transport,
-            allow_legacy_intern_sessions=allow_legacy_intern_sessions,
-        )
+        self.intern = ResearchInternAPI(self._transport)
         self.swarms = SwarmsAPI(self._transport)
         self.factories = FactoriesAPI(self._transport)
         self.environments = EnvironmentsAPI(self._transport)
         self.image_releases = ImageReleasesAPI(self._transport)
+        self.container_pools = ContainerPoolsAPI(self._transport)
         self.traces = ResearchTracesAPI(self._transport)
         self.visuals = VisualsAPI(self._transport)
         self._economics: EconomicsAPI | None = None
@@ -119,7 +117,6 @@ class AsyncClient:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_seconds: float = 30.0,
-        allow_legacy_intern_sessions: bool = False,
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = AsyncHttpTransport(
@@ -128,10 +125,7 @@ class AsyncClient:
             timeout_seconds=timeout_seconds,
         )
         self.projects = AsyncProjectsAPI(self._transport)
-        self.intern = AsyncResearchInternAPI(
-            self._transport,
-            allow_legacy_intern_sessions=allow_legacy_intern_sessions,
-        )
+        self.intern = AsyncResearchInternAPI(self._transport)
         self.swarms = AsyncSwarmsAPI(self._transport)
         self.factories = AsyncFactoriesAPI(self._transport)
         self.environments = AsyncEnvironmentsAPI(self._transport)

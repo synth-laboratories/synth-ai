@@ -16,11 +16,11 @@ class ResourceProvider(StrEnum):
     """
 
     OPENROUTER = "openrouter"
+    OPENAI = "openai"
     TINKER = "tinker"
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
-    XAI = "xai"
     MODAL = "modal"
     OPENAI_CHATGPT = "openai_chatgpt"
     BASETEN = "baseten"
@@ -50,15 +50,18 @@ DEFAULT_PROVIDER_POLICY_ALLOWED_PROVIDERS: tuple[str, ...] = (
     "gemini",
     "synth",
     "synth_internal",
-    "xai",
-    "grok",
     "cursor",
+    "modal",
+    "openrouter",
+    "meta",
+    "poolside",
 )
 DEFAULT_PROVIDER_POLICY_ALLOWED_DOMICILES: tuple[str, ...] = ("us",)
 DEFAULT_PROVIDER_POLICY_ALLOWED_REGIONS: tuple[str, ...] = ("us",)
 
 ACTOR_RESOURCE_CAPABILITIES: dict[Provider, frozenset[ActorResourceCapability]] = {
     Provider.OPENROUTER: frozenset({ActorResourceCapability.INFERENCE}),
+    Provider.OPENAI: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.TINKER: frozenset(
         {
             ActorResourceCapability.INFERENCE,
@@ -75,7 +78,6 @@ ACTOR_RESOURCE_CAPABILITIES: dict[Provider, frozenset[ActorResourceCapability]] 
     ),
     Provider.CURSOR: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.DEEPSEEK: frozenset({ActorResourceCapability.INFERENCE}),
-    Provider.XAI: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.MODAL: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.OPENAI_CHATGPT: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.BASETEN: frozenset({ActorResourceCapability.INFERENCE}),
@@ -205,11 +207,11 @@ ProviderConfig = OpenRouterConfig | TinkerConfig | SynthAIConfig | OpenAIChatGPT
 
 DEFAULT_CONFIGS: dict[Provider, ProviderConfig] = {
     Provider.OPENROUTER: OpenRouterConfig(),
+    Provider.OPENAI: SynthAIConfig(),
     Provider.TINKER: TinkerConfig(),
     Provider.SYNTH_AI: SynthAIConfig(),
     Provider.CURSOR: SynthAIConfig(),
     Provider.DEEPSEEK: SynthAIConfig(),
-    Provider.XAI: SynthAIConfig(),
     Provider.MODAL: SynthAIConfig(),
     Provider.OPENAI_CHATGPT: OpenAIChatGPTConfig(),
     Provider.BASETEN: SynthAIConfig(),
