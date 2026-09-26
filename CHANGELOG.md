@@ -21,12 +21,11 @@ backend from this release onward (see Changed (breaking) below).
 - **Durable Search lifecycle** — create a Search, reconnect by ID, page ordered
   events, read the completed result and request cancellation (sync and async
   handles). A local wait timeout leaves the server Search running.
-- **fast.v2 pricing** — `SearchUsage.price_version` defaults to
-  `synth.index.fast.v2`: public and private FAST searches both cost 5 cents per
-  successful logical search. Wallet funding requires
-  `billing.allow_wallet=true` and `max_charge_cents>=5`. `synth.index.fast.v1`
-  receipts (public free, private 5 cents) still validate for historical usage.
-  DEEP usage never carries a fast price version.
+- **fast.v2 price version** — `SearchUsage.price_version` defaults to
+  `synth.index.fast.v2`. Wallet funding requires billing consent:
+  `billing.allow_wallet=true` and a `max_charge_cents` ceiling sufficient for
+  the mode (see pricing when published). `synth.index.fast.v1` receipts still
+  validate for historical usage. DEEP usage never carries a fast price version.
 - **MCP entry points** — `synth-ai-index-mcp` is a dedicated stdio server that
   advertises only Index tools (`index_search`, `index_search_create`,
   `index_search_get`, `index_search_result`, `index_search_events`,
