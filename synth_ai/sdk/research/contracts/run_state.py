@@ -50,6 +50,7 @@ ManagedResearchRunState = RunState
 _TERMINAL_RUN_STATES = frozenset(
     {
         RunState.DONE,
+        RunState.PARTIAL,
         RunState.FAILED,
         RunState.STOPPED,
         RunState.CANCELED,
@@ -60,6 +61,7 @@ _TERMINAL_RUN_STATES = frozenset(
 class ManagedResearchRunTerminalOutcome(StrEnum):
     DONE = "done"
     SUCCEEDED = "succeeded"
+    PARTIAL = "partial"
     FAILED = "failed"
     STOPPED = "stopped"
     CANCELED = "canceled"
