@@ -261,3 +261,50 @@ def test_asset_download_unavailable_is_named_and_not_retried() -> None:
 
 def test_contribution_withdrawn_is_named() -> None:
     assert IndexErrorCode("contribution_withdrawn") is IndexErrorCode.CONTRIBUTION_WITHDRAWN
+
+
+def test_wait_bounds_each_status_poll_and_retries_a_hung_poll() -> None:
+    """Prod 2026-09-27 P12: a status poll whose response never arrived held the
+    client for the 120 s transport timeout. Each poll now carries a <=20 s
+    timeout; a timed-out poll is treated as transient and polled again."""
+    from synth_ai.sdk.index.client import STATUS_POLL_TIMEOUT_SECONDS
+    from synth_ai.sdk.index.search import SearchExecutionFailedError
+
+    client = _client()
+    polls: list[dict] = []
+    responses = [
+        httpx.Response(200, json=_snapshot()),
+        "hang",
+        httpx.Response(
+            200,
+            json={
+                **_snapshot("failed"),
+                "failure": {"code": "index_deep_deadline_exceeded", "retryable": True},
+            },
+        ),
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            polls.append(dict(request.extensions.get("timeout") or {}))
+        item = responses.pop(0)
+        if item == "hang":
+            raise httpx.ReadTimeout("status poll never answered", request=request)
+        return item
+
+    try:
+        transport = client.index._transport
+        old = transport.client
+        transport.client = httpx.Client(
+            base_url=str(old.base_url),
+            headers=old.headers,
+            transport=httpx.MockTransport(handler),
+        )
+        handle = client.index.searches.create(SPEC, retry=FAST)
+        with pytest.raises(SearchExecutionFailedError):
+            handle.wait(timeout_seconds=60, poll_seconds=0.01)
+    finally:
+        client.close()
+    assert len(polls) == 2
+    for timeouts in polls:
+        assert 1.0 <= timeouts["read"] <= STATUS_POLL_TIMEOUT_SECONDS

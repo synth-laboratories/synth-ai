@@ -4,6 +4,22 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.20.2 — 2026-09-27 (unpublished until owner GO)
+
+No breaking changes.
+
+### Fixed
+
+- **A hung status poll no longer stalls DEEP waits.** `SearchHandle.wait()`
+  (sync and async), `index.search(mode="deep")` and the MCP
+  `index_search_get` / `index_search_result` tools bound each lifecycle status
+  read to at most 20 s (`STATUS_POLL_TIMEOUT_SECONDS`, never past the overall
+  wait deadline). A read that times out is treated as transient and polled
+  again; the overall wait deadline is unchanged. Previously one poll whose
+  response never arrived held the caller for the 120 s client transport
+  timeout (prod 2026-09-27, P12). `searches.get(...)` and `refresh(...)` accept
+  an optional `timeout_seconds`.
+
 ## 0.20.1 — 2026-09-27 (Index public launch patch; unpublished until owner GO)
 
 No breaking changes. Upgrade recommended for every DEEP Search caller.
