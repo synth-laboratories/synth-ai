@@ -36,6 +36,10 @@ class IndexErrorCode(StrEnum):
     UNAVAILABLE = "index_unavailable"
     ENTITLEMENT_UNAVAILABLE = "index_entitlement_unavailable"
     DEADLINE_EXCEEDED = "index_deadline_exceeded"
+    # 503 with Retry-After: an admission stage or the platform DEEP daily
+    # budget (reason ``deep_daily_budget``) is full. Not a charge.
+    CAPACITY_EXHAUSTED = "index_capacity_exhausted"
+    QUERY_TOO_LONG = "index_query_too_long"
     # Retained for clients of older Index deployments.
     OVERLOADED = "index_overloaded"
     REQUEST_CANCELLED = "index_request_cancelled"

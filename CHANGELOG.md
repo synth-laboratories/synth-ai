@@ -4,6 +4,44 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.20.1 — 2026-09-27 (Index public launch patch; unpublished until owner GO)
+
+No breaking changes. Upgrade recommended for every DEEP Search caller.
+
+### Fixed
+
+- **DEEP create never loses an admitted Search.** The backend admits a DEEP
+  Search (holding its charge ceiling and a concurrency slot) before the
+  response reporting it is delivered, so a transient 503 on create
+  (`monitor_admission_deadline_exceeded`, `monitor_draining`,
+  `index_unavailable`) previously left a running, charge-holding Search the
+  caller could not see; new creates then hit `index_concurrency_limited`.
+  `index.searches.create(...)` and `index.search(mode="deep")` now:
+  - always send an `Idempotency-Key` (a fresh UUID when you pass none;
+    `idempotency_key=` still overrides);
+  - retry transient failures (HTTP 502/503/504, timeouts, network errors) with
+    the **same request and key**, up to 3 attempts and 30 s of waiting,
+    honouring `Retry-After` (a `Retry-After` beyond that budget is raised
+    rather than slept through, e.g. a daily platform limit);
+  - reconnect by ID when a failure names the admitted Search
+    (`X-Synth-Search-Id` header or `search_id` in the error body) instead of
+    creating another.
+  Tune with `IndexRetryPolicy` (`create(..., retry=IndexRetryPolicy(...))`).
+- **DEEP wait polls through transient failures.** `SearchHandle.wait()` and
+  the async handle keep polling a known Search ID through a transient 503
+  until the local deadline, and retry the final result read.
+- **MCP**: tool errors now include `reason`, and `search_id` when the failure
+  names an admitted Search; `index_search`/`index_search_create` descriptions
+  tell agents to retry with the same key and reconnect by `search_id`.
+
+### Added
+
+- `IndexErrorCode.CAPACITY_EXHAUSTED` (`index_capacity_exhausted`, 503 with
+  `Retry-After`) and `IndexErrorCode.QUERY_TOO_LONG` (`index_query_too_long`).
+- `SynthError.reason` (server sub-cause such as `daily_spend_cap`,
+  `key_concurrency_limit`, `wallet_insufficient`) and `SynthError.resource`;
+  `synth_ai.sdk.index.search_id_from_error(error)`.
+
 ## 0.20.0 — 2026-09-25 (ships with Synth Index cut 1)
 
 Upgrade required: 0.19.x cannot parse the Index search response served by the

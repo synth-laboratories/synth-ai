@@ -227,14 +227,14 @@ def build_index_tools(
     tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index Contributions with an authenticated funding identity. Current FAST public and private searches cost 5 cents; wallet funding requires search.billing.allow_wallet=true and max_charge_cents>=5. Do not infer consent. Reuse the same idempotency key for uncertain retries and preserve exact revision citations.",
+            description="Search reviewed Synth Index Contributions with an authenticated funding identity. Current FAST public and private searches cost 5 cents; wallet funding requires search.billing.allow_wallet=true and max_charge_cents>=5. Do not infer consent. Reuse the same idempotency key for uncertain retries (never a new key for the same intent); if an error carries search_id, reconnect with index_search_get. Preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
             required_scopes=read,
         ),
         ToolDefinition(
             name="index_search_create",
-            description="Create one durable FAST or DEEP Search. Current FAST public/private wallet searches need explicit consent and a ceiling of at least 5 cents; DEEP needs a mode grant and at least 10 cents. Return its Search ID and state immediately; reuse the idempotency key after uncertain responses.",
+            description="Create one durable FAST or DEEP Search. Current FAST public/private wallet searches need explicit consent and a ceiling of at least 5 cents; DEEP needs a mode grant and at least 10 cents. Return its Search ID and state immediately. Always send a stable idempotency key: after an uncertain response or a transient 503, retry with the SAME key (the SDK retries automatically); if an error carries search_id, the Search was admitted, so read it with index_search_get instead of creating another.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search_create,
             required_scopes=read,
