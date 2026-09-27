@@ -40,6 +40,10 @@ class IndexErrorCode(StrEnum):
     # budget (reason ``deep_daily_budget``) is full. Not a charge.
     CAPACITY_EXHAUSTED = "index_capacity_exhausted"
     QUERY_TOO_LONG = "index_query_too_long"
+    # 403, never retried: Contribution asset downloads are not available at
+    # the public launch (reason ``not_available_at_launch``). Search results
+    # and Contribution reads still quote passages from the files.
+    ASSET_DOWNLOAD_UNAVAILABLE = "index_asset_download_unavailable"
     # Retained for clients of older Index deployments.
     OVERLOADED = "index_overloaded"
     REQUEST_CANCELLED = "index_request_cancelled"

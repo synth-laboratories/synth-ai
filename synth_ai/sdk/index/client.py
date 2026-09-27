@@ -863,7 +863,12 @@ class ReviewsAPI(_Resource):
 
 class AssetsAPI(_Resource):
     def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
-        """Download one declared asset's bytes under current authorization."""
+        """Download one declared asset's bytes under current authorization.
+
+        Not available at the public launch: the service answers 403
+        ``index_asset_download_unavailable`` (not retried). Search results and
+        Contribution reads include quoted passages from the files instead.
+        """
         return self._run(
             _Call(
                 "index.contributions.assets.retrieve",
@@ -1413,7 +1418,11 @@ class PublicContentsAPI(_Resource):
 
 class PublicAssetsAPI(_Resource):
     def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
-        """Download one declared asset of a published revision, with no account."""
+        """Download one declared asset of a published revision, with no account.
+
+        Not available at the public launch: the service answers 403
+        ``index_asset_download_unavailable`` (not retried).
+        """
         return self._run(
             _Call(
                 "index.public.contributions.assets.retrieve",

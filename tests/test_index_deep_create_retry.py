@@ -226,3 +226,34 @@ def test_async_create_replays_the_same_key() -> None:
 def test_new_codes_are_named() -> None:
     assert IndexErrorCode("index_capacity_exhausted") is IndexErrorCode.CAPACITY_EXHAUSTED
     assert IndexErrorCode("index_query_too_long") is IndexErrorCode.QUERY_TOO_LONG
+
+
+def test_asset_download_unavailable_is_named_and_not_retried() -> None:
+    """Asset downloads are not in the public launch: a typed 403, one request."""
+    from synth_ai.sdk.index.contracts import ContributionReference
+
+    client = _client()
+    try:
+        seen = _mount(
+            client,
+            [
+                httpx.Response(
+                    403,
+                    json={
+                        "detail": {
+                            "code": "index_asset_download_unavailable",
+                            "reason": "not_available_at_launch",
+                        }
+                    },
+                )
+            ],
+        )
+        with pytest.raises(Exception) as raised:
+            client.index.contributions.assets.retrieve(
+                ContributionReference(contribution_id="c1", revision_id="r1"), "a1"
+            )
+    finally:
+        client.close()
+    assert raised.value.error_code == IndexErrorCode.ASSET_DOWNLOAD_UNAVAILABLE
+    assert raised.value.reason == "not_available_at_launch"
+    assert len(seen) == 1

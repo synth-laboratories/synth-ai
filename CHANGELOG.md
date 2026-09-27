@@ -15,6 +15,13 @@ No breaking changes. Upgrade recommended for every DEEP Search caller.
   `synth-ai-research-mcp` neither advertise nor dispatch `index_answer`
   (`INDEX_HIDDEN_TOOL_NAMES`). The Python `index.answer(...)` client method is
   unchanged.
+- **Contribution asset downloads are not available at the public launch.**
+  `index.contributions.assets.retrieve(...)` and
+  `index.public.contributions.assets.retrieve(...)` receive 403
+  `IndexErrorCode.ASSET_DOWNLOAD_UNAVAILABLE`
+  (`index_asset_download_unavailable`, reason `not_available_at_launch`),
+  which is never retried. Search results and Contribution reads still quote
+  passages from the files. No MCP tool downloads assets.
 
 ### Fixed
 
