@@ -196,6 +196,8 @@ class _Call:
     headers: dict[str, str] | None = None
     params: dict[str, Any] | None = None
     raw: bool = False
+    # Per-request transport timeout; None keeps the client's default.
+    timeout_seconds: float | None = None
 
     def request(self) -> tuple[str, str, dict[str, Any]]:
         operation = OPERATIONS.get(self.operation_id) or PUBLIC_OPERATIONS.get(self.operation_id)
@@ -208,6 +210,8 @@ class _Call:
         kwargs: dict[str, Any] = {"operation_id": self.operation_id}
         if self.params:
             kwargs["params"] = self.params
+        if self.timeout_seconds is not None:
+            kwargs["timeout_seconds"] = self.timeout_seconds
         if not self.raw:
             if self.json_body is not None:
                 kwargs["json_body"] = self.json_body
@@ -449,6 +453,17 @@ class _Resource:
         self._asynchronous = asynchronous
 
 
+#: Upper bound for one lifecycle status read while waiting (prod 2026-09-27
+#: P12: one poll response never arrived and the client sat on the 120 s
+#: transport timeout, then reported the Search as failed). A slower read is
+#: abandoned and retried; the overall wait deadline is unchanged.
+STATUS_POLL_TIMEOUT_SECONDS = 20.0
+
+
+def _poll_timeout(deadline: float) -> float:
+    return max(1.0, min(STATUS_POLL_TIMEOUT_SECONDS, deadline - time.monotonic()))
+
+
 class SearchHandle:
     """Blocking durable Search handle; local timeout never mutates server state."""
 
@@ -468,9 +483,9 @@ class SearchHandle:
         """Stable server Search ID to retain for reconnects and receipts."""
         return self.snapshot.search_id
 
-    def refresh(self) -> Search:
+    def refresh(self, *, timeout_seconds: float | None = None) -> Search:
         """Fetch the latest durable lifecycle state without creating another Search."""
-        self.snapshot = self._searches.get(self.search_id)
+        self.snapshot = self._searches.get(self.search_id, timeout_seconds=timeout_seconds)
         return self.snapshot
 
     def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
@@ -501,7 +516,7 @@ class SearchHandle:
                 raise SearchWaitTimeoutError(self.search_id)
             time.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
             try:
-                self.refresh()
+                self.refresh(timeout_seconds=_poll_timeout(deadline))
             except SynthError as error:
                 # The Search keeps running server-side; a transient read
                 # failure is polled through until the local deadline.
@@ -535,9 +550,9 @@ class AsyncSearchHandle:
         """Stable server Search ID to retain for reconnects and receipts."""
         return self.snapshot.search_id
 
-    async def refresh(self) -> Search:
+    async def refresh(self, *, timeout_seconds: float | None = None) -> Search:
         """Fetch the latest durable lifecycle state without creating another Search."""
-        self.snapshot = await self._searches.get(self.search_id)
+        self.snapshot = await self._searches.get(self.search_id, timeout_seconds=timeout_seconds)
         return self.snapshot
 
     async def events(self, *, after: int = 0, limit: int = 200) -> SearchEventPage:
@@ -570,7 +585,7 @@ class AsyncSearchHandle:
                 raise SearchWaitTimeoutError(self.search_id)
             await asyncio.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
             try:
-                await self.refresh()
+                await self.refresh(timeout_seconds=_poll_timeout(deadline))
             except SynthError as error:
                 if not is_transient_search_failure(error):
                     raise
@@ -695,13 +710,17 @@ class SearchesAPI(_Resource):
                 waited += delay
                 attempt += 1
 
-    def get(self, search_id: str) -> Any:
-        """Retrieve a Search's latest state by its stable server ID."""
+    def get(self, search_id: str, *, timeout_seconds: float | None = None) -> Any:
+        """Retrieve a Search's latest state by its stable server ID.
+
+        ``timeout_seconds`` bounds this one read (default: the client timeout).
+        """
         return self._run(
             _Call(
                 "index.searches.get",
                 _bound(Search, lambda item: item.search_id == search_id, "Search ID mismatch"),
                 path_parameters={"search_id": search_id},
+                timeout_seconds=timeout_seconds,
             )
         )
 
