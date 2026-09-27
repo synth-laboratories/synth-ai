@@ -8,6 +8,14 @@ All notable changes to the `synth-ai` package are documented here.
 
 No breaking changes. Upgrade recommended for every DEEP Search caller.
 
+### Changed
+
+- **`index_answer` is no longer offered by the MCP servers.** `/index/answer`
+  is not part of the public Index launch, so `synth-ai-index-mcp` and
+  `synth-ai-research-mcp` neither advertise nor dispatch `index_answer`
+  (`INDEX_HIDDEN_TOOL_NAMES`). The Python `index.answer(...)` client method is
+  unchanged.
+
 ### Fixed
 
 - **DEEP create never loses an admitted Search.** The backend admits a DEEP

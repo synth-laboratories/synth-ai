@@ -36,7 +36,6 @@ INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_search_result",
     "index_search_events",
     "index_search_cancel",
-    "index_answer",
     "index_get_contribution",
     "index_get_contents",
     "index_contribution_status",
@@ -46,6 +45,10 @@ INDEX_WRITE_TOOL_NAMES: tuple[str, ...] = (
     "index_contribution_upload",
     "index_contribution_submit",
 )
+# `/index/answer` is not part of the public launch (owner decision 2026-09-27):
+# the tool is never discovered or dispatched by the MCP servers. It stays
+# buildable (``include_answer=True``) for internal harnesses only.
+INDEX_HIDDEN_TOOL_NAMES: tuple[str, ...] = ("index_answer",)
 INDEX_TOOL_NAMES = frozenset(INDEX_READ_TOOL_NAMES + INDEX_WRITE_TOOL_NAMES)
 
 _UPLOAD_MAX_BYTES = 64 * 1024 * 1024
@@ -124,7 +127,7 @@ def build_index_tools(
     client_factory: IndexClientFactory,
     *,
     include_search: bool = True,
-    include_answer: bool = True,
+    include_answer: bool = False,
     include_lifecycle: bool = True,
 ) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.

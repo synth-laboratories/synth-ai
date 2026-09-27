@@ -23,7 +23,6 @@ _AUTHENTICATED_ONLY = {
     "index_search_result",
     "index_search_events",
     "index_search_cancel",
-    "index_answer",
 }
 
 
@@ -109,3 +108,16 @@ def test_index_mcp_client_waits_for_monitored_delivery(
             "timeout_seconds": INDEX_MCP_CLIENT_TIMEOUT_SECONDS,
         }
     ]
+
+
+def test_answer_tool_is_never_discovered_or_dispatched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Owner decision 2026-09-27: /index/answer is not in the public launch."""
+    from synth_ai.mcp.research.tools.index import INDEX_TOOL_NAMES
+
+    monkeypatch.setenv("SYNTH_API_KEY", "sk-test")
+    monkeypatch.setenv("SYNTH_INDEX_MCP_WRITE_ENABLED", "true")
+    names = set(_stdio_server(index_only=True).available_tool_names())
+    assert "index_answer" not in names
+    assert "index_answer" not in INDEX_TOOL_NAMES

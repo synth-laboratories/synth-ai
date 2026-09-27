@@ -505,7 +505,8 @@ class ResearchMcpServer:
                     for tool in build_index_tools(
                         self._index_client_factory,
                         include_search=self._default_api_key is not None,
-                        include_answer=self._default_api_key is not None,
+                        # /index/answer is not in the public launch.
+                        include_answer=False,
                         include_lifecycle=self._default_api_key is not None,
                     )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
