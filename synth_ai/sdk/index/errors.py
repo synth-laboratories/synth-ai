@@ -36,6 +36,14 @@ class IndexErrorCode(StrEnum):
     UNAVAILABLE = "index_unavailable"
     ENTITLEMENT_UNAVAILABLE = "index_entitlement_unavailable"
     DEADLINE_EXCEEDED = "index_deadline_exceeded"
+    # 503 with Retry-After: an admission stage or the platform DEEP daily
+    # budget (reason ``deep_daily_budget``) is full. Not a charge.
+    CAPACITY_EXHAUSTED = "index_capacity_exhausted"
+    QUERY_TOO_LONG = "index_query_too_long"
+    # 403, never retried: Contribution asset downloads are not available at
+    # the public launch (reason ``not_available_at_launch``). Search results
+    # and Contribution reads still quote passages from the files.
+    ASSET_DOWNLOAD_UNAVAILABLE = "index_asset_download_unavailable"
     # Retained for clients of older Index deployments.
     OVERLOADED = "index_overloaded"
     REQUEST_CANCELLED = "index_request_cancelled"
@@ -52,6 +60,9 @@ class IndexErrorCode(StrEnum):
     # Contribution lifecycle.
     CONTRIBUTION_FORBIDDEN = "contribution_forbidden"
     CONTRIBUTION_NOT_FOUND = "contribution_not_found"
+    # 404: the Contribution was withdrawn (its revisions are no longer
+    # served to non-owners). Not retryable. Backend >= 0.22.0.
+    CONTRIBUTION_WITHDRAWN = "contribution_withdrawn"
     CONTRIBUTION_MISMATCH = "contribution_mismatch"
     CONTRIBUTION_IDENTITY_MISMATCH = "contribution_identity_mismatch"
     REVISION_NOT_FOUND = "revision_not_found"

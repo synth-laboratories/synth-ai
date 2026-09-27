@@ -36,7 +36,6 @@ INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_search_result",
     "index_search_events",
     "index_search_cancel",
-    "index_answer",
     "index_get_contribution",
     "index_get_contents",
     "index_contribution_status",
@@ -46,6 +45,10 @@ INDEX_WRITE_TOOL_NAMES: tuple[str, ...] = (
     "index_contribution_upload",
     "index_contribution_submit",
 )
+# `/index/answer` is not part of the public launch (owner decision 2026-09-27):
+# the tool is never discovered or dispatched by the MCP servers. It stays
+# buildable (``include_answer=True``) for internal harnesses only.
+INDEX_HIDDEN_TOOL_NAMES: tuple[str, ...] = ("index_answer",)
 INDEX_TOOL_NAMES = frozenset(INDEX_READ_TOOL_NAMES + INDEX_WRITE_TOOL_NAMES)
 
 _UPLOAD_MAX_BYTES = 64 * 1024 * 1024
@@ -124,7 +127,7 @@ def build_index_tools(
     client_factory: IndexClientFactory,
     *,
     include_search: bool = True,
-    include_answer: bool = True,
+    include_answer: bool = False,
     include_lifecycle: bool = True,
 ) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.
@@ -227,14 +230,14 @@ def build_index_tools(
     tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index Contributions with an authenticated funding identity. Current FAST public and private searches cost 5 cents; wallet funding requires search.billing.allow_wallet=true and max_charge_cents>=5. Do not infer consent. Reuse the same idempotency key for uncertain retries and preserve exact revision citations.",
+            description="Search reviewed Synth Index Contributions with an authenticated funding identity. Current FAST public and private searches cost 5 cents; wallet funding requires search.billing.allow_wallet=true and max_charge_cents>=5. Do not infer consent. Reuse the same idempotency key for uncertain retries (never a new key for the same intent); if an error carries search_id, reconnect with index_search_get. Preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
             required_scopes=read,
         ),
         ToolDefinition(
             name="index_search_create",
-            description="Create one durable FAST or DEEP Search. Current FAST public/private wallet searches need explicit consent and a ceiling of at least 5 cents; DEEP needs a mode grant and at least 10 cents. Return its Search ID and state immediately; reuse the idempotency key after uncertain responses.",
+            description="Create one durable FAST or DEEP Search. Current FAST public/private wallet searches need explicit consent and a ceiling of at least 5 cents; DEEP needs a mode grant and at least 10 cents. Return its Search ID and state immediately. Always send a stable idempotency key: after an uncertain response or a transient 503, retry with the SAME key (the SDK retries automatically); if an error carries search_id, the Search was admitted, so read it with index_search_get instead of creating another.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search_create,
             required_scopes=read,

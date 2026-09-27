@@ -16,6 +16,7 @@ from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
+from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
@@ -69,6 +70,12 @@ from .lifecycle import (
     RevisionCreateSpec,
     RevisionView,
     WithdrawalSpec,
+)
+from .retry import (
+    DEFAULT_INDEX_RETRY_POLICY,
+    IndexRetryPolicy,
+    is_transient_search_failure,
+    search_id_from_error,
 )
 from .search import (
     ContentsResult,
@@ -445,9 +452,16 @@ class _Resource:
 class SearchHandle:
     """Blocking durable Search handle; local timeout never mutates server state."""
 
-    def __init__(self, searches: "SearchesAPI", snapshot: Search) -> None:
+    def __init__(
+        self,
+        searches: "SearchesAPI",
+        snapshot: Search,
+        *,
+        retry: IndexRetryPolicy = DEFAULT_INDEX_RETRY_POLICY,
+    ) -> None:
         self._searches = searches
         self.snapshot = snapshot
+        self._retry = retry
 
     @property
     def search_id(self) -> str:
@@ -486,22 +500,35 @@ class SearchHandle:
             if time.monotonic() >= deadline:
                 raise SearchWaitTimeoutError(self.search_id)
             time.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
-            self.refresh()
+            try:
+                self.refresh()
+            except SynthError as error:
+                # The Search keeps running server-side; a transient read
+                # failure is polled through until the local deadline.
+                if not is_transient_search_failure(error):
+                    raise
         if self.snapshot.state == SearchState.FAILED:
             if self.snapshot.failure is None:
                 raise ValueError("failed Search omitted its typed failure")
             raise SearchExecutionFailedError(self.search_id, self.snapshot.failure)
         if self.snapshot.state == SearchState.CANCELLED:
             raise SearchExecutionCancelledError(self.search_id)
-        return self.result()
+        return self._searches._retrying_sync(lambda: self.result(), self._retry)
 
 
 class AsyncSearchHandle:
     """Async durable Search handle; local timeout never mutates server state."""
 
-    def __init__(self, searches: "SearchesAPI", snapshot: Search) -> None:
+    def __init__(
+        self,
+        searches: "SearchesAPI",
+        snapshot: Search,
+        *,
+        retry: IndexRetryPolicy = DEFAULT_INDEX_RETRY_POLICY,
+    ) -> None:
         self._searches = searches
         self.snapshot = snapshot
+        self._retry = retry
 
     @property
     def search_id(self) -> str:
@@ -542,40 +569,131 @@ class AsyncSearchHandle:
             if time.monotonic() >= deadline:
                 raise SearchWaitTimeoutError(self.search_id)
             await asyncio.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
-            await self.refresh()
+            try:
+                await self.refresh()
+            except SynthError as error:
+                if not is_transient_search_failure(error):
+                    raise
         if self.snapshot.state == SearchState.FAILED:
             if self.snapshot.failure is None:
                 raise ValueError("failed Search omitted its typed failure")
             raise SearchExecutionFailedError(self.search_id, self.snapshot.failure)
         if self.snapshot.state == SearchState.CANCELLED:
             raise SearchExecutionCancelledError(self.search_id)
-        return await self.result()
+        return await self._searches._retrying_async(self.result, self._retry)
 
 
 class SearchesAPI(_Resource):
     """Durable Search lifecycle over the backend-owned execution ledger."""
 
-    def create(self, spec: SearchSpec, *, idempotency_key: str) -> Any:
+    def create(
+        self,
+        spec: SearchSpec,
+        *,
+        idempotency_key: str | None = None,
+        retry: IndexRetryPolicy = DEFAULT_INDEX_RETRY_POLICY,
+    ) -> Any:
         """Create one durable Search and return its handle.
 
-        Reuse the same ``idempotency_key`` and request after an uncertain
-        response; a retry is not a new logical Search.
+        Always sends an ``Idempotency-Key`` (a fresh UUID when none is given).
+        A transient failure (502/503/504, timeout, network) is retried with the
+        same request and key, bounded by ``retry``; the backend returns the
+        Search it already admitted instead of creating another. A failure that
+        names the admitted Search (``X-Synth-Search-Id`` or ``search_id``) is
+        resolved by reading that Search. Keep the key if you retry yourself.
         """
-        value = self._run(
-            _Call(
-                "index.searches.create",
-                Search.model_validate,
-                json_body=_body(spec),
-                headers=_key(idempotency_key, required="Durable Search creation"),
-            )
+        call = _Call(
+            "index.searches.create",
+            Search.model_validate,
+            json_body=_body(spec),
+            headers=_key(idempotency_key),
         )
         if self._asynchronous:
 
             async def asynchronous_handle() -> AsyncSearchHandle:
-                return AsyncSearchHandle(self, await value)
+                snapshot = await self._create_async(call, retry)
+                return AsyncSearchHandle(self, snapshot, retry=retry)
 
             return asynchronous_handle()
-        return SearchHandle(self, value)
+        return SearchHandle(self, self._create_sync(call, retry), retry=retry)
+
+    def _create_sync(self, call: _Call, policy: IndexRetryPolicy) -> Search:
+        attempt, waited = 0, 0.0
+        while True:
+            try:
+                return self._run(call)
+            except SynthError as error:
+                admitted = search_id_from_error(error)
+                if admitted is not None and is_transient_search_failure(error):
+                    return self._reconnect_sync(admitted, error, policy)
+                delay = policy.next_delay(error, attempt_index=attempt, waited_seconds=waited)
+                if delay is None:
+                    raise
+                time.sleep(delay)
+                waited += delay
+                attempt += 1
+
+    async def _create_async(self, call: _Call, policy: IndexRetryPolicy) -> Search:
+        attempt, waited = 0, 0.0
+        while True:
+            try:
+                return await self._run(call)
+            except SynthError as error:
+                admitted = search_id_from_error(error)
+                if admitted is not None and is_transient_search_failure(error):
+                    return await self._reconnect_async(admitted, error, policy)
+                delay = policy.next_delay(error, attempt_index=attempt, waited_seconds=waited)
+                if delay is None:
+                    raise
+                await asyncio.sleep(delay)
+                waited += delay
+                attempt += 1
+
+    def _reconnect_sync(
+        self, search_id: str, cause: SynthError, policy: IndexRetryPolicy
+    ) -> Search:
+        try:
+            return self._retrying_sync(lambda: self.get(search_id), policy)
+        except SynthError as error:
+            # Re-raise the create failure: it names the admitted Search.
+            raise cause from error
+
+    async def _reconnect_async(
+        self, search_id: str, cause: SynthError, policy: IndexRetryPolicy
+    ) -> Search:
+        try:
+            return await self._retrying_async(lambda: self.get(search_id), policy)
+        except SynthError as error:
+            raise cause from error
+
+    @staticmethod
+    def _retrying_sync(operation: Callable[[], Any], policy: IndexRetryPolicy) -> Any:
+        """Run an idempotent read, retrying transient failures within ``policy``."""
+        attempt, waited = 0, 0.0
+        while True:
+            try:
+                return operation()
+            except SynthError as error:
+                delay = policy.next_delay(error, attempt_index=attempt, waited_seconds=waited)
+                if delay is None:
+                    raise
+                time.sleep(delay)
+                waited += delay
+                attempt += 1
+
+    @staticmethod
+    async def _retrying_async(operation: Callable[[], Any], policy: IndexRetryPolicy) -> Any:
+        attempt, waited = 0, 0.0
+        while True:
+            try:
+                return await operation()
+            except SynthError as error:
+                delay = policy.next_delay(error, attempt_index=attempt, waited_seconds=waited)
+                if delay is None:
+                    raise
+                await asyncio.sleep(delay)
+                waited += delay
+                attempt += 1
 
     def get(self, search_id: str) -> Any:
         """Retrieve a Search's latest state by its stable server ID."""
@@ -745,7 +863,12 @@ class ReviewsAPI(_Resource):
 
 class AssetsAPI(_Resource):
     def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
-        """Download one declared asset's bytes under current authorization."""
+        """Download one declared asset's bytes under current authorization.
+
+        Not available at the public launch: the service answers 403
+        ``index_asset_download_unavailable`` (not retried). Search results and
+        Contribution reads include quoted passages from the files instead.
+        """
         return self._run(
             _Call(
                 "index.contributions.assets.retrieve",
@@ -1295,7 +1418,11 @@ class PublicContentsAPI(_Resource):
 
 class PublicAssetsAPI(_Resource):
     def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
-        """Download one declared asset of a published revision, with no account."""
+        """Download one declared asset of a published revision, with no account.
+
+        Not available at the public launch: the service answers 403
+        ``index_asset_download_unavailable`` (not retried).
+        """
         return self._run(
             _Call(
                 "index.public.contributions.assets.retrieve",

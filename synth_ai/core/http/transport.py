@@ -25,6 +25,7 @@ from synth_ai.core.errors import (
     RateLimitedError,
     ResearchOperationError,
     ResourceExhaustedError,
+    ResourceRef,
     RetryDirective,
     SynthErrorCategory,
     SynthErrorCode,
@@ -155,6 +156,14 @@ def _failure_from_response(
         (value for source in sources if isinstance((value := source.get("retryable")), bool)),
         category in {SynthErrorCategory.RATE_LIMITED, SynthErrorCategory.TRANSIENT_SERVICE},
     )
+    reason = next(
+        (
+            value.strip()
+            for source in sources
+            if isinstance((value := source.get("reason")), str) and value.strip()
+        ),
+        None,
+    )
     return SynthFailure(
         code=SynthErrorCode(error_code),
         category=category,
@@ -167,7 +176,24 @@ def _failure_from_response(
         ),
         status=response.status_code,
         detail=message,
+        resource=_created_search(response, sources),
+        reason=reason,
     )
+
+
+# A failure after the server already admitted an Index Search names it, so a
+# caller can reconnect instead of creating (and paying for) another one.
+SEARCH_ID_HEADER = "x-synth-search-id"
+SEARCH_RESOURCE_KIND = "index_search"
+
+
+def _created_search(
+    response: httpx.Response, sources: tuple[JsonObject, ...]
+) -> ResourceRef | None:
+    search_id = _response_identity(response, sources, "search_id", SEARCH_ID_HEADER)
+    if search_id is None:
+        return None
+    return ResourceRef(kind=SEARCH_RESOURCE_KIND, resource_id=search_id)
 
 
 def _response_identity(

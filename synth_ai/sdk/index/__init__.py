@@ -51,6 +51,7 @@ from .lifecycle import (
 )
 from .package import ContributionPackage
 from .public import AsyncPublicIndexClient, PublicIndexClient
+from .retry import IndexRetryPolicy, search_id_from_error
 from .search import (
     ContentsResult,
     ContentsSpec,
@@ -117,6 +118,8 @@ __all__ = [
     "ContributionView",
     "IndexAccessPolicy",
     "IndexErrorCode",
+    "IndexRetryPolicy",
+    "search_id_from_error",
     "IndexUsageSummary",
     "Leaderboard",
     "MeView",
