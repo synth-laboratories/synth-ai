@@ -18,6 +18,7 @@ from synth_ai.sdk.research.contracts.workspaces import (
     WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
     WorkspaceFileEncoding,
     WorkspaceFileKind,
+    WorkspaceFileMode,
     WorkspaceFilesBatchUploadRequest,
     WorkspaceFileUpload,
     WorkspaceMetadata,
@@ -26,7 +27,9 @@ from synth_ai.sdk.research.contracts.workspaces import (
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 
-_FILE_FIELDS = frozenset({"path", "content", "content_type", "encoding", "kind", "metadata"})
+_FILE_FIELDS = frozenset(
+    {"path", "content", "content_type", "encoding", "kind", "mode", "metadata"}
+)
 
 
 def _file_upload(value: object, *, index: int) -> WorkspaceFileUpload:
@@ -52,6 +55,9 @@ def _file_upload(value: object, *, index: int) -> WorkspaceFileUpload:
     kind = value.get("kind")
     if kind is not None and not isinstance(kind, str):
         raise ValueError(f"files[{index}].kind must be a string")
+    mode = value.get("mode")
+    if mode is not None and not isinstance(mode, str):
+        raise ValueError(f"files[{index}].mode must be a string")
     metadata = value.get("metadata", {})
     if not isinstance(metadata, dict):
         raise ValueError(f"files[{index}].metadata must be an object")
@@ -61,6 +67,7 @@ def _file_upload(value: object, *, index: int) -> WorkspaceFileUpload:
         content_type=content_type,
         encoding=WorkspaceFileEncoding(encoding) if encoding is not None else None,
         kind=WorkspaceFileKind(kind) if kind is not None else None,
+        mode=WorkspaceFileMode(mode) if mode is not None else None,
         metadata=WorkspaceMetadata(metadata),
     )
 
@@ -193,6 +200,11 @@ def build_workspace_input_tools(
                                 "kind": {
                                     "type": "string",
                                     "enum": [item.value for item in WorkspaceFileKind],
+                                },
+                                "mode": {
+                                    "type": "string",
+                                    "enum": [item.value for item in WorkspaceFileMode],
+                                    "description": "Git blob mode; 100755 commits the file executable.",
                                 },
                                 "metadata": {"type": "object"},
                             },

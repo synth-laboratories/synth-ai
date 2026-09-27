@@ -368,6 +368,7 @@ def workspace_upload(
         ProjectId,
         WorkspaceFileEncoding,
         WorkspaceFileKind,
+        WorkspaceFileMode,
         WorkspaceFilesBatchUploadRequest,
         WorkspaceFileUpload,
     )
@@ -390,6 +391,7 @@ def workspace_upload(
                 content_type=content_type,
                 encoding=WorkspaceFileEncoding.BASE64,
                 kind=WorkspaceFileKind.FILE,
+                mode=WorkspaceFileMode.from_posix_mode(resolved_source.stat().st_mode),
             )
         )
 
