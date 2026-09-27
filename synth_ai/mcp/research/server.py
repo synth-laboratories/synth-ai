@@ -265,6 +265,16 @@ def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
         )
         if failure.status is not None:
             out["http_status"] = failure.status
+        if failure.reason is not None:
+            out["reason"] = failure.reason
+        if failure.resource is not None:
+            # e.g. an admitted Index Search: reconnect by this ID, never re-create.
+            out["resource"] = {
+                "kind": failure.resource.kind,
+                "id": failure.resource.resource_id,
+            }
+            if failure.resource.kind == "index_search":
+                out["search_id"] = failure.resource.resource_id
     return out
 
 
@@ -495,7 +505,8 @@ class ResearchMcpServer:
                     for tool in build_index_tools(
                         self._index_client_factory,
                         include_search=self._default_api_key is not None,
-                        include_answer=self._default_api_key is not None,
+                        # /index/answer is not in the public launch.
+                        include_answer=False,
                         include_lifecycle=self._default_api_key is not None,
                     )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES
