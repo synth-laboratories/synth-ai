@@ -257,3 +257,7 @@ def test_asset_download_unavailable_is_named_and_not_retried() -> None:
     assert raised.value.error_code == IndexErrorCode.ASSET_DOWNLOAD_UNAVAILABLE
     assert raised.value.reason == "not_available_at_launch"
     assert len(seen) == 1
+
+
+def test_contribution_withdrawn_is_named() -> None:
+    assert IndexErrorCode("contribution_withdrawn") is IndexErrorCode.CONTRIBUTION_WITHDRAWN

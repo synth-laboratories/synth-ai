@@ -22,6 +22,9 @@ No breaking changes. Upgrade recommended for every DEEP Search caller.
   (`index_asset_download_unavailable`, reason `not_available_at_launch`),
   which is never retried. Search results and Contribution reads still quote
   passages from the files. No MCP tool downloads assets.
+- **`IndexErrorCode.CONTRIBUTION_WITHDRAWN`** (`contribution_withdrawn`, 404,
+  not retried): reads of a withdrawn Contribution or any of its revisions by
+  anyone but its owner (backend 0.22.0).
 
 ### Fixed
 

@@ -60,6 +60,9 @@ class IndexErrorCode(StrEnum):
     # Contribution lifecycle.
     CONTRIBUTION_FORBIDDEN = "contribution_forbidden"
     CONTRIBUTION_NOT_FOUND = "contribution_not_found"
+    # 404: the Contribution was withdrawn (its revisions are no longer
+    # served to non-owners). Not retryable. Backend >= 0.22.0.
+    CONTRIBUTION_WITHDRAWN = "contribution_withdrawn"
     CONTRIBUTION_MISMATCH = "contribution_mismatch"
     CONTRIBUTION_IDENTITY_MISMATCH = "contribution_identity_mismatch"
     REVISION_NOT_FOUND = "revision_not_found"
