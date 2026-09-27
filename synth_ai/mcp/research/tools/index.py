@@ -21,7 +21,7 @@ from synth_ai.mcp.research.registry import (
 )
 from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.sdk.index.answer import AnswerSpec
-from synth_ai.sdk.index.client import IndexAPI
+from synth_ai.sdk.index.client import STATUS_POLL_TIMEOUT_SECONDS, IndexAPI
 from synth_ai.sdk.index.contracts import ContributionReference, Identifier, IndexContract
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
 from synth_ai.sdk.index.search import ContentsSpec, SearchSpec
@@ -154,12 +154,17 @@ def build_index_tools(
     def search_get(arguments: JSONDict) -> JSONDict:
         request = SearchIdentityRequest.model_validate(arguments)
         with client_factory() as client:
-            return client.searches.get(request.search_id).model_dump(mode="json")
+            # One bounded status read: an agent polls again rather than hang.
+            return client.searches.get(
+                request.search_id, timeout_seconds=STATUS_POLL_TIMEOUT_SECONDS
+            ).model_dump(mode="json")
 
     def search_result(arguments: JSONDict) -> JSONDict:
         request = SearchIdentityRequest.model_validate(arguments)
         with client_factory() as client:
-            snapshot = client.searches.get(request.search_id)
+            snapshot = client.searches.get(
+                request.search_id, timeout_seconds=STATUS_POLL_TIMEOUT_SECONDS
+            )
             return client.searches.result(request.search_id, snapshot.spec).model_dump(mode="json")
 
     def search_events(arguments: JSONDict) -> JSONDict:
