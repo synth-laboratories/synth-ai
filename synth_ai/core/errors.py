@@ -91,6 +91,9 @@ class SynthFailure:
     status: int | None
     detail: str
     resource: ResourceRef | None = None
+    # Server-declared sub-cause of ``code`` (for example ``daily_spend_cap``
+    # inside ``index_rate_limited``). Stable vocabulary owned by the backend.
+    reason: str | None = None
 
 
 class SynthError(Exception):
@@ -129,6 +132,16 @@ class SynthError(Exception):
     @property
     def retry_after_seconds(self) -> float | None:
         return self.failure.retry.retry_after_seconds if self.failure is not None else None
+
+    @property
+    def reason(self) -> str | None:
+        """Server-declared sub-cause of the error code, when one was sent."""
+        return self.failure.reason if self.failure is not None else None
+
+    @property
+    def resource(self) -> ResourceRef | None:
+        """Resource the failed operation already created or addressed, if named."""
+        return self.failure.resource if self.failure is not None else None
 
 
 class ConfigError(SynthError):

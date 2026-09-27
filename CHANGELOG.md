@@ -4,6 +4,62 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.20.1 — 2026-09-27 (Index public launch patch; unpublished until owner GO)
+
+No breaking changes. Upgrade recommended for every DEEP Search caller.
+
+### Changed
+
+- **`index_answer` is no longer offered by the MCP servers.** `/index/answer`
+  is not part of the public Index launch, so `synth-ai-index-mcp` and
+  `synth-ai-research-mcp` neither advertise nor dispatch `index_answer`
+  (`INDEX_HIDDEN_TOOL_NAMES`). The Python `index.answer(...)` client method is
+  unchanged.
+- **Contribution asset downloads are not available at the public launch.**
+  `index.contributions.assets.retrieve(...)` and
+  `index.public.contributions.assets.retrieve(...)` receive 403
+  `IndexErrorCode.ASSET_DOWNLOAD_UNAVAILABLE`
+  (`index_asset_download_unavailable`, reason `not_available_at_launch`),
+  which is never retried. Search results and Contribution reads still quote
+  passages from the files. No MCP tool downloads assets.
+- **`IndexErrorCode.CONTRIBUTION_WITHDRAWN`** (`contribution_withdrawn`, 404,
+  not retried): reads of a withdrawn Contribution or any of its revisions by
+  anyone but its owner (backend 0.22.0).
+
+### Fixed
+
+- **DEEP create never loses an admitted Search.** The backend admits a DEEP
+  Search (holding its charge ceiling and a concurrency slot) before the
+  response reporting it is delivered, so a transient 503 on create
+  (`monitor_admission_deadline_exceeded`, `monitor_draining`,
+  `index_unavailable`) previously left a running, charge-holding Search the
+  caller could not see; new creates then hit `index_concurrency_limited`.
+  `index.searches.create(...)` and `index.search(mode="deep")` now:
+  - always send an `Idempotency-Key` (a fresh UUID when you pass none;
+    `idempotency_key=` still overrides);
+  - retry transient failures (HTTP 502/503/504, timeouts, network errors) with
+    the **same request and key**, up to 3 attempts and 30 s of waiting,
+    honouring `Retry-After` (a `Retry-After` beyond that budget is raised
+    rather than slept through, e.g. a daily platform limit);
+  - reconnect by ID when a failure names the admitted Search
+    (`X-Synth-Search-Id` header or `search_id` in the error body) instead of
+    creating another.
+  Tune with `IndexRetryPolicy` (`create(..., retry=IndexRetryPolicy(...))`).
+- **DEEP wait polls through transient failures.** `SearchHandle.wait()` and
+  the async handle keep polling a known Search ID through a transient 503
+  until the local deadline, and retry the final result read.
+- **MCP**: tool errors now include `reason`, and `search_id` when the failure
+  names an admitted Search; `index_search`/`index_search_create` descriptions
+  tell agents to retry with the same key and reconnect by `search_id`.
+
+### Added
+
+- `IndexErrorCode.CAPACITY_EXHAUSTED` (`index_capacity_exhausted`, 503 with
+  `Retry-After`) and `IndexErrorCode.QUERY_TOO_LONG` (`index_query_too_long`).
+- `SynthError.reason` (server sub-cause such as `daily_spend_cap`,
+  `key_concurrency_limit`, `wallet_insufficient`) and `SynthError.resource`;
+  `synth_ai.sdk.index.search_id_from_error(error)`.
+
 ## 0.20.0 — 2026-09-25 (ships with Synth Index cut 1)
 
 Upgrade required: 0.19.x cannot parse the Index search response served by the
