@@ -173,6 +173,29 @@ synth-ai --help
 synth-ai research --help
 ```
 
+## Synth Index (alpha v0.1)
+
+Synth Index alpha v0.1 offers authenticated, paid FAST and DEEP Search over
+reviewed, published research. DEEP is in beta. Install `synth-ai>=0.20.2`:
+
+```bash
+uv add "synth-ai>=0.20.2"
+```
+
+- **Python:** `SynthClient().index.search(query=..., mode="fast" | "deep", billing=...)`.
+  An example is under [Public Surface](#public-surface). The
+  [Index SDK guide](synth_ai/sdk/index/README.md) covers DEEP's durable Search
+  ID, reconnect and cancel.
+- **MCP:** `synth-ai-index-mcp` is an Index-only stdio server and is read-only
+  by default. Search tools are advertised only when `SYNTH_API_KEY` is set.
+  Setup is in the [Index SDK guide](synth_ai/sdk/index/README.md#external-agents-over-stdio-mcp).
+- Every Search needs an API key, an authorized organization and funding.
+
+Not in alpha v0.1: `/index/answer`, downloading the files behind
+a citation, citations that point to an exact passage, a latency guarantee, and
+free, anonymous or zero-data-retention Search. Contributing research to the
+Index is planned for Index v0.2.
+
 ## Public Surface
 
 Use `SynthClient` as the front door:
