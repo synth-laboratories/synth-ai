@@ -21,6 +21,7 @@ from synth_ai.sdk.index import (
     Capabilities,
     PublicIndexClient,
     PublicSearchBudgetExhaustedError,
+    PublicSearchBudgetScope,
     PublicSearchCancelledError,
     PublicSearchCapability,
     PublicSearchDisabledError,
@@ -560,6 +561,40 @@ def test_each_503_code_fails_closed_with_its_own_type(
     assert info.value.code == code
     assert info.value.status == 503
     assert "nothing was charged" in str(info.value)
+
+
+@pytest.mark.parametrize(
+    ("scope", "expected"),
+    [
+        ("deep_concurrency", PublicSearchBudgetScope.DEEP_CONCURRENCY),
+        ("daily_cents", PublicSearchBudgetScope.DAILY_CENTS),
+        ("some_future_budget", None),
+        (None, None),
+    ],
+)
+def test_budget_exhausted_exposes_typed_scope(
+    anonymous: PublicIndexClient, scope: str | None, expected: PublicSearchBudgetScope | None
+) -> None:
+    extra = {} if scope is None else {"scope": scope}
+    _mount(anonymous, lambda request: _error(503, "index_public_budget_exhausted", **extra))
+    with pytest.raises(PublicSearchBudgetExhaustedError) as info:
+        anonymous.public_search("q")
+    assert info.value.scope is expected
+    assert info.value.status == 503
+    assert info.value.code == "index_public_budget_exhausted"
+
+
+def test_fast_search_has_no_reconnectable_handle(anonymous: PublicIndexClient) -> None:
+    seen = _mount(anonymous, lambda request: _delivered())
+    with pytest.raises(ValueError, match="Fast public search results are final"):
+        anonymous.public_search_handle(SEARCH_ID, TOKEN, mode=SearchMode.FAST)
+    with pytest.raises(ValueError, match="Fast public search results are final"):
+        anonymous.public_search_handle(SEARCH_ID, TOKEN, mode="fast")
+    assert seen == []
+    result = anonymous.public_search("q")
+    assert isinstance(result, PublicSearchResult)
+    for name in ("handle", "poll", "wait", "replay", "refetch", "cancel"):
+        assert not hasattr(result, name)
 
 
 def test_request_too_large(anonymous: PublicIndexClient) -> None:

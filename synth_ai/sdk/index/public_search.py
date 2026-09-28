@@ -18,6 +18,7 @@ import math
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 import httpx
@@ -151,8 +152,36 @@ class PublicSearchUnavailableError(PublicSearchError):
     """503: the route failed closed and produced no result."""
 
 
+class PublicSearchBudgetScope(StrEnum):
+    """Which public budget ran out (backend ``BudgetScope``)."""
+
+    DAILY_CENTS = "daily_cents"
+    DEEP_CONCURRENCY = "deep_concurrency"
+
+    @classmethod
+    def parse(cls, value: object) -> PublicSearchBudgetScope | None:
+        """The known scope, or None for a missing or not-yet-known value (never raises)."""
+        if not isinstance(value, str):
+            return None
+        try:
+            return cls(value)
+        except ValueError:
+            return None
+
+
 class PublicSearchBudgetExhaustedError(PublicSearchUnavailableError):
-    """503 ``index_public_budget_exhausted``."""
+    """503 ``index_public_budget_exhausted``; ``scope`` names the exhausted budget."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        scope: PublicSearchBudgetScope | None = None,
+        failure: SynthFailure | None = None,
+        status: int | None = 503,
+    ) -> None:
+        super().__init__(message, failure=failure, status=status)
+        self.scope = scope
 
 
 class PublicSearchRateStoreUnavailableError(PublicSearchUnavailableError):
@@ -215,7 +244,6 @@ class PublicSearchWaitTimeoutError(PublicSearchError):
 
 
 _UNAVAILABLE_BY_CODE: dict[str, type[PublicSearchUnavailableError]] = {
-    IndexErrorCode.PUBLIC_BUDGET_EXHAUSTED: PublicSearchBudgetExhaustedError,
     IndexErrorCode.RATE_STORE_UNAVAILABLE: PublicSearchRateStoreUnavailableError,
     IndexErrorCode.MONITOR_UNAVAILABLE: PublicSearchMonitorUnavailableError,
 }
@@ -229,6 +257,17 @@ def _error_sources(error: HTTPError) -> tuple[Mapping[str, Any], ...]:
     return tuple(item for item in (nested, detail) if isinstance(item, Mapping))
 
 
+def _error_scope(error: HTTPError) -> str | None:
+    return next(
+        (
+            value
+            for source in _error_sources(error)
+            if isinstance((value := source.get("scope")), str) and value
+        ),
+        None,
+    )
+
+
 def translate_public_search_error(error: SynthError) -> SynthError:
     """Map a transport error on a public search route to its typed exception.
 
@@ -240,15 +279,8 @@ def translate_public_search_error(error: SynthError) -> SynthError:
     code = str(error.error_code) if error.error_code is not None else None
     status = error.status
     failure = error.failure
+    scope = _error_scope(error)
     if status == 429 or code == IndexErrorCode.PUBLIC_RATE_LIMITED:
-        scope = next(
-            (
-                value
-                for source in _error_sources(error)
-                if isinstance((value := source.get("scope")), str) and value
-            ),
-            None,
-        )
         retry_after = error.retry_after_seconds
         wait = "" if retry_after is None else f"; retry in {retry_after:g} s"
         where = "" if scope is None else f" (scope={scope})"
@@ -256,6 +288,16 @@ def translate_public_search_error(error: SynthError) -> SynthError:
             f"Public Index search rate limited{where}{wait}",
             scope=scope,
             retry_after_s=retry_after,
+            failure=failure,
+            status=status,
+        )
+    if code == IndexErrorCode.PUBLIC_BUDGET_EXHAUSTED:
+        budget_scope = PublicSearchBudgetScope.parse(scope)
+        where = "" if budget_scope is None else f" (scope={budget_scope.value})"
+        return PublicSearchBudgetExhaustedError(
+            f"Public Index search is unavailable ({code}){where}; no result was produced "
+            "and nothing was charged.",
+            scope=budget_scope,
             failure=failure,
             status=status,
         )
@@ -548,12 +590,23 @@ class PublicSearchClient:
     def handle(
         self, search_id: str, token: str, *, mode: SearchMode | str = SearchMode.DEEP
     ) -> PublicSearchHandle:
-        """Reconnect to an admitted search from a retained id and token."""
+        """Reconnect to an admitted Deep search from a retained id and token.
+
+        Deep only. A Fast result is final when ``start``/``search`` returns it and is
+        not re-readable: the search token authorizes only the Deep lifecycle reads
+        (status, result, cancel), so ``mode=FAST`` raises ``ValueError``.
+        """
+        resolved = SearchMode(mode)
+        if resolved is SearchMode.FAST:
+            raise ValueError(
+                "Fast public search results are final and cannot be re-read; "
+                "only an admitted Deep search has a handle"
+            )
         return PublicSearchHandle(
             self,
             search_id=search_id,
             token=token,
-            mode=SearchMode(mode),
+            mode=resolved,
             poll_after_s=DEFAULT_PUBLIC_POLL_SECONDS,
         )
 
@@ -784,7 +837,7 @@ class PublicSearchOperations:
     def public_search_handle(
         self, search_id: str, token: str, *, mode: SearchMode | str = SearchMode.DEEP
     ) -> PublicSearchHandle:
-        """Reconnect to an admitted Deep public search."""
+        """Reconnect to an admitted Deep public search (Fast results are not re-readable)."""
         return PublicSearchClient(self._transport).handle(search_id, token, mode=mode)
 
     def public_search_capability(self) -> PublicSearchCapability | None:
