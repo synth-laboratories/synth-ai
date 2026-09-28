@@ -51,6 +51,9 @@ class IndexErrorCode(StrEnum):
     MONITOR_UNAVAILABLE = "monitor_unavailable"
     # 404: the backend's public search flag is off.
     PUBLIC_SEARCH_DISABLED = "index_public_search_disabled"
+    # 409: the public route is anonymous-only; any credential is refused before
+    # the per-IP quota. Keyed callers use the paid keyed route (IndexAPI.search).
+    PUBLIC_SEARCH_AUTHENTICATED = "index_public_search_authenticated"
     # 403, never retried: Contribution asset downloads are not available at
     # the public launch (reason ``not_available_at_launch``). Search results
     # and Contribution reads still quote passages from the files.

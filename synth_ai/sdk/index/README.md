@@ -115,7 +115,10 @@ credential-free public client intentionally does not expose answer generation.
 ## Public search (Index Search v0.2)
 
 Public fast and deep search over reviewed Contributions works with no account
-or API key, and equally through an authenticated client. The backend publishes
+or API key, and only without one: the public route is anonymous-only and refuses
+any credentialed request with `PublicSearchAuthenticatedError` (409
+`index_public_search_authenticated`). Keyed callers use the paid
+`IndexAPI.search(...)`. The backend publishes
 the price, rate limits, retention and privacy wording in
 `capabilities().public_search`; read them from there rather than hardcoding:
 
@@ -155,8 +158,10 @@ Errors are typed per backend code: `PublicSearchRateLimitedError` (429, with
 `PublicSearchRateStoreUnavailableError`, `PublicSearchMonitorUnavailableError`
 (each 503 fails closed, nothing charged), `PublicSearchRequestTooLargeError`
 (413), `PublicSearchDisabledError` (404 when the backend flag is off) and
-`PublicSearchNotFoundError` (404 for a wrong token). `SynthClient().index`
-exposes the same `public_search` surface with the API key attached.
+`PublicSearchNotFoundError` (404 for a wrong token). On `SynthClient().index`
+the API key is attached, so `public_search` raises `PublicSearchAuthenticatedError`;
+call `search(...)` (paid, per-org limits) there. The MCP `index_search` tool refuses
+a keyed client the same way and points at `index_private_search`.
 
 ## Anonymous public browse and funded private search
 

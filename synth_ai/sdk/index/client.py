@@ -1406,8 +1406,9 @@ class IndexAPI(_IndexRoot, PublicSearchOperations):
     """Blocking client over ``HttpTransport``.
 
     ``search()`` is the authenticated, funded path (private scope, wallet).
-    ``public_search()`` is the free Index Search v0.2 public route, which also
-    accepts this client's API key.
+    ``public_search()`` is the free Index Search v0.2 public route, which is
+    anonymous-only: the backend refuses this client's API key with
+    ``PublicSearchAuthenticatedError`` (409). Use ``search()`` (paid) instead.
     """
 
     def __init__(self, transport: HttpTransport) -> None:

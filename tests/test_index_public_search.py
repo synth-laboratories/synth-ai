@@ -20,6 +20,7 @@ from synth_ai.mcp.research.tools.index import build_index_tools, public_search_t
 from synth_ai.sdk.index import (
     Capabilities,
     PublicIndexClient,
+    PublicSearchAuthenticatedError,
     PublicSearchBudgetExhaustedError,
     PublicSearchBudgetScope,
     PublicSearchCancelledError,
@@ -317,15 +318,18 @@ def test_deep_completion_reads_monitor_header(
     assert handle.result is result
 
 
-def test_keyed_fast_search_uses_public_route_with_bearer(keyed: SynthClient) -> None:
-    seen = _mount(keyed.index, lambda request: _delivered())
-    result = keyed.index.public_search("RLVR verifier design", idempotency_key="key-1")
+def test_keyed_public_search_is_refused_with_typed_409(keyed: SynthClient) -> None:
+    # Backend #1708: the public route is anonymous-only; credentials get 409.
+    seen = _mount(keyed.index, lambda request: _error(409, "index_public_search_authenticated"))
+    with pytest.raises(PublicSearchAuthenticatedError) as info:
+        keyed.index.public_search("RLVR verifier design", idempotency_key="key-1")
 
     (request,) = seen
     assert request.url.path == "/api/v1/index/public/search"
-    assert request.headers["authorization"] == "Bearer sk-test"
-    assert b'"idempotency_key":"key-1"' in request.content
-    assert result.customer_charge_cents == 0
+    assert info.value.status == 409
+    assert info.value.code == "index_public_search_authenticated"
+    assert "IndexAPI.search" in str(info.value)
+    assert isinstance(info.value, PublicSearchError)
 
 
 def test_fast_result_requires_customer_charge(anonymous: PublicIndexClient) -> None:
@@ -849,3 +853,24 @@ def test_mcp_private_search_is_authenticated_only() -> None:
         )
     }
     assert "index_private_search" in names
+
+
+def test_mcp_index_search_refuses_a_keyed_client_without_rerouting_to_paid() -> None:
+    keyed_client = SynthClient(api_key="sk-test", base_url=BASE)
+    seen = _mount(keyed_client.index, lambda request: _delivered())
+
+    @contextmanager
+    def factory():
+        yield keyed_client.index
+
+    try:
+        tool = next(
+            tool
+            for tool in build_index_tools(factory, include_lifecycle=False)
+            if tool.name == "index_search"
+        )
+        with pytest.raises(PublicSearchAuthenticatedError, match="index_private_search"):
+            tool.handler({"query": "q"})
+    finally:
+        keyed_client.close()
+    assert seen == []  # no public call and no silent paid search

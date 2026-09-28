@@ -56,6 +56,7 @@ from .lifecycle import (
 from .package import ContributionPackage
 from .public import AsyncPublicIndexClient, PublicIndexClient
 from .public_search import (
+    PublicSearchAuthenticatedError,
     PublicSearchBudgetExhaustedError,
     PublicSearchBudgetScope,
     PublicSearchCancelledError,
@@ -114,6 +115,7 @@ from .usage_accounting import (
 )
 
 __all__ = [
+    "PublicSearchAuthenticatedError",
     "PublicSearchBudgetExhaustedError",
     "PublicSearchBudgetScope",
     "PublicSearchCapability",

@@ -27,6 +27,8 @@ from synth_ai.sdk.index.contracts import ContributionReference, Identifier, Inde
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
 from synth_ai.sdk.index.public_search import (
     DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
+    PUBLIC_SEARCH_AUTHENTICATED_MESSAGE,
+    PublicSearchAuthenticatedError,
     PublicSearchDisabledError,
     PublicSearchHandle,
     PublicSearchResult,
@@ -197,7 +199,9 @@ def build_index_tools(
 ) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.
 
-    ``index_search`` is the free public route and needs no key. Private and
+    ``index_search`` is the free public route: anonymous-only, and a keyed
+    client is refused with ``PublicSearchAuthenticatedError`` (use
+    ``index_private_search``, which is paid). Private and
     lifecycle search require an explicit stable key because they may consume
     bounded, funded service resources. Backend authorization, execution and usage
     remain authoritative; no local search or model fallback is installed.
@@ -209,6 +213,11 @@ def build_index_tools(
     def search(arguments: JSONDict) -> JSONDict:
         request = IndexSearchRequest.model_validate(arguments)
         with client_factory() as client:
+            if isinstance(client, IndexAPI):
+                # The public route is anonymous-only (backend 409). Never reroute a
+                # keyed caller to the paid search implicitly: that would infer consent
+                # to a charge. Point it at index_private_search instead.
+                raise PublicSearchAuthenticatedError(PUBLIC_SEARCH_AUTHENTICATED_MESSAGE)
             capability = client.public_search_capability()
             if capability is None or not capability.enabled:
                 raise PublicSearchDisabledError(

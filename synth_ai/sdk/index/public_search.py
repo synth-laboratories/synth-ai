@@ -200,6 +200,21 @@ class PublicSearchDisabledError(PublicSearchError):
     """404 ``index_public_search_disabled``: the backend flag is off."""
 
 
+class PublicSearchAuthenticatedError(PublicSearchError):
+    """409 ``index_public_search_authenticated``: the free public route is anonymous-only.
+
+    Any credential (API key, Clerk session) is refused. Keyed callers use the paid
+    keyed route, ``IndexAPI.search(...)`` (MCP: ``index_private_search``).
+    """
+
+
+PUBLIC_SEARCH_AUTHENTICATED_MESSAGE = (
+    "Public Index search is anonymous-only and refuses credentialed requests; "
+    "with an API key use the paid keyed search, IndexAPI.search(...) "
+    "(MCP: index_private_search)."
+)
+
+
 class PublicSearchNotFoundError(PublicSearchError):
     """404 ``index_search_not_found``: unknown search id or wrong token."""
 
@@ -312,6 +327,10 @@ def translate_public_search_error(error: SynthError) -> SynthError:
     if code == IndexErrorCode.REQUEST_TOO_LARGE or status == 413:
         return PublicSearchRequestTooLargeError(
             "Public Index search request is too large", failure=failure, status=status
+        )
+    if code == IndexErrorCode.PUBLIC_SEARCH_AUTHENTICATED:
+        return PublicSearchAuthenticatedError(
+            PUBLIC_SEARCH_AUTHENTICATED_MESSAGE, failure=failure, status=status
         )
     if code == IndexErrorCode.PUBLIC_SEARCH_DISABLED:
         return PublicSearchDisabledError(
@@ -824,7 +843,12 @@ class PublicSearchOperations:
         wait: bool = True,
         timeout_s: float = DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
     ) -> PublicSearchResult | PublicSearchHandle:
-        """Free public search, anonymous or keyed; see :class:`PublicSearchClient`."""
+        """Free public search; anonymous-only (see :class:`PublicSearchClient`).
+
+        The backend refuses any credentialed request to the public route, so a
+        keyed client gets :class:`PublicSearchAuthenticatedError` (409). Keyed
+        callers should call ``search(...)`` instead, which is the paid keyed route.
+        """
         return PublicSearchClient(self._transport).search(
             query,
             mode=mode,
