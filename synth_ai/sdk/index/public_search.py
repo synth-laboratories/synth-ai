@@ -808,10 +808,14 @@ def public_search_copy(capability: PublicSearchCapability | None) -> PublicSearc
                 f"{limits.global_per_day} per day "
                 "platform-wide."
             )
+    query_retention = (
+        "Public query content is not retained in durable storage."
+        if capability.retention.public_query_days == 0
+        else f"Public queries are retained for {capability.retention.public_query_days} days."
+    )
     retention = (
-        f"Public queries are retained for {capability.retention.public_query_days} days; "
-        f"private processing data for {capability.retention.private_processing_minutes} "
-        "minutes."
+        f"{query_retention} Processing state expires after "
+        f"{capability.retention.private_processing_minutes} minutes."
     )
     privacy = f"{capability.privacy_copy.strip()} {retention}".strip()
     return PublicSearchCopy(
