@@ -6,7 +6,6 @@ import hashlib
 import hmac
 
 import httpx
-
 from tests.support.index_internal_test_signer import (
     HEADER,
     attach_from_env,
