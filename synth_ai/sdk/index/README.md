@@ -43,7 +43,15 @@ privacy line are read from `GET /api/v1/index/capabilities` (`public_search`)
 at call time and returned under `terms`; the tool text never states a price
 by hand, and the tool fails closed when the backend has the route disabled
 or is unavailable (429 errors carry `retry_after_seconds` and the limit
-scope). With a key, it also exposes `index_private_search`,
+scope). With a key, `index_search` is a paid search charged to your
+organization's wallet (`POST /api/v1/index/search`). It runs only when the
+organization has turned on wallet payments for that mode: the tool reads
+`GET /api/v1/index/me/access-funding` (cached for a minute), sends an explicit
+per-call ceiling (Fast: the published Fast price; Deep: the docs ceiling or the
+organization's monthly limit, whichever is lower) and returns the `charge`
+(amount, wallet debit, receipt). Without consent it refuses with
+`index_wallet_consent_required` and the steps to enable it; no paid request is
+sent and nothing is charged. With a key, it also exposes `index_private_search`,
 `index_search_create`,
 `index_search_get`, `index_search_result`, `index_search_events`, and
 `index_search_cancel` for funded private search and durable Search recovery.
@@ -160,8 +168,10 @@ Errors are typed per backend code: `PublicSearchRateLimitedError` (429, with
 (413), `PublicSearchDisabledError` (404 when the backend flag is off) and
 `PublicSearchNotFoundError` (404 for a wrong token). On `SynthClient().index`
 the API key is attached, so `public_search` raises `PublicSearchAuthenticatedError`;
-call `search(...)` (paid, per-org limits) there. The MCP `index_search` tool refuses
-a keyed client the same way and points at `index_private_search`.
+call `search(...)` (paid, per-org limits) there. The MCP `index_search` tool never
+sends a key to the public route: with a key it runs the paid search only when the
+organization has opted in to wallet funding for the mode, and otherwise raises
+`WalletConsentRequiredError` (`index_wallet_consent_required`).
 
 ## Anonymous public browse and funded private search
 

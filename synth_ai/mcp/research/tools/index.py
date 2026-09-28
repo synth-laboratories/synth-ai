@@ -27,15 +27,24 @@ from synth_ai.sdk.index.contracts import ContributionReference, Identifier, Inde
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
 from synth_ai.sdk.index.public_search import (
     DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
-    PUBLIC_SEARCH_AUTHENTICATED_MESSAGE,
-    PublicSearchAuthenticatedError,
     PublicSearchDisabledError,
     PublicSearchHandle,
     PublicSearchResult,
     public_search_copy,
 )
-from synth_ai.sdk.index.search import ContentsSpec, SearchMode, SearchSpec
+from synth_ai.sdk.index.search import (
+    ContentsSpec,
+    SearchBillingConstraints,
+    SearchMode,
+    SearchResult,
+    SearchSpec,
+)
 from synth_ai.sdk.index.submission import ContributionSubmitSpec
+from synth_ai.sdk.index.wallet_search import (
+    AccessFundingCache,
+    WalletSearchGrant,
+    wallet_search_grant,
+)
 
 IndexClientFactory = Callable[[], AbstractContextManager[IndexAPI | PublicIndexAPI]]
 
@@ -154,11 +163,14 @@ def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]
 
 
 _PUBLIC_SEARCH_DESCRIPTION = (
-    "Search reviewed Synth Index Contributions (Index Search v0.2 public route). Works "
-    "with or without an API key; mode is fast (synchronous) or deep (admitted, then polled "
-    "to completion). Price, rate limits, retention and privacy terms are published by the "
-    "backend's capabilities and returned under `terms` with every result; this tool never "
-    "assumes a price. A rate-limit error carries retry_after_seconds and the limit scope; "
+    "Search reviewed Synth Index Contributions (Index Search v0.2). Without an API key "
+    "this is the free public search; mode is fast (synchronous) or deep (admitted, then "
+    "polled to completion). Price, rate limits, retention and privacy terms are published "
+    "by the backend's capabilities and returned under `terms` with every result; this tool "
+    "never assumes a price. With an API key a call is a PAID search charged to your "
+    "organization's wallet, and it runs only if your organization has turned on wallet "
+    "payments for that mode; the result reports the `charge`. Otherwise it is refused "
+    "with index_wallet_consent_required, the steps to enable it, and no charge. A rate-limit error carries retry_after_seconds and the limit scope; "
     "a 503 means the search failed closed and nothing was charged. `response` cites "
     "contribution ids inline as [<contribution_id>]; `citations` lists the exact revisions "
     "(contribution_id, revision_id) in first-appearance order; preserve them verbatim."
@@ -189,6 +201,30 @@ def _public_search_payload(result: PublicSearchResult) -> JSONDict:
     }
 
 
+def _paid_search_payload(result: SearchResult, grant: WalletSearchGrant) -> JSONDict:
+    usage = result.usage
+    return {
+        "search_id": result.search_id,
+        "mode": result.effective_mode.value,
+        "status": result.status,
+        "response": result.response,
+        "partial_reason": (None if result.partial_reason is None else result.partial_reason.value),
+        "citations": [
+            {"contribution_id": item.contribution_id, "revision_id": item.revision_id}
+            for item in result.citations
+        ],
+        "paid": True,
+        "customer_charge_cents": usage.amount_cents,
+        "charge": {
+            "amount_cents": usage.amount_cents,
+            "wallet_debit_cents": usage.wallet_debit_cents,
+            "funding_source": usage.funding_source,
+            "receipt_id": usage.receipt_id,
+            "max_charge_cents": grant.max_charge_cents,
+        },
+    }
+
+
 def build_index_tools(
     client_factory: IndexClientFactory,
     *,
@@ -199,9 +235,11 @@ def build_index_tools(
 ) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.
 
-    ``index_search`` is the free public route: anonymous-only, and a keyed
-    client is refused with ``PublicSearchAuthenticatedError`` (use
-    ``index_private_search``, which is paid). Private and
+    ``index_search`` without a key is the free public route. With a key it is
+    the paid search, run only when the org has consented to wallet funding
+    for the mode (a cached access-funding read), with an explicit per-call
+    ceiling; otherwise it raises ``WalletConsentRequiredError`` before any paid
+    request is sent (owner decision 2026-09-28). Private and
     lifecycle search require an explicit stable key because they may consume
     bounded, funded service resources. Backend authorization, execution and usage
     remain authoritative; no local search or model fallback is installed.
@@ -210,14 +248,34 @@ def build_index_tools(
     itself never makes a request.
     """
 
+    funding_cache = AccessFundingCache()
+
+    def keyed_search(client: IndexAPI, request: IndexSearchRequest) -> JSONDict:
+        account = funding_cache.get(client.account.access_funding)
+        grant = wallet_search_grant(account, request.mode)
+        try:
+            result = client.search(
+                query=request.query,
+                mode=request.mode,
+                max_results=request.max_results,
+                billing=SearchBillingConstraints(
+                    allow_wallet=True, max_charge_cents=grant.max_charge_cents
+                ),
+                idempotency_key=request.idempotency_key,
+            )
+        except Exception:
+            # Consent or caps may have changed server-side: read them again next call.
+            funding_cache.invalidate()
+            raise
+        return _paid_search_payload(result, grant)
+
     def search(arguments: JSONDict) -> JSONDict:
         request = IndexSearchRequest.model_validate(arguments)
         with client_factory() as client:
             if isinstance(client, IndexAPI):
-                # The public route is anonymous-only (backend 409). Never reroute a
-                # keyed caller to the paid search implicitly: that would infer consent
-                # to a charge. Point it at index_private_search instead.
-                raise PublicSearchAuthenticatedError(PUBLIC_SEARCH_AUTHENTICATED_MESSAGE)
+                # The public route is anonymous-only (backend 409). A keyed call is
+                # paid, and only runs when the org has opted in to wallet funding.
+                return keyed_search(client, request)
             capability = client.public_search_capability()
             if capability is None or not capability.enabled:
                 raise PublicSearchDisabledError(

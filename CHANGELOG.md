@@ -4,6 +4,52 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.21.0 — 2026-09-28 (Index Search v0.2; unpublished until owner GO)
+
+### Added
+
+- **Free public Index search (Index Search v0.2).** `PublicIndexClient` /
+  `PublicIndexAPI.public_search(...)` run Fast (synchronous) and Deep (admitted,
+  then polled with a search token) searches over reviewed Contributions with no
+  account or API key (`POST /api/v1/index/public/search`). Results carry the
+  inline-cited `response`, `citations` (exact revisions, first-appearance
+  order), `customer_charge_cents` and the Monitor release id. Price, rate
+  limits, retention and privacy wording come from
+  `capabilities().public_search` (`PublicSearchCapability`,
+  `public_search_copy(...)`); nothing is priced by hand.
+- **Typed public search errors** per backend code: `PublicSearchRateLimitedError`
+  (429, `retry_after_s`, `scope`), `PublicSearchBudgetExhaustedError` (503, typed
+  `scope`: `PublicSearchBudgetScope.DAILY_CENTS` / `DEEP_CONCURRENCY`),
+  `PublicSearchRateStoreUnavailableError`, `PublicSearchMonitorUnavailableError`,
+  `PublicSearchRequestTooLargeError`, `PublicSearchDisabledError`,
+  `PublicSearchNotFoundError`, `PublicSearchFailedError`,
+  `PublicSearchCancelledError` and `PublicSearchAuthenticatedError`.
+- **Opt-in paid search for keyed MCP `index_search`.** With an API key,
+  `index_search` runs the paid search (`POST /api/v1/index/search`) only when the
+  organization has turned on wallet payments for the requested mode. Consent and
+  the monthly limit are read from `GET /api/v1/index/me/access-funding` (cached
+  for 60 s). Every paid call sends `billing.allow_wallet=true` and an explicit
+  per-call ceiling: Fast is capped at the Fast price and Deep at the docs ceiling
+  or the organization's monthly limit, whichever is lower. The tool output reports
+  the `charge` (amount, wallet debit, funding source, receipt, ceiling). Without
+  consent the tool raises `WalletConsentRequiredError`
+  (`index_wallet_consent_required`) with the steps to enable it and a docs link,
+  before any paid request is sent. Nobody is charged without opting in. SDK
+  helpers: `wallet_search_grant(...)`, `WalletSearchGrant`, `WalletConsentReason`.
+
+### Changed
+
+- **The public route is anonymous-only.** The backend refuses a credentialed
+  request to `/index/public/search` with 409 `index_public_search_authenticated`;
+  the SDK raises `PublicSearchAuthenticatedError`. Keyed callers use the paid
+  `IndexAPI.search(...)`.
+- **MCP `index_search` without a key is the free public search.** The funded
+  authenticated search tool is `index_private_search` (key required).
+- Fast public results are final: `public_search_handle(...)` refuses a Fast
+  search (the token only authorizes Deep reads).
+- The public search id, token, expiry, charge and Monitor release id are read
+  from response headers (backend #1660), with the body as a fallback.
+
 ## 0.20.2 — 2026-09-27 (unpublished until owner GO)
 
 No breaking changes.

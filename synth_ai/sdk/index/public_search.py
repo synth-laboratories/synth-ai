@@ -211,7 +211,7 @@ class PublicSearchAuthenticatedError(PublicSearchError):
 PUBLIC_SEARCH_AUTHENTICATED_MESSAGE = (
     "Public Index search is anonymous-only and refuses credentialed requests; "
     "with an API key use the paid keyed search, IndexAPI.search(...) "
-    "(MCP: index_private_search)."
+    "(MCP: index_search with a key, once your organization turns on wallet payments)."
 )
 
 

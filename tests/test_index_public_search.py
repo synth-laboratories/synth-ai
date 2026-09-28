@@ -5,6 +5,7 @@ Every request is served by an httpx MockTransport; no network, no credential.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -39,8 +40,10 @@ from synth_ai.sdk.index import (
     PublicSearchUnavailableError,
     PublicSearchWaitTimeoutError,
     SearchMode,
+    WalletConsentRequiredError,
     public_search_copy,
 )
+from synth_ai.sdk.index import AccessFundingAccount, wallet_search_grant
 from synth_ai.sdk.index import public_search as public_search_module
 
 BASE = "https://api.example.test"
@@ -191,6 +194,67 @@ def _mount(api: Any, handler: Handler) -> list[httpx.Request]:
         base_url=str(old.base_url), headers=old.headers, transport=httpx.MockTransport(record)
     )
     return seen
+
+
+def _access_funding(
+    *,
+    wallet_enabled: bool = True,
+    consent: str | None = "synth-index-wallet-terms-2026-09-27",
+    monthly_cap_cents: int = 2000,
+) -> dict[str, Any]:
+    """``AccessFundingAccount`` as ``GET /api/v1/index/me/access-funding`` returns it."""
+
+    def mode(name: str) -> dict[str, Any]:
+        return {
+            "mode": name,
+            "access": True,
+            "wallet_enabled": wallet_enabled,
+            "monthly_cap_cents": monthly_cap_cents,
+            "concurrency_limit": 2,
+            "consent_terms_version": consent if wallet_enabled else None,
+            "policy_revision": 3,
+        }
+
+    return {
+        "org_id": "org-1",
+        "can_manage_policy": True,
+        "modes": [mode("fast"), mode("deep")],
+        "deep_beta": None,
+        "live_wallet_holds_microcents": 0,
+        "wallet_available_microcents": 1_000_000,
+        "generated_at": "2026-09-28T16:00:00Z",
+    }
+
+
+def _paid_fast_result() -> dict[str, Any]:
+    """``SearchResult`` from the paid keyed ``POST /api/v1/index/search``."""
+    versions = {
+        "corpus_generation": "corpus-9",
+        "ranker_version": "ranker-3",
+        "parser_version": "parser-2",
+        "taxonomy_version": "tax-1",
+    }
+    return {
+        "search_id": "search-paid-1",
+        "request_id": "req-paid-1",
+        "requested_mode": "fast",
+        "effective_mode": "fast",
+        "status": "completed",
+        "partial_reason": None,
+        **versions,
+        "execution_versions": versions,
+        "response": f"Verifiers reward exact program output [{C1}].",
+        "citations": [{"contribution_id": C1, "revision_id": "rev-1"}],
+        "usage": {
+            "mode": "fast",
+            "billing_scope": "public",
+            "price_version": "synth.index.fast.v2",
+            "amount_cents": 5,
+            "receipt_id": "receipt-1",
+            "funding_source": "wallet",
+            "wallet_debit_cents": 5,
+        },
+    }
 
 
 def _error(status: int, code: str, **extra: Any) -> httpx.Response:
@@ -855,9 +919,15 @@ def test_mcp_private_search_is_authenticated_only() -> None:
     assert "index_private_search" in names
 
 
-def test_mcp_index_search_refuses_a_keyed_client_without_rerouting_to_paid() -> None:
+def test_mcp_index_search_keyed_without_wallet_consent_is_refused_without_a_paid_call() -> None:
     keyed_client = SynthClient(api_key="sk-test", base_url=BASE)
-    seen = _mount(keyed_client.index, lambda request: _delivered())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/index/me/access-funding":
+            return httpx.Response(200, json=_access_funding(wallet_enabled=False))
+        return pytest.fail(f"unexpected {request.method} {request.url.path}")
+
+    seen = _mount(keyed_client.index, handler)
 
     @contextmanager
     def factory():
@@ -869,8 +939,114 @@ def test_mcp_index_search_refuses_a_keyed_client_without_rerouting_to_paid() -> 
             for tool in build_index_tools(factory, include_lifecycle=False)
             if tool.name == "index_search"
         )
-        with pytest.raises(PublicSearchAuthenticatedError, match="index_private_search"):
+        with pytest.raises(WalletConsentRequiredError) as info:
             tool.handler({"query": "q"})
     finally:
         keyed_client.close()
-    assert seen == []  # no public call and no silent paid search
+    assert [request.url.path for request in seen] == ["/api/v1/index/me/access-funding"]
+    payload = _mcp_structured_core_error_payload(info.value)
+    assert payload["error"] == "index_wallet_consent_required"
+    assert payload["detail"]["charged_cents"] == 0
+    assert payload["detail"]["mode"] == "fast"
+    assert payload["detail"]["reason"] == "wallet_off"
+    assert "utm_source=usesynth" in payload["detail"]["docs_url"]
+    assert any("without an API key" in step for step in payload["detail"]["steps"])
+
+
+def test_mcp_index_search_keyed_with_wallet_consent_runs_paid_search_with_a_cap() -> None:
+    keyed_client = SynthClient(api_key="sk-test", base_url=BASE)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/index/me/access-funding":
+            return httpx.Response(200, json=_access_funding())
+        if request.url.path == "/api/v1/index/search":
+            return httpx.Response(200, json=_paid_fast_result())
+        return pytest.fail(f"unexpected {request.method} {request.url.path}")
+
+    seen = _mount(keyed_client.index, handler)
+
+    @contextmanager
+    def factory():
+        yield keyed_client.index
+
+    try:
+        tool = next(
+            tool
+            for tool in build_index_tools(factory, include_lifecycle=False)
+            if tool.name == "index_search"
+        )
+        first = tool.handler({"query": "RLVR verifier design", "mode": "fast"})
+        tool.handler({"query": "second call reuses the consent read", "mode": "fast"})
+    finally:
+        keyed_client.close()
+
+    paths = [request.url.path for request in seen]
+    # One cached consent read, then the paid route; never the anonymous public route.
+    assert paths == [
+        "/api/v1/index/me/access-funding",
+        "/api/v1/index/search",
+        "/api/v1/index/search",
+    ]
+    body = json.loads(seen[1].content)
+    assert body["billing"] == {"allow_wallet": True, "max_charge_cents": 5}
+    assert body["mode"] == "fast"
+    assert seen[1].headers["authorization"] == "Bearer sk-test"
+    assert seen[1].headers["idempotency-key"]
+    assert first["paid"] is True
+    assert first["customer_charge_cents"] == 5
+    assert first["charge"] == {
+        "amount_cents": 5,
+        "wallet_debit_cents": 5,
+        "funding_source": "wallet",
+        "receipt_id": "receipt-1",
+        "max_charge_cents": 5,
+    }
+    assert first["citations"] == [{"contribution_id": C1, "revision_id": "rev-1"}]
+    assert first["search_id"] == "search-paid-1"
+
+
+def test_mcp_index_search_anonymous_stays_free_public() -> None:
+    seen: list[httpx.Request] = []
+
+    def search(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        assert request.url.path == "/api/v1/index/public/search"
+        return _delivered()
+
+    tool = _tool(_routes(capabilities=_public_search_block(), search=search))
+    out = tool.handler({"query": "q"})
+    assert [request.url.path for request in seen] == ["/api/v1/index/public/search"]
+    assert "authorization" not in seen[0].headers
+    assert out["customer_charge_cents"] == 0
+    assert "paid" not in out
+    assert "charge" not in out
+
+
+def test_mcp_index_search_description_says_keyed_calls_are_paid_when_consented() -> None:
+    description = public_search_tool_description(None)
+    assert "With an API key a call is a PAID search" in description
+    assert "index_wallet_consent_required" in description
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"wallet_enabled": False}, "wallet_off"),
+        ({"consent": None}, "no_consent"),
+        ({"monthly_cap_cents": 0}, "cap_too_low"),
+    ],
+)
+def test_wallet_grant_refuses_without_consent(overrides: dict[str, Any], reason: str) -> None:
+    account = AccessFundingAccount.model_validate(_access_funding(**overrides))
+    for mode in (SearchMode.FAST, SearchMode.DEEP):
+        with pytest.raises(WalletConsentRequiredError) as info:
+            wallet_search_grant(account, mode)
+        assert info.value.consent_reason.value == reason
+
+
+def test_wallet_grant_caps_deep_at_docs_ceiling_or_org_cap() -> None:
+    wide = AccessFundingAccount.model_validate(_access_funding(monthly_cap_cents=2000))
+    assert wallet_search_grant(wide, SearchMode.FAST).max_charge_cents == 5
+    assert wallet_search_grant(wide, SearchMode.DEEP).max_charge_cents == 25
+    narrow = AccessFundingAccount.model_validate(_access_funding(monthly_cap_cents=15))
+    assert wallet_search_grant(narrow, SearchMode.DEEP).max_charge_cents == 15

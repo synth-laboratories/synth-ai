@@ -113,9 +113,21 @@ from .usage_accounting import (
     UsageOperationKind,
     UsageTotal,
 )
+from .wallet_search import (
+    WALLET_CONSENT_REQUIRED_CODE,
+    WalletConsentReason,
+    WalletConsentRequiredError,
+    WalletSearchGrant,
+    wallet_search_grant,
+)
 
 __all__ = [
     "PublicSearchAuthenticatedError",
+    "WALLET_CONSENT_REQUIRED_CODE",
+    "WalletConsentReason",
+    "WalletConsentRequiredError",
+    "WalletSearchGrant",
+    "wallet_search_grant",
     "PublicSearchBudgetExhaustedError",
     "PublicSearchBudgetScope",
     "PublicSearchCapability",
