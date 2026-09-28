@@ -1,5 +1,22 @@
 # Synth Index SDK
 
+Two Search routes, chosen explicitly by the client (never by the presence of a
+key):
+
+- **Public route** (`PublicIndexClient().public_search`, CLI
+  `synth-ai index search --public`, MCP `index_search` without a key): anonymous
+  only, free to the caller, published public Contributions only. Limits and
+  retention are published by the backend in `capabilities().public_search`.
+  Available only where the backend enables it.
+- **Keyed route** (`SynthClient().index.search`, CLI `--keyed`, MCP
+  `index_search` with a key): paid and org-funded even when the selected corpus
+  is public. Fast is 5 cents per delivered Search; Deep is 5 cents plus measured
+  model cost, capped by your `max_charge_cents` and at $1 per Search. Funding is
+  Index promo credit, then the wallet with explicit consent.
+
+The public route refuses credentials (409), so having a key never makes a
+request free, and a keyed request is never silently sent to the public route.
+
 For an API/MCP-only coding-agent integration, use the copyable
 [setup prompt](AGENT_SETUP_PROMPT.md). It does not run a paid search or create a
 product UI.
@@ -43,13 +60,16 @@ privacy line are read from `GET /api/v1/index/capabilities` (`public_search`)
 at call time and returned under `terms`; the tool text never states a price
 by hand, and the tool fails closed when the backend has the route disabled
 or is unavailable (429 errors carry `retry_after_seconds` and the limit
-scope). With a key, `index_search` is a paid search charged to your
+scope). Public results report `route: "public"`. With a key, `index_search` is a paid search charged to your
 organization's wallet (`POST /api/v1/index/search`). It runs only when the
 organization has turned on wallet payments for that mode: the tool reads
 `GET /api/v1/index/me/access-funding` (cached for a minute), sends an explicit
 per-call ceiling (Fast: the published Fast price; Deep: the docs ceiling or the
 organization's monthly limit, whichever is lower) and returns the `charge`
-(amount, wallet debit, receipt). Without consent it refuses with
+(amount, wallet debit, receipt) with `route: "keyed"` and `paid: true`. Keyed
+results carry no `terms`: the public terms do not describe keyed Search, and
+keyed price/funding come from your organization's access-funding policy.
+Without consent it refuses with
 `index_wallet_consent_required` and the steps to enable it; no paid request is
 sent and nothing is charged. With a key, it also exposes `index_private_search`,
 `index_search_create`,
@@ -66,9 +86,9 @@ additionally set
 selected-file upload, and submission for review. Advanced Research tools do not
 bypass this write gate. Credentials never belong in tool arguments. Index calls
 use captured process configuration and own/close one SDK transport per
-invocation. Every search is funded and charged according to backend account
-policy. No MCP tool grants access, approves research, publishes Contributions,
-or awards credits.
+invocation. Every keyed search is funded and charged according to backend
+account policy; the anonymous public route is free to the caller. No MCP tool
+grants access, approves research, publishes Contributions, or awards credits.
 
 Local MCP file upload requires POSIX descriptor-relative, no-follow file access
 and bounds actual bytes read; it refuses unsupported platforms. Windows users
@@ -143,7 +163,14 @@ sends a key to the public route: with a key it runs the paid search only when th
 organization has opted in to wallet funding for the mode, and otherwise raises
 `WalletConsentRequiredError` (`index_wallet_consent_required`).
 
-## Anonymous public browse and funded private search
+From the CLI (0.21.1+), `synth-ai index search QUERY --public [--mode deep]`
+runs the same anonymous route and prints the result with the backend's `terms`.
+It never sends a key, even when `SYNTH_API_KEY` is inherited from the
+environment, and it refuses keyed-only options (`--api-key`,
+`--private-collection`, `--allow-wallet`, `--max-charge-cents`,
+`--deadline-seconds`). See [Errors](#errors) for the public-route refusals.
+
+## Anonymous public browse and keyed (paid) search
 
 Reading public capabilities, tags, and a known published Contribution ID needs
 no account or API key:
@@ -157,8 +184,9 @@ with PublicIndexClient() as index:
 ```
 
 Use `AsyncPublicIndexClient` with `async with` for native async applications.
-Both clients own and close their HTTP transport. Private-scope or wallet-funded
-search uses the authenticated `search()` path, which is unchanged. Explicitly
+Both clients own and close their HTTP transport (public Search is on the
+synchronous `PublicIndexClient`). Keyed search uses the authenticated `search()`
+path and is paid whether the selected corpus is public or private. Explicitly
 consent to wallet funding and bound the maximum charge; the organization must
 also have a valid funding policy and sufficient balance:
 
@@ -179,12 +207,14 @@ with SynthClient() as synth:  # SYNTH_API_KEY is required
     print(result.response, result.usage)
 ```
 
-The ceiling is a caller bound; the actual price is
-`capabilities().private_search.price_cents_per_search`. A declined or exhausted
-funding source fails before a search result is delivered.
+The ceiling is a caller bound; the backend publishes the Fast price as
+`capabilities().private_search.price_cents_per_search` (keyed public-scope Fast
+uses the same price). A declined or exhausted funding source fails before a
+search result is delivered.
 
-Deep search requires the authenticated client and a deployment whose
-capabilities advertise deep mode. The convenience call waits for the same
+Keyed Deep search requires the authenticated client and a deployment whose
+capabilities advertise deep mode (anonymous public Deep is
+`public_search(..., mode="deep")` above). The convenience call waits for the same
 durable Search identity through completion:
 
 ```python
@@ -204,9 +234,11 @@ with SynthClient() as synth:
     print(result.search_id, result.status)
 ```
 
-Funded DEEP requires a mode grant and funding. This wallet example
-authorizes at most 25 cents; the backend may stop at that bound. The
-per-search ceiling and minimum DEEP ceiling are published by the backend.
+Funded DEEP requires a mode grant and funding. It is charged 5 cents plus the
+measured model cost, rounded up to a cent, never above your `max_charge_cents`
+or $1 per Search; the ceiling must leave room for at least 5 cents of usage above
+the base. This wallet example authorizes at most 25 cents; the backend may stop
+at that bound.
 
 For reconnect, progress, events, explicit cancellation, or a local wait timeout,
 create the handle directly. A local timeout preserves `handle.search_id` and does
@@ -239,15 +271,17 @@ the result is validated against the original request. These commands require
 `SYNTH_API_KEY` or `--api-key`. An unfinished result returns the backend's
 typed `index_search_result_not_ready` failure.
 
-For wallet-funded CLI searches, provide explicit consent and a retail ceiling:
+For wallet-funded keyed CLI searches, provide explicit consent and a retail ceiling:
 
 ```sh
-synth-ai index search "RLVR verifier design" --allow-wallet --max-charge-cents 5 --idempotency-key YOUR_UNIQUE_REQUEST_ID
+synth-ai index search "RLVR verifier design" --keyed --allow-wallet --max-charge-cents 5 --idempotency-key YOUR_UNIQUE_REQUEST_ID
 synth-ai index searches create "Compare the retrieval designs" --mode deep --allow-wallet --max-charge-cents 25 --idempotency-key YOUR_OTHER_UNIQUE_REQUEST_ID
 ```
 
 Omitting `--allow-wallet` and `--max-charge-cents` does not grant wallet
-consent; an already-funded promo policy may still apply. Durable Deep CLI
+consent; an already-funded promo policy may still apply. `index search` with an
+inherited `SYNTH_API_KEY` and no route flag uses the keyed route and says so on
+stderr; with no key and no flag it refuses rather than guessing a route. Durable Deep CLI
 commands accept the backend's 300-second execution maximum.
 
 HTTP failures expose their stable Index code through `error.failure.code`,
@@ -256,11 +290,13 @@ request and correlation IDs when supplied by the backend, and a retry directive.
 codes remain available as raw strings. A failed durable execution records its
 terminal `Search.failure.code` and `retryable` status in the Search snapshot.
 
-The credential-free surface contains only public known-ID and catalog-metadata
-reads:
+The credential-free surface (`PublicIndexClient`) contains public known-ID and
+catalog-metadata reads plus free public Search:
 
 | Call | Route |
 | --- | --- |
+| `public_search(...)`, `public_search_handle(...)` | `POST /public/search`, `GET /public/searches/{id}` (sync client only) |
+| `public_search_terms()`, `public_search_capability()` | `public_search` block of `GET /public/capabilities` |
 | `capabilities()` | `GET /public/capabilities` |
 | `contents.retrieve(...)` | `POST /public/contents` |
 | `tags.list()` | `GET /public/tags` |
@@ -268,8 +304,8 @@ reads:
 | `contributions.assets.retrieve(reference, asset_id)` | declared asset bytes of a published revision |
 | `profiles.retrieve(principal_id)` | contributor profile as an anonymous reader sees it |
 
-Each browse operation is the public twin of an authenticated operation. Search
-is deliberately absent from `PublicIndexClient` and uses `SynthClient().index`.
+Each browse operation is the public twin of an authenticated operation. Keyed
+(paid) and private Search use `SynthClient().index`.
 
 ## Surface (`SynthClient().index`, async twin on `AsyncSynthClient`)
 
@@ -286,6 +322,10 @@ is deliberately absent from `PublicIndexClient` and uses `SynthClient().index`.
 | `tags.list()`, `collections.list()`, `collections.grants.*` | taxonomy; owner-only explicit shares |
 | `account.retrieve / contributions / usage / promo_credit / rewards / update_profile / update_pins` | caller identity, work, usage, promo balance, credits, profile |
 | `profiles.retrieve`, `rewards.award / reverse`, `contests.*` | public profiles; award/contest operator grants |
+
+The contribution, profile, reward and contest operations are API reference for
+authorized grants. Contributions, profiles, clout, credits and contests are not
+part of the current Index release.
 
 Every operation is declared once in `client.OPERATIONS` or
 `client.PUBLIC_OPERATIONS` and executed identically by sync and async clients.
@@ -348,11 +388,36 @@ not replace an installed-wheel test against the matching deployed backend.
 
 ## Errors
 
+### Public route
+
+Every public-route failure is a `PublicSearchError` subclass with `.status` and
+`.code`; none of them charges anything.
+
+| Exception | HTTP / code | Meaning and remedy |
+| --- | --- | --- |
+| `PublicSearchRateLimitedError` | 429 `index_public_rate_limited` | A per-caller or platform-wide limit was hit. `.scope` names it (`peer_minute`, `peer_day`, `global_minute`, `global_day`); wait `.retry_after_s` (from `Retry-After`). |
+| `PublicSearchBudgetExhaustedError` | 503 `index_public_budget_exhausted` | The free service budget is spent. `.scope` is `PublicSearchBudgetScope.DAILY_CENTS` or `DEEP_CONCURRENCY`; retry after `.retry_after_s` when the backend sends `Retry-After`. No result, no charge. |
+| `PublicSearchRateStoreUnavailableError`, `PublicSearchMonitorUnavailableError` | 503 `index_rate_store_unavailable`, `monitor_unavailable` | The route failed closed; retry later. |
+| `PublicSearchDisabledError` | 404 `index_public_search_disabled` | The backend has the public route turned off (or the mode is not offered). Use keyed Search or another deployment. |
+| `PublicSearchAuthenticatedError` | 409 `index_public_search_authenticated` | Credential conflict: the public route is anonymous-only and a key or session was sent. Use `PublicIndexClient` (or CLI `--public`) with no key, or the paid keyed `search(...)`. |
+| `PublicSearchRequestTooLargeError` | 413 `index_request_too_large` | Shorten the query. |
+| `PublicSearchNotFoundError` | 404 `index_search_not_found` | Unknown Deep search id or wrong token. |
+| `PublicSearchFailedError`, `PublicSearchCancelledError`, `PublicSearchWaitTimeoutError` | terminal state / local wait | Deep ended without delivery, or the local wait ended (the handle stays valid). |
+
+The CLI prints the same messages and exits non-zero. Its own route conflicts
+(`--public` with `--keyed`, `--api-key` or a keyed-only option; `--keyed` without a
+key; no key and no route) are usage errors (exit 2) raised before any request.
+
+### Keyed route
+
 Transport raises typed `SynthError` subclasses: `RateLimitedError` (with
 `retry_after_seconds` from `Retry-After`), `PaymentRequiredError` (private cap or
 wallet), `AuthorizationError` (including uninvited private scope), `ConflictError`,
 `TransientServiceError`. `index_error_code(error)` returns the stable
-`IndexErrorCode`. An unavailable service is never reported as an empty result.
+`IndexErrorCode`. The MCP tool raises `WalletConsentRequiredError`
+(`index_wallet_consent_required`) before any paid request when the organization
+has not turned on wallet payments. An unavailable service is never reported as an
+empty result.
 
 ## Upload
 

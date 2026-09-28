@@ -29,7 +29,7 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 @click.group()
 def research() -> None:
-    """Typed Research projects, swarms, and factories."""
+    """Swarms and Research projects (factories kept for compatibility)."""
 
 
 research.add_command(projects)

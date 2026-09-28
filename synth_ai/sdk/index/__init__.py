@@ -69,6 +69,7 @@ from .public_search import (
     PublicSearchUnavailableError,
     PublicSearchWaitTimeoutError,
     public_search_copy,
+    public_search_result_payload,
 )
 from .retry import IndexRetryPolicy, search_id_from_error
 from .search import (
@@ -144,6 +145,7 @@ __all__ = [
     "PublicSearchUnavailableError",
     "PublicSearchWaitTimeoutError",
     "public_search_copy",
+    "public_search_result_payload",
     "Assessment",
     "AccessFundingAccount",
     "AccessFundingMode",

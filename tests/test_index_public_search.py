@@ -658,6 +658,8 @@ def test_budget_exhausted_exposes_typed_scope(
     assert info.value.retry_after_seconds == 15.0
     assert info.value.status == 503
     assert info.value.code == "index_public_budget_exhausted"
+    assert "nothing was charged" in str(info.value)
+    assert "Retry in 15 s." in str(info.value)
 
 
 def test_fast_search_has_no_reconnectable_handle(anonymous: PublicIndexClient) -> None:
@@ -1092,3 +1094,102 @@ def test_wallet_grant_caps_deep_at_docs_ceiling_or_org_cap() -> None:
     assert wallet_search_grant(wide, SearchMode.DEEP).max_charge_cents == 25
     narrow = AccessFundingAccount.model_validate(_access_funding(monthly_cap_cents=15))
     assert wallet_search_grant(narrow, SearchMode.DEEP).max_charge_cents == 15
+
+
+# MCP output contract: which result carries `terms` ---------------------------------
+
+PUBLIC_RESULT_KEYS = {
+    "route",
+    "search_id",
+    "mode",
+    "status",
+    "response",
+    "partial_reason",
+    "citations",
+    "customer_charge_cents",
+    "monitor_release_id",
+    "terms",
+}
+KEYED_RESULT_KEYS = {
+    "route",
+    "search_id",
+    "mode",
+    "status",
+    "response",
+    "partial_reason",
+    "citations",
+    "paid",
+    "customer_charge_cents",
+    "charge",
+}
+
+
+def test_mcp_index_search_output_contract_public_has_terms_keyed_does_not() -> None:
+    public_tool = _tool(_routes(capabilities=_public_search_block(), search=lambda r: _delivered()))
+    public = public_tool.handler({"query": "q", "mode": "fast"})
+    assert set(public) == PUBLIC_RESULT_KEYS
+    assert public["route"] == "public"
+    assert set(public["terms"]) == {"available", "price", "limits", "privacy"}
+
+    keyed_client = SynthClient(api_key="sk-test", base_url=BASE)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/index/me/access-funding":
+            return httpx.Response(200, json=_access_funding())
+        if request.url.path == "/api/v1/index/search":
+            return httpx.Response(200, json=_paid_fast_result())
+        return pytest.fail(f"unexpected {request.method} {request.url.path}")
+
+    _mount(keyed_client.index, handler)
+
+    @contextmanager
+    def factory():
+        yield keyed_client.index
+
+    try:
+        keyed_tool = next(
+            tool
+            for tool in build_index_tools(factory, include_lifecycle=False)
+            if tool.name == "index_search"
+        )
+        keyed = keyed_tool.handler({"query": "q", "mode": "fast"})
+    finally:
+        keyed_client.close()
+    assert set(keyed) == KEYED_RESULT_KEYS
+    assert keyed["route"] == "keyed"
+    assert "terms" not in keyed
+
+    # The tool text promises `terms` only for public results, never "with every result".
+    description = keyed_tool.description
+    assert "with every result" not in description
+    assert "returned under `terms` (route=public)" in description
+    assert "carries no `terms`" in description
+
+
+def test_public_route_refusals_have_distinct_types_and_messages(
+    anonymous: PublicIndexClient, keyed: SynthClient
+) -> None:
+    """Rate limit, budget, disabled route and credential conflict never share a type."""
+    cases = [
+        (anonymous, _error(429, "index_public_rate_limited", headers={"Retry-After": "7"})),
+        (anonymous, _error(503, "index_public_budget_exhausted", scope="daily_cents")),
+        (anonymous, _error(404, "index_public_search_disabled")),
+        (keyed.index, _error(409, "index_public_search_authenticated")),
+    ]
+    seen: list[tuple[type, str]] = []
+    for client, response in cases:
+        _mount(client, lambda request, response=response: response)
+        with pytest.raises(PublicSearchError) as info:
+            client.public_search("q")
+        seen.append((type(info.value), str(info.value)))
+    assert [kind for kind, _ in seen] == [
+        PublicSearchRateLimitedError,
+        PublicSearchBudgetExhaustedError,
+        PublicSearchDisabledError,
+        PublicSearchAuthenticatedError,
+    ]
+    assert "retry in 7 s" in seen[0][1]
+    assert "scope=daily_cents" in seen[1][1]
+    assert "disabled on this backend" in seen[2][1]
+    assert "anonymous-only" in seen[3][1]
+    assert len({message for _, message in seen}) == 4

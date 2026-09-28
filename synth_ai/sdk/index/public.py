@@ -1,6 +1,8 @@
-"""Credential-free clients for browsing published Synth Index Contributions.
+"""Credential-free clients for published Synth Index Contributions.
 
-Search requires an authenticated funding identity and uses ``SynthClient().index``.
+Anonymous browse plus the free anonymous public Search route
+(``public_search``, ``/api/v1/index/public/search``) when the backend enables it.
+Keyed, wallet-funded and private Search use ``SynthClient().index.search``.
 This boundary accepts no credential, private collection, or write method.
 """
 
@@ -17,7 +19,7 @@ from .timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
 
 
 class PublicIndexClient(PublicIndexAPI):
-    """Owned synchronous client for anonymous public Index browse."""
+    """Owned synchronous client for anonymous public Index browse and public Search."""
 
     def __init__(
         self,
@@ -48,7 +50,7 @@ class PublicIndexClient(PublicIndexAPI):
 
 
 class AsyncPublicIndexClient(AsyncPublicIndexAPI):
-    """Owned asynchronous client for anonymous public Index browse."""
+    """Owned asynchronous client for anonymous public Index browse (public Search is sync-only)."""
 
     def __init__(
         self,

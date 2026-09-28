@@ -17,6 +17,30 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### 0.21.1 candidate
 
+- **CLI public route.** `synth-ai index search --public` runs the free anonymous
+  public Search (`PublicIndexClient`) and prints the result with the backend's
+  `terms`; `--keyed` selects the paid keyed route. The CLI never switches routes
+  on its own: `--public` never sends an inherited `SYNTH_API_KEY`; `--keyed` or a
+  keyed-only option (`--private-collection`, `--allow-wallet`,
+  `--max-charge-cents`, `--deadline-seconds`) without a key is refused rather
+  than downgraded; `--public` with `--keyed`, `--api-key` or a keyed-only option
+  is a usage error; no key and no flag is a usage error. An inherited key with no
+  flag keeps the 0.21.0 keyed behavior and prints a stderr notice. Search output
+  now includes `route` (`public` or `keyed`).
+- **MCP `index_search` output contract.** Results carry `route`; `terms` is
+  promised and returned only on free public results. Keyed results report
+  `paid` and `charge` and no `terms`. The tool description no longer says terms
+  come "with every result". `public_search_result_payload(...)` is shared by the
+  CLI and MCP.
+- **Public-route error messages.** `PublicSearchBudgetExhaustedError` messages
+  now include the `Retry-After` wait when the backend sends one, alongside the
+  existing typed rate-limit, disabled-route and credential-conflict errors.
+- **Docs and metadata.** README, Index SDK guide, MCP setup prompt and CLI/MCP
+  READMEs describe the two routes consistently (free anonymous public vs paid
+  keyed, including public-scope keyed Search), document public-route errors, and
+  present Index and Swarms (`research.swarms`) as the current paths. Factory and
+  Intern remain supported APIs but are no longer promoted there. Package
+  description and keywords no longer describe a Factory-centric SDK.
 - Public search copy describes zero durable query-content retention and bounded encrypted processing, rather than “retained for zero days.” Capability values still control the wording. Budget-exhausted errors also expose `retry_after_s` consistently with rate-limit errors. No paid/private routing changes. Not built or published.
 
 ## 0.21.0 — 2026-09-28 (Index Search v0.2)

@@ -1,7 +1,7 @@
 # SDK Modules
 
-Public HTTP clients and contracts. Right now that is Research plus shared
-pagination helpers. Infrastructure clients are archived under `old/sdk/` and
+Public HTTP clients and contracts: Index (`sdk/index/`), Research/Swarms
+(`sdk/research/`) and shared pagination helpers. Infrastructure clients are archived under `old/sdk/` and
 will return later.
 
 ```
@@ -24,9 +24,12 @@ research = SynthClient().research
 
 ## Supported Public Surfaces
 
-- Research: projects, swarms, factories, intern (plus supporting namespaces:
-  environments, image releases, files, traces, visuals, wiki, knowledge,
-  experiments)
+- Index: `SynthClient().index` (keyed, paid Search and Contribution reads) and
+  `PublicIndexClient` (anonymous browse and free public Search); see
+  `sdk/index/README.md`
+- Research: projects and swarms (factories, intern and supporting namespaces
+  such as environments, image releases, files, traces, visuals, wiki,
+  knowledge and experiments remain supported for existing integrations)
 - `research.advanced.*` is explicitly unstable operator surface — not part of
   the public story
 

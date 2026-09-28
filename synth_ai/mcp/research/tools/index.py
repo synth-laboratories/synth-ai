@@ -30,6 +30,7 @@ from synth_ai.sdk.index.public_search import (
     PublicSearchHandle,
     PublicSearchResult,
     public_search_copy,
+    public_search_result_payload,
 )
 from synth_ai.sdk.index.search import (
     ContentsSpec,
@@ -155,11 +156,13 @@ def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]
 _PUBLIC_SEARCH_DESCRIPTION = (
     "Search reviewed Synth Index Contributions (Index Search v0.2). Without an API key "
     "this is the free public search; mode is fast (synchronous) or deep (admitted, then "
-    "polled to completion). Price, rate limits, retention and privacy terms are published "
-    "by the backend's capabilities and returned under `terms` with every result; this tool "
-    "never assumes a price. With an API key a call is a PAID search charged to your "
-    "organization's wallet, and it runs only if your organization has turned on wallet "
-    "payments for that mode; the result reports the `charge`. Otherwise it is refused "
+    "polled to completion). For these free public results, price, rate limits, retention "
+    "and privacy terms are published by the backend's capabilities and returned under "
+    "`terms` (route=public); this tool never assumes a price. With an API key a call is a "
+    "PAID search charged to your organization's wallet, and it runs only if your "
+    "organization has turned on wallet payments for that mode; a keyed result "
+    "(route=keyed, paid=true) reports the `charge` and carries no `terms`, because "
+    "public terms do not describe keyed Search. Otherwise it is refused "
     "with index_wallet_consent_required, the steps to enable it, and no charge. A rate-limit error carries retry_after_seconds and the limit scope; "
     "a 503 means the search failed closed and nothing was charged. `response` cites "
     "contribution ids inline as [<contribution_id>]; `citations` lists the exact revisions "
@@ -176,24 +179,13 @@ def public_search_tool_description(capability: PublicSearchCapability | None) ->
 
 
 def _public_search_payload(result: PublicSearchResult) -> JSONDict:
-    return {
-        "search_id": result.search_id,
-        "mode": result.mode.value,
-        "status": result.status,
-        "response": result.response,
-        "partial_reason": result.partial_reason,
-        "citations": [
-            {"contribution_id": item.contribution_id, "revision_id": item.revision_id}
-            for item in result.citations
-        ],
-        "customer_charge_cents": result.customer_charge_cents,
-        "monitor_release_id": result.monitor_release_id,
-    }
+    return public_search_result_payload(result)
 
 
 def _paid_search_payload(result: SearchResult, grant: WalletSearchGrant) -> JSONDict:
     usage = result.usage
     return {
+        "route": "keyed",
         "search_id": result.search_id,
         "mode": result.effective_mode.value,
         "status": result.status,
