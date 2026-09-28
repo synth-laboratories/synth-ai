@@ -645,10 +645,17 @@ def test_budget_exhausted_exposes_typed_scope(
     anonymous: PublicIndexClient, scope: str | None, expected: PublicSearchBudgetScope | None
 ) -> None:
     extra = {} if scope is None else {"scope": scope}
-    _mount(anonymous, lambda request: _error(503, "index_public_budget_exhausted", **extra))
+    _mount(
+        anonymous,
+        lambda request: _error(
+            503, "index_public_budget_exhausted", headers={"Retry-After": "15"}, **extra
+        ),
+    )
     with pytest.raises(PublicSearchBudgetExhaustedError) as info:
         anonymous.public_search("q")
     assert info.value.scope is expected
+    assert info.value.retry_after_s == 15.0
+    assert info.value.retry_after_seconds == 15.0
     assert info.value.status == 503
     assert info.value.code == "index_public_budget_exhausted"
 
