@@ -4,6 +4,17 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Removed
+
+- **Index answer is removed.** The backend no longer serves
+  `POST /api/v1/index/answer`, so `index.answer(...)` (sync and async), the
+  `AnswerSpec` / `AnswerResult` / `AnswerCitation` / `AnswerClaim` /
+  `AnswerStatus` / `AnswerUsage` types and `synth_ai.sdk.index.answer`, the
+  `synth-ai index answer` CLI command, the `index_answer` MCP tool (and
+  `INDEX_HIDDEN_TOOL_NAMES` / `include_answer`), and the vendored OpenAPI
+  operation are gone. Use `index.search(...)`, whose results carry a cited
+  `response`. Breaking for any caller of `index.answer(...)`.
+
 ### 0.21.1 candidate
 
 - Public search copy describes zero durable query-content retention and bounded encrypted processing, rather than “retained for zero days.” Capability values still control the wording. Budget-exhausted errors also expose `retry_after_s` consistently with rate-limit errors. No paid/private routing changes. Not built or published.

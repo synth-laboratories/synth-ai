@@ -20,7 +20,6 @@ from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
-from .answer import AnswerResult, AnswerSpec
 from .artifacts import ArtifactPublicationResponse
 from .catalog import (
     AccessFundingAccount,
@@ -110,7 +109,6 @@ _K = f"{_P}/contests/{{contest_id}}"
 OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.capabilities": ("GET", f"{_P}/capabilities"),
     "index.search": ("POST", f"{_P}/search"),
-    "index.answer": ("POST", f"{_P}/answer"),
     "index.searches.create": ("POST", f"{_P}/searches"),
     "index.searches.get": ("GET", f"{_P}/searches/{{search_id}}"),
     "index.searches.result": ("GET", f"{_P}/searches/{{search_id}}/result"),
@@ -295,53 +293,6 @@ def _search_spec(
     )
 
 
-def _answer_spec(
-    spec: AnswerSpec | None,
-    query: str | None,
-    scope: SearchScope | None,
-    filters: SearchFilters | None,
-    max_results: int | None,
-    mode: SearchMode | str | None,
-    limits: SearchExecutionLimits | None,
-    max_answer_tokens: int | None,
-    max_answer_cost_usd_micros: int | None,
-    billing: SearchBillingConstraints | None = None,
-) -> AnswerSpec:
-    if spec is not None:
-        if any(
-            value is not None
-            for value in (
-                query,
-                scope,
-                filters,
-                max_results,
-                mode,
-                limits,
-                max_answer_tokens,
-                max_answer_cost_usd_micros,
-                billing,
-            )
-        ):
-            raise ValueError("Pass either AnswerSpec or answer keyword arguments, not both")
-        return spec
-    if query is None:
-        raise ValueError("Index answer requires a query or AnswerSpec")
-    return AnswerSpec(
-        query=query,
-        mode=SearchMode.FAST if mode is None else SearchMode(mode),
-        scope=scope if scope is not None else SearchScope(),
-        filters=filters if filters is not None else SearchFilters(),
-        content=SearchContent(
-            max_results=5 if max_results is None else max_results,
-            max_excerpts_per_result=2,
-        ),
-        limits=limits,
-        max_answer_tokens=(1024 if max_answer_tokens is None else max_answer_tokens),
-        max_answer_cost_usd_micros=max_answer_cost_usd_micros,
-        billing=billing if billing is not None else SearchBillingConstraints(),
-    )
-
-
 def _contents_spec(
     spec: ContentsSpec | None,
     references: Sequence[ContributionReference] | None,
@@ -370,13 +321,6 @@ def _search_result(payload: object, spec: SearchSpec) -> SearchResult:
     ):
         raise ValueError("Index response billing scope does not match the request")
     _search_delivery_bounds(result, spec)
-    return result
-
-
-def _answer_result(payload: object, spec: AnswerSpec) -> AnswerResult:
-    result = AnswerResult.model_validate(payload)
-    if result.query != spec.query or result.mode is not spec.mode:
-        raise ValueError("Index answer does not match the requested query or mode")
     return result
 
 
@@ -1355,49 +1299,6 @@ class _IndexRoot(_Resource):
                 lambda payload: _search_result(payload, spec),
                 json_body=spec.model_dump(mode="json"),
                 headers=_key(idempotency_key),
-            )
-        )
-
-    def answer(
-        self,
-        spec: AnswerSpec | None = None,
-        *,
-        query: str | None = None,
-        scope: SearchScope | None = None,
-        filters: SearchFilters | None = None,
-        max_results: int | None = None,
-        mode: SearchMode | str | None = None,
-        limits: SearchExecutionLimits | None = None,
-        max_answer_tokens: int | None = None,
-        max_answer_cost_usd_micros: int | None = None,
-        billing: SearchBillingConstraints | None = None,
-        idempotency_key: str,
-    ) -> Any:
-        """Return a fail-closed cited answer over fast or deep evidence.
-
-        Search remains evidence-only. The explicit key identifies the complete
-        retrieval, admission and synthesis operation for safe replay.
-        Billing carries the retrieval wallet opt-in and maximum retail charge;
-        organization consent remains server-owned, as for SearchSpec.
-        """
-        spec = _answer_spec(
-            spec,
-            query,
-            scope,
-            filters,
-            max_results,
-            mode,
-            limits,
-            max_answer_tokens,
-            max_answer_cost_usd_micros,
-            billing,
-        )
-        return self._run(
-            _Call(
-                "index.answer",
-                lambda payload: _answer_result(payload, spec),
-                json_body=_body(spec),
-                headers=_key(idempotency_key, required="Index answer"),
             )
         )
 

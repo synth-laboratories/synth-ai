@@ -1,14 +1,6 @@
 """Synth Index clients and contracts; backend routes remain the wire authority."""
 
 from .agent_policy import IndexAccessPolicy
-from .answer import (
-    AnswerCitation,
-    AnswerClaim,
-    AnswerResult,
-    AnswerSpec,
-    AnswerStatus,
-    AnswerUsage,
-)
 from .catalog import (
     AccessFundingAccount,
     AccessFundingMode,
@@ -155,12 +147,6 @@ __all__ = [
     "Assessment",
     "AccessFundingAccount",
     "AccessFundingMode",
-    "AnswerCitation",
-    "AnswerClaim",
-    "AnswerResult",
-    "AnswerSpec",
-    "AnswerStatus",
-    "AnswerUsage",
     "AsyncPublicIndexClient",
     "Capabilities",
     "BillingPolicyUpdate",

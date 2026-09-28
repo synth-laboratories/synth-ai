@@ -90,36 +90,6 @@ See `docs/drafts/synth-index-api-design-2026-09-12.md`. Fast search is the
 bounded retrieval path. Deep search uses a durable server execution and never
 silently falls back to fast search.
 
-Grounded answers are a separate authenticated operation. Search continues to
-return evidence; `answer(...)` performs fast or deep retrieval, fail-closed
-evidence admission and cited synthesis under one explicit idempotency key:
-
-```python
-from uuid import uuid4
-
-from synth_ai import SynthClient
-from synth_ai.sdk.index import SearchBillingConstraints
-
-request_key = str(uuid4())  # Save this with your job before sending the request.
-with SynthClient() as synth:
-    result = synth.index.answer(
-        query="Why did the retrieval experiment reject launch readiness?",
-        mode="fast",
-        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
-        idempotency_key=request_key,
-    )
-    if result.status == "answered":
-        print(result.answer, result.citations)
-    else:
-        print(result.insufficient_evidence_reason)
-```
-
-The answer call performs a funded Search internally, so it needs the same
-explicit wallet consent and charge ceiling as a FAST search. Every returned
-claim names exact digest-bound citation spans. Unsupported or
-revoked evidence returns `insufficient_evidence`, never uncited prose. The
-credential-free public client intentionally does not expose answer generation.
-
 ## Public search (Index Search v0.2)
 
 Public fast and deep search over reviewed Contributions works with no account
@@ -276,11 +246,9 @@ synth-ai index search "RLVR verifier design" --allow-wallet --max-charge-cents 5
 synth-ai index searches create "Compare the retrieval designs" --mode deep --allow-wallet --max-charge-cents 25 --idempotency-key YOUR_OTHER_UNIQUE_REQUEST_ID
 ```
 
-`synth-ai index answer` takes the same `--allow-wallet` and
-`--max-charge-cents` options for its underlying Search. Omitting them does not
-grant wallet consent; an already-funded promo policy may still apply. Durable
-Deep CLI commands accept the backend's 300-second execution maximum, while the
-synchronous `answer` route remains bounded to 90 seconds.
+Omitting `--allow-wallet` and `--max-charge-cents` does not grant wallet
+consent; an already-funded promo policy may still apply. Durable Deep CLI
+commands accept the backend's 300-second execution maximum.
 
 HTTP failures expose their stable Index code through `error.failure.code`,
 request and correlation IDs when supplied by the backend, and a retry directive.
@@ -308,7 +276,6 @@ is deliberately absent from `PublicIndexClient` and uses `SynthClient().index`.
 | Call | Route |
 | --- | --- |
 | `search(...)`, `capabilities()` | `POST /search`, `GET /capabilities` |
-| `answer(...)` | `POST /answer` cited fast/deep answer or explicit insufficient evidence |
 | `searches.create / retrieve / result / events / cancel` | durable fast/deep execution lifecycle under `/searches` |
 | `contents.retrieve(...)` | `POST /contents` |
 | `contributions.create / retrieve / prepare_upload / upload / finalize / submit` | contributor workflow |
