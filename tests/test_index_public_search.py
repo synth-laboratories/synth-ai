@@ -200,7 +200,7 @@ def _mount(api: Any, handler: Handler) -> list[httpx.Request]:
 def _access_funding(
     *,
     wallet_enabled: bool = True,
-    consent: str | None = "synth-index-wallet-terms-2026-09-27",
+    consent: str | None = "synth-index-wallet-terms-2026-09-28",
     monthly_cap_cents: int = 2000,
 ) -> dict[str, Any]:
     """``AccessFundingAccount`` as ``GET /api/v1/index/me/access-funding`` returns it."""
@@ -1094,6 +1094,21 @@ def test_wallet_grant_caps_deep_at_docs_ceiling_or_org_cap() -> None:
     assert wallet_search_grant(wide, SearchMode.DEEP).max_charge_cents == 25
     narrow = AccessFundingAccount.model_validate(_access_funding(monthly_cap_cents=15))
     assert wallet_search_grant(narrow, SearchMode.DEEP).max_charge_cents == 15
+
+
+def test_wallet_terms_version_is_the_2026_09_28_terms() -> None:
+    from synth_ai.sdk.index.wallet_search import WALLET_TERMS_VERSION
+
+    assert WALLET_TERMS_VERSION == "synth-index-wallet-terms-2026-09-28"
+
+
+def test_a_2026_09_27_consent_still_grants_wallet_search() -> None:
+    """Orgs that accepted the superseded terms keep them; the SDK does not force re-consent."""
+    earlier = AccessFundingAccount.model_validate(
+        _access_funding(consent="synth-index-wallet-terms-2026-09-27")
+    )
+    grant = wallet_search_grant(earlier, SearchMode.DEEP)
+    assert grant.consent_terms_version == "synth-index-wallet-terms-2026-09-27"
 
 
 # MCP output contract: which result carries `terms` ---------------------------------

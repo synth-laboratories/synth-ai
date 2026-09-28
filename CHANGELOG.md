@@ -17,6 +17,11 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### 0.21.1 candidate
 
+- **Wallet terms 2026-09-28.** `WALLET_TERMS_VERSION` is now
+  `synth-index-wallet-terms-2026-09-28` (an empty DEEP stop at a limit,
+  `infrastructure_stopped`, is charged). The backend still accepts
+  `synth-index-wallet-terms-2026-09-27` and waives that stop for orgs that
+  consented to it; other versions get `422 index_wallet_terms_version_unknown`.
 - **CLI public route.** `synth-ai index search --public` runs the free anonymous
   public Search (`PublicIndexClient`) and prints the result with the backend's
   `terms`; `--keyed` selects the paid keyed route. The CLI never switches routes
