@@ -20,19 +20,23 @@ product UI or to run a paid search during setup.
 > without my explicit authorization for that operation. If the backend URL or
 > authorized key source is missing, report exactly what is missing and stop.
 >
-> Verify that the server starts and advertises `index_search` and
-> `index_search_create` with the key. Without a key it may advertise public
-> browse tools, but it must not advertise search or durable-search lifecycle
-> tools. Tool discovery must not execute a search or incur a charge.
+> Verify that the server starts and advertises `index_search` (the public
+> route, available with or without a key) and, with the key, `index_private_search`
+> and `index_search_create`. Without a key it must not advertise private or
+> durable-search lifecycle tools. Tool discovery must not execute a search or
+> incur a charge.
 >
-> For a later search I explicitly request, first state the aggregate maximum
-> charge and use a fresh idempotency key. Current public- and private-scope FAST
-> searches are both priced at 5 cents. Wallet funding requires
-> `search.billing.allow_wallet=true` and `max_charge_cents` of at least 5; do
-> not infer my wallet consent from a query. DEEP also needs a mode grant and a
-> ceiling of at least 10 cents. If a response is uncertain, retry the same
-> logical request with the **same** idempotency key, not a new charge attempt.
-> Preserve returned Contribution and revision IDs when reporting evidence.
+> Public `index_search` (fast or deep) is priced, rate-limited and governed by the
+> privacy terms the backend publishes in capabilities; the tool returns them under
+> `terms` with every result. Never quote a price you did not read from there.
+> For a private or wallet-funded search I explicitly request, first state the
+> aggregate maximum charge and use a fresh idempotency key. Wallet funding
+> requires `search.billing.allow_wallet=true` and a `max_charge_cents` ceiling
+> at or above `capabilities.private_search.price_cents_per_search`; do not infer
+> my wallet consent from a query. DEEP also needs a mode grant. If a response is
+> uncertain, retry the same logical request with the **same** idempotency key,
+> not a new charge attempt. Preserve returned Contribution and revision IDs when
+> reporting evidence.
 > Do not enable Contribution writes unless I separately ask for them.
 >
 > Report the package version, backend environment name (not a secret), MCP

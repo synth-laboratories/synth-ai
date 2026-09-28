@@ -49,8 +49,10 @@ becoming callable without a scope.
 
 `synth-ai-index-mcp` is the Index-only stdio entrypoint. It requires an explicit
 `SYNTH_BACKEND_URL`, advertises no unrelated Research tools, and defaults to
-read-only. Without `SYNTH_API_KEY` it advertises public browse tools only;
-authenticated search and durable-search lifecycle tools require the key.
+read-only. Without `SYNTH_API_KEY` it advertises public browse tools and the
+free public `index_search` (Index Search v0.2; price, limits and privacy
+terms are read from backend capabilities at call time, never hardcoded);
+`index_private_search` and the durable-search lifecycle tools require the key.
 `SYNTH_INDEX_MCP_WRITE_ENABLED=true` separately enables Contribution draft,
 upload, and submission tools. Tool discovery performs no backend request.
 
