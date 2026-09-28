@@ -71,6 +71,7 @@ from .lifecycle import (
     RevisionView,
     WithdrawalSpec,
 )
+from .public_search import PublicSearchOperations
 from .retry import (
     DEFAULT_INDEX_RETRY_POLICY,
     IndexRetryPolicy,
@@ -162,9 +163,12 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contests.entries.review": ("POST", f"{_K}/entries/{{entry_id}}/review"),
 }
 
-# Anonymous callers may browse published research, but search requires an
-# authenticated funding identity and uses index.search instead.
+# Anonymous callers may browse published research and run the free public
+# search (Index Search v0.2). Private-scope search still uses index.search.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "index.public.search": ("POST", f"{_P}/public/search"),
+    "index.public.searches.get": ("GET", f"{_P}/public/searches/{{search_id}}"),
+    "index.public.searches.cancel": ("POST", f"{_P}/public/searches/{{search_id}}/cancel"),
     "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
     "index.public.capabilities": ("GET", f"{_P}/public/capabilities"),
     "index.public.tags.list": ("GET", f"{_P}/public/tags"),
@@ -1398,8 +1402,14 @@ class _IndexRoot(_Resource):
         )
 
 
-class IndexAPI(_IndexRoot):
-    """Blocking client over ``HttpTransport``."""
+class IndexAPI(_IndexRoot, PublicSearchOperations):
+    """Blocking client over ``HttpTransport``.
+
+    ``search()`` is the authenticated, funded path (private scope, wallet).
+    ``public_search()`` is the free Index Search v0.2 public route, which is
+    anonymous-only: the backend refuses this client's API key with
+    ``PublicSearchAuthenticatedError`` (409). Use ``search()`` (paid) instead.
+    """
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -1518,8 +1528,8 @@ class _PublicIndexRoot(_Resource):
         return self._run(_Call("index.public.capabilities", Capabilities.model_validate))
 
 
-class PublicIndexAPI(_PublicIndexRoot):
-    """Blocking, browse-only API over an injected credential-free transport."""
+class PublicIndexAPI(_PublicIndexRoot, PublicSearchOperations):
+    """Blocking anonymous API: browse plus the free public search (v0.2)."""
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport

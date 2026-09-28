@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.20.2"
+version = "0.21.0"
 description = "Python SDK and CLI for Synth Index, Managed Research, and Research Factory"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"

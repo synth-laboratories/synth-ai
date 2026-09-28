@@ -504,7 +504,8 @@ class ResearchMcpServer:
                     tool
                     for tool in build_index_tools(
                         self._index_client_factory,
-                        include_search=self._default_api_key is not None,
+                        # The public search route (v0.2) is free and needs no key.
+                        include_search=True,
                         # /index/answer is not in the public launch.
                         include_answer=False,
                         include_lifecycle=self._default_api_key is not None,
@@ -2996,7 +2997,7 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
 _INDEX_ENVIRONMENT_HELP = """\
 environment:
   SYNTH_BACKEND_URL              backend base URL (required when Index tools are enabled)
-  SYNTH_API_KEY                  API key; enables authenticated Search and answer tools
+  SYNTH_API_KEY                  API key; enables private/durable Search tools (public search needs none)
   SYNTH_INDEX_MCP_WRITE_ENABLED  true|false; Contribution write tools (needs SYNTH_API_KEY)
 """
 
