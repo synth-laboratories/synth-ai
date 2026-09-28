@@ -882,6 +882,29 @@ def test_mcp_rate_limit_error_carries_retry_seconds() -> None:
     assert "global_day" in payload["message"]
 
 
+def test_mcp_budget_exhausted_error_carries_retry_seconds_and_scope() -> None:
+    tool = _tool(
+        _routes(
+            capabilities=_public_search_block(),
+            search=lambda r: _error(
+                503,
+                "index_public_budget_exhausted",
+                scope="daily_cents",
+                headers={"Retry-After": "3600"},
+            ),
+        )
+    )
+    with pytest.raises(PublicSearchBudgetExhaustedError) as info:
+        tool.handler({"query": "q"})
+    assert info.value.retry_after_s == 3600.0
+    assert info.value.scope is PublicSearchBudgetScope.DAILY_CENTS
+    payload = _mcp_structured_core_error_payload(info.value)
+    assert payload["error"] == "index_public_budget_exhausted"
+    assert payload["retry_after_seconds"] == 3600.0
+    assert payload["http_status"] == 503
+    assert "nothing was charged" in payload["message"]
+
+
 def test_mcp_503_fails_closed_with_message() -> None:
     tool = _tool(
         _routes(
