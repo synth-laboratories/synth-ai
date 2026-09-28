@@ -131,8 +131,9 @@ with PublicIndexClient() as index:
         print(error.scope, error.retry_after_s)
     else:
         print(result.search_id, result.customer_charge_cents, result.monitor_release_id)
-        for item in result.citations:
-            print(item.contribution_id, item.revision_id, item.title, item.citation)
+        print(result.response)  # claims cite contribution ids inline: [<contribution_id>]
+        for item in result.citations:  # first-appearance order; fetch content by id
+            print(item.contribution_id, item.revision_id)
 ```
 
 `result.monitor_release_id` is the Monitor's release decision id. The backend

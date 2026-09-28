@@ -21,9 +21,11 @@ from synth_ai.sdk.index import (
     Capabilities,
     PublicIndexClient,
     PublicSearchBudgetExhaustedError,
+    PublicSearchCancelledError,
     PublicSearchCapability,
     PublicSearchDisabledError,
     PublicSearchError,
+    PublicSearchFailedError,
     PublicSearchHandle,
     PublicSearchMonitorUnavailableError,
     PublicSearchNotFoundError,
@@ -46,39 +48,120 @@ TOKEN = "tok-do-not-log-8c1d9e"
 Handler = Callable[[httpx.Request], httpx.Response]
 
 
+# Fixtures are built from the backend field lists (backend worktree
+# app/api/v1/index/public_search.py and packages/contributions/{search,views}.py):
+# PublicSearchDelivery = SearchResult + mode/usage/search_token/monitor/service_usage;
+# PublicSearchAccepted is the 202 body and the 200 body of a terminal failed/cancelled
+# poll; errors are {"detail": {"code", "scope"}}.
+
+RELEASE = "release-77"
+# Backend INLINE_CITATION only matches UUID contribution ids.
+C1 = "0b6f3c1e-8d2a-4f7b-9c1d-2e3f4a5b6c7d"
+C2 = "7a1e2b3c-4d5e-4f60-8172-839405a6b7c8"
+
+
 def _envelope(mode: str = "fast", **extra: Any) -> dict[str, Any]:
+    """``PublicSearchDelivery`` (usage.inference_cost_usd_micros excluded by the route)."""
+    versions = {
+        "corpus_generation": "corpus-9",
+        "ranker_version": "ranker-3",
+        "parser_version": "parser-2",
+        "taxonomy_version": "tax-1",
+    }
     return {
         "search_id": SEARCH_ID,
-        "search_token": TOKEN,
-        "mode": mode,
+        "request_id": "req-41",
+        "requested_mode": mode,
+        "effective_mode": mode,
         "status": "completed",
-        "response": "Two revisions describe verifier design [c1].",
-        "results": [
-            {
-                "contribution_id": "contrib-1",
-                "revision_id": "rev-1",
-                "title": "Verifier design",
-                "excerpt": "RLVR verifiers reward exact program output.",
-                "citation": "contrib-1@rev-1",
-            }
+        "partial_reason": None,
+        **versions,
+        "execution_versions": dict(versions),
+        "usage": {
+            "mode": mode,
+            "billing_scope": "public",
+            "logical_units": 1,
+            "price_version": f"synth.index.public.{mode}.free.v1",
+            "amount_cents": 0,
+            "receipt_id": "receipt-3",
+            "search_calls": 1,
+            "read_calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "funding_source": "service_free_public",
+            "settlement_outcome": None,
+            "retail_amount_cents": None,
+            "allowance_units_consumed": 0,
+            "allowance_value_cents": 0,
+            "wallet_debit_cents": 0,
+            "customer_charge_cents": 0,
+        },
+        "response": f"Verifiers reward exact program output [{C1}]; see also [{C2}].",
+        "citations": [
+            {"contribution_id": C1, "revision_id": "rev-1"},
+            {"contribution_id": C2, "revision_id": "rev-7"},
         ],
-        "monitor": {"release_id": "release-77"},
-        "usage": {"customer_charge_cents": 0},
+        "mode": mode,
+        "search_token": TOKEN,
+        "search_token_expires_at": "2026-09-28T13:00:00+00:00",
+        "monitor": {"release_id": None, "release_header": "X-Index-Monitor-Release"},
+        "service_usage": {"customer_charge_cents": 0, "internal_cost_recorded": True},
+        **extra,
+    }
+
+
+def _delivered(mode: str = "fast", **extra: Any) -> httpx.Response:
+    """200 delivery exactly as the route sends it: release id in the header only."""
+    return httpx.Response(
+        200,
+        json=_envelope(mode, **extra),
+        headers={"X-Index-Monitor-Release": RELEASE, "X-Index-Monitor-Delivery": "released"},
+    )
+
+
+def _accepted(state: str = "queued", **extra: Any) -> dict[str, Any]:
+    """``PublicSearchAccepted`` (DEEP start, running poll, terminal failed/cancelled poll)."""
+    return {
+        "search_id": SEARCH_ID,
+        "mode": "deep",
+        "state": state,
+        "status": state,
+        "poll_url": f"/api/v1/index/public/searches/{SEARCH_ID}",
+        "cancellation_requested": False,
+        "result_available": False,
+        "failure": None,
+        "search_token": None,
+        "search_token_expires_at": None,
         **extra,
     }
 
 
 def _public_search_block(**overrides: Any) -> dict[str, Any]:
+    """``PublicSearchCapability`` exactly as ``public_search_capability()`` emits it."""
     block: dict[str, Any] = {
         "enabled": True,
         "modes": ["fast", "deep"],
         "limits": {
-            "fast": {"peer_minute": 10, "peer_day": 200, "global_minute": 600, "global_day": 20000},
-            "deep": {"peer_minute": 2, "peer_day": 20, "global_minute": 60, "global_day": 1000},
+            "fast": {
+                "peer_per_minute": 10,
+                "peer_per_day": 200,
+                "global_per_minute": 600,
+                "global_per_day": 20000,
+            },
+            "deep": {
+                "peer_per_minute": 2,
+                "peer_per_day": 20,
+                "global_per_minute": 60,
+                "global_per_day": 1000,
+            },
         },
+        "daily_budget_cents": 5000,
+        "deep_concurrency_max": 4,
         "price_cents": {"fast": 0, "deep": 0},
         "retention": {"public_query_days": 30, "private_processing_minutes": 60},
         "privacy_copy": "Public queries may be reviewed to improve the Index.",
+        "token_ttl_seconds": 3600,
+        "max_body_bytes": 16384,
     }
     block.update(overrides)
     return block
@@ -125,9 +208,8 @@ def _mount(api: Any, handler: Handler) -> list[httpx.Request]:
 
 def _error(status: int, code: str, **extra: Any) -> httpx.Response:
     headers = extra.pop("headers", {})
-    return httpx.Response(
-        status, json={"code": code, "detail": f"{code} detail", **extra}, headers=headers
-    )
+    # Backend public_search_http_error: HTTPException(detail={"code", "scope"?}).
+    return httpx.Response(status, json={"detail": {"code": code, **extra}}, headers=headers)
 
 
 @pytest.fixture
@@ -155,7 +237,7 @@ def no_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 
 
 def test_anonymous_fast_search_sends_no_authorization(anonymous: PublicIndexClient) -> None:
-    seen = _mount(anonymous, lambda request: httpx.Response(200, json=_envelope()))
+    seen = _mount(anonymous, lambda request: _delivered())
     result = anonymous.public_search("RLVR verifier design", max_results=3)
 
     assert isinstance(result, PublicSearchResult)
@@ -163,15 +245,23 @@ def test_anonymous_fast_search_sends_no_authorization(anonymous: PublicIndexClie
     assert request.method == "POST"
     assert request.url.path == "/api/v1/index/public/search"
     assert "authorization" not in request.headers
-    assert httpx.Request("POST", BASE, json={"mode": "fast", "query": "RLVR verifier design", "max_results": 3}).content == request.content
+    assert (
+        httpx.Request(
+            "POST", BASE, json={"mode": "fast", "query": "RLVR verifier design", "max_results": 3}
+        ).content
+        == request.content
+    )
     assert result.search_id == SEARCH_ID
     assert result.customer_charge_cents == 0
     assert result.monitor_release_id == "release-77"
     assert result.mode is SearchMode.FAST
     assert [(c.contribution_id, c.revision_id, c.citation) for c in result.citations] == [
-        ("contrib-1", "rev-1", "contrib-1@rev-1")
+        (C1, "rev-1", f"{C1}@rev-1"),
+        (C2, "rev-7", f"{C2}@rev-7"),
     ]
-    assert result.results[0].title == "Verifier design"
+    assert result.results == result.citations
+    assert result.response.startswith(f"Verifiers reward exact program output [{C1}]")
+    assert result.status == "completed" and result.partial_reason is None
     assert "search_token" not in result.raw
     assert TOKEN not in repr(result)
 
@@ -185,7 +275,10 @@ def test_fast_release_id_comes_from_monitor_header_first(anonymous: PublicIndexC
         lambda request: httpx.Response(
             200,
             json=body,
-            headers={"X-Index-Monitor-Release": "release-hdr-1", "X-Index-Monitor-Delivery": "released"},
+            headers={
+                "X-Index-Monitor-Release": "release-hdr-1",
+                "X-Index-Monitor-Delivery": "released",
+            },
         ),
     )
     result = anonymous.public_search("q")
@@ -193,7 +286,13 @@ def test_fast_release_id_comes_from_monitor_header_first(anonymous: PublicIndexC
     assert result.monitor_release_id == "release-hdr-1"
 
     # Header wins over a populated body field; the body is the fallback only.
-    _mount(anonymous, lambda request: httpx.Response(200, json=_envelope(), headers={"X-Index-Monitor-Release": "release-hdr-2"}))
+    body_release = _envelope(monitor={"release_id": "release-body"})
+    _mount(
+        anonymous,
+        lambda request: httpx.Response(
+            200, json=body_release, headers={"X-Index-Monitor-Release": "release-hdr-2"}
+        ),
+    )
     prefer = anonymous.public_search("q")
     assert isinstance(prefer, PublicSearchResult)
     assert prefer.monitor_release_id == "release-hdr-2"
@@ -204,14 +303,18 @@ def test_fast_release_id_comes_from_monitor_header_first(anonymous: PublicIndexC
     assert absent.monitor_release_id is None
 
 
-def test_deep_completion_reads_monitor_header(anonymous: PublicIndexClient, no_sleep: list[float]) -> None:
+def test_deep_completion_reads_monitor_header(
+    anonymous: PublicIndexClient, no_sleep: list[float]
+) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
-            return httpx.Response(202, json={"search_id": SEARCH_ID, "search_token": TOKEN}, headers={"Retry-After": "1"})
+            return httpx.Response(
+                202, json=_accepted(search_token=TOKEN), headers={"Retry-After": "1"}
+            )
         assert request.headers.get("X-Search-Token") == TOKEN
         return httpx.Response(
             200,
-            json=_envelope("deep", status="completed", monitor={"release_id": None}),
+            json=_envelope("deep"),
             headers={"X-Index-Monitor-Release": "release-hdr-deep"},
         )
 
@@ -225,7 +328,7 @@ def test_deep_completion_reads_monitor_header(anonymous: PublicIndexClient, no_s
 
 
 def test_keyed_fast_search_uses_public_route_with_bearer(keyed: SynthClient) -> None:
-    seen = _mount(keyed.index, lambda request: httpx.Response(200, json=_envelope()))
+    seen = _mount(keyed.index, lambda request: _delivered())
     result = keyed.index.public_search("RLVR verifier design", idempotency_key="key-1")
 
     (request,) = seen
@@ -246,7 +349,9 @@ def test_fast_result_requires_customer_charge(anonymous: PublicIndexClient) -> N
 # SDK: Deep -----------------------------------------------------------------------
 
 
-def _deep_backend(*, poll_states: tuple[str, ...] = ("queued", "running")) -> tuple[Handler, list[str]]:
+def _deep_backend(
+    *, poll_states: tuple[str, ...] = ("queued", "running")
+) -> tuple[Handler, list[str]]:
     polls: list[str] = []
     pending = list(poll_states)
 
@@ -254,11 +359,9 @@ def _deep_backend(*, poll_states: tuple[str, ...] = ("queued", "running")) -> tu
         if request.method == "POST" and request.url.path == "/api/v1/index/public/search":
             return httpx.Response(
                 202,
-                json={
-                    "search_id": SEARCH_ID,
-                    "search_token": TOKEN,
-                    "poll_url": f"/api/v1/index/public/searches/{SEARCH_ID}",
-                },
+                json=_accepted(
+                    search_token=TOKEN, search_token_expires_at="2026-09-28T13:00:00+00:00"
+                ),
                 headers={"Retry-After": "2"},
             )
         assert request.method == "GET"
@@ -267,15 +370,23 @@ def _deep_backend(*, poll_states: tuple[str, ...] = ("queued", "running")) -> tu
             return _error(404, "index_search_not_found")
         polls.append(request.headers["X-Search-Token"])
         if pending:
-            return httpx.Response(
-                202, json={"search_id": SEARCH_ID, "state": pending.pop(0)}, headers={"Retry-After": "0.5"}
-            )
-        return httpx.Response(200, json=_envelope("deep"))
+            state = pending.pop(0)
+            if state in {"failed", "cancelled"}:
+                # Terminal non-delivery: HTTP 200 with the lifecycle body, not a result.
+                failure = {"code": "index_deadline_exceeded", "retryable": True}
+                return httpx.Response(
+                    200,
+                    json=_accepted(state, failure=failure if state == "failed" else None),
+                )
+            return httpx.Response(202, json=_accepted(state), headers={"Retry-After": "0.5"})
+        return _delivered("deep")
 
     return handler, polls
 
 
-def test_deep_polls_with_token_at_backend_cadence(anonymous: PublicIndexClient, no_sleep: list[float]) -> None:
+def test_deep_polls_with_token_at_backend_cadence(
+    anonymous: PublicIndexClient, no_sleep: list[float]
+) -> None:
     handler, polls = _deep_backend()
     _mount(anonymous, handler)
     result = anonymous.public_search("compare retrieval designs", mode="deep", timeout_s=30)
@@ -288,7 +399,9 @@ def test_deep_polls_with_token_at_backend_cadence(anonymous: PublicIndexClient, 
     assert no_sleep == [2.0, 0.5, 0.5]
 
 
-def test_deep_handle_never_exposes_token(anonymous: PublicIndexClient, no_sleep: list[float]) -> None:
+def test_deep_handle_never_exposes_token(
+    anonymous: PublicIndexClient, no_sleep: list[float]
+) -> None:
     handler, _polls = _deep_backend(poll_states=("queued", "running"))
     _mount(anonymous, handler)
     handle = anonymous.public_search("q", mode="deep", wait=False)
@@ -309,7 +422,9 @@ def test_deep_handle_never_exposes_token(anonymous: PublicIndexClient, no_sleep:
     assert handle.replay() is handle.result
 
 
-def test_deep_wait_timeout_keeps_handle(anonymous: PublicIndexClient, no_sleep: list[float], monkeypatch: pytest.MonkeyPatch) -> None:
+def test_deep_wait_timeout_keeps_handle(
+    anonymous: PublicIndexClient, no_sleep: list[float], monkeypatch: pytest.MonkeyPatch
+) -> None:
     clock = iter([0.0, 0.0, 0.0, 10.0, 10.0, 10.0])
     monkeypatch.setattr(public_search_module.time, "monotonic", lambda: next(clock))
     handler, _polls = _deep_backend(poll_states=("queued", "running", "running", "running"))
@@ -319,6 +434,52 @@ def test_deep_wait_timeout_keeps_handle(anonymous: PublicIndexClient, no_sleep: 
     assert info.value.search_id == SEARCH_ID
     assert isinstance(info.value.handle, PublicSearchHandle)
     assert TOKEN not in str(info.value)
+
+
+def test_deep_terminal_failed_poll_raises_typed_failure(
+    anonymous: PublicIndexClient, no_sleep: list[float]
+) -> None:
+    handler, polls = _deep_backend(poll_states=("running", "failed"))
+    _mount(anonymous, handler)
+    with pytest.raises(PublicSearchFailedError) as info:
+        anonymous.public_search("q", mode="deep", timeout_s=30)
+    assert type(info.value) is PublicSearchFailedError
+    assert info.value.state == "failed"
+    assert info.value.failure_code == "index_deadline_exceeded"
+    assert info.value.failure_retryable is True
+    assert "missing" not in str(info.value)
+    assert len(polls) == 2
+
+
+def test_deep_terminal_cancelled_poll_raises_cancelled(anonymous: PublicIndexClient) -> None:
+    handler, _polls = _deep_backend(poll_states=("cancelled",))
+    _mount(anonymous, handler)
+    handle = anonymous.public_search_handle(SEARCH_ID, TOKEN)
+    with pytest.raises(PublicSearchCancelledError) as info:
+        handle.poll()
+    assert isinstance(info.value, PublicSearchFailedError)
+    assert info.value.state == "cancelled"
+    assert handle.result is None
+
+
+def test_deep_start_already_failed_raises(anonymous: PublicIndexClient) -> None:
+    # A DEEP create that is already terminal answers 200 with the lifecycle body.
+    body = _accepted(
+        "failed", failure={"code": "index_search_failed", "retryable": False}, search_token=TOKEN
+    )
+    _mount(anonymous, lambda request: httpx.Response(200, json=body))
+    with pytest.raises(PublicSearchFailedError) as info:
+        anonymous.public_search("q", mode="deep")
+    assert info.value.failure_code == "index_search_failed"
+
+
+def test_partial_delivery_keeps_reason(anonymous: PublicIndexClient) -> None:
+    _mount(
+        anonymous, lambda request: _delivered(status="partial", partial_reason="deadline_exceeded")
+    )
+    result = anonymous.public_search("q")
+    assert isinstance(result, PublicSearchResult)
+    assert result.status == "partial" and result.partial_reason == "deadline_exceeded"
 
 
 def test_wrong_token_is_not_found(anonymous: PublicIndexClient) -> None:
@@ -334,7 +495,9 @@ def test_wrong_token_is_not_found(anonymous: PublicIndexClient) -> None:
 def test_handle_cancel_sends_token(anonymous: PublicIndexClient) -> None:
     seen = _mount(
         anonymous,
-        lambda request: httpx.Response(200, json={"search_id": SEARCH_ID, "state": "cancelled"}),
+        lambda request: httpx.Response(
+            200, json=_accepted("cancelled", cancellation_requested=True)
+        ),
     )
     status = anonymous.public_search_handle(SEARCH_ID, TOKEN).cancel()
     (request,) = seen
@@ -419,17 +582,32 @@ def test_private_search_path_is_unchanged(keyed: SynthClient) -> None:
 
 
 def test_capabilities_public_search_block_is_typed(anonymous: PublicIndexClient) -> None:
-    _mount(anonymous, lambda request: httpx.Response(200, json=_capabilities(_public_search_block())))
+    _mount(
+        anonymous, lambda request: httpx.Response(200, json=_capabilities(_public_search_block()))
+    )
     capability = anonymous.public_search_capability()
     assert isinstance(capability, PublicSearchCapability)
     assert capability.enabled is True
     assert capability.modes == (SearchMode.FAST, SearchMode.DEEP)
-    assert capability.limits[SearchMode.FAST].peer_minute == 10
-    assert capability.limits[SearchMode.DEEP].global_day == 1000
+    assert capability.limits[SearchMode.FAST].peer_per_minute == 10
+    assert capability.limits[SearchMode.DEEP].global_per_day == 1000
+    assert capability.daily_budget_cents == 5000
+    assert capability.deep_concurrency_max == 4
+    assert capability.token_ttl_seconds == 3600
+    assert capability.max_body_bytes == 16384
     assert capability.price_cents == {SearchMode.FAST: 0, SearchMode.DEEP: 0}
     assert capability.retention is not None
     assert capability.retention.public_query_days == 30
     assert capability.retention.private_processing_minutes == 60
+
+
+def test_capability_block_ignores_unknown_future_fields() -> None:
+    block = _public_search_block(new_term="x")
+    block["limits"]["fast"]["peer_per_hour"] = 99
+    block["retention"]["audit_days"] = 7
+    capabilities = Capabilities.model_validate(_capabilities(block))
+    assert capabilities.public_search is not None
+    assert capabilities.public_search.limits[SearchMode.FAST].peer_per_day == 200
 
 
 def test_capabilities_without_block_parse_on_older_backend() -> None:
@@ -439,7 +617,9 @@ def test_capabilities_without_block_parse_on_older_backend() -> None:
 
 
 def test_copy_strings_come_from_capabilities(anonymous: PublicIndexClient) -> None:
-    _mount(anonymous, lambda request: httpx.Response(200, json=_capabilities(_public_search_block())))
+    _mount(
+        anonymous, lambda request: httpx.Response(200, json=_capabilities(_public_search_block()))
+    )
     copy = anonymous.public_search_terms()
     assert copy.available is True
     assert copy.price == "Fast search is free. Deep search is free."
@@ -516,7 +696,7 @@ def test_mcp_index_search_is_anonymous_and_returns_terms() -> None:
 
     def search(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(200, json=_envelope())
+        return _delivered()
 
     tool = _tool(_routes(capabilities=_public_search_block(), search=search))
     out = tool.handler({"query": "RLVR verifier design", "mode": "fast"})
@@ -525,7 +705,11 @@ def test_mcp_index_search_is_anonymous_and_returns_terms() -> None:
     assert out["search_id"] == SEARCH_ID
     assert out["customer_charge_cents"] == 0
     assert out["monitor_release_id"] == "release-77"
-    assert out["results"][0]["revision_id"] == "rev-1"
+    assert out["citations"] == [
+        {"contribution_id": C1, "revision_id": "rev-1"},
+        {"contribution_id": C2, "revision_id": "rev-7"},
+    ]
+    assert out["response"].startswith("Verifiers reward")
     assert out["terms"]["price"] == "Fast search is free. Deep search is free."
     assert "search_token" not in str(out)
     assert TOKEN not in str(out)
@@ -599,8 +783,18 @@ def test_mcp_refuses_when_backend_flag_is_off() -> None:
 
 
 def test_mcp_private_search_is_authenticated_only() -> None:
-    names = {tool.name for tool in build_index_tools(lambda: _factory_client(lambda r: httpx.Response(500)), include_lifecycle=False)}
+    names = {
+        tool.name
+        for tool in build_index_tools(
+            lambda: _factory_client(lambda r: httpx.Response(500)), include_lifecycle=False
+        )
+    }
     assert "index_search" in names
     assert "index_private_search" not in names
-    names = {tool.name for tool in build_index_tools(lambda: _factory_client(lambda r: httpx.Response(500)), include_lifecycle=True)}
+    names = {
+        tool.name
+        for tool in build_index_tools(
+            lambda: _factory_client(lambda r: httpx.Response(500)), include_lifecycle=True
+        )
+    }
     assert "index_private_search" in names

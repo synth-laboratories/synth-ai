@@ -157,8 +157,9 @@ _PUBLIC_SEARCH_DESCRIPTION = (
     "to completion). Price, rate limits, retention and privacy terms are published by the "
     "backend's capabilities and returned under `terms` with every result; this tool never "
     "assumes a price. A rate-limit error carries retry_after_seconds and the limit scope; "
-    "a 503 means the search failed closed and nothing was charged. Results cite exact "
-    "revisions (contribution_id, revision_id); preserve them verbatim."
+    "a 503 means the search failed closed and nothing was charged. `response` cites "
+    "contribution ids inline as [<contribution_id>]; `citations` lists the exact revisions "
+    "(contribution_id, revision_id) in first-appearance order; preserve them verbatim."
 )
 
 
@@ -176,15 +177,10 @@ def _public_search_payload(result: PublicSearchResult) -> JSONDict:
         "mode": result.mode.value,
         "status": result.status,
         "response": result.response,
-        "results": [
-            {
-                "contribution_id": item.contribution_id,
-                "revision_id": item.revision_id,
-                "title": item.title,
-                "excerpt": item.excerpt,
-                "citation": item.citation,
-            }
-            for item in result.results
+        "partial_reason": result.partial_reason,
+        "citations": [
+            {"contribution_id": item.contribution_id, "revision_id": item.revision_id}
+            for item in result.citations
         ],
         "customer_charge_cents": result.customer_charge_cents,
         "monitor_release_id": result.monitor_release_id,

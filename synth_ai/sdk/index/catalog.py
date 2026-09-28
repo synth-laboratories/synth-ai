@@ -9,7 +9,7 @@ program, not an entitlement from uploading or publishing a Contribution.
 import datetime as dt
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, Field, StrictBool, StrictInt, StringConstraints
+from pydantic import AwareDatetime, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
 from .contracts import (
     ContributionKind,
@@ -44,34 +44,53 @@ class SearchLimits(IndexContract):
     contents_max_bytes: StrictInt
 
 
-class PublicSearchModeLimits(IndexContract):
-    """Backend-published admission ceilings for one public search mode (v0.2)."""
+class _ForwardCompatible(IndexContract):
+    """A backend-published block that may grow fields: unknown keys are ignored."""
 
-    peer_minute: Count
-    peer_day: Count
-    global_minute: Count
-    global_day: Count
+    model_config = ConfigDict(extra="ignore", frozen=True, str_strip_whitespace=True)
 
 
-class PublicSearchRetention(IndexContract):
+class PublicSearchRateLimits(_ForwardCompatible):
+    """Fixed-window start limits of one public mode (starts, not tokens).
+
+    Mirrors backend ``packages/contributions/views.py`` ``PublicSearchRateLimits``.
+    """
+
+    peer_per_minute: Count
+    peer_per_day: Count
+    global_per_minute: Count
+    global_per_day: Count
+
+
+#: Earlier name of :class:`PublicSearchRateLimits`.
+PublicSearchModeLimits = PublicSearchRateLimits
+
+
+class PublicSearchRetention(_ForwardCompatible):
     public_query_days: Count
     private_processing_minutes: Count
 
 
-class PublicSearchCapability(IndexContract):
+class PublicSearchCapability(_ForwardCompatible):
     """Public (credential-optional) search terms served by ``GET /index/capabilities``.
 
-    The backend owns the price, limits, retention and privacy wording. Clients
-    render these values and never hardcode them. See the Index Search v0.2 public
-    contract: ``POST /api/v1/index/public/search``.
+    Mirrors backend ``PublicSearchCapability``. The backend owns the price,
+    limits, retention and privacy wording; clients render these values and never
+    hardcode them. Unknown fields are ignored so a backend that adds a term does
+    not break older SDKs. See the Index Search v0.2 public contract:
+    ``POST /api/v1/index/public/search``.
     """
 
     enabled: bool
-    modes: tuple[SearchMode, ...] = ()
-    limits: dict[SearchMode, PublicSearchModeLimits] = Field(default_factory=dict)
-    price_cents: dict[SearchMode, Count] = Field(default_factory=dict)
-    retention: PublicSearchRetention | None = None
-    privacy_copy: str = ""
+    modes: tuple[SearchMode, ...]
+    limits: dict[SearchMode, PublicSearchRateLimits]
+    daily_budget_cents: Count
+    deep_concurrency_max: Count
+    price_cents: dict[SearchMode, Count]
+    retention: PublicSearchRetention
+    privacy_copy: Annotated[str, StringConstraints(min_length=1, max_length=512)]
+    token_ttl_seconds: Count
+    max_body_bytes: Count
 
 
 class Capabilities(IndexContract):

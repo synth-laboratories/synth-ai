@@ -56,14 +56,21 @@ _SEARCH_CANCEL_PATH = f"{_P}/searches/{{search_id}}/cancel"
 
 @dataclass(frozen=True, slots=True)
 class PublicSearchCitation:
-    """One delivered result: an exact revision plus the backend-rendered citation."""
+    """One cited Contribution revision (backend ``ContributionReference``).
+
+    The delivery carries no titles or excerpts: ``response`` cites the
+    ``contribution_id`` inline as ``[<contribution_id>]`` and callers fetch the
+    revision by id when they need its content.
+    """
 
     contribution_id: str
     revision_id: str
-    title: str
-    excerpt: str
-    citation: str | Mapping[str, Any] | None
     raw: Mapping[str, Any]
+
+    @property
+    def citation(self) -> str:
+        """Exact revision label, ``<contribution_id>@<revision_id>``."""
+        return f"{self.contribution_id}@{self.revision_id}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,15 +80,18 @@ class PublicSearchResult:
     search_id: str
     mode: SearchMode
     status: str
-    results: tuple[PublicSearchCitation, ...]
+    #: Backend ``citations`` in first-appearance order (``results`` is an alias).
+    citations: tuple[PublicSearchCitation, ...]
     customer_charge_cents: int
     monitor_release_id: str | None
-    response: str | None
+    #: Text whose claims cite contribution ids inline (``[<contribution_id>]``).
+    response: str
+    partial_reason: str | None
     raw: Mapping[str, Any]
 
     @property
-    def citations(self) -> tuple[PublicSearchCitation, ...]:
-        return self.results
+    def results(self) -> tuple[PublicSearchCitation, ...]:
+        return self.citations
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,12 +174,29 @@ class PublicSearchNotReadyError(PublicSearchError):
 
 
 class PublicSearchFailedError(PublicSearchError):
-    """The backend recorded a terminal non-delivery state for the search."""
+    """The backend recorded a terminal non-delivery state (failed or cancelled).
 
-    def __init__(self, search_id: str, state: str) -> None:
-        super().__init__(f"Public search {search_id} ended in state {state!r}")
+    ``failure_code``/``failure_retryable`` mirror the backend ``SearchFailure`` when present.
+    """
+
+    def __init__(
+        self,
+        search_id: str,
+        state: str,
+        *,
+        failure_code: str | None = None,
+        retryable: bool | None = None,
+    ) -> None:
+        cause = "" if failure_code is None else f" ({failure_code})"
+        super().__init__(f"Public search {search_id} ended in state {state!r}{cause}")
         self.search_id = search_id
         self.state = state
+        self.failure_code = failure_code
+        self.failure_retryable = retryable
+
+
+class PublicSearchCancelledError(PublicSearchFailedError):
+    """The search was cancelled before a result was delivered."""
 
 
 class PublicSearchWaitTimeoutError(PublicSearchError):
@@ -265,14 +292,10 @@ def _require_str(source: Mapping[str, Any], key: str, context: str) -> str:
 
 def _parse_item(payload: object) -> PublicSearchCitation:
     if not isinstance(payload, Mapping):
-        raise PublicSearchError("public search result item was not an object")
-    citation = payload.get("citation")
+        raise PublicSearchError("public search citation was not an object")
     return PublicSearchCitation(
-        contribution_id=_require_str(payload, "contribution_id", "public search result"),
-        revision_id=_require_str(payload, "revision_id", "public search result"),
-        title=str(payload.get("title") or ""),
-        excerpt=str(payload.get("excerpt") or ""),
-        citation=citation if isinstance(citation, str | Mapping) else None,
+        contribution_id=_require_str(payload, "contribution_id", "public search citation"),
+        revision_id=_require_str(payload, "revision_id", "public search citation"),
         raw=dict(payload),
     )
 
@@ -299,20 +322,66 @@ def _parse_result(
     charge = usage.get("customer_charge_cents")
     if isinstance(charge, bool) or not isinstance(charge, int):
         raise PublicSearchError("public search response: missing usage.customer_charge_cents")
-    items = payload.get("results") or ()
+    items = payload.get("citations")
     if not isinstance(items, list | tuple):
-        raise PublicSearchError("public search response: results was not a list")
-    response = payload.get("response")
+        raise PublicSearchError("public search response: missing citations list")
+    partial_reason = payload.get("partial_reason")
     effective = payload.get("mode")
     return PublicSearchResult(
         search_id=_require_str(payload, "search_id", "public search response"),
         mode=SearchMode(effective) if isinstance(effective, str) else mode,
-        status=str(payload.get("status") or "completed"),
-        results=tuple(_parse_item(item) for item in items),
+        status=_require_str(payload, "status", "public search response"),
+        citations=tuple(_parse_item(item) for item in items),
         customer_charge_cents=charge,
         monitor_release_id=_release_id(headers, payload),
-        response=response if isinstance(response, str) else None,
+        response=_require_str(payload, "response", "public search response"),
+        partial_reason=partial_reason if isinstance(partial_reason, str) else None,
         raw={key: value for key, value in payload.items() if key != "search_token"},
+    )
+
+
+def _is_delivery(payload: object) -> bool:
+    """A 200 is a result only with the delivery envelope, never a lifecycle body.
+
+    Backend ``_status_body`` answers a terminal Deep ``failed``/``cancelled`` with
+    HTTP 200 and ``PublicSearchAccepted`` (``state``, ``result_available``).
+    """
+    return (
+        isinstance(payload, Mapping)
+        and "state" not in payload
+        and "result_available" not in payload
+        and ("usage" in payload or "citations" in payload or "response" in payload)
+    )
+
+
+def _lifecycle_state(payload: object) -> str:
+    if isinstance(payload, Mapping):
+        for key in ("state", "status"):
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return "pending"
+
+
+def _raise_if_terminal(search_id: str, payload: object) -> str:
+    """Return the lifecycle state, raising the typed error for a terminal non-delivery."""
+    state = _lifecycle_state(payload)
+    lowered = state.lower()
+    if lowered not in _TERMINAL_NON_DELIVERY:
+        return state
+    failure = payload.get("failure") if isinstance(payload, Mapping) else None
+    code = failure.get("code") if isinstance(failure, Mapping) else None
+    retryable = failure.get("retryable") if isinstance(failure, Mapping) else None
+    kind = (
+        PublicSearchCancelledError
+        if lowered in {"cancelled", "canceled"}
+        else PublicSearchFailedError
+    )
+    raise kind(
+        search_id,
+        state,
+        failure_code=code if isinstance(code, str) else None,
+        retryable=retryable if isinstance(retryable, bool) else None,
     )
 
 
@@ -406,12 +475,15 @@ class PublicSearchClient:
             json_body=body,
             timeout_s=timeout_s,
         )
-        if status == 202:
+        if status == 202 or not _is_delivery(payload):
+            # Deep admission: 202, or 200 when the search was already terminal.
             if not isinstance(payload, Mapping):
-                raise PublicSearchError("public search 202 body was not an object")
+                raise PublicSearchError("public search admission body was not an object")
+            search_id = _require_str(payload, "search_id", "public search admission")
+            _raise_if_terminal(search_id, payload)
             return PublicSearchHandle(
                 self,
-                search_id=_require_str(payload, "search_id", "public search admission"),
+                search_id=search_id,
                 token=_require_str(payload, "search_token", "public search admission"),
                 mode=mode,
                 poll_after_s=_poll_after_seconds(headers, payload),
@@ -511,18 +583,10 @@ class PublicSearchHandle:
         status, headers, payload = self._client._read(
             self.search_id, self._token, timeout_s=timeout_s
         )
-        if status == 200:
+        if status == 200 and _is_delivery(payload):
             self._result = _parse_result(payload, self.mode, headers)
             return self._result
-        state = "pending"
-        if isinstance(payload, Mapping):
-            for key in ("state", "status"):
-                value = payload.get(key)
-                if isinstance(value, str) and value:
-                    state = value
-                    break
-        if state.lower() in _TERMINAL_NON_DELIVERY:
-            raise PublicSearchFailedError(self.search_id, state)
+        state = _raise_if_terminal(self.search_id, payload)
         self.poll_after_s = _poll_after_seconds(headers, payload)
         return PublicSearchStatus(
             search_id=self.search_id, state=state, poll_after_s=self.poll_after_s
@@ -630,18 +694,17 @@ def public_search_copy(capability: PublicSearchCapability | None) -> PublicSearc
         limits = capability.limits.get(mode)
         if limits is not None:
             limit_parts.append(
-                f"{name}: {limits.peer_minute} per minute and {limits.peer_day} per day per "
-                f"caller; {limits.global_minute} per minute and {limits.global_day} per day "
+                f"{name}: {limits.peer_per_minute} per minute and {limits.peer_per_day} per day "
+                f"per caller; {limits.global_per_minute} per minute and "
+                f"{limits.global_per_day} per day "
                 "platform-wide."
             )
-    privacy = capability.privacy_copy.strip()
-    if capability.retention is not None:
-        retention = (
-            f"Public queries are retained for {capability.retention.public_query_days} days; "
-            f"private processing data for {capability.retention.private_processing_minutes} "
-            "minutes."
-        )
-        privacy = f"{privacy} {retention}".strip()
+    retention = (
+        f"Public queries are retained for {capability.retention.public_query_days} days; "
+        f"private processing data for {capability.retention.private_processing_minutes} "
+        "minutes."
+    )
+    privacy = f"{capability.privacy_copy.strip()} {retention}".strip()
     return PublicSearchCopy(
         available=True,
         price=" ".join(price_parts),

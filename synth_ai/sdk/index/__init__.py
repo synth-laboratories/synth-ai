@@ -27,6 +27,7 @@ from .catalog import (
     PromoCreditSummary,
     PublicSearchCapability,
     PublicSearchModeLimits,
+    PublicSearchRateLimits,
     PublicSearchRetention,
     RewardAward,
     TagRegistry,
@@ -56,6 +57,7 @@ from .package import ContributionPackage
 from .public import AsyncPublicIndexClient, PublicIndexClient
 from .public_search import (
     PublicSearchBudgetExhaustedError,
+    PublicSearchCancelledError,
     PublicSearchCitation,
     PublicSearchCopy,
     PublicSearchDisabledError,
@@ -117,9 +119,11 @@ __all__ = [
     "PublicSearchCopy",
     "PublicSearchDisabledError",
     "PublicSearchError",
+    "PublicSearchCancelledError",
     "PublicSearchFailedError",
     "PublicSearchHandle",
     "PublicSearchModeLimits",
+    "PublicSearchRateLimits",
     "PublicSearchMonitorUnavailableError",
     "PublicSearchNotFoundError",
     "PublicSearchNotReadyError",
