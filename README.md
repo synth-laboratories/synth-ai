@@ -176,7 +176,7 @@ synth-ai research --help
 ## Synth Index (alpha v0.1)
 
 Synth Index alpha v0.1 offers authenticated, paid FAST and DEEP Search over
-a starting set of reviewed, published research. DEEP is in beta. Install `synth-ai>=0.20.2`:
+reviewed, published research. DEEP is in beta. Install `synth-ai>=0.20.2`:
 
 ```bash
 uv add "synth-ai>=0.20.2"
@@ -191,7 +191,7 @@ uv add "synth-ai>=0.20.2"
   Setup is in the [Index SDK guide](synth_ai/sdk/index/README.md#external-agents-over-stdio-mcp).
 - Every Search needs an API key, an authorized organization and funding.
 
-Not in alpha v0.1: a broad corpus, `/index/answer`, downloading the files behind
+Not in alpha v0.1: `/index/answer`, downloading the files behind
 a citation, citations that point to an exact passage, a latency guarantee, and
 free, anonymous or zero-data-retention Search. Contributing research to the
 Index is planned for Index v0.2.

@@ -23,9 +23,9 @@ What 0.20.x provides for the alpha:
   read-only by default. Search tools (`index_search`, `index_search_create`,
   `index_search_get`, `index_search_result`) are advertised only when
   `SYNTH_API_KEY` is set. `index_answer` is not offered.
-- **What you can search:** a starting set of reviewed, published research.
+- **What you can search:** reviewed, published research.
 
-Not part of alpha v0.1: a broad corpus, `/index/answer`, downloading the files
+Not part of alpha v0.1: `/index/answer`, downloading the files
 behind a citation (403 `index_asset_download_unavailable`), citations that point
 to an exact passage, a latency guarantee, and free, anonymous or zero-data-retention
 Search. Contributing research to the Index is also not part of the alpha; it is
