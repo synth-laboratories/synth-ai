@@ -23,13 +23,13 @@ What 0.20.x provides for the alpha:
   read-only by default. Search tools (`index_search`, `index_search_create`,
   `index_search_get`, `index_search_result`) are advertised only when
   `SYNTH_API_KEY` is set. `index_answer` is not offered.
-- **Corpus:** the C1/C2 minimum corpus.
+- **What you can search:** a starting set of reviewed, published research.
 
-Not part of alpha v0.1: a broad corpus, `/index/answer`, Contribution asset
-download (403 `index_asset_download_unavailable`), span-level citations, a
-latency SLA, and free, anonymous or ZDR Search (planned for v0.2). Contribution
-writes stay behind a separate opt-in and grant, and the alpha does not cover
-them.
+Not part of alpha v0.1: a broad corpus, `/index/answer`, downloading the files
+behind a citation (403 `index_asset_download_unavailable`), citations that point
+to an exact passage, a latency guarantee, and free, anonymous or zero-data-retention
+Search. Contributing research to the Index is also not part of the alpha; it is
+planned for Index v0.2.
 
 ## 0.20.2 — 2026-09-27
 
