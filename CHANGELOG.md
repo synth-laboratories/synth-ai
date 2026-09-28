@@ -4,6 +4,10 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### 0.21.1 candidate
+
+- Public search copy describes zero durable query-content retention and bounded encrypted processing, rather than “retained for zero days.” Capability values still control the wording. Budget-exhausted errors also expose `retry_after_s` consistently with rate-limit errors. No paid/private routing changes. Not built or published.
+
 ## 0.21.0 — 2026-09-28 (Index Search v0.2)
 
 ### Added

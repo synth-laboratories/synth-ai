@@ -19,6 +19,7 @@ from synth_ai.mcp.research.server import _mcp_structured_core_error_payload
 from synth_ai.mcp.research.tools import index as mcp_index
 from synth_ai.mcp.research.tools.index import build_index_tools, public_search_tool_description
 from synth_ai.sdk.index import (
+    AccessFundingAccount,
     Capabilities,
     PublicIndexClient,
     PublicSearchAuthenticatedError,
@@ -42,8 +43,8 @@ from synth_ai.sdk.index import (
     SearchMode,
     WalletConsentRequiredError,
     public_search_copy,
+    wallet_search_grant,
 )
-from synth_ai.sdk.index import AccessFundingAccount, wallet_search_grant
 from synth_ai.sdk.index import public_search as public_search_module
 
 BASE = "https://api.example.test"
@@ -644,10 +645,17 @@ def test_budget_exhausted_exposes_typed_scope(
     anonymous: PublicIndexClient, scope: str | None, expected: PublicSearchBudgetScope | None
 ) -> None:
     extra = {} if scope is None else {"scope": scope}
-    _mount(anonymous, lambda request: _error(503, "index_public_budget_exhausted", **extra))
+    _mount(
+        anonymous,
+        lambda request: _error(
+            503, "index_public_budget_exhausted", headers={"Retry-After": "15"}, **extra
+        ),
+    )
     with pytest.raises(PublicSearchBudgetExhaustedError) as info:
         anonymous.public_search("q")
     assert info.value.scope is expected
+    assert info.value.retry_after_s == 15.0
+    assert info.value.retry_after_seconds == 15.0
     assert info.value.status == 503
     assert info.value.code == "index_public_budget_exhausted"
 
@@ -749,7 +757,7 @@ def test_copy_strings_come_from_capabilities(anonymous: PublicIndexClient) -> No
     )
     assert copy.privacy == (
         "Public queries may be reviewed to improve the Index. Public queries are retained "
-        "for 30 days; private processing data for 60 minutes."
+        "for 30 days. Processing state expires after 60 minutes."
     )
     assert copy.as_dict()["price"] == copy.price
 
@@ -762,6 +770,17 @@ def test_copy_reflects_a_changed_price_without_code_changes() -> None:
     disabled = PublicSearchCapability.model_validate(_public_search_block(enabled=False))
     assert public_search_copy(disabled).available is False
     assert "disabled" in public_search_copy(disabled).price
+
+
+def test_zero_day_copy_distinguishes_durable_retention_from_processing() -> None:
+    block = _public_search_block()
+    block["retention"] = {"public_query_days": 0, "private_processing_minutes": 60}
+    block["privacy_copy"] = "Customer content uses zero durable retention."
+    capability = PublicSearchCapability.model_validate(block)
+    copy = public_search_copy(capability)
+    assert "Public query content is not retained in durable storage." in copy.privacy
+    assert "Processing state expires after 60 minutes." in copy.privacy
+    assert "retained for 0 days" not in copy.privacy
 
 
 # MCP tool ------------------------------------------------------------------------------
@@ -861,6 +880,29 @@ def test_mcp_rate_limit_error_carries_retry_seconds() -> None:
     assert payload["retry_after_seconds"] == 90.0
     assert payload["http_status"] == 429
     assert "global_day" in payload["message"]
+
+
+def test_mcp_budget_exhausted_error_carries_retry_seconds_and_scope() -> None:
+    tool = _tool(
+        _routes(
+            capabilities=_public_search_block(),
+            search=lambda r: _error(
+                503,
+                "index_public_budget_exhausted",
+                scope="daily_cents",
+                headers={"Retry-After": "3600"},
+            ),
+        )
+    )
+    with pytest.raises(PublicSearchBudgetExhaustedError) as info:
+        tool.handler({"query": "q"})
+    assert info.value.retry_after_s == 3600.0
+    assert info.value.scope is PublicSearchBudgetScope.DAILY_CENTS
+    payload = _mcp_structured_core_error_payload(info.value)
+    assert payload["error"] == "index_public_budget_exhausted"
+    assert payload["retry_after_seconds"] == 3600.0
+    assert payload["http_status"] == 503
+    assert "nothing was charged" in payload["message"]
 
 
 def test_mcp_503_fails_closed_with_message() -> None:
