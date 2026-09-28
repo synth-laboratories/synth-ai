@@ -40,6 +40,17 @@ class IndexErrorCode(StrEnum):
     # budget (reason ``deep_daily_budget``) is full. Not a charge.
     CAPACITY_EXHAUSTED = "index_capacity_exhausted"
     QUERY_TOO_LONG = "index_query_too_long"
+    # Public (credential-optional) search, Index Search v0.2. 429 with
+    # Retry-After and a ``scope`` of peer_minute|peer_day|global_minute|global_day.
+    PUBLIC_RATE_LIMITED = "index_public_rate_limited"
+    # 503: the platform's public search budget for the window is spent.
+    PUBLIC_BUDGET_EXHAUSTED = "index_public_budget_exhausted"
+    # 503: the admission rate store is unreachable; the route fails closed.
+    RATE_STORE_UNAVAILABLE = "index_rate_store_unavailable"
+    # 503: the monitor that releases public results is unavailable; fail closed.
+    MONITOR_UNAVAILABLE = "monitor_unavailable"
+    # 404: the backend's public search flag is off.
+    PUBLIC_SEARCH_DISABLED = "index_public_search_disabled"
     # 403, never retried: Contribution asset downloads are not available at
     # the public launch (reason ``not_available_at_launch``). Search results
     # and Contribution reads still quote passages from the files.

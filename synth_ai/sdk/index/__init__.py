@@ -25,6 +25,9 @@ from .catalog import (
     PrivatePromoCredit,
     ProfileView,
     PromoCreditSummary,
+    PublicSearchCapability,
+    PublicSearchModeLimits,
+    PublicSearchRetention,
     RewardAward,
     TagRegistry,
 )
@@ -51,6 +54,26 @@ from .lifecycle import (
 )
 from .package import ContributionPackage
 from .public import AsyncPublicIndexClient, PublicIndexClient
+from .public_search import (
+    PublicSearchBudgetExhaustedError,
+    PublicSearchCitation,
+    PublicSearchCopy,
+    PublicSearchDisabledError,
+    PublicSearchError,
+    PublicSearchFailedError,
+    PublicSearchHandle,
+    PublicSearchMonitorUnavailableError,
+    PublicSearchNotFoundError,
+    PublicSearchNotReadyError,
+    PublicSearchRateLimitedError,
+    PublicSearchRateStoreUnavailableError,
+    PublicSearchRequestTooLargeError,
+    PublicSearchResult,
+    PublicSearchStatus,
+    PublicSearchUnavailableError,
+    PublicSearchWaitTimeoutError,
+    public_search_copy,
+)
 from .retry import IndexRetryPolicy, search_id_from_error
 from .search import (
     ContentsResult,
@@ -88,6 +111,27 @@ from .usage_accounting import (
 )
 
 __all__ = [
+    "PublicSearchBudgetExhaustedError",
+    "PublicSearchCapability",
+    "PublicSearchCitation",
+    "PublicSearchCopy",
+    "PublicSearchDisabledError",
+    "PublicSearchError",
+    "PublicSearchFailedError",
+    "PublicSearchHandle",
+    "PublicSearchModeLimits",
+    "PublicSearchMonitorUnavailableError",
+    "PublicSearchNotFoundError",
+    "PublicSearchNotReadyError",
+    "PublicSearchRateLimitedError",
+    "PublicSearchRateStoreUnavailableError",
+    "PublicSearchRequestTooLargeError",
+    "PublicSearchResult",
+    "PublicSearchRetention",
+    "PublicSearchStatus",
+    "PublicSearchUnavailableError",
+    "PublicSearchWaitTimeoutError",
+    "public_search_copy",
     "Assessment",
     "AccessFundingAccount",
     "AccessFundingMode",

@@ -44,6 +44,36 @@ class SearchLimits(IndexContract):
     contents_max_bytes: StrictInt
 
 
+class PublicSearchModeLimits(IndexContract):
+    """Backend-published admission ceilings for one public search mode (v0.2)."""
+
+    peer_minute: Count
+    peer_day: Count
+    global_minute: Count
+    global_day: Count
+
+
+class PublicSearchRetention(IndexContract):
+    public_query_days: Count
+    private_processing_minutes: Count
+
+
+class PublicSearchCapability(IndexContract):
+    """Public (credential-optional) search terms served by ``GET /index/capabilities``.
+
+    The backend owns the price, limits, retention and privacy wording. Clients
+    render these values and never hardcode them. See the Index Search v0.2 public
+    contract: ``POST /api/v1/index/public/search``.
+    """
+
+    enabled: bool
+    modes: tuple[SearchMode, ...] = ()
+    limits: dict[SearchMode, PublicSearchModeLimits] = Field(default_factory=dict)
+    price_cents: dict[SearchMode, Count] = Field(default_factory=dict)
+    retention: PublicSearchRetention | None = None
+    privacy_copy: str = ""
+
+
 class Capabilities(IndexContract):
     api_version: Literal["synth.index.api.v1"] = "synth.index.api.v1"
     contribution_schema_versions: tuple[Identifier, ...]
@@ -60,6 +90,8 @@ class Capabilities(IndexContract):
     limits: SearchLimits
     contest_id: Identifier | None = None
     viewer_capabilities: tuple[Capability, ...] = ()
+    # Absent on backends older than the Index Search v0.2 public contract.
+    public_search: PublicSearchCapability | None = None
 
 
 # Taxonomy and sharing ------------------------------------------------------------
