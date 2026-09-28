@@ -4,7 +4,34 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
-## 0.20.2 — 2026-09-27 (unpublished until owner GO)
+### Synth Index alpha v0.1 (Index v1), no new package version
+
+Synth Index alpha v0.1 runs on the published `synth-ai` 0.20.x line with
+backend v0.22.3. It needs no new SDK release. Install or upgrade with
+`synth-ai>=0.20.2`.
+
+What 0.20.x provides for the alpha:
+
+- **Authenticated, paid FAST and DEEP Search.** `SynthClient().index.search(...)`
+  with `mode="fast"` or `mode="deep"`, or the durable
+  `index.searches.create(...)` / `SearchHandle.wait()` lifecycle for DEEP. Every
+  Search needs `SYNTH_API_KEY`, an authorized organization and funding.
+  `SearchBillingConstraints` states the most the caller agrees to pay.
+- **DEEP is beta.** DEEP create is idempotent and reconnects by Search ID
+  (0.20.1). Each status poll is bounded to 20 s (0.20.2).
+- **MCP server `synth-ai-index-mcp`**, an Index-only stdio entrypoint. It is
+  read-only by default. Search tools (`index_search`, `index_search_create`,
+  `index_search_get`, `index_search_result`) are advertised only when
+  `SYNTH_API_KEY` is set. `index_answer` is not offered.
+- **What you can search:** reviewed, published research.
+
+Not part of alpha v0.1: `/index/answer`, downloading the files
+behind a citation (403 `index_asset_download_unavailable`), citations that point
+to an exact passage, a latency guarantee, and free, anonymous or zero-data-retention
+Search. Contributing research to the Index is also not part of the alpha; it is
+planned for Index v0.2.
+
+## 0.20.2 — 2026-09-27
 
 No breaking changes.
 
@@ -20,7 +47,7 @@ No breaking changes.
   timeout (prod 2026-09-27, P12). `searches.get(...)` and `refresh(...)` accept
   an optional `timeout_seconds`.
 
-## 0.20.1 — 2026-09-27 (Index public launch patch; unpublished until owner GO)
+## 0.20.1 — 2026-09-27 (Index public launch patch)
 
 No breaking changes. Upgrade recommended for every DEEP Search caller.
 
