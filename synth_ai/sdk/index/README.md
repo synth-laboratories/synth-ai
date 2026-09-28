@@ -135,6 +135,12 @@ with PublicIndexClient() as index:
             print(item.contribution_id, item.revision_id, item.title, item.citation)
 ```
 
+`result.monitor_release_id` is the Monitor's release decision id. The backend
+delivers it as the `X-Index-Monitor-Release` response header (the reviewed bytes
+must equal the delivered bytes, so the body's `monitor.release_id` is `null` and
+`monitor.release_header` names the header); the SDK reads the header first and
+falls back to the body field on Fast responses and on the completed Deep poll.
+
 `mode="deep"` is admitted with 202 and polled at the backend's cadence until
 delivered (default wait `DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS`). Pass
 `wait=False` to receive a `PublicSearchHandle` with `poll()`, `wait()`,

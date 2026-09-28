@@ -176,6 +176,54 @@ def test_anonymous_fast_search_sends_no_authorization(anonymous: PublicIndexClie
     assert TOKEN not in repr(result)
 
 
+def test_fast_release_id_comes_from_monitor_header_first(anonymous: PublicIndexClient) -> None:
+    # The Monitor's decision travels as a header (reviewed bytes == delivered bytes);
+    # the body's monitor.release_id is null and release_header names the header.
+    body = _envelope(monitor={"release_id": None, "release_header": "X-Index-Monitor-Release"})
+    _mount(
+        anonymous,
+        lambda request: httpx.Response(
+            200,
+            json=body,
+            headers={"X-Index-Monitor-Release": "release-hdr-1", "X-Index-Monitor-Delivery": "released"},
+        ),
+    )
+    result = anonymous.public_search("q")
+    assert isinstance(result, PublicSearchResult)
+    assert result.monitor_release_id == "release-hdr-1"
+
+    # Header wins over a populated body field; the body is the fallback only.
+    _mount(anonymous, lambda request: httpx.Response(200, json=_envelope(), headers={"X-Index-Monitor-Release": "release-hdr-2"}))
+    prefer = anonymous.public_search("q")
+    assert isinstance(prefer, PublicSearchResult)
+    assert prefer.monitor_release_id == "release-hdr-2"
+
+    _mount(anonymous, lambda request: httpx.Response(200, json=body))
+    absent = anonymous.public_search("q")
+    assert isinstance(absent, PublicSearchResult)
+    assert absent.monitor_release_id is None
+
+
+def test_deep_completion_reads_monitor_header(anonymous: PublicIndexClient, no_sleep: list[float]) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(202, json={"search_id": SEARCH_ID, "search_token": TOKEN}, headers={"Retry-After": "1"})
+        assert request.headers.get("X-Search-Token") == TOKEN
+        return httpx.Response(
+            200,
+            json=_envelope("deep", status="completed", monitor={"release_id": None}),
+            headers={"X-Index-Monitor-Release": "release-hdr-deep"},
+        )
+
+    _mount(anonymous, handler)
+    handle = anonymous.public_search("q", mode="deep", wait=False)
+    assert isinstance(handle, PublicSearchHandle)
+    result = handle.poll()
+    assert isinstance(result, PublicSearchResult)
+    assert result.monitor_release_id == "release-hdr-deep"
+    assert handle.result is result
+
+
 def test_keyed_fast_search_uses_public_route_with_bearer(keyed: SynthClient) -> None:
     seen = _mount(keyed.index, lambda request: httpx.Response(200, json=_envelope()))
     result = keyed.index.public_search("RLVR verifier design", idempotency_key="key-1")

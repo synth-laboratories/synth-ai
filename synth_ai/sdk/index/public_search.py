@@ -30,6 +30,11 @@ from .errors import IndexErrorCode
 from .search import SearchMode
 
 PUBLIC_SEARCH_TOKEN_HEADER = "X-Search-Token"
+#: Monitor release decision id. Delivered as a response header (never in the body) so
+#: the reviewed bytes equal the delivered bytes; the body's ``monitor.release_id`` is null.
+PUBLIC_SEARCH_RELEASE_HEADER = "X-Index-Monitor-Release"
+#: Monitor delivery marker, delivered next to the release header.
+PUBLIC_SEARCH_DELIVERY_HEADER = "X-Index-Monitor-Delivery"
 #: Poll cadence when the backend sends no ``Retry-After`` on a 202.
 DEFAULT_PUBLIC_POLL_SECONDS = 1.0
 MIN_PUBLIC_POLL_SECONDS = 0.05
@@ -272,7 +277,20 @@ def _parse_item(payload: object) -> PublicSearchCitation:
     )
 
 
-def _parse_result(payload: object, mode: SearchMode) -> PublicSearchResult:
+def _release_id(headers: Mapping[str, str] | None, payload: Mapping[str, Any]) -> str | None:
+    """Header first (the Monitor's decision id travels outside the reviewed body), body second."""
+    if headers is not None:
+        from_header = headers.get(PUBLIC_SEARCH_RELEASE_HEADER)
+        if isinstance(from_header, str) and from_header.strip():
+            return from_header.strip()
+    monitor = payload.get("monitor")
+    release_id = monitor.get("release_id") if isinstance(monitor, Mapping) else None
+    return release_id if isinstance(release_id, str) and release_id else None
+
+
+def _parse_result(
+    payload: object, mode: SearchMode, headers: Mapping[str, str] | None = None
+) -> PublicSearchResult:
     if not isinstance(payload, Mapping):
         raise PublicSearchError("public search response was not an object")
     usage = payload.get("usage")
@@ -281,8 +299,6 @@ def _parse_result(payload: object, mode: SearchMode) -> PublicSearchResult:
     charge = usage.get("customer_charge_cents")
     if isinstance(charge, bool) or not isinstance(charge, int):
         raise PublicSearchError("public search response: missing usage.customer_charge_cents")
-    monitor = payload.get("monitor")
-    release_id = monitor.get("release_id") if isinstance(monitor, Mapping) else None
     items = payload.get("results") or ()
     if not isinstance(items, list | tuple):
         raise PublicSearchError("public search response: results was not a list")
@@ -294,7 +310,7 @@ def _parse_result(payload: object, mode: SearchMode) -> PublicSearchResult:
         status=str(payload.get("status") or "completed"),
         results=tuple(_parse_item(item) for item in items),
         customer_charge_cents=charge,
-        monitor_release_id=release_id if isinstance(release_id, str) else None,
+        monitor_release_id=_release_id(headers, payload),
         response=response if isinstance(response, str) else None,
         raw={key: value for key, value in payload.items() if key != "search_token"},
     )
@@ -400,7 +416,7 @@ class PublicSearchClient:
                 mode=mode,
                 poll_after_s=_poll_after_seconds(headers, payload),
             )
-        return _parse_result(payload, mode)
+        return _parse_result(payload, mode, headers)
 
     def search(
         self,
@@ -496,7 +512,7 @@ class PublicSearchHandle:
             self.search_id, self._token, timeout_s=timeout_s
         )
         if status == 200:
-            self._result = _parse_result(payload, self.mode)
+            self._result = _parse_result(payload, self.mode, headers)
             return self._result
         state = "pending"
         if isinstance(payload, Mapping):
