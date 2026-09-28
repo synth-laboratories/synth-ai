@@ -584,10 +584,11 @@ def test_unknown_code_stays_a_public_search_error(anonymous: PublicIndexClient) 
 
 
 def test_private_search_path_is_unchanged(keyed: SynthClient) -> None:
+    from synth_ai.core.errors import HTTPError
     from synth_ai.sdk.index import SearchSpec
 
     seen = _mount(keyed.index, lambda request: httpx.Response(500, json={"code": "x"}))
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPError):
         keyed.index.search(SearchSpec(query="q"), idempotency_key="k")
     assert seen[0].url.path == "/api/v1/index/search"
     assert seen[0].headers["Idempotency-Key"] == "k"

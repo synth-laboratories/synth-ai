@@ -299,10 +299,11 @@ def _require_str(source: Mapping[str, Any], key: str, context: str) -> str:
 def _parse_item(payload: object) -> PublicSearchCitation:
     if not isinstance(payload, Mapping):
         raise PublicSearchError("public search citation was not an object")
+    fields: dict[str, Any] = {str(key): value for key, value in payload.items()}
     return PublicSearchCitation(
-        contribution_id=_require_str(payload, "contribution_id", "public search citation"),
-        revision_id=_require_str(payload, "revision_id", "public search citation"),
-        raw=dict(payload),
+        contribution_id=_require_str(fields, "contribution_id", "public search citation"),
+        revision_id=_require_str(fields, "revision_id", "public search citation"),
+        raw=fields,
     )
 
 
