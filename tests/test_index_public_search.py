@@ -50,7 +50,8 @@ Handler = Callable[[httpx.Request], httpx.Response]
 
 # Fixtures are built from the backend field lists (backend worktree
 # app/api/v1/index/public_search.py and packages/contributions/{search,views}.py):
-# PublicSearchDelivery = SearchResult + mode/usage/search_token/monitor/service_usage;
+# PublicSearchDelivery = exactly the Monitor's public key set (backend #1660), with
+# search id/token/charge in headers;
 # PublicSearchAccepted is the 202 body and the 200 body of a terminal failed/cancelled
 # poll; errors are {"detail": {"code", "scope"}}.
 
@@ -61,61 +62,45 @@ C2 = "7a1e2b3c-4d5e-4f60-8172-839405a6b7c8"
 
 
 def _envelope(mode: str = "fast", **extra: Any) -> dict[str, Any]:
-    """``PublicSearchDelivery`` (usage.inference_cost_usd_micros excluded by the route)."""
-    versions = {
+    """``PublicSearchDelivery`` (backend #1660): exactly the Monitor's public key set."""
+    return {
+        "request_id": "req-41",
+        "mode": mode,
+        "status": "completed",
         "corpus_generation": "corpus-9",
         "ranker_version": "ranker-3",
         "parser_version": "parser-2",
         "taxonomy_version": "tax-1",
-    }
-    return {
-        "search_id": SEARCH_ID,
-        "request_id": "req-41",
-        "requested_mode": mode,
-        "effective_mode": mode,
-        "status": "completed",
-        "partial_reason": None,
-        **versions,
-        "execution_versions": dict(versions),
-        "usage": {
-            "mode": mode,
-            "billing_scope": "public",
-            "logical_units": 1,
-            "price_version": f"synth.index.public.{mode}.free.v1",
-            "amount_cents": 0,
-            "receipt_id": "receipt-3",
-            "search_calls": 1,
-            "read_calls": 0,
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "funding_source": "service_free_public",
-            "settlement_outcome": None,
-            "retail_amount_cents": None,
-            "allowance_units_consumed": 0,
-            "allowance_value_cents": 0,
-            "wallet_debit_cents": 0,
-            "customer_charge_cents": 0,
-        },
         "response": f"Verifiers reward exact program output [{C1}]; see also [{C2}].",
         "citations": [
             {"contribution_id": C1, "revision_id": "rev-1"},
             {"contribution_id": C2, "revision_id": "rev-7"},
         ],
-        "mode": mode,
-        "search_token": TOKEN,
-        "search_token_expires_at": "2026-09-28T13:00:00+00:00",
-        "monitor": {"release_id": None, "release_header": "X-Index-Monitor-Release"},
-        "service_usage": {"customer_charge_cents": 0, "internal_cost_recorded": True},
+        "amount_cents": 0,
+        **extra,
+    }
+
+
+def _public_headers(**extra: str) -> dict[str, str]:
+    """Public-only fields ride headers outside the reviewed body (backend #1660)."""
+    return {
+        "X-Index-Search-Id": SEARCH_ID,
+        "X-Search-Token": TOKEN,
+        "X-Search-Token-Expires-At": "2026-09-28T13:00:00+00:00",
+        "X-Index-Customer-Charge-Cents": "0",
+        "X-Index-Internal-Cost-Recorded": "true",
         **extra,
     }
 
 
 def _delivered(mode: str = "fast", **extra: Any) -> httpx.Response:
-    """200 delivery exactly as the route sends it: release id in the header only."""
+    """200 delivery exactly as the route sends it: public-only fields in headers."""
     return httpx.Response(
         200,
         json=_envelope(mode, **extra),
-        headers={"X-Index-Monitor-Release": RELEASE, "X-Index-Monitor-Delivery": "released"},
+        headers=_public_headers(
+            **{"X-Index-Monitor-Release": RELEASE, "X-Index-Monitor-Delivery": "released"}
+        ),
     )
 
 
@@ -275,10 +260,12 @@ def test_fast_release_id_comes_from_monitor_header_first(anonymous: PublicIndexC
         lambda request: httpx.Response(
             200,
             json=body,
-            headers={
-                "X-Index-Monitor-Release": "release-hdr-1",
-                "X-Index-Monitor-Delivery": "released",
-            },
+            headers=_public_headers(
+                **{
+                    "X-Index-Monitor-Release": "release-hdr-1",
+                    "X-Index-Monitor-Delivery": "released",
+                }
+            ),
         ),
     )
     result = anonymous.public_search("q")
@@ -290,14 +277,16 @@ def test_fast_release_id_comes_from_monitor_header_first(anonymous: PublicIndexC
     _mount(
         anonymous,
         lambda request: httpx.Response(
-            200, json=body_release, headers={"X-Index-Monitor-Release": "release-hdr-2"}
+            200,
+            json=body_release,
+            headers=_public_headers(**{"X-Index-Monitor-Release": "release-hdr-2"}),
         ),
     )
     prefer = anonymous.public_search("q")
     assert isinstance(prefer, PublicSearchResult)
     assert prefer.monitor_release_id == "release-hdr-2"
 
-    _mount(anonymous, lambda request: httpx.Response(200, json=body))
+    _mount(anonymous, lambda request: httpx.Response(200, json=body, headers=_public_headers()))
     absent = anonymous.public_search("q")
     assert isinstance(absent, PublicSearchResult)
     assert absent.monitor_release_id is None
@@ -315,7 +304,7 @@ def test_deep_completion_reads_monitor_header(
         return httpx.Response(
             200,
             json=_envelope("deep"),
-            headers={"X-Index-Monitor-Release": "release-hdr-deep"},
+            headers=_public_headers(**{"X-Index-Monitor-Release": "release-hdr-deep"}),
         )
 
     _mount(anonymous, handler)
@@ -340,9 +329,35 @@ def test_keyed_fast_search_uses_public_route_with_bearer(keyed: SynthClient) -> 
 
 def test_fast_result_requires_customer_charge(anonymous: PublicIndexClient) -> None:
     envelope = _envelope()
-    envelope["usage"] = {}
-    _mount(anonymous, lambda request: httpx.Response(200, json=envelope))
-    with pytest.raises(PublicSearchError, match="customer_charge_cents"):
+    del envelope["amount_cents"]
+    headers = _public_headers()
+    del headers["X-Index-Customer-Charge-Cents"]
+    _mount(anonymous, lambda request: httpx.Response(200, json=envelope, headers=headers))
+    with pytest.raises(PublicSearchError, match="customer charge"):
+        anonymous.public_search("q")
+
+
+def test_fast_search_id_from_header_and_legacy_body_fallback(
+    anonymous: PublicIndexClient,
+) -> None:
+    _mount(anonymous, lambda request: _delivered())
+    result = anonymous.public_search("q")
+    assert isinstance(result, PublicSearchResult)
+    assert result.search_id == SEARCH_ID
+    assert set(result.raw) == set(_envelope())
+    # Pre-#1660 backends put search_id and usage in the body.
+    legacy = {
+        **_envelope(),
+        "search_id": SEARCH_ID,
+        "usage": {"customer_charge_cents": 0},
+    }
+    _mount(anonymous, lambda request: httpx.Response(200, json=legacy))
+    old = anonymous.public_search("q")
+    assert isinstance(old, PublicSearchResult)
+    assert old.search_id == SEARCH_ID and old.customer_charge_cents == 0
+    # No header and no body id is a contract error, not a silent empty id.
+    _mount(anonymous, lambda request: httpx.Response(200, json=_envelope()))
+    with pytest.raises(PublicSearchError):
         anonymous.public_search("q")
 
 

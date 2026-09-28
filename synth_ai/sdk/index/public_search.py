@@ -33,6 +33,12 @@ PUBLIC_SEARCH_TOKEN_HEADER = "X-Search-Token"
 #: Monitor release decision id. Delivered as a response header (never in the body) so
 #: the reviewed bytes equal the delivered bytes; the body's ``monitor.release_id`` is null.
 PUBLIC_SEARCH_RELEASE_HEADER = "X-Index-Monitor-Release"
+#: Public-only delivery fields travel in headers outside the Monitor-reviewed body
+#: (backend #1660): the body is exactly the Monitor's public contract key set.
+PUBLIC_SEARCH_ID_HEADER = "X-Index-Search-Id"
+PUBLIC_SEARCH_TOKEN_EXPIRES_HEADER = "X-Search-Token-Expires-At"
+PUBLIC_SEARCH_CHARGE_HEADER = "X-Index-Customer-Charge-Cents"
+PUBLIC_SEARCH_INTERNAL_COST_HEADER = "X-Index-Internal-Cost-Recorded"
 #: Monitor delivery marker, delivered next to the release header.
 PUBLIC_SEARCH_DELIVERY_HEADER = "X-Index-Monitor-Delivery"
 #: Poll cadence when the backend sends no ``Retry-After`` on a 202.
@@ -311,24 +317,54 @@ def _release_id(headers: Mapping[str, str] | None, payload: Mapping[str, Any]) -
     return release_id if isinstance(release_id, str) and release_id else None
 
 
+def _header(headers: Mapping[str, str] | None, name: str) -> str | None:
+    if headers is None:
+        return None
+    value = headers.get(name)
+    if value is None:
+        value = headers.get(name.lower())
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _search_id(headers: Mapping[str, str] | None, payload: Mapping[str, Any]) -> str:
+    """``X-Index-Search-Id`` first (backend #1660); body ``search_id`` for older backends."""
+    from_header = _header(headers, PUBLIC_SEARCH_ID_HEADER)
+    if from_header is not None:
+        return from_header
+    return _require_str(payload, "search_id", "public search response")
+
+
+def _charge_cents(headers: Mapping[str, str] | None, payload: Mapping[str, Any]) -> int:
+    """Customer charge: header, then body ``amount_cents``, then legacy ``usage``."""
+    from_header = _header(headers, PUBLIC_SEARCH_CHARGE_HEADER)
+    if from_header is not None:
+        if not from_header.isdigit():
+            raise PublicSearchError("public search response: invalid customer charge header")
+        return int(from_header)
+    usage = payload.get("usage")
+    charge = (
+        usage.get("customer_charge_cents")
+        if isinstance(usage, Mapping)
+        else payload.get("amount_cents")
+    )
+    if isinstance(charge, bool) or not isinstance(charge, int):
+        raise PublicSearchError("public search response: missing customer charge")
+    return charge
+
+
 def _parse_result(
     payload: object, mode: SearchMode, headers: Mapping[str, str] | None = None
 ) -> PublicSearchResult:
     if not isinstance(payload, Mapping):
         raise PublicSearchError("public search response was not an object")
-    usage = payload.get("usage")
-    if not isinstance(usage, Mapping):
-        raise PublicSearchError("public search response: missing usage")
-    charge = usage.get("customer_charge_cents")
-    if isinstance(charge, bool) or not isinstance(charge, int):
-        raise PublicSearchError("public search response: missing usage.customer_charge_cents")
+    charge = _charge_cents(headers, payload)
     items = payload.get("citations")
     if not isinstance(items, list | tuple):
         raise PublicSearchError("public search response: missing citations list")
     partial_reason = payload.get("partial_reason")
     effective = payload.get("mode")
     return PublicSearchResult(
-        search_id=_require_str(payload, "search_id", "public search response"),
+        search_id=_search_id(headers, payload),
         mode=SearchMode(effective) if isinstance(effective, str) else mode,
         status=_require_str(payload, "status", "public search response"),
         citations=tuple(_parse_item(item) for item in items),

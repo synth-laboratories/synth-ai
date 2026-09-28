@@ -136,11 +136,14 @@ with PublicIndexClient() as index:
             print(item.contribution_id, item.revision_id)
 ```
 
-`result.monitor_release_id` is the Monitor's release decision id. The backend
-delivers it as the `X-Index-Monitor-Release` response header (the reviewed bytes
-must equal the delivered bytes, so the body's `monitor.release_id` is `null` and
-`monitor.release_header` names the header); the SDK reads the header first and
-falls back to the body field on Fast responses and on the completed Deep poll.
+`result.monitor_release_id` is the Monitor's release decision id. The delivered
+body is exactly the Monitor-reviewed public contract (`request_id`, `mode`,
+`status`, the four version fields, `response`, `citations`, `amount_cents`), so
+every public-only field travels in a response header instead: the release id in
+`X-Index-Monitor-Release`, the Search id in `X-Index-Search-Id`, the token in
+`X-Search-Token` / `X-Search-Token-Expires-At` and the zero charge in
+`X-Index-Customer-Charge-Cents`. The SDK reads the headers first and falls back
+to the older body fields (`search_id`, `usage`, `monitor.release_id`).
 
 `mode="deep"` is admitted with 202 and polled at the backend's cadence until
 delivered (default wait `DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS`). Pass
