@@ -26,25 +26,41 @@ The dedicated entrypoint advertises only Index tools; it does not advertise
 unrelated Managed Research tools. The general `synth-ai-research-mcp` remains
 available and requires `SYNTH_INDEX_MCP_ENABLED=true` to add Index tools.
 Replace the backend URL with the actual deployment URL. Anonymous public
-browse (contents, Contribution lookup, and revision status) requires no API key.
-Search, including public-scope FAST, requires `SYNTH_API_KEY` through your
-authorized agent secret configuration. The
+browse (contents, Contribution lookup, and revision status) and the public
+search route (`index_search`, Index Search v0.2) require no API key. Private
+and durable Search tools require `SYNTH_API_KEY` through your authorized agent
+secret configuration. The
 executable does not discover Index credentials from home files or Keychain.
 Index flags accept only `true` or `false`. The dedicated entrypoint enables
 Index without a flag and requires an explicit backend URL; enabling writes
 also requires a nonempty explicit key. Initialization and tool discovery
 construct no SDK client and make no requests.
 
-Read-only mode without a key exposes exact contents, Contribution lookup, and
-revision status, but not search. With a key, it also exposes `index_search`,
+Read-only mode without a key exposes exact contents, Contribution lookup,
+revision status, and `index_search`: the public fast/deep search over
+`POST /api/v1/index/public/search`. Its price, rate limits, retention and
+privacy line are read from `GET /api/v1/index/capabilities` (`public_search`)
+at call time and returned under `terms`; the tool text never states a price
+by hand, and the tool fails closed when the backend has the route disabled
+or is unavailable (429 errors carry `retry_after_seconds` and the limit
+scope). With a key, `index_search` is a paid search charged to your
+organization's wallet (`POST /api/v1/index/search`). It runs only when the
+organization has turned on wallet payments for that mode: the tool reads
+`GET /api/v1/index/me/access-funding` (cached for a minute), sends an explicit
+per-call ceiling (Fast: the published Fast price; Deep: the docs ceiling or the
+organization's monthly limit, whichever is lower) and returns the `charge`
+(amount, wallet debit, receipt). Without consent it refuses with
+`index_wallet_consent_required` and the steps to enable it; no paid request is
+sent and nothing is charged. With a key, it also exposes `index_private_search`,
 `index_search_create`,
 `index_search_get`, `index_search_result`, `index_search_events`, and
-`index_search_cancel` for durable fast/deep Search recovery. Without a key,
-those lifecycle tools are not advertised; the remaining tools use only the credential-free
-`/api/v1/index/public/*` routes and reject private scope locally. With a key,
-reads use the authenticated Index routes and may request authorized private
-collections. Public-scope FAST search needs explicit wallet consent and a
-charge ceiling of at least 5 cents. To deliberately contribute from this machine,
+`index_search_cancel` for funded private search and durable Search recovery.
+Without a key, those tools are not advertised; the remaining tools use only
+the credential-free `/api/v1/index/public/*` routes and reject private scope
+locally. With a key, reads use the authenticated Index routes and may request
+authorized private collections. Private or wallet-funded search needs explicit
+wallet consent and a charge ceiling at or above the price published in
+capabilities. To deliberately contribute from this machine,
 additionally set
 `SYNTH_INDEX_MCP_WRITE_ENABLED=true`; this exposes draft creation, explicit
 selected-file upload, and submission for review. Advanced Research tools do not
@@ -104,11 +120,63 @@ claim names exact digest-bound citation spans. Unsupported or
 revoked evidence returns `insufficient_evidence`, never uncited prose. The
 credential-free public client intentionally does not expose answer generation.
 
-## Anonymous public browse and funded search
+## Public search (Index Search v0.2)
+
+Public fast and deep search over reviewed Contributions works with no account
+or API key, and only without one: the public route is anonymous-only and refuses
+any credentialed request with `PublicSearchAuthenticatedError` (409
+`index_public_search_authenticated`). Keyed callers use the paid
+`IndexAPI.search(...)`. The backend publishes
+the price, rate limits, retention and privacy wording in
+`capabilities().public_search`; read them from there rather than hardcoding:
+
+```python
+from synth_ai.sdk.index import PublicIndexClient, PublicSearchRateLimitedError
+
+with PublicIndexClient() as index:
+    terms = index.public_search_terms()  # price / limits / privacy sentences
+    print(terms.price, terms.limits, terms.privacy)
+    try:
+        result = index.public_search("RLVR verifier design", mode="fast", max_results=5)
+    except PublicSearchRateLimitedError as error:
+        print(error.scope, error.retry_after_s)
+    else:
+        print(result.search_id, result.customer_charge_cents, result.monitor_release_id)
+        print(result.response)  # claims cite contribution ids inline: [<contribution_id>]
+        for item in result.citations:  # first-appearance order; fetch content by id
+            print(item.contribution_id, item.revision_id)
+```
+
+`result.monitor_release_id` is the Monitor's release decision id. The delivered
+body is exactly the Monitor-reviewed public contract (`request_id`, `mode`,
+`status`, the four version fields, `response`, `citations`, `amount_cents`), so
+every public-only field travels in a response header instead: the release id in
+`X-Index-Monitor-Release`, the Search id in `X-Index-Search-Id`, the token in
+`X-Search-Token` / `X-Search-Token-Expires-At` and the zero charge in
+`X-Index-Customer-Charge-Cents`. The SDK reads the headers first and falls back
+to the older body fields (`search_id`, `usage`, `monitor.release_id`).
+
+`mode="deep"` is admitted with 202 and polled at the backend's cadence until
+delivered (default wait `DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS`). Pass
+`wait=False` to receive a `PublicSearchHandle` with `poll()`, `wait()`,
+`replay()` and `cancel()`; the handle holds the per-search token and never
+prints it. Reconnect later with `index.public_search_handle(search_id, token)`.
+Errors are typed per backend code: `PublicSearchRateLimitedError` (429, with
+`retry_after_s` and `scope`), `PublicSearchBudgetExhaustedError`,
+`PublicSearchRateStoreUnavailableError`, `PublicSearchMonitorUnavailableError`
+(each 503 fails closed, nothing charged), `PublicSearchRequestTooLargeError`
+(413), `PublicSearchDisabledError` (404 when the backend flag is off) and
+`PublicSearchNotFoundError` (404 for a wrong token). On `SynthClient().index`
+the API key is attached, so `public_search` raises `PublicSearchAuthenticatedError`;
+call `search(...)` (paid, per-org limits) there. The MCP `index_search` tool never
+sends a key to the public route: with a key it runs the paid search only when the
+organization has opted in to wallet funding for the mode, and otherwise raises
+`WalletConsentRequiredError` (`index_wallet_consent_required`).
+
+## Anonymous public browse and funded private search
 
 Reading public capabilities, tags, and a known published Contribution ID needs
-no account or API key. The anonymous API does not list Contribution IDs;
-discovering IDs through Search requires an authenticated, funded request:
+no account or API key:
 
 ```python
 from synth_ai.sdk.index import PublicIndexClient
@@ -119,10 +187,10 @@ with PublicIndexClient() as index:
 ```
 
 Use `AsyncPublicIndexClient` with `async with` for native async applications.
-Both clients own and close their HTTP transport. Search uses the authenticated
-client, even when its scope is public. For FAST, explicitly consent to wallet
-funding and bound the maximum charge; the organization must also have a valid
-funding policy and sufficient balance:
+Both clients own and close their HTTP transport. Private-scope or wallet-funded
+search uses the authenticated `search()` path, which is unchanged. Explicitly
+consent to wallet funding and bound the maximum charge; the organization must
+also have a valid funding policy and sufficient balance:
 
 ```python
 from uuid import uuid4
@@ -141,8 +209,8 @@ with SynthClient() as synth:  # SYNTH_API_KEY is required
     print(result.response, result.usage)
 ```
 
-The 5-cent value is a caller ceiling for the current public FAST price, not a
-claim that another mode or a future price is free. A declined or exhausted
+The ceiling is a caller bound; the actual price is
+`capabilities().private_search.price_cents_per_search`. A declined or exhausted
 funding source fails before a search result is delivered.
 
 Deep search requires the authenticated client and a deployment whose
@@ -166,9 +234,9 @@ with SynthClient() as synth:
     print(result.search_id, result.status)
 ```
 
-Public or private DEEP requires a mode grant and funding. This wallet example
-authorizes at most 25 cents; the backend may stop at that bound. The current
-per-search ceiling is $1, and DEEP requires a ceiling of at least 10 cents.
+Funded DEEP requires a mode grant and funding. This wallet example
+authorizes at most 25 cents; the backend may stop at that bound. The
+per-search ceiling and minimum DEEP ceiling are published by the backend.
 
 For reconnect, progress, events, explicit cancellation, or a local wait timeout,
 create the handle directly. A local timeout preserves `handle.search_id` and does
