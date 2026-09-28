@@ -217,6 +217,12 @@ class WorkspaceFileMode(StrEnum):
     REGULAR = "100644"
     EXECUTABLE = "100755"
 
+    @classmethod
+    def from_posix_mode(cls, posix_mode: int) -> WorkspaceFileMode:
+        """Map a POSIX permission word to a Git blob mode, as Git itself does."""
+
+        return cls.EXECUTABLE if posix_mode & 0o111 else cls.REGULAR
+
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceMetadata:

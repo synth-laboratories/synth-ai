@@ -17,7 +17,7 @@ from synth_ai.mcp.research.tools.index import (
 )
 
 _AUTHENTICATED_ONLY = {
-    "index_search",
+    "index_private_search",
     "index_search_create",
     "index_search_get",
     "index_search_result",
