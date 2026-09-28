@@ -1,0 +1,558 @@
+"""Index Search v0.2 public contract: SDK client, typed errors, capabilities, MCP tool.
+
+Every request is served by an httpx MockTransport; no network, no credential.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+from synth_ai.client import SynthClient
+from synth_ai.mcp.research.server import _mcp_structured_core_error_payload
+from synth_ai.mcp.research.tools import index as mcp_index
+from synth_ai.mcp.research.tools.index import build_index_tools, public_search_tool_description
+from synth_ai.sdk.index import (
+    Capabilities,
+    PublicIndexClient,
+    PublicSearchBudgetExhaustedError,
+    PublicSearchCapability,
+    PublicSearchDisabledError,
+    PublicSearchError,
+    PublicSearchHandle,
+    PublicSearchMonitorUnavailableError,
+    PublicSearchNotFoundError,
+    PublicSearchNotReadyError,
+    PublicSearchRateLimitedError,
+    PublicSearchRateStoreUnavailableError,
+    PublicSearchRequestTooLargeError,
+    PublicSearchResult,
+    PublicSearchUnavailableError,
+    PublicSearchWaitTimeoutError,
+    SearchMode,
+    public_search_copy,
+)
+from synth_ai.sdk.index import public_search as public_search_module
+
+BASE = "https://api.example.test"
+SEARCH_ID = "psearch-5f2a"
+TOKEN = "tok-do-not-log-8c1d9e"
+
+Handler = Callable[[httpx.Request], httpx.Response]
+
+
+def _envelope(mode: str = "fast", **extra: Any) -> dict[str, Any]:
+    return {
+        "search_id": SEARCH_ID,
+        "search_token": TOKEN,
+        "mode": mode,
+        "status": "completed",
+        "response": "Two revisions describe verifier design [c1].",
+        "results": [
+            {
+                "contribution_id": "contrib-1",
+                "revision_id": "rev-1",
+                "title": "Verifier design",
+                "excerpt": "RLVR verifiers reward exact program output.",
+                "citation": "contrib-1@rev-1",
+            }
+        ],
+        "monitor": {"release_id": "release-77"},
+        "usage": {"customer_charge_cents": 0},
+        **extra,
+    }
+
+
+def _public_search_block(**overrides: Any) -> dict[str, Any]:
+    block: dict[str, Any] = {
+        "enabled": True,
+        "modes": ["fast", "deep"],
+        "limits": {
+            "fast": {"peer_minute": 10, "peer_day": 200, "global_minute": 600, "global_day": 20000},
+            "deep": {"peer_minute": 2, "peer_day": 20, "global_minute": 60, "global_day": 1000},
+        },
+        "price_cents": {"fast": 0, "deep": 0},
+        "retention": {"public_query_days": 30, "private_processing_minutes": 60},
+        "privacy_copy": "Public queries may be reviewed to improve the Index.",
+    }
+    block.update(overrides)
+    return block
+
+
+def _capabilities(public_search: dict[str, Any] | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "contribution_schema_versions": ["synth.index.contribution.v1"],
+        "taxonomy_version": "tax-1",
+        "modes": ["fast", "deep"],
+        "search_modes": ["fast", "deep"],
+        "visibilities": ["public"],
+        "search_filters": True,
+        "private_search": {"activated": False},
+        "upload": {"enabled": False},
+        "review": {"enabled": False},
+        "publication": {"enabled": False},
+        "limits": {
+            "max_results": 10,
+            "max_excerpts_per_result": 2,
+            "query_max_bytes": 8192,
+            "contents_max_bytes": 65536,
+        },
+    }
+    if public_search is not None:
+        payload["public_search"] = public_search
+    return payload
+
+
+def _mount(api: Any, handler: Handler) -> list[httpx.Request]:
+    seen: list[httpx.Request] = []
+
+    def record(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return handler(request)
+
+    transport = api._transport
+    old = transport.client
+    transport.client = httpx.Client(
+        base_url=str(old.base_url), headers=old.headers, transport=httpx.MockTransport(record)
+    )
+    return seen
+
+
+def _error(status: int, code: str, **extra: Any) -> httpx.Response:
+    headers = extra.pop("headers", {})
+    return httpx.Response(
+        status, json={"code": code, "detail": f"{code} detail", **extra}, headers=headers
+    )
+
+
+@pytest.fixture
+def anonymous() -> PublicIndexClient:
+    client = PublicIndexClient(base_url=BASE)
+    yield client
+    client.close()
+
+
+@pytest.fixture
+def keyed() -> SynthClient:
+    client = SynthClient(api_key="sk-test", base_url=BASE)
+    yield client
+    client.close()
+
+
+@pytest.fixture
+def no_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    slept: list[float] = []
+    monkeypatch.setattr(public_search_module.time, "sleep", slept.append)
+    return slept
+
+
+# SDK: Fast -----------------------------------------------------------------------
+
+
+def test_anonymous_fast_search_sends_no_authorization(anonymous: PublicIndexClient) -> None:
+    seen = _mount(anonymous, lambda request: httpx.Response(200, json=_envelope()))
+    result = anonymous.public_search("RLVR verifier design", max_results=3)
+
+    assert isinstance(result, PublicSearchResult)
+    (request,) = seen
+    assert request.method == "POST"
+    assert request.url.path == "/api/v1/index/public/search"
+    assert "authorization" not in request.headers
+    assert httpx.Request("POST", BASE, json={"mode": "fast", "query": "RLVR verifier design", "max_results": 3}).content == request.content
+    assert result.search_id == SEARCH_ID
+    assert result.customer_charge_cents == 0
+    assert result.monitor_release_id == "release-77"
+    assert result.mode is SearchMode.FAST
+    assert [(c.contribution_id, c.revision_id, c.citation) for c in result.citations] == [
+        ("contrib-1", "rev-1", "contrib-1@rev-1")
+    ]
+    assert result.results[0].title == "Verifier design"
+    assert "search_token" not in result.raw
+    assert TOKEN not in repr(result)
+
+
+def test_keyed_fast_search_uses_public_route_with_bearer(keyed: SynthClient) -> None:
+    seen = _mount(keyed.index, lambda request: httpx.Response(200, json=_envelope()))
+    result = keyed.index.public_search("RLVR verifier design", idempotency_key="key-1")
+
+    (request,) = seen
+    assert request.url.path == "/api/v1/index/public/search"
+    assert request.headers["authorization"] == "Bearer sk-test"
+    assert b'"idempotency_key":"key-1"' in request.content
+    assert result.customer_charge_cents == 0
+
+
+def test_fast_result_requires_customer_charge(anonymous: PublicIndexClient) -> None:
+    envelope = _envelope()
+    envelope["usage"] = {}
+    _mount(anonymous, lambda request: httpx.Response(200, json=envelope))
+    with pytest.raises(PublicSearchError, match="customer_charge_cents"):
+        anonymous.public_search("q")
+
+
+# SDK: Deep -----------------------------------------------------------------------
+
+
+def _deep_backend(*, poll_states: tuple[str, ...] = ("queued", "running")) -> tuple[Handler, list[str]]:
+    polls: list[str] = []
+    pending = list(poll_states)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/api/v1/index/public/search":
+            return httpx.Response(
+                202,
+                json={
+                    "search_id": SEARCH_ID,
+                    "search_token": TOKEN,
+                    "poll_url": f"/api/v1/index/public/searches/{SEARCH_ID}",
+                },
+                headers={"Retry-After": "2"},
+            )
+        assert request.method == "GET"
+        assert request.url.path == f"/api/v1/index/public/searches/{SEARCH_ID}"
+        if request.headers.get("X-Search-Token") != TOKEN:
+            return _error(404, "index_search_not_found")
+        polls.append(request.headers["X-Search-Token"])
+        if pending:
+            return httpx.Response(
+                202, json={"search_id": SEARCH_ID, "state": pending.pop(0)}, headers={"Retry-After": "0.5"}
+            )
+        return httpx.Response(200, json=_envelope("deep"))
+
+    return handler, polls
+
+
+def test_deep_polls_with_token_at_backend_cadence(anonymous: PublicIndexClient, no_sleep: list[float]) -> None:
+    handler, polls = _deep_backend()
+    _mount(anonymous, handler)
+    result = anonymous.public_search("compare retrieval designs", mode="deep", timeout_s=30)
+
+    assert isinstance(result, PublicSearchResult)
+    assert result.mode is SearchMode.DEEP
+    assert result.search_id == SEARCH_ID
+    assert polls == [TOKEN, TOKEN, TOKEN]
+    # First wait honors the 202's Retry-After, later waits the poll's Retry-After.
+    assert no_sleep == [2.0, 0.5, 0.5]
+
+
+def test_deep_handle_never_exposes_token(anonymous: PublicIndexClient, no_sleep: list[float]) -> None:
+    handler, _polls = _deep_backend(poll_states=("queued", "running"))
+    _mount(anonymous, handler)
+    handle = anonymous.public_search("q", mode="deep", wait=False)
+
+    assert isinstance(handle, PublicSearchHandle)
+    assert handle.search_id == SEARCH_ID
+    assert TOKEN not in repr(handle)
+    assert TOKEN not in str(handle)
+    assert handle.result is None
+    with pytest.raises(PublicSearchNotReadyError):
+        handle.replay()
+    status = handle.poll()
+    assert not isinstance(status, PublicSearchResult)
+    assert status.state == "running" and status.poll_after_s == 0.5
+    assert isinstance(handle.poll(), PublicSearchResult)
+    assert handle.result is not None
+    assert TOKEN not in repr(handle.result)
+    assert handle.replay() is handle.result
+
+
+def test_deep_wait_timeout_keeps_handle(anonymous: PublicIndexClient, no_sleep: list[float], monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = iter([0.0, 0.0, 0.0, 10.0, 10.0, 10.0])
+    monkeypatch.setattr(public_search_module.time, "monotonic", lambda: next(clock))
+    handler, _polls = _deep_backend(poll_states=("queued", "running", "running", "running"))
+    _mount(anonymous, handler)
+    with pytest.raises(PublicSearchWaitTimeoutError) as info:
+        anonymous.public_search("q", mode="deep", timeout_s=5)
+    assert info.value.search_id == SEARCH_ID
+    assert isinstance(info.value.handle, PublicSearchHandle)
+    assert TOKEN not in str(info.value)
+
+
+def test_wrong_token_is_not_found(anonymous: PublicIndexClient) -> None:
+    handler, _polls = _deep_backend()
+    _mount(anonymous, handler)
+    stale = anonymous.public_search_handle(SEARCH_ID, "wrong-token")
+    with pytest.raises(PublicSearchNotFoundError) as info:
+        stale.poll()
+    assert info.value.code == "index_search_not_found"
+    assert info.value.status == 404
+
+
+def test_handle_cancel_sends_token(anonymous: PublicIndexClient) -> None:
+    seen = _mount(
+        anonymous,
+        lambda request: httpx.Response(200, json={"search_id": SEARCH_ID, "state": "cancelled"}),
+    )
+    status = anonymous.public_search_handle(SEARCH_ID, TOKEN).cancel()
+    (request,) = seen
+    assert request.url.path == f"/api/v1/index/public/searches/{SEARCH_ID}/cancel"
+    assert request.headers["X-Search-Token"] == TOKEN
+    assert status.state == "cancelled"
+
+
+# SDK: typed errors -------------------------------------------------------------------
+
+
+def test_rate_limited_carries_retry_after_and_scope(anonymous: PublicIndexClient) -> None:
+    _mount(
+        anonymous,
+        lambda request: _error(
+            429, "index_public_rate_limited", scope="peer_minute", headers={"Retry-After": "37"}
+        ),
+    )
+    with pytest.raises(PublicSearchRateLimitedError) as info:
+        anonymous.public_search("q")
+    error = info.value
+    assert error.retry_after_s == 37.0
+    assert error.scope == "peer_minute"
+    assert error.code == "index_public_rate_limited"
+    assert error.status == 429
+    assert error.retry_after_seconds == 37.0  # SynthError surface used by the MCP server
+    assert "37" in str(error) and "peer_minute" in str(error)
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("index_public_budget_exhausted", PublicSearchBudgetExhaustedError),
+        ("index_rate_store_unavailable", PublicSearchRateStoreUnavailableError),
+        ("monitor_unavailable", PublicSearchMonitorUnavailableError),
+    ],
+)
+def test_each_503_code_fails_closed_with_its_own_type(
+    anonymous: PublicIndexClient, code: str, expected: type[PublicSearchUnavailableError]
+) -> None:
+    _mount(anonymous, lambda request: _error(503, code))
+    with pytest.raises(expected) as info:
+        anonymous.public_search("q")
+    assert isinstance(info.value, PublicSearchUnavailableError)
+    assert info.value.code == code
+    assert info.value.status == 503
+    assert "nothing was charged" in str(info.value)
+
+
+def test_request_too_large(anonymous: PublicIndexClient) -> None:
+    _mount(anonymous, lambda request: _error(413, "index_request_too_large"))
+    with pytest.raises(PublicSearchRequestTooLargeError):
+        anonymous.public_search("q")
+
+
+def test_flag_off_is_disabled(anonymous: PublicIndexClient) -> None:
+    _mount(anonymous, lambda request: _error(404, "index_public_search_disabled"))
+    with pytest.raises(PublicSearchDisabledError) as info:
+        anonymous.public_search("q")
+    assert info.value.code == "index_public_search_disabled"
+
+
+def test_unknown_code_stays_a_public_search_error(anonymous: PublicIndexClient) -> None:
+    _mount(anonymous, lambda request: _error(400, "index_something_new"))
+    with pytest.raises(PublicSearchError) as info:
+        anonymous.public_search("q")
+    assert info.value.code == "index_something_new"
+    assert type(info.value) is PublicSearchError
+
+
+def test_private_search_path_is_unchanged(keyed: SynthClient) -> None:
+    from synth_ai.sdk.index import SearchSpec
+
+    seen = _mount(keyed.index, lambda request: httpx.Response(500, json={"code": "x"}))
+    with pytest.raises(Exception):
+        keyed.index.search(SearchSpec(query="q"), idempotency_key="k")
+    assert seen[0].url.path == "/api/v1/index/search"
+    assert seen[0].headers["Idempotency-Key"] == "k"
+
+
+# Capabilities and copy ------------------------------------------------------------------
+
+
+def test_capabilities_public_search_block_is_typed(anonymous: PublicIndexClient) -> None:
+    _mount(anonymous, lambda request: httpx.Response(200, json=_capabilities(_public_search_block())))
+    capability = anonymous.public_search_capability()
+    assert isinstance(capability, PublicSearchCapability)
+    assert capability.enabled is True
+    assert capability.modes == (SearchMode.FAST, SearchMode.DEEP)
+    assert capability.limits[SearchMode.FAST].peer_minute == 10
+    assert capability.limits[SearchMode.DEEP].global_day == 1000
+    assert capability.price_cents == {SearchMode.FAST: 0, SearchMode.DEEP: 0}
+    assert capability.retention is not None
+    assert capability.retention.public_query_days == 30
+    assert capability.retention.private_processing_minutes == 60
+
+
+def test_capabilities_without_block_parse_on_older_backend() -> None:
+    capabilities = Capabilities.model_validate(_capabilities(None))
+    assert capabilities.public_search is None
+    assert public_search_copy(None).available is False
+
+
+def test_copy_strings_come_from_capabilities(anonymous: PublicIndexClient) -> None:
+    _mount(anonymous, lambda request: httpx.Response(200, json=_capabilities(_public_search_block())))
+    copy = anonymous.public_search_terms()
+    assert copy.available is True
+    assert copy.price == "Fast search is free. Deep search is free."
+    assert copy.limits == (
+        "Fast: 10 per minute and 200 per day per caller; 600 per minute and 20000 per day "
+        "platform-wide. Deep: 2 per minute and 20 per day per caller; 60 per minute and "
+        "1000 per day platform-wide."
+    )
+    assert copy.privacy == (
+        "Public queries may be reviewed to improve the Index. Public queries are retained "
+        "for 30 days; private processing data for 60 minutes."
+    )
+    assert copy.as_dict()["price"] == copy.price
+
+
+def test_copy_reflects_a_changed_price_without_code_changes() -> None:
+    capability = PublicSearchCapability.model_validate(
+        _public_search_block(price_cents={"fast": 0, "deep": 3}, modes=["fast", "deep"])
+    )
+    assert public_search_copy(capability).price == "Fast search is free. Deep search is 3 cents."
+    disabled = PublicSearchCapability.model_validate(_public_search_block(enabled=False))
+    assert public_search_copy(disabled).available is False
+    assert "disabled" in public_search_copy(disabled).price
+
+
+# MCP tool ------------------------------------------------------------------------------
+
+
+@contextmanager
+def _factory_client(handler: Handler):
+    client = PublicIndexClient(base_url=BASE)
+    _mount(client, handler)
+    try:
+        yield client
+    finally:
+        client.close()
+
+
+def _routes(*, capabilities: dict[str, Any] | None, search: Handler) -> Handler:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/index/public/capabilities":
+            return httpx.Response(200, json=_capabilities(capabilities))
+        return search(request)
+
+    return handler
+
+
+def _tool(handler: Handler, name: str = "index_search"):
+    tools = build_index_tools(lambda: _factory_client(handler), include_lifecycle=False)
+    return next(tool for tool in tools if tool.name == name)
+
+
+_FIVE_CENTS = re.compile(r"\b5\s*(cents?|c)\b|\$0\.05|five cents", re.IGNORECASE)
+
+
+def test_mcp_description_is_built_from_capabilities_and_never_prices_by_hand() -> None:
+    capability = PublicSearchCapability.model_validate(_public_search_block())
+    description = public_search_tool_description(capability)
+    assert description.startswith("Fast search is free. Deep search is free. Fast: 10 per minute")
+    assert "Public queries are retained for 30 days" in description
+    assert "peer" not in description  # rendered copy, not raw field names
+    assert not _FIVE_CENTS.search(description)
+    assert not _FIVE_CENTS.search(public_search_tool_description(None))
+    for tool in build_index_tools(lambda: _factory_client(lambda r: httpx.Response(500))):
+        assert not _FIVE_CENTS.search(tool.description), tool.name
+        assert not _FIVE_CENTS.search(str(tool.input_schema)), tool.name
+    source = Path(mcp_index.__file__).read_text()
+    assert not _FIVE_CENTS.search(source)
+    assert not re.search(r"\b\d+ cents\b", source)
+
+
+def test_mcp_index_search_is_anonymous_and_returns_terms() -> None:
+    seen: list[httpx.Request] = []
+
+    def search(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=_envelope())
+
+    tool = _tool(_routes(capabilities=_public_search_block(), search=search))
+    out = tool.handler({"query": "RLVR verifier design", "mode": "fast"})
+
+    assert "authorization" not in seen[0].headers
+    assert out["search_id"] == SEARCH_ID
+    assert out["customer_charge_cents"] == 0
+    assert out["monitor_release_id"] == "release-77"
+    assert out["results"][0]["revision_id"] == "rev-1"
+    assert out["terms"]["price"] == "Fast search is free. Deep search is free."
+    assert "search_token" not in str(out)
+    assert TOKEN not in str(out)
+    schema = tool.input_schema
+    assert set(schema["properties"]) == {"query", "mode", "max_results", "idempotency_key"}
+    assert schema["required"] == ["query"]
+
+
+def test_mcp_index_search_deep_polls_to_done(no_sleep: list[float]) -> None:
+    handler, polls = _deep_backend()
+    tool = _tool(_routes(capabilities=_public_search_block(), search=handler))
+    out = tool.handler({"query": "q", "mode": "deep"})
+    assert out["mode"] == "deep"
+    assert polls == [TOKEN, TOKEN, TOKEN]
+
+
+def test_mcp_rate_limit_error_carries_retry_seconds() -> None:
+    tool = _tool(
+        _routes(
+            capabilities=_public_search_block(),
+            search=lambda r: _error(
+                429, "index_public_rate_limited", scope="global_day", headers={"Retry-After": "90"}
+            ),
+        )
+    )
+    with pytest.raises(PublicSearchRateLimitedError) as info:
+        tool.handler({"query": "q"})
+    payload = _mcp_structured_core_error_payload(info.value)
+    assert payload["error"] == "index_public_rate_limited"
+    assert payload["retry_after_seconds"] == 90.0
+    assert payload["http_status"] == 429
+    assert "global_day" in payload["message"]
+
+
+def test_mcp_503_fails_closed_with_message() -> None:
+    tool = _tool(
+        _routes(
+            capabilities=_public_search_block(),
+            search=lambda r: _error(503, "monitor_unavailable"),
+        )
+    )
+    with pytest.raises(PublicSearchMonitorUnavailableError) as info:
+        tool.handler({"query": "q"})
+    payload = _mcp_structured_core_error_payload(info.value)
+    assert payload["error"] == "monitor_unavailable"
+    assert payload["http_status"] == 503
+    assert "no result was produced" in payload["message"]
+
+
+def test_mcp_refuses_when_backend_flag_is_off() -> None:
+    never = pytest.fail  # a search request must not be sent
+    tool = _tool(
+        _routes(
+            capabilities=_public_search_block(enabled=False),
+            search=lambda r: never("search sent while disabled"),
+        )
+    )
+    with pytest.raises(PublicSearchDisabledError):
+        tool.handler({"query": "q"})
+    older = _tool(_routes(capabilities=None, search=lambda r: never("search sent")))
+    with pytest.raises(PublicSearchDisabledError):
+        older.handler({"query": "q"})
+    fast_only = _tool(
+        _routes(
+            capabilities=_public_search_block(modes=["fast"]),
+            search=lambda r: never("deep sent"),
+        )
+    )
+    with pytest.raises(PublicSearchDisabledError, match="deep"):
+        fast_only.handler({"query": "q", "mode": "deep"})
+
+
+def test_mcp_private_search_is_authenticated_only() -> None:
+    names = {tool.name for tool in build_index_tools(lambda: _factory_client(lambda r: httpx.Response(500)), include_lifecycle=False)}
+    assert "index_search" in names
+    assert "index_private_search" not in names
+    names = {tool.name for tool in build_index_tools(lambda: _factory_client(lambda r: httpx.Response(500)), include_lifecycle=True)}
+    assert "index_private_search" in names

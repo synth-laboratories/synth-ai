@@ -21,16 +21,25 @@ from synth_ai.mcp.research.registry import (
 )
 from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.sdk.index.answer import AnswerSpec
-from synth_ai.sdk.index.client import STATUS_POLL_TIMEOUT_SECONDS, IndexAPI
+from synth_ai.sdk.index.catalog import PublicSearchCapability
+from synth_ai.sdk.index.client import STATUS_POLL_TIMEOUT_SECONDS, IndexAPI, PublicIndexAPI
 from synth_ai.sdk.index.contracts import ContributionReference, Identifier, IndexContract
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
-from synth_ai.sdk.index.search import ContentsSpec, SearchSpec
+from synth_ai.sdk.index.public_search import (
+    DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
+    PublicSearchDisabledError,
+    PublicSearchHandle,
+    PublicSearchResult,
+    public_search_copy,
+)
+from synth_ai.sdk.index.search import ContentsSpec, SearchMode, SearchSpec
 from synth_ai.sdk.index.submission import ContributionSubmitSpec
 
-IndexClientFactory = Callable[[], AbstractContextManager[IndexAPI]]
+IndexClientFactory = Callable[[], AbstractContextManager[IndexAPI | PublicIndexAPI]]
 
 INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_search",
+    "index_private_search",
     "index_search_create",
     "index_search_get",
     "index_search_result",
@@ -60,12 +69,31 @@ _KEY = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_.-]+$")
 
 
 class IndexSearchRequest(IndexContract):
+    """Public (credential-optional) Index Search v0.2; price and limits come from capabilities."""
+
+    query: Annotated[str, Field(min_length=1, max_length=8192)]
+    mode: SearchMode = Field(
+        default=SearchMode.FAST,
+        description="fast answers synchronously; deep is admitted and polled to completion.",
+    )
+    max_results: Annotated[StrictInt, Field(ge=1, le=10)] | None = None
+    idempotency_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-zA-Z0-9_.-]+$",
+        description="Optional stable key to replay the same intent after an uncertain response.",
+    )
+
+
+class IndexPrivateSearchRequest(IndexContract):
     search: SearchSpec = Field(
         description=(
-            "Search intent and caller-owned billing bound. Current FAST public and private "
-            "searches cost 5 cents; wallet funding needs billing.allow_wallet=true and "
-            "billing.max_charge_cents>=5. DEEP needs a mode grant and a ceiling of "
-            "at least 10 cents. Never infer funding consent from the query."
+            "Authenticated, funded search intent (private scope, wallet). The price per "
+            "search comes from capabilities.private_search.price_cents_per_search; wallet "
+            "funding needs billing.allow_wallet=true and a billing.max_charge_cents ceiling "
+            "at or above it. DEEP needs a mode grant. Never infer funding consent from the "
+            "query."
         )
     )
     idempotency_key: str = _KEY
@@ -123,29 +151,104 @@ def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]
     return content
 
 
+_PUBLIC_SEARCH_DESCRIPTION = (
+    "Search reviewed Synth Index Contributions (Index Search v0.2 public route). Works "
+    "with or without an API key; mode is fast (synchronous) or deep (admitted, then polled "
+    "to completion). Price, rate limits, retention and privacy terms are published by the "
+    "backend's capabilities and returned under `terms` with every result; this tool never "
+    "assumes a price. A rate-limit error carries retry_after_seconds and the limit scope; "
+    "a 503 means the search failed closed and nothing was charged. Results cite exact "
+    "revisions (contribution_id, revision_id); preserve them verbatim."
+)
+
+
+def public_search_tool_description(capability: PublicSearchCapability | None) -> str:
+    """Tool text built from the backend's capabilities; nothing priced by hand."""
+    if capability is None:
+        return _PUBLIC_SEARCH_DESCRIPTION
+    copy = public_search_copy(capability)
+    return " ".join((*copy.lines, _PUBLIC_SEARCH_DESCRIPTION))
+
+
+def _public_search_payload(result: PublicSearchResult) -> JSONDict:
+    return {
+        "search_id": result.search_id,
+        "mode": result.mode.value,
+        "status": result.status,
+        "response": result.response,
+        "results": [
+            {
+                "contribution_id": item.contribution_id,
+                "revision_id": item.revision_id,
+                "title": item.title,
+                "excerpt": item.excerpt,
+                "citation": item.citation,
+            }
+            for item in result.results
+        ],
+        "customer_charge_cents": result.customer_charge_cents,
+        "monitor_release_id": result.monitor_release_id,
+    }
+
+
 def build_index_tools(
     client_factory: IndexClientFactory,
     *,
     include_search: bool = True,
     include_answer: bool = False,
     include_lifecycle: bool = True,
+    public_search_capability: PublicSearchCapability | None = None,
 ) -> list[ToolDefinition]:
     """Build Index tools without discovering credentials or widening scope.
 
-    Search requires an explicit stable key because private or deep searches may
-    consume bounded service resources. Backend authorization, execution and usage
+    ``index_search`` is the free public route and needs no key. Private and
+    lifecycle search require an explicit stable key because they may consume
+    bounded, funded service resources. Backend authorization, execution and usage
     remain authoritative; no local search or model fallback is installed.
+    ``public_search_capability`` (when the caller already holds it) puts the
+    backend's price/limits/privacy copy into the tool description; discovery
+    itself never makes a request.
     """
 
     def search(arguments: JSONDict) -> JSONDict:
         request = IndexSearchRequest.model_validate(arguments)
         with client_factory() as client:
+            capability = client.public_search_capability()
+            if capability is None or not capability.enabled:
+                raise PublicSearchDisabledError(
+                    "Public Index search is not enabled on this backend", status=404
+                )
+            if request.mode not in capability.modes:
+                raise PublicSearchDisabledError(
+                    f"Public Index search does not offer mode {request.mode.value!r}",
+                    status=404,
+                )
+            outcome = client.public_search(
+                request.query,
+                mode=request.mode,
+                max_results=request.max_results,
+                idempotency_key=request.idempotency_key,
+                wait=True,
+                timeout_s=DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
+            )
+        if isinstance(outcome, PublicSearchHandle):  # pragma: no cover - wait=True
+            raise RuntimeError("public search returned a handle while waiting")
+        return {
+            **_public_search_payload(outcome),
+            "terms": public_search_copy(capability).as_dict(),
+        }
+
+    def private_search(arguments: JSONDict) -> JSONDict:
+        request = IndexPrivateSearchRequest.model_validate(arguments)
+        with client_factory() as client:
+            if not isinstance(client, IndexAPI):
+                raise ValueError("index_private_search requires an API key")
             return client.search(
                 request.search, idempotency_key=request.idempotency_key
             ).model_dump(mode="json")
 
     def search_create(arguments: JSONDict) -> JSONDict:
-        request = IndexSearchRequest.model_validate(arguments)
+        request = IndexPrivateSearchRequest.model_validate(arguments)
         with client_factory() as client:
             return client.searches.create(
                 request.search, idempotency_key=request.idempotency_key
@@ -235,15 +338,22 @@ def build_index_tools(
     tools = [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index Contributions with an authenticated funding identity. Current FAST public and private searches cost 5 cents; wallet funding requires search.billing.allow_wallet=true and max_charge_cents>=5. Do not infer consent. Reuse the same idempotency key for uncertain retries (never a new key for the same intent); if an error carries search_id, reconnect with index_search_get. Preserve exact revision citations.",
+            description=public_search_tool_description(public_search_capability),
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
             required_scopes=read,
         ),
         ToolDefinition(
+            name="index_private_search",
+            description="Search with an authenticated funding identity (private scope or wallet-funded). The per-search price is capabilities.private_search.price_cents_per_search; wallet funding requires search.billing.allow_wallet=true and a max_charge_cents ceiling at or above it. Do not infer consent. Reuse the same idempotency key for uncertain retries (never a new key for the same intent); if an error carries search_id, reconnect with index_search_get. Preserve exact revision citations.",
+            input_schema=IndexPrivateSearchRequest.model_json_schema(),
+            handler=private_search,
+            required_scopes=read,
+        ),
+        ToolDefinition(
             name="index_search_create",
-            description="Create one durable FAST or DEEP Search. Current FAST public/private wallet searches need explicit consent and a ceiling of at least 5 cents; DEEP needs a mode grant and at least 10 cents. Return its Search ID and state immediately. Always send a stable idempotency key: after an uncertain response or a transient 503, retry with the SAME key (the SDK retries automatically); if an error carries search_id, the Search was admitted, so read it with index_search_get instead of creating another.",
-            input_schema=IndexSearchRequest.model_json_schema(),
+            description="Create one durable FAST or DEEP authenticated Search. Wallet-funded searches need explicit consent and a max_charge_cents ceiling at or above the price published in capabilities; DEEP needs a mode grant. Return its Search ID and state immediately. Always send a stable idempotency key: after an uncertain response or a transient 503, retry with the SAME key (the SDK retries automatically); if an error carries search_id, the Search was admitted, so read it with index_search_get instead of creating another.",
+            input_schema=IndexPrivateSearchRequest.model_json_schema(),
             handler=search_create,
             required_scopes=read,
         ),
@@ -326,6 +436,7 @@ def build_index_tools(
         ),
     ]
     lifecycle_names = {
+        "index_private_search",
         "index_search_create",
         "index_search_get",
         "index_search_result",
