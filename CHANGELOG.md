@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.3 — 2026-09-29
+
+### Fixed
+
+- Match the backend Research billing-profile enum, including `internal_test`, and mirror the pinned backend OpenAPI export.
+- Remove a duplicate Research operation registry entry.
+- Complete reference documentation for the newly exposed Research contracts and SDK entry points, preserving wire formats and request behavior.
+
 All notable changes to the `synth-ai` package are documented here.
 
 ## 0.21.2 — 2026-09-29
