@@ -789,3 +789,32 @@ def research_reproduce_release(binding, descriptor, manifest, archive_root, out)
 def research_verify_release(binding, descriptor, manifest, out):
     """Check exact output bytes, manifest and artifact reconstruction receipt."""
     _offline_release_operation("verify-release", binding, descriptor, manifest, out=out)
+
+
+@research.command("capture-codex-task-read")
+@click.option(
+    "--native-input", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option(
+    "--thread-id", required=True, help="Exact authorized task identity; no session discovery."
+)
+@click.option("--captured-at", required=True, help="Explicit RFC3339 timestamp with offset.")
+@click.option("--cutoff-at", required=True, help="Explicit capture cutoff with offset.")
+@click.option("--out", required=True, type=click.Path(file_okay=False, path_type=Path))
+def research_capture_codex_task_read(native_input, thread_id, captured_at, cutoff_at, out):
+    """Freeze a selected native Codex read privately, with honest partial-export gaps."""
+    from datetime import datetime
+
+    from synth_ai.sdk.index.research.capture import freeze_codex_task_read
+
+    try:
+        export = freeze_codex_task_read(
+            native_input,
+            out,
+            expected_thread_id=thread_id,
+            captured_at=datetime.fromisoformat(captured_at),
+            cutoff_at=datetime.fromisoformat(cutoff_at),
+        )
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded {export.completeness} native capture: {out}")
