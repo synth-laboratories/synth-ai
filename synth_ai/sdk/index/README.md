@@ -470,7 +470,9 @@ do about it; it is never silently discarded.
 Frozen-input release contracts live in `synth_ai.sdk.index.research`. The
 authenticated `client.index.contributions.research` resource exposes
 `allocate_archive`, `bind`, `consent`, `attest`, `revoke`, `release` and `archive`.
-The methods use the backend's exact revision routes and closed models. Binding
+Archive allocation returns the versioned `ResearchArchiveAllocation` receipt with
+only its collection and authorized snapshot scope; internal storage namespace IDs
+remain server-side. The methods use the backend's exact revision routes and closed models. Binding
 and consent retries reuse the same exact manifest and disclosure; the backend
 rejects conflicting content. Consent is an explicit author action. Neither
 binding nor attestation automatically consents or publishes.

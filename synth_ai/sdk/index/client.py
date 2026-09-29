@@ -21,7 +21,6 @@ from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
 from .artifacts import (
-    ArtifactCollectionResponse,
     ArtifactPublicationPrepare,
     ArtifactPublicationPrepareResponse,
     ArtifactPublicationResponse,
@@ -84,6 +83,7 @@ from .research import (
     ReleaseResearchView,
     ReproductionAttestationSpec,
     ReproductionReceipt,
+    ResearchArchiveAllocation,
     ResearchArchiveAllocationSpec,
     ResearchArchiveView,
     ResearchBindingSpec,
@@ -956,7 +956,7 @@ class ResearchAPI(_Resource):
             _Call(
                 "index.research.archives.create",
                 _bound(
-                    ArtifactCollectionResponse,
+                    ResearchArchiveAllocation,
                     lambda collection: (
                         collection.scope.owner_namespace == "contribution_research_archives"
                         and collection.scope.owner_resource_id == spec.snapshot_id

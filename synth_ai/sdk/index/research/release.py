@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from ..artifacts import ArtifactResourceScope, ArtifactUuid
 from ..contracts import (
     ContributionAudience,
     Identifier,
@@ -59,6 +60,19 @@ class ResearchRevocationSpec(IndexContract):
 
 class ResearchArchiveAllocationSpec(IndexContract):
     snapshot_id: Identifier
+
+
+class ResearchArchiveAllocation(IndexContract):
+    """Customer allocation receipt; storage namespace stays server-side.
+
+    See notes/specifications/synth-index/research-archive-release.md.
+    """
+
+    schema_version: Literal["synth.index.research-archive-allocation.v1"] = (
+        "synth.index.research-archive-allocation.v1"
+    )
+    collection_id: ArtifactUuid
+    scope: ArtifactResourceScope
 
 
 class ResearchArchiveView(IndexContract):

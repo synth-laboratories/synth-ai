@@ -64,37 +64,6 @@
         "title": "ApprovedRepresentation",
         "type": "object"
       },
-      "ArtifactCollectionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "collection_id": {
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "title": "Collection Id",
-            "type": "string"
-          },
-          "schema_version": {
-            "const": "synth.artifact-platform.v1",
-            "default": "synth.artifact-platform.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "scope": {
-            "$ref": "#/components/schemas/ArtifactResourceScope"
-          },
-          "storage_namespace_id": {
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "title": "Storage Namespace Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "collection_id",
-          "scope",
-          "storage_namespace_id"
-        ],
-        "title": "ArtifactCollectionResponse",
-        "type": "object"
-      },
       "ArtifactObjectDeclaration": {
         "additionalProperties": false,
         "description": "One immutable manifest object addressed only by logical path and digest.",
@@ -4624,6 +4593,32 @@
         "title": "ReproductionReceipt",
         "type": "object"
       },
+      "ResearchArchiveAllocation": {
+        "additionalProperties": false,
+        "description": "Customer allocation receipt; storage namespace stays server-side.\n\nSee notes/specifications/synth-index/research-archive-release.md.",
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.research-archive-allocation.v1",
+            "default": "synth.index.research-archive-allocation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ArtifactResourceScope"
+          }
+        },
+        "required": [
+          "collection_id",
+          "scope"
+        ],
+        "title": "ResearchArchiveAllocation",
+        "type": "object"
+      },
       "ResearchArchiveAllocationSpec": {
         "additionalProperties": false,
         "properties": {
@@ -8537,7 +8532,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtifactCollectionResponse"
+                  "$ref": "#/components/schemas/ResearchArchiveAllocation"
                 }
               }
             },
