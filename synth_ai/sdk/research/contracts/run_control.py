@@ -87,10 +87,20 @@ class ManagedResearchRunControlError(ResearchApiError):
 
     @property
     def error_code(self) -> RunLifecycleControlErrorCode:  # type: ignore[override]
+        """Backend lifecycle refusal code.
+
+        Returns:
+            The value recorded in the lifecycle-control error.
+        """
         return self._run_control_error_code
 
     @property
     def retryable(self) -> bool:
+        """Backend indication that the refused lifecycle operation can be retried.
+
+        Returns:
+            The value recorded in the lifecycle-control error.
+        """
         return self._run_control_retryable
 
     @classmethod

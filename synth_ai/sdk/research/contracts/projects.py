@@ -42,6 +42,7 @@ class ProjectSpec:
     environment_kind: EnvironmentKind
     orchestrator_profile_id: ProfileId
     default_worker_profile_id: ProfileId
+    #: Optional non-empty retry key for project creation; omitted when None.
     idempotency_key: str | None = None
     worker_profile_ids: tuple[ProfileId, ...] = ()
     reviewer_profile_id: ProfileId | None = None
@@ -53,6 +54,7 @@ class ProjectSpec:
     execution_policy: JsonObject = field(default_factory=dict)
     research: JsonObject = field(default_factory=dict)
     metered_infra: JsonObject = field(default_factory=dict)
+    #: Backend-owned project policy object serialized into the creation request.
     policy: JsonObject = field(default_factory=dict)
 
     def __post_init__(self) -> None:

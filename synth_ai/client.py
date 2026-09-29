@@ -29,10 +29,18 @@ def _resolve_base_url(base_url: str | None) -> str:
 
 
 class SynthClient:
-    """Sync client for Managed Research and hosted optimizers.
+    """Synchronous entry point for Index, Research, Messaging and hosted optimizers.
 
-    Use ``research`` for hosted projects, swarms, and Factory lifecycles. That
-    Use ``optimizers`` for hosted training model discovery and saved LoRAs.
+    Namespaces and their transports are created lazily. Closing the client closes
+    all transports that it opened. Factory APIs remain available for compatibility.
+
+    Example:
+        ```python
+        from synth_ai import SynthClient
+
+        with SynthClient(api_key="YOUR_SYNTH_API_KEY") as client:
+            index = client.index
+        ```
     """
 
     def __init__(
@@ -42,6 +50,14 @@ class SynthClient:
         base_url: str | None = None,
         timeout_seconds: float | None = None,
     ) -> None:
+        """Configure credentials, endpoint and transport timeouts without making requests.
+
+        Args:
+            api_key: Explicit Synth API credential; None uses the configured credential resolver.
+            base_url: Backend URL override; None uses the SDK's configured backend base URL.
+            timeout_seconds: Transport timeout in seconds. None uses 30 seconds for
+                Research, Messaging and Optimizers, and the Index transport default for Index.
+        """
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
         self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
@@ -56,7 +72,11 @@ class SynthClient:
 
     @property
     def index(self) -> IndexAPI:
-        """Unreleased fast research search and exact-reference contents namespace."""
+        """Return the lazily initialized Index namespace.
+
+        Returns:
+            IndexAPI using this client's credential, backend URL and Index timeout.
+        """
         if self._index_api is None:
             from synth_ai.core.http.transport import HttpTransport
             from synth_ai.sdk.index.client import IndexAPI
@@ -71,7 +91,11 @@ class SynthClient:
 
     @property
     def messaging(self) -> MessagingClient:
-        """Typed threads, history and explicit Workshop device grants."""
+        """Return the lazily initialized Messaging namespace.
+
+        Returns:
+            MessagingClient for typed threads, history and explicit Workshop device grants.
+        """
         if self._messaging_client is None:
             from synth_ai.sdk.messaging import MessagingClient
 
@@ -84,7 +108,11 @@ class SynthClient:
 
     @property
     def research(self) -> ResearchClient:
-        """Research hero namespace (projects, swarms, and factories)."""
+        """Return the lazily initialized Research namespace.
+
+        Returns:
+            ResearchClient for hosted projects and swarms, with compatibility Factory APIs.
+        """
         if self._research_client is None:
             from synth_ai.sdk.research.facade import ResearchClient
 
@@ -113,7 +141,11 @@ class SynthClient:
 
     @property
     def optimizers(self) -> OptimizersClient:
-        """Hosted training models and searchable saved-LoRA lineage."""
+        """Return the lazily initialized hosted Optimizers namespace.
+
+        Returns:
+            OptimizersClient for hosted training model discovery and saved-LoRA lineage.
+        """
         if self._optimizers_client is None:
             from synth_ai.sdk.optimizers import OptimizersClient
 
@@ -132,7 +164,17 @@ class SynthClient:
 
 
 class AsyncSynthClient:
-    """Async client for Managed Research and hosted optimizers."""
+    """Asynchronous entry point with lazily initialized SDK namespaces.
+
+    Example:
+        ```python
+        from synth_ai import AsyncSynthClient
+
+        async def inspect_namespace():
+            async with AsyncSynthClient(api_key="YOUR_SYNTH_API_KEY") as client:
+                index = client.index
+        ```
+    """
 
     def __init__(
         self,
@@ -141,6 +183,14 @@ class AsyncSynthClient:
         base_url: str | None = None,
         timeout_seconds: float | None = None,
     ) -> None:
+        """Configure credentials, endpoint and transport timeouts without making requests.
+
+        Args:
+            api_key: Explicit Synth API credential; None uses the configured credential resolver.
+            base_url: Backend URL override; None uses the SDK's configured backend base URL.
+            timeout_seconds: Transport timeout in seconds. None uses 30 seconds for
+                Research, Messaging and Optimizers, and the Index transport default for Index.
+        """
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
         self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
@@ -156,7 +206,11 @@ class AsyncSynthClient:
 
     @property
     def index(self) -> AsyncIndexAPI:
-        """Unreleased asynchronous fast search and exact-reference contents."""
+        """Return the lazily initialized asynchronous Index namespace.
+
+        Returns:
+            AsyncIndexAPI using this client's credential, backend URL and Index timeout.
+        """
         if self._index_api is None:
             from synth_ai.core.http.async_transport import AsyncHttpTransport
             from synth_ai.sdk.index.client import AsyncIndexAPI
@@ -171,7 +225,11 @@ class AsyncSynthClient:
 
     @property
     def messaging(self) -> AsyncMessagingClient:
-        """Asynchronous threads, history and explicit Workshop device grants."""
+        """Return the lazily initialized asynchronous Messaging namespace.
+
+        Returns:
+            AsyncMessagingClient for threads, history and explicit Workshop device grants.
+        """
         if self._async_messaging_client is None:
             from synth_ai.sdk.messaging import AsyncMessagingClient
 
@@ -184,7 +242,11 @@ class AsyncSynthClient:
 
     @property
     def research(self) -> AsyncResearchClient:
-        """Native asynchronous Research namespace."""
+        """Return the lazily initialized asynchronous Research namespace.
+
+        Returns:
+            AsyncResearchClient using this client's credential, backend URL and timeout.
+        """
         if self._async_research_client is None:
             from synth_ai.sdk.research import AsyncResearchClient
 
@@ -216,7 +278,11 @@ class AsyncSynthClient:
 
     @property
     def async_research(self) -> AsyncResearchClient:
-        """Deprecated alias for :attr:`research`."""
+        """Deprecated alias for :attr:`research`.
+
+        Returns:
+            The same AsyncResearchClient instance as research, after a deprecation warning.
+        """
         warnings.warn(
             "AsyncSynthClient.async_research is deprecated; use .research.",
             DeprecationWarning,
@@ -253,7 +319,11 @@ class AsyncSynthClient:
 
     @property
     def optimizers(self) -> AsyncOptimizersClient:
-        """Native asynchronous hosted optimizer namespace."""
+        """Return the lazily initialized asynchronous hosted Optimizers namespace.
+
+        Returns:
+            AsyncOptimizersClient using this client's credential, backend URL and timeout.
+        """
         if self._async_optimizers_client is None:
             from synth_ai.sdk.optimizers import AsyncOptimizersClient
 

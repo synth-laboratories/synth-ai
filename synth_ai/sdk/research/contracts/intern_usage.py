@@ -14,6 +14,7 @@ from enum import StrEnum
 
 
 class InternBillingState(StrEnum):
+    """Backend billing settlement states for Intern runtime usage."""
     SETTLED = "settled"
     PENDING = "pending"
     STALLED = "stalled"
@@ -31,15 +32,45 @@ def _int(mapping: Mapping[str, object], key: str) -> int:
 
 @dataclass(frozen=True)
 class InternUsageBilling:
+    """Billing settlement state and stalled/failed-row diagnostics.
+
+    ```python
+    from synth_ai.sdk.research.contracts.intern_usage import InternUsageBilling
+
+    billing = InternUsageBilling.from_wire({
+        "billing_state": "pending", "stalled_row_count": 0,
+        "stalled_spend_cents": 0, "billing_failed_row_count": 0,
+        "show_stalled_banner": False,
+    })
+    assert billing.billing_state == "pending"
+    ```
+    """
+    #: Settlement state of the billing receipt; only settled is a final total.
     billing_state: InternBillingState
+    #: Number of billing rows reported as stalled.
     stalled_row_count: int
+    #: Spend represented by stalled rows, in cents.
     stalled_spend_cents: int
+    #: Number of billing rows reported as failed.
     billing_failed_row_count: int
+    #: Backend flag indicating a stalled-billing notice should be shown.
     show_stalled_banner: bool
+    #: Backend billing explanation, when provided.
     message: str | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> InternUsageBilling:
+        """Parse the backend wire representation of InternUsageBilling.
+
+        Args:
+            payload: Backend response object to validate and convert.
+
+        Returns:
+            The parsed InternUsageBilling with backend values preserved.
+
+        Raises:
+            ValueError: Billing is not an object, its state is unknown, or its flags/counters have invalid types.
+        """
         if not isinstance(payload, Mapping):
             raise ValueError("intern usage billing must be an object")
         banner = payload.get("show_stalled_banner")
@@ -60,23 +91,63 @@ class InternUsageBilling:
 
 @dataclass(frozen=True)
 class InternSessionUsage:
+    """Usage receipt for an Intern runtime; unsettled billing makes spend incomplete.
+
+    ```python
+    from synth_ai.sdk.research.contracts.intern_usage import InternSessionUsage
+
+    usage = InternSessionUsage.from_wire({
+        "origin_runtime_kind": "sync", "origin_runtime_id": "session-1",
+        "org_id": "org-1", "spend_cents": 0, "token_count": 0, "run_count": 0,
+        "billing": {"billing_state": "pending", "stalled_row_count": 0,
+            "stalled_spend_cents": 0, "billing_failed_row_count": 0,
+            "show_stalled_banner": False},
+    })
+    # Pending billing means this zero spend is not a final total.
+    assert usage.billing.billing_state == "pending"
+    ```
+    """
+    #: Originating Intern runtime kind: sync or async.
     origin_runtime_kind: str
+    #: Originating Sync session or Async assignment ID.
     origin_runtime_id: str
+    #: Organization that owns the runtime usage.
     org_id: str
+    #: Settled run spend in cents; incomplete while billing is not settled.
     spend_cents: int
+    #: Token count reported for the runtime.
     token_count: int
+    #: Number of runs reported for the runtime.
     run_count: int
+    #: Billing state and stalled/failed-row diagnostics.
     billing: InternUsageBilling
+    #: Backend resource-binding records included in the receipt.
     bindings: tuple[dict[str, object], ...] = field(default_factory=tuple)
+    #: Additional receipt metadata, including recorded run_ids when present.
     metadata: dict[str, object] = field(default_factory=dict)
 
     @property
     def run_ids(self) -> tuple[str, ...]:
-        """Runs this Intern runtime launched, as recorded in the receipt."""
+        """Runs this Intern runtime launched, as recorded in the receipt.
+
+        Returns:
+            Run IDs recorded in receipt metadata, or an empty tuple when absent.
+        """
         return tuple(str(run_id) for run_id in self.metadata.get("run_ids", ()) or ())
 
     @classmethod
     def from_wire(cls, payload: object) -> InternSessionUsage:
+        """Parse the backend wire representation of InternSessionUsage.
+
+        Args:
+            payload: Backend response object to validate and convert.
+
+        Returns:
+            The parsed InternSessionUsage with backend values preserved.
+
+        Raises:
+            ValueError: The runtime kind, required identifiers, counts, billing object, bindings, or metadata are malformed.
+        """
         if not isinstance(payload, Mapping):
             raise ValueError("intern usage must be an object")
         kind = payload.get("origin_runtime_kind")

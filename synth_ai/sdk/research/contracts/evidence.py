@@ -281,6 +281,7 @@ class EvidenceFreshness:
     run_is_terminal: bool
     # Backend SmrSwarmEvidenceFreshnessResponse.tool_call_count (default 0);
     # older backends omit it, so it is accepted but not required.
+    #: Non-negative recorded tool-call count; defaults to zero for older backend responses.
     tool_call_count: int = 0
 
     @classmethod
@@ -312,6 +313,7 @@ class EvidenceFreshness:
 
 
 class SwarmToolCallStatus(StrEnum):
+    """Durable MCP invocation outcomes, including unresolved tool names."""
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     UNKNOWN_TOOL = "unknown_tool"
@@ -341,23 +343,58 @@ class SwarmToolCallEvidence:
 
     Mirrors backend ``SmrSwarmToolCallEvidenceResponse``; arguments are only a
     digest, never the values.
+
+    ```python
+    from synth_ai.sdk.research.contracts.evidence import SwarmToolCallEvidence
+
+    from datetime import datetime, timezone
+    from synth_ai.sdk.research.contracts.evidence import SwarmToolCallStatus
+
+    call = SwarmToolCallEvidence(
+        tool_call_id="call-1", actor_role="worker", tool_name="search",
+        arguments_digest="sha256:" + "0" * 64,
+        status=SwarmToolCallStatus.SUCCEEDED, retryable=False,
+        duration_ms=10, occurred_at=datetime.now(timezone.utc),
+    )
+    assert SwarmToolCallEvidence.from_wire(call.to_wire()) == call
+    ```
     """
 
+    #: Identity of the durable MCP invocation outcome.
     tool_call_id: str
+    #: Role of the invoking actor.
     actor_role: str
+    #: Invoked MCP tool name.
     tool_name: str
+    #: Digest of invocation arguments; raw argument values are not included.
     arguments_digest: str
+    #: Recorded invocation outcome.
     status: SwarmToolCallStatus
+    #: Backend indication that the failed invocation can be retried.
     retryable: bool
+    #: Non-negative invocation duration in milliseconds.
     duration_ms: int
+    #: Timestamp of the invocation outcome.
     occurred_at: datetime
+    #: Stable identity of the invoking actor, when recorded.
     stable_actor_key: str | None = None
+    #: Invocation correlation key, when recorded.
     correlation_id: str | None = None
+    #: MCP bundle containing the tool, when recorded.
     bundle_name: str | None = None
+    #: Backend failure code, when recorded.
     error_code: str | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmToolCallEvidence:
+        """Parse the backend wire representation of SwarmToolCallEvidence.
+
+        Args:
+            value: Backend response object to validate and convert.
+
+        Returns:
+            The parsed SwarmToolCallEvidence with backend values preserved.
+        """
         payload = _exact_object(
             value, label="retrieve_swarm_evidence.tool_calls", fields=_TOOL_CALL_FIELDS
         )
@@ -377,6 +414,11 @@ class SwarmToolCallEvidence:
         )
 
     def to_wire(self) -> JsonObject:
+        """Serialize this contract to its backend JSON representation.
+
+        Returns:
+            A new JSON object using backend field names and enum values.
+        """
         return {
             "tool_call_id": self.tool_call_id,
             "stable_actor_key": self.stable_actor_key,
@@ -400,6 +442,7 @@ class SwarmEvidence:
     artifacts: tuple[EvidenceArtifact, ...]
     work_products: tuple[EvidenceWorkProduct, ...]
     freshness: EvidenceFreshness
+    #: Durable run-scoped MCP invocation outcomes containing argument digests, never argument values.
     tool_calls: tuple[SwarmToolCallEvidence, ...] = ()
 
     def __post_init__(self) -> None:
