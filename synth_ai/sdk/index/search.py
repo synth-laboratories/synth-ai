@@ -32,6 +32,8 @@ from .contracts import (
 )
 
 EMPTY_SEARCH_RESPONSE = "No matching evidence was found."
+PUBLIC_FAST_FREE_PRICE_VERSION = "synth.index.public.fast.free.v1"
+PUBLIC_DEEP_FREE_PRICE_VERSION = "synth.index.public.deep.free.v1"
 INLINE_CITATION = re.compile(r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]")
 MAX_SEARCH_CITATIONS = 10
 
@@ -214,7 +216,9 @@ class SearchUsage(IndexContract):
     output_tokens: Annotated[StrictInt, Field(ge=0)] = 0
     # Operator-only diagnostics are absent from ordinary customer responses.
     inference_cost_usd_micros: Annotated[StrictInt, Field(ge=0)] | None = None
-    funding_source: Literal["none", "promo_credit", "deep_beta", "wallet"] = "none"
+    funding_source: Literal[
+        "none", "promo_credit", "deep_beta", "wallet", "service_free_public"
+    ] = "none"
     settlement_outcome: SearchSettlementOutcome | None = None
     retail_amount_cents: Annotated[StrictInt, Field(ge=0)] | None = None
     allowance_units_consumed: Annotated[StrictInt, Field(ge=0, le=1)] = 0
@@ -223,10 +227,30 @@ class SearchUsage(IndexContract):
 
     @model_validator(mode="after")
     def check_published_rate(self) -> Self:
+        if (
+            self.price_version in {PUBLIC_FAST_FREE_PRICE_VERSION, PUBLIC_DEEP_FREE_PRICE_VERSION}
+            and self.funding_source != "service_free_public"
+        ):
+            raise ValueError("public-free price requires service funding")
+        if self.funding_source == "service_free_public" and (
+            self.billing_scope != "public"
+            or self.price_version
+            != (
+                PUBLIC_FAST_FREE_PRICE_VERSION
+                if self.mode == SearchMode.FAST
+                else PUBLIC_DEEP_FREE_PRICE_VERSION
+            )
+            or self.amount_cents != 0
+            or self.wallet_debit_cents != 0
+            or self.allowance_units_consumed != 0
+            or self.allowance_value_cents != 0
+        ):
+            raise ValueError("service-free funding requires an uncharged public Search")
         if self.mode == SearchMode.FAST:
-            # v1 is historical only; new public and private FAST both cost 5 cents.
             if self.price_version == "synth.index.fast.v2":
                 expected = 5
+            elif self.price_version == PUBLIC_FAST_FREE_PRICE_VERSION:
+                expected = 0 if self.billing_scope == "public" else None
             elif self.price_version == "synth.index.fast.v1":
                 expected = 0 if self.billing_scope == "public" else 5
             else:

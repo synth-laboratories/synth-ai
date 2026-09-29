@@ -12,7 +12,12 @@ from typing import Annotated, Literal, Self
 from pydantic import AwareDatetime, Field, StrictInt, model_validator
 
 from .contracts import Identifier, IndexContract
-from .search import SearchMode, SearchSettlementOutcome
+from .search import (
+    PUBLIC_DEEP_FREE_PRICE_VERSION,
+    PUBLIC_FAST_FREE_PRICE_VERSION,
+    SearchMode,
+    SearchSettlementOutcome,
+)
 
 NonNegative = Annotated[StrictInt, Field(ge=0)]
 
@@ -113,11 +118,27 @@ class CustomerCharge(IndexContract):
     settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     reservation_id: Identifier | None = None
     ledger_reference: str | None = None
-    funding_source: Literal["none", "promo_credit", "deep_beta", "wallet"] | None = None
+    funding_source: (
+        Literal["none", "promo_credit", "deep_beta", "wallet", "service_free_public"] | None
+    ) = None
     terminal_outcome: SearchSettlementOutcome | None = None
 
     @model_validator(mode="after")
     def check_charge(self) -> Self:
+        free_prices = {PUBLIC_FAST_FREE_PRICE_VERSION, PUBLIC_DEEP_FREE_PRICE_VERSION}
+        if (self.price_version in free_prices) != (self.funding_source == "service_free_public"):
+            raise ValueError("public-free price and service funding must agree")
+        if self.funding_source == "service_free_public" and (
+            self.reserved_microcents
+            or self.settled_microcents
+            or self.released_microcents
+            or self.refunded_microcents
+            or self.adjustment_microcents
+            or self.ledger_reference is not None
+            or self.settlement_state
+            not in {SettlementState.NOT_APPLICABLE, SettlementState.RELEASED}
+        ):
+            raise ValueError("service-funded public Search cannot move customer money")
         if (
             self.released_microcents + self.settled_microcents + self.refunded_microcents
             > self.reserved_microcents
@@ -150,7 +171,9 @@ class SearchUsageSummaryRow(IndexContract):
     mode: SearchMode
     model_identity: str | None = None
     price_version: Identifier | None = None
-    funding_source: Literal["none", "promo_credit", "deep_beta", "wallet"] | None = None
+    funding_source: (
+        Literal["none", "promo_credit", "deep_beta", "wallet", "service_free_public"] | None
+    ) = None
     terminal_outcome: SearchSettlementOutcome | None = None
     settlement_state: SettlementState = SettlementState.NOT_APPLICABLE
     search_count: NonNegative
