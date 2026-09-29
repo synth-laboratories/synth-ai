@@ -4375,6 +4375,11 @@
           "disclosure": {
             "$ref": "#/components/schemas/ReleaseDisclosure"
           },
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          },
           "reproduction": {
             "items": {
               "$ref": "#/components/schemas/ReleaseReproductionView"
@@ -4392,6 +4397,7 @@
         },
         "required": [
           "disclosure",
+          "disclosure_digest",
           "reproduction"
         ],
         "title": "ReleaseResearchView",

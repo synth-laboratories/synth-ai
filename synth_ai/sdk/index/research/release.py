@@ -44,6 +44,7 @@ class ReleaseReproductionView(IndexContract):
 class ReleaseResearchView(IndexContract):
     schema_version: Literal["synth.index.release-research.v1"] = "synth.index.release-research.v1"
     disclosure: ReleaseDisclosure
+    disclosure_digest: Digest
     reproduction: tuple[ReleaseReproductionView, ...] = Field(max_length=64)
 
 
