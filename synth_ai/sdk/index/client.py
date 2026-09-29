@@ -49,6 +49,7 @@ from .catalog import (
     RewardReverseSpec,
     TagRegistry,
 )
+from .classification import ClassificationDecisionView, ClassificationSpec, ClassificationView
 from .contracts import ContributionReference
 from .contributions import (
     ContributionDraft,
@@ -140,6 +141,8 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contributions.upload.finalize": ("POST", f"{_R}/finalize"),
     "index.contributions.submit": ("POST", f"{_R}/submit"),
     "index.contributions.reviews.create": ("POST", f"{_R}/reviews"),
+    "index.classification.get": ("GET", f"{_R}/classification"),
+    "index.classification.create": ("POST", f"{_R}/classification-decisions"),
     "index.research.release.get": ("GET", f"{_R}/release-research"),
     "index.research.archive.get": ("GET", f"{_R}/research-archive"),
     "index.research.archives.create": ("POST", f"{_C}/research-archives"),
@@ -183,6 +186,10 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
 # Anonymous callers may browse published research and run the free public
 # search (Index Search v0.2). Private-scope search still uses index.search.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "index.public.classification.get": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}/classification",
+    ),
     "index.public.research.release.get": (
         "GET",
         f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}/release-research",
@@ -792,6 +799,64 @@ class PublicReleaseResearchAPI(_Resource):
         )
 
 
+class PublicClassificationAPI(_Resource):
+    def retrieve(self, reference: ContributionReference) -> Any:
+        """Read safe effective metadata; see tag-classification.md."""
+        return self._run(
+            _Call(
+                "index.public.classification.get",
+                _bound(
+                    ClassificationView,
+                    lambda view: view.reference == reference,
+                    "Classification response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+
+class ClassificationsAPI(_Resource):
+    def retrieve(self, reference: ContributionReference) -> Any:
+        """Read metadata under the current revision ACL; see tag-classification.md."""
+        return self._run(
+            _Call(
+                "index.classification.get",
+                _bound(
+                    ClassificationView,
+                    lambda view: view.reference == reference,
+                    "Classification response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def create(
+        self, reference: ContributionReference, spec: ClassificationSpec, *, idempotency_key: str
+    ) -> Any:
+        """Classify exact sealed bytes with a current independent reviewer grant.
+
+        See sibling backend/notes/specifications/synth-index/tag-classification.md.
+        Retry the identical identity and intent after an uncertain response.
+        """
+        return self._run(
+            _Call(
+                "index.classification.create",
+                _bound(
+                    ClassificationDecisionView,
+                    lambda view: view.reference == reference
+                    and view.manifest_digest == spec.manifest_digest
+                    and view.registry_version == spec.registry_version
+                    and view.generation == spec.expected_generation + 1
+                    and view.accepted_tag_ids == spec.accepted_tag_ids,
+                    "Classification decision does not match requested intent",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+                headers=_key(idempotency_key, required="Classification decision"),
+            )
+        )
+
+
 class ResearchAPI(_Resource):
     """Explicit authenticated research operations, distinct from ordinary Search.
 
@@ -1016,6 +1081,7 @@ class ContributionsAPI(_Resource):
         super().__init__(run, asynchronous)
         self.revisions = RevisionsAPI(run, asynchronous)
         self.research = ResearchAPI(run, asynchronous)
+        self.classifications = ClassificationsAPI(run, asynchronous)
         self.assessments = AssessmentsAPI(run, asynchronous)
         self.reviews = ReviewsAPI(run, asynchronous)
         self.assets = AssetsAPI(run, asynchronous)
@@ -1567,6 +1633,7 @@ class PublicContributionsAPI(_Resource):
         super().__init__(run, asynchronous)
         self.revisions = PublicRevisionsAPI(run, asynchronous)
         self.release_research = PublicReleaseResearchAPI(run, asynchronous)
+        self.classifications = PublicClassificationAPI(run, asynchronous)
         self.assets = PublicAssetsAPI(run, asynchronous)
 
     def retrieve(self, contribution_id: str) -> Any:

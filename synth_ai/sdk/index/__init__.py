@@ -24,6 +24,7 @@ from .catalog import (
     RewardAward,
     TagRegistry,
 )
+from .classification import ClassificationDecisionView, ClassificationSpec, ClassificationView
 from .contracts import ContributionReference
 from .contributions import (
     ContributionDraft,
@@ -115,6 +116,9 @@ from .wallet_search import (
 )
 
 __all__ = [
+    "ClassificationSpec",
+    "ClassificationView",
+    "ClassificationDecisionView",
     "PublicSearchAuthenticatedError",
     "WALLET_CONSENT_REQUIRED_CODE",
     "WalletConsentReason",

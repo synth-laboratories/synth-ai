@@ -873,6 +873,180 @@
         "title": "Citation",
         "type": "object"
       },
+      "ClassificationDecisionView": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Accepted Tag Ids",
+            "type": "array"
+          },
+          "decision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "generation": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "registry_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Registry Version",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.classification-decision.v1",
+            "default": "synth.index.classification-decision.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_id",
+          "reference",
+          "manifest_digest",
+          "registry_version",
+          "generation",
+          "accepted_tag_ids"
+        ],
+        "title": "ClassificationDecisionView",
+        "type": "object"
+      },
+      "ClassificationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Accepted Tag Ids",
+            "type": "array"
+          },
+          "expected_generation": {
+            "maximum": 9007199254740990.0,
+            "minimum": 0.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "registry_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "registry_version",
+          "accepted_tag_ids",
+          "expected_generation",
+          "rationale"
+        ],
+        "title": "ClassificationSpec",
+        "type": "object"
+      },
+      "ClassificationView": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Effective Tag Ids",
+            "type": "array"
+          },
+          "generation": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "registry_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registry Version"
+          },
+          "schema_version": {
+            "const": "synth.index.classification.v1",
+            "default": "synth.index.classification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "submitted",
+              "legacy_submission",
+              "reviewer"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "submitted_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Submitted Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "submitted_tag_ids",
+          "effective_tag_ids",
+          "generation",
+          "registry_version",
+          "source"
+        ],
+        "title": "ClassificationView",
+        "type": "object"
+      },
       "CollectionGrant": {
         "additionalProperties": false,
         "properties": {
@@ -8598,6 +8772,198 @@
         ]
       }
     },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/classification": {
+      "get": {
+        "operationId": "index.classification.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Current",
+        "tags": [
+          "index-classification"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/classification-decisions": {
+      "post": {
+        "operationId": "index.classification.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationDecisionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "index-classification"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/disclosure-revocation": {
       "post": {
         "operationId": "index.research.disclosure.revoke",
@@ -10548,6 +10914,59 @@
           }
         },
         "summary": "Asset",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/classification": {
+      "get": {
+        "operationId": "index.public.classification.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classification",
         "tags": [
           "index-public"
         ]
