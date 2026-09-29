@@ -506,8 +506,6 @@ class ResearchMcpServer:
                         self._index_client_factory,
                         # The public search route (v0.2) is free and needs no key.
                         include_search=True,
-                        # /index/answer is not in the public launch.
-                        include_answer=False,
                         include_lifecycle=self._default_api_key is not None,
                     )
                     if self._index_write_enabled or tool.name not in INDEX_WRITE_TOOL_NAMES

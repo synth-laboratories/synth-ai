@@ -1,12 +1,13 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.21.0-orange synth-ai==0.21.0 -->
+<!-- CI release pins: PyPI-0.21.1-orange synth-ai==0.21.1 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Synth Index, Managed Research, and Research Factory.
+Python SDK, CLI and MCP servers for **Synth Index** (cited search over reviewed
+research) and **Swarms** (hosted research runs under `client.research.swarms`).
 
 **Documentation:** https://docs.usesynth.ai/sdk/overview
 
@@ -18,11 +19,14 @@ uv add synth-ai
 
 ## Authenticate
 
-Set `SYNTH_API_KEY` before using the SDK or CLI:
+Free anonymous public Index Search needs no key (see [Synth Index](#synth-index)).
+Keyed Index Search, private collections and Swarms need `SYNTH_API_KEY`:
 
 ```bash
 export SYNTH_API_KEY="sk_..."
 ```
+
+A key selects the paid keyed Index route; it never makes a public request free.
 
 ## Local Workspaces
 
@@ -45,7 +49,7 @@ client = SynthClient(base_url="http://127.0.0.1:8000")
 
 The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
-## Quickstart
+## Quickstart: Swarms
 
 ```python
 from synth_ai import SynthClient
@@ -81,10 +85,11 @@ strict counts and lifecycle freshness. Artifact and WorkProduct content reads
 use the same typed transport and return bytes; they do not expose storage
 authority.
 
-## Research SDK
+## Research SDK (Swarms)
 
-The only customer entrypoint is `SynthClient().research`. Its stable namespaces
-are `projects`, `swarms`, and `factories`.
+`SynthClient().research` hosts Swarms. Its stable namespaces are `projects`,
+`swarms`, and `factories` (the last is a supported compatibility API; it is not
+part of this release's recommended path).
 
 Create a durable project when work needs reusable configuration:
 
@@ -108,25 +113,6 @@ with SynthClient() as client:
         project_id=project.project_id,
     )
     print(swarm.wait().state)
-```
-
-Factories provide a typed durable optimization loop with native sync/async
-parity:
-
-```python
-from synth_ai import SynthClient
-from synth_ai.sdk.research.public import EffortSpec, FactorySpec, ProjectId
-
-with SynthClient() as client:
-    factory = client.research.factories.create(FactorySpec(name="Prompt optimizer"))
-    effort = client.research.factories.efforts.create(
-        EffortSpec(
-            factory_id=factory.factory_id,
-            project_id=ProjectId("project_existing"),
-            name="Improve the system prompt",
-        )
-    )
-    print(effort.effort_id, effort.state)
 ```
 
 Limits, economics, secrets, Tag, rich evidence projections, and administrative
@@ -170,48 +156,43 @@ containers wheel; an unpublished candidate extra is not a release claim.
 
 ```bash
 synth-ai --help
-synth-ai research --help
+synth-ai index --help      # Synth Index Search and research intake
+synth-ai research --help   # Swarms and Research projects
 ```
 
-## Synth Index (alpha v0.1)
+## Synth Index
 
-Synth Index alpha v0.1 offers authenticated, paid FAST and DEEP Search over
-reviewed, published research. DEEP is in beta. Install `synth-ai>=0.20.2`:
+Index Search returns a cited `response` plus the exact Contribution revisions it
+cites. There are two routes, chosen explicitly by the client you use:
 
-```bash
-uv add "synth-ai>=0.20.2"
-```
-
-- **Python:** `SynthClient().index.search(query=..., mode="fast" | "deep", billing=...)`.
-  An example is under [Public Surface](#public-surface). The
-  [Index SDK guide](synth_ai/sdk/index/README.md) covers DEEP's durable Search
-  ID, reconnect and cancel.
-- **MCP:** `synth-ai-index-mcp` is an Index-only stdio server and is read-only
-  by default. Search tools are advertised only when `SYNTH_API_KEY` is set.
-  Setup is in the [Index SDK guide](synth_ai/sdk/index/README.md#external-agents-over-stdio-mcp).
-- Every Search needs an API key, an authorized organization and funding.
-
-Not in alpha v0.1: `/index/answer`, downloading the files behind
-a citation, citations that point to an exact passage, a latency guarantee, and
-free, anonymous or zero-data-retention Search. Contributing research to the
-Index is planned for Index v0.2.
-
-## Public Surface
-
-Use `SynthClient` as the front door:
-
-| Surface | Client namespace | Use it for |
+| | Public route | Keyed route |
 | --- | --- | --- |
-| **Index** | `client.index` | Authenticated, funded FAST/DEEP Search and Contribution lifecycle. |
-| **Research / Factory** | `client.research` | Typed hosted projects, swarms, Factory lifecycles, and Efforts. |
-| CLI / MCP | `synth-ai`, `synth-ai-index-mcp` | Terminal commands and an Index-only coding-agent server. |
+| Caller | Anonymous only: no API key or session is sent | `SYNTH_API_KEY` (or a Clerk session) |
+| Python | `PublicIndexClient().public_search(...)` | `SynthClient().index.search(...)` |
+| CLI | `synth-ai index search --public` (0.21.1+) | `synth-ai index search --keyed` |
+| MCP `index_search` | No `SYNTH_API_KEY` in the server env | `SYNTH_API_KEY` set; runs only after the org turns on wallet payments |
+| Corpus | Published public Contributions | Public, or authorized private collections |
+| Price | Free to the caller | Paid: Fast is 5 cents per delivered Search; Deep is 5 cents plus measured model cost, capped by your `max_charge_cents` and at $1 per Search. The backend publishes the current price. |
+| Funding | None | Index promo credit, then the wallet with explicit consent (`allow_wallet`, `max_charge_cents`) |
+| Limits | Per-caller and platform-wide per-minute/per-day limits, a daily service budget and a Deep concurrency cap, published in `capabilities().public_search` | Your organization's mode grants, monthly caps and per-mode concurrency |
+| Retention | Published in `capabilities().public_search` (`retention`, `privacy_copy`) | Your organization's terms; public terms do not describe keyed Search |
 
-Index is an API/MCP product, not a browser search page. Anonymous public
-catalog and known-ID Contribution reads use `PublicIndexClient`; even a
-public-scope Search requires an API key, an authorized organization, and
-funding. An Index-only MCP server starts read-only, advertising public browse
-without a key and Search only when a key is configured. Contribution writes
-require a separate explicit opt-in and grant.
+The public route exists only where the backend enables it (`public_search.enabled`
+in capabilities); otherwise it fails closed with `PublicSearchDisabledError`.
+The public route refuses any credential (409, `PublicSearchAuthenticatedError`),
+so a key never turns a public request into a free keyed one, and the SDK and CLI
+never switch routes on their own.
+
+```python
+from synth_ai.sdk.index import PublicIndexClient
+
+with PublicIndexClient() as index:  # anonymous: sends no key
+    print(index.public_search_terms().lines)  # price, limits, privacy from capabilities
+    result = index.public_search("RLVR verifier design", mode="fast", max_results=5)
+    print(result.response, [item.citation for item in result.citations])
+```
+
+Keyed (paid) Search:
 
 ```python
 from uuid import uuid4
@@ -230,19 +211,45 @@ with SynthClient() as synth:  # Reads SYNTH_API_KEY.
     print(result.response, result.usage)
 ```
 
-FAST's five-cent ceiling is explicit wallet consent, not a claim that DEEP has
-the same price. See the [Index SDK guide](https://github.com/synth-laboratories/synth-ai/blob/main/synth_ai/sdk/index/README.md) for
-DEEP's durable Search ID, reconnect/cancel, private collections, receipts, and
-coding-agent MCP setup. These calls require a deployed Index API; installing
-the SDK alone does not make a Search available.
+CLI:
 
-Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
-want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
-reports.
+```bash
+synth-ai index search "RLVR verifier design" --public
+synth-ai index search "RLVR verifier design" --keyed --allow-wallet --max-charge-cents 5
+```
 
-## Managed Research Billing
+With no key and no route flag the CLI refuses and asks for one. With an inherited
+`SYNTH_API_KEY`, `--public` still sends no key; without a flag the CLI uses the
+keyed route and says so on stderr.
 
-Standalone SMR and Managed Factory draw from the same org-level allowance and
+- **MCP:** `synth-ai-index-mcp` is an Index-only stdio server, read-only by
+  default. Setup and per-configuration economics are in the
+  [Index SDK guide](synth_ai/sdk/index/README.md#external-agents-over-stdio-mcp).
+- **Errors:** public-route refusals have their own types (rate limit, budget
+  exhausted, disabled route, credential conflict); see the
+  [Index SDK guide](synth_ai/sdk/index/README.md#errors).
+
+These calls require a deployed Index API; installing the SDK alone does not make
+a Search available.
+
+## Public Surface
+
+Use `SynthClient` as the front door:
+
+| Surface | Client namespace | Use it for |
+| --- | --- | --- |
+| **Index** | `client.index`, `PublicIndexClient` | Keyed (paid) and anonymous public (free) Search, exact contents. |
+| **Swarms** | `client.research.swarms` | Hosted research runs, events, usage and evidence. |
+| Research projects | `client.research.projects` | Reusable Swarm configuration. |
+| CLI / MCP | `synth-ai`, `synth-ai-index-mcp` | Terminal commands and an Index-only coding-agent server. |
+
+Swarms run on Synth's hosted research workers; see the
+[Managed Research docs](https://docs.usesynth.ai/managed-research/intro) for
+repo runs, evidence, checkpoints and final reports.
+
+## Swarms Billing
+
+Swarms and other Managed Research work draw from the same org-level allowance and
 flex-credit wallet. Free, Standard ($20/month), and Max ($200/month) expose
 premium and value usage windows with reset times, then use explicit flex credits
 after included usage is exhausted. Premium models consume allowance faster;
@@ -280,5 +287,3 @@ make docs-dev   # preview at http://localhost:3000/overview
 Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
 `lefthook install` to run formatting, linting, and type checks on staged Python
 files.
-
-[SMR Handoff X thread](https://github.com/usesynth/smr-handoff/blob/main/marketing/smr-handoff-x-thread.md) — hand agent tasks to [Managed Research](https://usesynth.ai/smr) from Cursor, Codex, or Claude Code ([repo](https://github.com/usesynth/smr-handoff)).

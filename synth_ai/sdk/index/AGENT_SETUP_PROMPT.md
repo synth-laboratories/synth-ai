@@ -1,7 +1,8 @@
 # Coding-agent setup prompt for Synth Index
 
 Copy the text below into a coding-agent task after you have chosen the Synth
-backend environment and an authorized way to supply its API key. This prompt
+backend environment and decided whether the agent should use free anonymous
+public Search (no key) or paid keyed Search (an authorized API key). This prompt
 configures an API/MCP integration; it does not ask the agent to build an Index
 product UI or to run a paid search during setup.
 
@@ -13,22 +14,32 @@ product UI or to run a paid search during setup.
 > configuration. Use the supported `synth-ai` package and verify that the
 > `synth-ai-index-mcp` executable is available. Configure one MCP server with
 > `SYNTH_INDEX_MCP_WRITE_ENABLED=false` and an
-> explicit `SYNTH_BACKEND_URL` for the environment I named. Supply
-> `SYNTH_API_KEY` only through this project's already-authorized, non-committed
-> secret-injection mechanism. Never print, commit, paste into chat, or place the
+> explicit `SYNTH_BACKEND_URL` for the environment I named. If I chose free
+> public Search, configure no `SYNTH_API_KEY` for this server. If I chose keyed
+> Search, supply `SYNTH_API_KEY` only through this project's already-authorized,
+> non-committed secret-injection mechanism. Never print, commit, paste into chat, or place the
 > key in tool arguments. Do not use macOS Keychain or another credential store
 > without my explicit authorization for that operation. If the backend URL or
-> authorized key source is missing, report exactly what is missing and stop.
+> (for keyed Search) the authorized key source is missing, report exactly what
+> is missing and stop.
 >
-> Verify that the server starts and advertises `index_search` (the public
-> route, available with or without a key) and, with the key, `index_private_search`
-> and `index_search_create`. Without a key it must not advertise private or
-> durable-search lifecycle tools. Tool discovery must not execute a search or
-> incur a charge.
+> Verify that the server starts and advertises `index_search`. Its route and
+> economics depend on the configuration:
+> - **No key:** `index_search` is the free anonymous public route. Rate limits
+>   and privacy/retention terms come from backend capabilities and are returned
+>   under `terms` on each result (`route: "public"`). It fails closed if the
+>   backend has the public route disabled.
+> - **With a key:** `index_search` is the **paid** keyed route, charged to the
+>   organization even for public Contributions. It runs only after the
+>   organization has turned on wallet payments for the mode; otherwise it refuses
+>   with `index_wallet_consent_required` and charges nothing. Results report
+>   `route: "keyed"`, `paid: true` and the `charge`, and carry no `terms`. A key
+>   never makes a request free. With the key the server also advertises
+>   `index_private_search` and `index_search_create`.
 >
-> Public `index_search` (fast or deep) is priced, rate-limited and governed by the
-> privacy terms the backend publishes in capabilities; the tool returns them under
-> `terms` with every result. Never quote a price you did not read from there.
+> Without a key it must not advertise private or durable-search lifecycle tools.
+> Tool discovery must not execute a search or incur a charge. Never quote a price
+> you did not read from backend capabilities or a returned charge.
 > For a private or wallet-funded search I explicitly request, first state the
 > aggregate maximum charge and use a fresh idempotency key. Wallet funding
 > requires `search.billing.allow_wallet=true` and a `max_charge_cents` ceiling

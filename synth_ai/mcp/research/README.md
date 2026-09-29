@@ -1,12 +1,20 @@
 # MCP
 
-This package owns the canonical MCP surface for Managed Research.
+This package owns the canonical MCP servers for **Synth Index** and **Swarms**
+(Managed Research):
 
-Surface note: MCP tools call the authenticated private-beta Managed Research
-API. When tool or schema descriptions say public, they mean the stable API
-contract. Managed Research beta access is an account/org entitlement enforced by
-the backend through entitlement checks and launch preflight, not by narrowing
-the MCP tool list.
+- `synth-ai-index-mcp`: Index-only. Without `SYNTH_API_KEY` it uses only the
+  anonymous `/api/v1/index/public/*` routes, including free public
+  `index_search`. With a key, `index_search` is the paid keyed Search and runs
+  only after the organization turns on wallet payments. See
+  [What the entrypoint advertises](#what-the-entrypoint-advertises).
+- `synth-ai-research-mcp`: Swarms and Research projects.
+
+Research/Swarms access note: the Research tools call the authenticated Managed
+Research API. In Research tool and schema descriptions, "public" means the
+stable API contract, not anonymous access or the public Index corpus. Managed
+Research access is an account/org entitlement enforced by the backend through
+entitlement checks and launch preflight, not by narrowing the MCP tool list.
 
 What belongs here:
 - tool registration, schemas, and scope metadata
@@ -51,7 +59,10 @@ becoming callable without a scope.
 `SYNTH_BACKEND_URL`, advertises no unrelated Research tools, and defaults to
 read-only. Without `SYNTH_API_KEY` it advertises public browse tools and the
 free public `index_search` (Index Search v0.2; price, limits and privacy
-terms are read from backend capabilities at call time, never hardcoded);
+terms are read from backend capabilities at call time, never hardcoded, and
+returned under `terms` on each public result). With the key, `index_search` is
+the paid keyed Search: it reports `route=keyed`, `paid=true` and the `charge`,
+and carries no `terms`, because the public terms do not describe it.
 `index_private_search` and the durable-search lifecycle tools require the key.
 `SYNTH_INDEX_MCP_WRITE_ENABLED=true` separately enables Contribution draft,
 upload, and submission tools. Tool discovery performs no backend request.
@@ -88,6 +99,11 @@ Noun reads and run-control tools below need
 
 `research_branch_run_from_checkpoint`, for exact branches and
 branch-with-message, is in the stable subset.
+
+## Compatibility reference: Intern tools
+
+The Intern tools below are supported for existing integrations. They are not
+part of the current Index/Swarms release path.
 
 Sync Intern control plane:
 - `intern_sync_create`, `intern_sync_list`, and `intern_sync_get` address

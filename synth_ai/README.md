@@ -6,8 +6,11 @@ The public first-mile surface is intentionally small:
 
 - `SynthClient`
 - `AsyncSynthClient`
-- `client.research`
-- `synth-ai` CLI
+- `client.index` and `PublicIndexClient` (Synth Index: keyed paid Search and
+  free anonymous public Search)
+- `client.research.swarms` (Swarms)
+- `synth-ai` CLI (`synth-ai index`, `synth-ai research`) and the
+  `synth-ai-index-mcp` server
 
 Public docs live at https://docs.usesynth.ai/sdk/overview.
 
@@ -16,9 +19,9 @@ Public docs live at https://docs.usesynth.ai/sdk/overview.
 ```text
 synth_ai/
 ├── client.py       # SynthClient and AsyncSynthClient composition layer
-├── sdk/            # Research + shared pagination plumbing
+├── sdk/            # Index + Research clients and shared pagination plumbing
 ├── core/           # Shared runtime helpers and errors
-├── cli/            # CLI commands for research (and local helpers)
+├── cli/            # CLI commands for index and research
 └── __init__.py     # Package version and top-level exports
 ```
 
