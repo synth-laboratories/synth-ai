@@ -1,5 +1,8 @@
 """Explicit Async blocker controls; see backend packages/intern/contracts.py."""
 
+from synth_ai.core.http.async_transport import AsyncHttpTransport
+from synth_ai.core.http.transport import HttpTransport
+
 from .contracts.intern_blockers import (
     InternBlockerOpenSyncRequest,
     InternBlockerOpenSyncResponse,
@@ -68,16 +71,61 @@ def _resolve(payload, blocker_id, request):
 
 
 class InternBlockersAPI:
-    def __init__(self, transport):
+    """Synchronous read, operator handoff, and explicit resolution of Async blockers.
+
+    ```python
+    from synth_ai.sdk.research.intern_blockers import InternBlockersAPI
+
+    from unittest.mock import Mock
+
+    transport = Mock()
+    transport.execute.return_value = {
+        "blocker_id": "blocker-1", "code": "operator_required",
+        "message": "Review the blocked action", "retryable": False,
+    }
+    api = InternBlockersAPI(transport)
+    blocker = api.get("blocker-1")
+    assert blocker.blocker_id == "blocker-1"
+    ```
+    """
+
+    def __init__(self, transport: HttpTransport) -> None:
+        """Bind blocker controls to an existing HTTP transport.
+
+        Args:
+            transport: Authenticated transport owned by the parent Synth client.
+        """
         self._transport = transport
 
     def get(self, blocker_id: str) -> InternAsyncBlocker:
+        """Retrieve an Async blocker and verify its requested identity.
+
+        Args:
+            blocker_id: Identity of the Async blocker to address.
+
+        Returns:
+            The blocker matching the requested identity.
+
+        Raises:
+            ValueError: Response identities or receipt fields disagree with the request.
+        """
         return _read(self._transport.execute(_request_for(blocker_id)), blocker_id)
 
     def open_sync(
         self, blocker_id: str, request: InternBlockerOpenSyncRequest
     ) -> InternBlockerOpenSyncResponse:
-        """Open the handoff; this does not approve or resolve the blocked action."""
+        """Open the handoff; this does not approve or resolve the blocked action.
+
+        Args:
+            blocker_id: Identity of the Async blocker to address.
+            request: Idempotent handoff-open request.
+
+        Returns:
+            The blocker, operator Sync session, and durable handoff receipt.
+
+        Raises:
+            ValueError: Response identities or receipt fields disagree with the request.
+        """
         return _open(
             self._transport.execute(_request_for(blocker_id, "open-sync", request)),
             blocker_id,
@@ -87,7 +135,18 @@ class InternBlockersAPI:
     def resolve(
         self, blocker_id: str, request: InternBlockerResolveRequest
     ) -> InternBlockerResolveResponse:
-        """Submit an explicit disposition and return its durable continuation receipt."""
+        """Submit an explicit disposition and return its durable continuation receipt.
+
+        Args:
+            blocker_id: Identity of the Async blocker to address.
+            request: Explicit disposition and supporting resolution receipts.
+
+        Returns:
+            The resolved blocker and durable continuation command.
+
+        Raises:
+            ValueError: Response identities or receipt fields disagree with the request.
+        """
         return _resolve(
             self._transport.execute(_request_for(blocker_id, "resolve", request)),
             blocker_id,
@@ -96,16 +155,65 @@ class InternBlockersAPI:
 
 
 class AsyncInternBlockersAPI:
-    def __init__(self, transport):
+    """Asynchronous read, operator handoff, and explicit resolution of Async blockers.
+
+    ```python
+    from synth_ai.sdk.research.intern_blockers import AsyncInternBlockersAPI
+
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    transport = AsyncMock()
+    transport.execute.return_value = {
+        "blocker_id": "blocker-1", "code": "operator_required",
+        "message": "Review the blocked action", "retryable": False,
+    }
+    api = AsyncInternBlockersAPI(transport)
+    async def read_blocker():
+        return await api.get("blocker-1")
+
+    blocker = asyncio.run(read_blocker())
+    assert blocker.blocker_id == "blocker-1"
+    ```
+    """
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        """Bind blocker controls to an existing HTTP transport.
+
+        Args:
+            transport: Authenticated transport owned by the parent Synth client.
+        """
         self._transport = transport
 
     async def get(self, blocker_id: str) -> InternAsyncBlocker:
+        """Retrieve an Async blocker and verify its requested identity.
+
+        Args:
+            blocker_id: Identity of the Async blocker to address.
+
+        Returns:
+            The blocker matching the requested identity.
+
+        Raises:
+            ValueError: Response identities or receipt fields disagree with the request.
+        """
         return _read(await self._transport.execute(_request_for(blocker_id)), blocker_id)
 
     async def open_sync(
         self, blocker_id: str, request: InternBlockerOpenSyncRequest
     ) -> InternBlockerOpenSyncResponse:
-        """Open the handoff; this does not approve or resolve the blocked action."""
+        """Open the handoff; this does not approve or resolve the blocked action.
+
+        Args:
+            blocker_id: Identity of the Async blocker to address.
+            request: Idempotent handoff-open request.
+
+        Returns:
+            The blocker, operator Sync session, and durable handoff receipt.
+
+        Raises:
+            ValueError: Response identities or receipt fields disagree with the request.
+        """
         return _open(
             await self._transport.execute(_request_for(blocker_id, "open-sync", request)),
             blocker_id,
@@ -115,7 +223,18 @@ class AsyncInternBlockersAPI:
     async def resolve(
         self, blocker_id: str, request: InternBlockerResolveRequest
     ) -> InternBlockerResolveResponse:
-        """Submit an explicit disposition and return its durable continuation receipt."""
+        """Submit an explicit disposition and return its durable continuation receipt.
+
+        Args:
+            blocker_id: Identity of the Async blocker to address.
+            request: Explicit disposition and supporting resolution receipts.
+
+        Returns:
+            The resolved blocker and durable continuation command.
+
+        Raises:
+            ValueError: Response identities or receipt fields disagree with the request.
+        """
         return _resolve(
             await self._transport.execute(_request_for(blocker_id, "resolve", request)),
             blocker_id,

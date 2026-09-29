@@ -330,6 +330,9 @@ class SwarmsAPI:
 
         Returns:
             A handle for the created Swarm.
+
+        Raises:
+            ValueError: A runtime binding context lacks a project, is blank, or contains a newline.
         """
         if project_id is None:
             operation_id = "trigger_one_off_run"
@@ -372,6 +375,9 @@ class SwarmsAPI:
 
         Returns:
             A typed page containing Swarms and any continuation cursor.
+
+        Raises:
+            ValueError: Origin kind and ID are not set together, or kind is not sync or async.
         """
         if (origin_runtime_kind is None) != (origin_runtime_id is None):
             raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
@@ -425,7 +431,18 @@ class SwarmsAPI:
         return SwarmUsage.from_wire(value)
 
     def rollouts(self, swarm_id: SwarmId, *, limit: int = 100) -> tuple[SwarmRollout, ...]:
-        """Container-pool rollouts this Swarm launched (verified budget parent only)."""
+        """Container-pool rollouts this Swarm launched (verified budget parent only).
+
+        Args:
+            swarm_id: Swarm whose verified budget-parent rollouts to retrieve.
+            limit: Maximum rollout count requested from the backend.
+
+        Returns:
+            Parsed rollouts, each checked against the requested Swarm budget parent.
+
+        Raises:
+            ValueError: The response run ID or a rollout budget parent differs from swarm_id.
+        """
         value = self._transport.execute(
             _request(
                 "list_swarm_rollouts",
@@ -440,6 +457,12 @@ class SwarmsAPI:
 
         ``settled`` covers registered resources only; ``coverage_complete`` says
         whether that inventory is complete. ``coverage="untracked"`` is no claim.
+
+        Args:
+            swarm_id: Swarm whose registered-resource settlement to observe.
+
+        Returns:
+            A fresh settlement receipt with separate tracking and completeness indicators.
         """
         value = self._transport.execute(
             _request(
@@ -944,6 +967,9 @@ class AsyncSwarmsAPI:
 
         Returns:
             A handle for the created Swarm.
+
+        Raises:
+            ValueError: A runtime binding context lacks a project, is blank, or contains a newline.
         """
         if project_id is None:
             operation_id = "trigger_one_off_run"
@@ -986,6 +1012,9 @@ class AsyncSwarmsAPI:
 
         Returns:
             A typed page containing Swarms and any continuation cursor.
+
+        Raises:
+            ValueError: Origin kind and ID are not set together, or kind is not sync or async.
         """
         if (origin_runtime_kind is None) != (origin_runtime_id is None):
             raise ValueError("origin_runtime_kind and origin_runtime_id are set together")
@@ -1035,7 +1064,18 @@ class AsyncSwarmsAPI:
         return SwarmUsage.from_wire(value)
 
     async def rollouts(self, swarm_id: SwarmId, *, limit: int = 100) -> tuple[SwarmRollout, ...]:
-        """Container-pool rollouts this Swarm launched (verified budget parent only)."""
+        """Container-pool rollouts this Swarm launched (verified budget parent only).
+
+        Args:
+            swarm_id: Swarm whose verified budget-parent rollouts to retrieve.
+            limit: Maximum rollout count requested from the backend.
+
+        Returns:
+            Parsed rollouts, each checked against the requested Swarm budget parent.
+
+        Raises:
+            ValueError: The response run ID or a rollout budget parent differs from swarm_id.
+        """
         value = await self._transport.execute(
             _request(
                 "list_swarm_rollouts",
