@@ -145,6 +145,12 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.classification.create": ("POST", f"{_R}/classification-decisions"),
     "index.research.release.get": ("GET", f"{_R}/release-research"),
     "index.research.archive.get": ("GET", f"{_R}/research-archive"),
+    "index.research.archive.grants.list": ("GET", f"{_R}/research-archive/grants"),
+    "index.research.archive.grants.create": ("POST", f"{_R}/research-archive/grants"),
+    "index.research.archive.grants.revoke": (
+        "DELETE",
+        f"{_R}/research-archive/grants/{{grant_id}}",
+    ),
     "index.research.archives.create": ("POST", f"{_C}/research-archives"),
     "index.research.binding.create": ("POST", f"{_R}/research-binding"),
     "index.research.consent.create": ("POST", f"{_R}/release-consent"),
@@ -884,6 +890,47 @@ class ResearchAPI(_Resource):
                     "Private research response does not match requested revision",
                 ),
                 path_parameters=_revision(reference),
+            )
+        )
+
+    def archive_grants(self, reference: ContributionReference) -> Any:
+        """List this owner's named readers of one frozen archive revision."""
+        return self._run(
+            _Call(
+                "index.research.archive.grants.list",
+                CollectionGrants.model_validate,
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def grant_archive(self, reference: ContributionReference, spec: CollectionGrantSpec) -> Any:
+        """Grant one named user manifest and object access to this revision."""
+        return self._run(
+            _Call(
+                "index.research.archive.grants.create",
+                _bound(
+                    CollectionGrant,
+                    lambda grant: grant.subject_kind == spec.subject_kind
+                    and grant.subject_id == spec.subject_id
+                    and set(grant.operations) == {"read_manifest", "read_object"},
+                    "Archive grant does not match requested reader and operations",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def revoke_archive_grant(self, reference: ContributionReference, grant_id: str) -> Any:
+        """Revoke both archive read operations for a named reader."""
+        return self._run(
+            _Call(
+                "index.research.archive.grants.revoke",
+                _bound(
+                    CollectionGrantRevoked,
+                    lambda receipt: receipt.grant_id == grant_id and receipt.revoked,
+                    "Archive revocation does not match requested grant",
+                ),
+                path_parameters={**_revision(reference), "grant_id": grant_id},
             )
         )
 
