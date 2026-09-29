@@ -486,3 +486,22 @@ This SDK surface does not yet implement native capture or isolated recipe
 execution. The backend's maintained `research_bundle` commands own the current
 offline build/reconstruction implementation; installing this client alone does
 not qualify reproducibility or the local FAST/DEEP and browser gates.
+
+
+Private snapshot transfers use `research.prepare_archive_upload(contribution_id,
+snapshot_id, spec)` and `research.finalize_archive_upload(contribution_id,
+snapshot_id, publication_id, collection_id=...)`. Prepare accepts only revision 1
+with schema `synth.research.snapshot.v1`, and validates exact publication,
+collection and declared object identity before exposing any transfer target.
+Already stored objects can omit targets. Upload bytes through the existing
+contribution upload helper. Finalize must return the same committed identity.
+These operations allocate no release visibility or consent. Lost/expired fences
+return `research_lease_lost`; retry preparation explicitly with the same identity.
+
+`synth-ai index research capture-codex-rollout-prefix` freezes a selected native
+JSONL prefix with `--native-input`, `--thread-id`, `--captured-at`, `--cutoff-at`
+and `--out`. The input must end at the chosen cutoff and on a complete JSONL
+record. Admission verifies native session aliases and timestamp order and retains
+exact source bytes as `application/x-ndjson`. Capture is private and create-only;
+a retry must match every byte. The declared partial coverage does not establish
+inherited session history or external provider state.

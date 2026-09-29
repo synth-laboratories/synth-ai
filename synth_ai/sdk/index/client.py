@@ -20,7 +20,12 @@ from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
-from .artifacts import ArtifactCollectionResponse, ArtifactPublicationResponse
+from .artifacts import (
+    ArtifactCollectionResponse,
+    ArtifactPublicationPrepare,
+    ArtifactPublicationPrepareResponse,
+    ArtifactPublicationResponse,
+)
 from .catalog import (
     AccessFundingAccount,
     BillingPolicyUpdate,
@@ -152,6 +157,14 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
         f"{_R}/research-archive/grants/{{grant_id}}",
     ),
     "index.research.archives.create": ("POST", f"{_C}/research-archives"),
+    "index.research.archives.upload.prepare": (
+        "POST",
+        f"{_C}/research-archives/{{snapshot_id}}/upload",
+    ),
+    "index.research.archives.upload.finalize": (
+        "POST",
+        f"{_C}/research-archives/{{snapshot_id}}/finalize",
+    ),
     "index.research.binding.create": ("POST", f"{_R}/research-binding"),
     "index.research.consent.create": ("POST", f"{_R}/release-consent"),
     "index.research.reproduction.create": ("POST", f"{_R}/reproduction-attestations"),
@@ -849,11 +862,13 @@ class ClassificationsAPI(_Resource):
                 "index.classification.create",
                 _bound(
                     ClassificationDecisionView,
-                    lambda view: view.reference == reference
-                    and view.manifest_digest == spec.manifest_digest
-                    and view.registry_version == spec.registry_version
-                    and view.generation == spec.expected_generation + 1
-                    and view.accepted_tag_ids == spec.accepted_tag_ids,
+                    lambda view: (
+                        view.reference == reference
+                        and view.manifest_digest == spec.manifest_digest
+                        and view.registry_version == spec.registry_version
+                        and view.generation == spec.expected_generation + 1
+                        and view.accepted_tag_ids == spec.accepted_tag_ids
+                    ),
                     "Classification decision does not match requested intent",
                 ),
                 path_parameters=_revision(reference),
@@ -910,9 +925,11 @@ class ResearchAPI(_Resource):
                 "index.research.archive.grants.create",
                 _bound(
                     CollectionGrant,
-                    lambda grant: grant.subject_kind == spec.subject_kind
-                    and grant.subject_id == spec.subject_id
-                    and set(grant.operations) == {"read_manifest", "read_object"},
+                    lambda grant: (
+                        grant.subject_kind == spec.subject_kind
+                        and grant.subject_id == spec.subject_id
+                        and set(grant.operations) == {"read_manifest", "read_object"}
+                    ),
                     "Archive grant does not match requested reader and operations",
                 ),
                 path_parameters=_revision(reference),
@@ -940,14 +957,67 @@ class ResearchAPI(_Resource):
                 "index.research.archives.create",
                 _bound(
                     ArtifactCollectionResponse,
-                    lambda collection: collection.scope.owner_namespace
-                    == "contribution_research_archives"
-                    and collection.scope.owner_resource_id == spec.snapshot_id
-                    and collection.scope.visibility == "private",
+                    lambda collection: (
+                        collection.scope.owner_namespace == "contribution_research_archives"
+                        and collection.scope.owner_resource_id == spec.snapshot_id
+                        and collection.scope.visibility == "private"
+                    ),
                     "Archive allocation must return the requested private snapshot scope",
                 ),
                 path_parameters={"contribution_id": contribution_id},
                 json_body=_body(spec),
+            )
+        )
+
+    def prepare_archive_upload(
+        self, contribution_id: str, snapshot_id: str, spec: ArtifactPublicationPrepare
+    ) -> Any:
+        """Prepare only the allocated private snapshot; never retain signed URLs."""
+        if spec.revision != 1 or spec.manifest_schema_version != "synth.research.snapshot.v1":
+            raise ValueError("Archive upload requires snapshot v1 at revision 1")
+        expected = {obj.logical_path: obj.digest_sha256 for obj in spec.objects}
+        return self._run(
+            _Call(
+                "index.research.archives.upload.prepare",
+                _bound(
+                    ArtifactPublicationPrepareResponse,
+                    lambda result: (
+                        result.publication_id == spec.publication_id
+                        and result.collection_id == spec.collection_id
+                        and result.revision == 1
+                        and len({target.logical_path for target in result.upload_targets})
+                        == len(result.upload_targets)
+                        and all(
+                            expected.get(target.logical_path) == target.digest_sha256
+                            for target in result.upload_targets
+                        )
+                    ),
+                    "Archive transfer differs from requested snapshot objects",
+                ),
+                path_parameters={"contribution_id": contribution_id, "snapshot_id": snapshot_id},
+                json_body=_body(spec),
+            )
+        )
+
+    def finalize_archive_upload(
+        self, contribution_id: str, snapshot_id: str, publication_id: str, *, collection_id: str
+    ) -> Any:
+        """Verify and commit exact private snapshot bytes; this does not publish a release."""
+        return self._run(
+            _Call(
+                "index.research.archives.upload.finalize",
+                _bound(
+                    ArtifactPublicationResponse,
+                    lambda result: (
+                        result.publication_id == publication_id
+                        and result.collection_id == collection_id
+                        and result.revision == 1
+                        and result.status == "committed"
+                    ),
+                    "Archive finalization differs from requested snapshot",
+                ),
+                path_parameters={"contribution_id": contribution_id, "snapshot_id": snapshot_id},
+                json_body={"publication_id": publication_id},
             )
         )
 
@@ -974,10 +1044,12 @@ class ResearchAPI(_Resource):
                 "index.research.consent.create",
                 _bound(
                     ReleaseConsentView,
-                    lambda view: view.revision_id == reference.revision_id
-                    and view.manifest_digest == spec.manifest_digest
-                    and view.disclosure_digest == spec.disclosure_digest
-                    and view.audience == spec.audience,
+                    lambda view: (
+                        view.revision_id == reference.revision_id
+                        and view.manifest_digest == spec.manifest_digest
+                        and view.disclosure_digest == spec.disclosure_digest
+                        and view.audience == spec.audience
+                    ),
                     "Consent response differs from exact requested content",
                 ),
                 path_parameters=_revision(reference),

@@ -190,3 +190,30 @@ class ArtifactManifest(ArtifactContract):
         if paths != tuple(sorted(paths)) or len(set(paths)) != len(paths):
             raise ValueError("manifest objects must have sorted, unique logical paths")
         return self
+
+
+class ArtifactPublicationPrepare(ArtifactContract):
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    publication_id: ArtifactUuid
+    collection_id: ArtifactUuid
+    revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+    manifest_schema_version: ArtifactIdentifier
+    objects: tuple[ArtifactObjectDeclaration, ...] = Field(max_length=100_000)
+
+    @model_validator(mode="after")
+    def validate_unique_logical_paths(self) -> ArtifactPublicationPrepare:
+        logical_paths = tuple(item.logical_path for item in self.objects)
+        if len(logical_paths) != len(set(logical_paths)):
+            raise ValueError("object logical paths must be unique")
+        declarations_by_digest: dict[str, tuple[int, str]] = {}
+        for item in self.objects:
+            declaration_shape = (item.size_bytes, item.media_type)
+            previous_shape = declarations_by_digest.setdefault(
+                item.digest_sha256,
+                declaration_shape,
+            )
+            if previous_shape != declaration_shape:
+                raise ValueError("one object digest cannot declare multiple sizes or media types")
+        if sum(item.size_bytes for item in self.objects) > 9_223_372_036_854_775_807:
+            raise ValueError("publication size exceeds signed 64-bit persistence limit")
+        return self

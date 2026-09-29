@@ -820,6 +820,35 @@ def research_capture_codex_task_read(native_input, thread_id, captured_at, cutof
     click.echo(f"Recorded {export.completeness} native capture: {out}")
 
 
+@research.command("capture-codex-rollout-prefix")
+@click.option(
+    "--native-input", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option(
+    "--thread-id", required=True, help="Exact authorized task identity; no session discovery."
+)
+@click.option("--captured-at", required=True, help="Explicit RFC3339 timestamp with offset.")
+@click.option("--cutoff-at", required=True, help="Explicit capture cutoff with offset.")
+@click.option("--out", required=True, type=click.Path(file_okay=False, path_type=Path))
+def research_capture_codex_rollout_prefix(native_input, thread_id, captured_at, cutoff_at, out):
+    """Freeze selected complete native JSONL records through an explicit cutoff."""
+    from datetime import datetime
+
+    from synth_ai.sdk.index.research.capture import freeze_codex_rollout_prefix
+
+    try:
+        export = freeze_codex_rollout_prefix(
+            native_input,
+            out,
+            expected_thread_id=thread_id,
+            captured_at=datetime.fromisoformat(captured_at),
+            cutoff_at=datetime.fromisoformat(cutoff_at),
+        )
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded {export.completeness} native capture: {out}")
+
+
 @research.command("capture-swarms-evidence")
 @click.option(
     "--native-input", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)

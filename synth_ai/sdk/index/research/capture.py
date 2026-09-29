@@ -262,19 +262,49 @@ def admit_swarms_evidence(
             raise FrozenBuildError("session_export_invalid", "Swarms evidence set is missing")
     required = {
         "artifacts": {"artifact_id", "artifact_type", "created_at", "content_url", "download_url"},
-        "work_products": {"work_product_id", "kind", "title", "status", "readiness",
-            "artifact_links", "content_url", "created_at", "updated_at"},
-        "tool_calls": {"tool_call_id", "actor_role", "tool_name", "arguments_digest",
-            "status", "retryable", "duration_ms", "occurred_at"},
-        "selected_artifact_contents": {"artifact_id", "artifact_type", "content_type",
-            "size_bytes", "content"},
-        "trace_publications": {"publication_id", "factory_id", "project_id", "run_id",
-            "bundle_id", "bundle_schema_version", "manifest_digest", "status",
-            "trace_count", "evidence_count"},
+        "work_products": {
+            "work_product_id",
+            "kind",
+            "title",
+            "status",
+            "readiness",
+            "artifact_links",
+            "content_url",
+            "created_at",
+            "updated_at",
+        },
+        "tool_calls": {
+            "tool_call_id",
+            "actor_role",
+            "tool_name",
+            "arguments_digest",
+            "status",
+            "retryable",
+            "duration_ms",
+            "occurred_at",
+        },
+        "selected_artifact_contents": {
+            "artifact_id",
+            "artifact_type",
+            "content_type",
+            "size_bytes",
+            "content",
+        },
+        "trace_publications": {
+            "publication_id",
+            "factory_id",
+            "project_id",
+            "run_id",
+            "bundle_id",
+            "bundle_schema_version",
+            "manifest_digest",
+            "status",
+            "trace_count",
+            "evidence_count",
+        },
     }
     for name, fields in required.items():
-        if any(not isinstance(item, dict) or not fields.issubset(item)
-               for item in value[name]):
+        if any(not isinstance(item, dict) or not fields.issubset(item) for item in value[name]):
             raise FrozenBuildError("session_export_invalid", "Swarms evidence item is incomplete")
     if type(freshness.get("run_is_terminal")) is not bool:
         raise FrozenBuildError("session_export_invalid", "Swarms terminal status is invalid")
@@ -375,6 +405,7 @@ def _freeze_selected_native(
     captured_at: datetime,
     cutoff_at: datetime,
     expected_identity: dict[str, str],
+    object_suffix: str = ".json",
 ) -> SessionExport:
     """Freeze one selected native response using the same create-only custody as Codex."""
     if captured_at.utcoffset() is None or cutoff_at.utcoffset() is None:
@@ -389,11 +420,11 @@ def _freeze_selected_native(
         captured_at=captured_at,
         cutoff_at=cutoff_at,
         object_id=object_id,
-        logical_path=f"objects/{object_id}.json",
+        logical_path=f"objects/{object_id}{object_suffix}",
     )
     expected = {
         "session-export.json": canonical_bytes(export),
-        f"objects/{object_id}.json": raw,
+        f"objects/{object_id}{object_suffix}": raw,
     }
     if destination.is_symlink():
         raise FrozenBuildError("unsafe_session_path", "capture root may not be a link")
@@ -472,6 +503,122 @@ def freeze_mlok_policy_capture(
         destination,
         admission=admit_mlok_policy_capture,
         object_id="native-mlok-policy-context",
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        expected_identity={"expected_thread_id": expected_thread_id},
+    )
+
+
+def admit_codex_rollout_prefix(
+    raw: bytes,
+    *,
+    expected_thread_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+    object_id: str,
+    logical_path: str,
+) -> SessionExport:
+    """Admit exact native JSONL records through a declared capture cutoff.
+
+    Unlike task-read summaries, this retains native response/tool events. A
+    journal prefix still cannot establish inherited history or omitted provider
+    state, so completeness remains explicit rather than inferred from byte count.
+    """
+    if not raw or len(raw) > EXPORT_BYTES_MAX or not raw.endswith(b"\n"):
+        raise FrozenBuildError("session_export_invalid", "bounded complete JSONL records required")
+    records = [_native_payload(line) for line in raw.splitlines()]
+    if len(records) > 100_000 or records[0].get("type") != "session_meta":
+        raise FrozenBuildError("session_export_invalid", "native session metadata must be first")
+    meta = records[0].get("payload")
+    if not isinstance(meta, dict) or meta.get("id") != expected_thread_id:
+        raise FrozenBuildError(
+            "session_identity_mismatch", "native rollout differs from selected thread"
+        )
+    if meta.get("session_id", expected_thread_id) != expected_thread_id:
+        raise FrozenBuildError("session_identity_mismatch", "native session aliases disagree")
+    if cutoff_at.tzinfo is None or captured_at.tzinfo is None or captured_at < cutoff_at:
+        raise FrozenBuildError(
+            "session_export_invalid", "timezone-aware capture after cutoff required"
+        )
+    kinds = {
+        "session_meta",
+        "event_msg",
+        "response_item",
+        "world_state",
+        "turn_context",
+        "token_usage_record",
+        "compacted",
+    }
+    previous = None
+    for offset, record in enumerate(records):
+        if record.get("type") not in kinds or (offset and record.get("type") == "session_meta"):
+            raise FrozenBuildError(
+                "session_export_version_unknown", "unsupported native record shape"
+            )
+        try:
+            at = datetime.fromisoformat(record["timestamp"].replace("Z", "+00:00"))
+        except (KeyError, ValueError, TypeError, AttributeError) as error:
+            raise FrozenBuildError("session_export_invalid", "native timestamp required") from error
+        if at.tzinfo is None or at > cutoff_at or (previous is not None and at < previous):
+            raise FrozenBuildError("session_export_invalid", "native record outside ordered cutoff")
+        if not isinstance(record.get("payload"), dict):
+            raise FrozenBuildError("session_export_invalid", "native object payload required")
+        previous = at
+    parents = tuple(
+        dict.fromkeys(
+            value
+            for field in ("parent_thread_id", "forked_from_id")
+            if (value := meta.get(field)) is not None
+        )
+    )
+    if any(
+        not isinstance(value, str) or not value.strip() or value == expected_thread_id
+        for value in parents
+    ):
+        raise FrozenBuildError("session_identity_mismatch", "invalid native parent identity")
+    return SessionExport(
+        source="codex",
+        native_session_id=expected_thread_id,
+        parent_native_ids=parents,
+        event_start=0,
+        event_end_exclusive=len(records),
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        completeness="partial",
+        gaps=(
+            "Exact local native journal prefix; records after cutoff are excluded.",
+            "Native line indexes are not a provider-wide causal event sequence.",
+            "Inherited history and external provider state are not established by this export.",
+        ),
+        native_objects=(
+            FrozenObject(
+                object_id=object_id,
+                purpose="session",
+                object=ArtifactObjectDeclaration(
+                    logical_path=logical_path,
+                    digest_sha256=hashlib.sha256(raw).hexdigest(),
+                    size_bytes=len(raw),
+                    media_type="application/x-ndjson",
+                ),
+            ),
+        ),
+    )
+
+
+def freeze_codex_rollout_prefix(
+    source: Path,
+    destination: Path,
+    *,
+    expected_thread_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+) -> SessionExport:
+    return _freeze_selected_native(
+        source,
+        destination,
+        admission=admit_codex_rollout_prefix,
+        object_id="native-codex-rollout",
+        object_suffix=".jsonl",
         captured_at=captured_at,
         cutoff_at=cutoff_at,
         expected_identity={"expected_thread_id": expected_thread_id},

@@ -64,6 +64,17 @@ class IndexErrorCode(StrEnum):
     SCOPE_INVALID = "index_scope_invalid"
     USER_REQUIRED = "user_required"
 
+    # Private archive transfer and fenced research materialization.
+    RESEARCH_ARCHIVE_FORBIDDEN = "research_archive_forbidden"
+    RESEARCH_ARCHIVE_IDENTITY_MISMATCH = "research_archive_identity_mismatch"
+    RESEARCH_ARCHIVE_SCHEMA_INVALID = "research_archive_schema_invalid"
+    RESEARCH_ARCHIVE_FINALIZATION_CONFLICT = "research_archive_finalization_conflict"
+    RESEARCH_ARCHIVE_STORAGE_UNAVAILABLE = "research_archive_storage_unavailable"
+    RESEARCH_ARCHIVE_UNAVAILABLE = "research_archive_unavailable"
+    RESEARCH_LEASE_LOST = "research_lease_lost"
+    RESEARCH_PARENT_UNAVAILABLE = "research_parent_unavailable"
+    RESEARCH_SNAPSHOT_CONFLICT = "research_snapshot_conflict"
+
     # Request framing, rejected before any route runs.
     REQUEST_TOO_LARGE = "index_request_too_large"
     REQUEST_TOO_FRAGMENTED = "index_request_too_fragmented"
