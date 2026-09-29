@@ -471,21 +471,64 @@ class TaskCompletionClaimedEvent:
     The backend derives it from the durable claim row: ``text`` is the
     worker's stated result (bounded, redacted) and ``participant_id`` is the
     worker's stable actor key, distinct per worker.
+
+    ```python
+    from synth_ai.sdk.research.contracts.transcript import TaskCompletionClaimedEvent
+
+    from datetime import datetime, timezone
+    from synth_ai.sdk.research.contracts.transcript import (
+        SwarmTranscriptEvent, TASK_COMPLETION_CLAIMED_SCHEMA_VERSION,
+    )
+
+    event = SwarmTranscriptEvent(
+        event_id="event-1", live_cursor=None, swarm_id="run-1",
+        participant_session_id="session-1", participant_role="worker",
+        thread_id=None, turn_id="turn-1", occurred_at=datetime.now(timezone.utc),
+        kind="task.completion_claimed", run_terminal=False,
+        redaction_profile=None, visibility_decision=None, payload_classification=None,
+        payload={"schema_version": TASK_COMPLETION_CLAIMED_SCHEMA_VERSION,
+            "participant_id": "worker-1", "claim_id": "claim-1",
+            "task_key": "task-1", "claimed_state": "completed"},
+    )
+    claim = TaskCompletionClaimedEvent.from_transcript_event(event)
+    assert claim.participant_id == "worker-1"
+    ```
     """
 
+    #: Durable transcript event identifier; live-only events are rejected.
     event_id: TranscriptEventId
+    #: Session containing the completion claim.
     participant_session_id: ParticipantSessionId
+    #: Stable actor key of the worker making the claim.
     participant_id: str
+    #: Worker turn identifier, when recorded.
     turn_id: str | None
+    #: Identity of the durable completion claim.
     claim_id: str
+    #: Task for which completion was claimed.
     task_key: str
+    #: Worker-claimed task state; distinct from verified completion.
     claimed_state: str
+    #: Bounded, redacted worker result text, when visible.
     text: str | None
+    #: Projected completion-claim summary, when visible.
     summary: str | None
+    #: Whether the projected result text was truncated.
     text_truncated: bool
 
     @classmethod
     def from_transcript_event(cls, event: SwarmTranscriptEvent) -> TaskCompletionClaimedEvent:
+        """Read a durable worker completion claim from a transcript event.
+
+        Args:
+            event: Viewer-safe task.completion_claimed event with a durable event ID.
+
+        Returns:
+            The worker claim; this does not certify verified task completion.
+
+        Raises:
+            ValueError: The event kind/schema is unsupported, the durable event ID is absent, or required claim fields are missing.
+        """
         if event.kind != TASK_COMPLETION_CLAIMED_EVENT_KIND:
             raise ValueError(f"not a {TASK_COMPLETION_CLAIMED_EVENT_KIND} event: {event.kind}")
         if event.event_id is None:

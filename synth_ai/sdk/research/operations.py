@@ -218,12 +218,6 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
-            "list_intern_runtime_mcp_actions",
-            HttpMethod.GET,
-            "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions",
-            idempotent=True,
-        ),
-        _operation(
             "list_objective_answer_revisions",
             HttpMethod.GET,
             "/smr/objectives/{objective_id}/answers/{answer_id}/revisions",

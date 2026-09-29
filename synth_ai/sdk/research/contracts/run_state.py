@@ -438,7 +438,9 @@ class ManagedResearchRun:
     public_state: RunState
     effort_id: str | None = None
     # The Intern Sync session or Async assignment that launched this run.
+    #: Originating Intern runtime kind, when recorded: sync or async.
     origin_runtime_kind: str | None = None
+    #: Sync session or Async assignment ID that launched the run, when recorded.
     origin_runtime_id: str | None = None
     run_kind: ManagedResearchRunKind = ManagedResearchRunKind.RESEARCH
     runbook: str | None = None

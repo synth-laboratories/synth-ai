@@ -446,6 +446,7 @@ class RunPolicy:
     access: RunPolicyAccess | None = None
     limits: RunPolicyLimits | None = None
     # Opt-in Synth Index read tools for this run; None keeps existing runs unchanged.
+    #: Opt-in Synth Index access policy; None omits the grant from the request.
     index: IndexAccessPolicy | None = None
 
     def to_wire(self) -> JsonObject:
@@ -1057,6 +1058,7 @@ class KickoffArtifact:
 
 
 class AiCacheMode(StrEnum):
+    """Read, write, and combined inference-cache routing modes."""
     READ = "read"
     WRITE = "write"
     READWRITE = "readwrite"
@@ -1064,16 +1066,38 @@ class AiCacheMode(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class AiCachePolicy:
-    """Local integration-test inference routing for one Swarm run."""
+    """Local integration-test inference routing for one Swarm run.
 
+    ```python
+    from synth_ai.sdk.research.contracts.swarms import AiCachePolicy
+
+    from synth_ai.sdk.research.contracts.swarms import AiCacheMode
+
+    policy = AiCachePolicy(
+        mode=AiCacheMode.READ, namespace="local-test",
+        proxy_root_url="http://127.0.0.1:9000", canonicalizer="example-v1",
+    )
+    assert policy.to_wire()["live_provider_allowed"] is False
+    ```
+    """
+
+    #: Cache read, write, or readwrite routing mode.
     mode: AiCacheMode
+    #: Cache namespace containing only letters, digits, dots, underscores, and hyphens.
     namespace: str
+    #: HTTP(S) root URL of the local inference-cache proxy.
     proxy_root_url: str
+    #: Canonicalizer identifier used for cache request matching.
     canonicalizer: str
+    #: Optional provider routing name using the same safe character set as namespace.
     provider: str | None = None
+    #: Optional phase label included in the cache policy.
     phase: str | None = None
+    #: Replay flag; omitted values are derived from whether mode is read.
     deterministic_replay: bool | None = None
+    #: Whether model suffixes are allowed in cache matching.
     allow_model_suffixes: bool = False
+    #: Live-provider permission; omitted values are derived from whether mode is read.
     live_provider_allowed: bool | None = None
 
     def __post_init__(self) -> None:
@@ -1108,6 +1132,11 @@ class AiCachePolicy:
             raise ValueError("ai_cache replay phase requires read mode")
 
     def to_wire(self) -> JsonObject:
+        """Serialize this contract to its backend JSON representation.
+
+        Returns:
+            A new JSON object using backend field names and enum values.
+        """
         replay = self.mode is AiCacheMode.READ
         payload: JsonObject = {
             "mode": self.mode.value,
@@ -1146,6 +1175,7 @@ class SwarmSpec:
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
     kickoff_contract: Mapping[str, JsonValue] | None = None
+    #: Optional local integration-test inference-cache routing policy.
     ai_cache: AiCachePolicy | None = None
     execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
@@ -1369,11 +1399,24 @@ class Swarm:
     work_completed: bool = False
     # The Intern Sync session ("sync") or Async assignment ("async") that
     # launched this swarm; both None for swarms no Intern runtime started.
+    #: Originating Intern runtime kind, when recorded: sync or async.
     origin_runtime_kind: str | None = None
+    #: Sync session or Async assignment ID that launched the run, when recorded.
     origin_runtime_id: str | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Swarm:
+        """Parse the backend wire representation of Swarm.
+
+        Args:
+            value: Backend response object to validate and convert.
+
+        Returns:
+            The parsed Swarm with backend values preserved.
+
+        Raises:
+            ValueError: The origin runtime kind is not sync or async, or other required Swarm fields are malformed.
+        """
         payload = object_value(value, operation_id="swarm")
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
@@ -1499,20 +1542,48 @@ def _format_preflight_blocker_message(
 
 @dataclass(frozen=True, slots=True)
 class SwarmPreflightBlocker:
-    """Structured launch refusal evidence preserved from the backend."""
+    """Structured launch refusal evidence preserved from the backend.
 
+    ```python
+    from synth_ai.sdk.research.contracts.swarms import SwarmPreflightBlocker
+
+    blocker = SwarmPreflightBlocker.from_wire("Project is archived")
+    assert blocker.retryable is False
+    ```
+    """
+
+    #: Launch stage that refused the request, when supplied.
     stage: str | None
+    #: Recorded refusal HTTP status, when an integer was supplied.
     http_status: int | None
+    #: Backend error code, including legacy code fallback.
     error_code: str | None
+    #: Human-readable refusal reason.
     message: str
+    #: Whether the backend marks the refusal retryable; defaults to false.
     retryable: bool
+    #: Retry delay in seconds, when an integer was supplied.
     retry_after_seconds: int | None
+    #: Backend refusal classification, when supplied.
     reason_class: str | None
+    #: Backend evidence observation identifier, when supplied.
     observation_id: str | None
+    #: Immutable copy of backend detail evidence, when supplied.
     detail: FrozenJsonValue
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmPreflightBlocker:
+        """Parse the backend wire representation of SwarmPreflightBlocker.
+
+        Args:
+            value: Backend response object to validate and convert.
+
+        Returns:
+            The parsed SwarmPreflightBlocker with backend values preserved.
+
+        Raises:
+            ValueError: An object blocker has no non-empty message, detail, or code, or is not an object.
+        """
         if isinstance(value, str):
             return cls(None, None, None, value, False, None, None, None, None)
         payload = object_value(value, operation_id="swarm preflight blocker")
@@ -1541,6 +1612,7 @@ class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
     blockers: tuple[str, ...]
+    #: Structured refusal evidence corresponding to the displayed blocker messages.
     blocker_details: tuple[SwarmPreflightBlocker, ...] = ()
 
     @classmethod

@@ -212,14 +212,29 @@ class WorkspaceFileKind(StrEnum):
 
 
 class WorkspaceFileMode(StrEnum):
-    """Portable Git file modes accepted by the workspace boundary."""
+    """Portable Git file modes accepted by the workspace boundary.
+
+    ```python
+    from synth_ai.sdk.research.contracts.workspaces import WorkspaceFileMode
+
+    assert WorkspaceFileMode.from_posix_mode(0o755) is WorkspaceFileMode.EXECUTABLE
+    assert WorkspaceFileMode.from_posix_mode(0o644) is WorkspaceFileMode.REGULAR
+    ```
+    """
 
     REGULAR = "100644"
     EXECUTABLE = "100755"
 
     @classmethod
     def from_posix_mode(cls, posix_mode: int) -> WorkspaceFileMode:
-        """Map a POSIX permission word to a Git blob mode, as Git itself does."""
+        """Map a POSIX permission word to a Git blob mode, as Git itself does.
+
+        Args:
+            posix_mode: POSIX permission word; any execute bit selects executable mode.
+
+        Returns:
+            EXECUTABLE when any execute bit is set, otherwise REGULAR.
+        """
 
         return cls.EXECUTABLE if posix_mode & 0o111 else cls.REGULAR
 
@@ -426,6 +441,7 @@ class WorkspaceFileUpload:
     content_type: Optional[str] = None
     encoding: Optional[WorkspaceFileEncoding] = None
     kind: Optional[WorkspaceFileKind] = None
+    #: Optional Git file mode: regular 100644 or executable 100755.
     mode: Optional[WorkspaceFileMode] = None
     metadata: WorkspaceMetadata = field(default_factory=WorkspaceMetadata)
 

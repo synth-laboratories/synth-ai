@@ -68,6 +68,7 @@ class SmrRunPolicy:
     funding_source: SmrFundingSource | None = None
     access: SmrRunPolicyAccess | None = None
     limits: SmrRunPolicyLimits | None = None
+    #: Opt-in Synth Index access policy; None omits the grant from the request.
     index: IndexAccessPolicy | None = None
 
     def to_dict(self) -> dict[str, Any]:
