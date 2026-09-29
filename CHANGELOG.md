@@ -4,6 +4,50 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Removed
+
+- **Index answer is removed.** The backend no longer serves
+  `POST /api/v1/index/answer`, so `index.answer(...)` (sync and async), the
+  `AnswerSpec` / `AnswerResult` / `AnswerCitation` / `AnswerClaim` /
+  `AnswerStatus` / `AnswerUsage` types and `synth_ai.sdk.index.answer`, the
+  `synth-ai index answer` CLI command, the `index_answer` MCP tool (and
+  `INDEX_HIDDEN_TOOL_NAMES` / `include_answer`), and the vendored OpenAPI
+  operation are gone. Use `index.search(...)`, whose results carry a cited
+  `response`. Breaking for any caller of `index.answer(...)`.
+
+### 0.21.1 candidate
+
+- **Wallet terms 2026-09-28.** `WALLET_TERMS_VERSION` is now
+  `synth-index-wallet-terms-2026-09-28` (an empty DEEP stop at a limit,
+  `infrastructure_stopped`, is charged). The backend still accepts
+  `synth-index-wallet-terms-2026-09-27` and waives that stop for orgs that
+  consented to it; other versions get `422 index_wallet_terms_version_unknown`.
+- **CLI public route.** `synth-ai index search --public` runs the free anonymous
+  public Search (`PublicIndexClient`) and prints the result with the backend's
+  `terms`; `--keyed` selects the paid keyed route. The CLI never switches routes
+  on its own: `--public` never sends an inherited `SYNTH_API_KEY`; `--keyed` or a
+  keyed-only option (`--private-collection`, `--allow-wallet`,
+  `--max-charge-cents`, `--deadline-seconds`) without a key is refused rather
+  than downgraded; `--public` with `--keyed`, `--api-key` or a keyed-only option
+  is a usage error; no key and no flag is a usage error. An inherited key with no
+  flag keeps the 0.21.0 keyed behavior and prints a stderr notice. Search output
+  now includes `route` (`public` or `keyed`).
+- **MCP `index_search` output contract.** Results carry `route`; `terms` is
+  promised and returned only on free public results. Keyed results report
+  `paid` and `charge` and no `terms`. The tool description no longer says terms
+  come "with every result". `public_search_result_payload(...)` is shared by the
+  CLI and MCP.
+- **Public-route error messages.** `PublicSearchBudgetExhaustedError` messages
+  now include the `Retry-After` wait when the backend sends one, alongside the
+  existing typed rate-limit, disabled-route and credential-conflict errors.
+- **Docs and metadata.** README, Index SDK guide, MCP setup prompt and CLI/MCP
+  READMEs describe the two routes consistently (free anonymous public vs paid
+  keyed, including public-scope keyed Search), document public-route errors, and
+  present Index and Swarms (`research.swarms`) as the current paths. Factory and
+  Intern remain supported APIs but are no longer promoted there. Package
+  description and keywords no longer describe a Factory-centric SDK.
+- Public search copy describes zero durable query-content retention and bounded encrypted processing, rather than “retained for zero days.” Capability values still control the wording. Budget-exhausted errors also expose `retry_after_s` consistently with rate-limit errors. No paid/private routing changes. Not built or published.
+
 ## 0.21.0 — 2026-09-28 (Index Search v0.2)
 
 ### Added

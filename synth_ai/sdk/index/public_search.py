@@ -177,11 +177,13 @@ class PublicSearchBudgetExhaustedError(PublicSearchUnavailableError):
         message: str,
         *,
         scope: PublicSearchBudgetScope | None = None,
+        retry_after_s: float | None = None,
         failure: SynthFailure | None = None,
         status: int | None = 503,
     ) -> None:
         super().__init__(message, failure=failure, status=status)
         self.scope = scope
+        self.retry_after_s = retry_after_s
 
 
 class PublicSearchRateStoreUnavailableError(PublicSearchUnavailableError):
@@ -309,10 +311,13 @@ def translate_public_search_error(error: SynthError) -> SynthError:
     if code == IndexErrorCode.PUBLIC_BUDGET_EXHAUSTED:
         budget_scope = PublicSearchBudgetScope.parse(scope)
         where = "" if budget_scope is None else f" (scope={budget_scope.value})"
+        retry_after = error.retry_after_seconds
+        wait = "" if retry_after is None else f" Retry in {retry_after:g} s."
         return PublicSearchBudgetExhaustedError(
             f"Public Index search is unavailable ({code}){where}; no result was produced "
-            "and nothing was charged.",
+            f"and nothing was charged.{wait}",
             scope=budget_scope,
+            retry_after_s=error.retry_after_seconds,
             failure=failure,
             status=status,
         )
@@ -808,10 +813,14 @@ def public_search_copy(capability: PublicSearchCapability | None) -> PublicSearc
                 f"{limits.global_per_day} per day "
                 "platform-wide."
             )
+    query_retention = (
+        "Public query content is not retained in durable storage."
+        if capability.retention.public_query_days == 0
+        else f"Public queries are retained for {capability.retention.public_query_days} days."
+    )
     retention = (
-        f"Public queries are retained for {capability.retention.public_query_days} days; "
-        f"private processing data for {capability.retention.private_processing_minutes} "
-        "minutes."
+        f"{query_retention} Processing state expires after "
+        f"{capability.retention.private_processing_minutes} minutes."
     )
     privacy = f"{capability.privacy_copy.strip()} {retention}".strip()
     return PublicSearchCopy(
@@ -820,6 +829,28 @@ def public_search_copy(capability: PublicSearchCapability | None) -> PublicSearc
         limits=" ".join(limit_parts),
         privacy=privacy,
     )
+
+
+def public_search_result_payload(result: PublicSearchResult) -> dict[str, Any]:
+    """JSON projection of a delivered free public Search (shared by CLI and MCP).
+
+    Carries no search token. ``route`` names the anonymous public route so a
+    caller can tell it from a keyed (paid) result without inspecting charges.
+    """
+    return {
+        "route": "public",
+        "search_id": result.search_id,
+        "mode": result.mode.value,
+        "status": result.status,
+        "response": result.response,
+        "partial_reason": result.partial_reason,
+        "citations": [
+            {"contribution_id": item.contribution_id, "revision_id": item.revision_id}
+            for item in result.citations
+        ],
+        "customer_charge_cents": result.customer_charge_cents,
+        "monitor_release_id": result.monitor_release_id,
+    }
 
 
 class PublicSearchOperations:

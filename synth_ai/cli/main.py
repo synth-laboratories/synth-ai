@@ -1,4 +1,4 @@
-"""Root CLI group for Research and remaining local helpers."""
+"""Root CLI group: Synth Index and Research/Swarms commands."""
 
 import click
 
@@ -19,7 +19,7 @@ def _get_version():
 @click.version_option(version=_get_version(), prog_name="synth-ai")
 @click.pass_context
 def cli(ctx):
-    """Synth AI CLI."""
+    """Synth AI CLI: Synth Index (`index`) and Swarms (`research`)."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 

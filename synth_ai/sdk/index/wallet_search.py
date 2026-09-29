@@ -31,8 +31,10 @@ from synth_ai.sdk.index.catalog import AccessFundingAccount, AccessFundingMode
 from synth_ai.sdk.index.search import SearchMode
 
 WALLET_CONSENT_REQUIRED_CODE = "index_wallet_consent_required"
-#: Wallet terms current at the v0.2 launch; the backend records the version an org accepted.
-WALLET_TERMS_VERSION = "synth-index-wallet-terms-2026-09-27"
+#: Current Index wallet terms; the backend records the version an org accepted. It still
+#: accepts the superseded ``synth-index-wallet-terms-2026-09-27`` and honours it for orgs
+#: that consented to it; any other version is refused (422).
+WALLET_TERMS_VERSION = "synth-index-wallet-terms-2026-09-28"
 #: Published Fast price, used as the per-call ceiling for a wallet-funded Fast search.
 FAST_WALLET_MAX_CHARGE_CENTS = 5
 #: Published per-call ceiling for Deep (base price plus model cost), from the docs.

@@ -110,14 +110,17 @@ def test_index_mcp_client_waits_for_monitored_delivery(
     ]
 
 
-def test_answer_tool_is_never_discovered_or_dispatched(
+def test_index_answer_is_removed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Owner decision 2026-09-27: /index/answer is not in the public launch."""
+    """Index answer was removed (2026-09-28); no surface may re-expose it."""
     from synth_ai.mcp.research.tools.index import INDEX_TOOL_NAMES
+    from synth_ai.sdk.index.client import OPERATIONS, IndexAPI
 
     monkeypatch.setenv("SYNTH_API_KEY", "sk-test")
     monkeypatch.setenv("SYNTH_INDEX_MCP_WRITE_ENABLED", "true")
     names = set(_stdio_server(index_only=True).available_tool_names())
     assert "index_answer" not in names
     assert "index_answer" not in INDEX_TOOL_NAMES
+    assert "index.answer" not in OPERATIONS
+    assert not hasattr(IndexAPI, "answer")

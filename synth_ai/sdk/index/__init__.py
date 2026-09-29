@@ -1,14 +1,6 @@
 """Synth Index clients and contracts; backend routes remain the wire authority."""
 
 from .agent_policy import IndexAccessPolicy
-from .answer import (
-    AnswerCitation,
-    AnswerClaim,
-    AnswerResult,
-    AnswerSpec,
-    AnswerStatus,
-    AnswerUsage,
-)
 from .catalog import (
     AccessFundingAccount,
     AccessFundingMode,
@@ -77,6 +69,7 @@ from .public_search import (
     PublicSearchUnavailableError,
     PublicSearchWaitTimeoutError,
     public_search_copy,
+    public_search_result_payload,
 )
 from .retry import IndexRetryPolicy, search_id_from_error
 from .search import (
@@ -152,15 +145,10 @@ __all__ = [
     "PublicSearchUnavailableError",
     "PublicSearchWaitTimeoutError",
     "public_search_copy",
+    "public_search_result_payload",
     "Assessment",
     "AccessFundingAccount",
     "AccessFundingMode",
-    "AnswerCitation",
-    "AnswerClaim",
-    "AnswerResult",
-    "AnswerSpec",
-    "AnswerStatus",
-    "AnswerUsage",
     "AsyncPublicIndexClient",
     "Capabilities",
     "BillingPolicyUpdate",

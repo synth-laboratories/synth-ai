@@ -19,6 +19,7 @@ from synth_ai.mcp.research.server import _mcp_structured_core_error_payload
 from synth_ai.mcp.research.tools import index as mcp_index
 from synth_ai.mcp.research.tools.index import build_index_tools, public_search_tool_description
 from synth_ai.sdk.index import (
+    AccessFundingAccount,
     Capabilities,
     PublicIndexClient,
     PublicSearchAuthenticatedError,
@@ -42,8 +43,8 @@ from synth_ai.sdk.index import (
     SearchMode,
     WalletConsentRequiredError,
     public_search_copy,
+    wallet_search_grant,
 )
-from synth_ai.sdk.index import AccessFundingAccount, wallet_search_grant
 from synth_ai.sdk.index import public_search as public_search_module
 
 BASE = "https://api.example.test"
@@ -199,7 +200,7 @@ def _mount(api: Any, handler: Handler) -> list[httpx.Request]:
 def _access_funding(
     *,
     wallet_enabled: bool = True,
-    consent: str | None = "synth-index-wallet-terms-2026-09-27",
+    consent: str | None = "synth-index-wallet-terms-2026-09-28",
     monthly_cap_cents: int = 2000,
 ) -> dict[str, Any]:
     """``AccessFundingAccount`` as ``GET /api/v1/index/me/access-funding`` returns it."""
@@ -644,12 +645,21 @@ def test_budget_exhausted_exposes_typed_scope(
     anonymous: PublicIndexClient, scope: str | None, expected: PublicSearchBudgetScope | None
 ) -> None:
     extra = {} if scope is None else {"scope": scope}
-    _mount(anonymous, lambda request: _error(503, "index_public_budget_exhausted", **extra))
+    _mount(
+        anonymous,
+        lambda request: _error(
+            503, "index_public_budget_exhausted", headers={"Retry-After": "15"}, **extra
+        ),
+    )
     with pytest.raises(PublicSearchBudgetExhaustedError) as info:
         anonymous.public_search("q")
     assert info.value.scope is expected
+    assert info.value.retry_after_s == 15.0
+    assert info.value.retry_after_seconds == 15.0
     assert info.value.status == 503
     assert info.value.code == "index_public_budget_exhausted"
+    assert "nothing was charged" in str(info.value)
+    assert "Retry in 15 s." in str(info.value)
 
 
 def test_fast_search_has_no_reconnectable_handle(anonymous: PublicIndexClient) -> None:
@@ -749,7 +759,7 @@ def test_copy_strings_come_from_capabilities(anonymous: PublicIndexClient) -> No
     )
     assert copy.privacy == (
         "Public queries may be reviewed to improve the Index. Public queries are retained "
-        "for 30 days; private processing data for 60 minutes."
+        "for 30 days. Processing state expires after 60 minutes."
     )
     assert copy.as_dict()["price"] == copy.price
 
@@ -762,6 +772,17 @@ def test_copy_reflects_a_changed_price_without_code_changes() -> None:
     disabled = PublicSearchCapability.model_validate(_public_search_block(enabled=False))
     assert public_search_copy(disabled).available is False
     assert "disabled" in public_search_copy(disabled).price
+
+
+def test_zero_day_copy_distinguishes_durable_retention_from_processing() -> None:
+    block = _public_search_block()
+    block["retention"] = {"public_query_days": 0, "private_processing_minutes": 60}
+    block["privacy_copy"] = "Customer content uses zero durable retention."
+    capability = PublicSearchCapability.model_validate(block)
+    copy = public_search_copy(capability)
+    assert "Public query content is not retained in durable storage." in copy.privacy
+    assert "Processing state expires after 60 minutes." in copy.privacy
+    assert "retained for 0 days" not in copy.privacy
 
 
 # MCP tool ------------------------------------------------------------------------------
@@ -861,6 +882,29 @@ def test_mcp_rate_limit_error_carries_retry_seconds() -> None:
     assert payload["retry_after_seconds"] == 90.0
     assert payload["http_status"] == 429
     assert "global_day" in payload["message"]
+
+
+def test_mcp_budget_exhausted_error_carries_retry_seconds_and_scope() -> None:
+    tool = _tool(
+        _routes(
+            capabilities=_public_search_block(),
+            search=lambda r: _error(
+                503,
+                "index_public_budget_exhausted",
+                scope="daily_cents",
+                headers={"Retry-After": "3600"},
+            ),
+        )
+    )
+    with pytest.raises(PublicSearchBudgetExhaustedError) as info:
+        tool.handler({"query": "q"})
+    assert info.value.retry_after_s == 3600.0
+    assert info.value.scope is PublicSearchBudgetScope.DAILY_CENTS
+    payload = _mcp_structured_core_error_payload(info.value)
+    assert payload["error"] == "index_public_budget_exhausted"
+    assert payload["retry_after_seconds"] == 3600.0
+    assert payload["http_status"] == 503
+    assert "nothing was charged" in payload["message"]
 
 
 def test_mcp_503_fails_closed_with_message() -> None:
@@ -1050,3 +1094,117 @@ def test_wallet_grant_caps_deep_at_docs_ceiling_or_org_cap() -> None:
     assert wallet_search_grant(wide, SearchMode.DEEP).max_charge_cents == 25
     narrow = AccessFundingAccount.model_validate(_access_funding(monthly_cap_cents=15))
     assert wallet_search_grant(narrow, SearchMode.DEEP).max_charge_cents == 15
+
+
+def test_wallet_terms_version_is_the_2026_09_28_terms() -> None:
+    from synth_ai.sdk.index.wallet_search import WALLET_TERMS_VERSION
+
+    assert WALLET_TERMS_VERSION == "synth-index-wallet-terms-2026-09-28"
+
+
+def test_a_2026_09_27_consent_still_grants_wallet_search() -> None:
+    """Orgs that accepted the superseded terms keep them; the SDK does not force re-consent."""
+    earlier = AccessFundingAccount.model_validate(
+        _access_funding(consent="synth-index-wallet-terms-2026-09-27")
+    )
+    grant = wallet_search_grant(earlier, SearchMode.DEEP)
+    assert grant.consent_terms_version == "synth-index-wallet-terms-2026-09-27"
+
+
+# MCP output contract: which result carries `terms` ---------------------------------
+
+PUBLIC_RESULT_KEYS = {
+    "route",
+    "search_id",
+    "mode",
+    "status",
+    "response",
+    "partial_reason",
+    "citations",
+    "customer_charge_cents",
+    "monitor_release_id",
+    "terms",
+}
+KEYED_RESULT_KEYS = {
+    "route",
+    "search_id",
+    "mode",
+    "status",
+    "response",
+    "partial_reason",
+    "citations",
+    "paid",
+    "customer_charge_cents",
+    "charge",
+}
+
+
+def test_mcp_index_search_output_contract_public_has_terms_keyed_does_not() -> None:
+    public_tool = _tool(_routes(capabilities=_public_search_block(), search=lambda r: _delivered()))
+    public = public_tool.handler({"query": "q", "mode": "fast"})
+    assert set(public) == PUBLIC_RESULT_KEYS
+    assert public["route"] == "public"
+    assert set(public["terms"]) == {"available", "price", "limits", "privacy"}
+
+    keyed_client = SynthClient(api_key="sk-test", base_url=BASE)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/index/me/access-funding":
+            return httpx.Response(200, json=_access_funding())
+        if request.url.path == "/api/v1/index/search":
+            return httpx.Response(200, json=_paid_fast_result())
+        return pytest.fail(f"unexpected {request.method} {request.url.path}")
+
+    _mount(keyed_client.index, handler)
+
+    @contextmanager
+    def factory():
+        yield keyed_client.index
+
+    try:
+        keyed_tool = next(
+            tool
+            for tool in build_index_tools(factory, include_lifecycle=False)
+            if tool.name == "index_search"
+        )
+        keyed = keyed_tool.handler({"query": "q", "mode": "fast"})
+    finally:
+        keyed_client.close()
+    assert set(keyed) == KEYED_RESULT_KEYS
+    assert keyed["route"] == "keyed"
+    assert "terms" not in keyed
+
+    # The tool text promises `terms` only for public results, never "with every result".
+    description = keyed_tool.description
+    assert "with every result" not in description
+    assert "returned under `terms` (route=public)" in description
+    assert "carries no `terms`" in description
+
+
+def test_public_route_refusals_have_distinct_types_and_messages(
+    anonymous: PublicIndexClient, keyed: SynthClient
+) -> None:
+    """Rate limit, budget, disabled route and credential conflict never share a type."""
+    cases = [
+        (anonymous, _error(429, "index_public_rate_limited", headers={"Retry-After": "7"})),
+        (anonymous, _error(503, "index_public_budget_exhausted", scope="daily_cents")),
+        (anonymous, _error(404, "index_public_search_disabled")),
+        (keyed.index, _error(409, "index_public_search_authenticated")),
+    ]
+    seen: list[tuple[type, str]] = []
+    for client, response in cases:
+        _mount(client, lambda request, response=response: response)
+        with pytest.raises(PublicSearchError) as info:
+            client.public_search("q")
+        seen.append((type(info.value), str(info.value)))
+    assert [kind for kind, _ in seen] == [
+        PublicSearchRateLimitedError,
+        PublicSearchBudgetExhaustedError,
+        PublicSearchDisabledError,
+        PublicSearchAuthenticatedError,
+    ]
+    assert "retry in 7 s" in seen[0][1]
+    assert "scope=daily_cents" in seen[1][1]
+    assert "disabled on this backend" in seen[2][1]
+    assert "anonymous-only" in seen[3][1]
+    assert len({message for _, message in seen}) == 4
