@@ -4592,6 +4592,11 @@
       "ResearchArchiveView": {
         "additionalProperties": false,
         "properties": {
+          "archive_publication_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
           "attestations": {
             "items": {
               "$ref": "#/components/schemas/ReproductionReceipt"
@@ -4604,13 +4609,14 @@
             "$ref": "#/components/schemas/DerivationBinding-Output"
           },
           "schema_version": {
-            "const": "synth.index.private-research.v1",
-            "default": "synth.index.private-research.v1",
+            "const": "synth.index.private-research.v2",
+            "default": "synth.index.private-research.v2",
             "title": "Schema Version",
             "type": "string"
           }
         },
         "required": [
+          "archive_publication_id",
           "binding",
           "attestations"
         ],

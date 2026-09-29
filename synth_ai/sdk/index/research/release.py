@@ -62,6 +62,7 @@ class ResearchArchiveAllocationSpec(IndexContract):
 
 
 class ResearchArchiveView(IndexContract):
-    schema_version: Literal["synth.index.private-research.v1"] = "synth.index.private-research.v1"
+    schema_version: Literal["synth.index.private-research.v2"] = "synth.index.private-research.v2"
+    archive_publication_id: Identifier
     binding: DerivationBinding
     attestations: tuple[ReproductionReceipt, ...] = Field(max_length=3)
