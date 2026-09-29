@@ -171,3 +171,22 @@ class ArtifactPublicationResponse(ArtifactContract):
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
     manifest_digest: ArtifactDigest
     status: ArtifactPublicationStatus
+
+
+class ArtifactManifest(ArtifactContract):
+    """Closed canonical manifest; see Artifact Platform manifest specification."""
+
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    manifest_schema_version: ArtifactIdentifier
+    publication_id: ArtifactUuid
+    collection_id: ArtifactUuid
+    revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+    objects: tuple[ArtifactObjectDeclaration, ...] = Field(max_length=100_000)
+    manifest_digest: ArtifactDigest
+
+    @model_validator(mode="after")
+    def validate_objects(self) -> ArtifactManifest:
+        paths = tuple(item.logical_path for item in self.objects)
+        if paths != tuple(sorted(paths)) or len(set(paths)) != len(paths):
+            raise ValueError("manifest objects must have sorted, unique logical paths")
+        return self

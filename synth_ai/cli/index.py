@@ -451,7 +451,7 @@ def searches_cancel(search_id: str, backend_url: str | None, api_key: str | None
 
 @index.group()
 def research() -> None:
-    """Intake a verified research export conversion."""
+    """Private intake, exact release consent and independent reproduction evidence."""
 
 
 @research.command("preview")
@@ -523,3 +523,269 @@ def submit(
     ) as error:
         raise click.ClickException(str(error)) from error
     click.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+def _research_target_options(command):
+    command = click.option(
+        "--backend-url",
+        envvar="SYNTH_BACKEND_URL",
+        required=True,
+        help="Explicit backend target; no production fallback.",
+    )(command)
+    command = click.option(
+        "--api-key",
+        envvar="SYNTH_API_KEY",
+        required=True,
+        help="Already-authorized Synth API credential.",
+    )(command)
+    return click.option(
+        "--receipt",
+        type=click.Path(dir_okay=False, path_type=Path),
+        required=True,
+        help="Private create-only result file; identical retries are accepted.",
+    )(command)
+
+
+def _research_spec_options(command):
+    command = click.argument(
+        "spec_file", type=click.Path(exists=True, dir_okay=False, path_type=Path)
+    )(command)
+    command = click.argument("revision_id")(command)
+    return click.argument("contribution_id")(command)
+
+
+def _research_operation(
+    operation, contribution_id, revision_id, spec_file, backend_url, api_key, receipt
+):
+    """Validate a typed input, route one explicit operation, then retain its receipt."""
+    from httpx import HTTPError
+
+    from synth_ai.core.errors import SynthError
+    from synth_ai.sdk.index.contracts import ContributionReference
+    from synth_ai.sdk.index.research import (
+        ReleaseConsentSpec,
+        ReproductionAttestationSpec,
+        ResearchBindingSpec,
+        ResearchRevocationSpec,
+    )
+    from synth_ai.sdk.index.research.files import read_contract_file, write_private_receipt
+
+    models = {
+        "bind": ResearchBindingSpec,
+        "consent": ReleaseConsentSpec,
+        "attest": ReproductionAttestationSpec,
+        "revoke": ResearchRevocationSpec,
+    }
+    try:
+        reference = ContributionReference(contribution_id=contribution_id, revision_id=revision_id)
+        spec = read_contract_file(spec_file, models[operation])
+        with open_keyed_client(api_key, backend_url) as client:
+            result = getattr(client.index.contributions.research, operation)(reference, spec)
+        write_private_receipt(receipt, result)
+    except (OSError, ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded {operation} receipt: {receipt}")
+
+
+@research.command("bind")
+@_research_spec_options
+@_research_target_options
+def research_bind(contribution_id, revision_id, spec_file, backend_url, api_key, receipt):
+    """Bind a committed private archive to exact approved release bytes."""
+    _research_operation(
+        "bind", contribution_id, revision_id, spec_file, backend_url, api_key, receipt
+    )
+
+
+@research.command("consent")
+@_research_spec_options
+@_research_target_options
+def research_consent(contribution_id, revision_id, spec_file, backend_url, api_key, receipt):
+    """Record explicit author consent for the exact seal, disclosure and audience."""
+    _research_operation(
+        "consent", contribution_id, revision_id, spec_file, backend_url, api_key, receipt
+    )
+
+
+@research.command("attest")
+@_research_spec_options
+@_research_target_options
+def research_attest(contribution_id, revision_id, spec_file, backend_url, api_key, receipt):
+    """Submit independently obtained reproduction evidence; never run an experiment."""
+    _research_operation(
+        "attest", contribution_id, revision_id, spec_file, backend_url, api_key, receipt
+    )
+
+
+@research.command("revoke")
+@_research_spec_options
+@_research_target_options
+def research_revoke(contribution_id, revision_id, spec_file, backend_url, api_key, receipt):
+    """Revoke the exact release disclosure under the backend's current authority."""
+    _research_operation(
+        "revoke", contribution_id, revision_id, spec_file, backend_url, api_key, receipt
+    )
+
+
+@research.command("allocate-archive")
+@click.argument("contribution_id")
+@click.argument("spec_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@_research_target_options
+def research_allocate_archive(contribution_id, spec_file, backend_url, api_key, receipt):
+    """Allocate the explicit frozen snapshot's private archive collection."""
+    from httpx import HTTPError
+
+    from synth_ai.core.errors import SynthError
+    from synth_ai.sdk.index.research import ResearchArchiveAllocationSpec
+    from synth_ai.sdk.index.research.files import read_contract_file, write_private_receipt
+
+    try:
+        spec = read_contract_file(spec_file, ResearchArchiveAllocationSpec)
+        with open_keyed_client(api_key, backend_url) as client:
+            result = client.index.contributions.research.allocate_archive(contribution_id, spec)
+        write_private_receipt(receipt, result)
+    except (OSError, ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded private archive allocation: {receipt}")
+
+
+@research.command("archive")
+@click.argument("contribution_id")
+@click.argument("revision_id")
+@_research_target_options
+def research_archive(contribution_id, revision_id, backend_url, api_key, receipt):
+    """Read private frozen evidence with a current, separate archive grant."""
+    from httpx import HTTPError
+
+    from synth_ai.core.errors import SynthError
+    from synth_ai.sdk.index.contracts import ContributionReference
+    from synth_ai.sdk.index.research.files import write_private_receipt
+
+    try:
+        reference = ContributionReference(contribution_id=contribution_id, revision_id=revision_id)
+        with open_keyed_client(api_key, backend_url) as client:
+            result = client.index.contributions.research.archive(reference)
+        write_private_receipt(receipt, result)
+    except (OSError, ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded private frozen evidence: {receipt}")
+
+
+@index.command("classify")
+@_research_spec_options
+@click.option(
+    "--idempotency-key", required=True, help="Persist and reuse this exact decision identity."
+)
+@_research_target_options
+def classify(
+    contribution_id, revision_id, spec_file, idempotency_key, backend_url, api_key, receipt
+):
+    """Record an independent metadata decision against an exact sealed revision."""
+    from httpx import HTTPError
+
+    from synth_ai.core.errors import SynthError
+    from synth_ai.sdk.index.classification import ClassificationSpec
+    from synth_ai.sdk.index.contracts import ContributionReference
+    from synth_ai.sdk.index.research.files import read_contract_file, write_private_receipt
+
+    try:
+        reference = ContributionReference(contribution_id=contribution_id, revision_id=revision_id)
+        spec = read_contract_file(spec_file, ClassificationSpec)
+        with open_keyed_client(api_key, backend_url) as client:
+            result = client.index.contributions.classifications.create(
+                reference, spec, idempotency_key=idempotency_key
+            )
+        write_private_receipt(receipt, result)
+    except (OSError, ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded classification decision: {receipt}")
+
+
+def _offline_release_options(command):
+    for name in ("binding", "descriptor", "manifest"):
+        command = click.option(
+            f"--{name}",
+            required=True,
+            type=click.Path(exists=True, dir_okay=False, path_type=Path),
+        )(command)
+    return command
+
+
+def _offline_release_operation(
+    operation, binding, descriptor, manifest, archive_root=None, out=None
+):
+    """Run the backend-mirrored bounded reconstruction contract without providers."""
+    from synth_ai.sdk.index.manifest import decode_manifest
+    from synth_ai.sdk.index.research.build import (
+        build_release,
+        validate_release_binding,
+        verify_archive,
+        verify_release,
+    )
+    from synth_ai.sdk.index.research.contracts import DerivationBinding
+    from synth_ai.sdk.index.research.files import read_contract_file, read_input_file
+
+    try:
+        binding_contract = read_contract_file(binding, DerivationBinding)
+        descriptor_bytes = read_input_file(descriptor)
+        manifest_contract = decode_manifest(read_input_file(manifest))
+        options = {
+            "binding": binding_contract,
+            "descriptor": descriptor_bytes,
+            "manifest": manifest_contract,
+        }
+        if operation == "validate-release":
+            validate_release_binding(**options)
+            objects = verify_archive(archive_root, binding_contract)
+            result = {"valid": True, "frozen_object_count": len(objects), "provider_calls": 0}
+        elif operation == "verify-release":
+            result = verify_release(out, **options)
+        else:
+            if operation == "reproduce-release" and out.exists():
+                raise ValueError("Reproduction requires a fresh output directory")
+            result = build_release(archive_root, out, **options)
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(json.dumps(result, sort_keys=True))
+
+
+@research.command("validate-release")
+@_offline_release_options
+@click.option(
+    "--archive-root", required=True, type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+def research_validate_release(binding, descriptor, manifest, archive_root):
+    """Verify exact frozen inputs and approved outputs offline; grant no publication."""
+    _offline_release_operation("validate-release", binding, descriptor, manifest, archive_root)
+
+
+@research.command("build-release")
+@_offline_release_options
+@click.option(
+    "--archive-root", required=True, type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+@click.option("--out", required=True, type=click.Path(file_okay=False, path_type=Path))
+def research_build_release(binding, descriptor, manifest, archive_root, out):
+    """Reconstruct only approved bytes; identical retries verify the prior result."""
+    _offline_release_operation("build-release", binding, descriptor, manifest, archive_root, out)
+
+
+@research.command("reproduce-release")
+@_offline_release_options
+@click.option(
+    "--archive-root", required=True, type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+@click.option("--out", required=True, type=click.Path(file_okay=False, path_type=Path))
+def research_reproduce_release(binding, descriptor, manifest, archive_root, out):
+    """Independently reconstruct into a fresh directory; prove artifact scope only."""
+    _offline_release_operation(
+        "reproduce-release", binding, descriptor, manifest, archive_root, out
+    )
+
+
+@research.command("verify-release")
+@_offline_release_options
+@click.option("--out", required=True, type=click.Path(exists=True, file_okay=False, path_type=Path))
+def research_verify_release(binding, descriptor, manifest, out):
+    """Check exact output bytes, manifest and artifact reconstruction receipt."""
+    _offline_release_operation("verify-release", binding, descriptor, manifest, out=out)
