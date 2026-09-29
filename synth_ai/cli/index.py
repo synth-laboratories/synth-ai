@@ -818,3 +818,61 @@ def research_capture_codex_task_read(native_input, thread_id, captured_at, cutof
     except (OSError, ValueError) as error:
         raise click.ClickException(str(error)) from error
     click.echo(f"Recorded {export.completeness} native capture: {out}")
+
+
+@research.command("capture-swarms-evidence")
+@click.option(
+    "--native-input", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option("--run-id", required=True, help="Exact authorized SMR run identity.")
+@click.option("--project-id", required=True, help="Exact authorized SMR project identity.")
+@click.option("--captured-at", required=True, help="Explicit RFC3339 timestamp with offset.")
+@click.option("--cutoff-at", required=True, help="Source freshness time with offset.")
+@click.option("--out", required=True, type=click.Path(file_okay=False, path_type=Path))
+def research_capture_swarms_evidence(native_input, run_id, project_id, captured_at, cutoff_at, out):
+    """Freeze a selected bounded Swarms evidence response with declared gaps."""
+    from datetime import datetime
+
+    from synth_ai.sdk.index.research.capture import freeze_swarms_evidence
+
+    try:
+        export = freeze_swarms_evidence(
+            native_input,
+            out,
+            expected_run_id=run_id,
+            expected_project_id=project_id,
+            captured_at=datetime.fromisoformat(captured_at),
+            cutoff_at=datetime.fromisoformat(cutoff_at),
+        )
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded {export.completeness} native capture: {out}")
+
+
+@research.command("capture-mlok-policy")
+@click.option(
+    "--native-input", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option("--thread-id", required=True, help="Exact selected mlok policy thread identity.")
+@click.option("--captured-at", required=True, help="Explicit RFC3339 timestamp with offset.")
+@click.option(
+    "--cutoff-at", required=True, help="Equal to capture time; native record has no clock."
+)
+@click.option("--out", required=True, type=click.Path(file_okay=False, path_type=Path))
+def research_capture_mlok_policy(native_input, thread_id, captured_at, cutoff_at, out):
+    """Freeze selected mlok model context with honest partial-export gaps."""
+    from datetime import datetime
+
+    from synth_ai.sdk.index.research.capture import freeze_mlok_policy_capture
+
+    try:
+        export = freeze_mlok_policy_capture(
+            native_input,
+            out,
+            expected_thread_id=thread_id,
+            captured_at=datetime.fromisoformat(captured_at),
+            cutoff_at=datetime.fromisoformat(cutoff_at),
+        )
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Recorded {export.completeness} native capture: {out}")

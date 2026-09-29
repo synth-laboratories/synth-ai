@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 import tempfile
 from datetime import datetime
@@ -164,3 +165,314 @@ def freeze_codex_task_read(
                 os.fsync(output.fileno())
         staging.rename(destination)
     return export
+
+
+def _native_payload(raw: bytes) -> dict:
+    """Bounded exact JSON; ambiguous duplicate keys cannot enter a frozen root."""
+    if len(raw) > EXPORT_BYTES_MAX:
+        raise FrozenBuildError("session_export_too_large", "native record exceeds 4 MiB")
+
+    def unique_pairs(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate native JSON key")
+            value[key] = item
+        return value
+
+    try:
+        value = json.loads(
+            raw,
+            object_pairs_hook=unique_pairs,
+            parse_constant=lambda _value: (_ for _ in ()).throw(
+                ValueError("nonfinite native JSON")
+            ),
+        )
+    except (ValueError, UnicodeDecodeError) as error:
+        raise FrozenBuildError("session_export_invalid", "native record is invalid JSON") from error
+    if not isinstance(value, dict):
+        raise FrozenBuildError("session_export_invalid", "native record must be an object")
+    return value
+
+
+def _native_object(raw: bytes, *, object_id: str, logical_path: str) -> FrozenObject:
+    return FrozenObject(
+        object_id=object_id,
+        purpose="session",
+        object=ArtifactObjectDeclaration(
+            logical_path=logical_path,
+            digest_sha256=hashlib.sha256(raw).hexdigest(),
+            size_bytes=len(raw),
+            media_type="application/json",
+        ),
+    )
+
+
+def admit_swarms_evidence(
+    raw: bytes,
+    *,
+    expected_run_id: str,
+    expected_project_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+    object_id: str,
+    logical_path: str,
+) -> SessionExport:
+    """Admit the actual bounded SMR evidence response as a partial run projection.
+
+    See notes/specifications/synth-index/research-archive-release.md. The run
+    evidence API limits selected records and does not export a native rollout.
+    """
+    value = _native_payload(raw)
+    if value.get("schema_version") != 1:
+        raise FrozenBuildError("session_export_version_unknown", "expected Swarms evidence v1")
+    if value.get("run_id") != expected_run_id or value.get("project_id") != expected_project_id:
+        raise FrozenBuildError("session_identity_mismatch", "Swarms run/project identity differs")
+    freshness = value.get("freshness")
+    if not isinstance(freshness, dict):
+        raise FrozenBuildError("session_export_invalid", "Swarms freshness is required")
+    generated = freshness.get("generated_at")
+    try:
+        generated_at = datetime.fromisoformat(generated) if isinstance(generated, str) else None
+    except ValueError as error:
+        raise FrozenBuildError("session_export_invalid", "Swarms time is invalid") from error
+    if generated_at is None or generated_at.utcoffset() is None:
+        raise FrozenBuildError("session_export_invalid", "Swarms time requires an offset")
+    if cutoff_at != generated_at or captured_at < generated_at:
+        raise FrozenBuildError(
+            "session_time_invalid", "Swarms cutoff must equal source observation time"
+        )
+    groups = (
+        ("artifacts", "artifact_count", 1000),
+        ("work_products", "work_product_count", 1000),
+        ("tool_calls", "tool_call_count", 250),
+    )
+    for name, count, maximum in groups:
+        items = value.get(name)
+        if (
+            not isinstance(items, list)
+            or len(items) > maximum
+            or any(not isinstance(item, dict) for item in items)
+        ):
+            raise FrozenBuildError("session_export_invalid", "Swarms evidence set is invalid")
+        if type(freshness.get(count)) is not int or freshness[count] != len(items):
+            raise FrozenBuildError("session_export_invalid", "Swarms freshness count differs")
+    for name in ("selected_artifact_contents", "trace_publications"):
+        if not isinstance(value.get(name), list):
+            raise FrozenBuildError("session_export_invalid", "Swarms evidence set is missing")
+    required = {
+        "artifacts": {"artifact_id", "artifact_type", "created_at", "content_url", "download_url"},
+        "work_products": {"work_product_id", "kind", "title", "status", "readiness",
+            "artifact_links", "content_url", "created_at", "updated_at"},
+        "tool_calls": {"tool_call_id", "actor_role", "tool_name", "arguments_digest",
+            "status", "retryable", "duration_ms", "occurred_at"},
+        "selected_artifact_contents": {"artifact_id", "artifact_type", "content_type",
+            "size_bytes", "content"},
+        "trace_publications": {"publication_id", "factory_id", "project_id", "run_id",
+            "bundle_id", "bundle_schema_version", "manifest_digest", "status",
+            "trace_count", "evidence_count"},
+    }
+    for name, fields in required.items():
+        if any(not isinstance(item, dict) or not fields.issubset(item)
+               for item in value[name]):
+            raise FrozenBuildError("session_export_invalid", "Swarms evidence item is incomplete")
+    if type(freshness.get("run_is_terminal")) is not bool:
+        raise FrozenBuildError("session_export_invalid", "Swarms terminal status is invalid")
+    return SessionExport(
+        source="swarms",
+        native_session_id=expected_run_id,
+        event_start=0,
+        event_end_exclusive=len(value["tool_calls"]),
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        completeness="partial",
+        gaps=(
+            "Bounded SMR evidence projection, not a native actor rollout or full run journal.",
+            "Tool-call indexes count returned records only; earlier calls may be omitted.",
+            "Actor ancestry, failed attempts and full trace payloads are not supplied.",
+        ),
+        native_objects=(_native_object(raw, object_id=object_id, logical_path=logical_path),),
+    )
+
+
+def admit_mlok_policy_capture(
+    raw: bytes,
+    *,
+    expected_thread_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+    object_id: str,
+    logical_path: str,
+) -> SessionExport:
+    """Verify native mlok context hash and retain exact bytes with partial gaps.
+
+    See notes/specifications/synth-index/research-archive-release.md. The
+    model-context capture is not a committed causal participant cut or journal.
+    """
+    value = _native_payload(raw)
+    if set(value) != {"snapshot", "digest"} or not isinstance(value["snapshot"], dict):
+        raise FrozenBuildError("session_export_invalid", "mlok capture wrapper is invalid")
+    snapshot = value["snapshot"]
+    if (
+        snapshot.get("schema") != "mlok.policy-snapshot.v1"
+        or snapshot.get("restoreScope") != "model_context"
+    ):
+        raise FrozenBuildError("session_export_version_unknown", "expected mlok policy snapshot v1")
+    if snapshot.get("sourceThreadId") != expected_thread_id:
+        raise FrozenBuildError("session_identity_mismatch", "mlok thread identity differs")
+    history = snapshot.get("history")
+    sequence = snapshot.get("contextSeq")
+    if (
+        not isinstance(history, list)
+        or type(sequence) is not int
+        or sequence != len(history)
+        or sequence > 100000
+    ):
+        raise FrozenBuildError("session_export_invalid", "mlok context sequence differs")
+    for name in ("sourceSessionDigest", "configDigest"):
+        if (
+            not isinstance(snapshot.get(name), str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot[name]) is None
+        ):
+            raise FrozenBuildError("session_export_invalid", "mlok source digest is invalid")
+    try:
+        serialized = json.dumps(
+            snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        ).encode("utf-8")
+    except (ValueError, UnicodeError) as error:
+        raise FrozenBuildError("session_export_invalid", "mlok context JSON is invalid") from error
+    actual = "sha256:" + hashlib.sha256(serialized).hexdigest()
+    if value["digest"] != actual:
+        raise FrozenBuildError("session_digest_mismatch", "mlok context digest differs")
+    if cutoff_at != captured_at:
+        raise FrozenBuildError(
+            "session_time_invalid",
+            "mlok capture has no native clock; cutoff must equal capture time",
+        )
+    return SessionExport(
+        source="mlok",
+        native_session_id=expected_thread_id,
+        event_start=0,
+        event_end_exclusive=sequence,
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        completeness="partial",
+        gaps=(
+            "Policy model-context snapshot, not a complete native turn or session journal.",
+            "Context sequence counts retained history only; pruned history and parent identity are absent.",
+            "No causal participant cut, durable commit or exact replay capability is proven.",
+        ),
+        native_objects=(_native_object(raw, object_id=object_id, logical_path=logical_path),),
+    )
+
+
+def _freeze_selected_native(
+    source: Path,
+    destination: Path,
+    *,
+    admission,
+    object_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+    expected_identity: dict[str, str],
+) -> SessionExport:
+    """Freeze one selected native response using the same create-only custody as Codex."""
+    if captured_at.utcoffset() is None or cutoff_at.utcoffset() is None:
+        raise FrozenBuildError("session_time_invalid", "capture timestamps require offsets")
+    if source.is_symlink() or not source.is_file():
+        raise FrozenBuildError("unsafe_session_path", "native input must be a regular file")
+    with source.open("rb") as native:
+        raw = native.read(EXPORT_BYTES_MAX + 1)
+    export = admission(
+        raw,
+        **expected_identity,
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        object_id=object_id,
+        logical_path=f"objects/{object_id}.json",
+    )
+    expected = {
+        "session-export.json": canonical_bytes(export),
+        f"objects/{object_id}.json": raw,
+    }
+    if destination.is_symlink():
+        raise FrozenBuildError("unsafe_session_path", "capture root may not be a link")
+    if destination.exists():
+        actual = {
+            p.relative_to(destination).as_posix()
+            for p in destination.rglob("*")
+            if p.is_file() or p.is_symlink()
+        }
+        if actual != set(expected):
+            raise FrozenBuildError("capture_retry_mismatch", "capture object set changed")
+        for name, content in expected.items():
+            path = destination / name
+            if path.is_symlink() or path.stat().st_mode & 0o077 or path.read_bytes() != content:
+                raise FrozenBuildError(
+                    "capture_retry_mismatch", "capture bytes or private permissions changed"
+                )
+        if destination.stat().st_mode & 0o077 or (destination / "objects").is_symlink():
+            raise FrozenBuildError("unsafe_session_path", "capture directory must remain private")
+        return export
+    destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with tempfile.TemporaryDirectory(
+        prefix=".native-capture-", dir=destination.parent
+    ) as temporary:
+        staging = Path(temporary) / "capture"
+        staging.mkdir(mode=0o700)
+        (staging / "objects").mkdir(mode=0o700)
+        for name, content in expected.items():
+            path = staging / name
+            descriptor = os.open(
+                path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, stat.S_IRUSR | stat.S_IWUSR
+            )
+            with os.fdopen(descriptor, "wb") as output:
+                output.write(content)
+                output.flush()
+                os.fsync(output.fileno())
+        staging.rename(destination)
+    return export
+
+
+def freeze_swarms_evidence(
+    source: Path,
+    destination: Path,
+    *,
+    expected_run_id: str,
+    expected_project_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+) -> SessionExport:
+    """Freeze one explicitly selected SMR run evidence response privately."""
+    return _freeze_selected_native(
+        source,
+        destination,
+        admission=admit_swarms_evidence,
+        object_id="native-swarms-evidence",
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        expected_identity={
+            "expected_run_id": expected_run_id,
+            "expected_project_id": expected_project_id,
+        },
+    )
+
+
+def freeze_mlok_policy_capture(
+    source: Path,
+    destination: Path,
+    *,
+    expected_thread_id: str,
+    captured_at: datetime,
+    cutoff_at: datetime,
+) -> SessionExport:
+    """Freeze one selected policy context snapshot privately; not a causal cut."""
+    return _freeze_selected_native(
+        source,
+        destination,
+        admission=admit_mlok_policy_capture,
+        object_id="native-mlok-policy-context",
+        captured_at=captured_at,
+        cutoff_at=cutoff_at,
+        expected_identity={"expected_thread_id": expected_thread_id},
+    )
