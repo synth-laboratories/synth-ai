@@ -2,7 +2,7 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
-## Unreleased
+## 0.21.1 — 2026-09-29
 
 ### Removed
 
@@ -15,7 +15,7 @@ All notable changes to the `synth-ai` package are documented here.
   operation are gone. Use `index.search(...)`, whose results carry a cited
   `response`. Breaking for any caller of `index.answer(...)`.
 
-### 0.21.1 candidate
+### Changed
 
 - **Wallet terms 2026-09-28.** `WALLET_TERMS_VERSION` is now
   `synth-index-wallet-terms-2026-09-28` (an empty DEEP stop at a limit,
