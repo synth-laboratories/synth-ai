@@ -340,7 +340,7 @@ diagnostics.
 The backend `search_funding` service owns funding and settlement. The accounting
 models in `usage_accounting.py` project that authority; they do not quote prices,
 grant access, infer consent, or derive charges from token or infrastructure cost.
-Funding values are `none`, `promo_credit`, `deep_beta`, and `wallet` (or null when
+Funding values are `none`, `promo_credit`, `deep_beta`, `wallet`, and `service_free_public` (or null when
 no funding fact exists). `index_deep_beta` is not a wire value.
 
 `CustomerCharge` adds `funding_source`, `terminal_outcome`, and
