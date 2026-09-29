@@ -4389,8 +4389,8 @@
             "type": "array"
           },
           "schema_version": {
-            "const": "synth.index.release-research.v1",
-            "default": "synth.index.release-research.v1",
+            "const": "synth.index.release-research.v2",
+            "default": "synth.index.release-research.v2",
             "title": "Schema Version",
             "type": "string"
           }
