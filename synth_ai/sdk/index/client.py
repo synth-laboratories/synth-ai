@@ -166,6 +166,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.searches.get": ("GET", f"{_P}/public/searches/{{search_id}}"),
+    "index.public.searches.result": ("GET", f"{_P}/public/searches/{{search_id}}/result"),
     "index.public.searches.cancel": ("POST", f"{_P}/public/searches/{{search_id}}/cancel"),
     "index.public.contents.retrieve": ("POST", f"{_P}/public/contents"),
     "index.public.capabilities": ("GET", f"{_P}/public/capabilities"),
