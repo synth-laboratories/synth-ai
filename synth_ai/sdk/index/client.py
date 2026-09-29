@@ -20,7 +20,7 @@ from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
-from .artifacts import ArtifactPublicationResponse
+from .artifacts import ArtifactCollectionResponse, ArtifactPublicationResponse
 from .catalog import (
     AccessFundingAccount,
     BillingPolicyUpdate,
@@ -71,6 +71,18 @@ from .lifecycle import (
     WithdrawalSpec,
 )
 from .public_search import PublicSearchOperations
+from .research import (
+    ReleaseConsentSpec,
+    ReleaseConsentView,
+    ReleaseDisclosure,
+    ReleaseResearchView,
+    ReproductionAttestationSpec,
+    ReproductionReceipt,
+    ResearchArchiveAllocationSpec,
+    ResearchArchiveView,
+    ResearchBindingSpec,
+    ResearchRevocationSpec,
+)
 from .retry import (
     DEFAULT_INDEX_RETRY_POLICY,
     IndexRetryPolicy,
@@ -128,6 +140,13 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contributions.upload.finalize": ("POST", f"{_R}/finalize"),
     "index.contributions.submit": ("POST", f"{_R}/submit"),
     "index.contributions.reviews.create": ("POST", f"{_R}/reviews"),
+    "index.research.release.get": ("GET", f"{_R}/release-research"),
+    "index.research.archive.get": ("GET", f"{_R}/research-archive"),
+    "index.research.archives.create": ("POST", f"{_C}/research-archives"),
+    "index.research.binding.create": ("POST", f"{_R}/research-binding"),
+    "index.research.consent.create": ("POST", f"{_R}/release-consent"),
+    "index.research.reproduction.create": ("POST", f"{_R}/reproduction-attestations"),
+    "index.research.disclosure.revoke": ("POST", f"{_R}/disclosure-revocation"),
     "index.reviews.list": ("GET", f"{_P}/reviews"),
     "index.tags.list": ("GET", f"{_P}/tags"),
     "index.collections.list": ("GET", f"{_P}/collections"),
@@ -164,6 +183,10 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
 # Anonymous callers may browse published research and run the free public
 # search (Index Search v0.2). Private-scope search still uses index.search.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "index.public.research.release.get": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}/release-research",
+    ),
     "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.searches.get": ("GET", f"{_P}/public/searches/{{search_id}}"),
     "index.public.searches.result": ("GET", f"{_P}/public/searches/{{search_id}}/result"),
@@ -742,6 +765,147 @@ class ContentsAPI(_Resource):
         )
 
 
+def _release_research(
+    payload: object, reference: ContributionReference
+) -> ReleaseResearchView | None:
+    if payload is None:
+        return None
+    return _bound(
+        ReleaseResearchView,
+        lambda view: view.disclosure.reference == reference,
+        "Release research response does not match requested revision",
+    )(payload)
+
+
+class PublicReleaseResearchAPI(_Resource):
+    def retrieve(self, reference: ContributionReference) -> Any:
+        """Read safe released-output proof; historical unbound releases return None.
+
+        See sibling backend/notes/specifications/synth-index/research-archive-release.md.
+        """
+        return self._run(
+            _Call(
+                "index.public.research.release.get",
+                lambda payload: _release_research(payload, reference),
+                path_parameters=_revision(reference),
+            )
+        )
+
+
+class ResearchAPI(_Resource):
+    """Explicit authenticated research operations, distinct from ordinary Search.
+
+    See sibling backend/notes/specifications/synth-index/research-archive-release.md.
+    Retries bind the same exact content; no method infers consent or publishes.
+    """
+
+    def release(self, reference: ContributionReference) -> Any:
+        return self._run(
+            _Call(
+                "index.research.release.get",
+                lambda payload: _release_research(payload, reference),
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def archive(self, reference: ContributionReference) -> Any:
+        """Read private frozen inputs under a current explicit archive grant."""
+        return self._run(
+            _Call(
+                "index.research.archive.get",
+                _bound(
+                    ResearchArchiveView,
+                    lambda view: view.binding.disclosure.reference == reference,
+                    "Private research response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def allocate_archive(self, contribution_id: str, spec: ResearchArchiveAllocationSpec) -> Any:
+        return self._run(
+            _Call(
+                "index.research.archives.create",
+                _bound(
+                    ArtifactCollectionResponse,
+                    lambda collection: collection.scope.owner_namespace
+                    == "contribution_research_archives"
+                    and collection.scope.owner_resource_id == spec.snapshot_id
+                    and collection.scope.visibility == "private",
+                    "Archive allocation must return the requested private snapshot scope",
+                ),
+                path_parameters={"contribution_id": contribution_id},
+                json_body=_body(spec),
+            )
+        )
+
+    def bind(self, reference: ContributionReference, spec: ResearchBindingSpec) -> Any:
+        if spec.binding.disclosure.reference != reference:
+            raise ValueError("Research binding must match the requested revision")
+        return self._run(
+            _Call(
+                "index.research.binding.create",
+                _bound(
+                    ReleaseDisclosure,
+                    lambda disclosure: disclosure == spec.binding.disclosure,
+                    "Research binding response differs from exact submitted disclosure",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def consent(self, reference: ContributionReference, spec: ReleaseConsentSpec) -> Any:
+        """Explicit author consent for the exact manifest, disclosure and audience."""
+        return self._run(
+            _Call(
+                "index.research.consent.create",
+                _bound(
+                    ReleaseConsentView,
+                    lambda view: view.revision_id == reference.revision_id
+                    and view.manifest_digest == spec.manifest_digest
+                    and view.disclosure_digest == spec.disclosure_digest
+                    and view.audience == spec.audience,
+                    "Consent response differs from exact requested content",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def attest(self, reference: ContributionReference, spec: ReproductionAttestationSpec) -> Any:
+        return self._run(
+            _Call(
+                "index.research.reproduction.create",
+                _bound(
+                    ReproductionReceipt,
+                    lambda receipt: receipt == spec.receipt,
+                    "Attestation response differs from exact submitted receipt",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def revoke(self, reference: ContributionReference, spec: ResearchRevocationSpec) -> Any:
+        def parse(payload):
+            if (
+                payload != {"revision_id": reference.revision_id, "revoked": True}
+                or payload.get("revoked") is not True
+            ):
+                raise ValueError("Revocation response does not match requested revision")
+            return payload
+
+        return self._run(
+            _Call(
+                "index.research.disclosure.revoke",
+                parse,
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+
 class RevisionsAPI(_Resource):
     def create(
         self, contribution_id: str, spec: RevisionCreateSpec, *, idempotency_key: str
@@ -851,6 +1015,7 @@ class ContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.revisions = RevisionsAPI(run, asynchronous)
+        self.research = ResearchAPI(run, asynchronous)
         self.assessments = AssessmentsAPI(run, asynchronous)
         self.reviews = ReviewsAPI(run, asynchronous)
         self.assets = AssetsAPI(run, asynchronous)
@@ -1401,6 +1566,7 @@ class PublicContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.revisions = PublicRevisionsAPI(run, asynchronous)
+        self.release_research = PublicReleaseResearchAPI(run, asynchronous)
         self.assets = PublicAssetsAPI(run, asynchronous)
 
     def retrieve(self, contribution_id: str) -> Any:

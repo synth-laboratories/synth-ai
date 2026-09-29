@@ -6,7 +6,15 @@ import re
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 ARTIFACT_CONTRACT_SCHEMA_VERSION = "synth.artifact-platform.v1"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -27,6 +35,60 @@ class ArtifactContract(BaseModel):
         frozen=True,
         str_strip_whitespace=True,
     )
+
+
+ArtifactIdentifier = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+]
+ArtifactOwnerNamespace = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=128,
+        pattern=re.compile(r"^[a-z][a-z0-9_.-]{0,127}$"),
+    ),
+]
+
+
+class ArtifactTenantKind(StrEnum):
+    ORG = "org"
+    PLATFORM = "platform"
+
+
+class ArtifactVisibility(StrEnum):
+    PRIVATE = "private"
+    ORG = "org"
+    PUBLIC = "public"
+
+
+class ArtifactResourceScope(ArtifactContract):
+    """Stored tenancy and product-owner identity used for every decision."""
+
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    tenant_kind: ArtifactTenantKind
+    org_id: ArtifactIdentifier | None = None
+    owner_namespace: ArtifactOwnerNamespace
+    owner_resource_id: ArtifactIdentifier
+    visibility: ArtifactVisibility
+    policy_version: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+
+    @model_validator(mode="after")
+    def validate_tenant_shape(self) -> ArtifactResourceScope:
+        if self.tenant_kind == ArtifactTenantKind.ORG and self.org_id is None:
+            raise ValueError("org tenant requires org_id")
+        if self.tenant_kind == ArtifactTenantKind.PLATFORM and self.org_id is not None:
+            raise ValueError("platform tenant forbids org_id")
+        if self.visibility == ArtifactVisibility.ORG and self.tenant_kind != ArtifactTenantKind.ORG:
+            raise ValueError("org visibility requires an org tenant")
+        return self
+
+
+class ArtifactCollectionResponse(ArtifactContract):
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    collection_id: ArtifactUuid
+    scope: ArtifactResourceScope
+    storage_namespace_id: ArtifactUuid
 
 
 class ArtifactObjectDeclaration(ArtifactContract):

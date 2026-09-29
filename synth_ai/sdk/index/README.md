@@ -466,3 +466,23 @@ allocated draft and its idempotency keys mean nothing there. A `.lock` sidecar
 holds the state file for one process at a time and names its holder, so a stale
 lock is cleared deliberately. Corrupt or foreign state is reported with what to
 do about it; it is never silently discarded.
+
+Frozen-input release contracts live in `synth_ai.sdk.index.research`. The
+authenticated `client.index.contributions.research` resource exposes
+`allocate_archive`, `bind`, `consent`, `attest`, `revoke`, `release` and `archive`.
+The methods use the backend's exact revision routes and closed models. Binding
+and consent retries reuse the same exact manifest and disclosure; the backend
+rejects conflicting content. Consent is an explicit author action. Neither
+binding nor attestation automatically consents or publishes.
+
+`PublicIndexClient(...).contributions.release_research.retrieve(reference)` reads
+only the safe released-output disclosure and scope/outcome summary. Historical
+unbound releases return `None`. Private bindings, sessions and receipt evidence
+are rejected in that response. The public resource has no archive operation.
+Authenticated `research.archive(reference)` requires a current explicit archive
+grant; ordinary Search does not acquire that permission from this SDK method.
+
+This SDK surface does not yet implement native capture or isolated recipe
+execution. The backend's maintained `research_bundle` commands own the current
+offline build/reconstruction implementation; installing this client alone does
+not qualify reproducibility or the local FAST/DEEP and browser gates.

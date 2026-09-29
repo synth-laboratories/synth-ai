@@ -22,6 +22,79 @@
         "title": "ActivityDay",
         "type": "object"
       },
+      "ApprovedRepresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "utf8_text",
+              "approved_caption"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "representation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Representation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "representation_id",
+          "asset_id",
+          "digest_sha256",
+          "parser_version",
+          "kind"
+        ],
+        "title": "ApprovedRepresentation",
+        "type": "object"
+      },
+      "ArtifactCollectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ArtifactResourceScope"
+          },
+          "storage_namespace_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Storage Namespace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "collection_id",
+          "scope",
+          "storage_namespace_id"
+        ],
+        "title": "ArtifactCollectionResponse",
+        "type": "object"
+      },
       "ArtifactObjectDeclaration": {
         "additionalProperties": false,
         "description": "One immutable manifest object addressed only by logical path and digest.",
@@ -184,6 +257,73 @@
         "title": "ArtifactPublicationStatus",
         "type": "string"
       },
+      "ArtifactResourceScope": {
+        "additionalProperties": false,
+        "description": "Stored tenancy and product-owner identity used for every decision.",
+        "properties": {
+          "org_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
+          },
+          "owner_namespace": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+            "title": "Owner Namespace",
+            "type": "string"
+          },
+          "owner_resource_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Owner Resource Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tenant_kind": {
+            "$ref": "#/components/schemas/ArtifactTenantKind"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ArtifactVisibility"
+          }
+        },
+        "required": [
+          "tenant_kind",
+          "owner_namespace",
+          "owner_resource_id",
+          "visibility",
+          "policy_version"
+        ],
+        "title": "ArtifactResourceScope",
+        "type": "object"
+      },
+      "ArtifactTenantKind": {
+        "enum": [
+          "org",
+          "platform"
+        ],
+        "title": "ArtifactTenantKind",
+        "type": "string"
+      },
       "ArtifactUploadTarget": {
         "additionalProperties": false,
         "description": "Create-only upload instructions without a provider storage locator.",
@@ -222,6 +362,15 @@
         ],
         "title": "ArtifactUploadTarget",
         "type": "object"
+      },
+      "ArtifactVisibility": {
+        "enum": [
+          "private",
+          "org",
+          "public"
+        ],
+        "title": "ArtifactVisibility",
+        "type": "string"
       },
       "AssessmentView": {
         "additionalProperties": false,
@@ -327,6 +476,72 @@
         "title": "Assessments",
         "type": "object"
       },
+      "Attempt": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "explanation": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "finding": {
+            "enum": [
+              "positive",
+              "negative",
+              "null",
+              "not_assessed"
+            ],
+            "title": "Finding",
+            "type": "string"
+          },
+          "input_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Input Object Ids",
+            "type": "array"
+          },
+          "observation_object_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "title": "Observation Object Ids",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "excluded",
+              "cancelled",
+              "abandoned"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "outcome",
+          "input_object_ids",
+          "explanation",
+          "finding"
+        ],
+        "title": "Attempt",
+        "type": "object"
+      },
       "BillingPolicyUpdate": {
         "properties": {
           "concurrency_limit": {
@@ -359,6 +574,71 @@
           "consent_terms_version"
         ],
         "title": "BillingPolicyUpdate",
+        "type": "object"
+      },
+      "BuildRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "authored_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Authored Object Ids",
+            "type": "array"
+          },
+          "builder_version": {
+            "const": "frozen-copy-v1",
+            "default": "frozen-copy-v1",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "environment_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Environment Object Ids",
+            "type": "array"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/OutputBinding"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.build-recipe.v1",
+            "default": "synth.research.build-recipe.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "environment_object_ids",
+          "authored_object_ids",
+          "outputs"
+        ],
+        "title": "BuildRecipe",
         "type": "object"
       },
       "Capabilities": {
@@ -2165,6 +2445,99 @@
         "title": "DeepBetaGrantRequest",
         "type": "object"
       },
+      "DeliverableAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "digest_sha256"
+        ],
+        "title": "DeliverableAsset",
+        "type": "object"
+      },
+      "DerivationBinding-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/BuildRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v1",
+            "default": "synth.research.derivation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchSnapshot-Input"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "DerivationBinding",
+        "type": "object"
+      },
+      "DerivationBinding-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/BuildRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v1",
+            "default": "synth.research.derivation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchSnapshot-Output"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "DerivationBinding",
+        "type": "object"
+      },
       "EvidenceReference": {
         "additionalProperties": false,
         "properties": {
@@ -2218,6 +2591,40 @@
           "enabled"
         ],
         "title": "FeatureCapability",
+        "type": "object"
+      },
+      "FrozenObject": {
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/ArtifactObjectDeclaration"
+          },
+          "object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "code",
+              "data",
+              "environment",
+              "protocol",
+              "attempt",
+              "analysis",
+              "authored",
+              "session"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_id",
+          "purpose",
+          "object"
+        ],
+        "title": "FrozenObject",
         "type": "object"
       },
       "GithubIdentity": {
@@ -2625,7 +3032,7 @@
             "type": "array"
           },
           "note": {
-            "default": "Awarded Synth cloud credits from reviewed programs; not cash or earnings owed. available_credits_cents excludes reversed and expired awards but is not reduced by later wallet spend.",
+            "default": "Awarded Synth cloud credits from reviewed programs; not cash or earnings owed. available_credits_cents is the current organization wallet after spend, expiry and live reservations, including credits from other sources; it is not an unspent contribution-award balance. Award totals describe the displayed history (at most 500 entries). Future admission rechecks limits.",
             "title": "Note",
             "type": "string"
           },
@@ -2704,6 +3111,33 @@
           "physical_attempts"
         ],
         "title": "OperationUsage",
+        "type": "object"
+      },
+      "OutputBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "release_asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Asset Id",
+            "type": "string"
+          },
+          "source_object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Source Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_asset_id",
+          "source_object_id",
+          "digest_sha256"
+        ],
+        "title": "OutputBinding",
         "type": "object"
       },
       "PrivatePromoCredit": {
@@ -3562,6 +3996,198 @@
         "title": "PublicationStatus",
         "type": "object"
       },
+      "ReleaseConsentSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "disclosure_digest",
+          "audience"
+        ],
+        "title": "ReleaseConsentSpec",
+        "type": "object"
+      },
+      "ReleaseConsentView": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "consented": {
+            "title": "Consented",
+            "type": "boolean"
+          },
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id",
+          "manifest_digest",
+          "disclosure_digest",
+          "audience",
+          "consented"
+        ],
+        "title": "ReleaseConsentView",
+        "type": "object"
+      },
+      "ReleaseDisclosure": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "classification_version": {
+            "minimum": 1.0,
+            "title": "Classification Version",
+            "type": "integer"
+          },
+          "deliverable_assets": {
+            "items": {
+              "$ref": "#/components/schemas/DeliverableAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Deliverable Assets",
+            "type": "array"
+          },
+          "disclosure_version": {
+            "minimum": 1.0,
+            "title": "Disclosure Version",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "release_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Collection Id",
+            "type": "string"
+          },
+          "release_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Release Manifest Digest Sha256",
+            "type": "string"
+          },
+          "representations": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovedRepresentation"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Representations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.contribution.release-disclosure.v1",
+            "default": "synth.contribution.release-disclosure.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "release_collection_id",
+          "release_manifest_digest_sha256",
+          "audience",
+          "disclosure_version",
+          "classification_version",
+          "deliverable_assets",
+          "representations"
+        ],
+        "title": "ReleaseDisclosure",
+        "type": "object"
+      },
+      "ReleaseReproductionView": {
+        "additionalProperties": false,
+        "properties": {
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "artifact_reconstruction",
+              "analysis_recomputation",
+              "experimental_rerun"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "outcome",
+          "limitations"
+        ],
+        "title": "ReleaseReproductionView",
+        "type": "object"
+      },
+      "ReleaseResearchView": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "reproduction": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseReproductionView"
+            },
+            "maxItems": 64,
+            "title": "Reproduction",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.release-research.v1",
+            "default": "synth.index.release-research.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disclosure",
+          "reproduction"
+        ],
+        "title": "ReleaseResearchView",
+        "type": "object"
+      },
       "Reproduction": {
         "additionalProperties": false,
         "properties": {
@@ -3625,6 +4251,157 @@
         "title": "Reproduction",
         "type": "object"
       },
+      "ReproductionAttestationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/ReproductionReceipt"
+          }
+        },
+        "required": [
+          "binding_digest",
+          "receipt"
+        ],
+        "title": "ReproductionAttestationSpec",
+        "type": "object"
+      },
+      "ReproductionReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "evidence_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Evidence Object Ids",
+            "type": "array"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "recipe_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Recipe Digest Sha256",
+            "type": "string"
+          },
+          "release_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Release Manifest Digest Sha256",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.reproduction-receipt.v1",
+            "default": "synth.research.reproduction-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "artifact_reconstruction",
+              "analysis_recomputation",
+              "experimental_rerun"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          },
+          "verifier_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Verifier Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "snapshot_digest_sha256",
+          "recipe_digest_sha256",
+          "release_manifest_digest_sha256",
+          "scope",
+          "outcome",
+          "checked_at",
+          "verifier_id",
+          "evidence_object_ids",
+          "limitations"
+        ],
+        "title": "ReproductionReceipt",
+        "type": "object"
+      },
+      "ResearchArchiveAllocationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "ResearchArchiveAllocationSpec",
+        "type": "object"
+      },
+      "ResearchArchiveView": {
+        "additionalProperties": false,
+        "properties": {
+          "attestations": {
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 3,
+            "title": "Attestations",
+            "type": "array"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/DerivationBinding-Output"
+          },
+          "schema_version": {
+            "const": "synth.index.private-research.v1",
+            "default": "synth.index.private-research.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "attestations"
+        ],
+        "title": "ResearchArchiveView",
+        "type": "object"
+      },
       "ResearchArea": {
         "enum": [
           "data",
@@ -3641,6 +4418,31 @@
         ],
         "title": "ResearchArea",
         "type": "string"
+      },
+      "ResearchBindingSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Manifest Digest",
+            "type": "string"
+          },
+          "archive_publication_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/DerivationBinding-Input"
+          }
+        },
+        "required": [
+          "archive_publication_id",
+          "archive_manifest_digest",
+          "binding"
+        ],
+        "title": "ResearchBindingSpec",
+        "type": "object"
       },
       "ResearchCard": {
         "additionalProperties": false,
@@ -3711,6 +4513,169 @@
           "revision_status"
         ],
         "title": "ResearchLookupView",
+        "type": "object"
+      },
+      "ResearchRevocationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disclosure_digest"
+        ],
+        "title": "ResearchRevocationSpec",
+        "type": "object"
+      },
+      "ResearchSnapshot-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "minItems": 1,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v1",
+            "default": "synth.research.snapshot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Input"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects",
+          "attempts"
+        ],
+        "title": "ResearchSnapshot",
+        "type": "object"
+      },
+      "ResearchSnapshot-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "minItems": 1,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v1",
+            "default": "synth.research.snapshot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Output"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects",
+          "attempts"
+        ],
+        "title": "ResearchSnapshot",
         "type": "object"
       },
       "ResearchSource": {
@@ -5740,6 +6705,200 @@
         "title": "SearchUsageSummaryRow",
         "type": "object"
       },
+      "SessionExport-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Completeness",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "event_end_exclusive": {
+            "minimum": 0.0,
+            "title": "Event End Exclusive",
+            "type": "integer"
+          },
+          "event_start": {
+            "minimum": 0.0,
+            "title": "Event Start",
+            "type": "integer"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "native_objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Native Objects",
+            "type": "array"
+          },
+          "native_session_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Native Session Id",
+            "type": "string"
+          },
+          "parent_native_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Parent Native Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.session-export.v1",
+            "default": "synth.research.session-export.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "codex",
+              "swarms",
+              "mlok"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "native_session_id",
+          "event_start",
+          "event_end_exclusive",
+          "captured_at",
+          "cutoff_at",
+          "completeness",
+          "native_objects"
+        ],
+        "title": "SessionExport",
+        "type": "object"
+      },
+      "SessionExport-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Completeness",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "event_end_exclusive": {
+            "minimum": 0.0,
+            "title": "Event End Exclusive",
+            "type": "integer"
+          },
+          "event_start": {
+            "minimum": 0.0,
+            "title": "Event Start",
+            "type": "integer"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "native_objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Native Objects",
+            "type": "array"
+          },
+          "native_session_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Native Session Id",
+            "type": "string"
+          },
+          "parent_native_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Parent Native Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.session-export.v1",
+            "default": "synth.research.session-export.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "codex",
+              "swarms",
+              "mlok"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "native_session_id",
+          "event_start",
+          "event_end_exclusive",
+          "captured_at",
+          "cutoff_at",
+          "completeness",
+          "native_objects"
+        ],
+        "title": "SessionExport",
+        "type": "object"
+      },
       "SettlementState": {
         "enum": [
           "not_applicable",
@@ -7060,6 +8219,59 @@
         ]
       }
     },
+    "/api/v1/index/contributions/{contribution_id}/research-archives": {
+      "post": {
+        "operationId": "index.research.archives.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchArchiveAllocationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Allocate",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}/revisions": {
       "post": {
         "operationId": "index.contributions.revisions.create",
@@ -7386,6 +8598,67 @@
         ]
       }
     },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/disclosure-revocation": {
+      "post": {
+        "operationId": "index.research.disclosure.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchRevocationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/finalize": {
       "post": {
         "operationId": "index.contributions.upload.finalize",
@@ -7446,6 +8719,309 @@
         "summary": "Finalize",
         "tags": [
           "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/release-consent": {
+      "post": {
+        "operationId": "index.research.consent.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseConsentSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Consent",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/release-research": {
+      "get": {
+        "operationId": "index.research.release.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseResearchView"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Index.Research.Release.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Released",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/reproduction-attestations": {
+      "post": {
+        "operationId": "index.research.reproduction.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReproductionAttestationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReproductionReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attest",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-archive": {
+      "get": {
+        "operationId": "index.research.archive.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchArchiveView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archived",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-binding": {
+      "post": {
+        "operationId": "index.research.binding.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchBindingSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDisclosure"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind",
+        "tags": [
+          "index-research"
         ]
       }
     },
@@ -8972,6 +10548,67 @@
           }
         },
         "summary": "Asset",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/release-research": {
+      "get": {
+        "operationId": "index.public.research.release.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseResearchView"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Index.Public.Research.Release.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Research",
         "tags": [
           "index-public"
         ]
