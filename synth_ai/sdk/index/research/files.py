@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 Model = TypeVar("Model", bound=BaseModel)
 CONTRACT_BYTES_MAX = 1_048_576
@@ -19,7 +19,22 @@ CONTRACT_BYTES_MAX = 1_048_576
 
 def read_contract_file(path: Path, model: type[Model]) -> Model:
     """Validate one explicitly selected, bounded contract before any HTTP call."""
-    return model.model_validate_json(read_input_file(path))
+    try:
+        payload = json.loads(read_input_file(path), object_pairs_hook=_unique_fields)
+        return model.model_validate(payload)
+    except (ValueError, UnicodeDecodeError, ValidationError) as error:
+        # ValidationError includes input values: private native evidence must not
+        # become terminal/log output when a typed boundary refuses it.
+        raise ValueError(f"Contract input does not match {model.__name__}") from error
+
+
+def _unique_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate contract field")
+        result[key] = value
+    return result
 
 
 def read_input_file(path: Path) -> bytes:
