@@ -4170,6 +4170,41 @@
         "title": "PublicationStatus",
         "type": "object"
       },
+      "QaAssessmentSource": {
+        "additionalProperties": false,
+        "description": "Private exact QA provenance for an explicitly authorized canonical review.\n\nSee notes/specifications/synth-index/contribution-qa-cases.md. It grants no\ncapability, publication, archive access or author consent.",
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expected_case_version": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Expected Case Version",
+            "type": "integer"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.qa-assessment-source.v1",
+            "default": "synth.index.qa-assessment-source.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "review_id",
+          "expected_case_version"
+        ],
+        "title": "QaAssessmentSource",
+        "type": "object"
+      },
       "ReleaseConsentSpec": {
         "additionalProperties": false,
         "properties": {
@@ -5194,6 +5229,16 @@
               }
             ],
             "title": "Manifest Digest"
+          },
+          "qa_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QaAssessmentSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
