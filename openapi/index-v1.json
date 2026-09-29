@@ -408,6 +408,16 @@
           "private_search": {
             "$ref": "#/components/schemas/PrivateSearchCapability"
           },
+          "public_search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicSearchCapability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "publication": {
             "$ref": "#/components/schemas/FeatureCapability"
           },
@@ -474,6 +484,79 @@
           "limits"
         ],
         "title": "Capabilities",
+        "type": "object"
+      },
+      "CapabilityGrantRequest": {
+        "description": "Issue one review/publish grant to a member of ``org_id``.",
+        "properties": {
+          "capability": {
+            "enum": [
+              "review",
+              "publish"
+            ],
+            "title": "Capability",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_id",
+          "capability",
+          "reason"
+        ],
+        "title": "CapabilityGrantRequest",
+        "type": "object"
+      },
+      "CapabilityRevocationRequest": {
+        "properties": {
+          "capability": {
+            "enum": [
+              "review",
+              "publish"
+            ],
+            "title": "Capability",
+            "type": "string"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_id",
+          "capability",
+          "reason"
+        ],
+        "title": "CapabilityRevocationRequest",
         "type": "object"
       },
       "Citation": {
@@ -1951,7 +2034,8 @@
                   "none",
                   "promo_credit",
                   "deep_beta",
-                  "wallet"
+                  "wallet",
+                  "service_free_public"
                 ],
                 "type": "string"
               },
@@ -2999,6 +3083,357 @@
           "credit"
         ],
         "title": "PromoCreditSummary",
+        "type": "object"
+      },
+      "PublicSearchAccepted": {
+        "additionalProperties": false,
+        "description": "202 body of a DEEP start and of a poll that is not complete yet.",
+        "properties": {
+          "cancellation_requested": {
+            "default": false,
+            "title": "Cancellation Requested",
+            "type": "boolean"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "const": "deep",
+            "default": "deep",
+            "title": "Mode",
+            "type": "string"
+          },
+          "poll_url": {
+            "title": "Poll Url",
+            "type": "string"
+          },
+          "result_available": {
+            "default": false,
+            "title": "Result Available",
+            "type": "boolean"
+          },
+          "search_id": {
+            "title": "Search Id",
+            "type": "string"
+          },
+          "search_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Token"
+          },
+          "search_token_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Token Expires At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SearchState"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SearchState"
+          }
+        },
+        "required": [
+          "search_id",
+          "state",
+          "status",
+          "poll_url"
+        ],
+        "title": "PublicSearchAccepted",
+        "type": "object"
+      },
+      "PublicSearchCapability": {
+        "additionalProperties": false,
+        "description": "v0.2 anonymous public Search; clients render these, never hardcode them.\n\nSee notes/specifications/synth-index/search-v02-public-private-policy.md.",
+        "properties": {
+          "daily_budget_cents": {
+            "title": "Daily Budget Cents",
+            "type": "integer"
+          },
+          "deep_concurrency_max": {
+            "title": "Deep Concurrency Max",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PublicSearchRateLimits"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/SearchMode"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "max_body_bytes": {
+            "title": "Max Body Bytes",
+            "type": "integer"
+          },
+          "modes": {
+            "items": {
+              "$ref": "#/components/schemas/SearchMode"
+            },
+            "title": "Modes",
+            "type": "array"
+          },
+          "price_cents": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/SearchMode"
+            },
+            "title": "Price Cents",
+            "type": "object"
+          },
+          "privacy_copy": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Privacy Copy",
+            "type": "string"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/PublicSearchRetention"
+          },
+          "token_ttl_seconds": {
+            "title": "Token Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "modes",
+          "limits",
+          "daily_budget_cents",
+          "deep_concurrency_max",
+          "price_cents",
+          "retention",
+          "privacy_copy",
+          "token_ttl_seconds",
+          "max_body_bytes"
+        ],
+        "title": "PublicSearchCapability",
+        "type": "object"
+      },
+      "PublicSearchDelivery": {
+        "additionalProperties": false,
+        "description": "The delivered public Search body: exactly the monitor's public contract.\n\nExact-bytes rule: this body is the monitor contract value and the reviewed\nbytes, and its key set is OpenMonitor's ``PUBLIC_RESPONSE_KEYS`` (a\ndifferent key set is withheld as ``contract_invalid``). Everything public-\nonly travels in headers instead: the Search id (``X-Index-Search-Id``), its\nbearer token (``X-Search-Token`` / ``X-Search-Token-Expires-At``), the zero\ncustomer charge and the monitor release (``X-Index-Monitor-Release``).",
+        "properties": {
+          "amount_cents": {
+            "const": 0,
+            "default": 0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "citations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "corpus_generation": {
+            "title": "Corpus Generation",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "parser_version": {
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "ranker_version": {
+            "title": "Ranker Version",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "response": {
+            "title": "Response",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "taxonomy_version": {
+            "title": "Taxonomy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "mode",
+          "status",
+          "corpus_generation",
+          "ranker_version",
+          "parser_version",
+          "taxonomy_version",
+          "response",
+          "citations"
+        ],
+        "title": "PublicSearchDelivery",
+        "type": "object"
+      },
+      "PublicSearchErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/PublicSearchFailureCode"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "PublicSearchErrorDetail",
+        "type": "object"
+      },
+      "PublicSearchFailureCode": {
+        "description": "Stable codes of the public Search boundary; ``reason`` carries detail.",
+        "enum": [
+          "index_public_search_disabled",
+          "index_request_too_large",
+          "index_public_rate_limited",
+          "index_public_budget_exhausted",
+          "index_rate_store_unavailable",
+          "monitor_unavailable",
+          "index_search_not_found",
+          "index_public_search_authenticated"
+        ],
+        "title": "PublicSearchFailureCode",
+        "type": "string"
+      },
+      "PublicSearchRateLimits": {
+        "additionalProperties": false,
+        "description": "Fixed-window start limits of one public mode (starts, not tokens).",
+        "properties": {
+          "global_per_day": {
+            "title": "Global Per Day",
+            "type": "integer"
+          },
+          "global_per_minute": {
+            "title": "Global Per Minute",
+            "type": "integer"
+          },
+          "peer_per_day": {
+            "title": "Peer Per Day",
+            "type": "integer"
+          },
+          "peer_per_minute": {
+            "title": "Peer Per Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "peer_per_minute",
+          "peer_per_day",
+          "global_per_minute",
+          "global_per_day"
+        ],
+        "title": "PublicSearchRateLimits",
+        "type": "object"
+      },
+      "PublicSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[a-zA-Z0-9_.-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "max_results": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Results"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "query": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "query"
+        ],
+        "title": "PublicSearchRequest",
+        "type": "object"
+      },
+      "PublicSearchRetention": {
+        "additionalProperties": false,
+        "properties": {
+          "private_processing_minutes": {
+            "title": "Private Processing Minutes",
+            "type": "integer"
+          },
+          "public_query_days": {
+            "title": "Public Query Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "public_query_days",
+          "private_processing_minutes"
+        ],
+        "title": "PublicSearchRetention",
         "type": "object"
       },
       "PublicUsage": {
@@ -4884,7 +5319,8 @@
               "none",
               "promo_credit",
               "deep_beta",
-              "wallet"
+              "wallet",
+              "service_free_public"
             ],
             "title": "Funding Source",
             "type": "string"
@@ -5510,13 +5946,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
@@ -8154,6 +8583,138 @@
         ]
       }
     },
+    "/api/v1/index/operator/users/{user_id}/capability-grants": {
+      "post": {
+        "operationId": "create_capability_grant_api_v1_index_operator_users__user_id__capability_grants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapabilityGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Capability Grant Api V1 Index Operator Users  User Id  Capability Grants Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Capability Grant",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/operator/users/{user_id}/capability-revocations": {
+      "post": {
+        "operationId": "revoke_capability_grant_api_v1_index_operator_users__user_id__capability_revocations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapabilityRevocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Capability Grant Api V1 Index Operator Users  User Id  Capability Revocations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Capability Grant",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
     "/api/v1/index/profiles/{principal_id}": {
       "get": {
         "operationId": "index.profiles.retrieve",
@@ -8454,6 +9015,483 @@
           }
         },
         "summary": "Profile",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/search": {
+      "post": {
+        "operationId": "index.public.search",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Search-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Search-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PublicSearchDelivery"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicSearchAccepted"
+                    }
+                  ],
+                  "title": "Response Index.Public.Search"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchAccepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/searches/{search_id}": {
+      "get": {
+        "description": "202 + status while running; 200 + the full envelope once completed.\n\nDEEP only. A FAST answer is final in its 200 and is not re-readable:\nFAST never creates a durable Search lifecycle, so its id here is 404\n(``index_search_not_found``); the token authorizes DEEP reads only.",
+        "operationId": "index.public.searches.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Search-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Search-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PublicSearchDelivery"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicSearchAccepted"
+                    }
+                  ],
+                  "title": "Response Index.Public.Searches.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchAccepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/searches/{search_id}/cancel": {
+      "post": {
+        "operationId": "index.public.searches.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Search-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Search-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchCancellation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/searches/{search_id}/result": {
+      "get": {
+        "operationId": "index.public.searches.result",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Search-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Search-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchDelivery"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSearchErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Result",
         "tags": [
           "index-public"
         ]
