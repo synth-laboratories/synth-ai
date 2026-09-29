@@ -143,6 +143,15 @@ class PublicSearchRateLimitedError(PublicSearchError):
         failure: SynthFailure | None = None,
         status: int | None = 429,
     ) -> None:
+        """Preserve the rate-limit scope and server retry guidance.
+
+        Args:
+            message: Human-readable server failure message.
+            scope: Server rate-limit scope, or None when the server omits it.
+            retry_after_s: Server retry delay in seconds, or None when unavailable.
+            failure: Structured Synth failure envelope, when available.
+            status: HTTP status associated with the failure; defaults to 429.
+        """
         super().__init__(message, failure=failure, status=status)
         self.scope = scope
         self.retry_after_s = retry_after_s
@@ -181,6 +190,15 @@ class PublicSearchBudgetExhaustedError(PublicSearchUnavailableError):
         failure: SynthFailure | None = None,
         status: int | None = 503,
     ) -> None:
+        """Preserve the exhausted budget scope and server retry guidance.
+
+        Args:
+            message: Human-readable server failure message.
+            scope: Known exhausted budget scope, or None when the server omits it.
+            retry_after_s: Server retry delay in seconds, or None when unavailable.
+            failure: Structured Synth failure envelope, when available.
+            status: HTTP status associated with the failure; defaults to 503.
+        """
         super().__init__(message, failure=failure, status=status)
         self.scope = scope
         self.retry_after_s = retry_after_s
@@ -836,6 +854,13 @@ def public_search_result_payload(result: PublicSearchResult) -> dict[str, Any]:
 
     Carries no search token. ``route`` names the anonymous public route so a
     caller can tell it from a keyed (paid) result without inspecting charges.
+
+    Args:
+        result: Delivered public search envelope to project into JSON-compatible values.
+
+    Returns:
+        Public route, search identity, status, response, citations and charge metadata,
+        excluding the per-search credential.
     """
     return {
         "route": "public",
