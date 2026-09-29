@@ -71,6 +71,8 @@ class IndexErrorCode(StrEnum):
     RESEARCH_ARCHIVE_FINALIZATION_CONFLICT = "research_archive_finalization_conflict"
     RESEARCH_ARCHIVE_STORAGE_UNAVAILABLE = "research_archive_storage_unavailable"
     RESEARCH_ARCHIVE_UNAVAILABLE = "research_archive_unavailable"
+    CONTRIBUTION_PREPARATION_TIMEOUT = "contribution_preparation_timeout"
+    CONTRIBUTION_PREPARATION_CONFLICT = "contribution_preparation_conflict"
     RESEARCH_LEASE_LOST = "research_lease_lost"
     RESEARCH_PARENT_UNAVAILABLE = "research_parent_unavailable"
     RESEARCH_SNAPSHOT_CONFLICT = "research_snapshot_conflict"
