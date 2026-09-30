@@ -38,6 +38,9 @@ class FrozenBuildError(ValueError):
         Args:
             code: Stable refusal code identifying the failed frozen-input invariant.
             detail: Explanation of the refusal; omit credentials and private storage URLs.
+
+        Examples:
+            error = FrozenBuildError("frozen_object_missing", "declared input is absent")
         """
         super().__init__(f"{code}: {detail}")
         self.code = code
