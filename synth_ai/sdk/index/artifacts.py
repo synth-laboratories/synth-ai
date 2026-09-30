@@ -52,11 +52,13 @@ ArtifactOwnerNamespace = Annotated[
 
 
 class ArtifactTenantKind(StrEnum):
+    """Whether an artifact belongs to an organization or the platform."""
     ORG = "org"
     PLATFORM = "platform"
 
 
 class ArtifactVisibility(StrEnum):
+    """Current artifact disclosure audience."""
     PRIVATE = "private"
     ORG = "org"
     PUBLIC = "public"
@@ -65,12 +67,19 @@ class ArtifactVisibility(StrEnum):
 class ArtifactResourceScope(ArtifactContract):
     """Stored tenancy and product-owner identity used for every decision."""
 
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    #: Organization-owned or platform-owned tenancy boundary.
     tenant_kind: ArtifactTenantKind
+    #: Organization identifier, required only for organization-owned tenancy.
     org_id: ArtifactIdentifier | None = None
+    #: Product-owner namespace responsible for this resource.
     owner_namespace: ArtifactOwnerNamespace
+    #: Identifier of the product-owner resource governing access.
     owner_resource_id: ArtifactIdentifier
+    #: Current disclosure audience: private, organization or public.
     visibility: ArtifactVisibility
+    #: Positive version of the stored authorization policy.
     policy_version: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
 
     @model_validator(mode="after")
@@ -85,24 +94,33 @@ class ArtifactResourceScope(ArtifactContract):
 
 
 class ArtifactCollectionResponse(ArtifactContract):
+    #: Exact boundary schema identifier used for serialization.
+    """Allocated collection with its tenancy scope and private storage namespace."""
     schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    #: UUID of the artifact collection receiving this publication.
     collection_id: ArtifactUuid
+    #: Stored tenancy, owner and visibility scope used for authorization.
     scope: ArtifactResourceScope
+    #: UUID of the backing storage namespace; not a provider URL or credential.
     storage_namespace_id: ArtifactUuid
 
 
 class ArtifactObjectDeclaration(ArtifactContract):
     """One immutable manifest object addressed only by logical path and digest."""
 
+    #: Normalized relative manifest path; absolute paths and traversal are refused.
     logical_path: Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=1024),
     ]
+    #: Lowercase SHA-256 digest expected for the declared object bytes.
     digest_sha256: ArtifactDigest
+    #: Exact declared object size in bytes.
     size_bytes: Annotated[
         StrictInt,
         Field(ge=0, le=9_223_372_036_854_775_807),
     ]
+    #: Declared media type of the stored object.
     media_type: Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
@@ -124,15 +142,19 @@ class ArtifactObjectDeclaration(ArtifactContract):
 class ArtifactUploadTarget(ArtifactContract):
     """Create-only upload instructions without a provider storage locator."""
 
+    #: Normalized relative manifest path; absolute paths and traversal are refused.
     logical_path: Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=1024),
     ]
+    #: Lowercase SHA-256 digest expected for the declared object bytes.
     digest_sha256: ArtifactDigest
+    #: Prepared create-only transfer URL; never include it in public evidence.
     upload_url: Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=16_384),
     ]
+    #: Headers required for the prepared upload; preserve confidentiality.
     required_headers: dict[str, str] = Field(max_length=16)
 
     @field_validator("logical_path")
@@ -148,15 +170,23 @@ class ArtifactUploadTarget(ArtifactContract):
 
 
 class ArtifactPublicationPrepareResponse(ArtifactContract):
+    #: Exact boundary schema identifier used for serialization.
+    """Prepared create-only object uploads for one publication."""
     schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    #: UUID of this artifact publication attempt.
     publication_id: ArtifactUuid
+    #: UUID of the artifact collection receiving this publication.
     collection_id: ArtifactUuid
+    #: Positive artifact publication revision within its collection.
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+    #: SHA-256 digest of the exact canonical manifest bytes.
     manifest_digest: ArtifactDigest
+    #: Bounded create-only transfer instructions for the declared objects.
     upload_targets: tuple[ArtifactUploadTarget, ...] = Field(max_length=100_000)
 
 
 class ArtifactPublicationStatus(StrEnum):
+    """Storage publication state, separate from Contribution review acceptance."""
     BUILDING = "building"
     COMMITTED = "committed"
     FAILED = "failed"
@@ -165,23 +195,37 @@ class ArtifactPublicationStatus(StrEnum):
 
 
 class ArtifactPublicationResponse(ArtifactContract):
+    #: Exact boundary schema identifier used for serialization.
+    """Recorded publication identity and current storage status."""
     schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    #: UUID of this artifact publication attempt.
     publication_id: ArtifactUuid
+    #: UUID of the artifact collection receiving this publication.
     collection_id: ArtifactUuid
+    #: Positive artifact publication revision within its collection.
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+    #: SHA-256 digest of the exact canonical manifest bytes.
     manifest_digest: ArtifactDigest
+    #: Current artifact storage publication state.
     status: ArtifactPublicationStatus
 
 
 class ArtifactManifest(ArtifactContract):
     """Closed canonical manifest; see Artifact Platform manifest specification."""
 
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    #: Schema identifier describing the canonical manifest payload.
     manifest_schema_version: ArtifactIdentifier
+    #: UUID of this artifact publication attempt.
     publication_id: ArtifactUuid
+    #: UUID of the artifact collection receiving this publication.
     collection_id: ArtifactUuid
+    #: Positive artifact publication revision within its collection.
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+    #: Immutable object declarations addressed by logical path and digest.
     objects: tuple[ArtifactObjectDeclaration, ...] = Field(max_length=100_000)
+    #: SHA-256 digest of the exact canonical manifest bytes.
     manifest_digest: ArtifactDigest
 
     @model_validator(mode="after")
@@ -193,11 +237,17 @@ class ArtifactManifest(ArtifactContract):
 
 
 class ArtifactPublicationPrepare(ArtifactContract):
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
+    #: UUID of this artifact publication attempt.
     publication_id: ArtifactUuid
+    #: UUID of the artifact collection receiving this publication.
     collection_id: ArtifactUuid
+    #: Positive artifact publication revision within its collection.
     revision: Annotated[StrictInt, Field(ge=1, le=2_147_483_647)]
+    #: Schema identifier describing the canonical manifest payload.
     manifest_schema_version: ArtifactIdentifier
+    #: Immutable object declarations addressed by logical path and digest.
     objects: tuple[ArtifactObjectDeclaration, ...] = Field(max_length=100_000)
 
     @model_validator(mode="after")
