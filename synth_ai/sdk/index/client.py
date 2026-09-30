@@ -846,10 +846,27 @@ def _release_research(
 
 
 class PublicReleaseResearchAPI(_Resource):
+    """Read public-safe disclosure and reproduction without archive/session identities.
+
+    Examples:
+        result = public.contents.release_research.retrieve(reference)
+    """
     def retrieve(self, reference: ContributionReference) -> Any:
         """Read safe released-output proof; historical unbound releases return None.
 
         See sibling backend/notes/specifications/synth-index/research-archive-release.md.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ReleaseResearchView | Awaitable[ReleaseResearchView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = public.contents.release_research.retrieve(reference)
         """
         return self._run(
             _Call(
@@ -861,8 +878,26 @@ class PublicReleaseResearchAPI(_Resource):
 
 
 class PublicClassificationAPI(_Resource):
+    """Read public-safe effective tags under current public revision authority.
+
+    Examples:
+        result = public.contents.classifications.retrieve(reference)
+    """
     def retrieve(self, reference: ContributionReference) -> Any:
-        """Read safe effective metadata; see tag-classification.md."""
+        """Read safe effective metadata; see tag-classification.md.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ClassificationView | Awaitable[ClassificationView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = public.contents.classifications.retrieve(reference)
+        """
         return self._run(
             _Call(
                 "index.public.classification.get",
@@ -877,8 +912,26 @@ class PublicClassificationAPI(_Resource):
 
 
 class ClassificationsAPI(_Resource):
+    """Review effective tags and record independent reviewer classifications.
+
+    Examples:
+        result = index.contributions.classifications.retrieve(reference)
+    """
     def retrieve(self, reference: ContributionReference) -> Any:
-        """Read metadata under the current revision ACL; see tag-classification.md."""
+        """Read metadata under the current revision ACL; see tag-classification.md.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ClassificationView | Awaitable[ClassificationView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.classifications.retrieve(reference)
+        """
         return self._run(
             _Call(
                 "index.classification.get",
@@ -898,6 +951,20 @@ class ClassificationsAPI(_Resource):
 
         See sibling backend/notes/specifications/synth-index/tag-classification.md.
         Retry the identical identity and intent after an uncertain response.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+            idempotency_key: Persisted request key reused for an identical uncertain retry.
+
+        Returns:
+            ClassificationDecisionView | Awaitable[ClassificationDecisionView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.classifications.create(reference, spec, idempotency_key=idempotency_key)
         """
         return self._run(
             _Call(
@@ -925,9 +992,26 @@ class ResearchAPI(_Resource):
 
     See sibling backend/notes/specifications/synth-index/research-archive-release.md.
     Retries bind the same exact content; no method infers consent or publishes.
+
+    Examples:
+        result = index.contributions.research.release(reference)
     """
 
     def release(self, reference: ContributionReference) -> Any:
+        """Read the public-safe release disclosure under current revision access.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ReleaseResearchView | Awaitable[ReleaseResearchView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.release(reference)
+        """
         return self._run(
             _Call(
                 "index.research.release.get",
@@ -937,7 +1021,20 @@ class ResearchAPI(_Resource):
         )
 
     def archive(self, reference: ContributionReference) -> Any:
-        """Read private frozen inputs under a current explicit archive grant."""
+        """Read private frozen inputs under a current explicit archive grant.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ResearchArchiveView | Awaitable[ResearchArchiveView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.archive(reference)
+        """
         return self._run(
             _Call(
                 "index.research.archive.get",
@@ -951,7 +1048,20 @@ class ResearchAPI(_Resource):
         )
 
     def archive_grants(self, reference: ContributionReference) -> Any:
-        """List this owner's named readers of one frozen archive revision."""
+        """List this owner's named readers of one frozen archive revision.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            CollectionGrants | Awaitable[CollectionGrants]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.archive_grants(reference)
+        """
         return self._run(
             _Call(
                 "index.research.archive.grants.list",
@@ -961,7 +1071,21 @@ class ResearchAPI(_Resource):
         )
 
     def grant_archive(self, reference: ContributionReference, spec: CollectionGrantSpec) -> Any:
-        """Grant one named user manifest and object access to this revision."""
+        """Grant one named user manifest and object access to this revision.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            CollectionGrant | Awaitable[CollectionGrant]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.grant_archive(reference, spec)
+        """
         return self._run(
             _Call(
                 "index.research.archive.grants.create",
@@ -980,7 +1104,21 @@ class ResearchAPI(_Resource):
         )
 
     def revoke_archive_grant(self, reference: ContributionReference, grant_id: str) -> Any:
-        """Revoke both archive read operations for a named reader."""
+        """Revoke both archive read operations for a named reader.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            grant_id: Identifier of the exact archive read grant being revoked.
+
+        Returns:
+            CollectionGrantRevoked | Awaitable[CollectionGrantRevoked]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.revoke_archive_grant(reference, grant_id)
+        """
         return self._run(
             _Call(
                 "index.research.archive.grants.revoke",
@@ -994,6 +1132,21 @@ class ResearchAPI(_Resource):
         )
 
     def allocate_archive(self, contribution_id: str, spec: ResearchArchiveAllocationSpec) -> Any:
+        """Allocate a private frozen-input archive for the requested snapshot.
+
+        Args:
+            contribution_id: Contribution whose owner requests private archive allocation or upload.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ResearchArchiveAllocation | Awaitable[ResearchArchiveAllocation]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.allocate_archive(contribution_id, spec)
+        """
         return self._run(
             _Call(
                 "index.research.archives.create",
@@ -1014,7 +1167,22 @@ class ResearchAPI(_Resource):
     def prepare_archive_upload(
         self, contribution_id: str, snapshot_id: str, spec: ArtifactPublicationPrepare
     ) -> Any:
-        """Prepare only the allocated private snapshot; never retain signed URLs."""
+        """Prepare only the allocated private snapshot; never retain signed URLs.
+
+        Args:
+            contribution_id: Contribution whose owner requests private archive allocation or upload.
+            snapshot_id: Frozen snapshot identity already allocated to this private archive.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ArtifactPublicationPrepareResponse | Awaitable[ArtifactPublicationPrepareResponse]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.prepare_archive_upload(contribution_id, snapshot_id, spec)
+        """
         if spec.revision != 1 or spec.manifest_schema_version != "synth.research.snapshot.v1":
             raise ValueError("Archive upload requires snapshot v1 at revision 1")
         expected = {obj.logical_path: obj.digest_sha256 for obj in spec.objects}
@@ -1044,7 +1212,23 @@ class ResearchAPI(_Resource):
     def finalize_archive_upload(
         self, contribution_id: str, snapshot_id: str, publication_id: str, *, collection_id: str
     ) -> Any:
-        """Verify and commit exact private snapshot bytes; this does not publish a release."""
+        """Verify and commit exact private snapshot bytes; this does not publish a release.
+
+        Args:
+            contribution_id: Contribution whose owner requests private archive allocation or upload.
+            snapshot_id: Frozen snapshot identity already allocated to this private archive.
+            publication_id: Exact prepared artifact publication identity being finalized.
+            collection_id: Expected private archive collection UUID used to verify finalization.
+
+        Returns:
+            ArtifactPublicationResponse | Awaitable[ArtifactPublicationResponse]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.finalize_archive_upload(contribution_id, snapshot_id, publication_id, collection_id=collection_id)
+        """
         return self._run(
             _Call(
                 "index.research.archives.upload.finalize",
@@ -1064,6 +1248,21 @@ class ResearchAPI(_Resource):
         )
 
     def bind(self, reference: ContributionReference, spec: ResearchBindingSpec) -> Any:
+        """Bind exact frozen research inputs to the approved release disclosure.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ReleaseDisclosure | Awaitable[ReleaseDisclosure]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.bind(reference, spec)
+        """
         if spec.binding.disclosure.reference != reference:
             raise ValueError("Research binding must match the requested revision")
         return self._run(
@@ -1080,7 +1279,21 @@ class ResearchAPI(_Resource):
         )
 
     def consent(self, reference: ContributionReference, spec: ReleaseConsentSpec) -> Any:
-        """Explicit author consent for the exact manifest, disclosure and audience."""
+        """Explicit author consent for the exact manifest, disclosure and audience.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ReleaseConsentView | Awaitable[ReleaseConsentView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.consent(reference, spec)
+        """
         return self._run(
             _Call(
                 "index.research.consent.create",
@@ -1100,6 +1313,21 @@ class ResearchAPI(_Resource):
         )
 
     def attest(self, reference: ContributionReference, spec: ReproductionAttestationSpec) -> Any:
+        """Record a reproduction observation against the exact derivation binding.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ReproductionReceipt | Awaitable[ReproductionReceipt]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.attest(reference, spec)
+        """
         return self._run(
             _Call(
                 "index.research.reproduction.create",
@@ -1114,6 +1342,21 @@ class ResearchAPI(_Resource):
         )
 
     def revoke(self, reference: ContributionReference, spec: ResearchRevocationSpec) -> Any:
+        """Revoke the exact approved disclosure; historical downloads cannot be recalled.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            dict | Awaitable[dict]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.revoke(reference, spec)
+        """
         def parse(payload):
             if (
                 payload != {"revision_id": reference.revision_id, "revoked": True}
