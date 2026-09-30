@@ -16,6 +16,11 @@ WRITE_SCOPES: tuple[str, ...] = (WRITE_SCOPE,)
 # Synth Index scopes are independent of research (smr:*) authority.
 INDEX_READ_SCOPES: tuple[str, ...] = ("index:read",)
 INDEX_WRITE_SCOPES: tuple[str, ...] = ("index:write",)
+# Separate, non-inherited authority tags. Intake write never implies review,
+# coordination or publication; the backend still checks role/assignment itself.
+INDEX_REVIEW_SCOPES: tuple[str, ...] = ("index:review",)
+INDEX_COORDINATE_SCOPES: tuple[str, ...] = ("index:coordinate",)
+INDEX_PUBLISH_SCOPES: tuple[str, ...] = ("index:publish",)
 
 # Keyed on the advertised `research_*` tool name as declared in `tools/`. A
 # tool absent from this table is a build-time error, not an unauthenticated

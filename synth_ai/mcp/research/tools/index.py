@@ -19,6 +19,11 @@ from synth_ai.mcp.research.registry import (
     JSONDict,
     ToolDefinition,
 )
+from synth_ai.mcp.research.tools.index_qa import (
+    QA_MUTATING_TOOL_NAMES,
+    QA_READ_TOOL_NAMES,
+    build_qa_tools,
+)
 from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.sdk.index.catalog import PublicSearchCapability
 from synth_ai.sdk.index.client import STATUS_POLL_TIMEOUT_SECONDS, IndexAPI, PublicIndexAPI
@@ -59,11 +64,13 @@ INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_get_contribution",
     "index_get_contents",
     "index_contribution_status",
+    *QA_READ_TOOL_NAMES,
 )
 INDEX_WRITE_TOOL_NAMES: tuple[str, ...] = (
     "index_contribution_create",
     "index_contribution_upload",
     "index_contribution_submit",
+    *QA_MUTATING_TOOL_NAMES,
 )
 INDEX_TOOL_NAMES = frozenset(INDEX_READ_TOOL_NAMES + INDEX_WRITE_TOOL_NAMES)
 
@@ -473,6 +480,7 @@ def build_index_tools(
         "index_search_events",
         "index_search_cancel",
     }
+    tools.extend(build_qa_tools(client_factory))
     return [
         tool
         for tool in tools
