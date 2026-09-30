@@ -44,7 +44,7 @@ def admit_codex_task_read(
         logical_path: Explicit normalized relative logical path of the frozen native bytes.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -137,7 +137,7 @@ def freeze_codex_task_read(
         cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -269,7 +269,7 @@ def admit_swarms_evidence(
         logical_path: Explicit normalized relative logical path of the frozen native bytes.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -403,7 +403,7 @@ def admit_mlok_policy_capture(
         logical_path: Explicit normalized relative logical path of the frozen native bytes.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -558,7 +558,7 @@ def freeze_swarms_evidence(
         cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -599,7 +599,7 @@ def freeze_mlok_policy_capture(
         cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -643,7 +643,7 @@ def admit_codex_rollout_prefix(
         logical_path: Explicit normalized relative logical path of the frozen native bytes.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
@@ -751,7 +751,7 @@ def freeze_codex_rollout_prefix(
         cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
 
     Returns:
-        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+        SessionExport: Native capture metadata retaining exact bytes, declared completeness and explicit gaps.
 
     Raises:
         FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.

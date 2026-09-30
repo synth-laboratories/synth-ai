@@ -69,7 +69,18 @@ KIND_CRITERIA = {
 }
 
 
-def required_criteria(kind):
+def required_criteria(kind: ContributionKind | str) -> tuple[str, ...]:
+    """Return the fixed common and kind-specific content rubric criteria.
+
+    Args:
+        kind: Supported Contribution kind selecting the frozen content rubric.
+    Returns:
+        Common criteria followed by criteria specific to the selected kind.
+    Raises:
+        ValueError: The selected kind is not a supported ContributionKind.
+    Examples:
+        criteria = required_criteria(ContributionKind.RESEARCH_REPORT)
+    """
     return COMMON + KIND_CRITERIA[ContributionKind(kind)]
 
 
@@ -132,7 +143,23 @@ class RecordReviewSpec(IndexContract):
         return self
 
 
-def validate_review(spec, kind, provenance):
+def validate_review(
+    spec: RecordReviewSpec, kind: ContributionKind | str, provenance: str
+) -> None:
+    """Validate content review scope and provenance without authorizing publication.
+
+    Args:
+        spec: Exact revision-bound criterion judgments and recorded decision.
+        kind: Contribution kind whose frozen rubric must match the criteria.
+        provenance: Accepted human, agent_assisted or agent reviewer declaration.
+    Returns:
+        None; invalid judgments raise before recording a review.
+    Raises:
+        ValueError: Criteria are outside the rubric, approval is incomplete,
+            common criteria are waived or provenance cannot authorize the decision.
+    Examples:
+        validate_review(spec, ContributionKind.RESEARCH_REPORT, "human")
+    """
     required = set(required_criteria(kind))
     supplied = {c.criterion for c in spec.criteria}
     if supplied - required:

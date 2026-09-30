@@ -167,7 +167,7 @@ def build_release(
 
     Args:
         archive_root: Directory containing exactly the frozen archive input objects.
-        destination: Private destination preserving identical capture bytes and metadata on retry.
+        destination: Explicit release-output directory; existing bytes and receipts must match exactly on retry.
         binding: Validated exact snapshot, recipe, disclosure and reproduction inputs.
         descriptor: Exact approved Contribution descriptor bytes.
         manifest: Exact artifact manifest whose digest and collection match the disclosure.
@@ -250,7 +250,7 @@ def verify_release(
     """Serialize the validated frozen contract without external effects.
 
     Args:
-        destination: Private destination preserving identical capture bytes and metadata on retry.
+        destination: Explicit release-output directory; existing bytes and receipts must match exactly on retry.
         binding: Validated exact snapshot, recipe, disclosure and reproduction inputs.
         descriptor: Exact approved Contribution descriptor bytes.
         manifest: Exact artifact manifest whose digest and collection match the disclosure.
