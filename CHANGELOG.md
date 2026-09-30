@@ -2,6 +2,21 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+### Changed
+
+- **Index QA scope policy.** Local MCP `requiredScopes` and CLI `--help` now use
+  the any-of scope classes the backend enforces (an `index:intake`-only
+  contributor can create and read a case, read shared events, respond, appeal,
+  escalate and repair; adjudication is `index:coordinate`; package bytes are
+  `index:qa:read`). Source: `synth_ai.sdk.index.scopes.OPERATION_SCOPES`.
+- **403 guidance.** CLI and local MCP errors for a 403 report the needed and the
+  granted scopes (from the server, else the SDK table; granted is `unknown`
+  when unreported) with a hint.
+- **Vendored OpenAPI.** `openapi/index-v1.json` regenerated from the backend
+  export with QA routes enabled (adds the 17 `/index/qa/*` paths).
+
 ## 0.21.1 — 2026-09-29
 
 ### Removed

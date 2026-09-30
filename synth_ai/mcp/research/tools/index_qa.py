@@ -25,12 +25,7 @@ from synth_ai.core.errors import (
     SynthFailure,
 )
 from synth_ai.mcp.research.registry import (
-    INDEX_COORDINATE_SCOPES,
     INDEX_INTAKE_SCOPES,
-    INDEX_PUBLISH_SCOPES,
-    INDEX_QA_READ_SCOPES,
-    INDEX_READ_SCOPES,
-    INDEX_REVIEW_SCOPES,
     JSONDict,
     ToolDefinition,
 )
@@ -51,6 +46,7 @@ from synth_ai.sdk.index.qa import (
 from synth_ai.sdk.index.qa_checks import RecordCheckSpec
 from synth_ai.sdk.index.qa_preflight import RunPreflightSpec
 from synth_ai.sdk.index.qa_reviews import RecordReviewSpec
+from synth_ai.sdk.index.scopes import required_scopes as operation_scopes
 
 QaClientFactory = Callable[[], AbstractContextManager[object]]
 
@@ -417,9 +413,31 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             required_scopes=scopes,
         )
 
-    read, write = INDEX_READ_SCOPES, INDEX_INTAKE_SCOPES
-    qa_read = INDEX_QA_READ_SCOPES
-    review, coordinate = INDEX_REVIEW_SCOPES, INDEX_COORDINATE_SCOPES
+    write = INDEX_INTAKE_SCOPES
+    # Tags are the SDK class table (sdk/index/scopes.py), asserted equal to the
+    # backend table. Any-of, least privilege first; the backend still decides
+    # role, assignment and ownership per case.
+    case_get = operation_scopes("index.qa.cases.get")
+    events_list = operation_scopes("index.qa.events.list")
+    assignments_list = operation_scopes("index.qa.assignments.list")
+    checks_list = operation_scopes("index.qa.checks.list")
+    reviews_list = operation_scopes("index.qa.reviews.list")
+    qa_read = operation_scopes("index.qa.package.retrieve")
+    case_create_scopes = operation_scopes("index.qa.cases.create")
+    events_create = operation_scopes("index.qa.events.create")
+    appeal_scopes = operation_scopes("index.qa.appeals.create")
+    escalate_scopes = operation_scopes("index.qa.escalations.create")
+    note_scopes = operation_scopes("index.qa.notes.create")
+    adjudicate_scopes = operation_scopes("index.qa.adjudications.create")
+    accept_scopes = operation_scopes("index.qa.assignments.accept")
+    invite_scopes = operation_scopes("index.qa.assignments.create")
+    revoke_scopes = operation_scopes("index.qa.assignments.revoke")
+    check_record_scopes = operation_scopes("index.qa.checks.record")
+    preflight_scopes = operation_scopes("index.qa.checks.preflight")
+    secret_scan_scopes = operation_scopes("index.qa.checks.secret_scan")
+    review_record_scopes = operation_scopes("index.qa.reviews.record")
+    publish_scopes = operation_scopes("index.contributions.publication.create")
+    withdraw_scopes = operation_scopes("index.contributions.withdrawal.create")
 
     class NoArguments(IndexContract):
         pass
@@ -431,39 +449,39 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             CaseRequest,
             case,
-            read,
+            case_get,
         ),
         tool(
             "index_qa_events",
             "Page the visible QA conversation (messages, findings, decisions) after a sequence cursor; reuse next_after.",
             CasePageRequest,
             events,
-            read,
+            events_list,
         ),
         tool(
             "index_qa_assignments",
             "List your reviewer invitations (bounded); accept one with index_qa_assignment_accept.",
             NoArguments,
             assignments,
-            read,
+            assignments_list,
         ),
         tool(
             "index_qa_checks",
             "Page recorded QA check attempts and findings for a case.",
             CasePageRequest,
             checks,
-            read,
+            checks_list,
         ),
         tool(
             "index_qa_reviews",
             "Page recorded reviewer recommendations for a case.",
             CasePageRequest,
             reviews,
-            read,
+            reviews_list,
         ),
         tool(
             "index_qa_package",
-            "Read the exact sealed package of the case revision you are assigned to review. Refused for unassigned, expired or revoked assignments.",
+            "Read the exact sealed package of the case revision you are assigned to review. Refused for unassigned, expired or revoked assignments. Also reads case metadata, so the token needs a case-read scope (intake, review or coordinate) besides index:qa:read.",
             CaseRequest,
             package,
             qa_read,
@@ -481,7 +499,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             CaseCreateRequest,
             case_create,
-            coordinate,
+            case_create_scopes,
         ),
         tool(
             "index_qa_contributor_event",
@@ -489,7 +507,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             ActionRequest,
             event_for(CONTRIBUTOR_ACTIONS),
-            coordinate,
+            events_create,
         ),
         tool(
             "index_contribution_revise",
@@ -503,63 +521,63 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             "Withdraw your Contribution from Search and new reads. Prior downloads cannot be recalled. Reports the resulting generation and status.",
             WithdrawRequest,
             withdraw,
-            INDEX_PUBLISH_SCOPES,
+            withdraw_scopes,
         ),
         tool(
             "index_qa_assignment_accept",
             "Accept your reviewer assignment, declaring conflict-freedom and provenance (human, agent_assisted or agent). A false declaration is recorded, not hidden.",
             AcceptRequest,
             accept,
-            review,
+            accept_scopes,
         ),
         tool(
             "index_qa_reviewer_event",
             "As an assigned reviewer, message, request changes, approve or reject (escalation uses index_qa_escalate). Approval is private QA acceptance only, not publication.",
             ActionRequest,
             event_for(REVIEWER_ACTIONS),
-            review,
+            events_create,
         ),
         tool(
             "index_qa_check_record",
             "Record one QA check attempt with typed findings (idempotent).",
             CheckRecordRequest,
             check_record,
-            review,
+            check_record_scopes,
         ),
         tool(
             "index_qa_preflight",
             "Run the server-side preflight checks for a case run.",
             PreflightRequest,
             preflight,
-            review,
+            preflight_scopes,
         ),
         tool(
             "index_qa_secret_scan",
             "Run the server-side secret scan for a case run.",
             PreflightRequest,
             secret_scan,
-            review,
+            secret_scan_scopes,
         ),
         tool(
             "index_qa_review_record",
             "Record a criterion-by-criterion review recommendation for the exact case revision (idempotent). A reviewer cannot self-approve their own Contribution.",
             ReviewRecordRequest,
             review_record,
-            review,
+            review_record_scopes,
         ),
         tool(
             "index_qa_invite_reviewer",
             "Coordinator: invite a named reviewer (user and org) with an expiry.",
             InviteRequest,
             invite,
-            coordinate,
+            invite_scopes,
         ),
         tool(
             "index_qa_assignment_revoke",
             "Coordinator: revoke a reviewer assignment; revocation applies to in-flight reads.",
             RevokeRequest,
             revoke,
-            coordinate,
+            revoke_scopes,
         ),
         tool(
             "index_qa_adjudicate",
@@ -568,7 +586,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("adjudicate", AdjudicationSpec),
-            coordinate,
+            adjudicate_scopes,
         ),
         tool(
             "index_qa_appeal",
@@ -577,7 +595,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("appeal", AppealSpec),
-            coordinate,
+            appeal_scopes,
         ),
         tool(
             "index_qa_escalate",
@@ -586,7 +604,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("escalate", EscalationSpec),
-            coordinate,
+            escalate_scopes,
         ),
         tool(
             "index_qa_internal_note",
@@ -595,13 +613,13 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("add_internal_note", InternalNoteSpec),
-            coordinate,
+            note_scopes,
         ),
         tool(
             "index_contribution_publish",
             "Publisher: publish an independently approved revision to its sealed audience. Requires a separate publisher grant plus rights and consent; QA acceptance or index:write never grants it. Reports the resulting generation, current revision and status.",
             PublishRequest,
             publish,
-            INDEX_PUBLISH_SCOPES,
+            publish_scopes,
         ),
     ]
