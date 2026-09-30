@@ -27,7 +27,18 @@ ARCHIVE_BYTES_MAX = 1024 * 1024 * 1024
 
 
 class FrozenBuildError(ValueError):
+    """Typed refusal to accept unsafe, corrupt or mismatched frozen build evidence.
+
+    Examples:
+        error = FrozenBuildError("frozen_object_missing", "declared input is absent")
+    """
     def __init__(self, code: str, detail: str) -> None:
+        """Keep a machine-readable error code alongside a descriptive refusal.
+
+        Args:
+            code: Stable refusal code identifying the failed frozen-input invariant.
+            detail: Explanation of the refusal; omit credentials and private storage URLs.
+        """
         super().__init__(f"{code}: {detail}")
         self.code = code
 

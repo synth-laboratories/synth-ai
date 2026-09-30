@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
-from typing import Any
+from typing import Awaitable, Any
 from uuid import UUID, uuid4
 
 from synth_ai.core.errors import SynthError
@@ -1894,7 +1894,7 @@ class QaAPI(_Resource):
             raise ValueError("after must be a nonnegative sequence")
         return {"after": after}
 
-    def create_case(self, spec: CreateCaseSpec):
+    def create_case(self, spec: CreateCaseSpec) -> CaseView | Awaitable[CaseView]:
         """Open review for the exact sealed Contribution revision.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -1925,7 +1925,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def case(self, case_id):
+    def case(self, case_id: str | UUID) -> CaseView | Awaitable[CaseView]:
         """Read the current authorized revision-bound QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -1955,7 +1955,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def events(self, case_id, *, after=0):
+    def events(self, case_id: str | UUID, *, after: int = 0) -> CaseEvents | Awaitable[CaseEvents]:
         """Read the next authorized QA conversation page.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -1982,7 +1982,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def append_event(self, case_id, spec: CaseEventSpec, *, idempotency_key: str):
+    def append_event(self, case_id: str | UUID, spec: CaseEventSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Append a shared conversation action; use dedicated routes for fenced decisions.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2031,7 +2031,7 @@ class QaAPI(_Resource):
 
     # Plain conversation actions use POST /qa/cases/{id}/events; the backend state
     # machine enforces per-role legality and refuses appeal/escalate/adjudicate there.
-    def send_message(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+    def send_message(self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Send a shared message at the expected QA case version.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2054,8 +2054,8 @@ class QaAPI(_Resource):
         return self._act(CaseAction.MESSAGE, case_id, expected_version, message, idempotency_key)
 
     def request_changes(
-        self, case_id, expected_version: int, message: str, *, idempotency_key: str
-    ):
+        self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Request contributor changes against the current QA version.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2079,7 +2079,7 @@ class QaAPI(_Resource):
             CaseAction.REQUEST_CHANGES, case_id, expected_version, message, idempotency_key
         )
 
-    def respond(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+    def respond(self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Respond to findings at the expected QA case version.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2130,7 +2130,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def escalate(self, case_id, spec: EscalationSpec, *, idempotency_key: str):
+    def escalate(self, case_id: str | UUID, spec: EscalationSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Escalate the exact manifest and rubric to a coordinator.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2158,7 +2158,7 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def appeal(self, case_id, spec: AppealSpec, *, idempotency_key: str):
+    def appeal(self, case_id: str | UUID, spec: AppealSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Appeal the current decision against exact reviewed inputs.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2186,7 +2186,7 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def adjudicate(self, case_id, spec: AdjudicationSpec, *, idempotency_key: str):
+    def adjudicate(self, case_id: str | UUID, spec: AdjudicationSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Reopen independent review through an authorized coordinator.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2214,7 +2214,7 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def add_internal_note(self, case_id, spec: InternalNoteSpec, *, idempotency_key: str):
+    def add_internal_note(self, case_id: str | UUID, spec: InternalNoteSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
         """Record a reviewer/coordinator note excluded from contributor disclosure.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2242,7 +2242,7 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def invite_reviewer(self, case_id, spec: AssignmentSpec):
+    def invite_reviewer(self, case_id: str | UUID, spec: AssignmentSpec) -> AssignmentView | Awaitable[AssignmentView]:
         """Invite an independent reviewer for this exact QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2276,7 +2276,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def assignments(self):
+    def assignments(self) -> tuple[AssignmentView, ...] | Awaitable[tuple[AssignmentView, ...]]:
         """List the caller’s authorized QA reviewer assignments.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2312,7 +2312,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def accept_assignment(self, assignment_id, spec: AcceptAssignmentSpec):
+    def accept_assignment(self, assignment_id: str | UUID, spec: AcceptAssignmentSpec) -> AssignmentView | Awaitable[AssignmentView]:
         """Accept a reviewer assignment with conflict and provenance declarations.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2332,7 +2332,7 @@ class QaAPI(_Resource):
         """
         return self._assignment("accept", assignment_id, spec)
 
-    def revoke_assignment(self, assignment_id):
+    def revoke_assignment(self, assignment_id: str | UUID) -> AssignmentView | Awaitable[AssignmentView]:
         """Revoke an authorized reviewer assignment.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2351,7 +2351,7 @@ class QaAPI(_Resource):
         """
         return self._assignment("revoke", assignment_id)
 
-    def package(self, case: CaseView):
+    def package(self, case: CaseView) -> ContributionPackage | Awaitable[ContributionPackage]:
         """Read the exact sealed package under current QA assignment authority.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2381,7 +2381,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def asset(self, case_id, asset_id: str, *, digest_sha256: str, size_bytes: int):
+    def asset(self, case_id: str | UUID, asset_id: str, *, digest_sha256: str, size_bytes: int) -> bytes | Awaitable[bytes]:
         """Read exact assigned bytes using digest and size from the sealed package.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2426,7 +2426,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def checks(self, case_id, *, after=0):
+    def checks(self, case_id: str | UUID, *, after: int = 0) -> CheckReport | Awaitable[CheckReport]:
         """Read recorded producer check attempts for one QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2460,7 +2460,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def record_check(self, case_id, spec: RecordCheckSpec, *, idempotency_key: str):
+    def record_check(self, case_id: str | UUID, spec: RecordCheckSpec, *, idempotency_key: str) -> CheckAttemptView | Awaitable[CheckAttemptView]:
         """Record a fenced producer check receipt and its actionable findings.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2497,7 +2497,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def preflight(self, case_id, spec: RunPreflightSpec):
+    def preflight(self, case_id: str | UUID, spec: RunPreflightSpec) -> PreflightResult | Awaitable[PreflightResult]:
         """Request the backend’s configured bounded QA preflight checks.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2532,7 +2532,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def secret_scan(self, case_id, spec: RunPreflightSpec):
+    def secret_scan(self, case_id: str | UUID, spec: RunPreflightSpec) -> CheckAttemptView | Awaitable[CheckAttemptView]:
         """Request the configured privacy secret scan for the current sealed package.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2566,7 +2566,7 @@ class QaAPI(_Resource):
             )
         )
 
-    def reviews(self, case_id, *, after=0):
+    def reviews(self, case_id: str | UUID, *, after: int = 0) -> ReviewReport | Awaitable[ReviewReport]:
         """Read the next independent review page for this QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2604,7 +2604,7 @@ class QaAPI(_Resource):
             _Call("index.qa.reviews.list", parse, path_parameters=path, params=self._cursor(after))
         )
 
-    def record_review(self, case_id, spec: RecordReviewSpec, *, idempotency_key: str):
+    def record_review(self, case_id: str | UUID, spec: RecordReviewSpec, *, idempotency_key: str) -> ReviewFact | Awaitable[ReviewFact]:
         """Record an independent assignment’s rubric judgments at exact sealed inputs.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.

@@ -48,9 +48,19 @@ class UploadSessionExpiredError(UploadSessionError):
 
 
 class UploadSessionInterruptedError(UploadSessionError):
-    """Transfer stopped part-way; ``uploaded_paths`` lists what already landed."""
+    """Transfer stopped part-way; ``uploaded_paths`` lists what already landed.
+
+    Examples:
+        error = UploadSessionInterruptedError("storage refused an object", ["report.md"])
+    """
 
     def __init__(self, message: str, uploaded_paths: Sequence[str]) -> None:
+        """Retain successful object paths for reconciliation before retrying.
+
+        Args:
+            message: Sanitized transfer refusal; never include signed URLs or credentials.
+            uploaded_paths: Logical paths uploaded successfully before interruption.
+        """
         super().__init__(message)
         self.uploaded_paths = tuple(uploaded_paths)
 
