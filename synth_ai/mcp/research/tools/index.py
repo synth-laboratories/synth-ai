@@ -14,10 +14,15 @@ from typing import Annotated
 
 from pydantic import Field, StrictInt
 from synth_ai.mcp.research.registry import (
+    INDEX_INTAKE_SCOPES,
     INDEX_READ_SCOPES,
-    INDEX_WRITE_SCOPES,
     JSONDict,
     ToolDefinition,
+)
+from synth_ai.mcp.research.tools.index_qa import (
+    QA_MUTATING_TOOL_NAMES,
+    QA_READ_TOOL_NAMES,
+    build_qa_tools,
 )
 from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.sdk.index.catalog import PublicSearchCapability
@@ -59,11 +64,13 @@ INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_get_contribution",
     "index_get_contents",
     "index_contribution_status",
+    *QA_READ_TOOL_NAMES,
 )
 INDEX_WRITE_TOOL_NAMES: tuple[str, ...] = (
     "index_contribution_create",
     "index_contribution_upload",
     "index_contribution_submit",
+    *QA_MUTATING_TOOL_NAMES,
 )
 INDEX_TOOL_NAMES = frozenset(INDEX_READ_TOOL_NAMES + INDEX_WRITE_TOOL_NAMES)
 
@@ -371,7 +378,7 @@ def build_index_tools(
             )
 
     read = INDEX_READ_SCOPES
-    write = INDEX_WRITE_SCOPES
+    write = INDEX_INTAKE_SCOPES
     tools = [
         ToolDefinition(
             name="index_search",
@@ -473,6 +480,8 @@ def build_index_tools(
         "index_search_events",
         "index_search_cancel",
     }
+    lifecycle_names.update(QA_READ_TOOL_NAMES)
+    tools.extend(build_qa_tools(client_factory))
     return [
         tool
         for tool in tools

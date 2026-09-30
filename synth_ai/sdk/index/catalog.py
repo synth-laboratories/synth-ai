@@ -361,10 +361,11 @@ class RewardEntry(IndexContract):
 
 
 class MyRewards(IndexContract):
-    """Account view for an explicitly funded credit-award program, if enabled.
+    """Historical award receipts and the current organization wallet balance.
 
-    This wire type does not promise an award for any Contribution.
-    ``available_credits_cents`` is not reduced by later spend.
+    v0.2 awards are hypothetical social recognition only. The wallet includes
+    credits from other sources, net of spend, expiry and live reservations;
+    this wire type promises no new Contribution credit award.
     """
 
     unit: Literal["synth_cloud_credit_cents"] = "synth_cloud_credit_cents"
