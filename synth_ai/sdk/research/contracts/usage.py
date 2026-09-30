@@ -142,6 +142,7 @@ class TokenUsage:
     # Backend SmrSwarmTokenUsageResponse.unattributed_sessions (default 0):
     # sessions whose token rows carry no resolved model. Backends before
     # 2026-07-26 omit it, so it is accepted but not required.
+    #: Sessions whose token rows have no resolved model; older backends omit this and default to zero.
     unattributed_sessions: int = 0
 
     def __post_init__(self) -> None:

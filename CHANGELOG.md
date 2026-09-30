@@ -1,8 +1,32 @@
 # Changelog
 
+## 0.21.3 — 2026-09-29
+
+### Fixed
+
+- Match the backend Research billing-profile enum, including `internal_test`, and mirror the pinned backend OpenAPI export.
+- Remove a duplicate Research operation registry entry.
+- Complete reference documentation for the newly exposed Research contracts and SDK entry points, preserving wire formats and request behavior.
+
 All notable changes to the `synth-ai` package are documented here.
 
-## 0.21.1 — 2026-09-29
+## 0.21.2 — 2026-09-29
+
+### Fixed
+
+- **Free public Search receipts parse.** Search usage, customer charges and
+  usage-summary rows accept the backend's `service_free_public` funding source
+  and the `synth.index.public.fast.free.v1` / `synth.index.public.deep.free.v1`
+  price versions. A service-funded receipt must be an uncharged public Search
+  (zero amount, no wallet debit, allowance or ledger movement); anything else is
+  rejected as a contract violation.
+- **Public result route.** `index.public.searches.result`
+  (`GET /api/v1/index/public/searches/{search_id}/result`) is in the public
+  operation map.
+- **Contract.** `openapi/index-v1.json` is byte-identical to backend
+  `contracts/synth_index_openapi.json` at production v0.23.2 (SHA-256
+  `dd66a912…bd7b2`); 135 `IndexErrorCode` values match.
+
 
 ### Removed
 

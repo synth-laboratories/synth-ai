@@ -17,11 +17,13 @@ from enum import StrEnum
 
 
 class SettlementCoverage(StrEnum):
+    """Whether the run has explicit registered-resource tracking or is untracked."""
     UNTRACKED = "untracked"
     EXPLICIT_V1 = "explicit-v1"
 
 
 class SettlementScope(StrEnum):
+    """Ownership-tree scope of a resource settlement observation."""
     ROOT_TREE = "root_tree"
     OWNED_SUBTREE = "owned_subtree"
 
@@ -78,23 +80,60 @@ def _optional_str(mapping: Mapping[str, object], key: str) -> str | None:
 
 @dataclass(frozen=True)
 class RunResourceSettlement:
+    """Fresh settlement observation scoped to the resources a run registered.
+
+    ```python
+    from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
+
+    settlement = RunResourceSettlement.from_wire({
+        "run_id": "run-1", "observed_at": "2026-09-29T12:00:00+00:00",
+        "coverage": "untracked", "settled": False,
+    })
+    assert not settlement.coverage_complete
+    ```
+    """
+    #: Run whose registered resources were observed.
     run_id: str
+    #: Backend timestamp of the settlement observation.
     observed_at: datetime
+    #: Tracking contract; untracked makes no settlement claim.
     coverage: SettlementCoverage
+    #: Settlement of registered resources, without asserting inventory completeness.
     settled: bool
+    #: Whether the registered resource tree is settled.
     registered_tree_settled: bool = False
+    #: Whether the registered inventory has complete coverage.
     coverage_complete: bool = False
+    #: Root-tree or owned-subtree scope of this observation, when supplied.
     scope_kind: SettlementScope | None = None
+    #: Root run of the observed ownership tree, when supplied.
     root_run_id: str | None = None
+    #: Ownership edge identifying the observed subtree, when supplied.
     edge_id: str | None = None
+    #: Non-negative pending-resource count, or null when unavailable.
     pending: int | None = None
+    #: Non-negative unknown-disposition count, or null when unavailable.
     unknown: int | None = None
+    #: Non-negative confirmed-resource count, or null when unavailable.
     confirmed: int | None = None
+    #: Non-negative excluded-resource count, or null when unavailable.
     excluded: int | None = None
+    #: Whether root confirmation was recorded, or null when unavailable.
     root_confirmed: bool | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> RunResourceSettlement:
+        """Parse the backend wire representation of RunResourceSettlement.
+
+        Args:
+            payload: Backend response object to validate and convert.
+
+        Returns:
+            The parsed RunResourceSettlement with backend values preserved.
+
+        Raises:
+            ValueError: The payload has unknown fields, missing identity/timestamp, or invalid settlement values.
+        """
         if not isinstance(payload, Mapping):
             raise ValueError("resource settlement must be an object")
         unknown_keys = set(payload) - _FIELDS
