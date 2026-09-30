@@ -291,3 +291,29 @@ __all__ = [
     "WithdrawalSpec",
     "index_error_code",
 ]
+
+from .value import (
+    CloutEvidence,
+    OwnClout,
+    OwnCloutPage,
+    ProfileAffiliation,
+    ProfileVisibility,
+    PublicClout,
+    PublicProfileValue,
+    StarterBrief,
+    StarterPreference,
+    StarterState,
+)
+
+__all__ += [
+    "CloutEvidence",
+    "OwnClout",
+    "OwnCloutPage",
+    "ProfileAffiliation",
+    "ProfileVisibility",
+    "PublicClout",
+    "PublicProfileValue",
+    "StarterBrief",
+    "StarterPreference",
+    "StarterState",
+]

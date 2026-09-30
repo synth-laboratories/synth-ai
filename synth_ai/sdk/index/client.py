@@ -139,6 +139,13 @@ from .search import (
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 from .transfer import upload_bytes, upload_bytes_sync
 from .usage_accounting import SearchUsageReceipt, SearchUsageSummary
+from .value import (
+    OwnCloutPage,
+    ProfileVisibility,
+    PublicProfileValue,
+    StarterPreference,
+    StarterState,
+)
 
 _P = "/api/v1/index"
 _C = f"{_P}/contributions/{{contribution_id}}"
@@ -230,6 +237,13 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.me.access_funding": ("GET", f"{_P}/me/access-funding"),
     "index.me.access_funding.update": ("PUT", f"{_P}/me/access-funding/{{mode}}"),
     "index.me.rewards.list": ("GET", f"{_P}/me/rewards"),
+    "index.me.clout.retrieve": ("GET", f"{_P}/me/clout"),
+    "index.me.profile.visibility.retrieve": ("GET", f"{_P}/me/profile/visibility"),
+    "index.me.profile.visibility.update": ("PUT", f"{_P}/me/profile/visibility"),
+    "index.me.starters.retrieve": ("GET", f"{_P}/me/starters"),
+    "index.me.starters.preference.update": ("PUT", f"{_P}/me/starters/preference"),
+    "index.profiles.value.retrieve": ("GET", f"{_P}/profiles/{{principal_id}}/value"),
+    "index.public.profiles.value.retrieve": ("GET", f"{_P}/public/profiles/{{principal_id}}/value"),
     "index.me.profile.update": ("PUT", f"{_P}/me/profile"),
     "index.me.profile.pins.update": ("PUT", f"{_P}/me/profile/pins"),
     "index.profiles.retrieve": ("GET", f"{_P}/profiles/{{principal_id}}"),
@@ -1518,6 +1532,50 @@ class AccountAPI(_Resource):
     def rewards(self) -> Any:
         return self._run(_Call("index.me.rewards.list", MyRewards.model_validate))
 
+    def clout(self, *, limit: int = 100, cursor: str | None = None) -> Any:
+        """Read your current-org canonical ledger; pending evidence earns no points."""
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("Value history limit must be 1–200")
+        if cursor is not None and not re.fullmatch(r"[0-9]{1,20}", cursor):
+            raise ValueError("Invalid value history cursor")
+        return self._run(
+            _Call(
+                "index.me.clout.retrieve",
+                OwnCloutPage.model_validate,
+                params={"limit": limit, **({"cursor": cursor} if cursor is not None else {})},
+            )
+        )
+
+    def profile_visibility(self) -> Any:
+        """Read explicit owner visibility settings; all fields default private."""
+        return self._run(
+            _Call("index.me.profile.visibility.retrieve", ProfileVisibility.model_validate)
+        )
+
+    def update_profile_visibility(self, spec: ProfileVisibility) -> Any:
+        """Replace your visibility consent without publishing a Contribution."""
+        return self._run(
+            _Call(
+                "index.me.profile.visibility.update",
+                ProfileVisibility.model_validate,
+                json_body=_body(spec),
+            )
+        )
+
+    def starters(self) -> Any:
+        """Read manual briefs and actual DEEP beta allowance, including reservations."""
+        return self._run(_Call("index.me.starters.retrieve", StarterState.model_validate))
+
+    def update_starter_preference(self, spec: StarterPreference) -> Any:
+        """Opt in or choose a manual brief; starts no work or charge."""
+        return self._run(
+            _Call(
+                "index.me.starters.preference.update",
+                StarterPreference.model_validate,
+                json_body=_body(spec),
+            )
+        )
+
     def update_profile(self, spec: ProfileSpec) -> Any:
         return self._run(
             _Call("index.me.profile.update", ProfileView.model_validate, json_body=_body(spec))
@@ -1530,6 +1588,16 @@ class AccountAPI(_Resource):
 
 
 class ProfilesAPI(_Resource):
+    def value(self, principal_id: str) -> Any:
+        """Read only consented public clout and affiliations; no hidden totals."""
+        return self._run(
+            _Call(
+                "index.profiles.value.retrieve",
+                PublicProfileValue.model_validate,
+                path_parameters={"principal_id": principal_id},
+            )
+        )
+
     def retrieve(self, principal_id: str) -> Any:
         return self._run(
             _Call(
@@ -2128,6 +2196,16 @@ class PublicAssetsAPI(_Resource):
 
 
 class PublicProfilesAPI(_Resource):
+    def value(self, principal_id: str) -> Any:
+        """Read only consented public clout and affiliations; no hidden totals."""
+        return self._run(
+            _Call(
+                "index.public.profiles.value.retrieve",
+                PublicProfileValue.model_validate,
+                path_parameters={"principal_id": principal_id},
+            )
+        )
+
     def retrieve(self, principal_id: str) -> Any:
         """Read a contributor profile as an anonymous reader sees it."""
         return self._run(
