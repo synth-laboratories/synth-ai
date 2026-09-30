@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
-from typing import Awaitable, Any
+from typing import Any, Awaitable
 from uuid import UUID, uuid4
 
 from synth_ai.core.errors import SynthError
@@ -117,6 +117,7 @@ from .retry import (
     is_transient_search_failure,
     search_id_from_error,
 )
+from .rights import RightsAttestationSpec, RightsAttestationView
 from .search import (
     ContentsResult,
     ContentsSpec,
@@ -217,6 +218,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.research.binding.create": ("POST", f"{_R}/research-binding"),
     "index.research.consent.create": ("POST", f"{_R}/release-consent"),
     "index.research.reproduction.create": ("POST", f"{_R}/reproduction-attestations"),
+    "index.research.rights_attestation.create": ("POST", f"{_R}/rights-attestation"),
     "index.research.disclosure.revoke": ("POST", f"{_R}/disclosure-revocation"),
     "index.reviews.list": ("GET", f"{_P}/reviews"),
     "index.tags.list": ("GET", f"{_P}/tags"),
@@ -1541,6 +1543,44 @@ class ContributionsAPI(_Resource):
                     "Contribution response does not match the request",
                 ),
                 path_parameters={"contribution_id": contribution_id},
+            )
+        )
+
+    def attest_rights(
+        self, reference: ContributionReference, spec: RightsAttestationSpec
+    ) -> RightsAttestationView | Awaitable[RightsAttestationView]:
+        """Record a rights claim for the exact sealed revision.
+
+        Args:
+            reference: Contribution and revision whose immutable bytes are attested.
+            spec: Manifest, descriptor, licenses and notices supporting this claim.
+
+        Returns:
+            The exact stored rights fact, or its awaitable for an async client.
+
+        The backend requires the configured queue owner for Synth-origin work,
+        or a contributing-org owner/admin without QA staff authority for external
+        work. This records neither release consent nor QA/publication approval.
+        Repeating the identical claim is safe; a changed claim conflicts.
+
+        Example:
+            fact = client.index.contributions.attest_rights(reference, spec)
+        """
+        return self._run(
+            _Call(
+                "index.research.rights_attestation.create",
+                _bound(
+                    RightsAttestationView,
+                    lambda view: view.revision_id == reference.revision_id
+                    and view.manifest_digest == spec.manifest_digest
+                    and view.descriptor_digest == spec.descriptor_digest
+                    and view.notices_digest == spec.notices_digest
+                    and view.licenses == spec.licenses
+                    and view.rights_decision_ref == spec.rights_decision_ref,
+                    "Rights response does not bind the requested sealed revision",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
             )
         )
 
