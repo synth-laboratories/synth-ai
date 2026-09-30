@@ -22,43 +22,41 @@ COORDINATE = "index:coordinate"
 PUBLISH = "index:publish"
 QA_READ = "index:qa:read"
 
-_CONTRIBUTOR = (INTAKE, REVIEW, COORDINATE)
-_REVIEWER = (REVIEW, COORDINATE)
 
 # operation_id -> any-of scopes. Operation ids are the keys of client.OPERATIONS.
 OPERATION_SCOPES: Mapping[str, tuple[str, ...]] = {
     # Contribution lifecycle owned by the contributor.
-    "index.contributions.create": (INTAKE,),
-    "index.contributions.revisions.create": (INTAKE,),
-    "index.contributions.upload.prepare": (INTAKE,),
-    "index.contributions.upload.finalize": (INTAKE,),
-    "index.contributions.submit": (INTAKE,),
+    "index.contributions.create": ("index:intake",),
+    "index.contributions.revisions.create": ("index:intake",),
+    "index.contributions.upload.prepare": ("index:intake",),
+    "index.contributions.upload.finalize": ("index:intake",),
+    "index.contributions.submit": ("index:intake",),
     # Publication is a separate authority; QA acceptance never grants it.
-    "index.contributions.publication.create": (PUBLISH,),
-    "index.contributions.withdrawal.create": (PUBLISH,),
+    "index.contributions.publication.create": ("index:publish",),
+    "index.contributions.withdrawal.create": ("index:publish",),
     # QA: a contributor with only index:intake can create and read its own case,
     # read shared events, respond, appeal and escalate.
-    "index.qa.cases.create": (INTAKE, COORDINATE),
-    "index.qa.cases.get": _CONTRIBUTOR,
-    "index.qa.events.list": _CONTRIBUTOR,
-    "index.qa.events.create": _CONTRIBUTOR,
-    "index.qa.appeals.create": _CONTRIBUTOR,
-    "index.qa.escalations.create": _CONTRIBUTOR,
-    "index.qa.notes.create": _REVIEWER,
-    "index.qa.adjudications.create": (COORDINATE,),
-    "index.qa.assignments.create": (COORDINATE,),
-    "index.qa.assignments.revoke": (COORDINATE,),
-    "index.qa.assignments.list": _REVIEWER,
-    "index.qa.assignments.accept": _REVIEWER,
-    "index.qa.reviews.record": _REVIEWER,
-    "index.qa.reviews.list": _REVIEWER,
-    "index.qa.checks.record": _REVIEWER,
-    "index.qa.checks.list": _REVIEWER,
-    "index.qa.checks.preflight": _REVIEWER,
-    "index.qa.checks.secret_scan": _REVIEWER,
+    "index.qa.cases.create": ("index:intake",),
+    "index.qa.cases.get": ("index:read", "index:review", "index:coordinate"),
+    "index.qa.events.list": ("index:read", "index:review", "index:coordinate"),
+    "index.qa.events.create": ("index:intake", "index:coordinate", "index:review"),
+    "index.qa.appeals.create": ("index:intake",),
+    "index.qa.escalations.create": ("index:intake", "index:review"),
+    "index.qa.notes.create": ("index:review", "index:coordinate"),
+    "index.qa.adjudications.create": ("index:coordinate",),
+    "index.qa.assignments.create": ("index:coordinate",),
+    "index.qa.assignments.revoke": ("index:coordinate",),
+    "index.qa.assignments.list": ("index:read", "index:review", "index:coordinate"),
+    "index.qa.assignments.accept": ("index:review",),
+    "index.qa.reviews.record": ("index:review",),
+    "index.qa.reviews.list": ("index:read", "index:review", "index:coordinate"),
+    "index.qa.checks.record": ("index:review",),
+    "index.qa.checks.list": ("index:read", "index:review", "index:coordinate"),
+    "index.qa.checks.preflight": ("index:review",),
+    "index.qa.checks.secret_scan": ("index:review",),
     # Bytes: qa:read here, plus an accepted assignment enforced by the backend.
-    "index.qa.package.retrieve": (QA_READ,),
-    "index.qa.assets.retrieve": (QA_READ,),
+    "index.qa.package.retrieve": ("index:qa:read",),
+    "index.qa.assets.retrieve": ("index:qa:read",),
 }
 
 
