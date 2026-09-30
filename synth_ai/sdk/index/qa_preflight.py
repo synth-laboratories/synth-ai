@@ -22,11 +22,16 @@ GATES = (
 
 
 class RunPreflightSpec(IndexContract):
+    """Request the fixed metadata preflight batch against the current case version."""
+    #: Producer run identity shared by every attempt in the batch.
     run_id: Identifier
+    #: Case version expected by this write; stale input must be reconciled.
     expected_version: Annotated[StrictInt, Field(ge=0)]
 
 
 class PreflightResult(IndexContract):
+    """Five ordered attempts; unexecuted science/privacy gates remain inconclusive."""
+    #: Exactly the five fixed metadata/science/privacy gate observations.
     attempts: tuple[CheckAttemptView, ...] = Field(min_length=5, max_length=5)
 
     @model_validator(mode="after")
