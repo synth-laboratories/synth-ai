@@ -59,15 +59,29 @@ class UploadSessionInterruptedError(UploadSessionError):
 class UploadSessionReceipt:
     """Credential-free proof of what was transferred."""
 
+    #: Publication UUID reused by identical prepare retries.
     publication_id: str
+    #: SHA-256 digest of the exact prepared manifest.
     manifest_digest: str
+    #: Logical paths transferred successfully during this invocation.
     uploaded_paths: tuple[str, ...]
+    #: Selected asset paths already stored and omitted from current transfer targets.
     already_stored_paths: tuple[str, ...]
+    #: Number of bytes transferred during this invocation.
     total_bytes: int
 
 
 def redact(text: str) -> str:
-    """Drop query strings, userinfo and fragments from every URL in ``text``."""
+    """Remove credential-bearing URL components from diagnostic text.
+
+    Args:
+        text: Diagnostic text whose URL userinfo, query strings and fragments must be removed.
+    Returns:
+        Redacted text preserving only each URL scheme, hostname and path.
+    Examples:
+        >>> redact("https://example.com/upload?secret=value")
+        'https://example.com/upload?[redacted]'
+    """
 
     def strip(match: re.Match[str]) -> str:
         parts = urlsplit(match.group(0))
@@ -89,6 +103,22 @@ def transfer_selected_files(
     ``session_result`` is the JSON result of ``index_contribution_upload_prepare``.
     Nothing is read from disk when the session is expired or malformed; nothing
     is sent when any selected file differs from its declared digest or size.
+
+    Args:
+        session_result: Exact JSON result of the hosted upload-prepare operation.
+        root: Explicit local directory confining every selected file.
+        files: Mapping of declared logical paths to selected relative local file paths.
+        client: Optional caller-owned HTTP client; configure redirects and authentication safely.
+        clock: Optional seconds-since-epoch clock used to refuse expired targets before reading files.
+    Returns:
+        Credential-free transfer receipt; successful transfer does not finalize or submit.
+    Raises:
+        UploadSessionError: The session or prepared manifest binding is malformed.
+        UploadSessionExpiredError: Targets are expired or storage refuses their use.
+        UploadSessionInterruptedError: Transfer stops; the error retains paths already uploaded.
+        ValueError: Selected file confinement, byte bounds, declared digest or size validation fails.
+    Examples:
+        receipt = transfer_selected_files(session_result, "/selected/evidence", {"report.md": "report.md"})
     """
     session = session_result.get("session")
     if not isinstance(session, Mapping) or "prepared" not in session_result:
@@ -157,7 +187,17 @@ def main(
     client: httpx.Client | None = None,
     clock: Callable[[], float] | None = None,
 ) -> int:
-    """``python -m synth_ai.sdk.index.upload_session --session S.json --root DIR a=a.txt``."""
+    """Transfer explicitly selected files using a prepared hosted session JSON file.
+
+    Args:
+        argv: Command arguments, or none to read the process arguments.
+        client: Optional caller-owned HTTP client passed to the selected-file transfer.
+        clock: Optional seconds-since-epoch clock for expiration checking.
+    Returns:
+        Zero after a successful transfer receipt, or one after a sanitized refusal.
+    Examples:
+        code = main(["--session", "S.json", "--root", "DIR", "a=a.txt"])
+    """
     parser = argparse.ArgumentParser(prog="upload_session", description=__doc__)
     parser.add_argument("--session", type=Path, required=True, help="prepare result JSON")
     parser.add_argument("--root", required=True, help="explicit directory holding the files")
