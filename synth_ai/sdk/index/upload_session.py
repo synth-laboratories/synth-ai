@@ -60,6 +60,9 @@ class UploadSessionInterruptedError(UploadSessionError):
         Args:
             message: Sanitized transfer refusal; never include signed URLs or credentials.
             uploaded_paths: Logical paths uploaded successfully before interruption.
+
+        Examples:
+            error = UploadSessionInterruptedError("storage refused an object", ["report.md"])
         """
         super().__init__(message)
         self.uploaded_paths = tuple(uploaded_paths)
