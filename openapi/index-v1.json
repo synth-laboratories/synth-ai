@@ -8504,8 +8504,7 @@
                   "none",
                   "promo_credit",
                   "deep_beta",
-                  "wallet",
-                  "service_free_public"
+                  "wallet"
                 ],
                 "type": "string"
               },
@@ -9033,13 +9032,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
