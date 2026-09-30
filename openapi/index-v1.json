@@ -7756,6 +7756,164 @@
         "title": "RewardReverseSpec",
         "type": "object"
       },
+      "RightsAttestationSpec": {
+        "additionalProperties": false,
+        "description": "Rights owner's exact claim; every digest must match the sealed revision.",
+        "properties": {
+          "descriptor_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Descriptor Digest",
+            "type": "string"
+          },
+          "licenses": {
+            "items": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Licenses",
+            "type": "array"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "notices_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Notices Digest",
+            "type": "string"
+          },
+          "rights_decision_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Rights Decision Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "descriptor_digest",
+          "rights_decision_ref",
+          "licenses",
+          "notices_digest"
+        ],
+        "title": "RightsAttestationSpec",
+        "type": "object"
+      },
+      "RightsAttestationView": {
+        "additionalProperties": false,
+        "properties": {
+          "attested_at": {
+            "format": "date-time",
+            "title": "Attested At",
+            "type": "string"
+          },
+          "attester_org_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attester Org Id"
+          },
+          "attester_user_id": {
+            "format": "uuid",
+            "title": "Attester User Id",
+            "type": "string"
+          },
+          "authority": {
+            "$ref": "#/components/schemas/RightsAuthority"
+          },
+          "descriptor_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Descriptor Digest",
+            "type": "string"
+          },
+          "licenses": {
+            "items": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Licenses",
+            "type": "array"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "notices_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Notices Digest",
+            "type": "string"
+          },
+          "queue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RightsQueue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rights_decision_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Rights Decision Ref",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "research-rights-attestation-v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id",
+          "authority",
+          "queue",
+          "attester_user_id",
+          "attester_org_id",
+          "manifest_digest",
+          "descriptor_digest",
+          "rights_decision_ref",
+          "licenses",
+          "notices_digest",
+          "attested_at"
+        ],
+        "title": "RightsAttestationView",
+        "type": "object"
+      },
+      "RightsAuthority": {
+        "description": "Who may attest; mirrors ``index_rights_attestations.authority`` (SYN-3437).\n\nSynth-origin work is attested by the queue rights owner. Any other origin is\nattested by an OWNER/ADMIN of the contributing org, who holds the rights.",
+        "enum": [
+          "queue_rights_owner",
+          "contributing_org_admin"
+        ],
+        "title": "RightsAuthority",
+        "type": "string"
+      },
+      "RightsQueue": {
+        "description": "Queues whose owner may attest rights; mirrors ``index_rights_owners.queue``.",
+        "enum": [
+          "index-corpus-qa"
+        ],
+        "title": "RightsQueue",
+        "type": "string"
+      },
       "RunPreflightSpec": {
         "additionalProperties": false,
         "properties": {
@@ -12062,6 +12220,70 @@
         "summary": "Review",
         "tags": [
           "index-review"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/rights-attestation": {
+      "post": {
+        "description": "The rights holder attests one exact sealed revision; separate from consent.\n\nSynth-origin: this environment's current ``index_queue_policies`` rights\nowner, read in the same transaction; an unset queue refuses\n(``queue_policy_unset``). Other origins: an OWNER/ADMIN of the\ncontributing org (SYN-3437), which needs no queue policy.",
+        "operationId": "index.research.rights_attestation.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RightsAttestationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RightsAttestationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attest Revision Rights",
+        "tags": [
+          "index-research"
         ]
       }
     },
