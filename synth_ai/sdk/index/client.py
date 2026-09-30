@@ -77,19 +77,6 @@ from .lifecycle import (
 )
 from .package import ContributionPackage
 from .public_search import PublicSearchOperations
-from .research import (
-    ReleaseConsentSpec,
-    ReleaseConsentView,
-    ReleaseDisclosure,
-    ReleaseResearchView,
-    ReproductionAttestationSpec,
-    ReproductionReceipt,
-    ResearchArchiveAllocation,
-    ResearchArchiveAllocationSpec,
-    ResearchArchiveView,
-    ResearchBindingSpec,
-    ResearchRevocationSpec,
-)
 from .qa import (
     AcceptAssignmentSpec,
     AssignmentSpec,
@@ -104,6 +91,19 @@ from .qa import (
 from .qa_checks import CheckAttemptView, CheckReport, RecordCheckSpec
 from .qa_preflight import PreflightResult, RunPreflightSpec
 from .qa_reviews import RecordReviewSpec, ReviewFact, ReviewReport
+from .research import (
+    ReleaseConsentSpec,
+    ReleaseConsentView,
+    ReleaseDisclosure,
+    ReleaseResearchView,
+    ReproductionAttestationSpec,
+    ReproductionReceipt,
+    ResearchArchiveAllocation,
+    ResearchArchiveAllocationSpec,
+    ResearchArchiveView,
+    ResearchBindingSpec,
+    ResearchRevocationSpec,
+)
 from .retry import (
     DEFAULT_INDEX_RETRY_POLICY,
     IndexRetryPolicy,
