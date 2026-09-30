@@ -70,6 +70,7 @@ from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
+from synth_ai.sdk.index.scope_errors import scope_denial
 from synth_ai.sdk.index.timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
 from synth_ai.sdk.research.auth import get_api_key
 from synth_ai.sdk.research.client import Client as CoreResearchClient
@@ -267,6 +268,13 @@ def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
             out["http_status"] = failure.status
         if failure.reason is not None:
             out["reason"] = failure.reason
+        denial = scope_denial(exc)
+        if denial is not None:
+            out["insufficient_scope"] = denial.insufficient_scope
+            out["required_scopes_any_of"] = list(denial.required_any_of)
+            out["granted_scopes"] = None if denial.granted is None else list(denial.granted)
+            out["hint"] = denial.hint()
+            out["message"] = f"{out['message']} | {denial.message()}"
         if failure.resource is not None:
             # e.g. an admitted Index Search: reconnect by this ID, never re-create.
             out["resource"] = {

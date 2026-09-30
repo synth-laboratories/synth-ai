@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.22.0 — unreleased Index v0.2 candidate
+
+### Added
+
+- Contribution archive upload sessions and explicit local file transfer helpers.
+- Typed QA case, review and lifecycle SDK APIs, CLI commands and local MCP tools.
+- Fenced appeal, escalation, adjudication and internal-note operations with visibility and reviewer policy.
+- Explicit bearer-token Clerk OAuth Index transports.
+
+This is a local release candidate. Hosted QA availability, native OAuth acceptance
+and public package publication require separate release receipts.
+
+## 0.21.3 — 2026-09-29
+
+### Fixed
+
+- Match the backend Research billing-profile enum, including `internal_test`, and mirror the pinned backend OpenAPI export.
+- Remove a duplicate Research operation registry entry.
+- Complete reference documentation for the newly exposed Research contracts and SDK entry points, preserving wire formats and request behavior.
+
 All notable changes to the `synth-ai` package are documented here.
 
 ## 0.21.2 — 2026-09-29

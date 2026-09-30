@@ -15,7 +15,17 @@ READ_SCOPES: tuple[str, ...] = (READ_SCOPE,)
 WRITE_SCOPES: tuple[str, ...] = (WRITE_SCOPE,)
 # Synth Index scopes are independent of research (smr:*) authority.
 INDEX_READ_SCOPES: tuple[str, ...] = ("index:read",)
+# Legacy alias: the backend expands index:write to intake + account ONLY. Local tools
+# advertise the granular tags below; nothing here is a grant, the backend decides.
 INDEX_WRITE_SCOPES: tuple[str, ...] = ("index:write",)
+INDEX_INTAKE_SCOPES: tuple[str, ...] = ("index:intake",)
+INDEX_ACCOUNT_SCOPES: tuple[str, ...] = ("index:account",)
+INDEX_QA_READ_SCOPES: tuple[str, ...] = ("index:qa:read",)
+# Separate, non-inherited authority tags. Intake write never implies review,
+# coordination or publication; the backend still checks role/assignment itself.
+INDEX_REVIEW_SCOPES: tuple[str, ...] = ("index:review",)
+INDEX_COORDINATE_SCOPES: tuple[str, ...] = ("index:coordinate",)
+INDEX_PUBLISH_SCOPES: tuple[str, ...] = ("index:publish",)
 
 # Keyed on the advertised `research_*` tool name as declared in `tools/`. A
 # tool absent from this table is a build-time error, not an unauthenticated
@@ -208,6 +218,7 @@ class ToolDefinition:
     input_schema: JSONDict
     handler: ToolHandler
     required_scopes: tuple[str, ...] = ()
+    any_of_scopes: tuple[str, ...] = ()
 
 
 def _scoped_tool_definition(tool: ToolDefinition) -> ToolDefinition:
@@ -217,7 +228,7 @@ def _scoped_tool_definition(tool: ToolDefinition) -> ToolDefinition:
     build-time failure rather than a silent grant. Adding a tool means deciding
     whether it reads or writes.
     """
-    if tool.required_scopes:
+    if tool.required_scopes or tool.any_of_scopes:
         return tool
     scopes = _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME.get(tool.name)
     if not scopes:
@@ -293,6 +304,7 @@ def list_tool_payload(
                 "description": tool.description,
                 "inputSchema": tool.input_schema,
                 "requiredScopes": list(tool.required_scopes),
+                **({"requiredAnyOfScopes": list(tool.any_of_scopes)} if tool.any_of_scopes else {}),
             }
         )
     return payload

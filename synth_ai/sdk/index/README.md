@@ -386,6 +386,112 @@ durable Deep execution, and 1,024-operation receipt bound. Synchronous
 convenience path uses durable create/wait instead. Source and schema parity do
 not replace an installed-wheel test against the matching deployed backend.
 
+## Contribution journey: upload, review, repair, appeal, publish
+
+What exists today, and where it stops. This section describes SDK, CLI and local
+MCP behavior only. It makes no claim about a deployed backend: the private QA
+routes are rollout-gated (an unavailable route is a typed error, never a local
+fallback), and nothing here has been exercised against a real hosted backend,
+Clerk tenant or native MCP client. The hosted MCP registry has no QA tools yet.
+
+Requirements: Python 3.11+. The local stdio MCP server speaks protocol versions
+`2025-06-18` and `2024-11-05`. No mobile client is qualified; do not assume the
+flow works from one.
+
+### Connect
+
+| Path | Credential | Notes |
+| --- | --- | --- |
+| CLI `synth-ai index ...` | `--api-key` / `SYNTH_API_KEY`, `--backend-url` / `SYNTH_BACKEND_URL` | Both required, explicit, never read from disk or Keychain. |
+| Python | `SynthClient().index`, or `index_with_oauth(base_url, access_token)` | `index_with_oauth` takes a token your agent already holds (HTTPS or loopback only). The SDK does no login, refresh or token storage. |
+| Local MCP `synth-ai-index-mcp` | `SYNTH_API_KEY`; `SYNTH_INDEX_MCP_WRITE_ENABLED=true` for any mutating tool | Credentials never appear in tool arguments. |
+
+### Flow
+
+Each step is a separate, explicit action. Approval in QA is private acceptance
+only; it is not publication, certification or a reward.
+
+1. **Draft and upload.** `index contribution create --idempotency-key K`, then
+   `index contribution upload DRAFT.json UPLOAD.json --root DIR --file logical=path`
+   (only the listed files under `--root`; symlinks and escapes are refused), then
+   `index contribution submit CONTRIBUTION REVISION SPEC.json`. MCP:
+   `index_contribution_create`, `index_contribution_upload`, `index_contribution_submit`.
+2. **Open a QA case** for the exact submitted revision: `index qa open SPEC.json`
+   (MCP `index_qa_case_create`). The case pins the revision, manifest digest and rubric version.
+3. **Review.** A coordinator invites a reviewer (`index qa invite`, `index_qa_invite_reviewer`);
+   the reviewer accepts (`index qa accept`), reads the sealed package
+   (`index_qa_package`, `index_qa_asset`; needs an accepted assignment), records checks
+   and a review (`index qa review`, `index_qa_review_record`) and may request changes or
+   approve through `index qa send` / `index_qa_reviewer_event`. A reviewer cannot
+   self-approve their own Contribution.
+4. **Respond and repair.** The contributor reads shared events (`index qa events`) and
+   responds (`index qa send --action respond`). To repair, open a private child revision
+   (`index contribution repair CONTRIBUTION PARENT_REVISION`, MCP `index_contribution_revise`),
+   upload and submit it; the parent stays immutable and the child needs fresh review.
+5. **Appeal or escalate.** `index qa appeal` (a rejection or private acceptance) and
+   `index qa escalate` are fenced: they need `--expected-version`, `--manifest-digest`,
+   `--rubric-version` and an idempotency key. A stale fence exits 5 and nothing is merged.
+   A coordinator resolves with `index qa adjudicate`; the only outcome is reopening fresh
+   independent review, never approval. `index qa note` adds an internal note the
+   contributor never sees.
+6. **Publish.** A separate publisher grant is required (`index contribution publish`,
+   MCP `index_contribution_publish`), plus rights and author consent enforced by the
+   backend. QA acceptance never grants it. `index contribution withdraw` removes a
+   Contribution from Search and new reads; prior downloads cannot be recalled.
+
+Retry rule: reuse the SAME idempotency key after any uncertain response (exit 6).
+
+### Permissions
+
+Scopes gate the class of operation. The backend decides who may act on which case
+(ownership, assignment, coordinator role, organization) on every request, so holding a
+scope never bypasses those checks. Any-of; a token with any listed scope reaches the class.
+The SDK table is `synth_ai.sdk.index.scopes.OPERATION_SCOPES`, advertised as each local MCP
+tool's `requiredScopes` and in `--help`; a test asserts it equals the backend table.
+
+| Operation | Any of |
+| --- | --- |
+| Create draft, revise, upload, finalize, submit | `index:intake` |
+| Create QA case | `index:intake`, `index:coordinate` |
+| Read case, read shared events, post events, appeal, escalate | `index:intake`, `index:review`, `index:coordinate` |
+| Internal note, record review/check, preflight, secret scan, list reviews/checks, list/accept assignments | `index:review`, `index:coordinate` |
+| Invite or revoke a reviewer assignment | `index:coordinate` |
+| Adjudicate | `index:coordinate` |
+| Package and asset bytes | `index:qa:read` (plus an accepted, unrevoked assignment) |
+| Publish, withdraw | `index:publish` |
+
+A contributor holding only `index:intake` can create and read their own case, read shared
+events, respond, appeal, escalate and repair. `package`/`asset` also read case metadata, so
+that token needs a case-read scope too.
+
+### Revoke and recover
+
+- A coordinator revokes a reviewer with `index qa revoke ASSIGNMENT` (`index_qa_assignment_revoke`).
+  The backend refuses later reads for that assignment, including package bytes; the SDK
+  cannot override that.
+- Revoking an OAuth grant or API key is done where it was issued (for example your agent's
+  connection settings). The SDK holds no refresh token; after revocation every
+  call is refused (exit 3) until you reconnect. Recovery is to reconnect with a
+  token holding the needed scopes; work already submitted lives on the backend, not in the SDK.
+- After an uncertain response, re-read state (`index contribution status`, `index qa case`)
+  before deciding; retry only with the same idempotency key.
+
+### Troubleshooting
+
+| Symptom | Meaning and remedy |
+| --- | --- |
+| CLI exit 3 | Not authenticated. Check `SYNTH_API_KEY`, `--backend-url`, and whether the credential was revoked. |
+| CLI exit 4, `insufficient_scope` | The message lists needed scopes (any-of) and the token's granted scopes. Reconnect and approve the missing scope. If the server sent no granted list it says `unknown`; it never guesses. |
+| CLI exit 4, "not reported as a scope failure" | Scope class was not the reported cause. Check role, accepted/unexpired/unrevoked assignment, ownership and organization. |
+| Exit 5 | Stale version or fence, or conflict. Re-read the case, use the new `expected_version`; nothing was merged. |
+| Exit 6 | Rate limit or unavailable. Retry with the SAME idempotency key. |
+| Exit 7 | Local or contract validation refusal; nothing was sent, or the response did not match the contract (for example a pre-v0.2 backend). |
+| QA route unavailable | The backend has QA disabled. The SDK does not simulate it. |
+| Local MCP tool missing | Mutating tools need `SYNTH_INDEX_MCP_WRITE_ENABLED=true` and an explicit key. |
+
+MCP tool failures carry `insufficient_scope`, `required_scopes_any_of`, `granted_scopes`
+(null when unreported) and a `hint` in the error data.
+
 ## Errors
 
 ### Public route
@@ -466,3 +572,44 @@ allocated draft and its idempotency keys mean nothing there. A `.lock` sidecar
 holds the state file for one process at a time and names its holder, so a stale
 lock is cleared deliberately. Corrupt or foreign state is reported with what to
 do about it; it is never silently discarded.
+
+Frozen-input release contracts live in `synth_ai.sdk.index.research`. The
+authenticated `client.index.contributions.research` resource exposes
+`allocate_archive`, `bind`, `consent`, `attest`, `revoke`, `release` and `archive`.
+Archive allocation returns the versioned `ResearchArchiveAllocation` receipt with
+only its collection and authorized snapshot scope; internal storage namespace IDs
+remain server-side. The methods use the backend's exact revision routes and closed models. Binding
+and consent retries reuse the same exact manifest and disclosure; the backend
+rejects conflicting content. Consent is an explicit author action. Neither
+binding nor attestation automatically consents or publishes.
+
+`PublicIndexClient(...).contributions.release_research.retrieve(reference)` reads
+only the safe released-output disclosure and scope/outcome summary. Historical
+unbound releases return `None`. Private bindings, sessions and receipt evidence
+are rejected in that response. The public resource has no archive operation.
+Authenticated `research.archive(reference)` requires a current explicit archive
+grant; ordinary Search does not acquire that permission from this SDK method.
+
+This SDK surface does not yet implement native capture or isolated recipe
+execution. The backend's maintained `research_bundle` commands own the current
+offline build/reconstruction implementation; installing this client alone does
+not qualify reproducibility or the local FAST/DEEP and browser gates.
+
+
+Private snapshot transfers use `research.prepare_archive_upload(contribution_id,
+snapshot_id, spec)` and `research.finalize_archive_upload(contribution_id,
+snapshot_id, publication_id, collection_id=...)`. Prepare accepts only revision 1
+with schema `synth.research.snapshot.v1`, and validates exact publication,
+collection and declared object identity before exposing any transfer target.
+Already stored objects can omit targets. Upload bytes through the existing
+contribution upload helper. Finalize must return the same committed identity.
+These operations allocate no release visibility or consent. Lost/expired fences
+return `research_lease_lost`; retry preparation explicitly with the same identity.
+
+`synth-ai index research capture-codex-rollout-prefix` freezes a selected native
+JSONL prefix with `--native-input`, `--thread-id`, `--captured-at`, `--cutoff-at`
+and `--out`. The input must end at the chosen cutoff and on a complete JSONL
+record. Admission verifies native session aliases and timestamp order and retains
+exact source bytes as `application/x-ndjson`. Capture is private and create-only;
+a retry must match every byte. The declared partial coverage does not establish
+inherited session history or external provider state.

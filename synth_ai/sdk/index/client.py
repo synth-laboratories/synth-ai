@@ -13,14 +13,18 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
-from typing import Any
-from uuid import uuid4
+from typing import Awaitable, Any
+from uuid import UUID, uuid4
 
 from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 
-from .artifacts import ArtifactPublicationResponse
+from .artifacts import (
+    ArtifactPublicationPrepare,
+    ArtifactPublicationPrepareResponse,
+    ArtifactPublicationResponse,
+)
 from .catalog import (
     AccessFundingAccount,
     BillingPolicyUpdate,
@@ -49,6 +53,7 @@ from .catalog import (
     RewardReverseSpec,
     TagRegistry,
 )
+from .classification import ClassificationDecisionView, ClassificationSpec, ClassificationView
 from .contracts import ContributionReference
 from .contributions import (
     ContributionDraft,
@@ -70,7 +75,42 @@ from .lifecycle import (
     RevisionView,
     WithdrawalSpec,
 )
+from .package import ContributionPackage
 from .public_search import PublicSearchOperations
+from .qa import (
+    FENCED_ACTIONS,
+    AcceptAssignmentSpec,
+    AdjudicationSpec,
+    AppealSpec,
+    AssignmentSpec,
+    AssignmentView,
+    CaseAction,
+    CaseEvents,
+    CaseEventSpec,
+    CaseEventView,
+    CaseView,
+    CreateCaseSpec,
+    EscalationSpec,
+    EventVisibility,
+    FencedCaseRequest,
+    InternalNoteSpec,
+)
+from .qa_checks import CheckAttemptView, CheckReport, RecordCheckSpec
+from .qa_preflight import PreflightResult, RunPreflightSpec
+from .qa_reviews import RecordReviewSpec, ReviewFact, ReviewReport
+from .research import (
+    ReleaseConsentSpec,
+    ReleaseConsentView,
+    ReleaseDisclosure,
+    ReleaseResearchView,
+    ReproductionAttestationSpec,
+    ReproductionReceipt,
+    ResearchArchiveAllocation,
+    ResearchArchiveAllocationSpec,
+    ResearchArchiveView,
+    ResearchBindingSpec,
+    ResearchRevocationSpec,
+)
 from .retry import (
     DEFAULT_INDEX_RETRY_POLICY,
     IndexRetryPolicy,
@@ -99,6 +139,13 @@ from .search import (
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 from .transfer import upload_bytes, upload_bytes_sync
 from .usage_accounting import SearchUsageReceipt, SearchUsageSummary
+from .value import (
+    OwnCloutPage,
+    ProfileVisibility,
+    PublicProfileValue,
+    StarterPreference,
+    StarterState,
+)
 
 _P = "/api/v1/index"
 _C = f"{_P}/contributions/{{contribution_id}}"
@@ -117,6 +164,26 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
+    "index.qa.cases.create": ("POST", _P + "/qa/cases"),
+    "index.qa.cases.get": ("GET", _P + "/qa/cases/{case_id}"),
+    "index.qa.events.list": ("GET", _P + "/qa/cases/{case_id}/events"),
+    "index.qa.events.create": ("POST", _P + "/qa/cases/{case_id}/events"),
+    "index.qa.appeals.create": ("POST", _P + "/qa/cases/{case_id}/appeals"),
+    "index.qa.escalations.create": ("POST", _P + "/qa/cases/{case_id}/escalations"),
+    "index.qa.adjudications.create": ("POST", _P + "/qa/cases/{case_id}/adjudications"),
+    "index.qa.notes.create": ("POST", _P + "/qa/cases/{case_id}/internal-notes"),
+    "index.qa.assignments.create": ("POST", _P + "/qa/cases/{case_id}/assignments"),
+    "index.qa.assignments.list": ("GET", _P + "/qa/assignments"),
+    "index.qa.assignments.accept": ("POST", _P + "/qa/assignments/{assignment_id}/accept"),
+    "index.qa.assignments.revoke": ("POST", _P + "/qa/assignments/{assignment_id}/revoke"),
+    "index.qa.package.retrieve": ("GET", _P + "/qa/cases/{case_id}/package"),
+    "index.qa.assets.retrieve": ("GET", _P + "/qa/cases/{case_id}/assets/{asset_id}"),
+    "index.qa.checks.list": ("GET", _P + "/qa/cases/{case_id}/checks"),
+    "index.qa.checks.record": ("POST", _P + "/qa/cases/{case_id}/checks"),
+    "index.qa.checks.preflight": ("POST", _P + "/qa/cases/{case_id}/checks/preflight"),
+    "index.qa.checks.secret_scan": ("POST", _P + "/qa/cases/{case_id}/checks/secret-scan"),
+    "index.qa.reviews.list": ("GET", _P + "/qa/cases/{case_id}/reviews"),
+    "index.qa.reviews.record": ("POST", _P + "/qa/cases/{case_id}/reviews"),
     "index.contributions.retrieve": ("GET", _C),
     "index.contributions.publication.create": ("POST", f"{_C}/publication"),
     "index.contributions.withdrawal.create": ("POST", f"{_C}/withdrawal"),
@@ -128,6 +195,29 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contributions.upload.finalize": ("POST", f"{_R}/finalize"),
     "index.contributions.submit": ("POST", f"{_R}/submit"),
     "index.contributions.reviews.create": ("POST", f"{_R}/reviews"),
+    "index.classification.get": ("GET", f"{_R}/classification"),
+    "index.classification.create": ("POST", f"{_R}/classification-decisions"),
+    "index.research.release.get": ("GET", f"{_R}/release-research"),
+    "index.research.archive.get": ("GET", f"{_R}/research-archive"),
+    "index.research.archive.grants.list": ("GET", f"{_R}/research-archive/grants"),
+    "index.research.archive.grants.create": ("POST", f"{_R}/research-archive/grants"),
+    "index.research.archive.grants.revoke": (
+        "DELETE",
+        f"{_R}/research-archive/grants/{{grant_id}}",
+    ),
+    "index.research.archives.create": ("POST", f"{_C}/research-archives"),
+    "index.research.archives.upload.prepare": (
+        "POST",
+        f"{_C}/research-archives/{{snapshot_id}}/upload",
+    ),
+    "index.research.archives.upload.finalize": (
+        "POST",
+        f"{_C}/research-archives/{{snapshot_id}}/finalize",
+    ),
+    "index.research.binding.create": ("POST", f"{_R}/research-binding"),
+    "index.research.consent.create": ("POST", f"{_R}/release-consent"),
+    "index.research.reproduction.create": ("POST", f"{_R}/reproduction-attestations"),
+    "index.research.disclosure.revoke": ("POST", f"{_R}/disclosure-revocation"),
     "index.reviews.list": ("GET", f"{_P}/reviews"),
     "index.tags.list": ("GET", f"{_P}/tags"),
     "index.collections.list": ("GET", f"{_P}/collections"),
@@ -147,6 +237,13 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.me.access_funding": ("GET", f"{_P}/me/access-funding"),
     "index.me.access_funding.update": ("PUT", f"{_P}/me/access-funding/{{mode}}"),
     "index.me.rewards.list": ("GET", f"{_P}/me/rewards"),
+    "index.me.clout.retrieve": ("GET", f"{_P}/me/clout"),
+    "index.me.profile.visibility.retrieve": ("GET", f"{_P}/me/profile/visibility"),
+    "index.me.profile.visibility.update": ("PUT", f"{_P}/me/profile/visibility"),
+    "index.me.starters.retrieve": ("GET", f"{_P}/me/starters"),
+    "index.me.starters.preference.update": ("PUT", f"{_P}/me/starters/preference"),
+    "index.profiles.value.retrieve": ("GET", f"{_P}/profiles/{{principal_id}}/value"),
+    "index.public.profiles.value.retrieve": ("GET", f"{_P}/public/profiles/{{principal_id}}/value"),
     "index.me.profile.update": ("PUT", f"{_P}/me/profile"),
     "index.me.profile.pins.update": ("PUT", f"{_P}/me/profile/pins"),
     "index.profiles.retrieve": ("GET", f"{_P}/profiles/{{principal_id}}"),
@@ -164,6 +261,14 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
 # Anonymous callers may browse published research and run the free public
 # search (Index Search v0.2). Private-scope search still uses index.search.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "index.public.classification.get": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}/classification",
+    ),
+    "index.public.research.release.get": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}/release-research",
+    ),
     "index.public.search": ("POST", f"{_P}/public/search"),
     "index.public.searches.get": ("GET", f"{_P}/public/searches/{{search_id}}"),
     "index.public.searches.result": ("GET", f"{_P}/public/searches/{{search_id}}/result"),
@@ -742,6 +847,548 @@ class ContentsAPI(_Resource):
         )
 
 
+def _release_research(
+    payload: object, reference: ContributionReference
+) -> ReleaseResearchView | None:
+    if payload is None:
+        return None
+    return _bound(
+        ReleaseResearchView,
+        lambda view: view.disclosure.reference == reference,
+        "Release research response does not match requested revision",
+    )(payload)
+
+
+class PublicReleaseResearchAPI(_Resource):
+    """Read public-safe disclosure and reproduction without archive/session identities.
+
+    Examples:
+        result = public.contents.release_research.retrieve(reference)
+    """
+    def retrieve(self, reference: ContributionReference) -> Any:
+        """Read safe released-output proof; historical unbound releases return None.
+
+        See sibling backend/notes/specifications/synth-index/research-archive-release.md.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ReleaseResearchView | Awaitable[ReleaseResearchView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = public.contents.release_research.retrieve(reference)
+        """
+        return self._run(
+            _Call(
+                "index.public.research.release.get",
+                lambda payload: _release_research(payload, reference),
+                path_parameters=_revision(reference),
+            )
+        )
+
+
+class PublicClassificationAPI(_Resource):
+    """Read public-safe effective tags under current public revision authority.
+
+    Examples:
+        result = public.contents.classifications.retrieve(reference)
+    """
+    def retrieve(self, reference: ContributionReference) -> Any:
+        """Read safe effective metadata; see tag-classification.md.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ClassificationView | Awaitable[ClassificationView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = public.contents.classifications.retrieve(reference)
+        """
+        return self._run(
+            _Call(
+                "index.public.classification.get",
+                _bound(
+                    ClassificationView,
+                    lambda view: view.reference == reference,
+                    "Classification response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+
+class ClassificationsAPI(_Resource):
+    """Review effective tags and record independent reviewer classifications.
+
+    Examples:
+        result = index.contributions.classifications.retrieve(reference)
+    """
+    def retrieve(self, reference: ContributionReference) -> Any:
+        """Read metadata under the current revision ACL; see tag-classification.md.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ClassificationView | Awaitable[ClassificationView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.classifications.retrieve(reference)
+        """
+        return self._run(
+            _Call(
+                "index.classification.get",
+                _bound(
+                    ClassificationView,
+                    lambda view: view.reference == reference,
+                    "Classification response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def create(
+        self, reference: ContributionReference, spec: ClassificationSpec, *, idempotency_key: str
+    ) -> Any:
+        """Classify exact sealed bytes with a current independent reviewer grant.
+
+        See sibling backend/notes/specifications/synth-index/tag-classification.md.
+        Retry the identical identity and intent after an uncertain response.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+            idempotency_key: Persisted request key reused for an identical uncertain retry.
+
+        Returns:
+            ClassificationDecisionView | Awaitable[ClassificationDecisionView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.classifications.create(reference, spec, idempotency_key=idempotency_key)
+        """
+        return self._run(
+            _Call(
+                "index.classification.create",
+                _bound(
+                    ClassificationDecisionView,
+                    lambda view: (
+                        view.reference == reference
+                        and view.manifest_digest == spec.manifest_digest
+                        and view.registry_version == spec.registry_version
+                        and view.generation == spec.expected_generation + 1
+                        and view.accepted_tag_ids == spec.accepted_tag_ids
+                    ),
+                    "Classification decision does not match requested intent",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+                headers=_key(idempotency_key, required="Classification decision"),
+            )
+        )
+
+
+class ResearchAPI(_Resource):
+    """Explicit authenticated research operations, distinct from ordinary Search.
+
+    See sibling backend/notes/specifications/synth-index/research-archive-release.md.
+    Retries bind the same exact content; no method infers consent or publishes.
+
+    Examples:
+        result = index.contributions.research.release(reference)
+    """
+
+    def release(self, reference: ContributionReference) -> Any:
+        """Read the public-safe release disclosure under current revision access.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ReleaseResearchView | Awaitable[ReleaseResearchView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.release(reference)
+        """
+        return self._run(
+            _Call(
+                "index.research.release.get",
+                lambda payload: _release_research(payload, reference),
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def archive(self, reference: ContributionReference) -> Any:
+        """Read private frozen inputs under a current explicit archive grant.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            ResearchArchiveView | Awaitable[ResearchArchiveView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.archive(reference)
+        """
+        return self._run(
+            _Call(
+                "index.research.archive.get",
+                _bound(
+                    ResearchArchiveView,
+                    lambda view: view.binding.disclosure.reference == reference,
+                    "Private research response does not match requested revision",
+                ),
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def archive_grants(self, reference: ContributionReference) -> Any:
+        """List this owner's named readers of one frozen archive revision.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+
+        Returns:
+            CollectionGrants | Awaitable[CollectionGrants]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.archive_grants(reference)
+        """
+        return self._run(
+            _Call(
+                "index.research.archive.grants.list",
+                CollectionGrants.model_validate,
+                path_parameters=_revision(reference),
+            )
+        )
+
+    def grant_archive(self, reference: ContributionReference, spec: CollectionGrantSpec) -> Any:
+        """Grant one named user manifest and object access to this revision.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            CollectionGrant | Awaitable[CollectionGrant]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.grant_archive(reference, spec)
+        """
+        return self._run(
+            _Call(
+                "index.research.archive.grants.create",
+                _bound(
+                    CollectionGrant,
+                    lambda grant: (
+                        grant.subject_kind == spec.subject_kind
+                        and grant.subject_id == spec.subject_id
+                        and set(grant.operations) == {"read_manifest", "read_object"}
+                    ),
+                    "Archive grant does not match requested reader and operations",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def revoke_archive_grant(self, reference: ContributionReference, grant_id: str) -> Any:
+        """Revoke both archive read operations for a named reader.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            grant_id: Identifier of the exact archive read grant being revoked.
+
+        Returns:
+            CollectionGrantRevoked | Awaitable[CollectionGrantRevoked]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.revoke_archive_grant(reference, grant_id)
+        """
+        return self._run(
+            _Call(
+                "index.research.archive.grants.revoke",
+                _bound(
+                    CollectionGrantRevoked,
+                    lambda receipt: receipt.grant_id == grant_id and receipt.revoked,
+                    "Archive revocation does not match requested grant",
+                ),
+                path_parameters={**_revision(reference), "grant_id": grant_id},
+            )
+        )
+
+    def allocate_archive(self, contribution_id: str, spec: ResearchArchiveAllocationSpec) -> Any:
+        """Allocate a private frozen-input archive for the requested snapshot.
+
+        Args:
+            contribution_id: Contribution whose owner requests private archive allocation or upload.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ResearchArchiveAllocation | Awaitable[ResearchArchiveAllocation]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.allocate_archive(contribution_id, spec)
+        """
+        return self._run(
+            _Call(
+                "index.research.archives.create",
+                _bound(
+                    ResearchArchiveAllocation,
+                    lambda collection: (
+                        collection.scope.owner_namespace == "contribution_research_archives"
+                        and collection.scope.owner_resource_id == spec.snapshot_id
+                        and collection.scope.visibility == "private"
+                    ),
+                    "Archive allocation must return the requested private snapshot scope",
+                ),
+                path_parameters={"contribution_id": contribution_id},
+                json_body=_body(spec),
+            )
+        )
+
+    def prepare_archive_upload(
+        self, contribution_id: str, snapshot_id: str, spec: ArtifactPublicationPrepare
+    ) -> Any:
+        """Prepare only the allocated private snapshot; never retain signed URLs.
+
+        Args:
+            contribution_id: Contribution whose owner requests private archive allocation or upload.
+            snapshot_id: Frozen snapshot identity already allocated to this private archive.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ArtifactPublicationPrepareResponse | Awaitable[ArtifactPublicationPrepareResponse]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.prepare_archive_upload(contribution_id, snapshot_id, spec)
+        """
+        if spec.revision != 1 or spec.manifest_schema_version != "synth.research.snapshot.v1":
+            raise ValueError("Archive upload requires snapshot v1 at revision 1")
+        expected = {obj.logical_path: obj.digest_sha256 for obj in spec.objects}
+        return self._run(
+            _Call(
+                "index.research.archives.upload.prepare",
+                _bound(
+                    ArtifactPublicationPrepareResponse,
+                    lambda result: (
+                        result.publication_id == spec.publication_id
+                        and result.collection_id == spec.collection_id
+                        and result.revision == 1
+                        and len({target.logical_path for target in result.upload_targets})
+                        == len(result.upload_targets)
+                        and all(
+                            expected.get(target.logical_path) == target.digest_sha256
+                            for target in result.upload_targets
+                        )
+                    ),
+                    "Archive transfer differs from requested snapshot objects",
+                ),
+                path_parameters={"contribution_id": contribution_id, "snapshot_id": snapshot_id},
+                json_body=_body(spec),
+            )
+        )
+
+    def finalize_archive_upload(
+        self, contribution_id: str, snapshot_id: str, publication_id: str, *, collection_id: str
+    ) -> Any:
+        """Verify and commit exact private snapshot bytes; this does not publish a release.
+
+        Args:
+            contribution_id: Contribution whose owner requests private archive allocation or upload.
+            snapshot_id: Frozen snapshot identity already allocated to this private archive.
+            publication_id: Exact prepared artifact publication identity being finalized.
+            collection_id: Expected private archive collection UUID used to verify finalization.
+
+        Returns:
+            ArtifactPublicationResponse | Awaitable[ArtifactPublicationResponse]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.finalize_archive_upload(contribution_id, snapshot_id, publication_id, collection_id=collection_id)
+        """
+        return self._run(
+            _Call(
+                "index.research.archives.upload.finalize",
+                _bound(
+                    ArtifactPublicationResponse,
+                    lambda result: (
+                        result.publication_id == publication_id
+                        and result.collection_id == collection_id
+                        and result.revision == 1
+                        and result.status == "committed"
+                    ),
+                    "Archive finalization differs from requested snapshot",
+                ),
+                path_parameters={"contribution_id": contribution_id, "snapshot_id": snapshot_id},
+                json_body={"publication_id": publication_id},
+            )
+        )
+
+    def bind(self, reference: ContributionReference, spec: ResearchBindingSpec) -> Any:
+        """Bind exact frozen research inputs to the approved release disclosure.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ReleaseDisclosure | Awaitable[ReleaseDisclosure]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.bind(reference, spec)
+        """
+        if spec.binding.disclosure.reference != reference:
+            raise ValueError("Research binding must match the requested revision")
+        return self._run(
+            _Call(
+                "index.research.binding.create",
+                _bound(
+                    ReleaseDisclosure,
+                    lambda disclosure: disclosure == spec.binding.disclosure,
+                    "Research binding response differs from exact submitted disclosure",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def consent(self, reference: ContributionReference, spec: ReleaseConsentSpec) -> Any:
+        """Explicit author consent for the exact manifest, disclosure and audience.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ReleaseConsentView | Awaitable[ReleaseConsentView]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.consent(reference, spec)
+        """
+        return self._run(
+            _Call(
+                "index.research.consent.create",
+                _bound(
+                    ReleaseConsentView,
+                    lambda view: (
+                        view.revision_id == reference.revision_id
+                        and view.manifest_digest == spec.manifest_digest
+                        and view.disclosure_digest == spec.disclosure_digest
+                        and view.audience == spec.audience
+                    ),
+                    "Consent response differs from exact requested content",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def attest(self, reference: ContributionReference, spec: ReproductionAttestationSpec) -> Any:
+        """Record a reproduction observation against the exact derivation binding.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            ReproductionReceipt | Awaitable[ReproductionReceipt]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.attest(reference, spec)
+        """
+        return self._run(
+            _Call(
+                "index.research.reproduction.create",
+                _bound(
+                    ReproductionReceipt,
+                    lambda receipt: receipt == spec.receipt,
+                    "Attestation response differs from exact submitted receipt",
+                ),
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+    def revoke(self, reference: ContributionReference, spec: ResearchRevocationSpec) -> Any:
+        """Revoke the exact approved disclosure; historical downloads cannot be recalled.
+
+        Args:
+            reference: Exact Contribution and revision addressed by this operation.
+            spec: Typed exact-input request required by this operation; does not infer publication consent.
+
+        Returns:
+            dict | Awaitable[dict]: Validated result bound to the requested exact identities and intent.
+
+        Raises:
+            ValueError: Requested constraints or returned identity/content bindings are invalid.
+
+        Examples:
+            result = index.contributions.research.revoke(reference, spec)
+        """
+        def parse(payload):
+            if (
+                payload != {"revision_id": reference.revision_id, "revoked": True}
+                or payload.get("revoked") is not True
+            ):
+                raise ValueError("Revocation response does not match requested revision")
+            return payload
+
+        return self._run(
+            _Call(
+                "index.research.disclosure.revoke",
+                parse,
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+            )
+        )
+
+
 class RevisionsAPI(_Resource):
     def create(
         self, contribution_id: str, spec: RevisionCreateSpec, *, idempotency_key: str
@@ -851,6 +1498,8 @@ class ContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.revisions = RevisionsAPI(run, asynchronous)
+        self.research = ResearchAPI(run, asynchronous)
+        self.classifications = ClassificationsAPI(run, asynchronous)
         self.assessments = AssessmentsAPI(run, asynchronous)
         self.reviews = ReviewsAPI(run, asynchronous)
         self.assets = AssetsAPI(run, asynchronous)
@@ -922,6 +1571,9 @@ class ContributionsAPI(_Resource):
         """Verify uploaded bytes through the backend; does not submit or publish."""
         if (
             prepared.transfer.collection_id != str(draft.collection_id)
+            # This is the artifact-publication revision inside the draft's own
+            # collection (backend pins it to 1). Repaired child Contribution
+            # revisions get a fresh collection, so they also transfer at 1.
             or prepared.transfer.revision != 1
         ):
             raise ValueError("Finalization transfer does not match draft collection")
@@ -1123,6 +1775,86 @@ class AccountAPI(_Resource):
     def rewards(self) -> Any:
         return self._run(_Call("index.me.rewards.list", MyRewards.model_validate))
 
+    def clout(self, *, limit: int = 100, cursor: str | None = None) -> Any:
+        """Read your current-org canonical ledger; pending evidence earns no points.
+
+        Args:
+            limit: Maximum evidence entries, an integer from 1 to 200; default 100.
+            cursor: Decimal continuation sequence from the previous page, or None for the first page.
+
+        Returns:
+            OwnCloutPage with authorized evidence, separate totals and an optional next cursor.
+            Async clients receive an awaitable of the same value.
+
+        Raises:
+            ValueError: Limit is outside 1 to 200 or cursor is not a 1 to 20 digit sequence.
+        """
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("Value history limit must be 1–200")
+        if cursor is not None and not re.fullmatch(r"[0-9]{1,20}", cursor):
+            raise ValueError("Invalid value history cursor")
+        return self._run(
+            _Call(
+                "index.me.clout.retrieve",
+                OwnCloutPage.model_validate,
+                params={"limit": limit, **({"cursor": cursor} if cursor is not None else {})},
+            )
+        )
+
+    def profile_visibility(self) -> Any:
+        """Read explicit owner visibility settings; all fields default private.
+
+        Returns:
+            ProfileVisibility containing the current owner's disclosure preferences.
+            Async clients receive an awaitable of the same value.
+        """
+        return self._run(
+            _Call("index.me.profile.visibility.retrieve", ProfileVisibility.model_validate)
+        )
+
+    def update_profile_visibility(self, spec: ProfileVisibility) -> Any:
+        """Replace your visibility consent without publishing a Contribution.
+
+        Args:
+            spec: Complete replacement ProfileVisibility; omitted fields use private defaults.
+
+        Returns:
+            ProfileVisibility acknowledged by the backend, or an awaitable for async clients.
+        """
+        return self._run(
+            _Call(
+                "index.me.profile.visibility.update",
+                ProfileVisibility.model_validate,
+                json_body=_body(spec),
+            )
+        )
+
+    def starters(self) -> Any:
+        """Read manual briefs and actual DEEP beta allowance, including reservations.
+
+        Returns:
+            StarterState with manual briefs, opt-in preference and actual allowance status.
+            Async clients receive an awaitable. Reading starts no work or charge.
+        """
+        return self._run(_Call("index.me.starters.retrieve", StarterState.model_validate))
+
+    def update_starter_preference(self, spec: StarterPreference) -> Any:
+        """Opt in or choose a manual brief; starts no work or charge.
+
+        Args:
+            spec: Replacement manual-brief opt-in preference and optional selected brief.
+
+        Returns:
+            StarterState acknowledged by the backend, or an awaitable for async clients.
+        """
+        return self._run(
+            _Call(
+                "index.me.starters.preference.update",
+                StarterPreference.model_validate,
+                json_body=_body(spec),
+            )
+        )
+
     def update_profile(self, spec: ProfileSpec) -> Any:
         return self._run(
             _Call("index.me.profile.update", ProfileView.model_validate, json_body=_body(spec))
@@ -1135,6 +1867,24 @@ class AccountAPI(_Resource):
 
 
 class ProfilesAPI(_Resource):
+    def value(self, principal_id: str) -> Any:
+        """Read only consented public clout and affiliations; no hidden totals.
+
+        Args:
+            principal_id: Contributor identity whose consented public value is requested.
+
+        Returns:
+            PublicProfileValue with visible clout and self-declared affiliation labels.
+            Async clients receive an awaitable of the same value.
+        """
+        return self._run(
+            _Call(
+                "index.profiles.value.retrieve",
+                PublicProfileValue.model_validate,
+                path_parameters={"principal_id": principal_id},
+            )
+        )
+
     def retrieve(self, principal_id: str) -> Any:
         return self._run(
             _Call(
@@ -1240,12 +1990,777 @@ class ContestsAPI(_Resource):
         )
 
 
+class QaAPI(_Resource):
+    """Private revision-bound QA. See sibling backend contribution-qa-cases spec.
+
+    Backend rollout is disabled until qualified. No local fallback, automatic
+    scientific approval, public publication or reward is implied by these calls.
+    Every method is awaitable on AsyncIndexAPI and blocking on IndexAPI.
+    """
+
+    def _case(self, case_id):
+        return {"case_id": str(UUID(str(case_id)))}
+
+    def _cursor(self, after):
+        if type(after) is not int or after < 0:
+            raise ValueError("after must be a nonnegative sequence")
+        return {"after": after}
+
+    def create_case(self, spec: CreateCaseSpec) -> CaseView | Awaitable[CaseView]:
+        """Open review for the exact sealed Contribution revision.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            CaseView | Awaitable[CaseView]: CaseView bound to the submitted revision, manifest and rubric.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.create_case(spec)
+        """
+        return self._run(
+            _Call(
+                "index.qa.cases.create",
+                _bound(
+                    CaseView,
+                    lambda view: view.reference == spec.reference
+                    and view.manifest_digest == spec.manifest_digest
+                    and view.rubric_version == spec.rubric_version,
+                    "QA case differs from sealed request",
+                ),
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def case(self, case_id: str | UUID) -> CaseView | Awaitable[CaseView]:
+        """Read the current authorized revision-bound QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+
+        Returns:
+            CaseView | Awaitable[CaseView]: CaseView matching the requested case identifier.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.case(case_id)
+        """
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.cases.get",
+                _bound(
+                    CaseView,
+                    lambda view: str(view.case_id) == path["case_id"],
+                    "QA case differs from request",
+                ),
+                path_parameters=path,
+            )
+        )
+
+    def events(self, case_id: str | UUID, *, after: int = 0) -> CaseEvents | Awaitable[CaseEvents]:
+        """Read the next authorized QA conversation page.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            after (int): Nonnegative case-sequence cursor; zero starts the first page.
+
+        Returns:
+            CaseEvents | Awaitable[CaseEvents]: CaseEvents containing ordered events and a continuation cursor.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.events(case_id, after=0)
+        """
+        return self._run(
+            _Call(
+                "index.qa.events.list",
+                CaseEvents.model_validate,
+                path_parameters=self._case(case_id),
+                params=self._cursor(after),
+            )
+        )
+
+    def append_event(self, case_id: str | UUID, spec: CaseEventSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Append a shared conversation action; use dedicated routes for fenced decisions.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: CaseEventView matching the next expected sequence, action and message.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.append_event(case_id, spec, idempotency_key=idempotency_key)
+        """
+        if spec.action in FENCED_ACTIONS:
+            raise ValueError(
+                f"{spec.action.value} needs the manifest/rubric-fenced route; use "
+                "qa.appeal, qa.escalate or qa.adjudicate"
+            )
+        return self._run(
+            _Call(
+                "index.qa.events.create",
+                _bound(
+                    CaseEventView,
+                    lambda event: event.sequence == spec.expected_version + 1
+                    and event.action == spec.action
+                    and event.message == spec.message,
+                    "QA event differs from request",
+                ),
+                path_parameters=self._case(case_id),
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="QA event"),
+            )
+        )
+
+    def _act(self, action: CaseAction, case_id, expected_version: int, message: str, key: str):
+        return self.append_event(
+            case_id,
+            CaseEventSpec(expected_version=expected_version, action=action, message=message),
+            idempotency_key=key,
+        )
+
+    # Plain conversation actions use POST /qa/cases/{id}/events; the backend state
+    # machine enforces per-role legality and refuses appeal/escalate/adjudicate there.
+    def send_message(self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Send a shared message at the expected QA case version.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            expected_version: Current case version expected by this write; stale versions are refused.
+            message: Bounded message text for the shared conversation action.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Recorded shared message event.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.send_message(case_id, expected_version, message, idempotency_key=idempotency_key)
+        """
+        return self._act(CaseAction.MESSAGE, case_id, expected_version, message, idempotency_key)
+
+    def request_changes(
+        self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
+        """Request contributor changes against the current QA version.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            expected_version: Current case version expected by this write; stale versions are refused.
+            message: Bounded message text for the shared conversation action.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Recorded change-request event; does not authorize a repaired revision.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.request_changes(case_id, expected_version, message, idempotency_key=idempotency_key)
+        """
+        return self._act(
+            CaseAction.REQUEST_CHANGES, case_id, expected_version, message, idempotency_key
+        )
+
+    def respond(self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Respond to findings at the expected QA case version.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            expected_version: Current case version expected by this write; stale versions are refused.
+            message: Bounded message text for the shared conversation action.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Recorded contributor response event.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.respond(case_id, expected_version, message, idempotency_key=idempotency_key)
+        """
+        return self._act(CaseAction.RESPOND, case_id, expected_version, message, idempotency_key)
+
+    # Appeal, escalation, adjudication and internal notes are dedicated POST routes.
+    # Each names the exact case version, sealed manifest digest and rubric version, so
+    # a decision written against other bytes or another rubric is refused by the backend.
+    def _fenced(
+        self,
+        operation: str,
+        case_id,
+        spec: FencedCaseRequest,
+        action: CaseAction,
+        visibility: EventVisibility,
+        idempotency_key: str,
+    ):
+        return self._run(
+            _Call(
+                operation,
+                _bound(
+                    CaseEventView,
+                    lambda event: event.sequence == spec.expected_version + 1
+                    and event.action == action
+                    and event.message == spec.message
+                    and event.visibility == visibility,
+                    "QA event differs from request",
+                ),
+                path_parameters=self._case(case_id),
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="QA event"),
+            )
+        )
+
+    def escalate(self, case_id: str | UUID, spec: EscalationSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Escalate the exact manifest and rubric to a coordinator.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Shared escalation event; does not grant publication authority.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.escalate(case_id, spec, idempotency_key=idempotency_key)
+        """
+        return self._fenced(
+            "index.qa.escalations.create",
+            case_id,
+            spec,
+            CaseAction.ESCALATE,
+            EventVisibility.SHARED,
+            idempotency_key,
+        )
+
+    def appeal(self, case_id: str | UUID, spec: AppealSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Appeal the current decision against exact reviewed inputs.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Shared appeal event; publication remains separate.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.appeal(case_id, spec, idempotency_key=idempotency_key)
+        """
+        return self._fenced(
+            "index.qa.appeals.create",
+            case_id,
+            spec,
+            CaseAction.APPEAL,
+            EventVisibility.SHARED,
+            idempotency_key,
+        )
+
+    def adjudicate(self, case_id: str | UUID, spec: AdjudicationSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Reopen independent review through an authorized coordinator.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Shared adjudication event, never direct publication approval.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.adjudicate(case_id, spec, idempotency_key=idempotency_key)
+        """
+        return self._fenced(
+            "index.qa.adjudications.create",
+            case_id,
+            spec,
+            CaseAction.ADJUDICATE,
+            EventVisibility.SHARED,
+            idempotency_key,
+        )
+
+    def add_internal_note(self, case_id: str | UUID, spec: InternalNoteSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+        """Record a reviewer/coordinator note excluded from contributor disclosure.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView | Awaitable[CaseEventView]: Internal message event whose visibility is checked before return.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.add_internal_note(case_id, spec, idempotency_key=idempotency_key)
+        """
+        return self._fenced(
+            "index.qa.notes.create",
+            case_id,
+            spec,
+            CaseAction.MESSAGE,
+            EventVisibility.INTERNAL,
+            idempotency_key,
+        )
+
+    def invite_reviewer(self, case_id: str | UUID, spec: AssignmentSpec) -> AssignmentView | Awaitable[AssignmentView]:
+        """Invite an independent reviewer for this exact QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            AssignmentView | Awaitable[AssignmentView]: AssignmentView matching the requested case, reviewer and organization.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.invite_reviewer(case_id, spec)
+        """
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.assignments.create",
+                _bound(
+                    AssignmentView,
+                    lambda invitation: str(invitation.case_id) == path["case_id"]
+                    and invitation.reviewer_user_id == spec.reviewer_user_id
+                    and invitation.reviewer_org_id == spec.reviewer_org_id,
+                    "QA invitation differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def assignments(self) -> tuple[AssignmentView, ...] | Awaitable[tuple[AssignmentView, ...]]:
+        """List the caller’s authorized QA reviewer assignments.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Returns:
+            tuple[AssignmentView, ...] | Awaitable[tuple[AssignmentView, ...]]: Tuple of at most 100 validated AssignmentView records.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.assignments()
+        """
+        def parse(payload):
+            if not isinstance(payload, list) or len(payload) > 100:
+                raise ValueError("QA assignment list bound invalid")
+            return tuple(AssignmentView.model_validate(item) for item in payload)
+
+        return self._run(_Call("index.qa.assignments.list", parse))
+
+    def _assignment(self, action, assignment_id, spec=None):
+        identifier = str(UUID(str(assignment_id)))
+        return self._run(
+            _Call(
+                "index.qa.assignments." + action,
+                _bound(
+                    AssignmentView,
+                    lambda assignment: str(assignment.assignment_id) == identifier,
+                    "QA assignment differs from request",
+                ),
+                path_parameters={"assignment_id": identifier},
+                json_body=spec.model_dump(mode="json") if spec else None,
+            )
+        )
+
+    def accept_assignment(self, assignment_id: str | UUID, spec: AcceptAssignmentSpec) -> AssignmentView | Awaitable[AssignmentView]:
+        """Accept a reviewer assignment with conflict and provenance declarations.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            assignment_id (str | UUID): UUID of the reviewer assignment to accept or revoke.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            AssignmentView | Awaitable[AssignmentView]: AssignmentView matching the requested assignment identifier.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.accept_assignment(assignment_id, spec)
+        """
+        return self._assignment("accept", assignment_id, spec)
+
+    def revoke_assignment(self, assignment_id: str | UUID) -> AssignmentView | Awaitable[AssignmentView]:
+        """Revoke an authorized reviewer assignment.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            assignment_id (str | UUID): UUID of the reviewer assignment to accept or revoke.
+
+        Returns:
+            AssignmentView | Awaitable[AssignmentView]: Current AssignmentView matching the requested assignment.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.revoke_assignment(assignment_id)
+        """
+        return self._assignment("revoke", assignment_id)
+
+    def package(self, case: CaseView) -> ContributionPackage | Awaitable[ContributionPackage]:
+        """Read the exact sealed package under current QA assignment authority.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case: Current CaseView identifying the exact revision whose package is requested.
+
+        Returns:
+            ContributionPackage | Awaitable[ContributionPackage]: ContributionPackage whose Contribution and revision match the supplied case.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.package(case)
+        """
+        return self._run(
+            _Call(
+                "index.qa.package.retrieve",
+                _bound(
+                    ContributionPackage,
+                    lambda package: (package.contribution_id, package.revision_id)
+                    == (case.reference.contribution_id, case.reference.revision_id),
+                    "QA package differs from case revision",
+                ),
+                path_parameters=self._case(case.case_id),
+            )
+        )
+
+    def asset(self, case_id: str | UUID, asset_id: str, *, digest_sha256: str, size_bytes: int) -> bytes | Awaitable[bytes]:
+        """Read exact assigned bytes using digest and size from the sealed package.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            asset_id: Identifier of a declared asset in the sealed package.
+            digest_sha256: Expected lowercase SHA-256 of the sealed asset bytes.
+            size_bytes: Exact expected byte count, from zero through 4 MiB inclusive.
+
+        Returns:
+            bytes | Awaitable[bytes]: Raw bytes verified against the requested SHA-256 and byte count.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.asset(case_id, asset_id, digest_sha256=digest_sha256, size_bytes=size_bytes)
+        """
+        if (
+            not re.fullmatch(r"[0-9a-f]{64}", digest_sha256)
+            or type(size_bytes) is not int
+            or not 0 <= size_bytes <= 4 * 1024 * 1024
+        ):
+            raise ValueError("QA asset needs exact bounded size and SHA256")
+
+        def parse(body):
+            if (
+                not isinstance(body, bytes)
+                or len(body) != size_bytes
+                or sha256(body).hexdigest() != digest_sha256
+            ):
+                raise ValueError("QA asset differs from sealed declaration")
+            return body
+
+        return self._run(
+            _Call(
+                "index.qa.assets.retrieve",
+                parse,
+                path_parameters={**self._case(case_id), "asset_id": asset_id},
+                raw=True,
+            )
+        )
+
+    def checks(self, case_id: str | UUID, *, after: int = 0) -> CheckReport | Awaitable[CheckReport]:
+        """Read recorded producer check attempts for one QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            after (int): Nonnegative case-sequence cursor; zero starts the first page.
+
+        Returns:
+            CheckReport | Awaitable[CheckReport]: CheckReport bound to the case with attempts, findings and continuation cursor.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.checks(case_id, after=0)
+        """
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.list",
+                _bound(
+                    CheckReport,
+                    lambda report: all(
+                        str(attempt.case_id) == path["case_id"] for attempt in report.attempts
+                    ),
+                    "QA checks differ from case",
+                ),
+                path_parameters=path,
+                params=self._cursor(after),
+            )
+        )
+
+    def record_check(self, case_id: str | UUID, spec: RecordCheckSpec, *, idempotency_key: str) -> CheckAttemptView | Awaitable[CheckAttemptView]:
+        """Record a fenced producer check receipt and its actionable findings.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CheckAttemptView | Awaitable[CheckAttemptView]: CheckAttemptView matching the attempt, case, manifest and rubric.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.record_check(case_id, spec, idempotency_key=idempotency_key)
+        """
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.record",
+                _bound(
+                    CheckAttemptView,
+                    lambda attempt: str(attempt.case_id) == path["case_id"]
+                    and attempt.attempt_id == spec.attempt_id
+                    and attempt.manifest_digest == spec.manifest_digest
+                    and attempt.rubric_version == spec.rubric_version,
+                    "QA check differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="QA check"),
+            )
+        )
+
+    def preflight(self, case_id: str | UUID, spec: RunPreflightSpec) -> PreflightResult | Awaitable[PreflightResult]:
+        """Request the backend’s configured bounded QA preflight checks.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            PreflightResult | Awaitable[PreflightResult]: PreflightResult with attempts matching this case and producer run.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.preflight(case_id, spec)
+        """
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.preflight",
+                _bound(
+                    PreflightResult,
+                    lambda batch: all(
+                        str(attempt.case_id) == path["case_id"] and attempt.run_id == spec.run_id
+                        for attempt in batch.attempts
+                    ),
+                    "QA preflight differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def secret_scan(self, case_id: str | UUID, spec: RunPreflightSpec) -> CheckAttemptView | Awaitable[CheckAttemptView]:
+        """Request the configured privacy secret scan for the current sealed package.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            CheckAttemptView | Awaitable[CheckAttemptView]: CheckAttemptView for privacy.secret_scan matching this case and run.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.secret_scan(case_id, spec)
+        """
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.secret_scan",
+                _bound(
+                    CheckAttemptView,
+                    lambda attempt: str(attempt.case_id) == path["case_id"]
+                    and attempt.run_id == spec.run_id
+                    and attempt.gate == "privacy.secret_scan",
+                    "QA secret scan differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def reviews(self, case_id: str | UUID, *, after: int = 0) -> ReviewReport | Awaitable[ReviewReport]:
+        """Read the next independent review page for this QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            after (int): Nonnegative case-sequence cursor; zero starts the first page.
+
+        Returns:
+            ReviewReport | Awaitable[ReviewReport]: ReviewReport with strictly ordered case sequences and a validated continuation.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.reviews(case_id, after=0)
+        """
+        path = self._case(case_id)
+
+        def parse(payload):
+            report = ReviewReport.model_validate(payload)
+            sequences = [fact.case_sequence for fact in report.reviews]
+            if any(
+                str(fact.case_id) != path["case_id"] or fact.case_sequence <= after
+                for fact in report.reviews
+            ) or sequences != sorted(set(sequences)):
+                raise ValueError("QA review report differs from requested page")
+            if report.next_after is not None and (
+                len(report.reviews) != 3 or report.next_after != sequences[-1]
+            ):
+                raise ValueError("QA review continuation invalid")
+            return report
+
+        return self._run(
+            _Call("index.qa.reviews.list", parse, path_parameters=path, params=self._cursor(after))
+        )
+
+    def record_review(self, case_id: str | UUID, spec: RecordReviewSpec, *, idempotency_key: str) -> ReviewFact | Awaitable[ReviewFact]:
+        """Record an independent assignment’s rubric judgments at exact sealed inputs.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            ReviewFact | Awaitable[ReviewFact]: ReviewFact matching the supplied case and review; not publication authority.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.record_review(case_id, spec, idempotency_key=idempotency_key)
+        """
+        path = self._case(case_id)
+        headers = _key(idempotency_key, required="QA content review")
+        if len(idempotency_key) > 119:
+            raise ValueError("QA review key exceeds 119 characters")
+        return self._run(
+            _Call(
+                "index.qa.reviews.record",
+                _bound(
+                    ReviewFact,
+                    lambda fact: str(fact.case_id) == path["case_id"] and fact.review == spec,
+                    "QA review differs from sealed request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+                headers=headers,
+            )
+        )
+
+
 class _IndexRoot(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.contents = ContentsAPI(run, asynchronous)
         self.searches = SearchesAPI(run, asynchronous)
         self.contributions = ContributionsAPI(run, asynchronous)
+        self.qa = QaAPI(run, asynchronous)
         self.reviews = self.contributions.reviews
         self.tags = TagsAPI(run, asynchronous)
         self.collections = CollectionsAPI(run, asynchronous)
@@ -1365,6 +2880,24 @@ class PublicAssetsAPI(_Resource):
 
 
 class PublicProfilesAPI(_Resource):
+    def value(self, principal_id: str) -> Any:
+        """Read only consented public clout and affiliations; no hidden totals.
+
+        Args:
+            principal_id: Contributor identity whose consented public value is requested.
+
+        Returns:
+            PublicProfileValue with visible clout and self-declared affiliation labels.
+            Async clients receive an awaitable of the same value.
+        """
+        return self._run(
+            _Call(
+                "index.public.profiles.value.retrieve",
+                PublicProfileValue.model_validate,
+                path_parameters={"principal_id": principal_id},
+            )
+        )
+
     def retrieve(self, principal_id: str) -> Any:
         """Read a contributor profile as an anonymous reader sees it."""
         return self._run(
@@ -1401,6 +2934,8 @@ class PublicContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.revisions = PublicRevisionsAPI(run, asynchronous)
+        self.release_research = PublicReleaseResearchAPI(run, asynchronous)
+        self.classifications = PublicClassificationAPI(run, asynchronous)
         self.assets = PublicAssetsAPI(run, asynchronous)
 
     def retrieve(self, contribution_id: str) -> Any:
