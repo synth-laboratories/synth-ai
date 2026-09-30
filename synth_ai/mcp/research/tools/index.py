@@ -480,6 +480,7 @@ def build_index_tools(
         "index_search_events",
         "index_search_cancel",
     }
+    lifecycle_names.update(QA_READ_TOOL_NAMES)
     tools.extend(build_qa_tools(client_factory))
     return [
         tool

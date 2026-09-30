@@ -408,13 +408,14 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
         "or a reward. Reports the exact resulting case version."
     )
 
-    def tool(name, description, schema, handler, scopes) -> ToolDefinition:
+    def tool(name, description, schema, handler, scopes, *, any_of_scopes=()) -> ToolDefinition:
         return ToolDefinition(
             name=name,
             description=description,
             input_schema=schema.model_json_schema(),
             handler=handler,
             required_scopes=scopes,
+            any_of_scopes=any_of_scopes,
         )
 
     read, write = INDEX_READ_SCOPES, INDEX_INTAKE_SCOPES
@@ -481,7 +482,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             CaseCreateRequest,
             case_create,
-            coordinate,
+            write,
         ),
         tool(
             "index_qa_contributor_event",
@@ -489,7 +490,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             ActionRequest,
             event_for(CONTRIBUTOR_ACTIONS),
-            coordinate,
+            write,
         ),
         tool(
             "index_contribution_revise",
@@ -577,7 +578,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("appeal", AppealSpec),
-            coordinate,
+            write,
         ),
         tool(
             "index_qa_escalate",
@@ -586,7 +587,8 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("escalate", EscalationSpec),
-            coordinate,
+            (),
+            any_of_scopes=("index:intake", "index:review"),
         ),
         tool(
             "index_qa_internal_note",
@@ -595,7 +597,8 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             FencedRequest,
             fenced("add_internal_note", InternalNoteSpec),
-            coordinate,
+            (),
+            any_of_scopes=("index:review", "index:coordinate"),
         ),
         tool(
             "index_contribution_publish",
