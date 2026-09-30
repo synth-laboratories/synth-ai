@@ -482,7 +482,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
         ),
         tool(
             "index_qa_package",
-            "Read the exact sealed package of the case revision you are assigned to review. Refused for unassigned, expired or revoked assignments. Also reads case metadata, so the token needs a case-read scope (intake, review or coordinate) besides index:qa:read.",
+            "Read the exact sealed package of the case revision you are assigned to review. Refused for unassigned, expired or revoked assignments. Also reads case metadata, so the token needs a case-read scope (read, review or coordinate) besides index:qa:read.",
             CaseRequest,
             package,
             qa_read,

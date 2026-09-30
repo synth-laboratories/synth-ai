@@ -35,7 +35,7 @@ OPERATION_SCOPES: Mapping[str, tuple[str, ...]] = {
     "index.contributions.publication.create": ("index:publish",),
     "index.contributions.withdrawal.create": ("index:publish",),
     # QA: a contributor with only index:intake can create and read its own case,
-    # read shared events, respond, appeal and escalate.
+    # respond, appeal and escalate; reading requires a separate read/review/coordinate scope.
     "index.qa.cases.create": ("index:intake",),
     "index.qa.cases.get": ("index:read", "index:review", "index:coordinate"),
     "index.qa.events.list": ("index:read", "index:review", "index:coordinate"),
