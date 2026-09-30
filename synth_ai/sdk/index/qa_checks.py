@@ -247,6 +247,7 @@ class CheckAttemptView(IndexContract):
 
 class CheckReport(IndexContract):
     """Paginated recorded check attempts and findings."""
+    #: Recorded producer check attempts in this bounded report page.
     attempts: tuple[CheckAttemptView, ...] = Field(max_length=3)
     #: Bounded actionable findings associated with this attempt.
     findings: tuple[FindingView, ...] = Field(max_length=192)

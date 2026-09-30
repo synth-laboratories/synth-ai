@@ -1661,7 +1661,7 @@ class QaAPI(_Resource):
             spec: Typed request naming the exact inputs required by this operation.
 
         Returns:
-            CaseView bound to the submitted revision, manifest and rubric.
+            CaseView | Awaitable[CaseView]: CaseView bound to the submitted revision, manifest and rubric.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1689,10 +1689,10 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
 
         Returns:
-            CaseView matching the requested case identifier.
+            CaseView | Awaitable[CaseView]: CaseView matching the requested case identifier.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1719,11 +1719,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
-            after: Nonnegative case-sequence cursor; zero starts the first page.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            after (int): Nonnegative case-sequence cursor; zero starts the first page.
 
         Returns:
-            CaseEvents containing ordered events and a continuation cursor.
+            CaseEvents | Awaitable[CaseEvents]: CaseEvents containing ordered events and a continuation cursor.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1746,12 +1746,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            CaseEventView matching the next expected sequence, action and message.
+            CaseEventView | Awaitable[CaseEventView]: CaseEventView matching the next expected sequence, action and message.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1795,13 +1795,13 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             expected_version: Current case version expected by this write; stale versions are refused.
             message: Bounded message text for the shared conversation action.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Recorded shared message event.
+            CaseEventView | Awaitable[CaseEventView]: Recorded shared message event.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1819,13 +1819,13 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             expected_version: Current case version expected by this write; stale versions are refused.
             message: Bounded message text for the shared conversation action.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Recorded change-request event; does not authorize a repaired revision.
+            CaseEventView | Awaitable[CaseEventView]: Recorded change-request event; does not authorize a repaired revision.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1843,13 +1843,13 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             expected_version: Current case version expected by this write; stale versions are refused.
             message: Bounded message text for the shared conversation action.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Recorded contributor response event.
+            CaseEventView | Awaitable[CaseEventView]: Recorded contributor response event.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1894,12 +1894,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Shared escalation event; does not grant publication authority.
+            CaseEventView | Awaitable[CaseEventView]: Shared escalation event; does not grant publication authority.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1922,12 +1922,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Shared appeal event; publication remains separate.
+            CaseEventView | Awaitable[CaseEventView]: Shared appeal event; publication remains separate.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1950,12 +1950,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Shared adjudication event, never direct publication approval.
+            CaseEventView | Awaitable[CaseEventView]: Shared adjudication event, never direct publication approval.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -1978,12 +1978,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            Internal message event whose visibility is checked before return.
+            CaseEventView | Awaitable[CaseEventView]: Internal message event whose visibility is checked before return.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2006,11 +2006,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
 
         Returns:
-            AssignmentView matching the requested case, reviewer and organization.
+            AssignmentView | Awaitable[AssignmentView]: AssignmentView matching the requested case, reviewer and organization.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2040,7 +2040,7 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Returns:
-            Tuple of at most 100 validated AssignmentView records.
+            tuple[AssignmentView, ...] | Awaitable[tuple[AssignmentView, ...]]: Tuple of at most 100 validated AssignmentView records.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2076,11 +2076,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            assignment_id: UUID of the reviewer assignment to accept or revoke.
+            assignment_id (str | UUID): UUID of the reviewer assignment to accept or revoke.
             spec: Typed request naming the exact inputs required by this operation.
 
         Returns:
-            AssignmentView matching the requested assignment identifier.
+            AssignmentView | Awaitable[AssignmentView]: AssignmentView matching the requested assignment identifier.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2096,10 +2096,10 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            assignment_id: UUID of the reviewer assignment to accept or revoke.
+            assignment_id (str | UUID): UUID of the reviewer assignment to accept or revoke.
 
         Returns:
-            Current AssignmentView matching the requested assignment.
+            AssignmentView | Awaitable[AssignmentView]: Current AssignmentView matching the requested assignment.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2118,7 +2118,7 @@ class QaAPI(_Resource):
             case: Current CaseView identifying the exact revision whose package is requested.
 
         Returns:
-            ContributionPackage whose Contribution and revision match the supplied case.
+            ContributionPackage | Awaitable[ContributionPackage]: ContributionPackage whose Contribution and revision match the supplied case.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2145,13 +2145,13 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             asset_id: Identifier of a declared asset in the sealed package.
             digest_sha256: Expected lowercase SHA-256 of the sealed asset bytes.
             size_bytes: Exact expected byte count, from zero through 4 MiB inclusive.
 
         Returns:
-            Raw bytes verified against the requested SHA-256 and byte count.
+            bytes | Awaitable[bytes]: Raw bytes verified against the requested SHA-256 and byte count.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2190,11 +2190,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
-            after: Nonnegative case-sequence cursor; zero starts the first page.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            after (int): Nonnegative case-sequence cursor; zero starts the first page.
 
         Returns:
-            CheckReport bound to the case with attempts, findings and continuation cursor.
+            CheckReport | Awaitable[CheckReport]: CheckReport bound to the case with attempts, findings and continuation cursor.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2224,12 +2224,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            CheckAttemptView matching the attempt, case, manifest and rubric.
+            CheckAttemptView | Awaitable[CheckAttemptView]: CheckAttemptView matching the attempt, case, manifest and rubric.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2261,11 +2261,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
 
         Returns:
-            PreflightResult with attempts matching this case and producer run.
+            PreflightResult | Awaitable[PreflightResult]: PreflightResult with attempts matching this case and producer run.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2296,11 +2296,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
 
         Returns:
-            CheckAttemptView for privacy.secret_scan matching this case and run.
+            CheckAttemptView | Awaitable[CheckAttemptView]: CheckAttemptView for privacy.secret_scan matching this case and run.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2330,11 +2330,11 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
-            after: Nonnegative case-sequence cursor; zero starts the first page.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
+            after (int): Nonnegative case-sequence cursor; zero starts the first page.
 
         Returns:
-            ReviewReport with strictly ordered case sequences and a validated continuation.
+            ReviewReport | Awaitable[ReviewReport]: ReviewReport with strictly ordered case sequences and a validated continuation.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
@@ -2368,12 +2368,12 @@ class QaAPI(_Resource):
         Backend permissions and rollout remain authoritative.
 
         Args:
-            case_id: UUID of the authorized revision-bound QA case.
+            case_id (str | UUID): UUID of the authorized revision-bound QA case.
             spec: Typed request naming the exact inputs required by this operation.
             idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
 
         Returns:
-            ReviewFact matching the supplied case and review; not publication authority.
+            ReviewFact | Awaitable[ReviewFact]: ReviewFact matching the supplied case and review; not publication authority.
 
         Raises:
             ValueError: Request identifiers, bounds or returned binding are invalid.
