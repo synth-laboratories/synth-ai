@@ -33,7 +33,26 @@ def admit_codex_task_read(
     object_id: str,
     logical_path: str,
 ) -> SessionExport:
-    """Bind exact native bytes to the selected thread; completeness stays partial."""
+    """Bind exact native bytes to the selected thread; completeness stays partial.
+
+    Args:
+        raw: Explicit selected native bytes; no session discovery or provider call is performed.
+        expected_thread_id: Selected native thread identity that must match the captured payload.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+        object_id: Identity assigned to the frozen native object in the research archive.
+        logical_path: Explicit normalized relative logical path of the frozen native bytes.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = admit_codex_task_read(raw, expected_thread_id=expected_thread_id, captured_at=captured_at, cutoff_at=cutoff_at, object_id=object_id, logical_path=logical_path)
+    """
     if len(raw) > EXPORT_BYTES_MAX:
         raise FrozenBuildError("session_export_too_large", "native task read exceeds 4 MiB")
     try:
@@ -109,6 +128,23 @@ def freeze_codex_task_read(
     See notes/specifications/synth-index/research-archive-release.md. A retry must
     preserve the same admitted bytes and capture metadata. This partial response
     supplies neither a complete rollout nor parent/fork identity.
+
+    Args:
+        source: Explicit regular input file; symlinks and oversized captures are refused.
+        destination: Private destination preserving identical capture bytes and metadata on retry.
+        expected_thread_id: Selected native thread identity that must match the captured payload.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = freeze_codex_task_read(source, destination, expected_thread_id=expected_thread_id, captured_at=captured_at, cutoff_at=cutoff_at)
     """
     if captured_at.utcoffset() is None or cutoff_at.utcoffset() is None:
         raise FrozenBuildError("session_time_invalid", "capture timestamps require offsets")
@@ -222,6 +258,25 @@ def admit_swarms_evidence(
 
     See notes/specifications/synth-index/research-archive-release.md. The run
     evidence API limits selected records and does not export a native rollout.
+
+    Args:
+        raw: Explicit selected native bytes; no session discovery or provider call is performed.
+        expected_run_id: Selected Swarms run identity that must match the captured evidence.
+        expected_project_id: Selected Swarms project identity that must match the evidence scope.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+        object_id: Identity assigned to the frozen native object in the research archive.
+        logical_path: Explicit normalized relative logical path of the frozen native bytes.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = admit_swarms_evidence(raw, expected_run_id=expected_run_id, expected_project_id=expected_project_id, captured_at=captured_at, cutoff_at=cutoff_at, object_id=object_id, logical_path=logical_path)
     """
     value = _native_payload(raw)
     if value.get("schema_version") != 1:
@@ -338,6 +393,24 @@ def admit_mlok_policy_capture(
 
     See notes/specifications/synth-index/research-archive-release.md. The
     model-context capture is not a committed causal participant cut or journal.
+
+    Args:
+        raw: Explicit selected native bytes; no session discovery or provider call is performed.
+        expected_thread_id: Selected native thread identity that must match the captured payload.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+        object_id: Identity assigned to the frozen native object in the research archive.
+        logical_path: Explicit normalized relative logical path of the frozen native bytes.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = admit_mlok_policy_capture(raw, expected_thread_id=expected_thread_id, captured_at=captured_at, cutoff_at=cutoff_at, object_id=object_id, logical_path=logical_path)
     """
     value = _native_payload(raw)
     if set(value) != {"snapshot", "digest"} or not isinstance(value["snapshot"], dict):
@@ -474,7 +547,26 @@ def freeze_swarms_evidence(
     captured_at: datetime,
     cutoff_at: datetime,
 ) -> SessionExport:
-    """Freeze one explicitly selected SMR run evidence response privately."""
+    """Freeze one explicitly selected SMR run evidence response privately.
+
+    Args:
+        source: Explicit regular input file; symlinks and oversized captures are refused.
+        destination: Private destination preserving identical capture bytes and metadata on retry.
+        expected_run_id: Selected Swarms run identity that must match the captured evidence.
+        expected_project_id: Selected Swarms project identity that must match the evidence scope.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = freeze_swarms_evidence(source, destination, expected_run_id=expected_run_id, expected_project_id=expected_project_id, captured_at=captured_at, cutoff_at=cutoff_at)
+    """
     return _freeze_selected_native(
         source,
         destination,
@@ -497,7 +589,25 @@ def freeze_mlok_policy_capture(
     captured_at: datetime,
     cutoff_at: datetime,
 ) -> SessionExport:
-    """Freeze one selected policy context snapshot privately; not a causal cut."""
+    """Freeze one selected policy context snapshot privately; not a causal cut.
+
+    Args:
+        source: Explicit regular input file; symlinks and oversized captures are refused.
+        destination: Private destination preserving identical capture bytes and metadata on retry.
+        expected_thread_id: Selected native thread identity that must match the captured payload.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = freeze_mlok_policy_capture(source, destination, expected_thread_id=expected_thread_id, captured_at=captured_at, cutoff_at=cutoff_at)
+    """
     return _freeze_selected_native(
         source,
         destination,
@@ -523,6 +633,24 @@ def admit_codex_rollout_prefix(
     Unlike task-read summaries, this retains native response/tool events. A
     journal prefix still cannot establish inherited history or omitted provider
     state, so completeness remains explicit rather than inferred from byte count.
+
+    Args:
+        raw: Explicit selected native bytes; no session discovery or provider call is performed.
+        expected_thread_id: Selected native thread identity that must match the captured payload.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+        object_id: Identity assigned to the frozen native object in the research archive.
+        logical_path: Explicit normalized relative logical path of the frozen native bytes.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = admit_codex_rollout_prefix(raw, expected_thread_id=expected_thread_id, captured_at=captured_at, cutoff_at=cutoff_at, object_id=object_id, logical_path=logical_path)
     """
     if not raw or len(raw) > EXPORT_BYTES_MAX or not raw.endswith(b"\n"):
         raise FrozenBuildError("session_export_invalid", "bounded complete JSONL records required")
@@ -613,6 +741,25 @@ def freeze_codex_rollout_prefix(
     captured_at: datetime,
     cutoff_at: datetime,
 ) -> SessionExport:
+    """Freeze an explicitly selected Codex rollout prefix privately.
+
+    Args:
+        source: Explicit regular input file; symlinks and oversized captures are refused.
+        destination: Private destination preserving identical capture bytes and metadata on retry.
+        expected_thread_id: Selected native thread identity that must match the captured payload.
+        captured_at: Timezone-aware capture timestamp; cannot precede the cutoff.
+        cutoff_at: Timezone-aware last admitted event cutoff, retained explicitly in the export.
+
+    Returns:
+        SessionExport: Revision-independent native capture metadata retaining exact bytes and explicit partial gaps.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = freeze_codex_rollout_prefix(source, destination, expected_thread_id=expected_thread_id, captured_at=captured_at, cutoff_at=cutoff_at)
+    """
     return _freeze_selected_native(
         source,
         destination,

@@ -33,6 +33,20 @@ Digest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 
 def canonical_bytes(value: IndexContract) -> bytes:
+    """Serialize the validated frozen contract without external effects.
+
+    Args:
+        value: Value serialized into canonical bytes or a private receipt.
+
+    Returns:
+        bytes: Sorted compact UTF-8 JSON bytes with non-finite numbers refused.
+
+    Raises:
+        ValueError: Canonical JSON serialization rejects an invalid value.
+
+    Examples:
+        result = canonical_bytes(value)
+    """
     return json.dumps(
         value.model_dump(mode="json"),
         sort_keys=True,
@@ -43,6 +57,20 @@ def canonical_bytes(value: IndexContract) -> bytes:
 
 
 def contract_digest(value: IndexContract) -> str:
+    """Serialize the validated frozen contract without external effects.
+
+    Args:
+        value: Value serialized into canonical bytes or a private receipt.
+
+    Returns:
+        str: Lowercase SHA-256 digest of the canonical contract bytes.
+
+    Raises:
+        ValueError: Canonical JSON serialization rejects an invalid value.
+
+    Examples:
+        result = contract_digest(value)
+    """
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
 
