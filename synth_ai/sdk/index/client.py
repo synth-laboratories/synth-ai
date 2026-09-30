@@ -94,6 +94,7 @@ from .qa import (
     AcceptAssignmentSpec,
     AssignmentSpec,
     AssignmentView,
+    CaseAction,
     CaseEvents,
     CaseEventSpec,
     CaseEventView,
@@ -150,15 +151,15 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
     "index.qa.cases.create": ("POST", _P + "/qa/cases"),
-    "index.qa.cases.retrieve": ("GET", _P + "/qa/cases/{case_id}"),
+    "index.qa.cases.get": ("GET", _P + "/qa/cases/{case_id}"),
     "index.qa.events.list": ("GET", _P + "/qa/cases/{case_id}/events"),
-    "index.qa.events.append": ("POST", _P + "/qa/cases/{case_id}/events"),
+    "index.qa.events.create": ("POST", _P + "/qa/cases/{case_id}/events"),
     "index.qa.assignments.create": ("POST", _P + "/qa/cases/{case_id}/assignments"),
     "index.qa.assignments.list": ("GET", _P + "/qa/assignments"),
     "index.qa.assignments.accept": ("POST", _P + "/qa/assignments/{assignment_id}/accept"),
     "index.qa.assignments.revoke": ("POST", _P + "/qa/assignments/{assignment_id}/revoke"),
-    "index.qa.package.read": ("GET", _P + "/qa/cases/{case_id}/package"),
-    "index.qa.asset.read": ("GET", _P + "/qa/cases/{case_id}/assets/{asset_id}"),
+    "index.qa.package.retrieve": ("GET", _P + "/qa/cases/{case_id}/package"),
+    "index.qa.assets.retrieve": ("GET", _P + "/qa/cases/{case_id}/assets/{asset_id}"),
     "index.qa.checks.list": ("GET", _P + "/qa/cases/{case_id}/checks"),
     "index.qa.checks.record": ("POST", _P + "/qa/cases/{case_id}/checks"),
     "index.qa.checks.preflight": ("POST", _P + "/qa/cases/{case_id}/checks/preflight"),
@@ -1302,6 +1303,9 @@ class ContributionsAPI(_Resource):
         """Verify uploaded bytes through the backend; does not submit or publish."""
         if (
             prepared.transfer.collection_id != str(draft.collection_id)
+            # This is the artifact-publication revision inside the draft's own
+            # collection (backend pins it to 1). Repaired child Contribution
+            # revisions get a fresh collection, so they also transfer at 1.
             or prepared.transfer.revision != 1
         ):
             raise ValueError("Finalization transfer does not match draft collection")
@@ -1655,7 +1659,7 @@ class QaAPI(_Resource):
         path = self._case(case_id)
         return self._run(
             _Call(
-                "index.qa.cases.retrieve",
+                "index.qa.cases.get",
                 _bound(
                     CaseView,
                     lambda view: str(view.case_id) == path["case_id"],
@@ -1678,7 +1682,7 @@ class QaAPI(_Resource):
     def append_event(self, case_id, spec: CaseEventSpec, *, idempotency_key: str):
         return self._run(
             _Call(
-                "index.qa.events.append",
+                "index.qa.events.create",
                 _bound(
                     CaseEventView,
                     lambda event: event.sequence == spec.expected_version + 1
@@ -1690,6 +1694,41 @@ class QaAPI(_Resource):
                 json_body=spec.model_dump(mode="json"),
                 headers=_key(idempotency_key, required="QA event"),
             )
+        )
+
+    def _act(self, action: CaseAction, case_id, expected_version: int, message: str, key: str):
+        return self.append_event(
+            case_id,
+            CaseEventSpec(expected_version=expected_version, action=action, message=message),
+            idempotency_key=key,
+        )
+
+    # Conversation, appeal and adjudication are POST /qa/cases/{id}/events with a
+    # fixed CaseAction today; the backend state machine enforces per-role legality.
+    # Dedicated appeal/adjudication routes are PENDING backend work: these helpers
+    # keep the same single route and will not silently change path.
+    def send_message(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        return self._act(CaseAction.MESSAGE, case_id, expected_version, message, idempotency_key)
+
+    def request_changes(
+        self, case_id, expected_version: int, message: str, *, idempotency_key: str
+    ):
+        return self._act(
+            CaseAction.REQUEST_CHANGES, case_id, expected_version, message, idempotency_key
+        )
+
+    def respond(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        return self._act(CaseAction.RESPOND, case_id, expected_version, message, idempotency_key)
+
+    def escalate(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        return self._act(CaseAction.ESCALATE, case_id, expected_version, message, idempotency_key)
+
+    def appeal(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        return self._act(CaseAction.APPEAL, case_id, expected_version, message, idempotency_key)
+
+    def adjudicate(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        return self._act(
+            CaseAction.ADJUDICATE, case_id, expected_version, message, idempotency_key
         )
 
     def invite_reviewer(self, case_id, spec: AssignmentSpec):
@@ -1741,7 +1780,7 @@ class QaAPI(_Resource):
     def package(self, case: CaseView):
         return self._run(
             _Call(
-                "index.qa.package.read",
+                "index.qa.package.retrieve",
                 _bound(
                     ContributionPackage,
                     lambda package: (package.contribution_id, package.revision_id)
@@ -1772,7 +1811,7 @@ class QaAPI(_Resource):
 
         return self._run(
             _Call(
-                "index.qa.asset.read",
+                "index.qa.assets.retrieve",
                 parse,
                 path_parameters={**self._case(case_id), "asset_id": asset_id},
                 raw=True,
