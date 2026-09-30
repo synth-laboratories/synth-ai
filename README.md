@@ -2,7 +2,7 @@
 
 <!-- CI release pins: PyPI-0.22.0-orange synth-ai==0.22.0 -->
 
-> 0.22.0 is an unreleased Index v0.2 candidate. The current public stable package is 0.21.3.
+> 0.22.0 is the Index v0.2 release (typed QA/lifecycle APIs, CLI and MCP tools).
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)

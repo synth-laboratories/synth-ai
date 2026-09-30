@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.22.0 — unreleased Index v0.2 candidate
+## 0.22.0 — 2026-09-30
 
 ### Added
 
@@ -9,8 +9,19 @@
 - Fenced appeal, escalation, adjudication and internal-note operations with visibility and reviewer policy.
 - Explicit bearer-token Clerk OAuth Index transports.
 
-This is a local release candidate. Hosted QA availability, native OAuth acceptance
-and public package publication require separate release receipts.
+- Hosted and local MCP registries expose the typed `index_qa_*` tools from
+  `synth_ai.mcp.research.tools.index_qa` (the backend hosted MCP imports this module).
+- Index v0.2 intake: manifests, classification, value, scopes and scope errors, research
+  capture/build/release helpers, and the vendored `openapi/index-v1.json` refreshed to the
+  backend 0.24.0 contract.
+
+### Changed
+
+- Swarms: `openrouter` is an accepted public inference provider selection
+  (previously a duplicated `modal` entry). Additive; no other Swarms/SMR SDK surface changed.
+
+Same Python package source as the `0.22.0.dev663` prerelease (synth-ai `dev` `681d0ce2`);
+only version metadata and the README long description differ.
 
 ## 0.21.3 — 2026-09-29
 
