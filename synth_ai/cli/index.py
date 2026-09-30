@@ -601,9 +601,11 @@ def contribution_upload(draft_file, upload_spec_file, root, files, api_key, back
         selected[logical] = relative
 
     def action(i):
+        # Selected bytes are read (confined, bounded, secret-screened) before any
+        # contract parse or request; a refused file never reaches the network.
+        content = read_selected_files(str(root), selected)
         draft = _spec(draft_file, ContributionDraft)
         spec = _spec(upload_spec_file, ContributionUploadSpec)
-        content = read_selected_files(str(root), selected)
         prepared = i.contributions.prepare_upload(draft, spec)
         i.contributions.upload(prepared, content)
         publication = i.contributions.finalize(draft, prepared)
