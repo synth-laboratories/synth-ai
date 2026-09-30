@@ -18,7 +18,22 @@ CONTRACT_BYTES_MAX = 1_048_576
 
 
 def read_contract_file(path: Path, model: type[Model]) -> Model:
-    """Validate one explicitly selected, bounded contract before any HTTP call."""
+    """Validate one explicitly selected, bounded contract before any HTTP call.
+
+    Args:
+        path: Explicit regular contract or private receipt path.
+        model: Pydantic model used to validate the selected contract.
+
+    Returns:
+        Model: Validated instance of the requested Pydantic model.
+
+    Raises:
+        ValueError: Input bounds, validation, duplicate fields or private receipt invariants fail.
+        OSError: The selected regular input or private destination cannot be accessed.
+
+    Examples:
+        result = read_contract_file(path, model)
+    """
     try:
         payload = json.loads(read_input_file(path), object_pairs_hook=_unique_fields)
         return model.model_validate(payload)
@@ -38,7 +53,21 @@ def _unique_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def read_input_file(path: Path) -> bytes:
-    """Read one regular input with the CLI's 1 MiB contract bound."""
+    """Read one regular input with the CLI's 1 MiB contract bound.
+
+    Args:
+        path: Explicit regular contract or private receipt path.
+
+    Returns:
+        bytes: Selected regular file bytes within the 1 MiB bound.
+
+    Raises:
+        ValueError: Input bounds, validation, duplicate fields or private receipt invariants fail.
+        OSError: The selected regular input or private destination cannot be accessed.
+
+    Examples:
+        result = read_input_file(path)
+    """
     if path.is_symlink() or not path.is_file():
         raise ValueError("Contract input must be a regular file, not a link")
     with path.open("rb") as source:
@@ -53,6 +82,20 @@ def write_private_receipt(path: Path, value: object) -> None:
 
     Changed results never overwrite earlier evidence. A failed API call must not
     invoke this function. No directory or uploaded file is made public here.
+
+    Args:
+        path: Explicit regular contract or private receipt path.
+        value: Value serialized into canonical bytes or a private receipt.
+
+    Returns:
+        None: Creates a private receipt or retains identical existing evidence; never overwrites changed evidence.
+
+    Raises:
+        ValueError: Input bounds, validation, duplicate fields or private receipt invariants fail.
+        OSError: The selected regular input or private destination cannot be accessed.
+
+    Examples:
+        result = write_private_receipt(path, value)
     """
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="json")

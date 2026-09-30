@@ -57,7 +57,22 @@ def _read_object(root: Path, declaration: ArtifactObjectDeclaration) -> bytes:
 
 
 def verify_archive(root: Path, binding: DerivationBinding) -> dict[str, bytes]:
-    """Verify every retained input, including unsuccessful attempts and native exports."""
+    """Verify every retained input, including unsuccessful attempts and native exports.
+
+    Args:
+        root: Closed archive directory containing exactly the declared frozen objects.
+        binding: Validated exact snapshot, recipe, disclosure and reproduction inputs.
+
+    Returns:
+        dict[str, bytes]: Verified frozen object bytes keyed by object identifier.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = verify_archive(root, binding)
+    """
     root = root.resolve(strict=True)
     declarations = binding.snapshot.objects
     if sum(item.object.size_bytes for item in declarations) > ARCHIVE_BYTES_MAX:
@@ -81,7 +96,23 @@ def validate_release_binding(
     descriptor: bytes,
     manifest: ArtifactManifest,
 ) -> ContributionPackage:
-    """Require approved exact descriptor and object set with separate archive identity."""
+    """Require approved exact descriptor and object set with separate archive identity.
+
+    Args:
+        binding: Validated exact snapshot, recipe, disclosure and reproduction inputs.
+        descriptor: Exact approved Contribution descriptor bytes.
+        manifest: Exact artifact manifest whose digest and collection match the disclosure.
+
+    Returns:
+        ContributionPackage: Validated package whose audience, objects and representations match the disclosure.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = validate_release_binding(binding, descriptor, manifest)
+    """
     package = validate_package_binding(descriptor, manifest, binding.disclosure.reference)
     disclosure = binding.disclosure
     if (manifest.collection_id, manifest.manifest_digest) != (
@@ -133,6 +164,23 @@ def build_release(
 
     This proves artifact reconstruction only. Analysis and experimental reruns need
     independently executed receipts; no uploaded commands are run by this builder.
+
+    Args:
+        archive_root: Directory containing exactly the frozen archive input objects.
+        destination: Private destination preserving identical capture bytes and metadata on retry.
+        binding: Validated exact snapshot, recipe, disclosure and reproduction inputs.
+        descriptor: Exact approved Contribution descriptor bytes.
+        manifest: Exact artifact manifest whose digest and collection match the disclosure.
+
+    Returns:
+        dict: Offline artifact-reconstruction receipt; provider calls and costs are zero, publication is not granted.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = build_release(archive_root, destination, binding=binding, descriptor=descriptor, manifest=manifest)
     """
     binding = DerivationBinding.model_validate_json(canonical_bytes(binding))
     package = validate_release_binding(binding, descriptor, manifest)
@@ -199,6 +247,24 @@ def verify_release(
     descriptor: bytes,
     manifest: ArtifactManifest,
 ) -> dict:
+    """Serialize the validated frozen contract without external effects.
+
+    Args:
+        destination: Private destination preserving identical capture bytes and metadata on retry.
+        binding: Validated exact snapshot, recipe, disclosure and reproduction inputs.
+        descriptor: Exact approved Contribution descriptor bytes.
+        manifest: Exact artifact manifest whose digest and collection match the disclosure.
+
+    Returns:
+        dict: Exact stored receipt after verifying object bytes, descriptor, manifest and receipt identities.
+
+    Raises:
+        FrozenBuildError: Selected identities, byte bounds, paths, digests or retry evidence are invalid.
+        OSError: An explicitly selected input or destination cannot be read or written.
+
+    Examples:
+        result = verify_release(destination, binding=binding, descriptor=descriptor, manifest=manifest)
+    """
     package = validate_release_binding(binding, descriptor, manifest)
     if destination.is_symlink():
         raise FrozenBuildError("unsafe_release_path", "release root may not be a symlink")
