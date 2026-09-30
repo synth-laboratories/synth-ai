@@ -410,7 +410,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             description=description,
             input_schema=schema.model_json_schema(),
             handler=handler,
-            required_scopes=(),
+            required_scopes=scopes if any_of_scopes else (),
             any_of_scopes=any_of_scopes or scopes,
         )
 
@@ -486,6 +486,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             CaseRequest,
             package,
             qa_read,
+            any_of_scopes=case_get,
         ),
         tool(
             "index_qa_asset",
@@ -493,6 +494,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             AssetRequest,
             asset,
             qa_read,
+            any_of_scopes=case_get,
         ),
         tool(
             "index_qa_case_create",
