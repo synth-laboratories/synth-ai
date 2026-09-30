@@ -20,8 +20,8 @@ Generation = Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
 
 
 class ClassificationSpec(IndexContract):
-    #: SHA-256 digest of the exact canonical manifest bytes.
     """Reviewer tag classification against exact manifest and registry inputs."""
+    #: SHA-256 digest of the exact canonical manifest bytes.
     manifest_digest: Digest
     #: Tag registry identity against which reviewer classifications are validated.
     registry_version: Identifier
@@ -39,8 +39,8 @@ class ClassificationSpec(IndexContract):
 
 
 class ClassificationView(IndexContract):
-    #: Exact boundary schema identifier used for serialization.
     """Current effective tags and their generation; not scientific acceptance."""
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal["synth.index.classification.v1"] = "synth.index.classification.v1"
     #: Exact Contribution and revision described by this classification.
     reference: ContributionReference
@@ -59,8 +59,8 @@ class ClassificationView(IndexContract):
 
 
 class ClassificationDecisionView(IndexContract):
-    #: Exact boundary schema identifier used for serialization.
     """Stored reviewer tag decision against a sealed revision."""
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal["synth.index.classification-decision.v1"] = (
         "synth.index.classification-decision.v1"
     )

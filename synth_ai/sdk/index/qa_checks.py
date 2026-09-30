@@ -23,16 +23,16 @@ Cost = Annotated[Decimal, Field(ge=0, le=1000000, max_digits=16, decimal_places=
 
 
 class EvidenceSelector(IndexContract):
-    #: Manifest selector kind: asset, claim or evidence.
     """Select one manifest asset, claim or evidence item by its identifier."""
+    #: Manifest selector kind: asset, claim or evidence.
     kind: Literal["asset", "claim", "evidence"]
     #: Identifier of the selected manifest item.
     identifier: Identifier
 
 
 class ReceiptMetric(IndexContract):
-    #: Unique metric name within the receipt.
     """Named numerical measurement with an explicit unit."""
+    #: Unique metric name within the receipt.
     name: Identifier
     #: Numerical metric value interpreted using its explicit unit.
     value: Annotated[Decimal, Field(ge=-(10**18), le=10**18, max_digits=30, decimal_places=10)]
@@ -41,8 +41,8 @@ class ReceiptMetric(IndexContract):
 
 
 class CheckReceipt(IndexContract):
-    #: Exact receipt schema identity for serialization and validation.
     """Producer receipt binding a check result to exact inputs and execution identity."""
+    #: Exact receipt schema identity for serialization and validation.
     schema_version: Literal["synth.qa.check-receipt.v1"] = "synth.qa.check-receipt.v1"
     #: Digest of the sealed revision manifest; must match the reviewed bytes.
     manifest_digest: Digest
@@ -77,8 +77,8 @@ class CheckReceipt(IndexContract):
 
 
 class FindingSpec(IndexContract):
-    #: Identifier of the actionable finding.
     """Actionable observation with reproduction, remediation and visibility."""
+    #: Identifier of the actionable finding.
     finding_id: UUID
     #: Identifier of the frozen rubric criterion being judged.
     criterion: Identifier
@@ -112,8 +112,8 @@ class FindingSpec(IndexContract):
 
 
 class RecordCheckSpec(IndexContract):
-    #: Current case version expected by this write; stale writes must be reconciled.
     """Record a bounded check attempt; missing receipts must be inconclusive."""
+    #: Current case version expected by this write; stale writes must be reconciled.
     expected_version: Annotated[StrictInt, Field(ge=0)]
     #: Identifier of this check attempt, distinct from the producer run.
     attempt_id: UUID
@@ -189,8 +189,8 @@ class RecordCheckSpec(IndexContract):
 
 
 class FindingView(FindingSpec):
-    #: Identifier of this check attempt, distinct from the producer run.
     """Stored finding with producer and attempt attribution."""
+    #: Identifier of this check attempt, distinct from the producer run.
     attempt_id: UUID
     #: User identifier that submitted the producer evidence.
     producer_user_id: UUID
@@ -199,8 +199,8 @@ class FindingView(FindingSpec):
 
 
 class CheckAttemptView(IndexContract):
-    #: Identifier of this check attempt, distinct from the producer run.
     """Stored producer check evidence, not independent scientific verification."""
+    #: Identifier of this check attempt, distinct from the producer run.
     attempt_id: UUID
     #: Identifier of the revision-bound QA case.
     case_id: UUID
