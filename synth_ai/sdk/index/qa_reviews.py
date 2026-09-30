@@ -74,10 +74,16 @@ def required_criteria(kind):
 
 
 class CriterionJudgment(IndexContract):
+    #: Identifier of the frozen rubric criterion being judged.
+    """Evidence-backed outcome for one criterion in the frozen content rubric."""
     criterion: Identifier
+    #: Recorded outcome; fail, inconclusive and not-applicable remain distinct.
     outcome: Outcome
+    #: Evidence-backed explanation of this criterion judgment.
     rationale: Text
+    #: Manifest item selectors supporting the recorded judgment or check.
     evidence: tuple[EvidenceSelector, ...] = Field(min_length=1, max_length=32)
+    #: Identifiers of recorded check attempts referenced by this judgment.
     check_attempt_ids: tuple[UUID, ...] = Field(default=(), max_length=32)
 
     @model_validator(mode="after")
@@ -88,13 +94,22 @@ class CriterionJudgment(IndexContract):
 
 
 class RecordReviewSpec(IndexContract):
+    #: Identifier of the independent review.
+    """Record an independent assignment review against exact case and manifest inputs."""
     review_id: UUID
+    #: Current case version expected by this write; stale writes must be reconciled.
     expected_version: Annotated[StrictInt, Field(ge=0)]
+    #: Identifier of the independent reviewer assignment.
     assignment_id: UUID
+    #: Digest of the sealed revision manifest; must match the reviewed bytes.
     manifest_digest: Digest
+    #: Pinned rubric identity used for these judgments.
     rubric_version: Literal["content-v1"] = RUBRIC_VERSION
+    #: Review decision constrained by evidenced criterion outcomes.
     decision: ReviewDecision
+    #: Bounded reviewer summary explaining the decision.
     summary: Text
+    #: Kind-specific criterion judgments required by the pinned rubric.
     criteria: tuple[CriterionJudgment, ...] = Field(min_length=1, max_length=16)
 
     @model_validator(mode="after")
@@ -146,21 +161,37 @@ class ReviewerPolicy(StrEnum):
 
 
 class ReviewFact(IndexContract):
+    #: Identifier of the revision-bound QA case.
+    """Stored review, declared provenance and admitted reviewer policy."""
     case_id: UUID
+    #: Conversation sequence at which this fact was recorded.
     case_sequence: Annotated[StrictInt, Field(ge=1)]
+    #: Identifier of the recorded QA event.
     event_id: UUID
+    #: User identifier of the assigned reviewer.
     reviewer_user_id: UUID
+    #: Organization identifier under which the reviewer acts.
     reviewer_org_id: UUID
+    #: Accepted reviewer declaration; does not attest to human identity.
     declared_provenance: Literal["human", "agent_assisted", "agent"]
+    #: Recorded policy that admitted the review under its declared provenance.
     reviewer_policy: ReviewerPolicy
+    #: Exact recorded independent review and its criterion judgments.
     review: RecordReviewSpec
     # Assignment consent/provenance are attestations, never proof of a human turn.
+    #: Always false: assignment declarations do not verify human identity.
     human_identity_verified: Literal[False] = False
+    #: Always false: this review record is not a scientific verification certificate.
     scientific_verification: Literal[False] = False
+    #: Always false: content judgments alone do not authorize release qualification.
     qualification_authorized: Literal[False] = False
+    #: Always false: this QA record cannot grant publication authority.
     publication_authorized: Literal[False] = False
 
 
 class ReviewReport(IndexContract):
+    #: Bounded recorded independent review facts.
+    """Bounded independent review page with a continuation cursor."""
     reviews: tuple[ReviewFact, ...] = Field(max_length=3)
+    #: Continuation sequence cursor, or none when this page has no continuation.
     next_after: Annotated[StrictInt, Field(ge=1)] | None = None
