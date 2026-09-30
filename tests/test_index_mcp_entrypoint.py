@@ -11,6 +11,7 @@ from synth_ai.mcp.research.server import (
     MCP_CLIENT_TIMEOUT_SECONDS,
     _stdio_server,
 )
+from synth_ai.mcp.research.tools.index_qa import QA_READ_TOOL_NAMES
 from synth_ai.mcp.research.tools.index import (
     INDEX_READ_TOOL_NAMES,
     INDEX_WRITE_TOOL_NAMES,
@@ -23,6 +24,7 @@ _AUTHENTICATED_ONLY = {
     "index_search_result",
     "index_search_events",
     "index_search_cancel",
+    *QA_READ_TOOL_NAMES,
 }
 
 

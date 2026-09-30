@@ -8,8 +8,9 @@ them, and owners/credited contributors can never review or publish their own wor
 
 from enum import StrEnum
 from typing import Annotated, Literal
+from uuid import UUID
 
-from pydantic import AnyHttpUrl, AwareDatetime, Field, StrictInt, StringConstraints
+from pydantic import AnyHttpUrl, AwareDatetime, Field, StrictInt, StringConstraints, model_validator
 
 from .contracts import (
     ContributionAudience,
@@ -43,6 +44,21 @@ class ReviewClaimComment(IndexContract):
     comment: ClaimCommentText
 
 
+class QaAssessmentSource(IndexContract):
+    """Private versioned QA provenance; see contribution-qa-cases.md."""
+
+    #: Exact QA assessment-provenance boundary schema identity.
+    schema_version: Literal["synth.index.qa-assessment-source.v1"] = (
+        "synth.index.qa-assessment-source.v1"
+    )
+    #: UUID of the independent revision-bound QA case.
+    case_id: UUID
+    #: UUID of the authoritative independent content review.
+    review_id: UUID
+    #: Current case version expected when consuming the QA approval.
+    expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
+
+
 class ReviewSpec(IndexContract):
     """Reviewer decision; ``manifest_digest`` optionally pins the sealed bytes judged."""
 
@@ -50,6 +66,16 @@ class ReviewSpec(IndexContract):
     comments: ReviewComments
     claim_comments: tuple[ReviewClaimComment, ...] = Field(default=(), max_length=128)
     manifest_digest: Digest | None = None
+    #: Optional exact QA approval source; only supported for manifest-bound approval.
+    qa_source: QaAssessmentSource | None = None
+
+    @model_validator(mode="after")
+    def validate_qa_source(self):
+        if self.qa_source is not None and (
+            self.manifest_digest is None or self.decision != ReviewDecision.APPROVE
+        ):
+            raise ValueError("QA assessment bridge requires exact manifest and explicit approval")
+        return self
 
 
 class Assessment(IndexContract):

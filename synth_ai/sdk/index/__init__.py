@@ -24,6 +24,7 @@ from .catalog import (
     RewardAward,
     TagRegistry,
 )
+from .classification import ClassificationDecisionView, ClassificationSpec, ClassificationView
 from .contracts import ContributionReference
 from .contributions import (
     ContributionDraft,
@@ -39,6 +40,7 @@ from .lifecycle import (
     MeView,
     PublicationSpec,
     PublicationStatus,
+    QaAssessmentSource,
     ReviewDecision,
     ReviewSpec,
     RevisionCreateSpec,
@@ -70,6 +72,41 @@ from .public_search import (
     PublicSearchWaitTimeoutError,
     public_search_copy,
     public_search_result_payload,
+)
+from .qa import (
+    AcceptAssignmentSpec,
+    AdjudicationSpec,
+    AppealSpec,
+    AssignmentSpec,
+    AssignmentView,
+    CaseAction,
+    CaseEvents,
+    CaseEventSpec,
+    CaseEventView,
+    CaseRole,
+    CaseState,
+    CaseView,
+    CreateCaseSpec,
+    EscalationSpec,
+    EventVisibility,
+    InternalNoteSpec,
+)
+from .qa_checks import (
+    CheckAttemptView,
+    CheckReceipt,
+    CheckReport,
+    EvidenceSelector,
+    FindingSpec,
+    FindingView,
+    RecordCheckSpec,
+)
+from .qa_preflight import PreflightResult, RunPreflightSpec
+from .qa_reviews import (
+    CriterionJudgment,
+    RecordReviewSpec,
+    ReviewerPolicy,
+    ReviewFact,
+    ReviewReport,
 )
 from .retry import IndexRetryPolicy, search_id_from_error
 from .search import (
@@ -115,6 +152,39 @@ from .wallet_search import (
 )
 
 __all__ = [
+    "ClassificationSpec",
+    "ClassificationView",
+    "ClassificationDecisionView",
+    "AcceptAssignmentSpec",
+    "AdjudicationSpec",
+    "AppealSpec",
+    "EscalationSpec",
+    "EventVisibility",
+    "InternalNoteSpec",
+    "ReviewerPolicy",
+    "AssignmentSpec",
+    "AssignmentView",
+    "CaseAction",
+    "CaseEvents",
+    "CaseEventSpec",
+    "CaseEventView",
+    "CaseRole",
+    "CaseState",
+    "CaseView",
+    "CreateCaseSpec",
+    "CheckAttemptView",
+    "CheckReceipt",
+    "CheckReport",
+    "EvidenceSelector",
+    "FindingSpec",
+    "FindingView",
+    "RecordCheckSpec",
+    "PreflightResult",
+    "RunPreflightSpec",
+    "CriterionJudgment",
+    "RecordReviewSpec",
+    "ReviewFact",
+    "ReviewReport",
     "PublicSearchAuthenticatedError",
     "WALLET_CONSENT_REQUIRED_CODE",
     "WalletConsentReason",
@@ -184,6 +254,7 @@ __all__ = [
     "PublicIndexClient",
     "PublicationSpec",
     "PublicationStatus",
+    "QaAssessmentSource",
     "ResearchDraftSpec",
     "ResearchSource",
     "ReviewDecision",
@@ -219,4 +290,30 @@ __all__ = [
     "UsageTotal",
     "WithdrawalSpec",
     "index_error_code",
+]
+
+from .value import (
+    CloutEvidence,
+    OwnClout,
+    OwnCloutPage,
+    ProfileAffiliation,
+    ProfileVisibility,
+    PublicClout,
+    PublicProfileValue,
+    StarterBrief,
+    StarterPreference,
+    StarterState,
+)
+
+__all__ += [
+    "CloutEvidence",
+    "OwnClout",
+    "OwnCloutPage",
+    "ProfileAffiliation",
+    "ProfileVisibility",
+    "PublicClout",
+    "PublicProfileValue",
+    "StarterBrief",
+    "StarterPreference",
+    "StarterState",
 ]

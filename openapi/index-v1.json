@@ -1,6 +1,26 @@
 {
   "components": {
     "schemas": {
+      "AcceptAssignmentSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "conflict_free": {
+            "title": "Conflict Free",
+            "type": "boolean"
+          },
+          "provenance": {
+            "pattern": "^(human|agent_assisted|agent)$",
+            "title": "Provenance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conflict_free",
+          "provenance"
+        ],
+        "title": "AcceptAssignmentSpec",
+        "type": "object"
+      },
       "ActivityDay": {
         "additionalProperties": false,
         "properties": {
@@ -20,6 +40,124 @@
           "count"
         ],
         "title": "ActivityDay",
+        "type": "object"
+      },
+      "AdjudicationSpec": {
+        "additionalProperties": false,
+        "description": "Independent coordinator decision; the only outcome is fresh review.",
+        "properties": {
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "outcome": {
+            "const": "reopen_independent_review",
+            "default": "reopen_independent_review",
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "manifest_digest",
+          "rubric_version",
+          "message"
+        ],
+        "title": "AdjudicationSpec",
+        "type": "object"
+      },
+      "AppealSpec": {
+        "additionalProperties": false,
+        "description": "Contributor appeal of a rejection or private acceptance.",
+        "properties": {
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "manifest_digest",
+          "rubric_version",
+          "message"
+        ],
+        "title": "AppealSpec",
+        "type": "object"
+      },
+      "ApprovedRepresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "utf8_text",
+              "approved_caption"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "representation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Representation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "representation_id",
+          "asset_id",
+          "digest_sha256",
+          "parser_version",
+          "kind"
+        ],
+        "title": "ApprovedRepresentation",
         "type": "object"
       },
       "ArtifactObjectDeclaration": {
@@ -78,6 +216,56 @@
           "publication_id"
         ],
         "title": "ArtifactPublicationFinalize",
+        "type": "object"
+      },
+      "ArtifactPublicationPrepare": {
+        "additionalProperties": false,
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "manifest_schema_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Manifest Schema Version",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactObjectDeclaration"
+            },
+            "maxItems": 100000,
+            "title": "Objects",
+            "type": "array"
+          },
+          "publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id",
+          "collection_id",
+          "revision",
+          "manifest_schema_version",
+          "objects"
+        ],
+        "title": "ArtifactPublicationPrepare",
         "type": "object"
       },
       "ArtifactPublicationPrepareResponse": {
@@ -184,6 +372,73 @@
         "title": "ArtifactPublicationStatus",
         "type": "string"
       },
+      "ArtifactResourceScope": {
+        "additionalProperties": false,
+        "description": "Stored tenancy and product-owner identity used for every decision.",
+        "properties": {
+          "org_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
+          },
+          "owner_namespace": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+            "title": "Owner Namespace",
+            "type": "string"
+          },
+          "owner_resource_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Owner Resource Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.artifact-platform.v1",
+            "default": "synth.artifact-platform.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tenant_kind": {
+            "$ref": "#/components/schemas/ArtifactTenantKind"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ArtifactVisibility"
+          }
+        },
+        "required": [
+          "tenant_kind",
+          "owner_namespace",
+          "owner_resource_id",
+          "visibility",
+          "policy_version"
+        ],
+        "title": "ArtifactResourceScope",
+        "type": "object"
+      },
+      "ArtifactTenantKind": {
+        "enum": [
+          "org",
+          "platform"
+        ],
+        "title": "ArtifactTenantKind",
+        "type": "string"
+      },
       "ArtifactUploadTarget": {
         "additionalProperties": false,
         "description": "Create-only upload instructions without a provider storage locator.",
@@ -222,6 +477,15 @@
         ],
         "title": "ArtifactUploadTarget",
         "type": "object"
+      },
+      "ArtifactVisibility": {
+        "enum": [
+          "private",
+          "org",
+          "public"
+        ],
+        "title": "ArtifactVisibility",
+        "type": "string"
       },
       "AssessmentView": {
         "additionalProperties": false,
@@ -327,6 +591,173 @@
         "title": "Assessments",
         "type": "object"
       },
+      "AssignmentSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "reviewer_org_id": {
+            "format": "uuid",
+            "title": "Reviewer Org Id",
+            "type": "string"
+          },
+          "reviewer_user_id": {
+            "format": "uuid",
+            "title": "Reviewer User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewer_user_id",
+          "reviewer_org_id",
+          "expires_at"
+        ],
+        "title": "AssignmentSpec",
+        "type": "object"
+      },
+      "AssignmentView": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "assignment_id": {
+            "format": "uuid",
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance"
+          },
+          "reviewer_org_id": {
+            "format": "uuid",
+            "title": "Reviewer Org Id",
+            "type": "string"
+          },
+          "reviewer_user_id": {
+            "format": "uuid",
+            "title": "Reviewer User Id",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "assignment_id",
+          "case_id",
+          "reviewer_user_id",
+          "reviewer_org_id",
+          "expires_at"
+        ],
+        "title": "AssignmentView",
+        "type": "object"
+      },
+      "Attempt": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "explanation": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "finding": {
+            "enum": [
+              "positive",
+              "negative",
+              "null",
+              "not_assessed"
+            ],
+            "title": "Finding",
+            "type": "string"
+          },
+          "input_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Input Object Ids",
+            "type": "array"
+          },
+          "observation_object_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "title": "Observation Object Ids",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "excluded",
+              "cancelled",
+              "abandoned"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "outcome",
+          "input_object_ids",
+          "explanation",
+          "finding"
+        ],
+        "title": "Attempt",
+        "type": "object"
+      },
       "BillingPolicyUpdate": {
         "properties": {
           "concurrency_limit": {
@@ -359,6 +790,71 @@
           "consent_terms_version"
         ],
         "title": "BillingPolicyUpdate",
+        "type": "object"
+      },
+      "BuildRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "authored_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Authored Object Ids",
+            "type": "array"
+          },
+          "builder_version": {
+            "const": "frozen-copy-v1",
+            "default": "frozen-copy-v1",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "environment_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Environment Object Ids",
+            "type": "array"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/OutputBinding"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.build-recipe.v1",
+            "default": "synth.research.build-recipe.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "environment_object_ids",
+          "authored_object_ids",
+          "outputs"
+        ],
+        "title": "BuildRecipe",
         "type": "object"
       },
       "Capabilities": {
@@ -559,6 +1055,602 @@
         "title": "CapabilityRevocationRequest",
         "type": "object"
       },
+      "CaseAction": {
+        "enum": [
+          "message",
+          "start_checks",
+          "checks_complete",
+          "pause_internal",
+          "retry_checks",
+          "request_changes",
+          "respond",
+          "escalate",
+          "adjudicate",
+          "approve",
+          "reject",
+          "appeal"
+        ],
+        "title": "CaseAction",
+        "type": "string"
+      },
+      "CaseEventSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/CaseAction"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "action",
+          "message"
+        ],
+        "title": "CaseEventSpec",
+        "type": "object"
+      },
+      "CaseEventView": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/CaseAction"
+          },
+          "actor_user_id": {
+            "format": "uuid",
+            "title": "Actor User Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/CaseRole"
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/EventVisibility",
+            "default": "shared"
+          }
+        },
+        "required": [
+          "event_id",
+          "sequence",
+          "action",
+          "message",
+          "actor_user_id",
+          "role",
+          "created_at"
+        ],
+        "title": "CaseEventView",
+        "type": "object"
+      },
+      "CaseEvents": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseEventView"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CaseEvents",
+        "type": "object"
+      },
+      "CaseRole": {
+        "enum": [
+          "contributor",
+          "reviewer",
+          "coordinator"
+        ],
+        "title": "CaseRole",
+        "type": "string"
+      },
+      "CaseState": {
+        "enum": [
+          "submitted",
+          "automatic_qa",
+          "paused_internal",
+          "reviewer_queue",
+          "waiting_for_contributor",
+          "escalated",
+          "accepted_private",
+          "rejected"
+        ],
+        "title": "CaseState",
+        "type": "string"
+      },
+      "CaseView": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "contribution_kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "publication_authorized": {
+            "const": false,
+            "default": false,
+            "title": "Publication Authorized",
+            "type": "boolean"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "requested_audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "requested_audience",
+          "contribution_kind",
+          "reference",
+          "manifest_digest",
+          "rubric_version",
+          "state",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CaseView",
+        "type": "object"
+      },
+      "CheckAttemptView": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "format": "uuid",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "case_sequence": {
+            "minimum": 1.0,
+            "title": "Case Sequence",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,17}0*$)\\d{0,8}\\.\\d{0,8}0*$)",
+            "title": "Cost Usd",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "gate": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Gate",
+            "type": "string"
+          },
+          "independent_verification": {
+            "const": false,
+            "default": false,
+            "title": "Independent Verification",
+            "type": "boolean"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "policy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "producer_user_id": {
+            "format": "uuid",
+            "title": "Producer User Id",
+            "type": "string"
+          },
+          "provenance": {
+            "enum": [
+              "human",
+              "automation",
+              "agent"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "publication_authorized": {
+            "const": false,
+            "default": false,
+            "title": "Publication Authorized",
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckReceipt-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Digest"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tool_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Tool Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "case_id",
+          "event_id",
+          "case_sequence",
+          "manifest_digest",
+          "rubric_version",
+          "gate",
+          "run_id",
+          "tool_version",
+          "policy_version",
+          "outcome",
+          "reason",
+          "started_at",
+          "finished_at",
+          "cost_usd",
+          "producer_user_id",
+          "provenance",
+          "receipt",
+          "receipt_digest"
+        ],
+        "title": "CheckAttemptView",
+        "type": "object"
+      },
+      "CheckReceipt-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSelector"
+            },
+            "maxItems": 32,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "gate": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Gate",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "metrics": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReceiptMetric-Input"
+            },
+            "maxItems": 64,
+            "title": "Metrics",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "policy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.qa.check-receipt.v1",
+            "default": "synth.qa.check-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tool_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Tool Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "rubric_version",
+          "gate",
+          "run_id",
+          "tool_version",
+          "policy_version",
+          "outcome",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "CheckReceipt",
+        "type": "object"
+      },
+      "CheckReceipt-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSelector"
+            },
+            "maxItems": 32,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "gate": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Gate",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "metrics": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReceiptMetric-Output"
+            },
+            "maxItems": 64,
+            "title": "Metrics",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "policy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.qa.check-receipt.v1",
+            "default": "synth.qa.check-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tool_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Tool Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "rubric_version",
+          "gate",
+          "run_id",
+          "tool_version",
+          "policy_version",
+          "outcome",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "CheckReceipt",
+        "type": "object"
+      },
+      "CheckReport": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/CheckAttemptView"
+            },
+            "maxItems": 3,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingView"
+            },
+            "maxItems": 192,
+            "title": "Findings",
+            "type": "array"
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          }
+        },
+        "required": [
+          "attempts",
+          "findings"
+        ],
+        "title": "CheckReport",
+        "type": "object"
+      },
       "Citation": {
         "additionalProperties": false,
         "properties": {
@@ -592,6 +1684,302 @@
         ],
         "title": "Citation",
         "type": "object"
+      },
+      "ClassificationDecisionView": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Accepted Tag Ids",
+            "type": "array"
+          },
+          "decision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "generation": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "registry_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Registry Version",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.classification-decision.v1",
+            "default": "synth.index.classification-decision.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_id",
+          "reference",
+          "manifest_digest",
+          "registry_version",
+          "generation",
+          "accepted_tag_ids"
+        ],
+        "title": "ClassificationDecisionView",
+        "type": "object"
+      },
+      "ClassificationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Accepted Tag Ids",
+            "type": "array"
+          },
+          "expected_generation": {
+            "maximum": 9007199254740990.0,
+            "minimum": 0.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "registry_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Registry Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "registry_version",
+          "accepted_tag_ids",
+          "expected_generation",
+          "rationale"
+        ],
+        "title": "ClassificationSpec",
+        "type": "object"
+      },
+      "ClassificationView": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Effective Tag Ids",
+            "type": "array"
+          },
+          "generation": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "registry_version": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registry Version"
+          },
+          "schema_version": {
+            "const": "synth.index.classification.v1",
+            "default": "synth.index.classification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "submitted",
+              "legacy_submission",
+              "reviewer"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "submitted_tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Submitted Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "submitted_tag_ids",
+          "effective_tag_ids",
+          "generation",
+          "registry_version",
+          "source"
+        ],
+        "title": "ClassificationView",
+        "type": "object"
+      },
+      "CloutDay": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "points": {
+            "minimum": 1.0,
+            "title": "Points",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "points"
+        ],
+        "title": "CloutDay",
+        "type": "object"
+      },
+      "CloutEligibility": {
+        "enum": [
+          "qualified",
+          "pending",
+          "self_use",
+          "internal_eval_demo",
+          "bot",
+          "revoked"
+        ],
+        "title": "CloutEligibility",
+        "type": "string"
+      },
+      "CloutEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "eligibility": {
+            "$ref": "#/components/schemas/CloutEligibility"
+          },
+          "event_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "identity_verified": {
+            "title": "Identity Verified",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CloutEvidenceKind"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "owner_consented": {
+            "title": "Owner Consented",
+            "type": "boolean"
+          },
+          "policy_version": {
+            "const": "synth.index.clout.v1",
+            "default": "synth.index.clout.v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "supersedes_event_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Event Id"
+          }
+        },
+        "required": [
+          "event_id",
+          "sequence",
+          "principal_id",
+          "reference",
+          "kind",
+          "receipt_id",
+          "eligibility",
+          "identity_verified",
+          "owner_consented",
+          "occurred_at"
+        ],
+        "title": "CloutEvidence",
+        "type": "object"
+      },
+      "CloutEvidenceKind": {
+        "enum": [
+          "qualified_contribution",
+          "verified_reproduction",
+          "accepted_review",
+          "organic_delivered_use"
+        ],
+        "title": "CloutEvidenceKind",
+        "type": "string"
       },
       "CollectionGrant": {
         "additionalProperties": false,
@@ -1952,6 +3340,31 @@
         "title": "ContributionView",
         "type": "object"
       },
+      "CreateCaseSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "rubric_version"
+        ],
+        "title": "CreateCaseSpec",
+        "type": "object"
+      },
       "CreateContributionSpec": {
         "additionalProperties": false,
         "description": "Creation accepts no client-selected identity, origin, or visibility.",
@@ -2010,6 +3423,59 @@
           "roles"
         ],
         "title": "CreditedContributor",
+        "type": "object"
+      },
+      "CriterionJudgment": {
+        "additionalProperties": false,
+        "properties": {
+          "check_attempt_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Check Attempt Ids",
+            "type": "array"
+          },
+          "criterion": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Criterion",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSelector"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion",
+          "outcome",
+          "rationale",
+          "evidence"
+        ],
+        "title": "CriterionJudgment",
         "type": "object"
       },
       "CustomerCharge": {
@@ -2165,6 +3631,143 @@
         "title": "DeepBetaGrantRequest",
         "type": "object"
       },
+      "DeliverableAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "digest_sha256"
+        ],
+        "title": "DeliverableAsset",
+        "type": "object"
+      },
+      "DerivationBinding-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/BuildRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v1",
+            "default": "synth.research.derivation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchSnapshot-Input"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "DerivationBinding",
+        "type": "object"
+      },
+      "DerivationBinding-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/BuildRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v1",
+            "default": "synth.research.derivation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchSnapshot-Output"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "DerivationBinding",
+        "type": "object"
+      },
+      "EscalationSpec": {
+        "additionalProperties": false,
+        "description": "Contributor (waiting) or reviewer (queue) escalation to a coordinator.",
+        "properties": {
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "manifest_digest",
+          "rubric_version",
+          "message"
+        ],
+        "title": "EscalationSpec",
+        "type": "object"
+      },
+      "EventVisibility": {
+        "description": "Shared messages reach the contributor; internal notes never do.",
+        "enum": [
+          "shared",
+          "internal"
+        ],
+        "title": "EventVisibility",
+        "type": "string"
+      },
       "EvidenceReference": {
         "additionalProperties": false,
         "properties": {
@@ -2206,6 +3809,31 @@
         "title": "EvidenceReference",
         "type": "object"
       },
+      "EvidenceSelector": {
+        "additionalProperties": false,
+        "properties": {
+          "identifier": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Identifier",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "asset",
+              "claim",
+              "evidence"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "identifier"
+        ],
+        "title": "EvidenceSelector",
+        "type": "object"
+      },
       "FeatureCapability": {
         "additionalProperties": false,
         "properties": {
@@ -2218,6 +3846,238 @@
           "enabled"
         ],
         "title": "FeatureCapability",
+        "type": "object"
+      },
+      "FindingSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "candidate_defect",
+              "infrastructure_error",
+              "unresolved"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "criterion": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Criterion",
+            "type": "string"
+          },
+          "expected": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Expected",
+            "type": "string"
+          },
+          "finding_id": {
+            "format": "uuid",
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "observed": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Observed",
+            "type": "string"
+          },
+          "remediation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Remediation",
+            "type": "string"
+          },
+          "reproduction": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Reproduction",
+            "type": "string"
+          },
+          "selectors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSelector"
+            },
+            "maxItems": 32,
+            "title": "Selectors",
+            "type": "array"
+          },
+          "severity": {
+            "enum": [
+              "blocker",
+              "change_requested",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "contributor",
+              "reviewer",
+              "internal"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "criterion",
+          "severity",
+          "category",
+          "visibility",
+          "observed",
+          "expected",
+          "reproduction",
+          "remediation"
+        ],
+        "title": "FindingSpec",
+        "type": "object"
+      },
+      "FindingView": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "format": "uuid",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "candidate_defect",
+              "infrastructure_error",
+              "unresolved"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "criterion": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Criterion",
+            "type": "string"
+          },
+          "expected": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Expected",
+            "type": "string"
+          },
+          "finding_id": {
+            "format": "uuid",
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "observed": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Observed",
+            "type": "string"
+          },
+          "producer_user_id": {
+            "format": "uuid",
+            "title": "Producer User Id",
+            "type": "string"
+          },
+          "provenance": {
+            "enum": [
+              "human",
+              "automation",
+              "agent"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "remediation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Remediation",
+            "type": "string"
+          },
+          "reproduction": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Reproduction",
+            "type": "string"
+          },
+          "selectors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSelector"
+            },
+            "maxItems": 32,
+            "title": "Selectors",
+            "type": "array"
+          },
+          "severity": {
+            "enum": [
+              "blocker",
+              "change_requested",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "contributor",
+              "reviewer",
+              "internal"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "criterion",
+          "severity",
+          "category",
+          "visibility",
+          "observed",
+          "expected",
+          "reproduction",
+          "remediation",
+          "attempt_id",
+          "producer_user_id",
+          "provenance"
+        ],
+        "title": "FindingView",
+        "type": "object"
+      },
+      "FrozenObject": {
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/ArtifactObjectDeclaration"
+          },
+          "object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "code",
+              "data",
+              "environment",
+              "protocol",
+              "attempt",
+              "analysis",
+              "authored",
+              "session"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_id",
+          "purpose",
+          "object"
+        ],
+        "title": "FrozenObject",
         "type": "object"
       },
       "GithubIdentity": {
@@ -2280,6 +4140,41 @@
           "private"
         ],
         "title": "IndexUsageSummary",
+        "type": "object"
+      },
+      "InternalNoteSpec": {
+        "additionalProperties": false,
+        "description": "Reviewer/coordinator-only note, never delivered to the contributor.",
+        "properties": {
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "manifest_digest",
+          "rubric_version",
+          "message"
+        ],
+        "title": "InternalNoteSpec",
         "type": "object"
       },
       "JsonValue": {},
@@ -2625,7 +4520,7 @@
             "type": "array"
           },
           "note": {
-            "default": "Awarded Synth cloud credits from reviewed programs; not cash or earnings owed. available_credits_cents excludes reversed and expired awards but is not reduced by later wallet spend.",
+            "default": "Index v0.2 awards are hypothetical social recognition only, with no spendable credit, cash or earnings owed. available_credits_cents is the current organization wallet after spend, expiry and live reservations, including credits from other sources; it is not an unspent contribution-award balance. Award totals describe the displayed history (at most 500 entries). Future admission rechecks limits.",
             "title": "Note",
             "type": "string"
           },
@@ -2704,6 +4599,146 @@
           "physical_attempts"
         ],
         "title": "OperationUsage",
+        "type": "object"
+      },
+      "OutputBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "release_asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Asset Id",
+            "type": "string"
+          },
+          "source_object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Source Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_asset_id",
+          "source_object_id",
+          "digest_sha256"
+        ],
+        "title": "OutputBinding",
+        "type": "object"
+      },
+      "OwnClout": {
+        "additionalProperties": false,
+        "properties": {
+          "excluded_events": {
+            "minimum": 0.0,
+            "title": "Excluded Events",
+            "type": "integer"
+          },
+          "pending_events": {
+            "minimum": 0.0,
+            "title": "Pending Events",
+            "type": "integer"
+          },
+          "policy_version": {
+            "const": "synth.index.clout.v1",
+            "default": "synth.index.clout.v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "private_calendar": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CloutDay"
+            },
+            "title": "Private Calendar",
+            "type": "array"
+          },
+          "private_points": {
+            "minimum": 0.0,
+            "title": "Private Points",
+            "type": "integer"
+          },
+          "public_calendar": {
+            "items": {
+              "$ref": "#/components/schemas/CloutDay"
+            },
+            "title": "Public Calendar",
+            "type": "array"
+          },
+          "public_points": {
+            "minimum": 0.0,
+            "title": "Public Points",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "public_points",
+          "private_points",
+          "pending_events",
+          "excluded_events",
+          "public_calendar"
+        ],
+        "title": "OwnClout",
+        "type": "object"
+      },
+      "OwnCloutPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CloutEvidence"
+            },
+            "maxItems": 200,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "scope": {
+            "default": "Currently authorized revisions; private reads follow the current organization",
+            "title": "Scope",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/OwnClout"
+          }
+        },
+        "required": [
+          "summary",
+          "items"
+        ],
+        "title": "OwnCloutPage",
+        "type": "object"
+      },
+      "PreflightResult": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/CheckAttemptView"
+            },
+            "maxItems": 5,
+            "minItems": 5,
+            "title": "Attempts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "attempts"
+        ],
+        "title": "PreflightResult",
         "type": "object"
       },
       "PrivatePromoCredit": {
@@ -2894,6 +4929,27 @@
         "title": "PrivateUsage",
         "type": "object"
       },
+      "ProfileAffiliation": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "public": {
+            "default": false,
+            "title": "Public",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "ProfileAffiliation",
+        "type": "object"
+      },
       "ProfileCard": {
         "additionalProperties": false,
         "properties": {
@@ -3064,6 +5120,62 @@
         "title": "ProfileView",
         "type": "object"
       },
+      "ProfileVisibility": {
+        "additionalProperties": false,
+        "properties": {
+          "affiliations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProfileAffiliation"
+            },
+            "maxItems": 16,
+            "title": "Affiliations",
+            "type": "array"
+          },
+          "public_calendar": {
+            "default": false,
+            "title": "Public Calendar",
+            "type": "boolean"
+          },
+          "public_card_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Public Card Ids",
+            "type": "array"
+          },
+          "public_clout": {
+            "default": false,
+            "title": "Public Clout",
+            "type": "boolean"
+          },
+          "public_display_name": {
+            "default": false,
+            "title": "Public Display Name",
+            "type": "boolean"
+          },
+          "public_github": {
+            "default": false,
+            "title": "Public Github",
+            "type": "boolean"
+          },
+          "public_identity": {
+            "default": false,
+            "title": "Public Identity",
+            "type": "boolean"
+          },
+          "public_reuse": {
+            "default": false,
+            "title": "Public Reuse",
+            "type": "boolean"
+          }
+        },
+        "title": "ProfileVisibility",
+        "type": "object"
+      },
       "PromoCreditSummary": {
         "additionalProperties": false,
         "description": "Separate read model so the strict usage summary shape stays unchanged.",
@@ -3083,6 +5195,66 @@
           "credit"
         ],
         "title": "PromoCreditSummary",
+        "type": "object"
+      },
+      "PublicClout": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar": {
+            "items": {
+              "$ref": "#/components/schemas/CloutDay"
+            },
+            "title": "Calendar",
+            "type": "array"
+          },
+          "points": {
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "policy_version": {
+            "const": "synth.index.clout.v1",
+            "default": "synth.index.clout.v1",
+            "title": "Policy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "points",
+          "calendar"
+        ],
+        "title": "PublicClout",
+        "type": "object"
+      },
+      "PublicProfileValue": {
+        "additionalProperties": false,
+        "properties": {
+          "affiliation_status": {
+            "default": "Self-declared; not verified affiliations",
+            "title": "Affiliation Status",
+            "type": "string"
+          },
+          "affiliations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Affiliations",
+            "type": "array"
+          },
+          "clout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicClout"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "PublicProfileValue",
         "type": "object"
       },
       "PublicSearchAccepted": {
@@ -3373,6 +5545,9 @@
       "PublicSearchRequest": {
         "additionalProperties": false,
         "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
           "idempotency_key": {
             "anyOf": [
               {
@@ -3562,6 +5737,553 @@
         "title": "PublicationStatus",
         "type": "object"
       },
+      "QaAssessmentSource": {
+        "additionalProperties": false,
+        "description": "Private exact QA provenance for an explicitly authorized canonical review.\n\nSee notes/specifications/synth-index/contribution-qa-cases.md. It grants no\ncapability, publication, archive access or author consent.",
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expected_case_version": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Expected Case Version",
+            "type": "integer"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.qa-assessment-source.v1",
+            "default": "synth.index.qa-assessment-source.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "review_id",
+          "expected_case_version"
+        ],
+        "title": "QaAssessmentSource",
+        "type": "object"
+      },
+      "ReceiptMetric-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maximum": 1e+18,
+                "minimum": -1e+18,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,20}|(?=[\\d.]{1,31}0*$)\\d{0,20}\\.\\d{0,10}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit"
+        ],
+        "title": "ReceiptMetric",
+        "type": "object"
+      },
+      "ReceiptMetric-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,20}|(?=[\\d.]{1,31}0*$)\\d{0,20}\\.\\d{0,10}0*$)",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit"
+        ],
+        "title": "ReceiptMetric",
+        "type": "object"
+      },
+      "RecordCheckSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "format": "uuid",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,17}0*$)\\d{0,8}\\.\\d{0,8}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Cost Usd"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "findings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FindingSpec"
+            },
+            "maxItems": 64,
+            "title": "Findings",
+            "type": "array"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "gate": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Gate",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "policy_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "provenance": {
+            "enum": [
+              "human",
+              "automation",
+              "agent"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckReceipt-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rubric_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tool_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Tool Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "attempt_id",
+          "manifest_digest",
+          "rubric_version",
+          "gate",
+          "run_id",
+          "tool_version",
+          "policy_version",
+          "outcome",
+          "reason",
+          "started_at",
+          "finished_at",
+          "provenance"
+        ],
+        "title": "RecordCheckSpec",
+        "type": "object"
+      },
+      "RecordReviewSpec-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "format": "uuid",
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionJudgment"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Criteria",
+            "type": "array"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "const": "content-v1",
+            "default": "content-v1",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "expected_version",
+          "assignment_id",
+          "manifest_digest",
+          "decision",
+          "summary",
+          "criteria"
+        ],
+        "title": "RecordReviewSpec",
+        "type": "object"
+      },
+      "RecordReviewSpec-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "format": "uuid",
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionJudgment"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Criteria",
+            "type": "array"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "const": "content-v1",
+            "default": "content-v1",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "expected_version",
+          "assignment_id",
+          "manifest_digest",
+          "decision",
+          "summary",
+          "criteria"
+        ],
+        "title": "RecordReviewSpec",
+        "type": "object"
+      },
+      "ReleaseConsentSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "disclosure_digest",
+          "audience"
+        ],
+        "title": "ReleaseConsentSpec",
+        "type": "object"
+      },
+      "ReleaseConsentView": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "consented": {
+            "title": "Consented",
+            "type": "boolean"
+          },
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id",
+          "manifest_digest",
+          "disclosure_digest",
+          "audience",
+          "consented"
+        ],
+        "title": "ReleaseConsentView",
+        "type": "object"
+      },
+      "ReleaseDisclosure": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "classification_version": {
+            "minimum": 1.0,
+            "title": "Classification Version",
+            "type": "integer"
+          },
+          "deliverable_assets": {
+            "items": {
+              "$ref": "#/components/schemas/DeliverableAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Deliverable Assets",
+            "type": "array"
+          },
+          "disclosure_version": {
+            "minimum": 1.0,
+            "title": "Disclosure Version",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "release_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Collection Id",
+            "type": "string"
+          },
+          "release_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Release Manifest Digest Sha256",
+            "type": "string"
+          },
+          "representations": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovedRepresentation"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Representations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.contribution.release-disclosure.v1",
+            "default": "synth.contribution.release-disclosure.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "release_collection_id",
+          "release_manifest_digest_sha256",
+          "audience",
+          "disclosure_version",
+          "classification_version",
+          "deliverable_assets",
+          "representations"
+        ],
+        "title": "ReleaseDisclosure",
+        "type": "object"
+      },
+      "ReleaseReproductionView": {
+        "additionalProperties": false,
+        "properties": {
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "artifact_reconstruction",
+              "analysis_recomputation",
+              "experimental_rerun"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "outcome",
+          "limitations"
+        ],
+        "title": "ReleaseReproductionView",
+        "type": "object"
+      },
+      "ReleaseResearchView": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          },
+          "reproduction": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseReproductionView"
+            },
+            "maxItems": 64,
+            "title": "Reproduction",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.release-research.v2",
+            "default": "synth.index.release-research.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disclosure",
+          "disclosure_digest",
+          "reproduction"
+        ],
+        "title": "ReleaseResearchView",
+        "type": "object"
+      },
       "Reproduction": {
         "additionalProperties": false,
         "properties": {
@@ -3625,6 +6347,189 @@
         "title": "Reproduction",
         "type": "object"
       },
+      "ReproductionAttestationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/ReproductionReceipt"
+          }
+        },
+        "required": [
+          "binding_digest",
+          "receipt"
+        ],
+        "title": "ReproductionAttestationSpec",
+        "type": "object"
+      },
+      "ReproductionReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "evidence_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Evidence Object Ids",
+            "type": "array"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "recipe_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Recipe Digest Sha256",
+            "type": "string"
+          },
+          "release_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Release Manifest Digest Sha256",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.reproduction-receipt.v1",
+            "default": "synth.research.reproduction-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "artifact_reconstruction",
+              "analysis_recomputation",
+              "experimental_rerun"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          },
+          "verifier_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Verifier Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "snapshot_digest_sha256",
+          "recipe_digest_sha256",
+          "release_manifest_digest_sha256",
+          "scope",
+          "outcome",
+          "checked_at",
+          "verifier_id",
+          "evidence_object_ids",
+          "limitations"
+        ],
+        "title": "ReproductionReceipt",
+        "type": "object"
+      },
+      "ResearchArchiveAllocation": {
+        "additionalProperties": false,
+        "description": "Customer allocation receipt; storage namespace stays server-side.\n\nSee notes/specifications/synth-index/research-archive-release.md.",
+        "properties": {
+          "collection_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.research-archive-allocation.v1",
+            "default": "synth.index.research-archive-allocation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ArtifactResourceScope"
+          }
+        },
+        "required": [
+          "collection_id",
+          "scope"
+        ],
+        "title": "ResearchArchiveAllocation",
+        "type": "object"
+      },
+      "ResearchArchiveAllocationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "ResearchArchiveAllocationSpec",
+        "type": "object"
+      },
+      "ResearchArchiveView": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_publication_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "attestations": {
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 3,
+            "title": "Attestations",
+            "type": "array"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/DerivationBinding-Output"
+          },
+          "schema_version": {
+            "const": "synth.index.private-research.v2",
+            "default": "synth.index.private-research.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_publication_id",
+          "binding",
+          "attestations"
+        ],
+        "title": "ResearchArchiveView",
+        "type": "object"
+      },
       "ResearchArea": {
         "enum": [
           "data",
@@ -3641,6 +6546,31 @@
         ],
         "title": "ResearchArea",
         "type": "string"
+      },
+      "ResearchBindingSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Manifest Digest",
+            "type": "string"
+          },
+          "archive_publication_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/DerivationBinding-Input"
+          }
+        },
+        "required": [
+          "archive_publication_id",
+          "archive_manifest_digest",
+          "binding"
+        ],
+        "title": "ResearchBindingSpec",
+        "type": "object"
       },
       "ResearchCard": {
         "additionalProperties": false,
@@ -3711,6 +6641,169 @@
           "revision_status"
         ],
         "title": "ResearchLookupView",
+        "type": "object"
+      },
+      "ResearchRevocationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Disclosure Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disclosure_digest"
+        ],
+        "title": "ResearchRevocationSpec",
+        "type": "object"
+      },
+      "ResearchSnapshot-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "minItems": 1,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v1",
+            "default": "synth.research.snapshot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Input"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects",
+          "attempts"
+        ],
+        "title": "ResearchSnapshot",
+        "type": "object"
+      },
+      "ResearchSnapshot-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "minItems": 1,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v1",
+            "default": "synth.research.snapshot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Output"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects",
+          "attempts"
+        ],
+        "title": "ResearchSnapshot",
         "type": "object"
       },
       "ResearchSource": {
@@ -3909,6 +7002,87 @@
         "title": "ReviewDecision",
         "type": "string"
       },
+      "ReviewFact": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "case_sequence": {
+            "minimum": 1.0,
+            "title": "Case Sequence",
+            "type": "integer"
+          },
+          "declared_provenance": {
+            "enum": [
+              "human",
+              "agent_assisted",
+              "agent"
+            ],
+            "title": "Declared Provenance",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "human_identity_verified": {
+            "const": false,
+            "default": false,
+            "title": "Human Identity Verified",
+            "type": "boolean"
+          },
+          "publication_authorized": {
+            "const": false,
+            "default": false,
+            "title": "Publication Authorized",
+            "type": "boolean"
+          },
+          "qualification_authorized": {
+            "const": false,
+            "default": false,
+            "title": "Qualification Authorized",
+            "type": "boolean"
+          },
+          "review": {
+            "$ref": "#/components/schemas/RecordReviewSpec-Output"
+          },
+          "reviewer_org_id": {
+            "format": "uuid",
+            "title": "Reviewer Org Id",
+            "type": "string"
+          },
+          "reviewer_policy": {
+            "$ref": "#/components/schemas/ReviewerPolicy"
+          },
+          "reviewer_user_id": {
+            "format": "uuid",
+            "title": "Reviewer User Id",
+            "type": "string"
+          },
+          "scientific_verification": {
+            "const": false,
+            "default": false,
+            "title": "Scientific Verification",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "case_sequence",
+          "event_id",
+          "reviewer_user_id",
+          "reviewer_org_id",
+          "declared_provenance",
+          "reviewer_policy",
+          "review"
+        ],
+        "title": "ReviewFact",
+        "type": "object"
+      },
       "ReviewList": {
         "additionalProperties": false,
         "properties": {
@@ -4023,6 +7197,36 @@
         "title": "ReviewListItem",
         "type": "object"
       },
+      "ReviewReport": {
+        "additionalProperties": false,
+        "properties": {
+          "next_after": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewFact"
+            },
+            "maxItems": 3,
+            "title": "Reviews",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reviews"
+        ],
+        "title": "ReviewReport",
+        "type": "object"
+      },
       "ReviewSpec": {
         "additionalProperties": false,
         "properties": {
@@ -4055,6 +7259,16 @@
               }
             ],
             "title": "Manifest Digest"
+          },
+          "qa_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QaAssessmentSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4063,6 +7277,16 @@
         ],
         "title": "ReviewSpec",
         "type": "object"
+      },
+      "ReviewerPolicy": {
+        "description": "Recorded policy under which a review's approval power was admitted.\n\nThe label is derived from the accepted assignment's declared provenance; it is\nnever a claim of human identity. Agent-only approval is admitted only under\n``AGENT_INDEPENDENT``: an independently attributed agent identity, distinct from\nevery credited contributor and every producer of the evidence it cites, with\neach criterion grounded in an executed, conclusive check attempt.",
+        "enum": [
+          "qa-human-review-v1",
+          "qa-agent-assisted-review-v1",
+          "qa-agent-independent-review-v1"
+        ],
+        "title": "ReviewerPolicy",
+        "type": "string"
       },
       "RevisionCreateSpec": {
         "additionalProperties": false,
@@ -4530,6 +7754,27 @@
           "reason"
         ],
         "title": "RewardReverseSpec",
+        "type": "object"
+      },
+      "RunPreflightSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "run_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "expected_version"
+        ],
+        "title": "RunPreflightSpec",
         "type": "object"
       },
       "Search": {
@@ -5612,7 +8857,8 @@
                   "none",
                   "promo_credit",
                   "deep_beta",
-                  "wallet"
+                  "wallet",
+                  "service_free_public"
                 ],
                 "type": "string"
               },
@@ -5740,6 +8986,200 @@
         "title": "SearchUsageSummaryRow",
         "type": "object"
       },
+      "SessionExport-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Completeness",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "event_end_exclusive": {
+            "minimum": 0.0,
+            "title": "Event End Exclusive",
+            "type": "integer"
+          },
+          "event_start": {
+            "minimum": 0.0,
+            "title": "Event Start",
+            "type": "integer"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "native_objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Native Objects",
+            "type": "array"
+          },
+          "native_session_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Native Session Id",
+            "type": "string"
+          },
+          "parent_native_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Parent Native Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.session-export.v1",
+            "default": "synth.research.session-export.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "codex",
+              "swarms",
+              "mlok"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "native_session_id",
+          "event_start",
+          "event_end_exclusive",
+          "captured_at",
+          "cutoff_at",
+          "completeness",
+          "native_objects"
+        ],
+        "title": "SessionExport",
+        "type": "object"
+      },
+      "SessionExport-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Completeness",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "event_end_exclusive": {
+            "minimum": 0.0,
+            "title": "Event End Exclusive",
+            "type": "integer"
+          },
+          "event_start": {
+            "minimum": 0.0,
+            "title": "Event Start",
+            "type": "integer"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "native_objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Native Objects",
+            "type": "array"
+          },
+          "native_session_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Native Session Id",
+            "type": "string"
+          },
+          "parent_native_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Parent Native Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.session-export.v1",
+            "default": "synth.research.session-export.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "codex",
+              "swarms",
+              "mlok"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "native_session_id",
+          "event_start",
+          "event_end_exclusive",
+          "captured_at",
+          "cutoff_at",
+          "completeness",
+          "native_objects"
+        ],
+        "title": "SessionExport",
+        "type": "object"
+      },
       "SettlementState": {
         "enum": [
           "not_applicable",
@@ -5751,6 +9191,156 @@
         ],
         "title": "SettlementState",
         "type": "string"
+      },
+      "StarterBrief": {
+        "additionalProperties": false,
+        "properties": {
+          "brief_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Brief Id",
+            "type": "string"
+          },
+          "budget": {
+            "title": "Budget",
+            "type": "string"
+          },
+          "eligibility": {
+            "title": "Eligibility",
+            "type": "string"
+          },
+          "qa": {
+            "title": "Qa",
+            "type": "string"
+          },
+          "rights": {
+            "title": "Rights",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "submission_path": {
+            "const": "/index/contribute",
+            "default": "/index/contribute",
+            "title": "Submission Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brief_id",
+          "title",
+          "scope",
+          "steps",
+          "budget",
+          "rights",
+          "qa",
+          "eligibility"
+        ],
+        "title": "StarterBrief",
+        "type": "object"
+      },
+      "StarterPreference": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "selected_brief_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Brief Id"
+          }
+        },
+        "title": "StarterPreference",
+        "type": "object"
+      },
+      "StarterState": {
+        "additionalProperties": false,
+        "properties": {
+          "allowance_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowance Expires At"
+          },
+          "allowance_status": {
+            "enum": [
+              "unknown",
+              "available",
+              "near_limit",
+              "exhausted",
+              "expired"
+            ],
+            "title": "Allowance Status",
+            "type": "string"
+          },
+          "briefs": {
+            "items": {
+              "$ref": "#/components/schemas/StarterBrief"
+            },
+            "title": "Briefs",
+            "type": "array"
+          },
+          "note": {
+            "default": "DEEP beta allowance includes live reservations. Other quotas are not inferred. No work or charge starts when selecting a brief.",
+            "title": "Note",
+            "type": "string"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/StarterPreference"
+          },
+          "remaining_units": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Units"
+          },
+          "show_offer": {
+            "title": "Show Offer",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "preference",
+          "allowance_status",
+          "show_offer",
+          "briefs"
+        ],
+        "title": "StarterState",
+        "type": "object"
       },
       "TagRegistry": {
         "additionalProperties": false,
@@ -5946,6 +9536,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -7060,6 +10657,185 @@
         ]
       }
     },
+    "/api/v1/index/contributions/{contribution_id}/research-archives": {
+      "post": {
+        "operationId": "index.research.archives.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchArchiveAllocationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchArchiveAllocation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Allocate",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/research-archives/{snapshot_id}/finalize": {
+      "post": {
+        "operationId": "index.research.archives.upload.finalize",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactPublicationFinalize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactPublicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/research-archives/{snapshot_id}/upload": {
+      "post": {
+        "operationId": "index.research.archives.upload.prepare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactPublicationPrepare"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactPublicationPrepareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}/revisions": {
       "post": {
         "operationId": "index.contributions.revisions.create",
@@ -7386,6 +11162,259 @@
         ]
       }
     },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/classification": {
+      "get": {
+        "operationId": "index.classification.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Current",
+        "tags": [
+          "index-classification"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/classification-decisions": {
+      "post": {
+        "operationId": "index.classification.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationDecisionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "index-classification"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/disclosure-revocation": {
+      "post": {
+        "operationId": "index.research.disclosure.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchRevocationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/finalize": {
       "post": {
         "operationId": "index.contributions.upload.finalize",
@@ -7446,6 +11475,486 @@
         "summary": "Finalize",
         "tags": [
           "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/release-consent": {
+      "post": {
+        "operationId": "index.research.consent.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseConsentSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Consent",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/release-research": {
+      "get": {
+        "operationId": "index.research.release.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseResearchView"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Index.Research.Release.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Released",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/reproduction-attestations": {
+      "post": {
+        "operationId": "index.research.reproduction.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReproductionAttestationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReproductionReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attest",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-archive": {
+      "get": {
+        "operationId": "index.research.archive.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchArchiveView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archived",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-archive/grants": {
+      "get": {
+        "operationId": "index.research.archive.grants.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionGrants"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Grants",
+        "tags": [
+          "index-research"
+        ]
+      },
+      "post": {
+        "operationId": "index.research.archive.grants.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectionGrantSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionGrant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Grant",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-archive/grants/{grant_id}": {
+      "delete": {
+        "operationId": "index.research.archive.grants.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionGrantRevoked"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Grant Revoke",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-binding": {
+      "post": {
+        "operationId": "index.research.binding.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchBindingSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDisclosure"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind",
+        "tags": [
+          "index-research"
         ]
       }
     },
@@ -7893,6 +12402,65 @@
         ]
       }
     },
+    "/api/v1/index/me/clout": {
+      "get": {
+        "operationId": "index.me.clout.retrieve",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnCloutPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Value Ledger",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
     "/api/v1/index/me/contributions": {
       "get": {
         "operationId": "index.me.contributions.list",
@@ -7996,6 +12564,66 @@
         ]
       }
     },
+    "/api/v1/index/me/profile/visibility": {
+      "get": {
+        "operationId": "index.me.profile.visibility.retrieve",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileVisibility"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Visibility",
+        "tags": [
+          "index-reads"
+        ]
+      },
+      "put": {
+        "operationId": "index.me.profile.visibility.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileVisibility"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileVisibility"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Visibility",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
     "/api/v1/index/me/promo-credit": {
       "get": {
         "description": "Current-org private-search promo balance; ``credit`` is null if not enrolled.",
@@ -8036,6 +12664,68 @@
         "summary": "Rewards",
         "tags": [
           "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/me/starters": {
+      "get": {
+        "operationId": "index.me.starters.retrieve",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Starter Projects",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/me/starters/preference": {
+      "put": {
+        "operationId": "index.me.starters.preference.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarterPreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterPreference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Starter Preference",
+        "tags": [
+          "index-reads"
         ]
       }
     },
@@ -8758,6 +13448,49 @@
         ]
       }
     },
+    "/api/v1/index/profiles/{principal_id}/value": {
+      "get": {
+        "operationId": "index.profiles.value.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileValue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile Value",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
     "/api/v1/index/public/capabilities": {
       "get": {
         "operationId": "index.public.capabilities",
@@ -8977,6 +13710,120 @@
         ]
       }
     },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/classification": {
+      "get": {
+        "operationId": "index.public.classification.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classification",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/release-research": {
+      "get": {
+        "operationId": "index.public.research.release.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseResearchView"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Index.Public.Research.Release.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Research",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
     "/api/v1/index/public/profiles/{principal_id}": {
       "get": {
         "operationId": "index.public.profiles.retrieve",
@@ -9015,6 +13862,49 @@
           }
         },
         "summary": "Profile",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/profiles/{principal_id}/value": {
+      "get": {
+        "operationId": "index.public.profiles.value.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileValue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile Value",
         "tags": [
           "index-public"
         ]
@@ -9518,6 +14408,1073 @@
         ]
       }
     },
+    "/api/v1/index/qa/assignments": {
+      "get": {
+        "operationId": "index.qa.assignments.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentView"
+                  },
+                  "title": "Response Index.Qa.Assignments.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Assignments",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/assignments/{assignment_id}/accept": {
+      "post": {
+        "operationId": "index.qa.assignments.accept",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptAssignmentSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/assignments/{assignment_id}/revoke": {
+      "post": {
+        "operationId": "index.qa.assignments.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases": {
+      "post": {
+        "operationId": "index.qa.cases.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCaseSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}": {
+      "get": {
+        "operationId": "index.qa.cases.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/adjudications": {
+      "post": {
+        "operationId": "index.qa.adjudications.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjudicationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adjudicate",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/appeals": {
+      "post": {
+        "operationId": "index.qa.appeals.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppealSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/assets/{asset_id}": {
+      "get": {
+        "operationId": "index.qa.assets.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Asset",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/assignments": {
+      "post": {
+        "operationId": "index.qa.assignments.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/checks": {
+      "get": {
+        "operationId": "index.qa.checks.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Report",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      },
+      "post": {
+        "operationId": "index.qa.checks.record",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordCheckSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckAttemptView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Check",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/checks/preflight": {
+      "post": {
+        "operationId": "index.qa.checks.preflight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPreflightSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreflightResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Preflight",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/checks/secret-scan": {
+      "post": {
+        "operationId": "index.qa.checks.secret_scan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPreflightSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckAttemptView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Secret Scan",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/escalations": {
+      "post": {
+        "operationId": "index.qa.escalations.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscalationSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Escalate",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/events": {
+      "get": {
+        "operationId": "index.qa.events.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEvents"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      },
+      "post": {
+        "operationId": "index.qa.events.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseEventSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Event",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/internal-notes": {
+      "post": {
+        "operationId": "index.qa.notes.create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalNoteSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Internal Note",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/package": {
+      "get": {
+        "operationId": "index.qa.package.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionPackage-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Package",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
+    "/api/v1/index/qa/cases/{case_id}/reviews": {
+      "get": {
+        "operationId": "index.qa.reviews.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Report",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      },
+      "post": {
+        "operationId": "index.qa.reviews.record",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 119,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordReviewSpec-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewFact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Review",
+        "tags": [
+          "index-contribution-qa"
+        ]
+      }
+    },
     "/api/v1/index/reviews": {
       "get": {
         "operationId": "index.reviews.list",
@@ -9624,6 +15581,9 @@
             },
             "description": "Successful Response"
           },
+          "403": {
+            "description": "credit_awards_unavailable; no wallet effect"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -9635,7 +15595,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Award",
+        "summary": "Unavailable in v0.2: awards are social recognition only",
         "tags": [
           "index-programs"
         ]
