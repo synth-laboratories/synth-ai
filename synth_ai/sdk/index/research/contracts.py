@@ -47,7 +47,10 @@ def contract_digest(value: IndexContract) -> str:
 
 
 class FrozenObject(IndexContract):
+    """One exact frozen artifact declaration with its role in the research archive."""
+    #: Unique identity of this frozen object within the snapshot.
     object_id: Identifier
+    #: Declared input role; native session exports must use the session purpose.
     purpose: Literal[
         "code",
         "data",
@@ -58,20 +61,33 @@ class FrozenObject(IndexContract):
         "authored",
         "session",
     ]
+    #: Immutable artifact path, digest, byte count and media type.
     object: ArtifactObjectDeclaration
 
 
 class SessionExport(IndexContract):
+    """Bounded native session capture with an explicit cutoff and completeness gaps."""
+    #: Exact wire schema identifier.
     schema_version: Literal["synth.research.session-export.v1"] = "synth.research.session-export.v1"
+    #: Native session producer: Codex, Swarms or mlok.
     source: Literal["codex", "swarms", "mlok"]
+    #: Private native session identity retained only in the archive.
     native_session_id: ShortText
+    #: Distinct parent session identities; the session cannot parent itself.
     parent_native_ids: tuple[ShortText, ...] = Field(default=(), max_length=64)
+    #: Inclusive nonnegative start of the captured native event interval.
     event_start: int = Field(ge=0)
+    #: Exclusive end of the captured native event interval.
     event_end_exclusive: int = Field(ge=0)
+    #: Timezone-aware capture timestamp normalized to UTC.
     captured_at: AwareDatetime
+    #: Timezone-aware frozen cutoff; sessions cannot exceed the containing snapshot cutoff.
     cutoff_at: AwareDatetime
+    #: Whether the export is complete or has explicitly declared gaps.
     completeness: Literal["complete", "partial"]
+    #: Declared missing capture segments; required for partial exports and absent for complete exports.
     gaps: tuple[ShortText, ...] = Field(default=(), max_length=256)
+    #: Exact frozen session objects represented by this export.
     native_objects: tuple[FrozenObject, ...] = Field(min_length=1, max_length=1024)
 
     @field_validator("captured_at", "cutoff_at")
@@ -97,22 +113,38 @@ class SessionExport(IndexContract):
 
 
 class Attempt(IndexContract):
+    """Retained research attempt, including unsuccessful and excluded work."""
+    #: Unique research attempt identifier within the snapshot.
     attempt_id: Identifier
+    #: Recorded result; failed, excluded, cancelled and abandoned attempts remain evidence.
     outcome: Literal["succeeded", "failed", "excluded", "cancelled", "abandoned"]
+    #: Distinct frozen input object identities consumed by the attempt.
     input_object_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=1024)
+    #: Distinct frozen observations retained from the attempt.
     observation_object_ids: tuple[Identifier, ...] = Field(default=(), max_length=1024)
+    #: Explanation of the attempt result or exclusion.
     explanation: ShortText
+    #: Whether the finding was positive, negative, null or not assessed.
     finding: Literal["positive", "negative", "null", "not_assessed"]
 
 
 class ResearchSnapshot(IndexContract):
+    """Closed research input archive with exact objects, sessions and attempt ledger."""
+    #: Exact wire schema identifier.
     schema_version: Literal["synth.research.snapshot.v1"] = "synth.research.snapshot.v1"
+    #: Frozen snapshot identity.
     snapshot_id: Identifier
+    #: Parent snapshot identity, or none for a root snapshot.
     parent_snapshot_id: Identifier | None = None
+    #: Private retained-input collection, separate from the release collection.
     archive_collection_id: Identifier
+    #: Timezone-aware frozen cutoff; sessions cannot exceed the containing snapshot cutoff.
     cutoff_at: AwareDatetime
+    #: Closed frozen object set with unique object identities and logical paths.
     objects: tuple[FrozenObject, ...] = Field(min_length=1, max_length=4096)
+    #: Bounded native session exports whose objects are present in the snapshot.
     sessions: tuple[SessionExport, ...] = Field(default=(), max_length=256)
+    #: Explicit retained ledger of successful and unsuccessful research attempts.
     attempts: tuple[Attempt, ...] = Field(min_length=1, max_length=100_000)
 
     @field_validator("cutoff_at")
@@ -149,18 +181,30 @@ class ResearchSnapshot(IndexContract):
 
 
 class OutputBinding(IndexContract):
+    """Approved release asset bound to one frozen source object and digest."""
+    #: Identifier of the deliverable asset produced by this recipe output.
     release_asset_id: Identifier
+    #: Frozen object supplying the exact output bytes.
     source_object_id: Identifier
+    #: Lowercase SHA-256 digest of the exact referenced bytes.
     digest_sha256: Digest
 
 
 class BuildRecipe(IndexContract):
+    """Deterministic frozen-copy recipe with explicit environment, authored inputs and outputs."""
+    #: Exact wire schema identifier.
     schema_version: Literal["synth.research.build-recipe.v1"] = "synth.research.build-recipe.v1"
+    #: Identifier of this deterministic build recipe.
     recipe_id: Identifier
+    #: SHA-256 digest of the canonical frozen snapshot contract.
     snapshot_digest_sha256: Digest
+    #: Frozen-copy builder identity; no arbitrary code execution is implied.
     builder_version: Literal["frozen-copy-v1"] = "frozen-copy-v1"
+    #: Frozen objects with the environment purpose required by this recipe.
     environment_object_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=64)
+    #: Frozen objects with the authored purpose required by this recipe.
     authored_object_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=1024)
+    #: Distinct release assets bound to exact frozen source object bytes.
     outputs: tuple[OutputBinding, ...] = Field(min_length=1, max_length=1024)
 
     @model_validator(mode="after")
@@ -172,29 +216,48 @@ class BuildRecipe(IndexContract):
 
 
 class ApprovedRepresentation(IndexContract):
+    """Explicit indexable interpretation of an exact deliverable asset."""
+    #: Unique identity of the approved indexable representation.
     representation_id: Identifier
+    #: Identifier of the exact deliverable asset.
     asset_id: Identifier
+    #: Lowercase SHA-256 digest of the exact referenced bytes.
     digest_sha256: Digest
+    #: Pinned parser identity used to interpret the disclosed bytes.
     parser_version: Identifier
+    #: Approved representation type: UTF-8 text or an approved caption.
     kind: Literal["utf8_text", "approved_caption"]
 
 
 class DeliverableAsset(IndexContract):
+    """Exact asset bytes approved for release disclosure."""
+    #: Identifier of the exact deliverable asset.
     asset_id: Identifier
+    #: Lowercase SHA-256 digest of the exact referenced bytes.
     digest_sha256: Digest
 
 
 class ReleaseDisclosure(IndexContract):
+    """Audience-bound release assets and representations; excludes private archive identities."""
+    #: Exact wire schema identifier.
     schema_version: Literal["synth.contribution.release-disclosure.v1"] = (
         "synth.contribution.release-disclosure.v1"
     )
+    #: Exact Contribution and revision authorized by this disclosure.
     reference: ContributionReference
+    #: Released-output collection, distinct from the private input archive.
     release_collection_id: Identifier
+    #: SHA-256 digest of the exact released manifest.
     release_manifest_digest_sha256: Digest
+    #: Audience approved for this exact release disclosure.
     audience: ContributionAudience
+    #: Positive version of the approved disclosure.
     disclosure_version: int = Field(ge=1)
+    #: Positive classification version used by this disclosure.
     classification_version: int = Field(ge=1)
+    #: Distinct exact assets approved for delivery to the specified audience.
     deliverable_assets: tuple[DeliverableAsset, ...] = Field(min_length=1, max_length=1024)
+    #: Approved indexable representations bound to deliverable asset digests.
     representations: tuple[ApprovedRepresentation, ...] = Field(min_length=1, max_length=1024)
 
     @model_validator(mode="after")
@@ -214,26 +277,44 @@ class ReleaseDisclosure(IndexContract):
 
 
 class ReproductionReceipt(IndexContract):
+    """Verifier observation binding reproduction scope and outcome to exact inputs and outputs."""
+    #: Exact wire schema identifier.
     schema_version: Literal["synth.research.reproduction-receipt.v1"] = (
         "synth.research.reproduction-receipt.v1"
     )
+    #: Identifier of this verifier receipt.
     receipt_id: Identifier
+    #: SHA-256 digest of the canonical frozen snapshot contract.
     snapshot_digest_sha256: Digest
+    #: SHA-256 digest of the canonical recipe contract.
     recipe_digest_sha256: Digest
+    #: SHA-256 digest of the exact released manifest.
     release_manifest_digest_sha256: Digest
+    #: What was actually reproduced: artifact reconstruction, analysis recomputation or experimental rerun.
     scope: Literal["artifact_reconstruction", "analysis_recomputation", "experimental_rerun"]
+    #: Recorded result; failed, excluded, cancelled and abandoned attempts remain evidence.
     outcome: Literal["passed", "failed", "not_applicable"]
+    #: Timezone-aware verification timestamp.
     checked_at: AwareDatetime
+    #: Identity of the verifier that produced this observation.
     verifier_id: Identifier
+    #: Frozen evidence object identities supporting the receipt.
     evidence_object_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=1024)
+    #: Explicit limitations of reproduction scope or outcome.
     limitations: ShortText
 
 
 class DerivationBinding(IndexContract):
+    """Validated join of frozen archive, recipe, disclosure and reproduction evidence."""
+    #: Exact wire schema identifier.
     schema_version: Literal["synth.research.derivation.v1"] = "synth.research.derivation.v1"
+    #: Exact closed retained-input snapshot.
     snapshot: ResearchSnapshot
+    #: Deterministic recipe bound to the canonical snapshot digest.
     recipe: BuildRecipe
+    #: Exact audience-bound approved release projection.
     disclosure: ReleaseDisclosure
+    #: Bounded reproduction observations matching snapshot, recipe and release manifest.
     reproduction_receipts: tuple[ReproductionReceipt, ...] = Field(default=(), max_length=64)
 
     @model_validator(mode="after")
