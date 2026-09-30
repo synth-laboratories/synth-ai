@@ -13,6 +13,18 @@ from .client import AsyncIndexAPI, IndexAPI
 
 
 def oauth_headers(access_token: str) -> dict[str, str]:
+    """Build the explicit Clerk authorization headers without storing credentials.
+
+    Args:
+        access_token: Current nonempty token without whitespace, supplied by the caller.
+    Returns:
+        Bearer authorization and Clerk provider headers for the Index transport.
+    Raises:
+        ValueError: The token is empty, non-string or contains whitespace.
+    Examples:
+        >>> oauth_headers("example-token")["X-Synth-OAuth-Provider"]
+        'clerk'
+    """
     if (
         not isinstance(access_token, str)
         or not access_token
@@ -33,11 +45,38 @@ def _validate_url(base_url: str) -> None:
 
 
 def index_with_oauth(base_url: str, access_token: str) -> IndexAPI:
-    """Create an Index client; close its transport when finished."""
+    """Create an Index client using the caller's current Clerk access token.
+
+    Args:
+        base_url: HTTPS backend origin, or HTTP on local loopback, without credentials,
+            query or fragment.
+        access_token: Current explicit token; the client does not login, refresh or store it.
+    Returns:
+        Index client whose transport the caller must close when finished.
+    Raises:
+        ValueError: The backend URL or access token violates transport requirements.
+    Examples:
+        client = index_with_oauth("http://127.0.0.1:8000", "example-token")
+        # The factory creates a transport; retain the client for its intended session.
+    """
     _validate_url(base_url)
     return IndexAPI(HttpTransport(base_url=base_url, headers=oauth_headers(access_token)))
 
 
 def async_index_with_oauth(base_url: str, access_token: str) -> AsyncIndexAPI:
+    """Create an asynchronous Index client with an explicit Clerk token.
+
+    Args:
+        base_url: HTTPS backend origin, or HTTP on local loopback, without credentials,
+            query or fragment.
+        access_token: Current explicit token; login and refresh remain caller responsibilities.
+    Returns:
+        Asynchronous Index client; close its transport asynchronously when finished.
+    Raises:
+        ValueError: The backend URL or access token violates transport requirements.
+    Examples:
+        client = async_index_with_oauth("http://127.0.0.1:8000", "example-token")
+        # The factory creates an async transport for the intended session.
+    """
     _validate_url(base_url)
     return AsyncIndexAPI(AsyncHttpTransport(base_url=base_url, headers=oauth_headers(access_token)))
