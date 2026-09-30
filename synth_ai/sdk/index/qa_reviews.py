@@ -5,6 +5,7 @@ criteria freeze one rubric. Honest negative results can pass evidence alignment;
 missing scientific work cannot be converted to evidence by an author declaration.
 """
 
+from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -132,6 +133,18 @@ def validate_review(spec, kind, provenance):
         raise ValueError("Unknown accepted assignment provenance")
 
 
+class ReviewerPolicy(StrEnum):
+    """Recorded policy under which a review's approval power was admitted.
+
+    Derived from the accepted assignment's declared provenance; never a claim of
+    human identity.
+    """
+
+    HUMAN = "qa-human-review-v1"
+    AGENT_ASSISTED = "qa-agent-assisted-review-v1"
+    AGENT_INDEPENDENT = "qa-agent-independent-review-v1"
+
+
 class ReviewFact(IndexContract):
     case_id: UUID
     case_sequence: Annotated[StrictInt, Field(ge=1)]
@@ -139,6 +152,7 @@ class ReviewFact(IndexContract):
     reviewer_user_id: UUID
     reviewer_org_id: UUID
     declared_provenance: Literal["human", "agent_assisted", "agent"]
+    reviewer_policy: ReviewerPolicy
     review: RecordReviewSpec
     # Assignment consent/provenance are attestations, never proof of a human turn.
     human_identity_verified: Literal[False] = False

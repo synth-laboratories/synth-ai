@@ -75,6 +75,8 @@ from .public_search import (
 )
 from .qa import (
     AcceptAssignmentSpec,
+    AdjudicationSpec,
+    AppealSpec,
     AssignmentSpec,
     AssignmentView,
     CaseAction,
@@ -85,6 +87,9 @@ from .qa import (
     CaseState,
     CaseView,
     CreateCaseSpec,
+    EscalationSpec,
+    EventVisibility,
+    InternalNoteSpec,
 )
 from .qa_checks import (
     CheckAttemptView,
@@ -96,7 +101,13 @@ from .qa_checks import (
     RecordCheckSpec,
 )
 from .qa_preflight import PreflightResult, RunPreflightSpec
-from .qa_reviews import CriterionJudgment, RecordReviewSpec, ReviewFact, ReviewReport
+from .qa_reviews import (
+    CriterionJudgment,
+    RecordReviewSpec,
+    ReviewerPolicy,
+    ReviewFact,
+    ReviewReport,
+)
 from .retry import IndexRetryPolicy, search_id_from_error
 from .search import (
     ContentsResult,
@@ -145,6 +156,12 @@ __all__ = [
     "ClassificationView",
     "ClassificationDecisionView",
     "AcceptAssignmentSpec",
+    "AdjudicationSpec",
+    "AppealSpec",
+    "EscalationSpec",
+    "EventVisibility",
+    "InternalNoteSpec",
+    "ReviewerPolicy",
     "AssignmentSpec",
     "AssignmentView",
     "CaseAction",

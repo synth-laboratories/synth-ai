@@ -54,6 +54,17 @@ class CaseRole(StrEnum):
     COORDINATOR = "coordinator"
 
 
+class EventVisibility(StrEnum):
+    """Shared events reach the contributor; internal notes never do."""
+
+    SHARED = "shared"
+    INTERNAL = "internal"
+
+
+# The generic events route refuses these; use the dedicated fenced routes.
+FENCED_ACTIONS = frozenset({CaseAction.APPEAL, CaseAction.ESCALATE, CaseAction.ADJUDICATE})
+
+
 class CreateCaseSpec(IndexContract):
     reference: ContributionReference
     manifest_digest: Digest
@@ -75,6 +86,33 @@ class CaseEventSpec(IndexContract):
     expected_version: Annotated[StrictInt, Field(ge=0)]
     action: CaseAction
     message: Text
+
+
+class FencedCaseRequest(IndexContract):
+    """Names the exact case version, sealed manifest and rubric it was written against."""
+
+    expected_version: Annotated[StrictInt, Field(ge=0)]
+    manifest_digest: Digest
+    rubric_version: Identifier
+    message: Text
+
+
+class AppealSpec(FencedCaseRequest):
+    """Contributor appeal of a rejection or private acceptance."""
+
+
+class EscalationSpec(FencedCaseRequest):
+    """Contributor or reviewer escalation to a coordinator."""
+
+
+class AdjudicationSpec(FencedCaseRequest):
+    """Independent coordinator decision; the only outcome is fresh independent review."""
+
+    outcome: Literal["reopen_independent_review"] = "reopen_independent_review"
+
+
+class InternalNoteSpec(FencedCaseRequest):
+    """Reviewer/coordinator-only note, never delivered to the contributor."""
 
 
 class CaseView(IndexContract):
@@ -112,6 +150,7 @@ class CaseEventView(IndexContract):
     actor_user_id: UUID
     role: CaseRole
     created_at: AwareDatetime
+    visibility: EventVisibility = EventVisibility.SHARED
 
 
 class CaseEvents(IndexContract):

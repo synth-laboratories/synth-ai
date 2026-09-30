@@ -78,7 +78,10 @@ from .lifecycle import (
 from .package import ContributionPackage
 from .public_search import PublicSearchOperations
 from .qa import (
+    FENCED_ACTIONS,
     AcceptAssignmentSpec,
+    AdjudicationSpec,
+    AppealSpec,
     AssignmentSpec,
     AssignmentView,
     CaseAction,
@@ -87,6 +90,10 @@ from .qa import (
     CaseEventView,
     CaseView,
     CreateCaseSpec,
+    EscalationSpec,
+    EventVisibility,
+    FencedCaseRequest,
+    InternalNoteSpec,
 )
 from .qa_checks import CheckAttemptView, CheckReport, RecordCheckSpec
 from .qa_preflight import PreflightResult, RunPreflightSpec
@@ -154,6 +161,10 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.qa.cases.get": ("GET", _P + "/qa/cases/{case_id}"),
     "index.qa.events.list": ("GET", _P + "/qa/cases/{case_id}/events"),
     "index.qa.events.create": ("POST", _P + "/qa/cases/{case_id}/events"),
+    "index.qa.appeals.create": ("POST", _P + "/qa/cases/{case_id}/appeals"),
+    "index.qa.escalations.create": ("POST", _P + "/qa/cases/{case_id}/escalations"),
+    "index.qa.adjudications.create": ("POST", _P + "/qa/cases/{case_id}/adjudications"),
+    "index.qa.notes.create": ("POST", _P + "/qa/cases/{case_id}/internal-notes"),
     "index.qa.assignments.create": ("POST", _P + "/qa/cases/{case_id}/assignments"),
     "index.qa.assignments.list": ("GET", _P + "/qa/assignments"),
     "index.qa.assignments.accept": ("POST", _P + "/qa/assignments/{assignment_id}/accept"),
@@ -1680,6 +1691,11 @@ class QaAPI(_Resource):
         )
 
     def append_event(self, case_id, spec: CaseEventSpec, *, idempotency_key: str):
+        if spec.action in FENCED_ACTIONS:
+            raise ValueError(
+                f"{spec.action.value} needs the manifest/rubric-fenced route; use "
+                "qa.appeal, qa.escalate or qa.adjudicate"
+            )
         return self._run(
             _Call(
                 "index.qa.events.create",
@@ -1703,10 +1719,8 @@ class QaAPI(_Resource):
             idempotency_key=key,
         )
 
-    # Conversation, appeal and adjudication are POST /qa/cases/{id}/events with a
-    # fixed CaseAction today; the backend state machine enforces per-role legality.
-    # Dedicated appeal/adjudication routes are PENDING backend work: these helpers
-    # keep the same single route and will not silently change path.
+    # Plain conversation actions use POST /qa/cases/{id}/events; the backend state
+    # machine enforces per-role legality and refuses appeal/escalate/adjudicate there.
     def send_message(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
         return self._act(CaseAction.MESSAGE, case_id, expected_version, message, idempotency_key)
 
@@ -1720,15 +1734,73 @@ class QaAPI(_Resource):
     def respond(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
         return self._act(CaseAction.RESPOND, case_id, expected_version, message, idempotency_key)
 
-    def escalate(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
-        return self._act(CaseAction.ESCALATE, case_id, expected_version, message, idempotency_key)
+    # Appeal, escalation, adjudication and internal notes are dedicated POST routes.
+    # Each names the exact case version, sealed manifest digest and rubric version, so
+    # a decision written against other bytes or another rubric is refused by the backend.
+    def _fenced(
+        self,
+        operation: str,
+        case_id,
+        spec: FencedCaseRequest,
+        action: CaseAction,
+        visibility: EventVisibility,
+        idempotency_key: str,
+    ):
+        return self._run(
+            _Call(
+                operation,
+                _bound(
+                    CaseEventView,
+                    lambda event: event.sequence == spec.expected_version + 1
+                    and event.action == action
+                    and event.message == spec.message
+                    and event.visibility == visibility,
+                    "QA event differs from request",
+                ),
+                path_parameters=self._case(case_id),
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="QA event"),
+            )
+        )
 
-    def appeal(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
-        return self._act(CaseAction.APPEAL, case_id, expected_version, message, idempotency_key)
+    def escalate(self, case_id, spec: EscalationSpec, *, idempotency_key: str):
+        return self._fenced(
+            "index.qa.escalations.create",
+            case_id,
+            spec,
+            CaseAction.ESCALATE,
+            EventVisibility.SHARED,
+            idempotency_key,
+        )
 
-    def adjudicate(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
-        return self._act(
-            CaseAction.ADJUDICATE, case_id, expected_version, message, idempotency_key
+    def appeal(self, case_id, spec: AppealSpec, *, idempotency_key: str):
+        return self._fenced(
+            "index.qa.appeals.create",
+            case_id,
+            spec,
+            CaseAction.APPEAL,
+            EventVisibility.SHARED,
+            idempotency_key,
+        )
+
+    def adjudicate(self, case_id, spec: AdjudicationSpec, *, idempotency_key: str):
+        return self._fenced(
+            "index.qa.adjudications.create",
+            case_id,
+            spec,
+            CaseAction.ADJUDICATE,
+            EventVisibility.SHARED,
+            idempotency_key,
+        )
+
+    def add_internal_note(self, case_id, spec: InternalNoteSpec, *, idempotency_key: str):
+        return self._fenced(
+            "index.qa.notes.create",
+            case_id,
+            spec,
+            CaseAction.MESSAGE,
+            EventVisibility.INTERNAL,
+            idempotency_key,
         )
 
     def invite_reviewer(self, case_id, spec: AssignmentSpec):

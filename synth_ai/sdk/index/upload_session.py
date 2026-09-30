@@ -24,11 +24,12 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from pydantic import ValidationError
+
 from synth_ai.mcp.research.tools.index import read_selected_files
 from synth_ai.sdk.index.contributions import ContributionUploadPrepared
 from synth_ai.sdk.index.transfer import _transfer_content

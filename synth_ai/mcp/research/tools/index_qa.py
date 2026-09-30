@@ -1,7 +1,8 @@
 """Local Index MCP tools for private QA cases and Contribution lifecycle.
 
 Each tool maps to exactly one SDK operation, carries one least-privilege scope tag
-(read / write / review / coordinate / publish; none implies another) and reports the
+(read / intake / review / coordinate / qa:read / publish; none implies another;
+legacy index:write means intake + account only) and reports the
 exact resulting case version, revision or status. QA acceptance is private
 coordination: it is not certified science, public release, or a reward. Hosted
 Index routes for QA are rollout-gated and may be absent; that surfaces as a typed
@@ -25,10 +26,11 @@ from synth_ai.core.errors import (
 )
 from synth_ai.mcp.research.registry import (
     INDEX_COORDINATE_SCOPES,
+    INDEX_INTAKE_SCOPES,
     INDEX_PUBLISH_SCOPES,
+    INDEX_QA_READ_SCOPES,
     INDEX_READ_SCOPES,
     INDEX_REVIEW_SCOPES,
-    INDEX_WRITE_SCOPES,
     JSONDict,
     ToolDefinition,
 )
@@ -37,10 +39,14 @@ from synth_ai.sdk.index.contracts import Identifier, IndexContract
 from synth_ai.sdk.index.lifecycle import PublicationSpec, RevisionCreateSpec, WithdrawalSpec
 from synth_ai.sdk.index.qa import (
     AcceptAssignmentSpec,
+    AdjudicationSpec,
+    AppealSpec,
     AssignmentSpec,
     CaseAction,
     CaseEventSpec,
     CreateCaseSpec,
+    EscalationSpec,
+    InternalNoteSpec,
 )
 from synth_ai.sdk.index.qa_checks import RecordCheckSpec
 from synth_ai.sdk.index.qa_preflight import RunPreflightSpec
@@ -71,6 +77,9 @@ QA_MUTATING_TOOL_NAMES: tuple[str, ...] = (
     "index_qa_invite_reviewer",
     "index_qa_assignment_revoke",
     "index_qa_adjudicate",
+    "index_qa_appeal",
+    "index_qa_escalate",
+    "index_qa_internal_note",
     "index_contribution_publish",
 )
 
@@ -79,11 +88,10 @@ _KEY = Field(min_length=1, max_length=119, pattern=r"^[a-zA-Z0-9_.-]+$")
 _Text = Annotated[str, Field(min_length=1, max_length=4096)]
 _Version = Annotated[StrictInt, Field(ge=0)]
 
-CONTRIBUTOR_ACTIONS = (CaseAction.MESSAGE, CaseAction.RESPOND, CaseAction.APPEAL)
+CONTRIBUTOR_ACTIONS = (CaseAction.MESSAGE, CaseAction.RESPOND)
 REVIEWER_ACTIONS = (
     CaseAction.MESSAGE,
     CaseAction.REQUEST_CHANGES,
-    CaseAction.ESCALATE,
     CaseAction.APPROVE,
     CaseAction.REJECT,
 )
@@ -137,8 +145,12 @@ class ActionRequest(CaseRequest):
     idempotency_key: str = _KEY
 
 
-class AdjudicateRequest(CaseRequest):
+class FencedRequest(CaseRequest):
+    """Names the exact case version, sealed manifest digest and rubric version."""
+
     expected_version: _Version
+    manifest_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    rubric_version: Identifier
     message: _Text
     idempotency_key: str = _KEY
 
@@ -296,18 +308,24 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
 
         return handler
 
-    def adjudicate(arguments: JSONDict) -> JSONDict:
-        request = AdjudicateRequest.model_validate(arguments)
-        return _json(
-            call(
-                lambda c: c.qa.adjudicate(
-                    request.case_id,
-                    request.expected_version,
-                    request.message,
-                    idempotency_key=request.idempotency_key,
+    def fenced(helper: str, spec_type: type) -> Callable[[JSONDict], JSONDict]:
+        def handler(arguments: JSONDict) -> JSONDict:
+            request = FencedRequest.model_validate(arguments)
+            spec = spec_type(
+                expected_version=request.expected_version,
+                manifest_digest=request.manifest_digest,
+                rubric_version=request.rubric_version,
+                message=request.message,
+            )
+            return _json(
+                call(
+                    lambda c: getattr(c.qa, helper)(
+                        request.case_id, spec, idempotency_key=request.idempotency_key
+                    )
                 )
             )
-        )
+
+        return handler
 
     def revise(arguments: JSONDict) -> JSONDict:
         request = ReviseRequest.model_validate(arguments)
@@ -381,6 +399,10 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             )
         )
 
+    fence_note = (
+        " Requires expected_version, the case's sealed manifest_digest and rubric_version "
+        "(a stale or mismatched fence is refused, never merged) and an idempotency key."
+    )
     private_note = (
         " QA state is private coordination: it is not certified science, public release "
         "or a reward. Reports the exact resulting case version."
@@ -395,7 +417,8 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             required_scopes=scopes,
         )
 
-    read, write = INDEX_READ_SCOPES, INDEX_WRITE_SCOPES
+    read, write = INDEX_READ_SCOPES, INDEX_INTAKE_SCOPES
+    qa_read = INDEX_QA_READ_SCOPES
     review, coordinate = INDEX_REVIEW_SCOPES, INDEX_COORDINATE_SCOPES
 
     class NoArguments(IndexContract):
@@ -443,14 +466,14 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             "Read the exact sealed package of the case revision you are assigned to review. Refused for unassigned, expired or revoked assignments.",
             CaseRequest,
             package,
-            review,
+            qa_read,
         ),
         tool(
             "index_qa_asset",
             f"Read one declared asset of the assigned package, at most {_ASSET_MAX_BYTES} bytes, verified against the sealed size and SHA256 before return (base64).",
             AssetRequest,
             asset,
-            review,
+            qa_read,
         ),
         tool(
             "index_qa_case_create",
@@ -458,15 +481,15 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             + private_note,
             CaseCreateRequest,
             case_create,
-            write,
+            coordinate,
         ),
         tool(
             "index_qa_contributor_event",
-            "As the contributor, message, respond to requested changes, or appeal a decision (an appeal escalates; it is not an approval). Requires expected_version and an idempotency key; reuse the key after an uncertain response."
+            "As the contributor, message or respond to requested changes. Appeals use index_qa_appeal. Requires expected_version and an idempotency key; reuse the key after an uncertain response."
             + private_note,
             ActionRequest,
             event_for(CONTRIBUTOR_ACTIONS),
-            write,
+            coordinate,
         ),
         tool(
             "index_contribution_revise",
@@ -480,7 +503,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             "Withdraw your Contribution from Search and new reads. Prior downloads cannot be recalled. Reports the resulting generation and status.",
             WithdrawRequest,
             withdraw,
-            write,
+            INDEX_PUBLISH_SCOPES,
         ),
         tool(
             "index_qa_assignment_accept",
@@ -491,7 +514,7 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
         ),
         tool(
             "index_qa_reviewer_event",
-            "As an assigned reviewer, message, request changes, escalate, approve or reject. Approval is private QA acceptance only, not publication.",
+            "As an assigned reviewer, message, request changes, approve or reject (escalation uses index_qa_escalate). Approval is private QA acceptance only, not publication.",
             ActionRequest,
             event_for(REVIEWER_ACTIONS),
             review,
@@ -540,9 +563,38 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
         ),
         tool(
             "index_qa_adjudicate",
-            "Coordinator: independent decision on an escalated or appealed case, returning it to the reviewer queue. Recorded as a case event.",
-            AdjudicateRequest,
-            adjudicate,
+            "Coordinator: independent decision on an escalated or appealed case; the only outcome is reopening fresh independent review (never approval)."
+            + fence_note
+            + private_note,
+            FencedRequest,
+            fenced("adjudicate", AdjudicationSpec),
+            coordinate,
+        ),
+        tool(
+            "index_qa_appeal",
+            "Contributor: appeal a rejection or private acceptance for independent adjudication. An appeal is not an approval."
+            + fence_note
+            + private_note,
+            FencedRequest,
+            fenced("appeal", AppealSpec),
+            coordinate,
+        ),
+        tool(
+            "index_qa_escalate",
+            "Contributor or reviewer: escalate the case to a coordinator."
+            + fence_note
+            + private_note,
+            FencedRequest,
+            fenced("escalate", EscalationSpec),
+            coordinate,
+        ),
+        tool(
+            "index_qa_internal_note",
+            "Reviewer/coordinator: add an internal note that is never delivered to the contributor."
+            + fence_note
+            + private_note,
+            FencedRequest,
+            fenced("add_internal_note", InternalNoteSpec),
             coordinate,
         ),
         tool(

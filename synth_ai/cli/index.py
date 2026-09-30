@@ -737,9 +737,10 @@ def qa_events(case_id, after, api_key, backend_url):
     "action_name",
     required=True,
     type=click.Choice(
-        ["message", "respond", "request_changes", "escalate", "appeal", "approve", "reject"]
+        ["message", "respond", "request_changes", "approve", "reject"]
     ),
-    help="Case action; the server enforces which role may take it in the current state.",
+    help="Case action; the server enforces which role may take it in the current state. "
+    "Appeal, escalation and adjudication use their own fenced commands.",
 )
 @click.option("--expected-version", required=True, type=click.IntRange(min=0))
 @click.option("--message", required=True)
@@ -824,6 +825,77 @@ def qa_checks(case_id, after, api_key, backend_url):
 def qa_reviews(case_id, after, api_key, backend_url):
     """Page recorded review recommendations."""
     _lifecycle_run(api_key, backend_url, lambda i: i.qa.reviews(case_id, after=after))
+
+
+def _fenced_options(command):
+    for option in reversed(
+        (
+            click.argument("case_id"),
+            click.option("--expected-version", required=True, type=click.IntRange(min=0)),
+            click.option(
+                "--manifest-digest",
+                required=True,
+                help="Sealed manifest digest of the case (sha256:...) this request was written against.",
+            ),
+            click.option("--rubric-version", required=True, help="Case rubric version."),
+            click.option("--message", required=True),
+            _idempotency_option,
+            _lifecycle_target_options,
+        )
+    ):
+        command = option(command)
+    return command
+
+
+def _fenced_command(name, helper, spec_name, doc):
+    @qa.command(name)
+    @_fenced_options
+    def command(
+        case_id,
+        expected_version,
+        manifest_digest,
+        rubric_version,
+        message,
+        idempotency_key,
+        api_key,
+        backend_url,
+    ):
+        from synth_ai.sdk.index import qa as qa_models
+
+        spec = getattr(qa_models, spec_name)(
+            expected_version=expected_version,
+            manifest_digest=manifest_digest,
+            rubric_version=rubric_version,
+            message=message,
+        )
+        _lifecycle_run(
+            api_key,
+            backend_url,
+            lambda i: getattr(i.qa, helper)(case_id, spec, idempotency_key=idempotency_key),
+        )
+
+    command.__doc__ = doc
+    return command
+
+
+_fenced_command(
+    "appeal", "appeal", "AppealSpec", "Appeal a rejection or private acceptance (stale fence exits 5)."
+)
+_fenced_command(
+    "escalate", "escalate", "EscalationSpec", "Escalate the case to a coordinator."
+)
+_fenced_command(
+    "adjudicate",
+    "adjudicate",
+    "AdjudicationSpec",
+    "Coordinator: independent decision that reopens fresh independent review. Never approves.",
+)
+_fenced_command(
+    "note",
+    "add_internal_note",
+    "InternalNoteSpec",
+    "Reviewer/coordinator: internal note never shown to the contributor.",
+)
 
 
 @qa.command("review")

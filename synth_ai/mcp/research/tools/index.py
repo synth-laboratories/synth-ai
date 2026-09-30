@@ -14,8 +14,8 @@ from typing import Annotated
 
 from pydantic import Field, StrictInt
 from synth_ai.mcp.research.registry import (
+    INDEX_INTAKE_SCOPES,
     INDEX_READ_SCOPES,
-    INDEX_WRITE_SCOPES,
     JSONDict,
     ToolDefinition,
 )
@@ -378,7 +378,7 @@ def build_index_tools(
             )
 
     read = INDEX_READ_SCOPES
-    write = INDEX_WRITE_SCOPES
+    write = INDEX_INTAKE_SCOPES
     tools = [
         ToolDefinition(
             name="index_search",
