@@ -410,8 +410,8 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             description=description,
             input_schema=schema.model_json_schema(),
             handler=handler,
-            required_scopes=scopes if any_of_scopes else (),
-            any_of_scopes=any_of_scopes or scopes,
+            required_scopes=scopes if any_of_scopes or len(scopes) == 1 else (),
+            any_of_scopes=any_of_scopes or (scopes if len(scopes) > 1 else ()),
         )
 
     write = INDEX_INTAKE_SCOPES
