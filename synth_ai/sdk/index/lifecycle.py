@@ -57,14 +57,6 @@ class QaAssessmentSource(IndexContract):
     review_id: UUID
     #: Current case version expected when consuming the QA approval.
     expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
-se_id: UUID
-    #: UUID of the authoritative independent content review.
-    review_id: UUID
-    expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
-se_id: UUID
-    review_id: UUID
-    expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
-on: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
 
 
 class ReviewSpec(IndexContract):
@@ -74,9 +66,6 @@ class ReviewSpec(IndexContract):
     comments: ReviewComments
     claim_comments: tuple[ReviewClaimComment, ...] = Field(default=(), max_length=128)
     manifest_digest: Digest | None = None
-    #: Optional exact QA approval source; only supported for manifest-bound approval.
-    #: Optional exact QA approval source; only supported for manifest-bound approval.
-    #: Optional exact QA approval source; only supported for manifest-bound approval.
     #: Optional exact QA approval source; only supported for manifest-bound approval.
     qa_source: QaAssessmentSource | None = None
 
