@@ -74,8 +74,8 @@ def required_criteria(kind):
 
 
 class CriterionJudgment(IndexContract):
-    #: Identifier of the frozen rubric criterion being judged.
     """Evidence-backed outcome for one criterion in the frozen content rubric."""
+    #: Identifier of the frozen rubric criterion being judged.
     criterion: Identifier
     #: Recorded outcome; fail, inconclusive and not-applicable remain distinct.
     outcome: Outcome
@@ -94,8 +94,8 @@ class CriterionJudgment(IndexContract):
 
 
 class RecordReviewSpec(IndexContract):
-    #: Identifier of the independent review.
     """Record an independent assignment review against exact case and manifest inputs."""
+    #: Identifier of the independent review.
     review_id: UUID
     #: Current case version expected by this write; stale writes must be reconciled.
     expected_version: Annotated[StrictInt, Field(ge=0)]
@@ -161,8 +161,8 @@ class ReviewerPolicy(StrEnum):
 
 
 class ReviewFact(IndexContract):
-    #: Identifier of the revision-bound QA case.
     """Stored review, declared provenance and admitted reviewer policy."""
+    #: Identifier of the revision-bound QA case.
     case_id: UUID
     #: Conversation sequence at which this fact was recorded.
     case_sequence: Annotated[StrictInt, Field(ge=1)]
@@ -190,8 +190,8 @@ class ReviewFact(IndexContract):
 
 
 class ReviewReport(IndexContract):
-    #: Bounded recorded independent review facts.
     """Bounded independent review page with a continuation cursor."""
+    #: Bounded recorded independent review facts.
     reviews: tuple[ReviewFact, ...] = Field(max_length=3)
     #: Continuation sequence cursor, or none when this page has no continuation.
     next_after: Annotated[StrictInt, Field(ge=1)] | None = None

@@ -94,8 +94,8 @@ class ArtifactResourceScope(ArtifactContract):
 
 
 class ArtifactCollectionResponse(ArtifactContract):
-    #: Exact boundary schema identifier used for serialization.
     """Allocated collection with its tenancy scope and private storage namespace."""
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     #: UUID of the artifact collection receiving this publication.
     collection_id: ArtifactUuid
@@ -170,8 +170,8 @@ class ArtifactUploadTarget(ArtifactContract):
 
 
 class ArtifactPublicationPrepareResponse(ArtifactContract):
-    #: Exact boundary schema identifier used for serialization.
     """Prepared create-only object uploads for one publication."""
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     #: UUID of this artifact publication attempt.
     publication_id: ArtifactUuid
@@ -195,8 +195,8 @@ class ArtifactPublicationStatus(StrEnum):
 
 
 class ArtifactPublicationResponse(ArtifactContract):
-    #: Exact boundary schema identifier used for serialization.
     """Recorded publication identity and current storage status."""
+    #: Exact boundary schema identifier used for serialization.
     schema_version: Literal["synth.artifact-platform.v1"] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     #: UUID of this artifact publication attempt.
     publication_id: ArtifactUuid

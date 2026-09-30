@@ -69,8 +69,8 @@ FENCED_ACTIONS = frozenset({CaseAction.APPEAL, CaseAction.ESCALATE, CaseAction.A
 
 
 class CreateCaseSpec(IndexContract):
-    #: Exact Contribution and revision under review.
     """Open QA against an exact Contribution revision, sealed manifest and rubric."""
+    #: Exact Contribution and revision under review.
     reference: ContributionReference
     #: Digest of the sealed revision manifest; must match the reviewed bytes.
     manifest_digest: Digest
@@ -79,8 +79,8 @@ class CreateCaseSpec(IndexContract):
 
 
 class AssignmentSpec(IndexContract):
-    #: User identifier of the assigned reviewer.
     """Assign an independent reviewer with an explicit organization and expiration."""
+    #: User identifier of the assigned reviewer.
     reviewer_user_id: UUID
     #: Organization identifier under which the reviewer acts.
     reviewer_org_id: UUID
@@ -89,16 +89,16 @@ class AssignmentSpec(IndexContract):
 
 
 class AcceptAssignmentSpec(IndexContract):
-    #: Reviewer declaration that the assignment has no disqualifying conflict.
     """Declare assignment consent, absence of conflicts and review provenance."""
+    #: Reviewer declaration that the assignment has no disqualifying conflict.
     conflict_free: StrictBool
     #: Declared source of the work; not proof of a verified human identity.
     provenance: Annotated[str, StringConstraints(pattern=r"^(human|agent_assisted|agent)$")]
 
 
 class CaseEventSpec(IndexContract):
-    #: Current case version expected by this write; stale writes must be reconciled.
     """Append a shared QA action against the expected conversation version."""
+    #: Current case version expected by this write; stale writes must be reconciled.
     expected_version: Annotated[StrictInt, Field(ge=0)]
     #: QA conversation action; appeals, escalation and adjudication use fenced operations.
     action: CaseAction
@@ -139,8 +139,8 @@ class InternalNoteSpec(FencedCaseRequest):
 
 
 class CaseView(IndexContract):
-    #: Identifier of the revision-bound QA case.
     """Current revision-bound QA case; publication authority remains separate."""
+    #: Identifier of the revision-bound QA case.
     case_id: UUID
     #: Audience requested for the Contribution; does not authorize publication.
     requested_audience: ContributionAudience
@@ -167,8 +167,8 @@ class CaseView(IndexContract):
 
 
 class AssignmentView(IndexContract):
-    #: Identifier of the independent reviewer assignment.
     """Reviewer assignment and its acceptance, expiration and revocation timestamps."""
+    #: Identifier of the independent reviewer assignment.
     assignment_id: UUID
     #: Identifier of the revision-bound QA case.
     case_id: UUID
@@ -187,8 +187,8 @@ class AssignmentView(IndexContract):
 
 
 class CaseEventView(IndexContract):
-    #: Identifier of the recorded QA event.
     """Recorded QA event with actor, ordering and disclosure visibility."""
+    #: Identifier of the recorded QA event.
     event_id: UUID
     #: Monotonic sequence number ordering events within the case.
     sequence: Annotated[StrictInt, Field(ge=1)]
@@ -207,8 +207,8 @@ class CaseEventView(IndexContract):
 
 
 class CaseEvents(IndexContract):
-    #: Ordered items in this bounded response page.
     """Bounded QA event page with a continuation cursor."""
+    #: Ordered items in this bounded response page.
     items: tuple[CaseEventView, ...] = Field(max_length=100)
     #: Continuation sequence cursor, or none when this page has no continuation.
     next_after: Annotated[StrictInt, Field(ge=0)] | None = None
