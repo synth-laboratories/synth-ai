@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
@@ -70,7 +70,21 @@ from .lifecycle import (
     RevisionView,
     WithdrawalSpec,
 )
+from .package import ContributionPackage
 from .public_search import PublicSearchOperations
+from .qa import (
+    AcceptAssignmentSpec,
+    AssignmentSpec,
+    AssignmentView,
+    CaseEvents,
+    CaseEventSpec,
+    CaseEventView,
+    CaseView,
+    CreateCaseSpec,
+)
+from .qa_checks import CheckAttemptView, CheckReport, RecordCheckSpec
+from .qa_preflight import PreflightResult, RunPreflightSpec
+from .qa_reviews import RecordReviewSpec, ReviewFact, ReviewReport
 from .retry import (
     DEFAULT_INDEX_RETRY_POLICY,
     IndexRetryPolicy,
@@ -117,6 +131,22 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
+    "index.qa.cases.create": ("POST", _P + "/qa/cases"),
+    "index.qa.cases.retrieve": ("GET", _P + "/qa/cases/{case_id}"),
+    "index.qa.events.list": ("GET", _P + "/qa/cases/{case_id}/events"),
+    "index.qa.events.append": ("POST", _P + "/qa/cases/{case_id}/events"),
+    "index.qa.assignments.create": ("POST", _P + "/qa/cases/{case_id}/assignments"),
+    "index.qa.assignments.list": ("GET", _P + "/qa/assignments"),
+    "index.qa.assignments.accept": ("POST", _P + "/qa/assignments/{assignment_id}/accept"),
+    "index.qa.assignments.revoke": ("POST", _P + "/qa/assignments/{assignment_id}/revoke"),
+    "index.qa.package.read": ("GET", _P + "/qa/cases/{case_id}/package"),
+    "index.qa.asset.read": ("GET", _P + "/qa/cases/{case_id}/assets/{asset_id}"),
+    "index.qa.checks.list": ("GET", _P + "/qa/cases/{case_id}/checks"),
+    "index.qa.checks.record": ("POST", _P + "/qa/cases/{case_id}/checks"),
+    "index.qa.checks.preflight": ("POST", _P + "/qa/cases/{case_id}/checks/preflight"),
+    "index.qa.checks.secret_scan": ("POST", _P + "/qa/cases/{case_id}/checks/secret-scan"),
+    "index.qa.reviews.list": ("GET", _P + "/qa/cases/{case_id}/reviews"),
+    "index.qa.reviews.record": ("POST", _P + "/qa/cases/{case_id}/reviews"),
     "index.contributions.retrieve": ("GET", _C),
     "index.contributions.publication.create": ("POST", f"{_C}/publication"),
     "index.contributions.withdrawal.create": ("POST", f"{_C}/withdrawal"),
@@ -1240,12 +1270,284 @@ class ContestsAPI(_Resource):
         )
 
 
+class QaAPI(_Resource):
+    """Private revision-bound QA. See sibling backend contribution-qa-cases spec.
+
+    Backend rollout is disabled until qualified. No local fallback, automatic
+    scientific approval, public publication or reward is implied by these calls.
+    Every method is awaitable on AsyncIndexAPI and blocking on IndexAPI.
+    """
+
+    def _case(self, case_id):
+        return {"case_id": str(UUID(str(case_id)))}
+
+    def _cursor(self, after):
+        if type(after) is not int or after < 0:
+            raise ValueError("after must be a nonnegative sequence")
+        return {"after": after}
+
+    def create_case(self, spec: CreateCaseSpec):
+        return self._run(
+            _Call(
+                "index.qa.cases.create",
+                _bound(
+                    CaseView,
+                    lambda view: view.reference == spec.reference
+                    and view.manifest_digest == spec.manifest_digest
+                    and view.rubric_version == spec.rubric_version,
+                    "QA case differs from sealed request",
+                ),
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def case(self, case_id):
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.cases.retrieve",
+                _bound(
+                    CaseView,
+                    lambda view: str(view.case_id) == path["case_id"],
+                    "QA case differs from request",
+                ),
+                path_parameters=path,
+            )
+        )
+
+    def events(self, case_id, *, after=0):
+        return self._run(
+            _Call(
+                "index.qa.events.list",
+                CaseEvents.model_validate,
+                path_parameters=self._case(case_id),
+                params=self._cursor(after),
+            )
+        )
+
+    def append_event(self, case_id, spec: CaseEventSpec, *, idempotency_key: str):
+        return self._run(
+            _Call(
+                "index.qa.events.append",
+                _bound(
+                    CaseEventView,
+                    lambda event: event.sequence == spec.expected_version + 1
+                    and event.action == spec.action
+                    and event.message == spec.message,
+                    "QA event differs from request",
+                ),
+                path_parameters=self._case(case_id),
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="QA event"),
+            )
+        )
+
+    def invite_reviewer(self, case_id, spec: AssignmentSpec):
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.assignments.create",
+                _bound(
+                    AssignmentView,
+                    lambda invitation: str(invitation.case_id) == path["case_id"]
+                    and invitation.reviewer_user_id == spec.reviewer_user_id
+                    and invitation.reviewer_org_id == spec.reviewer_org_id,
+                    "QA invitation differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def assignments(self):
+        def parse(payload):
+            if not isinstance(payload, list) or len(payload) > 100:
+                raise ValueError("QA assignment list bound invalid")
+            return tuple(AssignmentView.model_validate(item) for item in payload)
+
+        return self._run(_Call("index.qa.assignments.list", parse))
+
+    def _assignment(self, action, assignment_id, spec=None):
+        identifier = str(UUID(str(assignment_id)))
+        return self._run(
+            _Call(
+                "index.qa.assignments." + action,
+                _bound(
+                    AssignmentView,
+                    lambda assignment: str(assignment.assignment_id) == identifier,
+                    "QA assignment differs from request",
+                ),
+                path_parameters={"assignment_id": identifier},
+                json_body=spec.model_dump(mode="json") if spec else None,
+            )
+        )
+
+    def accept_assignment(self, assignment_id, spec: AcceptAssignmentSpec):
+        return self._assignment("accept", assignment_id, spec)
+
+    def revoke_assignment(self, assignment_id):
+        return self._assignment("revoke", assignment_id)
+
+    def package(self, case: CaseView):
+        return self._run(
+            _Call(
+                "index.qa.package.read",
+                _bound(
+                    ContributionPackage,
+                    lambda package: (package.contribution_id, package.revision_id)
+                    == (case.reference.contribution_id, case.reference.revision_id),
+                    "QA package differs from case revision",
+                ),
+                path_parameters=self._case(case.case_id),
+            )
+        )
+
+    def asset(self, case_id, asset_id: str, *, digest_sha256: str, size_bytes: int):
+        """Read exact assigned bytes using digest/size from the sealed package."""
+        if (
+            not re.fullmatch(r"[0-9a-f]{64}", digest_sha256)
+            or type(size_bytes) is not int
+            or not 0 <= size_bytes <= 4 * 1024 * 1024
+        ):
+            raise ValueError("QA asset needs exact bounded size and SHA256")
+
+        def parse(body):
+            if (
+                not isinstance(body, bytes)
+                or len(body) != size_bytes
+                or sha256(body).hexdigest() != digest_sha256
+            ):
+                raise ValueError("QA asset differs from sealed declaration")
+            return body
+
+        return self._run(
+            _Call(
+                "index.qa.asset.read",
+                parse,
+                path_parameters={**self._case(case_id), "asset_id": asset_id},
+                raw=True,
+            )
+        )
+
+    def checks(self, case_id, *, after=0):
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.list",
+                _bound(
+                    CheckReport,
+                    lambda report: all(
+                        str(attempt.case_id) == path["case_id"] for attempt in report.attempts
+                    ),
+                    "QA checks differ from case",
+                ),
+                path_parameters=path,
+                params=self._cursor(after),
+            )
+        )
+
+    def record_check(self, case_id, spec: RecordCheckSpec, *, idempotency_key: str):
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.record",
+                _bound(
+                    CheckAttemptView,
+                    lambda attempt: str(attempt.case_id) == path["case_id"]
+                    and attempt.attempt_id == spec.attempt_id
+                    and attempt.manifest_digest == spec.manifest_digest
+                    and attempt.rubric_version == spec.rubric_version,
+                    "QA check differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+                headers=_key(idempotency_key, required="QA check"),
+            )
+        )
+
+    def preflight(self, case_id, spec: RunPreflightSpec):
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.preflight",
+                _bound(
+                    PreflightResult,
+                    lambda batch: all(
+                        str(attempt.case_id) == path["case_id"] and attempt.run_id == spec.run_id
+                        for attempt in batch.attempts
+                    ),
+                    "QA preflight differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def secret_scan(self, case_id, spec: RunPreflightSpec):
+        path = self._case(case_id)
+        return self._run(
+            _Call(
+                "index.qa.checks.secret_scan",
+                _bound(
+                    CheckAttemptView,
+                    lambda attempt: str(attempt.case_id) == path["case_id"]
+                    and attempt.run_id == spec.run_id
+                    and attempt.gate == "privacy.secret_scan",
+                    "QA secret scan differs from request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+            )
+        )
+
+    def reviews(self, case_id, *, after=0):
+        path = self._case(case_id)
+
+        def parse(payload):
+            report = ReviewReport.model_validate(payload)
+            sequences = [fact.case_sequence for fact in report.reviews]
+            if any(
+                str(fact.case_id) != path["case_id"] or fact.case_sequence <= after
+                for fact in report.reviews
+            ) or sequences != sorted(set(sequences)):
+                raise ValueError("QA review report differs from requested page")
+            if report.next_after is not None and (
+                len(report.reviews) != 3 or report.next_after != sequences[-1]
+            ):
+                raise ValueError("QA review continuation invalid")
+            return report
+
+        return self._run(
+            _Call("index.qa.reviews.list", parse, path_parameters=path, params=self._cursor(after))
+        )
+
+    def record_review(self, case_id, spec: RecordReviewSpec, *, idempotency_key: str):
+        path = self._case(case_id)
+        headers = _key(idempotency_key, required="QA content review")
+        if len(idempotency_key) > 119:
+            raise ValueError("QA review key exceeds 119 characters")
+        return self._run(
+            _Call(
+                "index.qa.reviews.record",
+                _bound(
+                    ReviewFact,
+                    lambda fact: str(fact.case_id) == path["case_id"] and fact.review == spec,
+                    "QA review differs from sealed request",
+                ),
+                path_parameters=path,
+                json_body=spec.model_dump(mode="json"),
+                headers=headers,
+            )
+        )
+
+
 class _IndexRoot(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
         self.contents = ContentsAPI(run, asynchronous)
         self.searches = SearchesAPI(run, asynchronous)
         self.contributions = ContributionsAPI(run, asynchronous)
+        self.qa = QaAPI(run, asynchronous)
         self.reviews = self.contributions.reviews
         self.tags = TagsAPI(run, asynchronous)
         self.collections = CollectionsAPI(run, asynchronous)
