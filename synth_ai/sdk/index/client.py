@@ -1652,6 +1652,22 @@ class QaAPI(_Resource):
         return {"after": after}
 
     def create_case(self, spec: CreateCaseSpec):
+        """Open review for the exact sealed Contribution revision.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            CaseView bound to the submitted revision, manifest and rubric.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.create_case(spec)
+        """
         return self._run(
             _Call(
                 "index.qa.cases.create",
@@ -1667,6 +1683,22 @@ class QaAPI(_Resource):
         )
 
     def case(self, case_id):
+        """Read the current authorized revision-bound QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+
+        Returns:
+            CaseView matching the requested case identifier.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.case(case_id)
+        """
         path = self._case(case_id)
         return self._run(
             _Call(
@@ -1681,6 +1713,23 @@ class QaAPI(_Resource):
         )
 
     def events(self, case_id, *, after=0):
+        """Read the next authorized QA conversation page.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            after: Nonnegative case-sequence cursor; zero starts the first page.
+
+        Returns:
+            CaseEvents containing ordered events and a continuation cursor.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.events(case_id, after=0)
+        """
         return self._run(
             _Call(
                 "index.qa.events.list",
@@ -1691,6 +1740,24 @@ class QaAPI(_Resource):
         )
 
     def append_event(self, case_id, spec: CaseEventSpec, *, idempotency_key: str):
+        """Append a shared conversation action; use dedicated routes for fenced decisions.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CaseEventView matching the next expected sequence, action and message.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.append_event(case_id, spec, idempotency_key=idempotency_key)
+        """
         if spec.action in FENCED_ACTIONS:
             raise ValueError(
                 f"{spec.action.value} needs the manifest/rubric-fenced route; use "
@@ -1722,16 +1789,73 @@ class QaAPI(_Resource):
     # Plain conversation actions use POST /qa/cases/{id}/events; the backend state
     # machine enforces per-role legality and refuses appeal/escalate/adjudicate there.
     def send_message(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        """Send a shared message at the expected QA case version.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            expected_version: Current case version expected by this write; stale versions are refused.
+            message: Bounded message text for the shared conversation action.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Recorded shared message event.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.send_message(case_id, expected_version, message, idempotency_key=idempotency_key)
+        """
         return self._act(CaseAction.MESSAGE, case_id, expected_version, message, idempotency_key)
 
     def request_changes(
         self, case_id, expected_version: int, message: str, *, idempotency_key: str
     ):
+        """Request contributor changes against the current QA version.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            expected_version: Current case version expected by this write; stale versions are refused.
+            message: Bounded message text for the shared conversation action.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Recorded change-request event; does not authorize a repaired revision.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.request_changes(case_id, expected_version, message, idempotency_key=idempotency_key)
+        """
         return self._act(
             CaseAction.REQUEST_CHANGES, case_id, expected_version, message, idempotency_key
         )
 
     def respond(self, case_id, expected_version: int, message: str, *, idempotency_key: str):
+        """Respond to findings at the expected QA case version.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            expected_version: Current case version expected by this write; stale versions are refused.
+            message: Bounded message text for the shared conversation action.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Recorded contributor response event.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.respond(case_id, expected_version, message, idempotency_key=idempotency_key)
+        """
         return self._act(CaseAction.RESPOND, case_id, expected_version, message, idempotency_key)
 
     # Appeal, escalation, adjudication and internal notes are dedicated POST routes.
@@ -1764,6 +1888,24 @@ class QaAPI(_Resource):
         )
 
     def escalate(self, case_id, spec: EscalationSpec, *, idempotency_key: str):
+        """Escalate the exact manifest and rubric to a coordinator.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Shared escalation event; does not grant publication authority.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.escalate(case_id, spec, idempotency_key=idempotency_key)
+        """
         return self._fenced(
             "index.qa.escalations.create",
             case_id,
@@ -1774,6 +1916,24 @@ class QaAPI(_Resource):
         )
 
     def appeal(self, case_id, spec: AppealSpec, *, idempotency_key: str):
+        """Appeal the current decision against exact reviewed inputs.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Shared appeal event; publication remains separate.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.appeal(case_id, spec, idempotency_key=idempotency_key)
+        """
         return self._fenced(
             "index.qa.appeals.create",
             case_id,
@@ -1784,6 +1944,24 @@ class QaAPI(_Resource):
         )
 
     def adjudicate(self, case_id, spec: AdjudicationSpec, *, idempotency_key: str):
+        """Reopen independent review through an authorized coordinator.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Shared adjudication event, never direct publication approval.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.adjudicate(case_id, spec, idempotency_key=idempotency_key)
+        """
         return self._fenced(
             "index.qa.adjudications.create",
             case_id,
@@ -1794,6 +1972,24 @@ class QaAPI(_Resource):
         )
 
     def add_internal_note(self, case_id, spec: InternalNoteSpec, *, idempotency_key: str):
+        """Record a reviewer/coordinator note excluded from contributor disclosure.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            Internal message event whose visibility is checked before return.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.add_internal_note(case_id, spec, idempotency_key=idempotency_key)
+        """
         return self._fenced(
             "index.qa.notes.create",
             case_id,
@@ -1804,6 +2000,23 @@ class QaAPI(_Resource):
         )
 
     def invite_reviewer(self, case_id, spec: AssignmentSpec):
+        """Invite an independent reviewer for this exact QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            AssignmentView matching the requested case, reviewer and organization.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.invite_reviewer(case_id, spec)
+        """
         path = self._case(case_id)
         return self._run(
             _Call(
@@ -1821,6 +2034,19 @@ class QaAPI(_Resource):
         )
 
     def assignments(self):
+        """List the caller’s authorized QA reviewer assignments.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Returns:
+            Tuple of at most 100 validated AssignmentView records.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.assignments()
+        """
         def parse(payload):
             if not isinstance(payload, list) or len(payload) > 100:
                 raise ValueError("QA assignment list bound invalid")
@@ -1844,12 +2070,61 @@ class QaAPI(_Resource):
         )
 
     def accept_assignment(self, assignment_id, spec: AcceptAssignmentSpec):
+        """Accept a reviewer assignment with conflict and provenance declarations.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            assignment_id: UUID of the reviewer assignment to accept or revoke.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            AssignmentView matching the requested assignment identifier.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.accept_assignment(assignment_id, spec)
+        """
         return self._assignment("accept", assignment_id, spec)
 
     def revoke_assignment(self, assignment_id):
+        """Revoke an authorized reviewer assignment.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            assignment_id: UUID of the reviewer assignment to accept or revoke.
+
+        Returns:
+            Current AssignmentView matching the requested assignment.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.revoke_assignment(assignment_id)
+        """
         return self._assignment("revoke", assignment_id)
 
     def package(self, case: CaseView):
+        """Read the exact sealed package under current QA assignment authority.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case: Current CaseView identifying the exact revision whose package is requested.
+
+        Returns:
+            ContributionPackage whose Contribution and revision match the supplied case.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.package(case)
+        """
         return self._run(
             _Call(
                 "index.qa.package.retrieve",
@@ -1864,7 +2139,25 @@ class QaAPI(_Resource):
         )
 
     def asset(self, case_id, asset_id: str, *, digest_sha256: str, size_bytes: int):
-        """Read exact assigned bytes using digest/size from the sealed package."""
+        """Read exact assigned bytes using digest and size from the sealed package.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            asset_id: Identifier of a declared asset in the sealed package.
+            digest_sha256: Expected lowercase SHA-256 of the sealed asset bytes.
+            size_bytes: Exact expected byte count, from zero through 4 MiB inclusive.
+
+        Returns:
+            Raw bytes verified against the requested SHA-256 and byte count.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.asset(case_id, asset_id, digest_sha256=digest_sha256, size_bytes=size_bytes)
+        """
         if (
             not re.fullmatch(r"[0-9a-f]{64}", digest_sha256)
             or type(size_bytes) is not int
@@ -1891,6 +2184,23 @@ class QaAPI(_Resource):
         )
 
     def checks(self, case_id, *, after=0):
+        """Read recorded producer check attempts for one QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            after: Nonnegative case-sequence cursor; zero starts the first page.
+
+        Returns:
+            CheckReport bound to the case with attempts, findings and continuation cursor.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.checks(case_id, after=0)
+        """
         path = self._case(case_id)
         return self._run(
             _Call(
@@ -1908,6 +2218,24 @@ class QaAPI(_Resource):
         )
 
     def record_check(self, case_id, spec: RecordCheckSpec, *, idempotency_key: str):
+        """Record a fenced producer check receipt and its actionable findings.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            CheckAttemptView matching the attempt, case, manifest and rubric.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.record_check(case_id, spec, idempotency_key=idempotency_key)
+        """
         path = self._case(case_id)
         return self._run(
             _Call(
@@ -1927,6 +2255,23 @@ class QaAPI(_Resource):
         )
 
     def preflight(self, case_id, spec: RunPreflightSpec):
+        """Request the backend’s configured bounded QA preflight checks.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            PreflightResult with attempts matching this case and producer run.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.preflight(case_id, spec)
+        """
         path = self._case(case_id)
         return self._run(
             _Call(
@@ -1945,6 +2290,23 @@ class QaAPI(_Resource):
         )
 
     def secret_scan(self, case_id, spec: RunPreflightSpec):
+        """Request the configured privacy secret scan for the current sealed package.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+
+        Returns:
+            CheckAttemptView for privacy.secret_scan matching this case and run.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.secret_scan(case_id, spec)
+        """
         path = self._case(case_id)
         return self._run(
             _Call(
@@ -1962,6 +2324,23 @@ class QaAPI(_Resource):
         )
 
     def reviews(self, case_id, *, after=0):
+        """Read the next independent review page for this QA case.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            after: Nonnegative case-sequence cursor; zero starts the first page.
+
+        Returns:
+            ReviewReport with strictly ordered case sequences and a validated continuation.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.reviews(case_id, after=0)
+        """
         path = self._case(case_id)
 
         def parse(payload):
@@ -1983,6 +2362,24 @@ class QaAPI(_Resource):
         )
 
     def record_review(self, case_id, spec: RecordReviewSpec, *, idempotency_key: str):
+        """Record an independent assignment’s rubric judgments at exact sealed inputs.
+
+        Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
+        Backend permissions and rollout remain authoritative.
+
+        Args:
+            case_id: UUID of the authorized revision-bound QA case.
+            spec: Typed request naming the exact inputs required by this operation.
+            idempotency_key: Persisted request key reused for an uncertain retry of the same operation.
+
+        Returns:
+            ReviewFact matching the supplied case and review; not publication authority.
+
+        Raises:
+            ValueError: Request identifiers, bounds or returned binding are invalid.
+        Examples:
+            result = index.qa.record_review(case_id, spec, idempotency_key=idempotency_key)
+        """
         path = self._case(case_id)
         headers = _key(idempotency_key, required="QA content review")
         if len(idempotency_key) > 119:
