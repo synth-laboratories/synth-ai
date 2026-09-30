@@ -835,7 +835,7 @@ def _fenced_options(command):
             click.option(
                 "--manifest-digest",
                 required=True,
-                help="Sealed manifest digest of the case (sha256:...) this request was written against.",
+                help="Sealed manifest digest of the case (64 hex) this request was written against.",
             ),
             click.option("--rubric-version", required=True, help="Case rubric version."),
             click.option("--message", required=True),

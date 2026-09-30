@@ -149,7 +149,7 @@ class FencedRequest(CaseRequest):
     """Names the exact case version, sealed manifest digest and rubric version."""
 
     expected_version: _Version
-    manifest_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    manifest_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     rubric_version: Identifier
     message: _Text
     idempotency_key: str = _KEY
