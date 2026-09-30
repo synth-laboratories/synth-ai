@@ -24,11 +24,22 @@ class ArtifactManifestError(ValueError):
 
 
 class ArtifactManifestDigestMismatchError(ArtifactManifestError):
+    """Claimed or expected manifest digest differs from exact canonical contents."""
     error_code = "artifact_manifest_digest_mismatch"
 
 
 def encode_manifest(manifest: ArtifactManifest) -> bytes:
-    """Encode one verified manifest with stable key and object ordering."""
+    """Encode one verified manifest with stable key and object ordering.
+
+    Args:
+        manifest: Typed manifest whose embedded digest must match its canonical contents.
+    Returns:
+        Canonical UTF-8 JSON bytes containing the verified manifest digest.
+    Raises:
+        ArtifactManifestDigestMismatchError: Embedded digest differs from canonical contents.
+    Examples:
+        encoded = encode_manifest(manifest)
+    """
 
     expected_digest = _manifest_digest(manifest)
     if manifest.manifest_digest != expected_digest:
@@ -43,7 +54,19 @@ def decode_manifest(
     *,
     expected_digest: str | None = None,
 ) -> ArtifactManifest:
-    """Strictly parse canonical bytes and verify embedded and expected digests."""
+    """Strictly parse canonical bytes and verify embedded and expected digests.
+
+    Args:
+        content: Exact canonical UTF-8 JSON manifest bytes.
+        expected_digest: Optional expected publication SHA-256 digest to compare.
+    Returns:
+        Validated ArtifactManifest matching canonical bytes and required digests.
+    Raises:
+        ArtifactManifestError: JSON, schema or byte canonicalization is invalid.
+        ArtifactManifestDigestMismatchError: Embedded or expected digest differs.
+    Examples:
+        manifest = decode_manifest(content, expected_digest=expected_digest)
+    """
 
     try:
         payload = json.loads(content)

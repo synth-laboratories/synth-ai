@@ -47,12 +47,24 @@ class ReviewClaimComment(IndexContract):
 class QaAssessmentSource(IndexContract):
     """Private versioned QA provenance; see contribution-qa-cases.md."""
 
+    #: Exact QA assessment-provenance boundary schema identity.
     schema_version: Literal["synth.index.qa-assessment-source.v1"] = (
         "synth.index.qa-assessment-source.v1"
     )
+    #: UUID of the independent revision-bound QA case.
     case_id: UUID
+    #: UUID of the authoritative independent content review.
+    review_id: UUID
+    #: Current case version expected when consuming the QA approval.
+    expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
+se_id: UUID
+    #: UUID of the authoritative independent content review.
     review_id: UUID
     expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
+se_id: UUID
+    review_id: UUID
+    expected_case_version: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
+on: Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
 
 
 class ReviewSpec(IndexContract):
@@ -62,6 +74,10 @@ class ReviewSpec(IndexContract):
     comments: ReviewComments
     claim_comments: tuple[ReviewClaimComment, ...] = Field(default=(), max_length=128)
     manifest_digest: Digest | None = None
+    #: Optional exact QA approval source; only supported for manifest-bound approval.
+    #: Optional exact QA approval source; only supported for manifest-bound approval.
+    #: Optional exact QA approval source; only supported for manifest-bound approval.
+    #: Optional exact QA approval source; only supported for manifest-bound approval.
     qa_source: QaAssessmentSource | None = None
 
     @model_validator(mode="after")

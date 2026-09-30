@@ -22,7 +22,19 @@ def validate_package_binding(
     manifest: ArtifactManifest,
     expected_reference: ContributionReference,
 ) -> ContributionPackage:
-    """Reject mismatched identities, undeclared bytes and ambiguous JSON before sealing."""
+    """Reject mismatched identities, undeclared bytes and ambiguous JSON before sealing.
+
+    Args:
+        descriptor: Exact contribution.json bytes within the 1 MiB descriptor bound.
+        manifest: Exact artifact manifest declaring the descriptor and all package assets.
+        expected_reference: Server-issued Contribution and revision that the package must match.
+    Returns:
+        Validated ContributionPackage bound to the exact manifest and expected revision.
+    Raises:
+        ValueError: Identity, schema, path, byte-count, digest or exact object-set validation fails.
+    Examples:
+        package = validate_package_binding(descriptor, manifest, expected_reference)
+    """
     if len(descriptor) > DESCRIPTOR_BYTES_MAX:
         raise ValueError("Contribution descriptor exceeds 1 MiB")
     encode_manifest(manifest)
