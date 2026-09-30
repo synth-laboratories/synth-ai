@@ -1859,6 +1859,128 @@
         "title": "ClassificationView",
         "type": "object"
       },
+      "CloutDay": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "points": {
+            "minimum": 1.0,
+            "title": "Points",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "points"
+        ],
+        "title": "CloutDay",
+        "type": "object"
+      },
+      "CloutEligibility": {
+        "enum": [
+          "qualified",
+          "pending",
+          "self_use",
+          "internal_eval_demo",
+          "bot",
+          "revoked"
+        ],
+        "title": "CloutEligibility",
+        "type": "string"
+      },
+      "CloutEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "eligibility": {
+            "$ref": "#/components/schemas/CloutEligibility"
+          },
+          "event_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "identity_verified": {
+            "title": "Identity Verified",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CloutEvidenceKind"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "owner_consented": {
+            "title": "Owner Consented",
+            "type": "boolean"
+          },
+          "policy_version": {
+            "const": "synth.index.clout.v1",
+            "default": "synth.index.clout.v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "supersedes_event_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Event Id"
+          }
+        },
+        "required": [
+          "event_id",
+          "sequence",
+          "principal_id",
+          "reference",
+          "kind",
+          "receipt_id",
+          "eligibility",
+          "identity_verified",
+          "owner_consented",
+          "occurred_at"
+        ],
+        "title": "CloutEvidence",
+        "type": "object"
+      },
+      "CloutEvidenceKind": {
+        "enum": [
+          "qualified_contribution",
+          "verified_reproduction",
+          "accepted_review",
+          "organic_delivered_use"
+        ],
+        "title": "CloutEvidenceKind",
+        "type": "string"
+      },
       "CollectionGrant": {
         "additionalProperties": false,
         "properties": {
@@ -4506,6 +4628,100 @@
         "title": "OutputBinding",
         "type": "object"
       },
+      "OwnClout": {
+        "additionalProperties": false,
+        "properties": {
+          "excluded_events": {
+            "minimum": 0.0,
+            "title": "Excluded Events",
+            "type": "integer"
+          },
+          "pending_events": {
+            "minimum": 0.0,
+            "title": "Pending Events",
+            "type": "integer"
+          },
+          "policy_version": {
+            "const": "synth.index.clout.v1",
+            "default": "synth.index.clout.v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "private_calendar": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CloutDay"
+            },
+            "title": "Private Calendar",
+            "type": "array"
+          },
+          "private_points": {
+            "minimum": 0.0,
+            "title": "Private Points",
+            "type": "integer"
+          },
+          "public_calendar": {
+            "items": {
+              "$ref": "#/components/schemas/CloutDay"
+            },
+            "title": "Public Calendar",
+            "type": "array"
+          },
+          "public_points": {
+            "minimum": 0.0,
+            "title": "Public Points",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "public_points",
+          "private_points",
+          "pending_events",
+          "excluded_events",
+          "public_calendar"
+        ],
+        "title": "OwnClout",
+        "type": "object"
+      },
+      "OwnCloutPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CloutEvidence"
+            },
+            "maxItems": 200,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "scope": {
+            "default": "Currently authorized revisions; private reads follow the current organization",
+            "title": "Scope",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/OwnClout"
+          }
+        },
+        "required": [
+          "summary",
+          "items"
+        ],
+        "title": "OwnCloutPage",
+        "type": "object"
+      },
       "PreflightResult": {
         "additionalProperties": false,
         "properties": {
@@ -4713,6 +4929,27 @@
         "title": "PrivateUsage",
         "type": "object"
       },
+      "ProfileAffiliation": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "public": {
+            "default": false,
+            "title": "Public",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "ProfileAffiliation",
+        "type": "object"
+      },
       "ProfileCard": {
         "additionalProperties": false,
         "properties": {
@@ -4883,6 +5120,62 @@
         "title": "ProfileView",
         "type": "object"
       },
+      "ProfileVisibility": {
+        "additionalProperties": false,
+        "properties": {
+          "affiliations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProfileAffiliation"
+            },
+            "maxItems": 16,
+            "title": "Affiliations",
+            "type": "array"
+          },
+          "public_calendar": {
+            "default": false,
+            "title": "Public Calendar",
+            "type": "boolean"
+          },
+          "public_card_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Public Card Ids",
+            "type": "array"
+          },
+          "public_clout": {
+            "default": false,
+            "title": "Public Clout",
+            "type": "boolean"
+          },
+          "public_display_name": {
+            "default": false,
+            "title": "Public Display Name",
+            "type": "boolean"
+          },
+          "public_github": {
+            "default": false,
+            "title": "Public Github",
+            "type": "boolean"
+          },
+          "public_identity": {
+            "default": false,
+            "title": "Public Identity",
+            "type": "boolean"
+          },
+          "public_reuse": {
+            "default": false,
+            "title": "Public Reuse",
+            "type": "boolean"
+          }
+        },
+        "title": "ProfileVisibility",
+        "type": "object"
+      },
       "PromoCreditSummary": {
         "additionalProperties": false,
         "description": "Separate read model so the strict usage summary shape stays unchanged.",
@@ -4902,6 +5195,66 @@
           "credit"
         ],
         "title": "PromoCreditSummary",
+        "type": "object"
+      },
+      "PublicClout": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar": {
+            "items": {
+              "$ref": "#/components/schemas/CloutDay"
+            },
+            "title": "Calendar",
+            "type": "array"
+          },
+          "points": {
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "policy_version": {
+            "const": "synth.index.clout.v1",
+            "default": "synth.index.clout.v1",
+            "title": "Policy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "points",
+          "calendar"
+        ],
+        "title": "PublicClout",
+        "type": "object"
+      },
+      "PublicProfileValue": {
+        "additionalProperties": false,
+        "properties": {
+          "affiliation_status": {
+            "default": "Self-declared; not verified affiliations",
+            "title": "Affiliation Status",
+            "type": "string"
+          },
+          "affiliations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Affiliations",
+            "type": "array"
+          },
+          "clout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicClout"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "PublicProfileValue",
         "type": "object"
       },
       "PublicSearchAccepted": {
@@ -8839,6 +9192,156 @@
         "title": "SettlementState",
         "type": "string"
       },
+      "StarterBrief": {
+        "additionalProperties": false,
+        "properties": {
+          "brief_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Brief Id",
+            "type": "string"
+          },
+          "budget": {
+            "title": "Budget",
+            "type": "string"
+          },
+          "eligibility": {
+            "title": "Eligibility",
+            "type": "string"
+          },
+          "qa": {
+            "title": "Qa",
+            "type": "string"
+          },
+          "rights": {
+            "title": "Rights",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "submission_path": {
+            "const": "/index/contribute",
+            "default": "/index/contribute",
+            "title": "Submission Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brief_id",
+          "title",
+          "scope",
+          "steps",
+          "budget",
+          "rights",
+          "qa",
+          "eligibility"
+        ],
+        "title": "StarterBrief",
+        "type": "object"
+      },
+      "StarterPreference": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "selected_brief_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Brief Id"
+          }
+        },
+        "title": "StarterPreference",
+        "type": "object"
+      },
+      "StarterState": {
+        "additionalProperties": false,
+        "properties": {
+          "allowance_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowance Expires At"
+          },
+          "allowance_status": {
+            "enum": [
+              "unknown",
+              "available",
+              "near_limit",
+              "exhausted",
+              "expired"
+            ],
+            "title": "Allowance Status",
+            "type": "string"
+          },
+          "briefs": {
+            "items": {
+              "$ref": "#/components/schemas/StarterBrief"
+            },
+            "title": "Briefs",
+            "type": "array"
+          },
+          "note": {
+            "default": "DEEP beta allowance includes live reservations. Other quotas are not inferred. No work or charge starts when selecting a brief.",
+            "title": "Note",
+            "type": "string"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/StarterPreference"
+          },
+          "remaining_units": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Units"
+          },
+          "show_offer": {
+            "title": "Show Offer",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "preference",
+          "allowance_status",
+          "show_offer",
+          "briefs"
+        ],
+        "title": "StarterState",
+        "type": "object"
+      },
       "TagRegistry": {
         "additionalProperties": false,
         "properties": {
@@ -11899,6 +12402,65 @@
         ]
       }
     },
+    "/api/v1/index/me/clout": {
+      "get": {
+        "operationId": "index.me.clout.retrieve",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnCloutPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Value Ledger",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
     "/api/v1/index/me/contributions": {
       "get": {
         "operationId": "index.me.contributions.list",
@@ -12002,6 +12564,66 @@
         ]
       }
     },
+    "/api/v1/index/me/profile/visibility": {
+      "get": {
+        "operationId": "index.me.profile.visibility.retrieve",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileVisibility"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Visibility",
+        "tags": [
+          "index-reads"
+        ]
+      },
+      "put": {
+        "operationId": "index.me.profile.visibility.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileVisibility"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileVisibility"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Visibility",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
     "/api/v1/index/me/promo-credit": {
       "get": {
         "description": "Current-org private-search promo balance; ``credit`` is null if not enrolled.",
@@ -12042,6 +12664,68 @@
         "summary": "Rewards",
         "tags": [
           "index-programs"
+        ]
+      }
+    },
+    "/api/v1/index/me/starters": {
+      "get": {
+        "operationId": "index.me.starters.retrieve",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Starter Projects",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/me/starters/preference": {
+      "put": {
+        "operationId": "index.me.starters.preference.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarterPreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterPreference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Starter Preference",
+        "tags": [
+          "index-reads"
         ]
       }
     },
@@ -12764,6 +13448,49 @@
         ]
       }
     },
+    "/api/v1/index/profiles/{principal_id}/value": {
+      "get": {
+        "operationId": "index.profiles.value.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileValue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile Value",
+        "tags": [
+          "index-reads"
+        ]
+      }
+    },
     "/api/v1/index/public/capabilities": {
       "get": {
         "operationId": "index.public.capabilities",
@@ -13135,6 +13862,49 @@
           }
         },
         "summary": "Profile",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/profiles/{principal_id}/value": {
+      "get": {
+        "operationId": "index.public.profiles.value.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Principal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileValue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile Value",
         "tags": [
           "index-public"
         ]
