@@ -490,6 +490,12 @@ def _fail(error: BaseException) -> None:
         hint = " Re-read current state before deciding; nothing was merged."
     elif code == EXIT_AUTH:
         hint = " Check SYNTH_API_KEY and --backend-url."
+    elif code == EXIT_FORBIDDEN:
+        from synth_ai.sdk.index.scope_errors import scope_denial
+
+        denial = scope_denial(error)
+        if denial is not None:
+            hint = " " + denial.message()
     click.echo(f"error[{label}]: {error}{hint}", err=True)
     raise click.exceptions.Exit(code)
 
@@ -914,6 +920,45 @@ def qa_review(case_id, spec_file, idempotency_key, api_key, backend_url):
             case_id, _spec(spec_file, RecordReviewSpec), idempotency_key=idempotency_key
         ),
     )
+
+
+def _annotate_scope_hints() -> None:
+    """Append the SDK scope class to each command's help (advisory; backend decides)."""
+    from synth_ai.sdk.index.scopes import required_scopes
+
+    hints = {
+        (qa, "open"): "index.qa.cases.create",
+        (qa, "case"): "index.qa.cases.get",
+        (qa, "events"): "index.qa.events.list",
+        (qa, "send"): "index.qa.events.create",
+        (qa, "appeal"): "index.qa.appeals.create",
+        (qa, "escalate"): "index.qa.escalations.create",
+        (qa, "note"): "index.qa.notes.create",
+        (qa, "adjudicate"): "index.qa.adjudications.create",
+        (qa, "assignments"): "index.qa.assignments.list",
+        (qa, "accept"): "index.qa.assignments.accept",
+        (qa, "invite"): "index.qa.assignments.create",
+        (qa, "revoke"): "index.qa.assignments.revoke",
+        (qa, "checks"): "index.qa.checks.list",
+        (qa, "reviews"): "index.qa.reviews.list",
+        (qa, "review"): "index.qa.reviews.record",
+        (contribution, "create"): "index.contributions.create",
+        (contribution, "upload"): "index.contributions.upload.prepare",
+        (contribution, "submit"): "index.contributions.submit",
+        (contribution, "repair"): "index.contributions.revisions.create",
+        (contribution, "withdraw"): "index.contributions.withdrawal.create",
+        (contribution, "publish"): "index.contributions.publication.create",
+    }
+    for (group, name), operation in hints.items():
+        command = group.commands[name]
+        scopes = " or ".join(required_scopes(operation))
+        command.help = (
+            f"{command.help or ''}\n\nOAuth scope (any of): {scopes}. Scopes allow a class "
+            "of operation only; the backend decides by role, assignment and ownership."
+        )
+
+
+_annotate_scope_hints()
 
 
 @index.group()
