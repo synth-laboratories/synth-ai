@@ -1776,7 +1776,19 @@ class AccountAPI(_Resource):
         return self._run(_Call("index.me.rewards.list", MyRewards.model_validate))
 
     def clout(self, *, limit: int = 100, cursor: str | None = None) -> Any:
-        """Read your current-org canonical ledger; pending evidence earns no points."""
+        """Read your current-org canonical ledger; pending evidence earns no points.
+
+        Args:
+            limit: Maximum evidence entries, an integer from 1 to 200; default 100.
+            cursor: Decimal continuation sequence from the previous page, or None for the first page.
+
+        Returns:
+            OwnCloutPage with authorized evidence, separate totals and an optional next cursor.
+            Async clients receive an awaitable of the same value.
+
+        Raises:
+            ValueError: Limit is outside 1 to 200 or cursor is not a 1 to 20 digit sequence.
+        """
         if type(limit) is not int or not 1 <= limit <= 200:
             raise ValueError("Value history limit must be 1–200")
         if cursor is not None and not re.fullmatch(r"[0-9]{1,20}", cursor):
@@ -1790,13 +1802,25 @@ class AccountAPI(_Resource):
         )
 
     def profile_visibility(self) -> Any:
-        """Read explicit owner visibility settings; all fields default private."""
+        """Read explicit owner visibility settings; all fields default private.
+
+        Returns:
+            ProfileVisibility containing the current owner's disclosure preferences.
+            Async clients receive an awaitable of the same value.
+        """
         return self._run(
             _Call("index.me.profile.visibility.retrieve", ProfileVisibility.model_validate)
         )
 
     def update_profile_visibility(self, spec: ProfileVisibility) -> Any:
-        """Replace your visibility consent without publishing a Contribution."""
+        """Replace your visibility consent without publishing a Contribution.
+
+        Args:
+            spec: Complete replacement ProfileVisibility; omitted fields use private defaults.
+
+        Returns:
+            ProfileVisibility acknowledged by the backend, or an awaitable for async clients.
+        """
         return self._run(
             _Call(
                 "index.me.profile.visibility.update",
@@ -1806,11 +1830,23 @@ class AccountAPI(_Resource):
         )
 
     def starters(self) -> Any:
-        """Read manual briefs and actual DEEP beta allowance, including reservations."""
+        """Read manual briefs and actual DEEP beta allowance, including reservations.
+
+        Returns:
+            StarterState with manual briefs, opt-in preference and actual allowance status.
+            Async clients receive an awaitable. Reading starts no work or charge.
+        """
         return self._run(_Call("index.me.starters.retrieve", StarterState.model_validate))
 
     def update_starter_preference(self, spec: StarterPreference) -> Any:
-        """Opt in or choose a manual brief; starts no work or charge."""
+        """Opt in or choose a manual brief; starts no work or charge.
+
+        Args:
+            spec: Replacement manual-brief opt-in preference and optional selected brief.
+
+        Returns:
+            StarterState acknowledged by the backend, or an awaitable for async clients.
+        """
         return self._run(
             _Call(
                 "index.me.starters.preference.update",
@@ -1832,7 +1868,15 @@ class AccountAPI(_Resource):
 
 class ProfilesAPI(_Resource):
     def value(self, principal_id: str) -> Any:
-        """Read only consented public clout and affiliations; no hidden totals."""
+        """Read only consented public clout and affiliations; no hidden totals.
+
+        Args:
+            principal_id: Contributor identity whose consented public value is requested.
+
+        Returns:
+            PublicProfileValue with visible clout and self-declared affiliation labels.
+            Async clients receive an awaitable of the same value.
+        """
         return self._run(
             _Call(
                 "index.profiles.value.retrieve",
@@ -2837,7 +2881,15 @@ class PublicAssetsAPI(_Resource):
 
 class PublicProfilesAPI(_Resource):
     def value(self, principal_id: str) -> Any:
-        """Read only consented public clout and affiliations; no hidden totals."""
+        """Read only consented public clout and affiliations; no hidden totals.
+
+        Args:
+            principal_id: Contributor identity whose consented public value is requested.
+
+        Returns:
+            PublicProfileValue with visible clout and self-declared affiliation labels.
+            Async clients receive an awaitable of the same value.
+        """
         return self._run(
             _Call(
                 "index.public.profiles.value.retrieve",

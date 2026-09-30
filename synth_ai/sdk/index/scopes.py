@@ -61,5 +61,15 @@ OPERATION_SCOPES: Mapping[str, tuple[str, ...]] = {
 
 
 def required_scopes(operation_id: str) -> tuple[str, ...]:
-    """Any-of scopes for an operation id; KeyError for one this table does not cover."""
+    """Read the scope class required by a supported SDK operation.
+
+    Args:
+        operation_id: Exact operation identifier in OPERATION_SCOPES.
+
+    Returns:
+        Any-of scope names for discovery guidance; backend role and assignment checks remain required.
+
+    Raises:
+        KeyError: The operation is not covered by the SDK scope table.
+    """
     return OPERATION_SCOPES[operation_id]

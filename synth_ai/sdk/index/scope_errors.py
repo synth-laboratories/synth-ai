@@ -22,6 +22,22 @@ _NESTING_KEYS = ("detail", "data", "error")
 
 @dataclass(frozen=True, slots=True)
 class ScopeDenial:
+    """Reported authorization facts without inventing token grants.
+
+    Attributes:
+        insufficient_scope: Whether the server identified a scope failure.
+        required_any_of: Any-of required scopes reported by the server or SDK table.
+        required_source: Origin of required scopes: server, sdk_table or unknown.
+        granted: Reported token scopes, or None when the server did not disclose them.
+        operation: SDK operation identifier, or None when unavailable.
+
+    Examples:
+        ```python
+        denial = ScopeDenial(True, ("index:review",), "server", (), "index.qa.reviews.record")
+        print(denial.message())
+        ```
+    """
+
     insufficient_scope: bool
     required_any_of: tuple[str, ...]
     required_source: str  # "server", "sdk_table" or "unknown"
@@ -29,6 +45,11 @@ class ScopeDenial:
     operation: str | None
 
     def message(self) -> str:
+        """Format known scope facts and an appropriate recovery hint.
+
+        Returns:
+            A sanitized explanation retaining unknown granted scopes as unknown.
+        """
         required = " or ".join(self.required_any_of) if self.required_any_of else "unknown"
         granted = (
             "unknown (the server did not report them)"
@@ -46,6 +67,11 @@ class ScopeDenial:
         return text + " " + self.hint()
 
     def hint(self) -> str:
+        """Explain the authorization boundary relevant to this denial.
+
+        Returns:
+            Scope-consent guidance for a scope failure, otherwise role/assignment guidance.
+        """
         if self.insufficient_scope:
             return (
                 "Reconnect and approve the missing scope. Scopes only allow a class of "
@@ -86,7 +112,15 @@ def _walk(value: Any, depth: int = 0) -> dict[str, Any]:
 
 
 def scope_denial(error: BaseException) -> ScopeDenial | None:
-    """Scope facts for an authorization failure, or None for any other error."""
+    """Extract scope facts from an SDK authorization failure.
+
+    Args:
+        error: Caught exception to inspect; unrelated exceptions are not rewritten.
+
+    Returns:
+        ScopeDenial for an authorization-category SynthError, otherwise None.
+        Missing granted scopes remain unknown; server requirements take precedence.
+    """
     if not isinstance(error, SynthError) or error.failure is None:
         return None
     failure = error.failure
