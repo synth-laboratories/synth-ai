@@ -165,6 +165,9 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
+    "index.contributions.research.correction_registration": (
+        "POST", f"{_R}/research-registration"
+    ),
     "index.qa.cases.create": ("POST", _P + "/qa/cases"),
     "index.qa.cases.get": ("GET", _P + "/qa/cases/{case_id}"),
     "index.qa.events.list": ("GET", _P + "/qa/cases/{case_id}/events"),
@@ -1529,6 +1532,52 @@ class ContributionsAPI(_Resource):
                 ContributionDraft.model_validate,
                 json_body=spec.model_dump(mode="json"),
                 headers=_key(idempotency_key, required="Research draft creation"),
+            )
+        )
+
+    def register_research_correction(
+        self,
+        reference: ContributionReference,
+        spec: ResearchDraftSpec,
+        *,
+        idempotency_key: str,
+    ) -> None | Awaitable[None]:
+        """Bind a resealed export bundle to an existing private correction draft.
+
+        See sibling backend/notes/specifications/synth-index/research-export-bundle.md.
+
+        Args:
+            reference: Exact existing child Contribution revision to register.
+            spec: Resealed bundle digest and immutable research source proof.
+            idempotency_key: Explicit key reused only with the identical request.
+
+        Returns:
+            None on acknowledgement, or an awaitable for an async client.
+
+        The backend requires research-import authority and verifies the child's
+        parent/source lineage. This operation grants no rights, consent, QA
+        approval or publication; those remain separate backend decisions.
+
+        Raises:
+            ValueError: Request identifiers/key or acknowledgement are invalid.
+
+        Example:
+            client.index.contributions.register_research_correction(
+                reference, spec, idempotency_key="repair-registration-1"
+            )
+        """
+
+        def acknowledge(payload: object) -> None:
+            if payload != {}:
+                raise ValueError("Research correction acknowledgement must be empty")
+
+        return self._run(
+            _Call(
+                "index.contributions.research.correction_registration",
+                acknowledge,
+                path_parameters=_revision(reference),
+                json_body=_body(spec),
+                headers=_key(idempotency_key, required="Research correction registration"),
             )
         )
 
