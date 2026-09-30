@@ -447,7 +447,7 @@ Scopes gate the class of operation. The backend decides who may act on which cas
 (ownership, assignment, coordinator role, organization) on every request, so holding a
 scope never bypasses those checks. Any-of; a token with any listed scope reaches the class.
 The SDK table is `synth_ai.sdk.index.scopes.OPERATION_SCOPES`, advertised as each local MCP
-tool's `requiredScopes` and in `--help`; a test asserts it equals the backend table.
+tool's `requiredAnyOfScopes` for alternatives (`requiredScopes` for a single scope) and in `--help`; a test asserts it equals the backend table.
 
 | Operation | Any of |
 | --- | --- |
