@@ -8504,7 +8504,8 @@
                   "none",
                   "promo_credit",
                   "deep_beta",
-                  "wallet"
+                  "wallet",
+                  "service_free_public"
                 ],
                 "type": "string"
               },
