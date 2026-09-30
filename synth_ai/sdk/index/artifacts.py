@@ -237,6 +237,7 @@ class ArtifactManifest(ArtifactContract):
 
 
 class ArtifactPublicationPrepare(ArtifactContract):
+    """Prepare exact declared objects for one create-only artifact publication."""
     #: Exact boundary schema identifier used for serialization.
     schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = ARTIFACT_CONTRACT_SCHEMA_VERSION
     #: UUID of this artifact publication attempt.
