@@ -218,6 +218,7 @@ class ToolDefinition:
     input_schema: JSONDict
     handler: ToolHandler
     required_scopes: tuple[str, ...] = ()
+    any_of_scopes: tuple[str, ...] = ()
 
 
 def _scoped_tool_definition(tool: ToolDefinition) -> ToolDefinition:
@@ -227,7 +228,7 @@ def _scoped_tool_definition(tool: ToolDefinition) -> ToolDefinition:
     build-time failure rather than a silent grant. Adding a tool means deciding
     whether it reads or writes.
     """
-    if tool.required_scopes:
+    if tool.required_scopes or tool.any_of_scopes:
         return tool
     scopes = _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME.get(tool.name)
     if not scopes:
@@ -303,6 +304,7 @@ def list_tool_payload(
                 "description": tool.description,
                 "inputSchema": tool.input_schema,
                 "requiredScopes": list(tool.required_scopes),
+                **({"requiredAnyOfScopes": list(tool.any_of_scopes)} if tool.any_of_scopes else {}),
             }
         )
     return payload
