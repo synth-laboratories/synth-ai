@@ -148,6 +148,7 @@ class IndexErrorCode(StrEnum):
     PIN_NOT_ELIGIBLE = "pin_not_eligible"
 
     # Rewards and contests.
+    CREDIT_AWARDS_UNAVAILABLE = "credit_awards_unavailable"
     AWARD_NOT_FOUND = "award_not_found"
     AWARD_NOT_ELIGIBLE = "award_not_eligible"
     AWARD_LEDGER_MISSING = "award_ledger_missing"

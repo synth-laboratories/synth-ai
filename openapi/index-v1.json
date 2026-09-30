@@ -4520,7 +4520,7 @@
             "type": "array"
           },
           "note": {
-            "default": "Awarded Synth cloud credits from reviewed programs; not cash or earnings owed. available_credits_cents is the current organization wallet after spend, expiry and live reservations, including credits from other sources; it is not an unspent contribution-award balance. Award totals describe the displayed history (at most 500 entries). Future admission rechecks limits.",
+            "default": "Index v0.2 awards are hypothetical social recognition only, with no spendable credit, cash or earnings owed. available_credits_cents is the current organization wallet after spend, expiry and live reservations, including credits from other sources; it is not an unspent contribution-award balance. Award totals describe the displayed history (at most 500 entries). Future admission rechecks limits.",
             "title": "Note",
             "type": "string"
           },
@@ -15581,6 +15581,9 @@
             },
             "description": "Successful Response"
           },
+          "403": {
+            "description": "credit_awards_unavailable; no wallet effect"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -15592,7 +15595,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Award",
+        "summary": "Unavailable in v0.2: awards are social recognition only",
         "tags": [
           "index-programs"
         ]
