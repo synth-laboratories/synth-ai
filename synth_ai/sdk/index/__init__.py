@@ -47,7 +47,7 @@ from .lifecycle import (
     RevisionView,
     WithdrawalSpec,
 )
-from .package import ContributionPackage
+from .package import ContributionPackage, ContributionRelationship
 from .public import AsyncPublicIndexClient, PublicIndexClient
 from .public_search import (
     PublicSearchAuthenticatedError,
@@ -234,6 +234,7 @@ __all__ = [
     "ContestView",
     "ContributionDraft",
     "ContributionPackage",
+    "ContributionRelationship",
     "ContributionReference",
     "ContributionSubmission",
     "ContributionSubmitSpec",

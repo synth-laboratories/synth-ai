@@ -6,7 +6,7 @@ The descriptor is one Artifact object; final publication digest lives outside it
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, StrictBool, StringConstraints, model_validator
+from pydantic import Field, StrictBool, StringConstraints, model_serializer, model_validator
 
 from .artifacts import ArtifactObjectDeclaration
 from .contracts import (
@@ -89,11 +89,32 @@ class CreditedContributor(IndexContract):
     )
 
 
+class ContributionRelationship(IndexContract):
+    """Authored exact upstream relationship; approval covers its stated meaning.
+
+    See notes/specifications/synth-index/public-corpus-lineage.md. This declares
+    research provenance, never a read grant, causal measurement or reward.
+    """
+
+    kind: Literal["citation", "reuse", "derivation", "replication", "correction", "contradiction"]
+    reference: ContributionReference
+    reason: ShortText | None = None
+
+
 class ContributionProvenance(IndexContract):
     origin: ContributionOrigin
     contributors: tuple[CreditedContributor, ...] = Field(min_length=1, max_length=32)
     upstream: tuple[ContributionReference, ...] = Field(default=(), max_length=64)
     tools: tuple[ShortText, ...] = Field(default=(), max_length=16)
+    relationships: tuple[ContributionRelationship, ...] = Field(default=(), max_length=64)
+
+    @model_serializer(mode="wrap")
+    def preserve_absent_relationships(self, handler):
+        """Do not add new default fields to sealed pre-extension descriptor bytes."""
+        value = handler(self)
+        if "relationships" not in self.model_fields_set:
+            value.pop("relationships", None)
+        return value
 
     @model_validator(mode="after")
     def check_unique_lineage(self) -> Self:
@@ -101,6 +122,13 @@ class ContributionProvenance(IndexContract):
         require_unique(
             tuple((item.contribution_id, item.revision_id) for item in self.upstream),
             "upstream",
+        )
+        require_unique(
+            tuple(
+                (item.reference.contribution_id, item.reference.revision_id)
+                for item in self.relationships
+            ),
+            "relationship targets",
         )
         return self
 
@@ -139,12 +167,32 @@ class ContributionPackage(IndexContract):
     evidence: tuple[EvidenceReference, ...] = Field(default=(), max_length=512)
     provenance: ContributionProvenance
     reproduction: Reproduction
+    publication_mode: Literal["private", "public_api", "public"] | None = None
     requested_audience: ContributionAudience = ContributionAudience.PRIVATE
     rights_attested: StrictBool
     sensitive_data: Literal["none_declared", "declared", "unknown"]
 
+    revision_note: ShortText | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_absent_package_fields(self, handler):
+        """Preserve prior SDK descriptor identities while admitting backend extensions."""
+        value = handler(self)
+        for name in ("revision_note", "publication_mode"):
+            if name not in self.model_fields_set:
+                value.pop(name, None)
+        return value
+
     @model_validator(mode="after")
     def check_package_links(self) -> Self:
+        if self.publication_mode is not None:
+            expected = (
+                ContributionAudience.PRIVATE
+                if self.publication_mode == "private"
+                else ContributionAudience.PUBLIC
+            )
+            if self.requested_audience != expected:
+                raise ValueError("publication_mode must match requested_audience")
         for name in ("research_areas", "workflow_stages", "tag_ids"):
             require_unique(getattr(self, name), name)
         if self.parent_revision_id == self.revision_id:
@@ -152,6 +200,13 @@ class ContributionPackage(IndexContract):
         if any(item.contribution_id == self.contribution_id for item in self.provenance.upstream):
             raise ValueError(
                 "same-Contribution history belongs in parent_revision_id, not reward lineage"
+            )
+        if any(
+            item.reference.contribution_id == self.contribution_id
+            for item in self.provenance.relationships
+        ):
+            raise ValueError(
+                "same-Contribution history belongs in parent_revision_id and revision_note"
             )
         assets = {item.asset_id: item for item in self.assets}
         require_unique(tuple(item.asset_id for item in self.assets), "asset_ids")
@@ -182,6 +237,9 @@ class ContributionPackage(IndexContract):
             ContributionKind.REPLICATION,
         ) and not any(asset.role == "report" for asset in self.assets):
             raise ValueError("research reports and replications require a report asset")
-        if self.kind == ContributionKind.REPLICATION and not self.provenance.upstream:
+        if self.kind == ContributionKind.REPLICATION and not (
+            self.provenance.upstream
+            or any(item.kind == "replication" for item in self.provenance.relationships)
+        ):
             raise ValueError("replication requires an exact upstream Contribution revision")
         return self
