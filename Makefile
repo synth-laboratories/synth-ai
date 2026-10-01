@@ -4,7 +4,7 @@
 # guardrail manifest and the docs build moved out on 2026-07-29:
 #
 #   ../testing   SDK gates + pytest suite + specifications/ + guardrails/
-#   ../docs      the Mintlify reference build
+#   ../docs      the Blume reference build
 #
 # These targets stay only as the entry point developers already type. Each one
 # delegates and passes SYNTH_AI_DIR=$(CURDIR), so a worktree is checked instead

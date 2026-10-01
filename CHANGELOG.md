@@ -824,7 +824,7 @@ Prerelease. Install with `pip install --pre synth-ai` or pin
   - `update` (PATCH metadata), `publish_public`, `assign_reviewer`, `delete`
   - `list_public`, `get_public` for the Open Research index
 - **Run handle:** `handle.hosted_artifact.get()`, `.content()`, `.publish_public()`, `.assign_reviewer()`
-- **Mintlify SDK reference:** [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) (via `make docs-gen`).
+- **SDK reference:** [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) (via `make docs-gen`).
 
 ### Notes
 

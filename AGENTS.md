@@ -104,7 +104,7 @@ This repo is the published package and nothing else — there is no `scripts/`,
 | pytest suites | `../testing` (SDK/backend), `../evals` (eval harnesses) |
 | SDK gates (architecture, no-rust, OpenAPI contract, migration boundaries) | `../testing/scripts/` |
 | `specifications/`, guardrail suite manifest | `../testing` |
-| Mintlify reference build | `../docs/scripts/` |
+| Blume reference build | `../docs/scripts/` |
 
 Run them from here — the Makefile delegates and passes `SYNTH_AI_DIR=$(CURDIR)`
 so a worktree is checked rather than whatever sits beside the sibling repo:
