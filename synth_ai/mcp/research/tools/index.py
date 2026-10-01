@@ -134,10 +134,12 @@ class SearchEventsRequest(SearchIdentityRequest):
 
 class ContributionRequest(IndexContract):
     contribution_id: Identifier
+    search_id: Identifier | None = None
 
 
 class RevisionRequest(IndexContract):
     reference: ContributionReference
+    search_id: Identifier | None = None
 
 
 class DraftCreateRequest(IndexContract):
@@ -353,12 +355,24 @@ def build_index_tools(
     def contribution(arguments: JSONDict) -> JSONDict:
         request = ContributionRequest.model_validate(arguments)
         with client_factory() as client:
-            return client.contributions.retrieve(request.contribution_id).model_dump(mode="json")
+            params = {}
+            if request.search_id is not None:
+                if not isinstance(client, IndexAPI):
+                    raise ValueError("A testing Search receipt requires an API key")
+                params["search_id"] = request.search_id
+            return client.contributions.retrieve(request.contribution_id, **params).model_dump(
+                mode="json"
+            )
 
     def status(arguments: JSONDict) -> JSONDict:
         request = RevisionRequest.model_validate(arguments)
         with client_factory() as client:
-            return client.contributions.revisions.retrieve(request.reference).model_dump(
+            params = {}
+            if request.search_id is not None:
+                if not isinstance(client, IndexAPI):
+                    raise ValueError("A testing Search receipt requires an API key")
+                params["search_id"] = request.search_id
+            return client.contributions.revisions.retrieve(request.reference, **params).model_dump(
                 mode="json"
             )
 

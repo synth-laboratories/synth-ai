@@ -10,12 +10,11 @@ import httpx
 import pytest
 from click.testing import CliRunner
 from pydantic import ValidationError
-
 from synth_ai.cli import cli
 from synth_ai.mcp.research.tools.index import IndexPrivateSearchRequest, IndexSearchRequest
 from synth_ai.sdk.index import PublicIndexClient, SearchFilters, SearchSpec
-
-from test_index_cli_search_route import _run, seen
+from test_index_cli_search_route import _paid_result, _run
+from test_index_cli_search_route import seen as seen
 from test_index_public_search import _delivered, _mount, _public_search_block, _routes, _tool
 
 
@@ -186,3 +185,212 @@ def test_mcp_nested_search_preserves_keyword_contract() -> None:
                 "filters": {"tags_all": ["cybernetics"], "tags_none": ["cybernetics"]},
             }
         )
+
+
+@pytest.mark.parametrize("mode", ["fast", "deep"])
+def test_keyed_sdk_private_filter_transport(mode: str) -> None:
+    from synth_ai.client import SynthClient
+    from test_index_deep_create_retry import _mount as mount_keyed
+
+    spec = SearchSpec(
+        query="Compare testing evidence",
+        mode=mode,
+        scope={"visibility": "private", "collection_ids": ["testing-collection"]},
+        filters=SearchFilters(tags_all=("cybernetics",), tags_none=("obsolete",)),
+        billing={"allow_wallet": True, "max_charge_cents": 25},
+    )
+    if mode == "fast":
+        result = _paid_result()
+        result["usage"]["billing_scope"] = "private"
+        response = httpx.Response(200, json=result)
+    else:
+        response = httpx.Response(
+            200,
+            json={
+                "search_id": "search-private-1",
+                "spec": spec.model_dump(mode="json"),
+                "state": "queued",
+                "requested_mode": "deep",
+                "created_at": "2026-10-01T00:00:00Z",
+                "updated_at": "2026-10-01T00:00:00Z",
+            },
+        )
+    with SynthClient(api_key="sk-test", base_url="https://api.example.test") as client:
+        requests = mount_keyed(client, [response])
+        if mode == "fast":
+            client.index.search(spec, idempotency_key="private-intent-1")
+        else:
+            client.index.searches.create(spec, idempotency_key="private-intent-1")
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.headers["authorization"] == "Bearer sk-test"
+    assert request.headers["idempotency-key"] == "private-intent-1"
+    assert request.url.path == (
+        "/api/v1/index/search" if mode == "fast" else "/api/v1/index/searches"
+    )
+    assert json.loads(request.content) == spec.model_dump(mode="json", exclude_none=mode == "deep")
+
+
+@pytest.mark.parametrize("resource", ["contribution", "revision", "assessment", "asset"])
+@pytest.mark.parametrize("search_id", [None, "60bba243-5ac1-4ff3-a5a8-c52e90648e5b"])
+def test_exact_reads_forward_optional_receipt_without_changing_default_wire(
+    resource: str,
+    search_id: str | None,
+) -> None:
+    from synth_ai.sdk.index.client import ContributionsAPI
+    from synth_ai.sdk.index.contracts import ContributionReference
+
+    calls = []
+    api = ContributionsAPI(lambda call: calls.append(call), asynchronous=False)
+    reference = ContributionReference(contribution_id="contribution-1", revision_id="revision-1")
+    if resource == "contribution":
+        api.retrieve(reference.contribution_id, search_id=search_id)
+    elif resource == "revision":
+        api.revisions.retrieve(reference, search_id=search_id)
+    elif resource == "assessment":
+        api.assessments.list(reference, search_id=search_id)
+    else:
+        api.assets.retrieve(reference, "asset-1", search_id=search_id)
+    assert len(calls) == 1
+    method, path, kwargs = calls[0].request()
+    assert method == "GET"
+    assert path.startswith("/api/v1/index/contributions/contribution-1")
+    if search_id is None:
+        assert "params" not in kwargs
+    else:
+        assert kwargs["params"] == {"search_id": search_id}
+
+
+def test_invalid_read_receipt_is_rejected_before_transport() -> None:
+    from synth_ai.sdk.index.client import ContributionsAPI
+
+    calls = []
+    api = ContributionsAPI(lambda call: calls.append(call), asynchronous=False)
+    with pytest.raises(ValueError, match="search_id must"):
+        api.retrieve("contribution-1", search_id="not a safe identifier")
+    assert calls == []
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_asset_transport_carries_receipt_for_sync_and_async(asynchronous: bool) -> None:
+    import asyncio
+
+    from synth_ai.client import AsyncSynthClient, SynthClient
+    from synth_ai.sdk.index.contracts import ContributionReference
+    from test_index_deep_create_retry import _mount as mount_keyed
+
+    reference = ContributionReference(contribution_id="contribution-1", revision_id="revision-1")
+    receipt = "60bba243-5ac1-4ff3-a5a8-c52e90648e5b"
+    if asynchronous:
+
+        async def run():
+            async with AsyncSynthClient(
+                api_key="sk-test", base_url="https://api.example.test"
+            ) as client:
+                requests = mount_keyed(client, [httpx.Response(200, content=b"evidence")])
+                content = await client.index.contributions.assets.retrieve(
+                    reference, "asset-1", search_id=receipt
+                )
+            return content, requests
+
+        content, requests = asyncio.run(run())
+    else:
+        with SynthClient(api_key="sk-test", base_url="https://api.example.test") as client:
+            requests = mount_keyed(client, [httpx.Response(200, content=b"evidence")])
+            content = client.index.contributions.assets.retrieve(
+                reference, "asset-1", search_id=receipt
+            )
+    assert content == b"evidence"
+    assert requests[0].url.params["search_id"] == receipt
+    assert requests[0].headers["authorization"] == "Bearer sk-test"
+
+
+def test_cli_revision_status_forwards_receipt(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = []
+
+    def retrieve(reference, **kwargs):
+        captured.append((reference, kwargs))
+        return {}
+
+    @contextmanager
+    def client(**kwargs):
+        yield SimpleNamespace(
+            index=SimpleNamespace(
+                contributions=SimpleNamespace(
+                    revisions=SimpleNamespace(retrieve=retrieve),
+                )
+            )
+        )
+
+    monkeypatch.setattr("synth_ai.SynthClient", client)
+    receipt = "60bba243-5ac1-4ff3-a5a8-c52e90648e5b"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "index",
+            "contribution",
+            "status",
+            "contribution-1",
+            "revision-1",
+            "--api-key",
+            "sk-test",
+            "--backend-url",
+            "https://api.example.test",
+            "--search-id",
+            receipt,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured[0][1] == {"search_id": receipt}
+
+
+def test_mcp_exact_reads_forward_receipt_and_reject_anonymous_receipt() -> None:
+    from synth_ai.mcp.research.tools.index import build_index_tools
+    from synth_ai.sdk.index.client import IndexAPI
+
+    captured = []
+
+    def retrieve(*args, **kwargs):
+        captured.append((args, kwargs))
+        return SimpleNamespace(model_dump=lambda **kwargs: {"ok": True})
+
+    client = object.__new__(IndexAPI)
+    client.contributions = SimpleNamespace(
+        retrieve=retrieve,
+        revisions=SimpleNamespace(retrieve=retrieve),
+    )
+
+    @contextmanager
+    def factory():
+        yield client
+
+    tools = {tool.name: tool for tool in build_index_tools(factory)}
+    receipt = "60bba243-5ac1-4ff3-a5a8-c52e90648e5b"
+    assert tools["index_get_contribution"].handler(
+        {
+            "contribution_id": "contribution-1",
+            "search_id": receipt,
+        }
+    ) == {"ok": True}
+    assert tools["index_contribution_status"].handler(
+        {
+            "reference": {"contribution_id": "contribution-1", "revision_id": "revision-1"},
+            "search_id": receipt,
+        }
+    ) == {"ok": True}
+    assert [kwargs for _, kwargs in captured] == [{"search_id": receipt}] * 2
+    assert "search_id" in tools["index_get_contribution"].input_schema["properties"]
+
+    @contextmanager
+    def anonymous():
+        yield SimpleNamespace(contributions=SimpleNamespace(retrieve=retrieve))
+
+    tools = {tool.name: tool for tool in build_index_tools(anonymous)}
+    with pytest.raises(ValueError, match="requires an API key"):
+        tools["index_get_contribution"].handler(
+            {
+                "contribution_id": "contribution-1",
+                "search_id": receipt,
+            }
+        )
+    assert len(captured) == 2

@@ -370,6 +370,14 @@ def _body(spec: Any) -> dict[str, Any]:
     return spec.model_dump(mode="json", exclude_none=True)
 
 
+def _search_receipt_params(search_id: str | None) -> dict[str, str] | None:
+    if search_id is None:
+        return None
+    if not isinstance(search_id, str) or not _IDENTIFIER.fullmatch(search_id):
+        raise ValueError("search_id must be an Index identifier")
+    return {"search_id": search_id}
+
+
 def _revision(reference: ContributionReference) -> dict[str, str]:
     return {"contribution_id": reference.contribution_id, "revision_id": reference.revision_id}
 
@@ -1413,8 +1421,8 @@ class RevisionsAPI(_Resource):
             )
         )
 
-    def retrieve(self, reference: ContributionReference) -> Any:
-        """Exact revision status, sealed package, assessments and citation."""
+    def retrieve(self, reference: ContributionReference, *, search_id: str | None = None) -> Any:
+        """Exact revision; testing-corpus readers must supply the delivered Search ID."""
         return self._run(
             _Call(
                 "index.contributions.revisions.retrieve",
@@ -1424,17 +1432,19 @@ class RevisionsAPI(_Resource):
                     "Revision response does not match requested revision",
                 ),
                 path_parameters=_revision(reference),
+                params=_search_receipt_params(search_id),
             )
         )
 
 
 class AssessmentsAPI(_Resource):
-    def list(self, reference: ContributionReference) -> Any:
+    def list(self, reference: ContributionReference, *, search_id: str | None = None) -> Any:
         return self._run(
             _Call(
                 "index.contributions.assessments.list",
                 Assessments.model_validate,
                 path_parameters=_revision(reference),
+                params=_search_receipt_params(search_id),
             )
         )
 
@@ -1482,7 +1492,9 @@ class ReviewsAPI(_Resource):
 
 
 class AssetsAPI(_Resource):
-    def retrieve(self, reference: ContributionReference, asset_id: str) -> Any:
+    def retrieve(
+        self, reference: ContributionReference, asset_id: str, *, search_id: str | None = None
+    ) -> Any:
         """Download one declared asset's bytes under current authorization.
 
         Not available at the public launch: the service answers 403
@@ -1494,6 +1506,7 @@ class AssetsAPI(_Resource):
                 "index.contributions.assets.retrieve",
                 bytes,
                 path_parameters={**_revision(reference), "asset_id": asset_id},
+                params=_search_receipt_params(search_id),
                 raw=True,
             )
         )
@@ -1581,7 +1594,7 @@ class ContributionsAPI(_Resource):
             )
         )
 
-    def retrieve(self, contribution_id: str) -> Any:
+    def retrieve(self, contribution_id: str, *, search_id: str | None = None) -> Any:
         """Contribution, its current revision and revision history (404 when hidden)."""
         return self._run(
             _Call(
@@ -1592,6 +1605,7 @@ class ContributionsAPI(_Resource):
                     "Contribution response does not match the request",
                 ),
                 path_parameters={"contribution_id": contribution_id},
+                params=_search_receipt_params(search_id),
             )
         )
 

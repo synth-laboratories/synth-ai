@@ -595,13 +595,22 @@ def contribution_create(idempotency_key, api_key, backend_url):
 @contribution.command("status")
 @click.argument("contribution_id")
 @click.argument("revision_id")
+@click.option(
+    "--search-id", default=None, help="Delivered Search receipt for testing-corpus reads."
+)
 @_lifecycle_target_options
-def contribution_status(contribution_id, revision_id, api_key, backend_url):
+def contribution_status(contribution_id, revision_id, search_id, api_key, backend_url):
     """Exact revision status, sealed package and reviewer assessments."""
     from synth_ai.sdk.index.contracts import ContributionReference
 
     reference = ContributionReference(contribution_id=contribution_id, revision_id=revision_id)
-    _lifecycle_run(api_key, backend_url, lambda i: i.contributions.revisions.retrieve(reference))
+    _lifecycle_run(
+        api_key,
+        backend_url,
+        lambda i: i.contributions.revisions.retrieve(
+            reference, **({"search_id": search_id} if search_id is not None else {})
+        ),
+    )
 
 
 @contribution.command("upload")
