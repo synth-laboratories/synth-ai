@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.1 — unreleased
+
+### Fixed
+
+- Complete typed Index client coverage for exact-revision rights attestation and
+  resealed research correction registration, with explicit retry keys and sealed
+  response bindings. Both operations preserve backend authority; neither grants
+  publication consent or QA approval.
+- Mirror the joined backend contract, including both missing revision operations.
+
+
 ## 0.22.0 — 2026-09-30
 
 ### Added

@@ -1,8 +1,8 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.22.0-orange synth-ai==0.22.0 -->
+<!-- CI release pins: PyPI-0.22.1-orange synth-ai==0.22.1 -->
 
-> 0.22.0 is the Index v0.2 release (typed QA/lifecycle APIs, CLI and MCP tools).
+> The 0.22.1 development candidate completes Index v0.2 client coverage for revision rights and research corrections. Stable 0.22.0 remains published.
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
