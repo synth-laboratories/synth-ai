@@ -30,7 +30,8 @@ from synth_ai.mcp.research.registry import (
     ToolDefinition,
 )
 from synth_ai.sdk.index.client import IndexAPI
-from synth_ai.sdk.index.contracts import Identifier, IndexContract
+from synth_ai.sdk.index.contracts import ContributionReference, Identifier, IndexContract
+from synth_ai.sdk.index.contributions import ResearchDraftSpec
 from synth_ai.sdk.index.lifecycle import PublicationSpec, RevisionCreateSpec, WithdrawalSpec
 from synth_ai.sdk.index.qa import (
     AcceptAssignmentSpec,
@@ -46,6 +47,7 @@ from synth_ai.sdk.index.qa import (
 from synth_ai.sdk.index.qa_checks import RecordCheckSpec
 from synth_ai.sdk.index.qa_preflight import RunPreflightSpec
 from synth_ai.sdk.index.qa_reviews import RecordReviewSpec
+from synth_ai.sdk.index.rights import RightsAttestationSpec
 from synth_ai.sdk.index.scopes import required_scopes as operation_scopes
 
 QaClientFactory = Callable[[], AbstractContextManager[object]]
@@ -77,6 +79,8 @@ QA_MUTATING_TOOL_NAMES: tuple[str, ...] = (
     "index_qa_escalate",
     "index_qa_internal_note",
     "index_contribution_publish",
+    "index_research_rights_attest",
+    "index_research_correction_register",
 )
 
 _ASSET_MAX_BYTES = 4 * 1024 * 1024
@@ -166,6 +170,17 @@ class WithdrawRequest(IndexContract):
 class PublishRequest(IndexContract):
     contribution_id: Identifier
     spec: PublicationSpec
+    idempotency_key: str = _KEY
+
+
+class RightsAttestRequest(IndexContract):
+    reference: ContributionReference
+    spec: RightsAttestationSpec
+
+
+class CorrectionRegisterRequest(IndexContract):
+    reference: ContributionReference
+    spec: ResearchDraftSpec
     idempotency_key: str = _KEY
 
 
@@ -359,6 +374,19 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
         request = AcceptRequest.model_validate(arguments)
         return _json(call(lambda c: c.qa.accept_assignment(request.assignment_id, request.spec)))
 
+    def attest_rights(arguments: JSONDict) -> JSONDict:
+        request = RightsAttestRequest.model_validate(arguments)
+        return _json(call(lambda c: c.contributions.attest_rights(request.reference, request.spec)))
+
+    def register_correction(arguments: JSONDict) -> JSONDict:
+        request = CorrectionRegisterRequest.model_validate(arguments)
+        call(
+            lambda c: c.contributions.register_research_correction(
+                request.reference, request.spec, idempotency_key=request.idempotency_key
+            )
+        )
+        return {}
+
     def revoke(arguments: JSONDict) -> JSONDict:
         request = RevokeRequest.model_validate(arguments)
         return _json(call(lambda c: c.qa.revoke_assignment(request.assignment_id)))
@@ -444,6 +472,23 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
         pass
 
     return [
+        tool(
+            "index_research_rights_attest",
+            "Record the authorized rights holder's claim for exact sealed revision bytes. "
+            "The backend checks current rights authority; this grants neither consent, QA approval nor publication.",
+            RightsAttestRequest,
+            attest_rights,
+            operation_scopes("index.research.rights_attestation.create"),
+        ),
+        tool(
+            "index_research_correction_register",
+            "Register a resealed research bundle on an existing private child revision. "
+            "Requires current research-import authority and an explicit idempotency key. "
+            "Source paths are metadata; this tool reads no local files. QA, rights, consent and publication remain separate.",
+            CorrectionRegisterRequest,
+            register_correction,
+            operation_scopes("index.contributions.research.correction_registration"),
+        ),
         tool(
             "index_qa_case",
             "Read one QA case: state, version, exact revision and manifest digest (404 when hidden)."
