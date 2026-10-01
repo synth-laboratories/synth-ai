@@ -2,7 +2,7 @@
 
 <!-- CI release pins: PyPI-0.22.1-orange synth-ai==0.22.1 -->
 
-> The 0.22.1 development candidate completes Index v0.2 client coverage for revision rights and research corrections. Stable 0.22.0 remains published.
+> Typed Index v0.2 APIs include QA and lifecycle operations, exact-revision rights attestations, and resealed research corrections.
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
