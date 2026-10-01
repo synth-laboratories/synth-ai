@@ -121,6 +121,7 @@ from .search import (
     SearchExecutionFailedError,
     SearchExecutionLimits,
     SearchExecutionVersions,
+    SearchFilters,
     SearchMode,
     SearchPartialReason,
     SearchResult,
@@ -152,6 +153,7 @@ from .wallet_search import (
 )
 
 __all__ = [
+    "SearchFilters",
     "ClassificationSpec",
     "ClassificationView",
     "ClassificationDecisionView",

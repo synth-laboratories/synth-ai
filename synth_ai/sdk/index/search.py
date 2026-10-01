@@ -14,8 +14,10 @@ from pydantic import (
     AwareDatetime,
     ConfigDict,
     Field,
+    SerializerFunctionWrapHandler,
     StrictInt,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from pydantic.types import JsonValue
@@ -44,17 +46,37 @@ class SearchScope(IndexContract):
 
 
 class SearchFilters(IndexContract):
+    """Registry-backed facets, with exclusions applied before retrieval.
+
+    See: synth_ai/sdk/index/README.md (Contribution keyword filters).
+    Tag selection never grants access to a restricted Contribution.
+    """
+
     kinds: tuple[ContributionKind, ...] = Field(default=(), max_length=7)
     research_areas: tuple[ResearchArea, ...] = Field(default=(), max_length=11)
     workflow_stages: tuple[WorkflowStage, ...] = Field(default=(), max_length=6)
     tags_any: tuple[Identifier, ...] = Field(default=(), max_length=10)
     tags_all: tuple[Identifier, ...] = Field(default=(), max_length=10)
+    tags_none: tuple[Identifier, ...] = Field(default=(), max_length=10)
 
     @model_validator(mode="after")
     def check_unique_filters(self) -> Self:
         for name in type(self).model_fields:
             require_unique(getattr(self, name), name)
+        if set(self.tags_all).intersection(self.tags_none):
+            raise ValueError("tags_all and tags_none must not overlap")
+        if self.tags_any and set(self.tags_any).issubset(self.tags_none):
+            raise ValueError("tags_any must include a tag not excluded by tags_none")
         return self
+
+    @model_serializer(mode="wrap")
+    def serialize_filters(self, handler: SerializerFunctionWrapHandler):
+        """Keep pre-exclusion request identities unchanged when no exclusion is set."""
+        # A return annotation would replace the typed output schema with a generic dict.
+        result = handler(self)
+        if not self.tags_none:
+            result.pop("tags_none", None)
+        return result
 
 
 class SearchContent(IndexContract):

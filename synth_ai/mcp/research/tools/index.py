@@ -40,6 +40,7 @@ from synth_ai.sdk.index.public_search import (
 from synth_ai.sdk.index.search import (
     ContentsSpec,
     SearchBillingConstraints,
+    SearchFilters,
     SearchMode,
     SearchResult,
     SearchSpec,
@@ -91,6 +92,15 @@ class IndexSearchRequest(IndexContract):
         description="fast answers synchronously; deep is admitted and polled to completion.",
     )
     max_results: Annotated[StrictInt, Field(ge=1, le=10)] | None = None
+    filters: SearchFilters | None = Field(
+        default=None,
+        description=(
+            "Registered Contribution keywords: tags_any matches any, tags_all matches "
+            "every, tags_none excludes any. Keywords do not grant access; restricted "
+            "testing Contributions require explicit positive selection and a current "
+            "operator-authorized testing organization."
+        ),
+    )
     idempotency_key: str | None = Field(
         default=None,
         min_length=1,
@@ -246,6 +256,7 @@ def build_index_tools(
                 query=request.query,
                 mode=request.mode,
                 max_results=request.max_results,
+                filters=request.filters,
                 billing=SearchBillingConstraints(
                     allow_wallet=True, max_charge_cents=grant.max_charge_cents
                 ),
@@ -278,6 +289,7 @@ def build_index_tools(
                 request.query,
                 mode=request.mode,
                 max_results=request.max_results,
+                filters=request.filters,
                 idempotency_key=request.idempotency_key,
                 wait=True,
                 timeout_s=DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,

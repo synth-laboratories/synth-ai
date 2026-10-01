@@ -8,9 +8,13 @@ from __future__ import annotations
 import json
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 from click.core import ParameterSource
+
+if TYPE_CHECKING:
+    from synth_ai.sdk.index.search import SearchFilters
 
 
 @click.group()
@@ -121,6 +125,7 @@ def _run_public_search(
     *,
     mode: str,
     max_results: int,
+    filters: SearchFilters | None,
     idempotency_key: str | None,
     backend_url: str | None,
 ) -> dict:
@@ -152,6 +157,7 @@ def _run_public_search(
                 query,
                 mode=selected_mode,
                 max_results=max_results,
+                filters=filters,
                 idempotency_key=idempotency_key,
                 wait=True,
             )
@@ -179,6 +185,9 @@ def _run_public_search(
 )
 @click.option("--mode", type=click.Choice(("fast", "deep")), default="fast", show_default=True)
 @click.option("--max-results", type=click.IntRange(1, 10), default=5, show_default=True)
+@click.option("--tag-any", "tags_any", multiple=True, help="Match any selected keyword.")
+@click.option("--tag-all", "tags_all", multiple=True, help="Match every selected keyword.")
+@click.option("--tag-none", "tags_none", multiple=True, help="Exclude any selected keyword.")
 @click.option(
     "--deadline-seconds",
     type=click.IntRange(1, 300),
@@ -209,6 +218,9 @@ def search(
     keyed: bool,
     mode: str,
     max_results: int,
+    tags_any: tuple[str, ...],
+    tags_all: tuple[str, ...],
+    tags_none: tuple[str, ...],
     deadline_seconds: int,
     private_collections: tuple[str, ...],
     idempotency_key: str | None,
@@ -225,11 +237,18 @@ def search(
     without a key is an error; the CLI never switches routes on its own.
     """
     route = resolve_search_route(context, public=public, keyed=keyed, api_key=api_key)
+    from synth_ai.sdk.index.search import SearchFilters
+
+    try:
+        filters = SearchFilters(tags_any=tags_any, tags_all=tags_all, tags_none=tags_none)
+    except ValueError as error:
+        raise click.ClickException(str(error)) from error
     if route is SearchRoute.PUBLIC:
         payload = _run_public_search(
             query,
             mode=mode,
             max_results=max_results,
+            filters=filters if tags_any or tags_all or tags_none else None,
             idempotency_key=idempotency_key,
             backend_url=backend_url,
         )
@@ -267,6 +286,7 @@ def search(
                 query=query,
                 mode=selected_mode,
                 scope=scope,
+                filters=filters,
                 max_results=max_results,
                 limits=limits,
                 billing=SearchBillingConstraints(
@@ -302,6 +322,9 @@ def searches() -> None:
 @click.argument("query")
 @click.option("--mode", type=click.Choice(("fast", "deep")), default="deep", show_default=True)
 @click.option("--max-results", type=click.IntRange(1, 10), default=5, show_default=True)
+@click.option("--tag-any", "tags_any", multiple=True, help="Match any selected keyword.")
+@click.option("--tag-all", "tags_all", multiple=True, help="Match every selected keyword.")
+@click.option("--tag-none", "tags_none", multiple=True, help="Exclude any selected keyword.")
 @click.option("--deadline-seconds", type=click.IntRange(1, 300), default=180, show_default=True)
 @click.option("--private-collection", "private_collections", multiple=True)
 @click.option(
@@ -317,6 +340,9 @@ def searches_create(
     query: str,
     mode: str,
     max_results: int,
+    tags_any: tuple[str, ...],
+    tags_all: tuple[str, ...],
+    tags_none: tuple[str, ...],
     deadline_seconds: int,
     private_collections: tuple[str, ...],
     idempotency_key: str,
@@ -334,6 +360,7 @@ def searches_create(
         SearchBillingConstraints,
         SearchContent,
         SearchExecutionLimits,
+        SearchFilters,
         SearchMode,
         SearchScope,
         SearchSpec,
@@ -347,6 +374,7 @@ def searches_create(
             query=query,
             mode=selected_mode,
             content=SearchContent(max_results=max_results),
+            filters=SearchFilters(tags_any=tags_any, tags_all=tags_all, tags_none=tags_none),
             scope=(
                 SearchScope(visibility="private", collection_ids=private_collections)
                 if private_collections

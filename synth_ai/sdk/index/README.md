@@ -172,6 +172,55 @@ environment, and it refuses keyed-only options (`--api-key`,
 
 ## Anonymous public browse and keyed (paid) search
 
+### Contribution keyword filters
+
+Keywords use the existing tag registry (`index.tags.list()`), including aliases
+resolved by the backend. `SearchFilters.tags_any` requires at least one selected
+tag; `tags_all` requires every selected tag; `tags_none` excludes any selected
+tag. The three constraints combine with AND and apply before retrieval in both
+FAST and DEEP. Each list accepts at most ten distinct identifiers. Contradictory
+inclusion/exclusion is rejected. Unknown or inactive tags are rejected by the
+backend before execution.
+
+```python
+from synth_ai.sdk.index import SearchFilters
+
+# Add this argument to keyed search(...) or anonymous public_search(...).
+filters = SearchFilters(tags_any=("optimization",), tags_none=("obsolete",))
+```
+
+The identifiers above are examples; select active identifiers from the registry.
+The CLI mirrors these fields with repeatable `--tag-any`, `--tag-all`, and
+`--tag-none` options on `index search` and `index searches create`. MCP
+`index_search` accepts `filters`; `index_private_search` and
+`index_search_create` accept the same filters inside their `search` intent.
+
+Restricted testing material requires an authenticated organization with a live
+operator grant, existing Artifact read authorization, explicit private collection
+selection, and positive selection of its required keyword:
+
+```python
+from synth_ai.sdk.index import SearchBillingConstraints, SearchSpec
+from synth_ai.sdk.index.search import SearchScope
+
+intent = SearchSpec(
+    query="Compare the Cybernetics evidence",
+    scope=SearchScope(visibility="private", collection_ids=(testing_collection_id,)),
+    filters=SearchFilters(tags_all=("cybernetics",)),
+    billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=charge_ceiling),
+)
+result = synth.index.search(intent, idempotency_key=saved_request_key)
+```
+
+`testing_collection_id`, `charge_ceiling`, and `saved_request_key` come from your
+authorized collection and funding configuration. The query text alone does not
+opt in; the required keyword must be in `tags_any` or `tags_all`. Keywords never
+grant access. Operator restrictions survive author tag edits, and reads recheck
+current access. Restricted testing material is excluded from public search and
+public discovery. Removing an operator grant revokes access. No client or MCP
+tool can mint these grants. Frozen experiment membership remains a separate
+server-side concern; mutable keyword selection does not freeze an experiment.
+
 Reading public capabilities, tags, and a known published Contribution ID needs
 no account or API key:
 
