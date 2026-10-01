@@ -661,6 +661,47 @@ def contribution_repair(contribution_id, parent_revision_id, idempotency_key, ap
     )
 
 
+@contribution.command("attest-rights")
+@click.argument("contribution_id")
+@click.argument("revision_id")
+@click.argument("spec_file", type=_SPEC_FILE)
+@_lifecycle_target_options
+def contribution_attest_rights(contribution_id, revision_id, spec_file, api_key, backend_url):
+    """Record the exact sealed revision's rights claim; never approve or publish it."""
+    from synth_ai.sdk.index.contracts import ContributionReference
+    from synth_ai.sdk.index.rights import RightsAttestationSpec
+
+    reference = ContributionReference(contribution_id=contribution_id, revision_id=revision_id)
+    _lifecycle_run(
+        api_key,
+        backend_url,
+        lambda i: i.contributions.attest_rights(reference, _spec(spec_file, RightsAttestationSpec)),
+    )
+
+
+@contribution.command("register-correction")
+@click.argument("contribution_id")
+@click.argument("revision_id")
+@click.argument("spec_file", type=_SPEC_FILE)
+@_idempotency_option
+@_lifecycle_target_options
+def contribution_register_correction(
+    contribution_id, revision_id, spec_file, idempotency_key, api_key, backend_url
+):
+    """Bind a resealed research bundle to a private child; never approve or publish."""
+    from synth_ai.sdk.index.contracts import ContributionReference
+    from synth_ai.sdk.index.contributions import ResearchDraftSpec
+
+    reference = ContributionReference(contribution_id=contribution_id, revision_id=revision_id)
+    _lifecycle_run(
+        api_key,
+        backend_url,
+        lambda i: i.contributions.register_research_correction(
+            reference, _spec(spec_file, ResearchDraftSpec), idempotency_key=idempotency_key
+        ),
+    )
+
+
 @contribution.command("withdraw")
 @click.argument("contribution_id")
 @click.argument("spec_file", type=_SPEC_FILE)
@@ -742,9 +783,7 @@ def qa_events(case_id, after, api_key, backend_url):
     "--action",
     "action_name",
     required=True,
-    type=click.Choice(
-        ["message", "respond", "request_changes", "approve", "reject"]
-    ),
+    type=click.Choice(["message", "respond", "request_changes", "approve", "reject"]),
     help="Case action; the server enforces which role may take it in the current state. "
     "Appeal, escalation and adjudication use their own fenced commands.",
 )
@@ -885,11 +924,12 @@ def _fenced_command(name, helper, spec_name, doc):
 
 
 _fenced_command(
-    "appeal", "appeal", "AppealSpec", "Appeal a rejection or private acceptance (stale fence exits 5)."
+    "appeal",
+    "appeal",
+    "AppealSpec",
+    "Appeal a rejection or private acceptance (stale fence exits 5).",
 )
-_fenced_command(
-    "escalate", "escalate", "EscalationSpec", "Escalate the case to a coordinator."
-)
+_fenced_command("escalate", "escalate", "EscalationSpec", "Escalate the case to a coordinator.")
 _fenced_command(
     "adjudicate",
     "adjudicate",
