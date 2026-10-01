@@ -139,12 +139,21 @@ class ContributionPackage(IndexContract):
     evidence: tuple[EvidenceReference, ...] = Field(default=(), max_length=512)
     provenance: ContributionProvenance
     reproduction: Reproduction
+    publication_mode: Literal["private", "public_api", "public"] | None = None
     requested_audience: ContributionAudience = ContributionAudience.PRIVATE
     rights_attested: StrictBool
     sensitive_data: Literal["none_declared", "declared", "unknown"]
 
     @model_validator(mode="after")
     def check_package_links(self) -> Self:
+        if self.publication_mode is not None:
+            expected = (
+                ContributionAudience.PRIVATE
+                if self.publication_mode == "private"
+                else ContributionAudience.PUBLIC
+            )
+            if self.requested_audience != expected:
+                raise ValueError("publication_mode must match requested_audience")
         for name in ("research_areas", "workflow_stages", "tag_ids"):
             require_unique(getattr(self, name), name)
         if self.parent_revision_id == self.revision_id:
