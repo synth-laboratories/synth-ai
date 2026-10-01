@@ -388,11 +388,10 @@ not replace an installed-wheel test against the matching deployed backend.
 
 ## Contribution journey: upload, review, repair, appeal, publish
 
-What exists today, and where it stops. This section describes SDK, CLI and local
-MCP behavior only. It makes no claim about a deployed backend: the private QA
-routes are rollout-gated (an unavailable route is a typed error, never a local
-fallback), and nothing here has been exercised against a real hosted backend,
-Clerk tenant or native MCP client. The hosted MCP registry has no QA tools yet.
+This section describes SDK, CLI and local MCP behavior. Hosted availability must
+be qualified against the exact deployed SDK and backend pair. Private QA routes
+remain rollout-gated: an unavailable route is a typed error, never a local
+fallback. Package qualification alone does not establish native Clerk acceptance.
 
 Requirements: Python 3.11+. The local stdio MCP server speaks protocol versions
 `2025-06-18` and `2024-11-05`. No mobile client is qualified; do not assume the
@@ -440,6 +439,36 @@ only; it is not publication, certification or a reward.
    Contribution from Search and new reads; prior downloads cannot be recalled.
 
 Retry rule: reuse the SAME idempotency key after any uncertain response (exit 6).
+
+### Exact revision rights and research corrections
+
+The 0.22.2 package restores CLI and local stdio MCP parity for the typed SDK
+operations introduced in 0.22.1. Each action names the exact contribution and
+revision; neither approves QA, grants consent nor publishes a revision.
+
+```bash
+synth-ai index contribution attest-rights CONTRIBUTION REVISION RIGHTS.json \
+  --backend-url URL --api-key KEY
+synth-ai index contribution register-correction CONTRIBUTION PRIVATE_CHILD SOURCE.json \
+  --idempotency-key REPAIR_KEY --backend-url URL --api-key KEY
+```
+
+`RIGHTS.json` follows `RightsAttestationSpec`: exact manifest, descriptor and
+notices digests, licenses and the rights decision reference. `SOURCE.json`
+follows `ResearchDraftSpec`: resealed bundle digest and its immutable
+`ResearchSource`. Correction retries must reuse the same explicit key.
+
+Local MCP equivalents are `index_research_rights_attest` (`reference`, `spec`)
+and `index_research_correction_register` (`reference`, `spec`, `idempotency_key`).
+Both require `index:intake`, an authenticated server and the explicit write
+opt-in. The Index-only server advertises 4 tools anonymously, 17 authenticated
+read tools, and 39 tools with authenticated writes enabled. Source paths are
+provenance metadata; these two tools read no files.
+
+The backend still requires current rights-holder authority for attestation and
+research-import authority for an owned private correction child with its
+parent's exact source. Hosted availability depends on the deployed paired SDK
+and backend; installing this package does not qualify native Clerk OAuth.
 
 ### Permissions
 

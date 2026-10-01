@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.2 — 2026-10-01
+
+### Fixed
+
+- Restore CLI and local stdio MCP parity for the existing exact-revision rights
+  attestation and research correction SDK operations. CLI commands are
+  `synth-ai index contribution attest-rights` and `register-correction`; MCP tools
+  are `index_research_rights_attest` and `index_research_correction_register`.
+- Advertise `index:intake` for both operations. Rights authority, research-import
+  authority, exact sealed bytes, retry identity, QA, consent and publication
+  remain separate backend checks. No dependency or wire contract changes.
+
 ## 0.22.1 — 2026-09-30
 
 ### Fixed

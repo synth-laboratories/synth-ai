@@ -1,8 +1,11 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.22.1-orange synth-ai==0.22.1 -->
+<!-- CI release pins: PyPI-0.22.2-orange synth-ai==0.22.2 -->
 
 > Typed Index v0.2 APIs include QA and lifecycle operations, exact-revision rights attestations, and resealed research corrections.
+
+Rights attestation and research correction also have explicit CLI commands and
+local stdio MCP tools; see the [Contribution journey](synth_ai/sdk/index/README.md#exact-revision-rights-and-research-corrections).
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
