@@ -1,0 +1,66 @@
+{
+  "brief_id": "synthetic-metric-audit",
+  "source_sha": "969a0fa317c1be9599cb991d045eaecd96e7d8a1",
+  "source_path": "source_checkout",
+  "replay_path": "independent_checkout",
+  "provider_charge_usd": 0,
+  "original_rights": "CC0-1.0",
+  "synthetic_owned_acceptance_only": true,
+  "no_remote": true,
+  "fresh_checkout_byte_equality": true,
+  "independent_recomputation": {
+    "feature_rule": {
+      "counts": {
+        "0": {
+          "total": 90,
+          "correct": 90
+        },
+        "1": {
+          "total": 10,
+          "correct": 10
+        }
+      },
+      "metrics": {
+        "accuracy": 1.0,
+        "per_class_accuracy": {
+          "0": 1.0,
+          "1": 1.0
+        },
+        "macro_accuracy": 1.0
+      }
+    },
+    "majority": {
+      "counts": {
+        "0": {
+          "total": 90,
+          "correct": 90
+        },
+        "1": {
+          "total": 10,
+          "correct": 0
+        }
+      },
+      "metrics": {
+        "accuracy": 0.9,
+        "per_class_accuracy": {
+          "0": 1.0,
+          "1": 0.0
+        },
+        "macro_accuracy": 0.5
+      }
+    }
+  },
+  "sha256": {
+    "report.md": "d398419e9330143c157326b192720b8979d5b8af9ba2118ae43075f7ac4e3ae3",
+    "outputs.json": "0295d931434137d381846ccf4649a63e6a5f823192ba6217bd7cf77e7883b3f0",
+    "experiment.py": "fde15b6d4160ef28fa72a5e86ab1bdc81b8961f9b67f8848f0a4ea549057599f",
+    "inputs.json": "e48a551a3296ae43dce0c4749133544b918d3e6bd35d187473d12866cde1f365"
+  },
+  "failures": [],
+  "claims": "Toy metric behavior only; no qualification or award claim.",
+  "cross_python_environment_replay": {
+    "python": "3.13 installedSDK environment",
+    "byte_equality": true
+  },
+  "path_locator_scope": "Portable logical checkout labels; original host paths retained privately by the contributor."
+}
