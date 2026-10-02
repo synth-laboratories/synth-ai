@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import Field, StringConstraints, field_validator, model_validator
 
+from synth_ai.sdk.research.contracts.forge.contracts import ExactReference, Identifier
+
 from .artifacts import ArtifactPublicationPrepareResponse
 from .contracts import ContributionReference, IndexContract
 from .package import ContributionPackage
@@ -90,11 +92,37 @@ class ResearchSource(IndexContract):
         return self
 
 
+class ForgeResearchSource(IndexContract):
+    """Private Forge association; backend resolves current access and exact bytes.
+
+    See sibling backend/notes/specifications/synth-index/forge-intake.md.
+    """
+
+    schema_version: Literal["synth.index.forge-source.v1"] = "synth.index.forge-source.v1"
+    organization_id: Identifier
+    project_id: Identifier
+    export: ExactReference
+
+    @model_validator(mode="after")
+    def exact_export(self):
+        if self.export.authority != "forge" or self.export.kind != "scientific_export":
+            raise ValueError("Forge source requires an exact scientific export")
+        return self
+
+
 class ResearchDraftSpec(IndexContract):
     """Server allocates identity and SYNTH provenance; caller supplies source proof only."""
 
     bundle_digest: Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
-    source: ResearchSource
+    source: ResearchSource | ForgeResearchSource
+
+    @model_validator(mode="after")
+    def forge_digest(self):
+        if isinstance(self.source, ForgeResearchSource) and (
+            self.bundle_digest != f"sha256:{self.source.export.digest_sha256}"
+        ):
+            raise ValueError("Forge bundle digest must bind the selected export")
+        return self
 
 
 class ContributionUploadSpec(IndexContract):

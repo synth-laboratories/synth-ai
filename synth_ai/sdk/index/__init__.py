@@ -30,6 +30,7 @@ from .contributions import (
     ContributionDraft,
     ContributionUploadPrepared,
     ContributionUploadSpec,
+    ForgeResearchSource,
     ResearchDraftSpec,
     ResearchSource,
 )
@@ -258,6 +259,7 @@ __all__ = [
     "PublicationSpec",
     "PublicationStatus",
     "QaAssessmentSource",
+    "ForgeResearchSource",
     "ResearchDraftSpec",
     "ResearchSource",
     "ReviewDecision",

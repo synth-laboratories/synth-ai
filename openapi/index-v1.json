@@ -3382,7 +3382,15 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/ResearchSource"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchSource"
+              },
+              {
+                "$ref": "#/components/schemas/ForgeResearchSource"
+              }
+            ],
+            "title": "Source"
           }
         },
         "required": [
@@ -3834,6 +3842,45 @@
         "title": "EvidenceSelector",
         "type": "object"
       },
+      "ExactReference": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Authority",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority",
+          "kind",
+          "record_id",
+          "revision",
+          "digest_sha256"
+        ],
+        "title": "ExactReference",
+        "type": "object"
+      },
       "FeatureCapability": {
         "additionalProperties": false,
         "properties": {
@@ -4044,6 +4091,37 @@
           "provenance"
         ],
         "title": "FindingView",
+        "type": "object"
+      },
+      "ForgeResearchSource": {
+        "additionalProperties": false,
+        "properties": {
+          "export": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source.v1",
+            "default": "synth.index.forge-source.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "export"
+        ],
+        "title": "ForgeResearchSource",
         "type": "object"
       },
       "FrozenObject": {
