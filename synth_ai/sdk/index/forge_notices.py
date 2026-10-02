@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, Field, model_validator
 from synth_ai.sdk.research.contracts.forge.contracts import ExactReference
 
 from .contracts import ContributionReference, Identifier, IndexContract
-from .contributions import ForgeResearchSource
+from .contributions import VersionedForgeSource
 
 
 class ForgeSourceNoticeItem(IndexContract):
@@ -28,7 +28,7 @@ class ForgeSourceNoticePage(IndexContract):
     schema_version: Literal["synth.index.forge-source-notices.v1"] = (
         "synth.index.forge-source-notices.v1"
     )
-    source: ForgeResearchSource
+    source: VersionedForgeSource
     reference: ContributionReference
     release: ExactReference
     items: tuple[ForgeSourceNoticeItem, ...] = Field(max_length=100)

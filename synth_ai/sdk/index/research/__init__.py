@@ -3,11 +3,17 @@
 from .contracts import (
     BuildRecipe,
     DerivationBinding,
+    FrozenCopyRecipe,
     FrozenObject,
     ReleaseDisclosure,
     ReproductionReceipt,
     ResearchSnapshot,
+    ScientificDerivation,
+    ScientificReleaseDisclosure,
+    ScientificSnapshot,
     SessionExport,
+    decode_derivation,
+    decode_disclosure,
 )
 from .release import (
     ReleaseConsentSpec,
@@ -23,6 +29,12 @@ from .release import (
 
 __all__ = [
     "BuildRecipe",
+    "FrozenCopyRecipe",
+    "ScientificDerivation",
+    "ScientificReleaseDisclosure",
+    "ScientificSnapshot",
+    "decode_derivation",
+    "decode_disclosure",
     "DerivationBinding",
     "FrozenObject",
     "ResearchSnapshot",

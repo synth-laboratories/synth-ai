@@ -53,6 +53,7 @@ from .catalog import (
     RewardReverseSpec,
     TagRegistry,
 )
+from .catalogue import PublicCatalogue
 from .classification import ClassificationDecisionView, ClassificationSpec, ClassificationView
 from .contracts import ContributionReference
 from .contributions import (
@@ -77,6 +78,7 @@ from .lifecycle import (
     WithdrawalSpec,
 )
 from .package import ContributionPackage
+from .public_corpus import CorpusPin, PublicCorpora, PublicCorpus, PublicLineage, RegisteredCorpus
 from .public_search import PublicSearchOperations
 from .qa import (
     FENCED_ACTIONS,
@@ -102,7 +104,6 @@ from .qa_reviews import RecordReviewSpec, ReviewFact, ReviewReport
 from .research import (
     ReleaseConsentSpec,
     ReleaseConsentView,
-    ReleaseDisclosure,
     ReleaseResearchView,
     ReproductionAttestationSpec,
     ReproductionReceipt,
@@ -111,6 +112,7 @@ from .research import (
     ResearchArchiveView,
     ResearchBindingSpec,
     ResearchRevocationSpec,
+    decode_disclosure,
 )
 from .retry import (
     DEFAULT_INDEX_RETRY_POLICY,
@@ -166,9 +168,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.contents.retrieve": ("POST", f"{_P}/contents"),
     "index.contributions.create": ("POST", f"{_P}/contributions"),
     "index.contributions.research.create": ("POST", f"{_P}/contributions/research"),
-    "index.contributions.research.correction_registration": (
-        "POST", f"{_R}/research-registration"
-    ),
+    "index.contributions.research.correction_registration": ("POST", f"{_R}/research-registration"),
     "index.qa.cases.create": ("POST", _P + "/qa/cases"),
     "index.qa.cases.get": ("GET", _P + "/qa/cases/{case_id}"),
     "index.qa.events.list": ("GET", _P + "/qa/cases/{case_id}/events"),
@@ -268,6 +268,13 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
 # Anonymous callers may browse published research and run the free public
 # search (Index Search v0.2). Private-scope search still uses index.search.
 PUBLIC_OPERATIONS: Mapping[str, tuple[str, str]] = {
+    "index.public.contributions.list": ("GET", f"{_P}/public/contributions"),
+    "index.public.contributions.lineage.retrieve": (
+        "GET",
+        f"{_P}/public/contributions/{{contribution_id}}/lineage",
+    ),
+    "index.public.corpora.list": ("GET", f"{_P}/public/corpora"),
+    "index.public.corpora.retrieve": ("GET", f"{_P}/public/corpora/{{corpus_id}}"),
     "index.public.classification.get": (
         "GET",
         f"{_P}/public/contributions/{{contribution_id}}/revisions/{{revision_id}}/classification",
@@ -880,6 +887,7 @@ class PublicReleaseResearchAPI(_Resource):
     Examples:
         result = public.contents.release_research.retrieve(reference)
     """
+
     def retrieve(self, reference: ContributionReference) -> Any:
         """Read safe released-output proof; historical unbound releases return None.
 
@@ -912,6 +920,7 @@ class PublicClassificationAPI(_Resource):
     Examples:
         result = public.contents.classifications.retrieve(reference)
     """
+
     def retrieve(self, reference: ContributionReference) -> Any:
         """Read safe effective metadata; see tag-classification.md.
 
@@ -946,6 +955,7 @@ class ClassificationsAPI(_Resource):
     Examples:
         result = index.contributions.classifications.retrieve(reference)
     """
+
     def retrieve(self, reference: ContributionReference) -> Any:
         """Read metadata under the current revision ACL; see tag-classification.md.
 
@@ -1027,8 +1037,12 @@ class ResearchAPI(_Resource):
     """
 
     def source_notices(
-        self, reference: ContributionReference, *, manifest_digest: str,
-        after: int = 0, limit: int = 100,
+        self,
+        reference: ContributionReference,
+        *,
+        manifest_digest: str,
+        after: int = 0,
+        limit: int = 100,
     ) -> Any:
         """Read private correction facts bound to exact sealed contribution bytes.
 
@@ -1036,27 +1050,32 @@ class ResearchAPI(_Resource):
         Owner and current scientific access are required. Retain next_cursor
         even on empty pages; Index's review/publication policy stays separate.
         """
-        if type(after) is not int or type(limit) is not int or (
-            not 0 <= after <= 9223372036854775807 or not 1 <= limit <= 100
-        ) or not re.fullmatch(r"[0-9a-f]{64}", manifest_digest):
+        if (
+            type(after) is not int
+            or type(limit) is not int
+            or (not 0 <= after <= 9223372036854775807 or not 1 <= limit <= 100)
+            or not re.fullmatch(r"[0-9a-f]{64}", manifest_digest)
+        ):
             raise ValueError("Invalid exact release digest or Forge cursor bounds")
-        return self._run(_Call(
-            "index.research.forge_notices.list",
-            _bound(
-                ForgeSourceNoticePage,
-                lambda page: (
-                    page.release.record_id == reference.contribution_id
-                    and page.release.revision == reference.revision_id
-                    and page.release.digest_sha256 == manifest_digest
-                    and page.next_cursor >= after
-                    and len(page.items) <= limit
-                    and all(item.cursor > after for item in page.items)
+        return self._run(
+            _Call(
+                "index.research.forge_notices.list",
+                _bound(
+                    ForgeSourceNoticePage,
+                    lambda page: (
+                        page.release.record_id == reference.contribution_id
+                        and page.release.revision == reference.revision_id
+                        and page.release.digest_sha256 == manifest_digest
+                        and page.next_cursor >= after
+                        and len(page.items) <= limit
+                        and all(item.cursor > after for item in page.items)
+                    ),
+                    "Forge source notice page differs from requested release or cursor",
                 ),
-                "Forge source notice page differs from requested release or cursor",
-            ),
-            path_parameters=_revision(reference),
-            params={"manifest_digest": manifest_digest, "after": after, "limit": limit},
-        ))
+                path_parameters=_revision(reference),
+                params={"manifest_digest": manifest_digest, "after": after, "limit": limit},
+            )
+        )
 
     def release(self, reference: ContributionReference) -> Any:
         """Read the public-safe release disclosure under current revision access.
@@ -1316,7 +1335,7 @@ class ResearchAPI(_Resource):
             spec: Typed exact-input request required by this operation; does not infer publication consent.
 
         Returns:
-            ReleaseDisclosure | Awaitable[ReleaseDisclosure]: Validated result bound to the requested exact identities and intent.
+            VersionedDisclosure | Awaitable[VersionedDisclosure]: Validated result bound to the requested exact identities and intent.
 
         Raises:
             ValueError: Requested constraints or returned identity/content bindings are invalid.
@@ -1326,14 +1345,21 @@ class ResearchAPI(_Resource):
         """
         if spec.binding.disclosure.reference != reference:
             raise ValueError("Research binding must match the requested revision")
+
+        def exact_disclosure(value: object):
+            if not isinstance(value, dict):
+                raise ValueError("Research binding response must be a disclosure object")
+            disclosure = decode_disclosure(value)
+            if disclosure != spec.binding.disclosure:
+                raise ValueError(
+                    "Research binding response differs from exact submitted disclosure"
+                )
+            return disclosure
+
         return self._run(
             _Call(
                 "index.research.binding.create",
-                _bound(
-                    ReleaseDisclosure,
-                    lambda disclosure: disclosure == spec.binding.disclosure,
-                    "Research binding response differs from exact submitted disclosure",
-                ),
+                exact_disclosure,
                 path_parameters=_revision(reference),
                 json_body=_body(spec),
             )
@@ -1418,6 +1444,7 @@ class ResearchAPI(_Resource):
         Examples:
             result = index.contributions.research.revoke(reference, spec)
         """
+
         def parse(payload):
             if (
                 payload != {"revision_id": reference.revision_id, "revoked": True}
@@ -1668,12 +1695,14 @@ class ContributionsAPI(_Resource):
                 "index.research.rights_attestation.create",
                 _bound(
                     RightsAttestationView,
-                    lambda view: view.revision_id == reference.revision_id
-                    and view.manifest_digest == spec.manifest_digest
-                    and view.descriptor_digest == spec.descriptor_digest
-                    and view.notices_digest == spec.notices_digest
-                    and view.licenses == spec.licenses
-                    and view.rights_decision_ref == spec.rights_decision_ref,
+                    lambda view: (
+                        view.revision_id == reference.revision_id
+                        and view.manifest_digest == spec.manifest_digest
+                        and view.descriptor_digest == spec.descriptor_digest
+                        and view.notices_digest == spec.notices_digest
+                        and view.licenses == spec.licenses
+                        and view.rights_decision_ref == spec.rights_decision_ref
+                    ),
                     "Rights response does not bind the requested sealed revision",
                 ),
                 path_parameters=_revision(reference),
@@ -2165,9 +2194,11 @@ class QaAPI(_Resource):
                 "index.qa.cases.create",
                 _bound(
                     CaseView,
-                    lambda view: view.reference == spec.reference
-                    and view.manifest_digest == spec.manifest_digest
-                    and view.rubric_version == spec.rubric_version,
+                    lambda view: (
+                        view.reference == spec.reference
+                        and view.manifest_digest == spec.manifest_digest
+                        and view.rubric_version == spec.rubric_version
+                    ),
                     "QA case differs from sealed request",
                 ),
                 json_body=spec.model_dump(mode="json"),
@@ -2231,7 +2262,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def append_event(self, case_id: str | UUID, spec: CaseEventSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def append_event(
+        self, case_id: str | UUID, spec: CaseEventSpec, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Append a shared conversation action; use dedicated routes for fenced decisions.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2260,9 +2293,11 @@ class QaAPI(_Resource):
                 "index.qa.events.create",
                 _bound(
                     CaseEventView,
-                    lambda event: event.sequence == spec.expected_version + 1
-                    and event.action == spec.action
-                    and event.message == spec.message,
+                    lambda event: (
+                        event.sequence == spec.expected_version + 1
+                        and event.action == spec.action
+                        and event.message == spec.message
+                    ),
                     "QA event differs from request",
                 ),
                 path_parameters=self._case(case_id),
@@ -2280,7 +2315,9 @@ class QaAPI(_Resource):
 
     # Plain conversation actions use POST /qa/cases/{id}/events; the backend state
     # machine enforces per-role legality and refuses appeal/escalate/adjudicate there.
-    def send_message(self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def send_message(
+        self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Send a shared message at the expected QA case version.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2328,7 +2365,9 @@ class QaAPI(_Resource):
             CaseAction.REQUEST_CHANGES, case_id, expected_version, message, idempotency_key
         )
 
-    def respond(self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def respond(
+        self, case_id: str | UUID, expected_version: int, message: str, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Respond to findings at the expected QA case version.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2367,10 +2406,12 @@ class QaAPI(_Resource):
                 operation,
                 _bound(
                     CaseEventView,
-                    lambda event: event.sequence == spec.expected_version + 1
-                    and event.action == action
-                    and event.message == spec.message
-                    and event.visibility == visibility,
+                    lambda event: (
+                        event.sequence == spec.expected_version + 1
+                        and event.action == action
+                        and event.message == spec.message
+                        and event.visibility == visibility
+                    ),
                     "QA event differs from request",
                 ),
                 path_parameters=self._case(case_id),
@@ -2379,7 +2420,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def escalate(self, case_id: str | UUID, spec: EscalationSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def escalate(
+        self, case_id: str | UUID, spec: EscalationSpec, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Escalate the exact manifest and rubric to a coordinator.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2407,7 +2450,9 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def appeal(self, case_id: str | UUID, spec: AppealSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def appeal(
+        self, case_id: str | UUID, spec: AppealSpec, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Appeal the current decision against exact reviewed inputs.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2435,7 +2480,9 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def adjudicate(self, case_id: str | UUID, spec: AdjudicationSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def adjudicate(
+        self, case_id: str | UUID, spec: AdjudicationSpec, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Reopen independent review through an authorized coordinator.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2463,7 +2510,9 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def add_internal_note(self, case_id: str | UUID, spec: InternalNoteSpec, *, idempotency_key: str) -> CaseEventView | Awaitable[CaseEventView]:
+    def add_internal_note(
+        self, case_id: str | UUID, spec: InternalNoteSpec, *, idempotency_key: str
+    ) -> CaseEventView | Awaitable[CaseEventView]:
         """Record a reviewer/coordinator note excluded from contributor disclosure.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2491,7 +2540,9 @@ class QaAPI(_Resource):
             idempotency_key,
         )
 
-    def invite_reviewer(self, case_id: str | UUID, spec: AssignmentSpec) -> AssignmentView | Awaitable[AssignmentView]:
+    def invite_reviewer(
+        self, case_id: str | UUID, spec: AssignmentSpec
+    ) -> AssignmentView | Awaitable[AssignmentView]:
         """Invite an independent reviewer for this exact QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2515,9 +2566,11 @@ class QaAPI(_Resource):
                 "index.qa.assignments.create",
                 _bound(
                     AssignmentView,
-                    lambda invitation: str(invitation.case_id) == path["case_id"]
-                    and invitation.reviewer_user_id == spec.reviewer_user_id
-                    and invitation.reviewer_org_id == spec.reviewer_org_id,
+                    lambda invitation: (
+                        str(invitation.case_id) == path["case_id"]
+                        and invitation.reviewer_user_id == spec.reviewer_user_id
+                        and invitation.reviewer_org_id == spec.reviewer_org_id
+                    ),
                     "QA invitation differs from request",
                 ),
                 path_parameters=path,
@@ -2539,6 +2592,7 @@ class QaAPI(_Resource):
         Examples:
             result = index.qa.assignments()
         """
+
         def parse(payload):
             if not isinstance(payload, list) or len(payload) > 100:
                 raise ValueError("QA assignment list bound invalid")
@@ -2561,7 +2615,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def accept_assignment(self, assignment_id: str | UUID, spec: AcceptAssignmentSpec) -> AssignmentView | Awaitable[AssignmentView]:
+    def accept_assignment(
+        self, assignment_id: str | UUID, spec: AcceptAssignmentSpec
+    ) -> AssignmentView | Awaitable[AssignmentView]:
         """Accept a reviewer assignment with conflict and provenance declarations.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2581,7 +2637,9 @@ class QaAPI(_Resource):
         """
         return self._assignment("accept", assignment_id, spec)
 
-    def revoke_assignment(self, assignment_id: str | UUID) -> AssignmentView | Awaitable[AssignmentView]:
+    def revoke_assignment(
+        self, assignment_id: str | UUID
+    ) -> AssignmentView | Awaitable[AssignmentView]:
         """Revoke an authorized reviewer assignment.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2622,15 +2680,19 @@ class QaAPI(_Resource):
                 "index.qa.package.retrieve",
                 _bound(
                     ContributionPackage,
-                    lambda package: (package.contribution_id, package.revision_id)
-                    == (case.reference.contribution_id, case.reference.revision_id),
+                    lambda package: (
+                        (package.contribution_id, package.revision_id)
+                        == (case.reference.contribution_id, case.reference.revision_id)
+                    ),
                     "QA package differs from case revision",
                 ),
                 path_parameters=self._case(case.case_id),
             )
         )
 
-    def asset(self, case_id: str | UUID, asset_id: str, *, digest_sha256: str, size_bytes: int) -> bytes | Awaitable[bytes]:
+    def asset(
+        self, case_id: str | UUID, asset_id: str, *, digest_sha256: str, size_bytes: int
+    ) -> bytes | Awaitable[bytes]:
         """Read exact assigned bytes using digest and size from the sealed package.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2675,7 +2737,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def checks(self, case_id: str | UUID, *, after: int = 0) -> CheckReport | Awaitable[CheckReport]:
+    def checks(
+        self, case_id: str | UUID, *, after: int = 0
+    ) -> CheckReport | Awaitable[CheckReport]:
         """Read recorded producer check attempts for one QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2709,7 +2773,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def record_check(self, case_id: str | UUID, spec: RecordCheckSpec, *, idempotency_key: str) -> CheckAttemptView | Awaitable[CheckAttemptView]:
+    def record_check(
+        self, case_id: str | UUID, spec: RecordCheckSpec, *, idempotency_key: str
+    ) -> CheckAttemptView | Awaitable[CheckAttemptView]:
         """Record a fenced producer check receipt and its actionable findings.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2734,10 +2800,12 @@ class QaAPI(_Resource):
                 "index.qa.checks.record",
                 _bound(
                     CheckAttemptView,
-                    lambda attempt: str(attempt.case_id) == path["case_id"]
-                    and attempt.attempt_id == spec.attempt_id
-                    and attempt.manifest_digest == spec.manifest_digest
-                    and attempt.rubric_version == spec.rubric_version,
+                    lambda attempt: (
+                        str(attempt.case_id) == path["case_id"]
+                        and attempt.attempt_id == spec.attempt_id
+                        and attempt.manifest_digest == spec.manifest_digest
+                        and attempt.rubric_version == spec.rubric_version
+                    ),
                     "QA check differs from request",
                 ),
                 path_parameters=path,
@@ -2746,7 +2814,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def preflight(self, case_id: str | UUID, spec: RunPreflightSpec) -> PreflightResult | Awaitable[PreflightResult]:
+    def preflight(
+        self, case_id: str | UUID, spec: RunPreflightSpec
+    ) -> PreflightResult | Awaitable[PreflightResult]:
         """Request the backend’s configured bounded QA preflight checks.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2781,7 +2851,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def secret_scan(self, case_id: str | UUID, spec: RunPreflightSpec) -> CheckAttemptView | Awaitable[CheckAttemptView]:
+    def secret_scan(
+        self, case_id: str | UUID, spec: RunPreflightSpec
+    ) -> CheckAttemptView | Awaitable[CheckAttemptView]:
         """Request the configured privacy secret scan for the current sealed package.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2805,9 +2877,11 @@ class QaAPI(_Resource):
                 "index.qa.checks.secret_scan",
                 _bound(
                     CheckAttemptView,
-                    lambda attempt: str(attempt.case_id) == path["case_id"]
-                    and attempt.run_id == spec.run_id
-                    and attempt.gate == "privacy.secret_scan",
+                    lambda attempt: (
+                        str(attempt.case_id) == path["case_id"]
+                        and attempt.run_id == spec.run_id
+                        and attempt.gate == "privacy.secret_scan"
+                    ),
                     "QA secret scan differs from request",
                 ),
                 path_parameters=path,
@@ -2815,7 +2889,9 @@ class QaAPI(_Resource):
             )
         )
 
-    def reviews(self, case_id: str | UUID, *, after: int = 0) -> ReviewReport | Awaitable[ReviewReport]:
+    def reviews(
+        self, case_id: str | UUID, *, after: int = 0
+    ) -> ReviewReport | Awaitable[ReviewReport]:
         """Read the next independent review page for this QA case.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -2853,7 +2929,9 @@ class QaAPI(_Resource):
             _Call("index.qa.reviews.list", parse, path_parameters=path, params=self._cursor(after))
         )
 
-    def record_review(self, case_id: str | UUID, spec: RecordReviewSpec, *, idempotency_key: str) -> ReviewFact | Awaitable[ReviewFact]:
+    def record_review(
+        self, case_id: str | UUID, spec: RecordReviewSpec, *, idempotency_key: str
+    ) -> ReviewFact | Awaitable[ReviewFact]:
         """Record an independent assignment’s rubric judgments at exact sealed inputs.
 
         Every call is blocking on IndexAPI and awaitable on AsyncIndexAPI.
@@ -3067,6 +3145,91 @@ class PublicRevisionsAPI(_Resource):
         )
 
 
+def _exact_public_corpus(result: PublicCorpus) -> bool:
+    """Verify native pin-only registered manifest bytes; no authority inferred."""
+    from .research.contracts import canonical_bytes
+
+    if result.count != len(result.members):
+        return False
+    registered = RegisteredCorpus(
+        schema_version="synth.index.registered-corpus.v1",
+        corpus_id=result.corpus_id,
+        title=result.title,
+        source_receipt_sha256=result.source_receipt_sha256,
+        members=tuple(
+            CorpusPin(reference=item.reference, manifest_digest=item.manifest_digest)
+            for item in result.members
+        ),
+    )
+    # This record contains only strings, arrays and fixed ASCII property names:
+    # canonical_bytes is identical to the native RFC8785 serialization.
+    return sha256(canonical_bytes(registered)).hexdigest() == result.manifest_digest
+
+
+def _exact_public_lineage(result: PublicLineage, contribution_id: str) -> bool:
+    """Check disclosed local revision joins without asserting upstream permission."""
+    identifiers = {item.reference.revision_id for item in result.revisions}
+    return (
+        result.contribution_id == contribution_id
+        and len(identifiers) == len(result.revisions)
+        and sum(item.is_current for item in result.revisions) == 1
+        and all(
+            item.reference.contribution_id == contribution_id
+            and item.is_current == (item.reference.revision_id == result.current_revision_id)
+            and (item.parent_revision_id is None or item.parent_revision_id in identifiers)
+            for item in result.revisions
+        )
+        and all(
+            item.source.contribution_id == contribution_id
+            and item.source.revision_id in identifiers
+            and (
+                item.target.contribution_id != contribution_id
+                or item.target.revision_id in identifiers
+            )
+            for item in result.relationships
+        )
+    )
+
+
+class PublicCorporaAPI(_Resource):
+    """Read currently authorized frozen corpora; see public-corpus-lineage.md."""
+
+    def list(self) -> Any:
+        """Retrieve the bounded currently readable corpus summaries."""
+        return self._run(
+            _Call(
+                "index.public.corpora.list",
+                _bound(
+                    PublicCorpora,
+                    lambda result: (
+                        len({item.corpus_id for item in result.items}) == len(result.items)
+                    ),
+                    "Corpus summaries contain conflicting identities",
+                ),
+            )
+        )
+
+    def retrieve(self, corpus_id: str, *, manifest_digest: str | None = None) -> Any:
+        """Read an exact corpus identity, optionally pinned to its retained manifest."""
+        if manifest_digest is not None and re.fullmatch(r"[0-9a-f]{64}", manifest_digest) is None:
+            raise ValueError("Corpus manifest digest must be a SHA256 identity")
+        return self._run(
+            _Call(
+                "index.public.corpora.retrieve",
+                _bound(
+                    PublicCorpus,
+                    lambda result: (
+                        result.corpus_id == corpus_id
+                        and _exact_public_corpus(result)
+                        and (manifest_digest is None or result.manifest_digest == manifest_digest)
+                    ),
+                    "Corpus response differs from requested identity or frozen membership",
+                ),
+                path_parameters={"corpus_id": corpus_id},
+            )
+        )
+
+
 class PublicContributionsAPI(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
@@ -3074,6 +3237,81 @@ class PublicContributionsAPI(_Resource):
         self.release_research = PublicReleaseResearchAPI(run, asynchronous)
         self.classifications = PublicClassificationAPI(run, asynchronous)
         self.assets = PublicAssetsAPI(run, asynchronous)
+
+    def list(
+        self,
+        *,
+        query: str = "",
+        tag_id: str | None = None,
+        kind: str | None = None,
+        research_area: str | None = None,
+        workflow_stage: str | None = None,
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> Any:
+        """Read bounded current public catalogue metadata using backend filters.
+
+        See notes/specifications/synth-index/public-catalogue.md.
+        """
+        if not isinstance(query, str) or len(query) > 200:
+            raise ValueError("Catalogue query must contain at most 200 characters")
+        if type(limit) is not int or not 1 <= limit <= 32:
+            raise ValueError("Catalogue limit must be an integer from 1 to 32")
+        params = {
+            "query": query,
+            "tag_id": tag_id,
+            "kind": kind,
+            "research_area": research_area,
+            "workflow_stage": workflow_stage,
+            "limit": limit,
+            "cursor": cursor,
+        }
+        return self._run(
+            _Call(
+                "index.public.contributions.list",
+                _bound(
+                    PublicCatalogue,
+                    lambda result: (
+                        len(result.items) <= limit
+                        and result.total >= len(result.items)
+                        and tuple(item.reference.contribution_id for item in result.items)
+                        == tuple(sorted({item.reference.contribution_id for item in result.items}))
+                        and all(
+                            (cursor is None or item.reference.contribution_id > cursor)
+                            and item.citation.contribution_id == item.reference.contribution_id
+                            and item.citation.revision_id == item.reference.revision_id
+                            for item in result.items
+                        )
+                        and (
+                            result.next_cursor is None
+                            or (
+                                len(result.items) == limit
+                                and result.next_cursor == result.items[-1].reference.contribution_id
+                            )
+                        )
+                    ),
+                    "Catalogue response has conflicting counts or duplicate contributions",
+                ),
+                params={key: value for key, value in params.items() if value is not None},
+            )
+        )
+
+    def lineage(self, contribution_id: str) -> Any:
+        """Read authorized public revision ancestry without private archive access.
+
+        See notes/specifications/synth-index/public-corpus-lineage.md.
+        """
+        return self._run(
+            _Call(
+                "index.public.contributions.lineage.retrieve",
+                _bound(
+                    PublicLineage,
+                    lambda result: _exact_public_lineage(result, contribution_id),
+                    "Lineage response differs from requested contribution or current revision",
+                ),
+                path_parameters={"contribution_id": contribution_id},
+            )
+        )
 
     def retrieve(self, contribution_id: str) -> Any:
         return self._run(
@@ -3092,6 +3330,7 @@ class PublicContributionsAPI(_Resource):
 class _PublicIndexRoot(_Resource):
     def __init__(self, run: Callable[[_Call], Any], asynchronous: bool) -> None:
         super().__init__(run, asynchronous)
+        self.corpora = PublicCorporaAPI(run, asynchronous)
         self.contents = PublicContentsAPI(run, asynchronous)
         self.contributions = PublicContributionsAPI(run, asynchronous)
         self.tags = PublicTagsAPI(run, asynchronous)

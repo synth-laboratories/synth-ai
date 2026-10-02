@@ -42,6 +42,22 @@
         "title": "ActivityDay",
         "type": "object"
       },
+      "AddRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AddRevision",
+        "type": "object"
+      },
       "AdjudicationSpec": {
         "additionalProperties": false,
         "description": "Independent coordinator decision; the only outcome is fresh review.",
@@ -2765,7 +2781,7 @@
         "title": "ContributionOrigin",
         "type": "string"
       },
-      "ContributionPackage-Input": {
+      "ContributionPackage": {
         "additionalProperties": false,
         "properties": {
           "abstract": {
@@ -2827,152 +2843,21 @@
           "provenance": {
             "$ref": "#/components/schemas/ContributionProvenance"
           },
-          "reproduction": {
-            "$ref": "#/components/schemas/Reproduction"
-          },
-          "requested_audience": {
-            "$ref": "#/components/schemas/ContributionAudience",
-            "default": "private"
-          },
-          "research_areas": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchArea"
-            },
-            "maxItems": 11,
-            "minItems": 1,
-            "title": "Research Areas",
-            "type": "array"
-          },
-          "revision_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Revision Id",
-            "type": "string"
-          },
-          "rights_attested": {
-            "title": "Rights Attested",
-            "type": "boolean"
-          },
-          "schema_version": {
-            "const": "synth.contribution.v1",
-            "default": "synth.contribution.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "sensitive_data": {
-            "enum": [
-              "none_declared",
-              "declared",
-              "unknown"
-            ],
-            "title": "Sensitive Data",
-            "type": "string"
-          },
-          "tag_ids": {
-            "default": [],
-            "items": {
-              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-              "type": "string"
-            },
-            "maxItems": 10,
-            "title": "Tag Ids",
-            "type": "array"
-          },
-          "title": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          },
-          "workflow_stages": {
-            "items": {
-              "$ref": "#/components/schemas/WorkflowStage"
-            },
-            "maxItems": 6,
-            "minItems": 1,
-            "title": "Workflow Stages",
-            "type": "array"
-          }
-        },
-        "required": [
-          "contribution_id",
-          "revision_id",
-          "kind",
-          "title",
-          "abstract",
-          "research_areas",
-          "workflow_stages",
-          "card",
-          "assets",
-          "claims",
-          "provenance",
-          "reproduction",
-          "rights_attested",
-          "sensitive_data"
-        ],
-        "title": "ContributionPackage",
-        "type": "object"
-      },
-      "ContributionPackage-Output": {
-        "additionalProperties": false,
-        "properties": {
-          "abstract": {
-            "maxLength": 2048,
-            "minLength": 1,
-            "title": "Abstract",
-            "type": "string"
-          },
-          "assets": {
-            "items": {
-              "$ref": "#/components/schemas/ContributionAsset"
-            },
-            "maxItems": 1024,
-            "minItems": 1,
-            "title": "Assets",
-            "type": "array"
-          },
-          "card": {
-            "$ref": "#/components/schemas/ResearchCard"
-          },
-          "claims": {
-            "items": {
-              "$ref": "#/components/schemas/ContributionClaim"
-            },
-            "maxItems": 128,
-            "minItems": 1,
-            "title": "Claims",
-            "type": "array"
-          },
-          "contribution_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Contribution Id",
-            "type": "string"
-          },
-          "evidence": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/EvidenceReference"
-            },
-            "maxItems": 512,
-            "title": "Evidence",
-            "type": "array"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ContributionKind"
-          },
-          "parent_revision_id": {
+          "publication_mode": {
             "anyOf": [
               {
-                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "enum": [
+                  "private",
+                  "public_api",
+                  "public"
+                ],
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Parent Revision Id"
-          },
-          "provenance": {
-            "$ref": "#/components/schemas/ContributionProvenance"
+            "title": "Publication Mode"
           },
           "reproduction": {
             "$ref": "#/components/schemas/Reproduction"
@@ -2994,6 +2879,19 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Revision Id",
             "type": "string"
+          },
+          "revision_note": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Note"
           },
           "rights_attested": {
             "title": "Rights Attested",
@@ -3074,6 +2972,15 @@
           "origin": {
             "$ref": "#/components/schemas/ContributionOrigin"
           },
+          "relationships": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionRelationship"
+            },
+            "maxItems": 64,
+            "title": "Relationships",
+            "type": "array"
+          },
           "tools": {
             "default": [],
             "items": {
@@ -3121,6 +3028,46 @@
           "revision_id"
         ],
         "title": "ContributionReference",
+        "type": "object"
+      },
+      "ContributionRelationship": {
+        "additionalProperties": false,
+        "description": "Authored exact upstream relationship; approval covers its stated meaning.\n\nSee notes/specifications/synth-index/public-corpus-lineage.md. This declares\nresearch provenance, never a read grant, causal measurement or reward.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "citation",
+              "reuse",
+              "derivation",
+              "replication",
+              "correction",
+              "contradiction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "kind",
+          "reference"
+        ],
+        "title": "ContributionRelationship",
         "type": "object"
       },
       "ContributionSubmission": {
@@ -3185,7 +3132,7 @@
         "additionalProperties": false,
         "properties": {
           "package": {
-            "$ref": "#/components/schemas/ContributionPackage-Input"
+            "$ref": "#/components/schemas/ContributionPackage"
           },
           "publication_id": {
             "format": "uuid",
@@ -3372,6 +3319,37 @@
         "title": "CreateContributionSpec",
         "type": "object"
       },
+      "CreateCorpus": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+            "title": "Corpus Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "required_tag": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Required Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_key",
+          "required_tag",
+          "reason"
+        ],
+        "title": "CreateCorpus",
+        "type": "object"
+      },
       "CreateResearchContributionSpec": {
         "additionalProperties": false,
         "description": "Reviewed export identity, never caller-selected origin or rights state.",
@@ -3387,7 +3365,21 @@
                 "$ref": "#/components/schemas/ResearchSource"
               },
               {
-                "$ref": "#/components/schemas/ForgeResearchSource"
+                "discriminator": {
+                  "mapping": {
+                    "synth.index.forge-source.v1": "#/components/schemas/ForgeResearchSource",
+                    "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource"
+                  },
+                  "propertyName": "schema_version"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ForgeResearchSource"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ForgePublicResearchSource"
+                  }
+                ]
               }
             ],
             "title": "Source"
@@ -3660,7 +3652,7 @@
         "title": "DeliverableAsset",
         "type": "object"
       },
-      "DerivationBinding-Input": {
+      "DerivationBinding": {
         "additionalProperties": false,
         "properties": {
           "disclosure": {
@@ -3685,7 +3677,7 @@
             "type": "string"
           },
           "snapshot": {
-            "$ref": "#/components/schemas/ResearchSnapshot-Input"
+            "$ref": "#/components/schemas/ResearchSnapshot"
           }
         },
         "required": [
@@ -3696,40 +3688,20 @@
         "title": "DerivationBinding",
         "type": "object"
       },
-      "DerivationBinding-Output": {
+      "DisableCorpus": {
         "additionalProperties": false,
         "properties": {
-          "disclosure": {
-            "$ref": "#/components/schemas/ReleaseDisclosure"
-          },
-          "recipe": {
-            "$ref": "#/components/schemas/BuildRecipe"
-          },
-          "reproduction_receipts": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ReproductionReceipt"
-            },
-            "maxItems": 64,
-            "title": "Reproduction Receipts",
-            "type": "array"
-          },
-          "schema_version": {
-            "const": "synth.research.derivation.v1",
-            "default": "synth.research.derivation.v1",
-            "title": "Schema Version",
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
             "type": "string"
-          },
-          "snapshot": {
-            "$ref": "#/components/schemas/ResearchSnapshot-Output"
           }
         },
         "required": [
-          "snapshot",
-          "recipe",
-          "disclosure"
+          "reason"
         ],
-        "title": "DerivationBinding",
+        "title": "DisableCorpus",
         "type": "object"
       },
       "EscalationSpec": {
@@ -4093,6 +4065,53 @@
         "title": "FindingView",
         "type": "object"
       },
+      "ForgePublicResearchSource": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Manifest Digest Sha256",
+            "type": "string"
+          },
+          "archive_publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "export": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_provenance": {
+            "$ref": "#/components/schemas/PublicScientificProvenance"
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source.v2",
+            "default": "synth.index.forge-source.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "export",
+          "archive_publication_id",
+          "archive_manifest_digest_sha256",
+          "public_provenance"
+        ],
+        "title": "ForgePublicResearchSource",
+        "type": "object"
+      },
       "ForgeResearchSource": {
         "additionalProperties": false,
         "properties": {
@@ -4215,7 +4234,22 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/ForgeResearchSource"
+            "discriminator": {
+              "mapping": {
+                "synth.index.forge-source.v1": "#/components/schemas/ForgeResearchSource",
+                "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ForgeResearchSource"
+              },
+              {
+                "$ref": "#/components/schemas/ForgePublicResearchSource"
+              }
+            ],
+            "title": "Source"
           }
         },
         "required": [
@@ -4226,6 +4260,70 @@
           "next_cursor"
         ],
         "title": "ForgeSourceNoticePage",
+        "type": "object"
+      },
+      "FrozenCopyRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "authored_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Authored Object Ids",
+            "type": "array"
+          },
+          "builder_version": {
+            "const": "frozen-copy-v2",
+            "default": "frozen-copy-v2",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "environment_object_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Environment Object Ids",
+            "type": "array"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/OutputBinding"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.build-recipe.v2",
+            "default": "synth.research.build-recipe.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "authored_object_ids",
+          "outputs"
+        ],
+        "title": "FrozenCopyRecipe",
         "type": "object"
       },
       "FrozenObject": {
@@ -4279,6 +4377,34 @@
           "verified"
         ],
         "title": "GithubIdentity",
+        "type": "object"
+      },
+      "GrantOrg": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "GrantOrg",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -4589,6 +4715,27 @@
       "MyContribution": {
         "additionalProperties": false,
         "properties": {
+          "abstract": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract"
+          },
+          "access": {
+            "default": "owned",
+            "enum": [
+              "owned",
+              "public"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
           "audience": {
             "anyOf": [
               {
@@ -4620,6 +4767,35 @@
             "minimum": 0.0,
             "title": "Generation",
             "type": "integer"
+          },
+          "public_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Revision Id"
+          },
+          "publication_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private",
+                  "public_api",
+                  "public",
+                  "org"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Mode"
           },
           "reference": {
             "$ref": "#/components/schemas/ContributionReference"
@@ -4669,9 +4845,21 @@
             "items": {
               "$ref": "#/components/schemas/MyContribution"
             },
-            "maxItems": 200,
+            "maxItems": 32,
             "title": "Items",
             "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           }
         },
         "required": [
@@ -5379,6 +5567,43 @@
         "title": "PromoCreditSummary",
         "type": "object"
       },
+      "PublicCatalogue": {
+        "additionalProperties": false,
+        "description": "One bounded page and the count under exactly the same public filters.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicContributionCard"
+            },
+            "maxItems": 32,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PublicCatalogue",
+        "type": "object"
+      },
       "PublicClout": {
         "additionalProperties": false,
         "properties": {
@@ -5406,6 +5631,465 @@
           "calendar"
         ],
         "title": "PublicClout",
+        "type": "object"
+      },
+      "PublicContributionCard": {
+        "additionalProperties": false,
+        "description": "Only metadata from the exact current, approved public publication.",
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "citation": {
+            "$ref": "#/components/schemas/Citation"
+          },
+          "contributor_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Contributor Ids",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "observed": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Observed",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "reproduction_level": {
+            "enum": [
+              "inspectable",
+              "runnable",
+              "reproduced",
+              "not_applicable"
+            ],
+            "title": "Reproduction Level",
+            "type": "string"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reference",
+          "title",
+          "abstract",
+          "kind",
+          "research_areas",
+          "workflow_stages",
+          "tag_ids",
+          "contributor_ids",
+          "reproduction_level",
+          "observed",
+          "limitations",
+          "citation"
+        ],
+        "title": "PublicContributionCard",
+        "type": "object"
+      },
+      "PublicCorpora": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCorpusSummary"
+            },
+            "maxItems": 32,
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.public-corpora.v1",
+            "default": "synth.index.public-corpora.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PublicCorpora",
+        "type": "object"
+      },
+      "PublicCorpus": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Id",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 256.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCorpusMember"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Members",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.public-corpus.v1",
+            "default": "synth.index.public-corpus.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_receipt_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Receipt Sha256",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_id",
+          "title",
+          "manifest_digest",
+          "source_receipt_sha256",
+          "count",
+          "members"
+        ],
+        "title": "PublicCorpus",
+        "type": "object"
+      },
+      "PublicCorpusMember": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "title",
+          "kind",
+          "research_areas",
+          "workflow_stages",
+          "tag_ids"
+        ],
+        "title": "PublicCorpusMember",
+        "type": "object"
+      },
+      "PublicCorpusSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Id",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 256.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "source_receipt_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Receipt Sha256",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_id",
+          "title",
+          "manifest_digest",
+          "source_receipt_sha256",
+          "count"
+        ],
+        "title": "PublicCorpusSummary",
+        "type": "object"
+      },
+      "PublicLineage": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditedContributor"
+            },
+            "maxItems": 32,
+            "title": "Contributors",
+            "type": "array"
+          },
+          "current_revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Current Revision Id",
+            "type": "string"
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/PublicLineageRelationship"
+            },
+            "maxItems": 384,
+            "title": "Relationships",
+            "type": "array"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/PublicLineageRevision"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Revisions",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.public-lineage.v1",
+            "default": "synth.index.public-lineage.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "current_revision_id",
+          "revisions",
+          "relationships",
+          "contributors"
+        ],
+        "title": "PublicLineage",
+        "type": "object"
+      },
+      "PublicLineageRelationship": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "upstream",
+              "replication",
+              "supersedes",
+              "citation",
+              "reuse",
+              "derivation",
+              "correction",
+              "contradiction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "kind",
+          "source",
+          "target"
+        ],
+        "title": "PublicLineageRelationship",
+        "type": "object"
+      },
+      "PublicLineageRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "change_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Reason"
+          },
+          "is_current": {
+            "title": "Is Current",
+            "type": "boolean"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "title",
+          "is_current"
+        ],
+        "title": "PublicLineageRevision",
         "type": "object"
       },
       "PublicProfileValue": {
@@ -5437,6 +6121,122 @@
           }
         },
         "title": "PublicProfileValue",
+        "type": "object"
+      },
+      "PublicScientificAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "license": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "digest_sha256",
+          "license"
+        ],
+        "title": "PublicScientificAsset",
+        "type": "object"
+      },
+      "PublicScientificCredit": {
+        "additionalProperties": false,
+        "properties": {
+          "license": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "author",
+              "data",
+              "implementation",
+              "method",
+              "review",
+              "funding"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicUpstreamCredit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "principal_id",
+          "role",
+          "license"
+        ],
+        "title": "PublicScientificCredit",
+        "type": "object"
+      },
+      "PublicScientificProvenance": {
+        "additionalProperties": false,
+        "description": "Approved-release candidates with full credit and no private source identity.",
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificCredit"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "provenance_license": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Provenance License",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.scientific-provenance.v1",
+            "default": "synth.index.scientific-provenance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provenance_license",
+          "assets",
+          "credits"
+        ],
+        "title": "PublicScientificProvenance",
         "type": "object"
       },
       "PublicSearchAccepted": {
@@ -5791,6 +6591,25 @@
           "private_processing_minutes"
         ],
         "title": "PublicSearchRetention",
+        "type": "object"
+      },
+      "PublicUpstreamCredit": {
+        "additionalProperties": false,
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "reference",
+          "digest_sha256"
+        ],
+        "title": "PublicUpstreamCredit",
         "type": "object"
       },
       "PublicUsage": {
@@ -6148,67 +6967,7 @@
         "title": "RecordCheckSpec",
         "type": "object"
       },
-      "RecordReviewSpec-Input": {
-        "additionalProperties": false,
-        "properties": {
-          "assignment_id": {
-            "format": "uuid",
-            "title": "Assignment Id",
-            "type": "string"
-          },
-          "criteria": {
-            "items": {
-              "$ref": "#/components/schemas/CriterionJudgment"
-            },
-            "maxItems": 16,
-            "minItems": 1,
-            "title": "Criteria",
-            "type": "array"
-          },
-          "decision": {
-            "$ref": "#/components/schemas/ReviewDecision"
-          },
-          "expected_version": {
-            "minimum": 0.0,
-            "title": "Expected Version",
-            "type": "integer"
-          },
-          "manifest_digest": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Manifest Digest",
-            "type": "string"
-          },
-          "review_id": {
-            "format": "uuid",
-            "title": "Review Id",
-            "type": "string"
-          },
-          "rubric_version": {
-            "const": "content-v1",
-            "default": "content-v1",
-            "title": "Rubric Version",
-            "type": "string"
-          },
-          "summary": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Summary",
-            "type": "string"
-          }
-        },
-        "required": [
-          "review_id",
-          "expected_version",
-          "assignment_id",
-          "manifest_digest",
-          "decision",
-          "summary",
-          "criteria"
-        ],
-        "title": "RecordReviewSpec",
-        "type": "object"
-      },
-      "RecordReviewSpec-Output": {
+      "RecordReviewSpec": {
         "additionalProperties": false,
         "properties": {
           "assignment_id": {
@@ -6436,7 +7195,22 @@
         "additionalProperties": false,
         "properties": {
           "disclosure": {
-            "$ref": "#/components/schemas/ReleaseDisclosure"
+            "discriminator": {
+              "mapping": {
+                "synth.contribution.release-disclosure.v1": "#/components/schemas/ReleaseDisclosure",
+                "synth.contribution.release-disclosure.v2": "#/components/schemas/ScientificReleaseDisclosure"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseDisclosure"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+              }
+            ],
+            "title": "Disclosure"
           },
           "disclosure_digest": {
             "pattern": "^[0-9a-f]{64}$",
@@ -6695,7 +7469,22 @@
             "type": "array"
           },
           "binding": {
-            "$ref": "#/components/schemas/DerivationBinding-Output"
+            "discriminator": {
+              "mapping": {
+                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding",
+                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DerivationBinding"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificDerivation"
+              }
+            ],
+            "title": "Binding"
           },
           "schema_version": {
             "const": "synth.index.private-research.v2",
@@ -6743,7 +7532,22 @@
             "type": "string"
           },
           "binding": {
-            "$ref": "#/components/schemas/DerivationBinding-Input"
+            "discriminator": {
+              "mapping": {
+                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding",
+                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DerivationBinding"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificDerivation"
+              }
+            ],
+            "title": "Binding"
           }
         },
         "required": [
@@ -6840,7 +7644,7 @@
         "title": "ResearchRevocationSpec",
         "type": "object"
       },
-      "ResearchSnapshot-Input": {
+      "ResearchSnapshot": {
         "additionalProperties": false,
         "properties": {
           "archive_collection_id": {
@@ -6892,81 +7696,7 @@
           "sessions": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/SessionExport-Input"
-            },
-            "maxItems": 256,
-            "title": "Sessions",
-            "type": "array"
-          },
-          "snapshot_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Snapshot Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "snapshot_id",
-          "archive_collection_id",
-          "cutoff_at",
-          "objects",
-          "attempts"
-        ],
-        "title": "ResearchSnapshot",
-        "type": "object"
-      },
-      "ResearchSnapshot-Output": {
-        "additionalProperties": false,
-        "properties": {
-          "archive_collection_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Archive Collection Id",
-            "type": "string"
-          },
-          "attempts": {
-            "items": {
-              "$ref": "#/components/schemas/Attempt"
-            },
-            "maxItems": 100000,
-            "minItems": 1,
-            "title": "Attempts",
-            "type": "array"
-          },
-          "cutoff_at": {
-            "format": "date-time",
-            "title": "Cutoff At",
-            "type": "string"
-          },
-          "objects": {
-            "items": {
-              "$ref": "#/components/schemas/FrozenObject"
-            },
-            "maxItems": 4096,
-            "minItems": 1,
-            "title": "Objects",
-            "type": "array"
-          },
-          "parent_snapshot_id": {
-            "anyOf": [
-              {
-                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Snapshot Id"
-          },
-          "schema_version": {
-            "const": "synth.research.snapshot.v1",
-            "default": "synth.research.snapshot.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "sessions": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/SessionExport-Output"
+              "$ref": "#/components/schemas/SessionExport"
             },
             "maxItems": 256,
             "title": "Sessions",
@@ -7230,7 +7960,7 @@
             "type": "boolean"
           },
           "review": {
-            "$ref": "#/components/schemas/RecordReviewSpec-Output"
+            "$ref": "#/components/schemas/RecordReviewSpec"
           },
           "reviewer_org_id": {
             "format": "uuid",
@@ -7671,7 +8401,7 @@
           "package": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ContributionPackage-Output"
+                "$ref": "#/components/schemas/ContributionPackage"
               },
               {
                 "type": "null"
@@ -7738,6 +8468,22 @@
           "status"
         ],
         "title": "RevisionView",
+        "type": "object"
+      },
+      "RevokeGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RevokeGrant",
         "type": "object"
       },
       "RewardAward": {
@@ -8117,6 +8863,195 @@
         "title": "RunPreflightSpec",
         "type": "object"
       },
+      "ScientificDerivation": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/FrozenCopyRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v2",
+            "default": "synth.research.derivation.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ScientificSnapshot"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "ScientificDerivation",
+        "type": "object"
+      },
+      "ScientificReleaseDisclosure": {
+        "additionalProperties": false,
+        "description": "Full-credit reviewer exclusions, bound without exposing private source IDs.",
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "classification_version": {
+            "minimum": 1.0,
+            "title": "Classification Version",
+            "type": "integer"
+          },
+          "credited_principal_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Credited Principal Ids",
+            "type": "array"
+          },
+          "deliverable_assets": {
+            "items": {
+              "$ref": "#/components/schemas/DeliverableAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Deliverable Assets",
+            "type": "array"
+          },
+          "disclosure_version": {
+            "minimum": 1.0,
+            "title": "Disclosure Version",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "release_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Collection Id",
+            "type": "string"
+          },
+          "release_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Release Manifest Digest Sha256",
+            "type": "string"
+          },
+          "representations": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovedRepresentation"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Representations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.contribution.release-disclosure.v2",
+            "default": "synth.contribution.release-disclosure.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "release_collection_id",
+          "release_manifest_digest_sha256",
+          "audience",
+          "disclosure_version",
+          "classification_version",
+          "deliverable_assets",
+          "representations",
+          "credited_principal_ids"
+        ],
+        "title": "ScientificReleaseDisclosure",
+        "type": "object"
+      },
+      "ScientificSnapshot": {
+        "additionalProperties": false,
+        "description": "Human-capable frozen inventory; never invent execution evidence for a copy.",
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v2",
+            "default": "synth.research.snapshot.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects"
+        ],
+        "title": "ScientificSnapshot",
+        "type": "object"
+      },
       "Search": {
         "additionalProperties": false,
         "description": "Authorized lifecycle snapshot; a client wait timeout does not mutate it.",
@@ -8165,7 +9100,7 @@
             "type": "string"
           },
           "spec": {
-            "$ref": "#/components/schemas/SearchSpec-Output"
+            "$ref": "#/components/schemas/SearchSpec"
           },
           "state": {
             "$ref": "#/components/schemas/SearchState"
@@ -8573,6 +9508,16 @@
             "title": "Tags Any",
             "type": "array"
           },
+          "tags_none": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tags None",
+            "type": "array"
+          },
           "workflow_stages": {
             "default": [],
             "items": {
@@ -8773,49 +9718,7 @@
         "title": "SearchSettlementOutcome",
         "type": "string"
       },
-      "SearchSpec-Input": {
-        "additionalProperties": false,
-        "properties": {
-          "billing": {
-            "$ref": "#/components/schemas/SearchBillingConstraints"
-          },
-          "content": {
-            "$ref": "#/components/schemas/SearchContent"
-          },
-          "filters": {
-            "$ref": "#/components/schemas/SearchFilters"
-          },
-          "limits": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SearchExecutionLimits"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "mode": {
-            "$ref": "#/components/schemas/SearchMode",
-            "default": "fast"
-          },
-          "query": {
-            "maxLength": 8192,
-            "minLength": 1,
-            "title": "Query",
-            "type": "string"
-          },
-          "scope": {
-            "$ref": "#/components/schemas/SearchScope"
-          }
-        },
-        "required": [
-          "query"
-        ],
-        "title": "SearchSpec",
-        "type": "object"
-      },
-      "SearchSpec-Output": {
+      "SearchSpec": {
         "additionalProperties": false,
         "properties": {
           "billing": {
@@ -9326,104 +10229,7 @@
         "title": "SearchUsageSummaryRow",
         "type": "object"
       },
-      "SessionExport-Input": {
-        "additionalProperties": false,
-        "properties": {
-          "captured_at": {
-            "format": "date-time",
-            "title": "Captured At",
-            "type": "string"
-          },
-          "completeness": {
-            "enum": [
-              "complete",
-              "partial"
-            ],
-            "title": "Completeness",
-            "type": "string"
-          },
-          "cutoff_at": {
-            "format": "date-time",
-            "title": "Cutoff At",
-            "type": "string"
-          },
-          "event_end_exclusive": {
-            "minimum": 0.0,
-            "title": "Event End Exclusive",
-            "type": "integer"
-          },
-          "event_start": {
-            "minimum": 0.0,
-            "title": "Event Start",
-            "type": "integer"
-          },
-          "gaps": {
-            "default": [],
-            "items": {
-              "maxLength": 2048,
-              "minLength": 1,
-              "type": "string"
-            },
-            "maxItems": 256,
-            "title": "Gaps",
-            "type": "array"
-          },
-          "native_objects": {
-            "items": {
-              "$ref": "#/components/schemas/FrozenObject"
-            },
-            "maxItems": 1024,
-            "minItems": 1,
-            "title": "Native Objects",
-            "type": "array"
-          },
-          "native_session_id": {
-            "maxLength": 2048,
-            "minLength": 1,
-            "title": "Native Session Id",
-            "type": "string"
-          },
-          "parent_native_ids": {
-            "default": [],
-            "items": {
-              "maxLength": 2048,
-              "minLength": 1,
-              "type": "string"
-            },
-            "maxItems": 64,
-            "title": "Parent Native Ids",
-            "type": "array"
-          },
-          "schema_version": {
-            "const": "synth.research.session-export.v1",
-            "default": "synth.research.session-export.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "source": {
-            "enum": [
-              "codex",
-              "swarms",
-              "mlok"
-            ],
-            "title": "Source",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source",
-          "native_session_id",
-          "event_start",
-          "event_end_exclusive",
-          "captured_at",
-          "cutoff_at",
-          "completeness",
-          "native_objects"
-        ],
-        "title": "SessionExport",
-        "type": "object"
-      },
-      "SessionExport-Output": {
+      "SessionExport": {
         "additionalProperties": false,
         "properties": {
           "captured_at": {
@@ -10840,6 +11646,23 @@
             }
           },
           {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
+            }
+          },
+          {
             "in": "header",
             "name": "Synth-Acceptance-Context",
             "required": false,
@@ -11266,6 +12089,23 @@
             }
           },
           {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
+            }
+          },
+          {
             "in": "header",
             "name": "Synth-Acceptance-Context",
             "required": false,
@@ -11348,6 +12188,23 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Revision Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
             }
           },
           {
@@ -11443,6 +12300,23 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Asset Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
             }
           },
           {
@@ -12362,7 +13236,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReleaseDisclosure"
+                  "discriminator": {
+                    "mapping": {
+                      "synth.contribution.release-disclosure.v1": "#/components/schemas/ReleaseDisclosure",
+                      "synth.contribution.release-disclosure.v2": "#/components/schemas/ScientificReleaseDisclosure"
+                    },
+                    "propertyName": "schema_version"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseDisclosure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+                    }
+                  ],
+                  "title": "Response Index.Research.Binding.Create"
                 }
               }
             },
@@ -13058,6 +13947,51 @@
     "/api/v1/index/me/contributions": {
       "get": {
         "operationId": "index.me.contributions.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "owned",
+              "enum": [
+                "owned",
+                "accessible"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -13068,6 +14002,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Mine",
@@ -14147,6 +15091,144 @@
         ]
       }
     },
+    "/api/v1/index/public/contributions": {
+      "get": {
+        "operationId": "index.public.contributions.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContributionKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "research_area",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ResearchArea"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Research Area"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow_stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WorkflowStage"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow Stage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCatalogue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Catalogue",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
     "/api/v1/index/public/contributions/{contribution_id}": {
       "get": {
         "operationId": "index.public.contributions.retrieve",
@@ -14185,6 +15267,49 @@
           }
         },
         "summary": "Contribution",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/lineage": {
+      "get": {
+        "operationId": "index.public.contributions.lineage.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLineage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage",
         "tags": [
           "index-public"
         ]
@@ -14413,6 +15538,70 @@
           }
         },
         "summary": "Release Research",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/corpora": {
+      "get": {
+        "operationId": "index.public.corpora.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCorpora"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Corpora",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/corpora/{corpus_id}": {
+      "get": {
+        "operationId": "index.public.corpora.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCorpus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus",
         "tags": [
           "index-public"
         ]
@@ -15929,7 +17118,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContributionPackage-Output"
+                  "$ref": "#/components/schemas/ContributionPackage"
                 }
               }
             },
@@ -16035,7 +17224,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RecordReviewSpec-Input"
+                "$ref": "#/components/schemas/RecordReviewSpec"
               }
             }
           },
@@ -16269,7 +17458,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchSpec-Input"
+                "$ref": "#/components/schemas/SearchSpec"
               }
             }
           },
@@ -16324,7 +17513,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchSpec-Input"
+                "$ref": "#/components/schemas/SearchSpec"
               }
             }
           },
@@ -16571,6 +17760,279 @@
         "summary": "Tags",
         "tags": [
           "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora": {
+      "post": {
+        "operationId": "create_api_v1_index_testing_corpora_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCorpus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/grants/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_org_api_v1_index_testing_corpora_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeGrant"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Org",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/{corpus_id}/contributions/{contribution_id}/revisions/{revision_id}": {
+      "post": {
+        "operationId": "add_revision_api_v1_index_testing_corpora__corpus_id__contributions__contribution_id__revisions__revision_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRevision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Revision",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/{corpus_id}/disable": {
+      "post": {
+        "operationId": "disable_api_v1_index_testing_corpora__corpus_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableCorpus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/{corpus_id}/organizations/{org_id}/grants": {
+      "post": {
+        "operationId": "grant_org_api_v1_index_testing_corpora__corpus_id__organizations__org_id__grants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantOrg"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant Org",
+        "tags": [
+          "index-operator"
         ]
       }
     }
