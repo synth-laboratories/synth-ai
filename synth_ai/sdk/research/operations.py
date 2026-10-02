@@ -23,6 +23,42 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
+            "getExactDatasetRevision",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "getExactDatasetRevisionManifest",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/manifest",
+            idempotent=True,
+        ),
+        _operation(
+            "getExactDatasetRevisionContent",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/content",
+            idempotent=True,
+        ),
+        _operation(
+            "listProjectDataPools",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-pools",
+            idempotent=True,
+        ),
+        _operation(
+            "getProjectDataPoolInventory",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-pools/{pool_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "getPinnedProjectDataPoolFile",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-pools/{pool_id}/files/{file_id}/content",
+            idempotent=True,
+        ),
+        _operation(
             "detach_research_intern_factory",
             HttpMethod.DELETE,
             "/smr/research-intern/factories/{factory_id}",

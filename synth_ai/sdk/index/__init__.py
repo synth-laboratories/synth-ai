@@ -24,16 +24,20 @@ from .catalog import (
     RewardAward,
     TagRegistry,
 )
+from .catalogue import PublicCatalogue, PublicContributionCard
 from .classification import ClassificationDecisionView, ClassificationSpec, ClassificationView
 from .contracts import ContributionReference
 from .contributions import (
     ContributionDraft,
     ContributionUploadPrepared,
     ContributionUploadSpec,
+    ForgePublicResearchSource,
+    ForgeResearchSource,
     ResearchDraftSpec,
     ResearchSource,
 )
 from .errors import IndexErrorCode, index_error_code
+from .forge_notices import ForgeSourceNoticeItem, ForgeSourceNoticePage
 from .lifecycle import (
     Assessment,
     ContributionView,
@@ -49,6 +53,15 @@ from .lifecycle import (
 )
 from .package import ContributionPackage, ContributionRelationship
 from .public import AsyncPublicIndexClient, PublicIndexClient
+from .public_corpus import (
+    PublicCorpora,
+    PublicCorpus,
+    PublicCorpusMember,
+    PublicCorpusSummary,
+    PublicLineage,
+    PublicLineageRelationship,
+    PublicLineageRevision,
+)
 from .public_search import (
     PublicSearchAuthenticatedError,
     PublicSearchBudgetExhaustedError,
@@ -109,6 +122,12 @@ from .qa_reviews import (
     ReviewReport,
 )
 from .retry import IndexRetryPolicy, search_id_from_error
+from .scientific_provenance import (
+    PublicScientificAsset,
+    PublicScientificCredit,
+    PublicScientificProvenance,
+    PublicUpstreamCredit,
+)
 from .search import (
     ContentsResult,
     ContentsSpec,
@@ -153,6 +172,15 @@ from .wallet_search import (
 )
 
 __all__ = [
+    "PublicCatalogue",
+    "PublicContributionCard",
+    "PublicCorpora",
+    "PublicCorpus",
+    "PublicCorpusMember",
+    "PublicCorpusSummary",
+    "PublicLineage",
+    "PublicLineageRelationship",
+    "PublicLineageRevision",
     "SearchFilters",
     "ClassificationSpec",
     "ClassificationView",
@@ -258,6 +286,14 @@ __all__ = [
     "PublicationSpec",
     "PublicationStatus",
     "QaAssessmentSource",
+    "ForgePublicResearchSource",
+    "ForgeResearchSource",
+    "PublicScientificAsset",
+    "PublicScientificCredit",
+    "PublicScientificProvenance",
+    "PublicUpstreamCredit",
+    "ForgeSourceNoticeItem",
+    "ForgeSourceNoticePage",
     "ResearchDraftSpec",
     "ResearchSource",
     "ReviewDecision",

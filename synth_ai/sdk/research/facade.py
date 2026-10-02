@@ -15,6 +15,7 @@ from synth_ai.sdk.research.image_releases import ImageReleasesAPI
 from synth_ai.sdk.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.sdk.research.projects import ResearchProjectsAPI
 from synth_ai.sdk.research.research_intern import ResearchInternAPI
+from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI
 from synth_ai.sdk.research.swarms import ResearchSwarmsAPI
 from synth_ai.sdk.research.traces import ResearchTracesAPI
 from synth_ai.sdk.research.visuals import VisualsAPI
@@ -170,6 +171,14 @@ class Client:
         if self._experiments is None:
             self._experiments = ResearchExperimentsAPI(self._open_session())
         return self._experiments
+
+    @property
+    def records(self) -> ScientificRecordsAPI:
+        """Scoped immutable scientific records through the canonical backend.
+
+        See: Forge docs/contracts.md and FG09/SYN-3604.
+        """
+        return self._core.records
 
     @property
     def knowledge(self) -> ResearchKnowledgeAPI:

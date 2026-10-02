@@ -25,6 +25,7 @@ QA_READ = "index:qa:read"
 
 # operation_id -> any-of scopes. Operation ids are the keys of client.OPERATIONS.
 OPERATION_SCOPES: Mapping[str, tuple[str, ...]] = {
+    "index.research.forge_notices.list": ("index:read",),
     # Contribution lifecycle owned by the contributor.
     "index.contributions.create": ("index:intake",),
     "index.contributions.revisions.create": ("index:intake",),
