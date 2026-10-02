@@ -4999,6 +4999,15 @@
         "title": "FactoryStorageTechnology",
         "type": "string"
       },
+      "GitFileMode": {
+        "description": "Git tree modes a workspace file may be committed with.\n\nOnly the two portable blob modes are accepted. ``REGULAR`` is the default\nso a caller must say so explicitly before anything lands executable.",
+        "enum": [
+          "100644",
+          "100755"
+        ],
+        "title": "GitFileMode",
+        "type": "string"
+      },
       "GitHubObservation": {
         "description": "Exact-head fields selected from a digest-bearing GitHub observation.",
         "properties": {
@@ -5307,7 +5316,7 @@
           },
           "expires_in": {
             "default": 3600,
-            "maximum": 86400.0,
+            "maximum": 3600.0,
             "minimum": 60.0,
             "title": "Expires In",
             "type": "integer"
@@ -13505,6 +13514,7 @@
       "ResourceProvider": {
         "enum": [
           "openrouter",
+          "openai",
           "tinker",
           "synth_ai",
           "cursor",
@@ -14377,6 +14387,8 @@
       "SmrAgentModel": {
         "enum": [
           "openrouter/openai/gpt-5.6-luna",
+          "openai-api/gpt-5.6-luna",
+          "openai-api/gpt-6-luna",
           "gpt-5-codex",
           "gpt-5.3-codex",
           "gpt-5.3-codex-spark",
@@ -14386,7 +14398,6 @@
           "gpt-5.6-terra",
           "gpt-5.4",
           "gpt-5.4-mini",
-          "nemotron-super",
           "deepseek/deepseek-v4-flash",
           "deepseek/deepseek-v4-pro",
           "cursor/composer-2.5",
@@ -22239,6 +22250,123 @@
         "title": "SmrPrimaryParentRefResponse",
         "type": "object"
       },
+      "SmrProjectDataPoolDescriptorResponse": {
+        "properties": {
+          "access_policy": {
+            "additionalProperties": true,
+            "title": "Access Policy",
+            "type": "object"
+          },
+          "bytes_uploaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes Uploaded"
+          },
+          "manifest_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "object_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Count"
+          },
+          "object_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Prefix"
+          },
+          "pool_id": {
+            "title": "Pool Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pool_id",
+          "name",
+          "status"
+        ],
+        "title": "SmrProjectDataPoolDescriptorResponse",
+        "type": "object"
+      },
+      "SmrProjectDataPoolInventoryResponse": {
+        "properties": {
+          "descriptor": {
+            "$ref": "#/components/schemas/SmrProjectDataPoolDescriptorResponse"
+          },
+          "file_count": {
+            "title": "File Count",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SmrStoredFileResponse"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "inventory_digest": {
+            "title": "Inventory Digest",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "descriptor",
+          "inventory_digest",
+          "file_count",
+          "size_bytes",
+          "files"
+        ],
+        "title": "SmrProjectDataPoolInventoryResponse",
+        "type": "object"
+      },
       "SmrProjectDatasetResponse": {
         "additionalProperties": false,
         "properties": {
@@ -23072,7 +23200,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openai-api/gpt-5.6-luna', 'openai-api/gpt-6-luna', 'openrouter/openai/gpt-5.6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -23412,7 +23540,7 @@
                 "type": "null"
               }
             ],
-            "description": "Inference provider selection. Use 'auto' for backend-owned GA routing, one provider id for strict pinning, or an ordered provider list as a hard allowlist with fallback during launch resolution.",
+            "description": "Inference provider selection. Use 'auto' for backend-owned GA routing, one provider id for strict pinning, or an ordered provider list as a hard allowlist with fallback during launch resolution. 'openai' is the OpenAI API billed to an API key; 'openai_chatgpt' is ChatGPT subscription seats from the Codex pool, permitted only in local and staging. Production refuses it with 403 provider_not_permitted_in_environment and 'auto' there resolves to 'openai'.",
             "title": "Provider"
           },
           "provider_policy": {
@@ -29616,6 +29744,128 @@
         "title": "SmrSourceRevisionRequest",
         "type": "object"
       },
+      "SmrStoredFileResponse": {
+        "properties": {
+          "content_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Bytes"
+          },
+          "content_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha256"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "created_at": {
+            "title": "Created At"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoding"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "logical_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logical Name"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scope_kind": {
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "storage_backend": {
+            "title": "Storage Backend",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "org_id",
+          "project_id",
+          "scope_kind",
+          "path",
+          "visibility",
+          "storage_backend",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrStoredFileResponse",
+        "type": "object"
+      },
       "SmrSwarmActivityCursorResponse": {
         "description": "Stable resume coordinates for bounded swarm activity.",
         "properties": {
@@ -33094,6 +33344,10 @@
             },
             "title": "Metadata",
             "type": "object"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/GitFileMode",
+            "default": "100644"
           },
           "path": {
             "minLength": 1,
@@ -38597,7 +38851,7 @@
   "info": {
     "description": "Backend-authored bounded contract for the synth-ai Research SDK.",
     "title": "Synth Research API",
-    "version": "0.2.0"
+    "version": "0.24.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -43540,6 +43794,183 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}": {
+      "get": {
+        "description": "Resolve the original sealed revision under its exact digest precondition.\n\nSee notes/specifications/tanha/current/systems/platform/forge_dataset_delivery.md.",
+        "operationId": "getExactDatasetRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "data_binding_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Data Binding Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_revision_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Revision Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SealedDatasetRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Exact Dataset Revision",
+        "tags": [
+          "smr",
+          "dataset-revisions"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/content": {
+      "get": {
+        "description": "Return one original declared object after authority revalidation.\n\nSee notes/specifications/tanha/current/systems/platform/forge_dataset_delivery.md.",
+        "operationId": "getExactDatasetRevisionContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "data_binding_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Data Binding Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_revision_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Revision Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "logical_path",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Original digest-verified bytes under current scoped access.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Synth-Content-Digest": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Exact Dataset Revision Content",
+        "tags": [
+          "smr",
+          "dataset-revisions"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/lifecycle": {
       "post": {
         "operationId": "transition_dataset_revision_lifecycle",
@@ -43613,8 +44044,289 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/manifest": {
+      "get": {
+        "description": "Return original canonical manifest bytes after authority revalidation.\n\nSee notes/specifications/tanha/current/systems/platform/forge_dataset_delivery.md.",
+        "operationId": "getExactDatasetRevisionManifest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "data_binding_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Data Binding Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_revision_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Revision Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Original digest-verified bytes under current scoped access.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Synth-Content-Digest": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Exact Dataset Revision Manifest",
+        "tags": [
+          "smr",
+          "dataset-revisions"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-pools": {
+      "get": {
+        "description": "Read native data-pool descriptors under current operator authority.\n\nSee notes/specifications/tanha/current/systems/platform/forge_data_pool_delivery.md.",
+        "operationId": "listProjectDataPools",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrProjectDataPoolDescriptorResponse"
+                  },
+                  "title": "Response Listprojectdatapools",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Data Pools",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-pools/{pool_id}": {
+      "get": {
+        "description": "Return a complete exact-byte declaration set from native pool files.\n\nSee notes/specifications/tanha/current/systems/platform/forge_data_pool_delivery.md.",
+        "operationId": "getProjectDataPoolInventory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pool_id",
+            "required": true,
+            "schema": {
+              "title": "Pool Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrProjectDataPoolInventoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Data Pool Inventory",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-pools/{pool_id}/files/{file_id}/content": {
+      "get": {
+        "description": "Deliver bytes only when the requested native digest still matches.\n\nSee notes/specifications/tanha/current/systems/platform/forge_data_pool_delivery.md.",
+        "operationId": "getPinnedProjectDataPoolFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pool_id",
+            "required": true,
+            "schema": {
+              "title": "Pool Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^(?:sha256:)?[0-9a-f]{64}$",
+              "title": "Content Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Original digest-verified bytes under current scoped access.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Synth-Content-Digest": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pinned Project Data Pool File",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/datasets": {
       "get": {
+        "description": "List operator-visible datasets after completing native file enumeration.\n\nSee notes/specifications/tanha/current/systems/platform/forge_dataset_catalog.md.",
         "operationId": "list_project_datasets",
         "parameters": [
           {

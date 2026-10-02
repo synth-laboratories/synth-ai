@@ -53,6 +53,7 @@ from synth_ai.sdk.index.scopes import required_scopes as operation_scopes
 QaClientFactory = Callable[[], AbstractContextManager[object]]
 
 QA_READ_TOOL_NAMES: tuple[str, ...] = (
+    "index_research_source_notices",
     "index_qa_case",
     "index_qa_events",
     "index_qa_assignments",
@@ -122,6 +123,13 @@ class IndexToolError(SynthError):
 
 class CaseRequest(IndexContract):
     case_id: UUID
+
+
+class SourceNoticesRequest(IndexContract):
+    reference: ContributionReference
+    manifest_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    after: Annotated[StrictInt, Field(ge=0, le=9223372036854775807)] = 0
+    limit: Annotated[StrictInt, Field(ge=1, le=100)] = 100
 
 
 class CasePageRequest(CaseRequest):
@@ -241,6 +249,13 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
     def assignments(_arguments: JSONDict) -> JSONDict:
         listed = call(lambda c: c.qa.assignments())
         return {"assignments": [_json(item) for item in listed]}  # type: ignore[union-attr]
+
+    def source_notices(arguments: JSONDict) -> JSONDict:
+        request = SourceNoticesRequest.model_validate(arguments)
+        return _json(call(lambda c: c.contributions.research.source_notices(
+            request.reference, manifest_digest=request.manifest_digest,
+            after=request.after, limit=request.limit,
+        )))
 
     def checks(arguments: JSONDict) -> JSONDict:
         request = CasePageRequest.model_validate(arguments)
@@ -488,6 +503,13 @@ def build_qa_tools(client_factory: QaClientFactory) -> list[ToolDefinition]:
             CorrectionRegisterRequest,
             register_correction,
             operation_scopes("index.contributions.research.correction_registration"),
+        ),
+        tool(
+            "index_research_source_notices",
+            "Read private Forge source corrections for one exact sealed Contribution. Requires ownership and current scientific access; never changes released bytes or publication state.",
+            SourceNoticesRequest,
+            source_notices,
+            operation_scopes("index.research.forge_notices.list"),
         ),
         tool(
             "index_qa_case",

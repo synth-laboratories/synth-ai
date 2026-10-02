@@ -21,6 +21,7 @@ from synth_ai.sdk.research.research_intern import (
     ResearchInternAPI,
 )
 from synth_ai.sdk.research.swarms import AsyncSwarmsAPI, SwarmsAPI
+from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI, AsyncScientificRecordsAPI
 from synth_ai.sdk.research.traces import AsyncResearchTracesAPI, ResearchTracesAPI
 from synth_ai.sdk.research.visuals import AsyncVisualsAPI, VisualsAPI
 
@@ -54,6 +55,7 @@ class Client:
             timeout_seconds=timeout_seconds,
         )
         self.projects = ProjectsAPI(self._transport)
+        self.records = ScientificRecordsAPI(self._transport)
         self.intern = ResearchInternAPI(self._transport)
         self.swarms = SwarmsAPI(self._transport)
         self.factories = FactoriesAPI(self._transport)
@@ -125,6 +127,7 @@ class AsyncClient:
             timeout_seconds=timeout_seconds,
         )
         self.projects = AsyncProjectsAPI(self._transport)
+        self.records = AsyncScientificRecordsAPI(self._transport)
         self.intern = AsyncResearchInternAPI(self._transport)
         self.swarms = AsyncSwarmsAPI(self._transport)
         self.factories = AsyncFactoriesAPI(self._transport)
