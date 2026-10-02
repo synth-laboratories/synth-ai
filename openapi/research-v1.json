@@ -3035,7 +3035,7 @@
         "title": "DatasetRevisionLifecycleRequest",
         "type": "object"
       },
-      "DatasetRevisionLineage": {
+      "DatasetRevisionLineage-Output": {
         "additionalProperties": false,
         "description": "Complete typed provenance for one revision.",
         "properties": {
@@ -14151,7 +14151,7 @@
             "type": "string"
           },
           "lineage": {
-            "$ref": "#/components/schemas/DatasetRevisionLineage"
+            "$ref": "#/components/schemas/DatasetRevisionLineage-Output"
           },
           "manifest_digest": {
             "title": "Manifest Digest",

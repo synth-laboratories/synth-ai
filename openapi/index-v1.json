@@ -2781,7 +2781,7 @@
         "title": "ContributionOrigin",
         "type": "string"
       },
-      "ContributionPackage": {
+      "ContributionPackage-Input": {
         "additionalProperties": false,
         "properties": {
           "abstract": {
@@ -2841,7 +2841,7 @@
             "title": "Parent Revision Id"
           },
           "provenance": {
-            "$ref": "#/components/schemas/ContributionProvenance"
+            "$ref": "#/components/schemas/ContributionProvenance-Input"
           },
           "publication_mode": {
             "anyOf": [
@@ -2957,7 +2957,235 @@
         "title": "ContributionPackage",
         "type": "object"
       },
-      "ContributionProvenance": {
+      "ContributionPackage-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "card": {
+            "$ref": "#/components/schemas/ResearchCard"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionClaim"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Claims",
+            "type": "array"
+          },
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "maxItems": 512,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ContributionProvenance-Output"
+          },
+          "publication_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private",
+                  "public_api",
+                  "public"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Mode"
+          },
+          "reproduction": {
+            "$ref": "#/components/schemas/Reproduction"
+          },
+          "requested_audience": {
+            "$ref": "#/components/schemas/ContributionAudience",
+            "default": "private"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "revision_note": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Note"
+          },
+          "rights_attested": {
+            "title": "Rights Attested",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "synth.contribution.v1",
+            "default": "synth.contribution.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sensitive_data": {
+            "enum": [
+              "none_declared",
+              "declared",
+              "unknown"
+            ],
+            "title": "Sensitive Data",
+            "type": "string"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "kind",
+          "title",
+          "abstract",
+          "research_areas",
+          "workflow_stages",
+          "card",
+          "assets",
+          "claims",
+          "provenance",
+          "reproduction",
+          "rights_attested",
+          "sensitive_data"
+        ],
+        "title": "ContributionPackage",
+        "type": "object"
+      },
+      "ContributionProvenance-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditedContributor"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Contributors",
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContributionOrigin"
+          },
+          "relationships": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionRelationship"
+            },
+            "maxItems": 64,
+            "title": "Relationships",
+            "type": "array"
+          },
+          "tools": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Tools",
+            "type": "array"
+          },
+          "upstream": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 64,
+            "title": "Upstream",
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "contributors"
+        ],
+        "title": "ContributionProvenance",
+        "type": "object"
+      },
+      "ContributionProvenance-Output": {
         "additionalProperties": false,
         "properties": {
           "contributors": {
@@ -3132,7 +3360,7 @@
         "additionalProperties": false,
         "properties": {
           "package": {
-            "$ref": "#/components/schemas/ContributionPackage"
+            "$ref": "#/components/schemas/ContributionPackage-Input"
           },
           "publication_id": {
             "format": "uuid",
@@ -3368,7 +3596,7 @@
                 "discriminator": {
                   "mapping": {
                     "synth.index.forge-source.v1": "#/components/schemas/ForgeResearchSource",
-                    "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource"
+                    "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource-Input"
                   },
                   "propertyName": "schema_version"
                 },
@@ -3377,7 +3605,7 @@
                     "$ref": "#/components/schemas/ForgeResearchSource"
                   },
                   {
-                    "$ref": "#/components/schemas/ForgePublicResearchSource"
+                    "$ref": "#/components/schemas/ForgePublicResearchSource-Input"
                   }
                 ]
               }
@@ -3652,7 +3880,7 @@
         "title": "DeliverableAsset",
         "type": "object"
       },
-      "DerivationBinding": {
+      "DerivationBinding-Input": {
         "additionalProperties": false,
         "properties": {
           "disclosure": {
@@ -3677,7 +3905,43 @@
             "type": "string"
           },
           "snapshot": {
-            "$ref": "#/components/schemas/ResearchSnapshot"
+            "$ref": "#/components/schemas/ResearchSnapshot-Input"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "DerivationBinding",
+        "type": "object"
+      },
+      "DerivationBinding-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/BuildRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v1",
+            "default": "synth.research.derivation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchSnapshot-Output"
           }
         },
         "required": [
@@ -4065,7 +4329,7 @@
         "title": "FindingView",
         "type": "object"
       },
-      "ForgePublicResearchSource": {
+      "ForgePublicResearchSource-Input": {
         "additionalProperties": false,
         "properties": {
           "archive_manifest_digest_sha256": {
@@ -4092,7 +4356,54 @@
             "type": "string"
           },
           "public_provenance": {
-            "$ref": "#/components/schemas/PublicScientificProvenance"
+            "$ref": "#/components/schemas/PublicScientificProvenance-Input"
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source.v2",
+            "default": "synth.index.forge-source.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "export",
+          "archive_publication_id",
+          "archive_manifest_digest_sha256",
+          "public_provenance"
+        ],
+        "title": "ForgePublicResearchSource",
+        "type": "object"
+      },
+      "ForgePublicResearchSource-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Manifest Digest Sha256",
+            "type": "string"
+          },
+          "archive_publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "export": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_provenance": {
+            "$ref": "#/components/schemas/PublicScientificProvenance-Output"
           },
           "schema_version": {
             "const": "synth.index.forge-source.v2",
@@ -4237,7 +4548,7 @@
             "discriminator": {
               "mapping": {
                 "synth.index.forge-source.v1": "#/components/schemas/ForgeResearchSource",
-                "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource"
+                "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource-Output"
               },
               "propertyName": "schema_version"
             },
@@ -4246,7 +4557,7 @@
                 "$ref": "#/components/schemas/ForgeResearchSource"
               },
               {
-                "$ref": "#/components/schemas/ForgePublicResearchSource"
+                "$ref": "#/components/schemas/ForgePublicResearchSource-Output"
               }
             ],
             "title": "Source"
@@ -6151,7 +6462,7 @@
         "title": "PublicScientificAsset",
         "type": "object"
       },
-      "PublicScientificCredit": {
+      "PublicScientificCredit-Input": {
         "additionalProperties": false,
         "properties": {
           "license": {
@@ -6196,7 +6507,52 @@
         "title": "PublicScientificCredit",
         "type": "object"
       },
-      "PublicScientificProvenance": {
+      "PublicScientificCredit-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "license": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "author",
+              "data",
+              "implementation",
+              "method",
+              "review",
+              "funding"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicUpstreamCredit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "principal_id",
+          "role",
+          "license"
+        ],
+        "title": "PublicScientificCredit",
+        "type": "object"
+      },
+      "PublicScientificProvenance-Input": {
         "additionalProperties": false,
         "description": "Approved-release candidates with full credit and no private source identity.",
         "properties": {
@@ -6211,7 +6567,50 @@
           },
           "credits": {
             "items": {
-              "$ref": "#/components/schemas/PublicScientificCredit"
+              "$ref": "#/components/schemas/PublicScientificCredit-Input"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "provenance_license": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Provenance License",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.scientific-provenance.v1",
+            "default": "synth.index.scientific-provenance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provenance_license",
+          "assets",
+          "credits"
+        ],
+        "title": "PublicScientificProvenance",
+        "type": "object"
+      },
+      "PublicScientificProvenance-Output": {
+        "additionalProperties": false,
+        "description": "Approved-release candidates with full credit and no private source identity.",
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificCredit-Output"
             },
             "maxItems": 256,
             "minItems": 1,
@@ -6967,7 +7366,67 @@
         "title": "RecordCheckSpec",
         "type": "object"
       },
-      "RecordReviewSpec": {
+      "RecordReviewSpec-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "format": "uuid",
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionJudgment"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Criteria",
+            "type": "array"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "const": "content-v1",
+            "default": "content-v1",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "expected_version",
+          "assignment_id",
+          "manifest_digest",
+          "decision",
+          "summary",
+          "criteria"
+        ],
+        "title": "RecordReviewSpec",
+        "type": "object"
+      },
+      "RecordReviewSpec-Output": {
         "additionalProperties": false,
         "properties": {
           "assignment_id": {
@@ -7471,17 +7930,17 @@
           "binding": {
             "discriminator": {
               "mapping": {
-                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding",
-                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation"
+                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding-Output",
+                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation-Output"
               },
               "propertyName": "schema_version"
             },
             "oneOf": [
               {
-                "$ref": "#/components/schemas/DerivationBinding"
+                "$ref": "#/components/schemas/DerivationBinding-Output"
               },
               {
-                "$ref": "#/components/schemas/ScientificDerivation"
+                "$ref": "#/components/schemas/ScientificDerivation-Output"
               }
             ],
             "title": "Binding"
@@ -7534,17 +7993,17 @@
           "binding": {
             "discriminator": {
               "mapping": {
-                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding",
-                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation"
+                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding-Input",
+                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation-Input"
               },
               "propertyName": "schema_version"
             },
             "oneOf": [
               {
-                "$ref": "#/components/schemas/DerivationBinding"
+                "$ref": "#/components/schemas/DerivationBinding-Input"
               },
               {
-                "$ref": "#/components/schemas/ScientificDerivation"
+                "$ref": "#/components/schemas/ScientificDerivation-Input"
               }
             ],
             "title": "Binding"
@@ -7644,7 +8103,7 @@
         "title": "ResearchRevocationSpec",
         "type": "object"
       },
-      "ResearchSnapshot": {
+      "ResearchSnapshot-Input": {
         "additionalProperties": false,
         "properties": {
           "archive_collection_id": {
@@ -7696,7 +8155,81 @@
           "sessions": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/SessionExport"
+              "$ref": "#/components/schemas/SessionExport-Input"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects",
+          "attempts"
+        ],
+        "title": "ResearchSnapshot",
+        "type": "object"
+      },
+      "ResearchSnapshot-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "minItems": 1,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v1",
+            "default": "synth.research.snapshot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Output"
             },
             "maxItems": 256,
             "title": "Sessions",
@@ -7960,7 +8493,7 @@
             "type": "boolean"
           },
           "review": {
-            "$ref": "#/components/schemas/RecordReviewSpec"
+            "$ref": "#/components/schemas/RecordReviewSpec-Output"
           },
           "reviewer_org_id": {
             "format": "uuid",
@@ -8401,7 +8934,7 @@
           "package": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ContributionPackage"
+                "$ref": "#/components/schemas/ContributionPackage-Output"
               },
               {
                 "type": "null"
@@ -8863,7 +9396,7 @@
         "title": "RunPreflightSpec",
         "type": "object"
       },
-      "ScientificDerivation": {
+      "ScientificDerivation-Input": {
         "additionalProperties": false,
         "properties": {
           "disclosure": {
@@ -8888,7 +9421,43 @@
             "type": "string"
           },
           "snapshot": {
-            "$ref": "#/components/schemas/ScientificSnapshot"
+            "$ref": "#/components/schemas/ScientificSnapshot-Input"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "ScientificDerivation",
+        "type": "object"
+      },
+      "ScientificDerivation-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/FrozenCopyRecipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v2",
+            "default": "synth.research.derivation.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ScientificSnapshot-Output"
           }
         },
         "required": [
@@ -8978,7 +9547,7 @@
         "title": "ScientificReleaseDisclosure",
         "type": "object"
       },
-      "ScientificSnapshot": {
+      "ScientificSnapshot-Input": {
         "additionalProperties": false,
         "description": "Human-capable frozen inventory; never invent execution evidence for a copy.",
         "properties": {
@@ -9031,7 +9600,81 @@
           "sessions": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/SessionExport"
+              "$ref": "#/components/schemas/SessionExport-Input"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects"
+        ],
+        "title": "ScientificSnapshot",
+        "type": "object"
+      },
+      "ScientificSnapshot-Output": {
+        "additionalProperties": false,
+        "description": "Human-capable frozen inventory; never invent execution evidence for a copy.",
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v2",
+            "default": "synth.research.snapshot.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Output"
             },
             "maxItems": 256,
             "title": "Sessions",
@@ -9100,7 +9743,7 @@
             "type": "string"
           },
           "spec": {
-            "$ref": "#/components/schemas/SearchSpec"
+            "$ref": "#/components/schemas/SearchSpec-Output"
           },
           "state": {
             "$ref": "#/components/schemas/SearchState"
@@ -9718,7 +10361,49 @@
         "title": "SearchSettlementOutcome",
         "type": "string"
       },
-      "SearchSpec": {
+      "SearchSpec-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/SearchBillingConstraints"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SearchContent"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchExecutionLimits"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode",
+            "default": "fast"
+          },
+          "query": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SearchScope"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchSpec",
+        "type": "object"
+      },
+      "SearchSpec-Output": {
         "additionalProperties": false,
         "properties": {
           "billing": {
@@ -10229,7 +10914,104 @@
         "title": "SearchUsageSummaryRow",
         "type": "object"
       },
-      "SessionExport": {
+      "SessionExport-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Completeness",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "event_end_exclusive": {
+            "minimum": 0.0,
+            "title": "Event End Exclusive",
+            "type": "integer"
+          },
+          "event_start": {
+            "minimum": 0.0,
+            "title": "Event Start",
+            "type": "integer"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "native_objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Native Objects",
+            "type": "array"
+          },
+          "native_session_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Native Session Id",
+            "type": "string"
+          },
+          "parent_native_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Parent Native Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.session-export.v1",
+            "default": "synth.research.session-export.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "codex",
+              "swarms",
+              "mlok"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "native_session_id",
+          "event_start",
+          "event_end_exclusive",
+          "captured_at",
+          "cutoff_at",
+          "completeness",
+          "native_objects"
+        ],
+        "title": "SessionExport",
+        "type": "object"
+      },
+      "SessionExport-Output": {
         "additionalProperties": false,
         "properties": {
           "captured_at": {
@@ -17118,7 +17900,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContributionPackage"
+                  "$ref": "#/components/schemas/ContributionPackage-Output"
                 }
               }
             },
@@ -17224,7 +18006,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RecordReviewSpec"
+                "$ref": "#/components/schemas/RecordReviewSpec-Input"
               }
             }
           },
@@ -17458,7 +18240,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchSpec"
+                "$ref": "#/components/schemas/SearchSpec-Input"
               }
             }
           },
@@ -17513,7 +18295,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchSpec"
+                "$ref": "#/components/schemas/SearchSpec-Input"
               }
             }
           },
