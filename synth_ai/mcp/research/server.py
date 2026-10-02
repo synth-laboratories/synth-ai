@@ -55,6 +55,7 @@ from synth_ai.mcp.research.tools.index import (
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
 from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
+from synth_ai.mcp.research.tools.scientific_records import build_scientific_record_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
 from synth_ai.mcp.research.tools.progress import build_progress_tools
@@ -159,6 +160,21 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_launch_preflight",
         "research_get_limits",
         "research_get_project",
+        "research_save_record",
+        "research_create_log",
+        "research_append_log_entry",
+        "research_save_report",
+        "research_attach_artifact",
+        "research_create_experiment_revision",
+        "research_register_trial",
+        "research_record_result",
+        "research_review_revision",
+        "research_get_record",
+        "research_list_records",
+        "research_get_operation_receipt",
+        "research_record_events",
+        "research_read_artifact",
+
         "research_get_project_economics",
         "research_get_project_dataset_content",
         "research_get_project_setup",
@@ -543,6 +559,7 @@ class ResearchMcpServer:
             *build_image_release_tools(self._core_client_from_args),
             *build_visual_tools(self._core_client_from_args),
             *build_log_tools(self),
+            *build_scientific_record_tools(self._core_client_from_args),
             *build_approval_tools(self),
             *build_artifact_tools(self),
             *build_integration_tools(self),
