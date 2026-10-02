@@ -69,10 +69,12 @@ def _records(documents, project_id, kind, after, limit):
     if (
         len(records) > limit
         or any(item.payload.kind != kind for item in records)
-        or any(item <= after for item in ids)
-        or tuple(sorted(set(ids))) != ids
+        or after in ids
+        or len(set(ids)) != len(ids)
     ):
         raise ValueError("scientific page differs from requested cursor/kind")
+    # Preserve native database collation; only that producer defines whether
+    # an ID follows the opaque cursor. Python ordering is not interchangeable.
     return records
 
 
