@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.22.1-orange synth-ai==0.22.1 -->
+<!-- CI release pins: PyPI-0.22.2-orange synth-ai==0.22.2 -->
 
 > Typed Index v0.2 APIs include QA and lifecycle operations, exact-revision rights attestations, and resealed research corrections.
 
