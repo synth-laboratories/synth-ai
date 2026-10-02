@@ -37,6 +37,12 @@ from synth_ai.sdk.research.research_intern import (
     ProjectComputerAPI,
     ProjectDataBindingsAPI,
 )
+from synth_ai.sdk.research.resource_reads import (
+    AsyncDatasetRevisionsAPI,
+    AsyncProjectDataPoolsAPI,
+    DatasetRevisionsAPI,
+    ProjectDataPoolsAPI,
+)
 
 
 def _request(
@@ -118,6 +124,8 @@ class ProjectsAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
         self.datasets = ProjectDatasetsAPI(transport)
+        self.dataset_revisions = DatasetRevisionsAPI(transport)
+        self.data_pools = ProjectDataPoolsAPI(transport)
         self.computer = ProjectComputerAPI(transport)
         self.data_bindings = ProjectDataBindingsAPI(transport)
         self.deliveries = ProjectDeliveriesAPI(transport)
@@ -274,6 +282,8 @@ class AsyncProjectsAPI:
         self.data_bindings = AsyncProjectDataBindingsAPI(transport)
         self.deliveries = AsyncProjectDeliveriesAPI(transport)
         self.datasets = AsyncProjectDatasetsAPI(transport)
+        self.dataset_revisions = AsyncDatasetRevisionsAPI(transport)
+        self.data_pools = AsyncProjectDataPoolsAPI(transport)
         self.repositories = AsyncProjectRepositoriesAPI(transport)
         self.setup = AsyncProjectSetupAPI(transport)
         self.workspace = AsyncProjectWorkspaceAPI(transport)
