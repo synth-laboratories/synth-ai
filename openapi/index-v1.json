@@ -4124,6 +4124,110 @@
         "title": "ForgeResearchSource",
         "type": "object"
       },
+      "ForgeSourceNoticeItem": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 1.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "disposition": {
+            "enum": [
+              "correction",
+              "supersession",
+              "retraction"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "notice": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "original": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "reason": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "replacement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "cursor",
+          "notice",
+          "operation_id",
+          "recorded_at",
+          "original",
+          "disposition",
+          "reason"
+        ],
+        "title": "ForgeSourceNoticeItem",
+        "type": "object"
+      },
+      "ForgeSourceNoticePage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ForgeSourceNoticeItem"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "minimum": 0.0,
+            "title": "Next Cursor",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "release": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source-notices.v1",
+            "default": "synth.index.forge-source-notices.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ForgeResearchSource"
+          }
+        },
+        "required": [
+          "source",
+          "reference",
+          "release",
+          "items",
+          "next_cursor"
+        ],
+        "title": "ForgeSourceNoticePage",
+        "type": "object"
+      },
       "FrozenObject": {
         "additionalProperties": false,
         "properties": {
@@ -11711,6 +11815,93 @@
         "summary": "Finalize",
         "tags": [
           "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices": {
+      "get": {
+        "operationId": "index.research.forge_notices.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifest_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgeSourceNoticePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notices",
+        "tags": [
+          "index-research"
         ]
       }
     },

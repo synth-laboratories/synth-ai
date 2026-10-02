@@ -164,6 +164,10 @@ class IndexErrorCode(StrEnum):
     # Private research intake: allocation and its non-mutating lookup.
     RESEARCH_IMPORT_FORBIDDEN = "research_import_forbidden"
     FORGE_SOURCE_UNAVAILABLE = "forge_source_unavailable"
+    FORGE_NOTICE_UNAVAILABLE = "forge_notice_unavailable"
+    FORGE_NOTICE_CONFLICT = "forge_notice_conflict"
+    FORGE_NOTICE_FORBIDDEN = "forge_notice_forbidden"
+    FORGE_NOTICE_SOURCE_MISSING = "forge_notice_source_missing"
     FORGE_SOURCE_FORBIDDEN = "forge_source_forbidden"
     FORGE_SOURCE_MISSING = "forge_source_missing"
     FORGE_SOURCE_CONFLICT = "forge_source_conflict"

@@ -61,6 +61,7 @@ from .contributions import (
     ContributionUploadSpec,
     ResearchDraftSpec,
 )
+from .forge_notices import ForgeSourceNoticePage
 from .lifecycle import (
     Assessment,
     Assessments,
@@ -202,6 +203,7 @@ OPERATIONS: Mapping[str, tuple[str, str]] = {
     "index.classification.get": ("GET", f"{_R}/classification"),
     "index.classification.create": ("POST", f"{_R}/classification-decisions"),
     "index.research.release.get": ("GET", f"{_R}/release-research"),
+    "index.research.forge_notices.list": ("GET", f"{_R}/forge-source-notices"),
     "index.research.archive.get": ("GET", f"{_R}/research-archive"),
     "index.research.archive.grants.list": ("GET", f"{_R}/research-archive/grants"),
     "index.research.archive.grants.create": ("POST", f"{_R}/research-archive/grants"),
@@ -1023,6 +1025,38 @@ class ResearchAPI(_Resource):
     Examples:
         result = index.contributions.research.release(reference)
     """
+
+    def source_notices(
+        self, reference: ContributionReference, *, manifest_digest: str,
+        after: int = 0, limit: int = 100,
+    ) -> Any:
+        """Read private correction facts bound to exact sealed contribution bytes.
+
+        See backend/notes/specifications/synth-index/forge-source-notices.md.
+        Owner and current scientific access are required. Retain next_cursor
+        even on empty pages; Index's review/publication policy stays separate.
+        """
+        if type(after) is not int or type(limit) is not int or (
+            not 0 <= after <= 9223372036854775807 or not 1 <= limit <= 100
+        ) or not re.fullmatch(r"[0-9a-f]{64}", manifest_digest):
+            raise ValueError("Invalid exact release digest or Forge cursor bounds")
+        return self._run(_Call(
+            "index.research.forge_notices.list",
+            _bound(
+                ForgeSourceNoticePage,
+                lambda page: (
+                    page.release.record_id == reference.contribution_id
+                    and page.release.revision == reference.revision_id
+                    and page.release.digest_sha256 == manifest_digest
+                    and page.next_cursor >= after
+                    and len(page.items) <= limit
+                    and all(item.cursor > after for item in page.items)
+                ),
+                "Forge source notice page differs from requested release or cursor",
+            ),
+            path_parameters=_revision(reference),
+            params={"manifest_digest": manifest_digest, "after": after, "limit": limit},
+        ))
 
     def release(self, reference: ContributionReference) -> Any:
         """Read the public-safe release disclosure under current revision access.

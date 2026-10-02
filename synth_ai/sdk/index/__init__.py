@@ -35,6 +35,7 @@ from .contributions import (
     ResearchSource,
 )
 from .errors import IndexErrorCode, index_error_code
+from .forge_notices import ForgeSourceNoticeItem, ForgeSourceNoticePage
 from .lifecycle import (
     Assessment,
     ContributionView,
@@ -260,6 +261,8 @@ __all__ = [
     "PublicationStatus",
     "QaAssessmentSource",
     "ForgeResearchSource",
+    "ForgeSourceNoticeItem",
+    "ForgeSourceNoticePage",
     "ResearchDraftSpec",
     "ResearchSource",
     "ReviewDecision",
