@@ -15,6 +15,7 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.contracts.forge_uploads import Uploaded, UploadRequest
 
 
 def _verified_bytes(record, content):
@@ -111,9 +112,80 @@ def _body(payload: Record, record_id: str, operation_id: str, expected_revision:
     return request.model_dump(mode="json")
 
 
+def _uploaded(document, request):
+    uploaded = Uploaded.model_validate(document)
+    if (
+        uploaded.scope != request.scope
+        or uploaded.operation_id != request.operation_id
+        or uploaded.request_digest_sha256 != contract_digest(request)
+        or uploaded.manifest.authority != "artifact-platform"
+        or uploaded.manifest.kind != "manifest"
+        or uploaded.manifest.record_id != uploaded.publication_id
+        or uploaded.manifest.revision != str(uploaded.revision)
+    ):
+        raise ValueError("private publication response differs from scoped operation")
+    declarations = {item.logical_path: item for item in request.objects}
+    actual = {item.logical_path: item for item in uploaded.objects}
+    if len(actual) != len(uploaded.objects) or set(actual) != set(declarations):
+        raise ValueError("private publication object selection differs")
+    for path, item in actual.items():
+        expected = declarations[path]
+        if (
+            item.size_bytes != expected.size_bytes
+            or item.media_type != expected.media_type
+            or item.reference.authority != "artifact-platform"
+            or item.reference.kind != "object"
+            or item.reference.record_id != uploaded.publication_id
+            or item.reference.revision != str(uploaded.revision)
+            or item.reference.digest_sha256 != expected.digest_sha256
+        ):
+            raise ValueError("private publication byte receipt differs")
+    manifest = {
+        "schema_version": "synth.artifact-platform.v1",
+        "manifest_schema_version": "forge.scientific.evidence.v1",
+        "publication_id": uploaded.publication_id,
+        "collection_id": uploaded.collection_id,
+        "revision": uploaded.revision,
+        "objects": [
+            {
+                "logical_path": item.logical_path,
+                "digest_sha256": item.digest_sha256,
+                "size_bytes": item.size_bytes,
+                "media_type": item.media_type,
+            }
+            for item in sorted(request.objects, key=lambda item: item.logical_path)
+        ],
+    }
+    if contract_digest(manifest) != uploaded.manifest.digest_sha256:
+        raise ValueError("private publication manifest identity differs")
+    return uploaded
+
+
+def _upload_body(project_id, request):
+    request = UploadRequest.model_validate(request.model_dump(mode="json"))
+    if request.scope.project_id != project_id:
+        raise ValueError("private upload belongs to another project")
+    return request.model_dump(mode="json")
+
+
 class ScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
+
+    def upload_artifacts(self, project_id: str, request: UploadRequest) -> Uploaded:
+        """Retain bounded private evidence with a retryable operation identity.
+
+        See backend docs/contracts/forge-authority.v1.md. This creates no public
+        contribution or release approval and returns no storage credentials.
+        """
+        body = _upload_body(project_id, request)
+        document = self._transport.request_json(
+            "POST",
+            f"/smr/projects/{quote(project_id, safe='')}/forge-artifacts",
+            json_body=body,
+            operation_id=request.operation_id,
+        )
+        return _uploaded(document, request)
 
     def write(
         self,
@@ -193,6 +265,17 @@ class ScientificRecordsAPI:
 class AsyncScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
+
+    async def upload_artifacts(self, project_id: str, request: UploadRequest) -> Uploaded:
+        """Async parity for bounded private evidence retention; see Forge authority v1."""
+        body = _upload_body(project_id, request)
+        document = await self._transport.request_json(
+            "POST",
+            f"/smr/projects/{quote(project_id, safe='')}/forge-artifacts",
+            json_body=body,
+            operation_id=request.operation_id,
+        )
+        return _uploaded(document, request)
 
     async def write(
         self,
