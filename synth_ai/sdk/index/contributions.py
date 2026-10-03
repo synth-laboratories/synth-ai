@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import BeforeValidator, Field, StringConstraints, field_validator, model_validator
 
 from synth_ai.sdk.research.contracts.forge.contracts import ExactReference, Identifier
+from synth_ai.sdk.research.contracts.forge.operations import RevisionReference
 
 from .artifacts import ArtifactPublicationPrepareResponse, ArtifactUuid
 from .contracts import ContributionReference, IndexContract
@@ -112,13 +113,36 @@ class ForgeResearchSource(IndexContract):
         return self
 
 
+ARCHIVE_V3 = "forge.private-archive.v3"
+
+
 class ForgePublicResearchSource(ForgeResearchSource):
-    """Exact private archive plus safe proposed public credit; backend decides release."""
+    """Exact private archive plus safe proposed public credit; backend decides release.
+
+    Mirrors backend ``packages/contributions/forge_release.py``. ``revision_reference``
+    (Forge decision 0001, ``forge.revision-reference.v1``) binds the selected export's
+    producer, operation and time, not only its payload; ``archive_schema_version`` names
+    the private archive version that carries those references (v3). The backend public
+    review policy refuses a Forge-origin public source that omits either
+    (``forge_revision_reference_required``, ``forge_archive_v3_required``); they stay
+    optional on the wire so older private registrations still decode.
+    """
 
     schema_version: Literal["synth.index.forge-source.v2"] = "synth.index.forge-source.v2"
     archive_publication_id: ArtifactUuid
     archive_manifest_digest_sha256: Digest
     public_provenance: PublicScientificProvenance
+    revision_reference: RevisionReference | None = None
+    archive_schema_version: Literal["forge.private-archive.v3"] | None = None
+
+    @model_validator(mode="after")
+    def provenance_pin_names_the_export(self):
+        if (
+            self.revision_reference is not None
+            and self.revision_reference.reference != self.export
+        ):
+            raise ValueError("revision reference must name the exported revision")
+        return self
 
 
 def _legacy_source_version(value):
