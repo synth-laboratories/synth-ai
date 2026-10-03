@@ -10,6 +10,7 @@ from .contracts import (
     Contract,
     Digest,
     ExactReference,
+    ForgeError,
     Identifier,
     Producer,
     Scope,
@@ -65,6 +66,35 @@ class RecordRevision(Contract):
     producer: Producer
     operation_id: Identifier
     recorded_at: AwareDatetime
+
+
+REVISION_REFERENCE_V1 = "forge.revision-reference.v1"
+
+
+class RevisionReference(Contract):
+    """Exact identity of one complete retained revision, provenance included.
+
+    See docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only
+    meaning; ``document_digest_sha256`` binds producer, operation and time too.
+    It proves the document Forge recorded, not external producer attestation.
+    """
+
+    schema_version: Literal["forge.revision-reference.v1"] = REVISION_REFERENCE_V1
+    reference: ExactReference
+    document_digest_sha256: Digest
+
+
+def revision_reference(record: RecordRevision) -> RevisionReference:
+    record = RecordRevision.model_validate(record.model_dump(mode="json"))
+    if (
+        record.reference.authority != "forge"
+        or record.reference.kind != record.payload.kind
+        or record.reference.digest_sha256 != contract_digest(record.payload)
+    ):
+        raise ForgeError("reference_conflict", "record differs from exact source bytes")
+    return RevisionReference(
+        reference=record.reference, document_digest_sha256=contract_digest(record)
+    )
 
 
 class PublicWrite(Contract):
