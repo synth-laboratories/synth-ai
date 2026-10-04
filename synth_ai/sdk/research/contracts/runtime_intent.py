@@ -301,7 +301,11 @@ class RuntimeScientificRecordReference:
         if mapping.get("schema_version") != "runtime_scientific_record.v1":
             raise ValueError("unsupported scientific record reference version")
         kind = str(mapping.get("kind") or "")
-        if kind not in {"experiment_log_append", "experiment_log_attach_link", "work_product_publish_report"}:
+        if kind not in {
+            "experiment_log_append",
+            "experiment_log_attach_link",
+            "work_product_publish_report",
+        }:
             raise ValueError("unsupported scientific record reference kind")
         identity = str(UUID(str(mapping.get("record_id") or "")))
         parent = mapping.get("parent_entry_id")
@@ -361,8 +365,11 @@ class RuntimeIntentView(RuntimeIntentReceipt):
             error_detail=_optional_string(mapping, "error_detail"),
             retryable=bool(mapping.get("retryable", False)),
             applied_mode=_optional_string(mapping, "applied_mode"),
-            scientific_record=(RuntimeScientificRecordReference.from_wire(mapping["scientific_record"])
-                if mapping.get("scientific_record") is not None else None),
+            scientific_record=(
+                RuntimeScientificRecordReference.from_wire(mapping["scientific_record"])
+                if mapping.get("scientific_record") is not None
+                else None
+            ),
         )
 
 
