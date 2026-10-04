@@ -2894,21 +2894,9 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         project_id: str,
         directory: str | os.PathLike[str],
     ) -> dict[str, Any]:
-        root = Path(directory).resolve()
-        if not root.exists() or not root.is_dir():
-            raise ValueError(f"workspace directory does not exist: {root}")
-        files: list[dict[str, Any]] = []
-        for path in sorted(root.rglob("*")):
-            if not path.is_file():
-                continue
-            files.append(
-                {
-                    "path": path.relative_to(root).as_posix(),
-                    "content_path": path,
-                    "content_type": _guess_content_type(path.name),
-                }
-            )
-        return self.upload_workspace_files(project_id, files)
+        from synth_ai.sdk.research.session.directory_inputs import collect_directory_entries
+
+        return self.upload_workspace_files(project_id, collect_directory_entries(directory))
 
     def upload_workspace_source_bundle(
         self,
