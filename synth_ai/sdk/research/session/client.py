@@ -165,6 +165,7 @@ from synth_ai.sdk.research.errors import (
 )
 from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.session._client_helpers import (
+    _PROJECT_FILES_PAGE_MAX,
     _coerce_dict,
     _coerce_dict_list,
     _fencing_headers,
@@ -174,6 +175,7 @@ from synth_ai.sdk.research.session._client_helpers import (
     _optional_mapping,
     _optional_non_empty_string,
     _positive_int_env,
+    _project_files_page,
     _require_fencing_headers,
     _require_non_empty_string,
     assert_hosted_launch_surface,
@@ -2977,14 +2979,37 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         visibility: str | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
-            self._request_json(
+        """List project stored files, newest first.
+
+        The backend route returns ``{"files": [...], "next_cursor": ...}``
+        (keyset pages of at most 500). Pre-pagination backends returned a bare
+        list; both are accepted. Without ``limit`` every page is read; with
+        ``limit`` at most that many files are returned.
+
+        # See: backend/app/api/v1/managed_research/resource_catalog.py::list_project_files
+        """
+        if limit is not None and limit < 1:
+            raise ValueError("limit must be a positive integer")
+        files: list[dict[str, Any]] = []
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        while True:
+            remaining = None if limit is None else limit - len(files)
+            page_limit = None if remaining is None else min(remaining, _PROJECT_FILES_PAGE_MAX)
+            payload = self._request_json(
                 "GET",
                 f"/smr/projects/{project_id}/files",
-                params=build_query_params(visibility=visibility, limit=limit),
-            ),
-            label="list_project_files",
-        )
+                params=build_query_params(visibility=visibility, limit=page_limit, cursor=cursor),
+            )
+            page, cursor = _project_files_page(payload)
+            files.extend(page)
+            if limit is not None and len(files) >= limit:
+                return files[:limit]
+            if cursor is None:
+                return files
+            if cursor in seen_cursors:
+                raise ResearchApiError("list_project_files received a repeated next_cursor")
+            seen_cursors.add(cursor)
 
     def create_org_file(
         self,
