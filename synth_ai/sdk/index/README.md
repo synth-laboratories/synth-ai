@@ -355,7 +355,12 @@ prints the Search ID immediately. `events --after N` pages progress without
 restarting the Search. `result` reads the saved Search specification first, so
 the result is validated against the original request. These commands require
 `SYNTH_API_KEY` or `--api-key`. An unfinished result returns the backend's
-typed `index_search_result_not_ready` failure.
+typed `index_search_result_not_ready` failure. `wait SEARCH_ID --timeout-seconds N`
+reconnects to an existing Search and polls it without resubmitting. A local
+timeout, failure or cancellation prints `{"search_id", "error", "message"}` to
+stderr and exits non-zero; keyed `index search --mode deep` does the same. MCP
+returns these as error code -32010 with structured `search_id`, `state` and
+`resource` data.
 
 For wallet-funded keyed CLI searches, provide explicit consent and a retail ceiling:
 

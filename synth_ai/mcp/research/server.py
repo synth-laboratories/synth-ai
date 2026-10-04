@@ -76,6 +76,11 @@ from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
 from synth_ai.sdk.index.scope_errors import scope_denial
+from synth_ai.sdk.index.search import (
+    SearchExecutionCancelledError,
+    SearchExecutionFailedError,
+    SearchWaitTimeoutError,
+)
 from synth_ai.sdk.index.timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
 from synth_ai.sdk.research.auth import get_api_key
 from synth_ai.sdk.research.client import Client as CoreResearchClient
@@ -302,6 +307,36 @@ def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
             }
             if failure.resource.kind == "index_search":
                 out["search_id"] = failure.resource.resource_id
+    return out
+
+
+_SearchLifecycleError = (
+    SearchWaitTimeoutError,
+    SearchExecutionFailedError,
+    SearchExecutionCancelledError,
+)
+
+
+def _mcp_search_lifecycle_error_payload(
+    exc: SearchWaitTimeoutError | SearchExecutionFailedError | SearchExecutionCancelledError,
+) -> dict[str, Any]:
+    """Keep the durable Search ID structured so a client reconnects, never re-creates."""
+    if isinstance(exc, SearchWaitTimeoutError):
+        error, state = "search_wait_timeout", "running"
+    elif isinstance(exc, SearchExecutionFailedError):
+        error, state = "search_failed", "failed"
+    else:
+        error, state = "search_cancelled", "cancelled"
+    out: dict[str, Any] = {
+        "error": error,
+        "message": str(exc),
+        "search_id": exc.search_id,
+        "state": state,
+        "resource": {"kind": "index_search", "id": exc.search_id},
+    }
+    if isinstance(exc, SearchExecutionFailedError):
+        out["failure_code"] = exc.code
+        out["retryable"] = exc.retryable
     return out
 
 
@@ -2920,6 +2955,13 @@ class ResearchMcpServer:
                     "message": payload.get("message", str(exc)),
                     "data": payload,
                 },
+            }
+        except _SearchLifecycleError as exc:
+            payload = _mcp_search_lifecycle_error_payload(exc)
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32010, "message": payload["message"], "data": payload},
             }
         except Exception as exc:
             return {

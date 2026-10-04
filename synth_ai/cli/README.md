@@ -11,7 +11,7 @@ The CLI has two command families: `synth-ai index` (Synth Index) and
 synth-ai index --help
 synth-ai index search QUERY --public         # free, anonymous; sends no API key
 synth-ai index search QUERY --keyed ...      # paid keyed Search (SYNTH_API_KEY)
-synth-ai index searches create|get|result|events|cancel ...   # keyed durable Search
+synth-ai index searches create|get|wait|result|events|cancel ...   # keyed durable Search
 synth-ai index research preview|submit ...   # authorized research intake
 
 synth-ai research --help

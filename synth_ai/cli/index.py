@@ -295,13 +295,23 @@ def search(
                 idempotency_key=idempotency_key,
             )
     except (
-        ValueError,
-        SynthError,
-        HTTPError,
         SearchWaitTimeoutError,
         SearchExecutionFailedError,
         SearchExecutionCancelledError,
     ) as error:
+        click.echo(
+            json.dumps(
+                {
+                    "search_id": error.search_id,
+                    "error": type(error).__name__,
+                    "message": str(error),
+                },
+                sort_keys=True,
+            ),
+            err=True,
+        )
+        raise click.ClickException(str(error)) from error
+    except (ValueError, SynthError, HTTPError) as error:
         raise click.ClickException(str(error)) from error
     click.echo(
         json.dumps({"route": "keyed", **result.model_dump(mode="json")}, indent=2, sort_keys=True)
@@ -475,6 +485,54 @@ def searches_events(
 def searches_cancel(search_id: str, backend_url: str | None, api_key: str | None) -> None:
     """Request durable cancellation; already incurred usage remains recorded."""
     _read_search("cancel", search_id, backend_url, api_key)
+
+
+@searches.command("wait")
+@click.argument("search_id")
+@click.option("--timeout-seconds", type=click.FloatRange(min=0.1), default=180.0, show_default=True)
+@_search_identity_options
+def searches_wait(
+    search_id: str, timeout_seconds: float, backend_url: str | None, api_key: str | None
+) -> None:
+    """Reconnect to an existing Search and wait for its result; never resubmits."""
+    from httpx import HTTPError
+
+    from synth_ai import SynthClient
+    from synth_ai.core.errors import SynthError
+    from synth_ai.sdk.index.client import SearchHandle
+    from synth_ai.sdk.index.search import (
+        SearchExecutionCancelledError,
+        SearchExecutionFailedError,
+        SearchWaitTimeoutError,
+    )
+
+    if not api_key:
+        raise click.ClickException("SYNTH_API_KEY or --api-key is required")
+    try:
+        with SynthClient(api_key=api_key, base_url=backend_url) as client:
+            resource = client.index.searches
+            handle = SearchHandle(resource, resource.get(search_id))
+            result = handle.wait(timeout_seconds=timeout_seconds)
+    except (
+        SearchWaitTimeoutError,
+        SearchExecutionFailedError,
+        SearchExecutionCancelledError,
+    ) as error:
+        click.echo(
+            json.dumps(
+                {
+                    "search_id": error.search_id,
+                    "error": type(error).__name__,
+                    "message": str(error),
+                },
+                sort_keys=True,
+            ),
+            err=True,
+        )
+        raise click.ClickException(str(error)) from error
+    except (ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
 
 
 # --- Contribution lifecycle and private QA -------------------------------------
