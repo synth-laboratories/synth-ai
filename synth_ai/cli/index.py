@@ -463,6 +463,35 @@ def searches_result(search_id: str, backend_url: str | None, api_key: str | None
     _read_search("result", search_id, backend_url, api_key)
 
 
+@searches.command("contents")
+@click.argument("search_id")
+@click.option("--max-bytes", type=click.IntRange(1, 65_536), default=65_536, show_default=True)
+@_search_identity_options
+def searches_contents(
+    search_id: str, max_bytes: int, backend_url: str | None, api_key: str | None
+) -> None:
+    """Read the exact cited revisions of a completed Search under its receipt."""
+    from httpx import HTTPError
+
+    from synth_ai import SynthClient
+    from synth_ai.core.errors import SynthError
+
+    if not api_key:
+        raise click.ClickException("SYNTH_API_KEY or --api-key is required")
+    try:
+        with SynthClient(api_key=api_key, base_url=backend_url) as client:
+            resource = client.index.searches
+            result = resource.result(search_id, resource.get(search_id).spec)
+            if not result.citations:
+                raise click.ClickException(f"Search {search_id} cited no revisions")
+            contents = client.index.contents.retrieve(
+                references=result.citations, search_id=search_id, max_bytes=max_bytes
+            )
+    except (ValueError, SynthError, HTTPError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(json.dumps(contents.model_dump(mode="json"), indent=2, sort_keys=True))
+
+
 @searches.command("events")
 @click.argument("search_id")
 @click.option("--after", type=click.IntRange(min=0), default=0, show_default=True)
