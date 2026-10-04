@@ -115,6 +115,15 @@ def collect_directory_entries(
         raise DirectoryInputError("no-follow directory input port unavailable on this platform")
     filesystem = ports if ports is not None else DirectoryPorts()
     root = Path(os.path.abspath(directory))
+    if any(part.casefold() == ".git" for part in root.parts):
+        raise DirectoryInputError("selected input root is Git metadata")
+    if any(
+        part.casefold() == ".env"
+        or part.casefold().startswith(".env.")
+        or part.casefold() in PRIVATE_KEY_NAMES
+        for part in root.parts
+    ):
+        raise DirectoryInputError("selected input root is credential-like")
     files: list[dict[str, Any]] = []
     total_bytes = 0
     entries_seen = 0
