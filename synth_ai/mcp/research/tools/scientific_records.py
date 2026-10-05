@@ -46,6 +46,14 @@ class EventArguments(Contract):
     limit: int = Field(default=100, ge=1, le=1000)
 
 
+READ_DESCRIPTIONS = {
+    "research_verify_citations": (
+        "Check a retained record revision's external citations: retained, dangling, "
+        "denied, conflict, unavailable or refused. Read-only."
+    ),
+}
+
+
 def build_scientific_record_tools(client_factory):
     tools = []
     for name, kind in (
@@ -98,6 +106,7 @@ def build_scientific_record_tools(client_factory):
         )
     for name, model, method in (
         ("research_get_record", ReadArguments, "get"),
+        ("research_verify_citations", ReadArguments, "verify_citations"),
         ("research_list_records", ListArguments, "list"),
         ("research_get_operation_receipt", ReceiptArguments, "receipt"),
         ("research_record_events", EventArguments, "events"),
@@ -119,7 +128,9 @@ def build_scientific_record_tools(client_factory):
         tools.append(
             ToolDefinition(
                 name=name,
-                description="Read scoped retained scientific evidence.",
+                description=READ_DESCRIPTIONS.get(
+                    name, "Read scoped retained scientific evidence."
+                ),
                 input_schema=model.model_json_schema(),
                 handler=reader(model, method),
                 required_scopes=READ_SCOPES,

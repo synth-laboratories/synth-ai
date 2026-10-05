@@ -15,6 +15,7 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.contracts.forge_citations import CitationVerification
 from synth_ai.sdk.research.contracts.forge_uploads import Uploaded, UploadRequest
 
 
@@ -40,6 +41,25 @@ def _record(document, project_id, record_id, revision):
     ):
         raise ValueError("scientific response differs from requested exact identity")
     return record
+
+
+def _citations(document, record_id, revision):
+    verification = CitationVerification.model_validate(document)
+    record = verification.record
+    if (
+        record.authority != "forge"
+        or record.record_id != record_id
+        or (revision is not None and record.revision != str(revision))
+        or any(check.reference.authority == "forge" for check in verification.citations)
+        or verification.retained
+        != all(check.status == "retained" for check in verification.citations)
+    ):
+        raise ValueError("citation verification differs from requested exact identity")
+    return verification
+
+
+def _citations_path(project_id, record_id):
+    return _root(project_id) + "/records/" + quote(record_id, safe="") + "/citations"
 
 
 def _receipt(
@@ -225,6 +245,24 @@ class ScientificRecordsAPI:
             revision,
         )
 
+    def verify_citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> CitationVerification:
+        """Current custodian state of a retained revision's external citations.
+
+        Read-only; dangling/denied/conflict/unavailable citations are explicit
+        and the retained record is unchanged.
+        """
+        return _citations(
+            self._transport.request_json(
+                "GET",
+                _citations_path(project_id, record_id),
+                params={"revision": revision} if revision is not None else None,
+            ),
+            record_id,
+            revision,
+        )
+
     def list(
         self, project_id: str, kind: str, *, after: str = "", limit: int = 100
     ) -> tuple[RecordRevision, ...]:
@@ -310,6 +348,19 @@ class AsyncScientificRecordsAPI:
                 params={"revision": revision} if revision is not None else None,
             ),
             project_id,
+            record_id,
+            revision,
+        )
+
+    async def verify_citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> CitationVerification:
+        return _citations(
+            await self._transport.request_json(
+                "GET",
+                _citations_path(project_id, record_id),
+                params={"revision": revision} if revision is not None else None,
+            ),
             record_id,
             revision,
         )
