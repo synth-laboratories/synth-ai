@@ -22,8 +22,12 @@ from synth_ai.sdk.research.contracts.intern_authority import (
     InternIdentityProvisionReceipt,
     InternIdentityProvisionRequest,
     InternIdentitySelection,
+    InternRuntimeRouteReceipt,
+    InternRuntimeRouteSelectionRequest,
+    InternRuntimeRouteView,
     InternTaskGrant,
     InternTaskGrantDeclaration,
+    InternTaskView,
     InternTaskGrantRevocation,
     ProjectSublinearTask,
     ProjectSublinearTaskComments,
@@ -35,6 +39,8 @@ _IDENTITIES = "/smr/research-intern/identities"
 _TASK_GRANTS = "/smr/research-intern/task-grants"
 _CONTEXT_BIND_GRANTS = "/smr/research-intern/backend-context-bind-grants"
 _SUBLINEAR_TASK_LIST_MAX = 200
+_RUNTIME_ROUTE = "/smr/research-intern/runtime-route"
+_TASK_VIEW_LIMIT_MAX = 100
 
 
 def _segment(value: str, *, name: str) -> str:
@@ -51,6 +57,75 @@ def _request(
     body: JsonObject | None = None,
 ) -> HttpRequest:
     return HttpRequest(research_operation(operation_id), path, query=query or {}, body=body)
+
+
+def _get_runtime_route() -> HttpRequest:
+    return _request("get_intern_runtime_route", _RUNTIME_ROUTE)
+
+
+def _select_runtime_route(request: InternRuntimeRouteSelectionRequest) -> HttpRequest:
+    return _request(
+        "select_intern_runtime_route", _RUNTIME_ROUTE, body=cast(JsonObject, request.to_wire())
+    )
+
+
+def _get_task_view(
+    grant_id: str,
+    task_id: str,
+    project_id: str,
+    limit: int,
+    snapshot_revision: int | None,
+    after_revision: int | None,
+) -> HttpRequest:
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise TypeError("limit must be an integer")
+    if not 1 <= limit <= _TASK_VIEW_LIMIT_MAX:
+        raise ValueError(f"limit must be between 1 and {_TASK_VIEW_LIMIT_MAX}")
+    if (snapshot_revision is None) != (after_revision is None):
+        raise ValueError("snapshot_revision and after_revision are given together")
+    query: JsonObject = {
+        "project_id": _canonical_project(project_id),
+        "limit": limit,
+    }
+    if snapshot_revision is not None and after_revision is not None:
+        query["snapshot_revision"] = snapshot_revision
+        query["after_revision"] = after_revision
+    return _request(
+        "get_intern_task_view",
+        f"{_TASK_GRANTS}/{_segment(grant_id, name='grant_id')}/tasks/"
+        f"{_segment(task_id, name='task_id')}",
+        query=query,
+    )
+
+
+def _canonical_project(project_id: str) -> str:
+    _segment(project_id, name="project_id")
+    return project_id
+
+
+def _checked_route_receipt(
+    request: InternRuntimeRouteSelectionRequest, receipt: InternRuntimeRouteReceipt
+) -> InternRuntimeRouteReceipt:
+    if (
+        receipt.operation_id != request.operation_id
+        or receipt.route is not request.route
+        or receipt.reason != request.reason
+    ):
+        raise ValueError("intern_runtime_route_receipt_identity_mismatch")
+    return receipt
+
+
+def _checked_task_view(
+    grant_id: str, task_id: str, project_id: str, view: InternTaskView
+) -> InternTaskView:
+    if (
+        view.grant_id != grant_id
+        or view.task_id != task_id
+        or view.project_id != project_id
+        or view.current_task.get("issue_id") != task_id
+    ):
+        raise ValueError("intern_task_view_identity_mismatch")
+    return view
 
 
 # -- request builders (shared by sync/async) --------------------------------
@@ -297,6 +372,48 @@ class ProjectSublinearTasksAPI:
         return _checked_comments(project_id, task_id, page)
 
 
+class ResearchInternRuntimeRouteAPI:
+    """Org-owner read/select of the per-org Intern runtime route (A07)."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def get(self) -> InternRuntimeRouteView:
+        return InternRuntimeRouteView.from_wire(self._transport.execute(_get_runtime_route()))
+
+    def select(self, request: InternRuntimeRouteSelectionRequest) -> InternRuntimeRouteReceipt:
+        receipt = InternRuntimeRouteReceipt.from_wire(
+            self._transport.execute(_select_runtime_route(request))
+        )
+        return _checked_route_receipt(request, receipt)
+
+
+class ResearchInternTaskViewsAPI:
+    """Task-authority Task view (revision, assignments, attempts) under a Task grant."""
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def get(
+        self,
+        grant_id: str,
+        task_id: str,
+        *,
+        project_id: str,
+        limit: int = 16,
+        snapshot_revision: int | None = None,
+        after_revision: int | None = None,
+    ) -> InternTaskView:
+        view = InternTaskView.from_wire(
+            self._transport.execute(
+                _get_task_view(
+                    grant_id, task_id, project_id, limit, snapshot_revision, after_revision
+                )
+            )
+        )
+        return _checked_task_view(grant_id, task_id, project_id, view)
+
+
 # -- async ------------------------------------------------------------------
 
 
@@ -374,11 +491,57 @@ class AsyncProjectSublinearTasksAPI:
         return _checked_comments(project_id, task_id, page)
 
 
+class AsyncResearchInternRuntimeRouteAPI:
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def get(self) -> InternRuntimeRouteView:
+        return InternRuntimeRouteView.from_wire(
+            await self._transport.execute(_get_runtime_route())
+        )
+
+    async def select(
+        self, request: InternRuntimeRouteSelectionRequest
+    ) -> InternRuntimeRouteReceipt:
+        receipt = InternRuntimeRouteReceipt.from_wire(
+            await self._transport.execute(_select_runtime_route(request))
+        )
+        return _checked_route_receipt(request, receipt)
+
+
+class AsyncResearchInternTaskViewsAPI:
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def get(
+        self,
+        grant_id: str,
+        task_id: str,
+        *,
+        project_id: str,
+        limit: int = 16,
+        snapshot_revision: int | None = None,
+        after_revision: int | None = None,
+    ) -> InternTaskView:
+        view = InternTaskView.from_wire(
+            await self._transport.execute(
+                _get_task_view(
+                    grant_id, task_id, project_id, limit, snapshot_revision, after_revision
+                )
+            )
+        )
+        return _checked_task_view(grant_id, task_id, project_id, view)
+
+
 __all__ = [
     "AsyncProjectSublinearTasksAPI",
     "AsyncResearchInternIdentitiesAPI",
+    "AsyncResearchInternRuntimeRouteAPI",
+    "AsyncResearchInternTaskViewsAPI",
     "AsyncResearchInternTaskGrantsAPI",
     "ProjectSublinearTasksAPI",
     "ResearchInternIdentitiesAPI",
+    "ResearchInternRuntimeRouteAPI",
+    "ResearchInternTaskViewsAPI",
     "ResearchInternTaskGrantsAPI",
 ]
