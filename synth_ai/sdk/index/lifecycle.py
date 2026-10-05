@@ -194,6 +194,12 @@ class ContributionView(IndexContract):
 
 
 class MyContribution(IndexContract):
+    """Caller's own or public Contribution row; mirrors backend views.MyContribution."""
+
+    publication_mode: Literal["private", "public_api", "public", "org"] | None = None
+    public_revision_id: Identifier | None = None
+    access: Literal["owned", "public"] = "owned"
+    abstract: str | None = Field(default=None, max_length=4000)
     reference: ContributionReference
     contribution_id: Identifier
     title: Title | None = None
@@ -206,6 +212,8 @@ class MyContribution(IndexContract):
 
 class MyContributions(IndexContract):
     items: tuple[MyContribution, ...] = Field(max_length=200)
+    #: Opaque cursor for the next page; None on the last page.
+    next_cursor: Identifier | None = None
 
 
 class MeView(IndexContract):

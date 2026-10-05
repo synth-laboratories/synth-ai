@@ -1853,8 +1853,20 @@ class AccountAPI(_Resource):
     def retrieve(self) -> Any:
         return self._run(_Call("index.me.retrieve", MeView.model_validate))
 
-    def contributions(self) -> Any:
-        return self._run(_Call("index.me.contributions.list", MyContributions.model_validate))
+    def contributions(self, *, limit: int | None = None, cursor: str | None = None) -> Any:
+        """One page (backend max 32) of the caller's Contributions; follow ``next_cursor``."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            if not 1 <= limit <= 32:
+                raise ValueError("limit must be between 1 and 32")
+            params["limit"] = limit
+        if cursor is not None:
+            if not _IDENTIFIER.fullmatch(cursor):
+                raise ValueError("cursor must be an Index identifier")
+            params["cursor"] = cursor
+        return self._run(
+            _Call("index.me.contributions.list", MyContributions.model_validate, params=params)
+        )
 
     def promo_credit(self) -> Any:
         """Read the current private-search promo balance for this organization.
