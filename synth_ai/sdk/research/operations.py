@@ -456,6 +456,67 @@ RESEARCH_OPERATIONS = {
             mutation=True,
             idempotent=True,
         ),
+        # Intern identity / Task authority (backend app/api/v1/intern_identities.py,
+        # app/api/v1/managed_research/research_intern.py task-grant routes).
+        _operation(
+            "provision_intern_identity",
+            HttpMethod.POST,
+            "/smr/research-intern/identities",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_intern_identities",
+            HttpMethod.GET,
+            "/smr/research-intern/identities",
+            idempotent=True,
+        ),
+        _operation(
+            "select_intern_identity",
+            HttpMethod.GET,
+            "/smr/research-intern/identities/{intern_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "declare_intern_task_grant",
+            HttpMethod.POST,
+            "/smr/research-intern/task-grants",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "revoke_intern_task_grant",
+            HttpMethod.POST,
+            "/smr/research-intern/task-grants/{grant_id}/revoke",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "declare_backend_context_bind_grant",
+            HttpMethod.POST,
+            "/smr/research-intern/backend-context-bind-grants",
+            mutation=True,
+            idempotent=True,
+        ),
+        # Project Sublinear Task reads (app/api/v1/managed_research/collaboration.py).
+        _operation(
+            "list_project_sublinear_tasks",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/sublinear/tasks",
+            idempotent=True,
+        ),
+        _operation(
+            "get_project_sublinear_task",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/sublinear/tasks/{task_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "list_project_sublinear_task_comments",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/sublinear/tasks/{task_id}/comments",
+            idempotent=True,
+        ),
         _operation(
             "get_intern_sync_deploy_packet",
             HttpMethod.GET,

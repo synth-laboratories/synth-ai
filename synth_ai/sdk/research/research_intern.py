@@ -93,6 +93,14 @@ from synth_ai.sdk.research.contracts.research_intern import (
     ResearchInternProvisionRequest,
     ResearchInternResponse,
 )
+from synth_ai.sdk.research.intern_authority import (
+    AsyncProjectSublinearTasksAPI,
+    AsyncResearchInternIdentitiesAPI,
+    AsyncResearchInternTaskGrantsAPI,
+    ProjectSublinearTasksAPI,
+    ResearchInternIdentitiesAPI,
+    ResearchInternTaskGrantsAPI,
+)
 from synth_ai.sdk.research.intern_program import (
     AsyncInternProgramAPI,
     InternProgramAPI,
@@ -1834,6 +1842,9 @@ class ResearchInternAPI:
         self.decisions = ResearchInternDecisionsAPI(transport)
         self.acceptance_receipts = ResearchInternAcceptanceReceiptsAPI(transport)
         self.fixtures = ResearchInternAcceptanceFixturesAPI(transport)
+        self.identities = ResearchInternIdentitiesAPI(transport)
+        self.task_grants = ResearchInternTaskGrantsAPI(transport)
+        self.sublinear_tasks = ProjectSublinearTasksAPI(transport)
 
     def provision(
         self,
@@ -3714,6 +3725,9 @@ class AsyncResearchInternAPI:
         self.decisions = AsyncResearchInternDecisionsAPI(transport)
         self.acceptance_receipts = AsyncResearchInternAcceptanceReceiptsAPI(transport)
         self.fixtures = AsyncResearchInternAcceptanceFixturesAPI(transport)
+        self.identities = AsyncResearchInternIdentitiesAPI(transport)
+        self.task_grants = AsyncResearchInternTaskGrantsAPI(transport)
+        self.sublinear_tasks = AsyncProjectSublinearTasksAPI(transport)
 
     async def provision(
         self,
