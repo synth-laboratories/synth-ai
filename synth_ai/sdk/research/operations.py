@@ -508,6 +508,25 @@ RESEARCH_OPERATIONS = {
             mutation=True,
             idempotent=True,
         ),
+        _operation(
+            "get_intern_runtime_route",
+            HttpMethod.GET,
+            "/smr/research-intern/runtime-route",
+            idempotent=True,
+        ),
+        _operation(
+            "select_intern_runtime_route",
+            HttpMethod.PUT,
+            "/smr/research-intern/runtime-route",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_intern_task_view",
+            HttpMethod.GET,
+            "/smr/research-intern/task-grants/{grant_id}/tasks/{task_id}",
+            idempotent=True,
+        ),
         # Project Sublinear Task reads (app/api/v1/managed_research/collaboration.py).
         _operation(
             "list_project_sublinear_tasks",
