@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import ClassVar
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.sdk.research.contracts._wire import (
@@ -353,6 +354,61 @@ class SwarmStatusFreshness:
 
 
 @dataclass(frozen=True, slots=True)
+class SwarmStatusPendingQuestion:
+    """One unanswered Orchestra action question on an orchestra-authority swarm.
+
+    Mirrors backend ``SmrSwarmStatusPendingQuestionResponse``: ``action_id`` and
+    ``execution_id`` are required; the remaining fields are optional and nullable.
+    """
+
+    action_id: str
+    execution_id: str
+    question_text_ref: JsonObject | None = None
+    question_text: str | None = None
+    asked_at: datetime | None = None
+
+    _REQUIRED: ClassVar[frozenset[str]] = frozenset({"action_id", "execution_id"})
+    _FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"action_id", "execution_id", "question_text_ref", "question_text", "asked_at"}
+    )
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmStatusPendingQuestion:
+        label = "retrieve_swarm_status.pending_questions[]"
+        payload = object_value(value, operation_id=label)
+        missing = cls._REQUIRED - payload.keys()
+        extra = payload.keys() - cls._FIELDS
+        if missing or extra:
+            raise ValueError(
+                f"{label} fields drifted: missing={sorted(missing)!r} extra={sorted(extra)!r}"
+            )
+        reference = payload.get("question_text_ref")
+        if reference is not None and not isinstance(reference, dict):
+            raise ValueError("question_text_ref must be an object when provided")
+        question_text = payload.get("question_text")
+        if question_text is not None and not isinstance(question_text, str):
+            raise ValueError("question_text must be a string when provided")
+        return cls(
+            required_text(payload, "action_id"),
+            required_text(payload, "execution_id"),
+            None if reference is None else dict(reference),
+            question_text,
+            _optional_datetime(payload, "asked_at"),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "action_id": self.action_id,
+            "execution_id": self.execution_id,
+            "question_text_ref": (
+                None if self.question_text_ref is None else dict(self.question_text_ref)
+            ),
+            "question_text": self.question_text,
+            "asked_at": None if self.asked_at is None else self.asked_at.isoformat(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmStatus:
     """Cheap authoritative swarm status without actors/tasks/messages."""
 
@@ -368,11 +424,16 @@ class SwarmStatus:
     failure: SwarmStatusFailure
     freshness: SwarmStatusFreshness
     schema_version: int = 1
+    pending_questions: tuple[SwarmStatusPendingQuestion, ...] = ()
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmStatus:
+        payload = object_value(value, operation_id="retrieve_swarm_status")
+        # ``pending_questions`` is the only optional key (backend c4763f816);
+        # every other key stays exact.
+        pending_wire = payload.get("pending_questions")
         payload = _exact(
-            value,
+            {key: item for key, item in payload.items() if key != "pending_questions"},
             label="retrieve_swarm_status",
             fields=frozenset(
                 {
@@ -407,6 +468,14 @@ class SwarmStatus:
             SwarmStatusFailure.from_wire(payload["failure"]),
             SwarmStatusFreshness.from_wire(payload["freshness"]),
             1,
+            ()
+            if pending_wire is None
+            else tuple(
+                SwarmStatusPendingQuestion.from_wire(item)
+                for item in array_value(
+                    pending_wire, operation_id="retrieve_swarm_status.pending_questions"
+                )
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -496,6 +565,7 @@ class SwarmStatus:
                 ),
                 "generated_at": self.freshness.generated_at.isoformat(),
             },
+            "pending_questions": [question.to_wire() for question in self.pending_questions],
         }
 
 
@@ -509,6 +579,7 @@ __all__ = [
     "SwarmStatusIssueKind",
     "SwarmStatusIssues",
     "SwarmStatusLiveness",
+    "SwarmStatusPendingQuestion",
     "SwarmStatusProgress",
     "SwarmStatusRecovery",
     "SwarmStatusState",
