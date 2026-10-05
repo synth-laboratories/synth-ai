@@ -173,6 +173,7 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "research_get_record",
         "research_get_record_citations",
         "research_get_native_attachments",
+        "research_verify_citations",
         "research_list_records",
         "research_get_operation_receipt",
         "research_record_events",
