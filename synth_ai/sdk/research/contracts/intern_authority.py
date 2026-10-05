@@ -314,9 +314,93 @@ class ProjectSublinearTaskComments(_Contract):
     comments: tuple[SublinearTaskComment, ...]
 
 
+# -- Runtime route (A07) -----------------------------------------------------
+# backend packages/intern/runtime_route_api.py; alembic 20261106.
+
+
+class InternRuntimeRoute(StrEnum):
+    LEGACY_SMR_RUNTIME = "legacy_smr_runtime"
+    MLOKY = "mloky"
+
+
+class InternRuntimeRouteSelectionRequest(_Contract):
+    """``PUT /smr/research-intern/runtime-route`` (org owner; idempotent by operation_id)."""
+
+    schema_version: Literal["intern.runtime_route_selection.v1"] = (
+        "intern.runtime_route_selection.v1"
+    )
+    operation_id: str = Field(min_length=1, max_length=128, pattern=_PRINTABLE_ID)
+    route: InternRuntimeRoute
+    reason: str = Field(min_length=1, max_length=512)
+
+
+class InternRuntimeRouteView(_Contract):
+    """``GET /smr/research-intern/runtime-route``; ``route`` is the effective route."""
+
+    schema_version: Literal["intern.runtime_route.v1"]
+    org_id: str
+    route: InternRuntimeRoute
+    stored_route: InternRuntimeRoute | None
+    default_route: InternRuntimeRoute
+    reason: str | None
+    changed_by: str | None
+    updated_unix_ms: StrictInt | None
+    latest_receipt_id: str | None
+
+
+class InternRuntimeRouteReceipt(_Contract):
+    schema_version: Literal["intern.runtime_route_receipt.v1"]
+    receipt_id: str = Field(pattern=r"^rrr_[0-9a-f]{32}$")
+    org_id: str
+    operation_id: str
+    principal_ref: str
+    prior_route: InternRuntimeRoute | None
+    route: InternRuntimeRoute
+    reason: str
+    changed: StrictBool
+    recorded_unix_ms: StrictInt
+
+
+# -- Task-authority view (T03) -----------------------------------------------
+# backend services/intern/task_view.py (Sublinear /internal/v1/tasks/history).
+
+
+class InternTaskViewCursor(_Contract):
+    snapshot_revision: StrictInt = Field(ge=0)
+    after_revision: StrictInt = Field(ge=0)
+
+
+class InternTaskView(_Contract):
+    """``GET /smr/research-intern/task-grants/{grant_id}/tasks/{task_id}``.
+
+    ``current_task`` and ``entries`` are Sublinear's exact Task-history wire
+    (revision, assignment generation, assignment/attempt commands).
+    """
+
+    schema_version: Literal["intern.task_view.v1"]
+    org_id: str
+    intern_id: str
+    project_id: str
+    sublinear_project_id: str
+    grant_id: str
+    task_id: str
+    title: str
+    snapshot_revision: StrictInt | None
+    current_task: dict[str, Any]
+    entries: tuple[dict[str, Any], ...]
+    next_cursor: InternTaskViewCursor | None
+    observed_unix_ms: StrictInt
+
+
 __all__ = [
     "BackendContextBindGrantDeclaration",
     "InternIdentity",
+    "InternRuntimeRoute",
+    "InternRuntimeRouteReceipt",
+    "InternRuntimeRouteSelectionRequest",
+    "InternRuntimeRouteView",
+    "InternTaskView",
+    "InternTaskViewCursor",
     "InternIdentityCatalogPage",
     "InternIdentityProvisionKind",
     "InternIdentityProvisionReceipt",
