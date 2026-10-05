@@ -417,6 +417,10 @@ _STATUS_FIELDS = frozenset(
 _STATUS_OPTIONAL_FIELDS = frozenset({"pending_questions"})
 
 
+# Preserve both public names for the same strict pending-question contract.
+SwarmStatusPendingQuestion = SwarmPendingAction
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmStatus:
     """Cheap authoritative swarm status without actors/tasks/messages."""
@@ -434,6 +438,10 @@ class SwarmStatus:
     freshness: SwarmStatusFreshness
     schema_version: int = 1
     pending_actions: tuple[SwarmPendingAction, ...] = ()
+
+    @property
+    def pending_questions(self) -> tuple[SwarmPendingAction, ...]:
+        return self.pending_actions
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmStatus:
