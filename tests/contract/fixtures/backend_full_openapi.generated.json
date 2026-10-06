@@ -138187,7 +138187,7 @@
     },
     "/smr/projects/{project_id}/sublinear/tasks": {
       "get": {
-        "operationId": "sublinear_list_tasks_smr_projects__project_id__sublinear_tasks_get",
+        "operationId": "list_project_sublinear_tasks",
         "parameters": [
           {
             "in": "path",
@@ -138295,7 +138295,7 @@
     },
     "/smr/projects/{project_id}/sublinear/tasks/{task_id}": {
       "get": {
-        "operationId": "sublinear_get_task_smr_projects__project_id__sublinear_tasks__task_id__get",
+        "operationId": "get_project_sublinear_task",
         "parameters": [
           {
             "in": "path",
@@ -138409,7 +138409,7 @@
     },
     "/smr/projects/{project_id}/sublinear/tasks/{task_id}/comments": {
       "get": {
-        "operationId": "sublinear_list_comments_smr_projects__project_id__sublinear_tasks__task_id__comments_get",
+        "operationId": "list_project_sublinear_task_comments",
         "parameters": [
           {
             "in": "path",
@@ -149505,7 +149505,7 @@
     "/smr/research-intern/backend-context-bind-grants": {
       "post": {
         "description": "Owner bind grant; notes/specifications/tanha/current/systems/intern/runtime_authority.md.",
-        "operationId": "declare_backend_context_bind_grant_smr_research_intern_backend_context_bind_grants_post",
+        "operationId": "declare_backend_context_bind_grant",
         "requestBody": {
           "content": {
             "application/json": {
@@ -150833,7 +150833,7 @@
     },
     "/smr/research-intern/identities": {
       "get": {
-        "operationId": "list_identities_smr_research_intern_identities_get",
+        "operationId": "list_intern_identities",
         "parameters": [
           {
             "in": "query",
@@ -150895,7 +150895,7 @@
         ]
       },
       "post": {
-        "operationId": "provision_identity_smr_research_intern_identities_post",
+        "operationId": "provision_intern_identity",
         "requestBody": {
           "content": {
             "application/json": {
@@ -150938,7 +150938,7 @@
     },
     "/smr/research-intern/identities/{intern_id}": {
       "get": {
-        "operationId": "select_identity_smr_research_intern_identities__intern_id__get",
+        "operationId": "select_intern_identity",
         "parameters": [
           {
             "in": "path",
@@ -151889,7 +151889,7 @@
     "/smr/research-intern/runtime-route": {
       "get": {
         "description": "Org-owner read of the per-org Intern runtime route (A07).",
-        "operationId": "read_intern_runtime_route_smr_research_intern_runtime_route_get",
+        "operationId": "get_intern_runtime_route",
         "responses": {
           "200": {
             "content": {
@@ -151910,7 +151910,7 @@
       },
       "put": {
         "description": "Org-owner selection; an exact ``operation_id`` retry returns the retained receipt.",
-        "operationId": "select_intern_runtime_route_smr_research_intern_runtime_route_put",
+        "operationId": "select_intern_runtime_route",
         "requestBody": {
           "content": {
             "application/json": {
@@ -153517,7 +153517,7 @@
     },
     "/smr/research-intern/task-grants": {
       "post": {
-        "operationId": "declare_intern_task_grant_smr_research_intern_task_grants_post",
+        "operationId": "declare_intern_task_grant",
         "requestBody": {
           "content": {
             "application/json": {
@@ -153557,7 +153557,7 @@
     },
     "/smr/research-intern/task-grants/{grant_id}/revoke": {
       "post": {
-        "operationId": "revoke_intern_task_grant_smr_research_intern_task_grants__grant_id__revoke_post",
+        "operationId": "revoke_intern_task_grant",
         "parameters": [
           {
             "in": "path",
@@ -153609,7 +153609,7 @@
     "/smr/research-intern/task-grants/{grant_id}/tasks/{task_id}": {
       "get": {
         "description": "Task-authority view (revision, assignments, attempts) under an owner Task grant.",
-        "operationId": "read_intern_task_view_smr_research_intern_task_grants__grant_id__tasks__task_id__get",
+        "operationId": "get_intern_task_view",
         "parameters": [
           {
             "in": "path",
