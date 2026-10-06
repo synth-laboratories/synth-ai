@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import time
+from uuid import UUID
 from collections.abc import AsyncIterator, Iterator
 from typing import Literal, cast
 
@@ -131,6 +132,18 @@ def _request(
         query=query or {},
         body=body,
     )
+
+
+def _intern_owner_query(intern_id:str|None)->JsonObject:
+    if intern_id is None: return {}
+    if str(UUID(intern_id))!=intern_id: raise ValueError("intern_owner_identity_invalid")
+    return {"research_intern_id":intern_id}
+
+
+def _intern_selected_owner(response,intern_id:str|None):
+    if intern_id is not None and response.research_intern_id!=intern_id:
+        raise ValueError("intern_runtime_owner_identity_drift")
+    return response
 
 
 def _dataset_publication_request(
@@ -909,7 +922,7 @@ class ResearchInternSyncRuntimeAPI:
 
     def create(self, request: InternSyncSessionCreateRequest) -> InternSyncSession:
         """Create a Sync session from a typed backend request."""
-        return InternSyncSession.from_wire(
+        response=InternSyncSession.from_wire(
             self._transport.execute(
                 _request(
                     "create_intern_sync_session",
@@ -918,11 +931,13 @@ class ResearchInternSyncRuntimeAPI:
                 )
             )
         )
+        return _intern_selected_owner(response,request.research_intern_id)
 
-    def list(self, *, limit: int = 100) -> tuple[InternSyncSession, ...]:
+
+    def list(self, *, limit: int = 100,research_intern_id:str|None=None) -> tuple[InternSyncSession, ...]:
         """List a bounded page of typed Sync session projections."""
         return tuple(
-            InternSyncSession.from_wire(item)
+            _intern_selected_owner(InternSyncSession.from_wire(item),research_intern_id)
             for item in array_value(
                 cast(
                     JsonValue,
@@ -930,7 +945,7 @@ class ResearchInternSyncRuntimeAPI:
                         _request(
                             "list_intern_sync_sessions",
                             self._PATH,
-                            query={"limit": _bounded_limit(limit)},
+                            query={"limit":_bounded_limit(limit),**_intern_owner_query(research_intern_id)},
                         )
                     ),
                 ),
@@ -1384,7 +1399,7 @@ class ResearchInternAsyncRuntimeAPI:
             maximum_daily_cost_cents=maximum_daily_cost_cents,
             maximum_monthly_cost_cents=maximum_monthly_cost_cents,
         )
-        return InternAsyncRuntime.from_wire(
+        response=InternAsyncRuntime.from_wire(
             self._transport.execute(
                 _request(
                     "ensure_intern_async_runtime",
@@ -1393,12 +1408,14 @@ class ResearchInternAsyncRuntimeAPI:
                 )
             )
         )
+        return _intern_selected_owner(response,ensure_request.research_intern_id)
 
-    def get(self) -> InternAsyncRuntime:
-        """Retrieve the organization Intern's backend-owned Async runtime."""
-        return InternAsyncRuntime.from_wire(
-            self._transport.execute(_request("get_intern_async_runtime", self._PATH))
-        )
+
+    def get(self, *, research_intern_id: str | None = None) -> InternAsyncRuntime:
+        """Read the selected Intern's Async runtime; omission selects its default."""
+        response=InternAsyncRuntime.from_wire(self._transport.execute(
+            _request("get_intern_async_runtime",self._PATH,query=_intern_owner_query(research_intern_id))))
+        return _intern_selected_owner(response,research_intern_id)
 
     def resources(self, assignment_id: str) -> InternResourceInventory:
         """Read the exact recorded assignment, never substitute the current singleton."""
@@ -2860,7 +2877,7 @@ class AsyncResearchInternSyncRuntimeAPI:
         request: InternSyncSessionCreateRequest,
     ) -> InternSyncSession:
         """Create a Sync session from a typed backend request."""
-        return InternSyncSession.from_wire(
+        response=InternSyncSession.from_wire(
             await self._transport.execute(
                 _request(
                     "create_intern_sync_session",
@@ -2869,11 +2886,13 @@ class AsyncResearchInternSyncRuntimeAPI:
                 )
             )
         )
+        return _intern_selected_owner(response,request.research_intern_id)
 
-    async def list(self, *, limit: int = 100) -> tuple[InternSyncSession, ...]:
+
+    async def list(self, *, limit: int = 100,research_intern_id:str|None=None) -> tuple[InternSyncSession, ...]:
         """List a bounded page of typed Sync session projections."""
         return tuple(
-            InternSyncSession.from_wire(item)
+            _intern_selected_owner(InternSyncSession.from_wire(item),research_intern_id)
             for item in array_value(
                 cast(
                     JsonValue,
@@ -2881,7 +2900,7 @@ class AsyncResearchInternSyncRuntimeAPI:
                         _request(
                             "list_intern_sync_sessions",
                             self._PATH,
-                            query={"limit": _bounded_limit(limit)},
+                            query={"limit":_bounded_limit(limit),**_intern_owner_query(research_intern_id)},
                         )
                     ),
                 ),
@@ -3316,7 +3335,7 @@ class AsyncResearchInternAsyncRuntimeAPI:
             maximum_daily_cost_cents=maximum_daily_cost_cents,
             maximum_monthly_cost_cents=maximum_monthly_cost_cents,
         )
-        return InternAsyncRuntime.from_wire(
+        response=InternAsyncRuntime.from_wire(
             await self._transport.execute(
                 _request(
                     "ensure_intern_async_runtime",
@@ -3325,12 +3344,14 @@ class AsyncResearchInternAsyncRuntimeAPI:
                 )
             )
         )
+        return _intern_selected_owner(response,ensure_request.research_intern_id)
 
-    async def get(self) -> InternAsyncRuntime:
-        """Retrieve the organization Intern's backend-owned Async runtime."""
-        return InternAsyncRuntime.from_wire(
-            await self._transport.execute(_request("get_intern_async_runtime", self._PATH))
-        )
+
+    async def get(self, *, research_intern_id: str | None = None) -> InternAsyncRuntime:
+        """Read the selected Intern's Async runtime; omission selects its default."""
+        response=InternAsyncRuntime.from_wire(await self._transport.execute(
+            _request("get_intern_async_runtime",self._PATH,query=_intern_owner_query(research_intern_id))))
+        return _intern_selected_owner(response,research_intern_id)
 
     async def command(self, request: InternAsyncCommandRequest) -> InternAsyncCommandReceipt:
         """Submit a fenced Async command and reject command receipt identity drift."""

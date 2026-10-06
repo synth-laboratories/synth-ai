@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from synth_ai.sdk.research.contracts.dataset_revisions import (
     DatasetRevisionCreateRequest,
@@ -347,6 +347,15 @@ class InternSyncRuntimeBudget(_StrictContract):
 
 
 class InternSyncSessionCreateRequest(_StrictContract):
+    research_intern_id: str | None = Field(default=None,min_length=36,max_length=36)
+
+    @field_validator("research_intern_id")
+    @classmethod
+    def canonical_owner(cls,value:str|None)->str|None:
+        if value is not None and str(UUID(value))!=value:
+            raise ValueError("intern_owner_identity_invalid")
+        return value
+
     objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
@@ -785,6 +794,15 @@ class InternAsyncRuntimeBudget(_StrictContract):
 
 
 class InternAsyncEnsureRequest(_StrictContract):
+    research_intern_id: str | None = Field(default=None,min_length=36,max_length=36)
+
+    @field_validator("research_intern_id")
+    @classmethod
+    def canonical_owner(cls,value:str|None)->str|None:
+        if value is not None and str(UUID(value))!=value:
+            raise ValueError("intern_owner_identity_invalid")
+        return value
+
     objective: str = Field(min_length=1, max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
