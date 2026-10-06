@@ -1,0 +1,15 @@
+{
+  "source_commits": {
+    "backend": "7860732a2c1904c08d1a9eafe34a6c6f1eb50b6b",
+    "synth-ai": "67bc4c9ff7e4385dbf1b4fb759430bbe07b67ea9",
+    "Forge": "69815acd7f4e7781b12e041034c69b37cfd566e7"
+  },
+  "fastapi_version": "0.128.0",
+  "noise_policy": "Ignore Body_publish_*_visual and ValidationError ctx/input differences only; generator environment 0.128.0 differs from locked 0.141.1.",
+  "fixture_sha256": {
+    "backend_full_openapi.generated.json": "1357f398cc36d40cc78e2d6436377615170be3ab9cb3a076592bafdfd913143b",
+    "backend_all_routes.json": "4f9a7145e2060ff3fec5b28a3dfe9d530ebcb6b40a81de545bf264c663028126",
+    "public_enums.generated.json": "4b68e59876fc135dd966b41f484de399edb8d53589c4fae02c09be67b67e683d",
+    "research_openapi.generated.json": "aba7db3656e14dd56cf00bdb44450884f0e246894861145ee3b854f66386fade"
+  }
+}

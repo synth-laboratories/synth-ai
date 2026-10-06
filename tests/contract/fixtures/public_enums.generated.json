@@ -1,0 +1,42 @@
+{
+  "ManagedResearchRunState": [
+    "blocked",
+    "canceled",
+    "done",
+    "failed",
+    "finalizing",
+    "paused",
+    "queued",
+    "running",
+    "stopped",
+    "unknown"
+  ],
+  "ManagedResearchRunTerminalOutcome": [
+    "canceled",
+    "failed",
+    "stopped",
+    "succeeded",
+    "timed_out"
+  ],
+  "ManagedResearchRunLivenessPhase": [
+    "accepted",
+    "bootstrapping",
+    "finalizing",
+    "queued",
+    "terminal",
+    "unknown",
+    "waiting",
+    "working"
+  ],
+  "RunLifecycleControlErrorCode": [
+    "already_in_state",
+    "already_terminal",
+    "cleanup_in_progress",
+    "lock_pressure",
+    "project_archived",
+    "run_finalizing",
+    "run_not_found",
+    "runtime_not_live",
+    "terminal_run"
+  ]
+}

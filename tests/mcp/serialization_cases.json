@@ -1,0 +1,100 @@
+[
+  {
+    "tool": "research_get_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_cancel_task",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "task_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_compare_experiments",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "experiment_ids": []
+    }
+  },
+  {
+    "tool": "research_create_task",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "payload": {}
+    }
+  },
+  {
+    "tool": "research_get_experiment_history",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_actor_usage",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_authority_readouts",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_event_log",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_execution",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_logical_timeline",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_traces",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_reassign_task",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "task_id": "00000000-0000-4000-8000-000000000001",
+      "assignee": "audit"
+    }
+  },
+  {
+    "tool": "research_update_task",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "task_id": "00000000-0000-4000-8000-000000000001",
+      "payload": {}
+    }
+  },
+  {
+    "tool": "research_validate_container_eval_package",
+    "args": {
+      "package_id": "00000000-0000-4000-8000-000000000001"
+    }
+  }
+]
