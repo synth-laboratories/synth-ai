@@ -344,6 +344,7 @@ def call_tool(
 
 
 __all__ = [
+    "InvalidToolArguments",
     "JSONDict",
     "READ_SCOPE",
     "READ_SCOPES",
