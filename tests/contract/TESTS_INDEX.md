@@ -4,7 +4,7 @@ Scope: the ranked audit and its tests-only handoff. Product code is unchanged.
 
 Source pins: backend `7860732a2c1904c08d1a9eafe34a6c6f1eb50b6b`, synth-ai `67bc4c9ff7e4385dbf1b4fb759430bbe07b67ea9`, Forge `69815acd7f4e7781b12e041034c69b37cfd566e7`.
 
-Verified: **139 known-red assertions**, **217 passing checks**, **1 slot journey blocked**. No xfail, CI wiring, paid effects, or provider calls. All 35 Tier 1/2 finding IDs have at least one red assertion for the stated reason. Finding IDs are assertions, not expected-failure marks.
+Verified: **191 known-red assertions**, **235 passing checks**, **1 slot journey blocked**. No xfail, CI wiring, paid effects, or provider calls. All 35 Tier 1/2 finding IDs have at least one red assertion for the stated reason. Finding IDs are assertions, not expected-failure marks.
 
 The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in synth-ai. FastAPI 0.128.0 was used; only the handoff’s generated visual-body and ValidationError noise is excluded. Backend and SDK source snapshots are the authority. See fixture provenance and README.
 
@@ -114,3 +114,12 @@ and `extension_test_results.json` for precise selectors, source locations and
 severity. Seven confirmed issues cover retry authority, idempotency header casing,
 finite configuration, redirect/empty/non-finite JSON boundaries, and scientific
 boolean-to-number coercion. No product fixes, CI, slots or paid effects.
+
+## Additional findings EX-08 through EX-20
+
+The next pass adds 52 known-red assertions and 18 passing controls. See
+[streaming/MCP/pagination findings](STREAMING_PAGINATION_FINDINGS_20261006.md)
+and `streaming_boundary_test_results.json`. These are six SSE framing/metadata
+issues and seven closed-argument/idempotency/page-boundary issues. All are
+reproduced offline; both SDK transports and both public MCP entry points are
+covered where applicable. No product changes, CI, slots or paid effects.
