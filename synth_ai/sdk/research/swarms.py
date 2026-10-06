@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncIterator, Iterator, Mapping
+from urllib.parse import quote
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import SynthError
@@ -19,6 +20,7 @@ from synth_ai.sdk.research.contracts.common import (
     ProjectId,
     SwarmId,
     WorkProductId,
+    require_text,
 )
 from synth_ai.sdk.research.contracts.evidence import (
     ContentDisposition,
@@ -26,6 +28,7 @@ from synth_ai.sdk.research.contracts.evidence import (
 )
 from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.status import SwarmStatus
+from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
 from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
@@ -98,6 +101,31 @@ def _stream_timeout(timeout_seconds: float | None) -> float | None:
     if timeout_seconds is not None and timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive when provided")
     return timeout_seconds
+
+
+def _control_body(field: str, text: str, idempotency_key: str | None) -> JsonObject:
+    if not isinstance(text, str) or not text.strip() or len(text.encode("utf-8")) > 16_384:
+        raise ValueError(f"{field} must be nonblank and at most 16384 UTF-8 bytes")
+    body: JsonObject = {field: text}
+    if idempotency_key is not None:
+        key = require_text(idempotency_key, field_name="idempotency_key")
+        if len(key) > 255:
+            raise ValueError("idempotency_key must be at most 255 characters")
+        body["idempotency_key"] = key
+    return body
+
+
+def _control_receipt(
+    value: JsonValue, swarm_id: SwarmId, kind: str, action_id: str | None = None
+) -> SwarmControlReceipt:
+    receipt = SwarmControlReceipt.from_wire(value)
+    if (
+        receipt.swarm_id != swarm_id
+        or receipt.kind != kind
+        or (action_id is not None and receipt.action_id != action_id)
+    ):
+        raise ValueError("swarm control receipt does not match the request scope")
+    return receipt
 
 
 class SwarmHandle:
@@ -279,6 +307,18 @@ class SwarmHandle:
             view=view,
             last_event_id=last_event_id,
             timeout_seconds=timeout_seconds,
+        )
+
+    def steer(self, message: str, *, idempotency_key: str | None = None) -> SwarmControlReceipt:
+        """Request native steering; acceptance is distinct from execution delivery."""
+        return self._api.steer(self.swarm_id, message, idempotency_key=idempotency_key)
+
+    def answer_action(
+        self, action_id: str, response_text: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Answer the correlated action exposed by authoritative native history."""
+        return self._api.answer_action(
+            self.swarm_id, action_id, response_text, idempotency_key=idempotency_key
         )
 
 
@@ -731,6 +771,38 @@ class SwarmsAPI:
         ):
             yield decode_swarm_event(event)
 
+    def steer(
+        self, swarm_id: SwarmId, message: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Steer through the backend's native control ledger; reuse a key for retries."""
+        value = self._transport.execute(
+            _request(
+                "steer_run",
+                f"/smr/runs/{swarm_id}/steer",
+                body=_control_body("message", message, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "steer")
+
+    def answer_action(
+        self,
+        swarm_id: SwarmId,
+        action_id: str,
+        response_text: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> SwarmControlReceipt:
+        """Answer a native action; changed bytes with the same key conflict server-side."""
+        action = require_text(action_id, field_name="action_id")
+        value = self._transport.execute(
+            _request(
+                "answer_run_action",
+                f"/smr/runs/{swarm_id}/actions/{quote(action, safe='')}/answer",
+                body=_control_body("response_text", response_text, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "action_answer", action)
+
 
 class AsyncSwarmHandle:
     """Handle returned when creating a Swarm."""
@@ -917,6 +989,20 @@ class AsyncSwarmHandle:
             timeout_seconds=timeout_seconds,
         ):
             yield event
+
+    async def steer(
+        self, message: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Request native steering; acceptance is distinct from execution delivery."""
+        return await self._api.steer(self.swarm_id, message, idempotency_key=idempotency_key)
+
+    async def answer_action(
+        self, action_id: str, response_text: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Answer the correlated action exposed by authoritative native history."""
+        return await self._api.answer_action(
+            self.swarm_id, action_id, response_text, idempotency_key=idempotency_key
+        )
 
 
 class AsyncSwarmsAPI:
@@ -1339,6 +1425,38 @@ class AsyncSwarmsAPI:
             operation_id="stream_run_events",
         ):
             yield decode_swarm_event(event)
+
+    async def steer(
+        self, swarm_id: SwarmId, message: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Steer through the backend's native control ledger; reuse a key for retries."""
+        value = await self._transport.execute(
+            _request(
+                "steer_run",
+                f"/smr/runs/{swarm_id}/steer",
+                body=_control_body("message", message, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "steer")
+
+    async def answer_action(
+        self,
+        swarm_id: SwarmId,
+        action_id: str,
+        response_text: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> SwarmControlReceipt:
+        """Answer a native action; changed bytes with the same key conflict server-side."""
+        action = require_text(action_id, field_name="action_id")
+        value = await self._transport.execute(
+            _request(
+                "answer_run_action",
+                f"/smr/runs/{swarm_id}/actions/{quote(action, safe='')}/answer",
+                body=_control_body("response_text", response_text, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "action_answer", action)
 
 
 ResearchSwarmHandle = SwarmHandle

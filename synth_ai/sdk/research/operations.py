@@ -23,6 +23,16 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
+            "steer_run", HttpMethod.POST, "/smr/runs/{run_id}/steer", mutation=True, idempotent=True
+        ),
+        _operation(
+            "answer_run_action",
+            HttpMethod.POST,
+            "/smr/runs/{run_id}/actions/{action_id}/answer",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "getExactDatasetRevision",
             HttpMethod.GET,
             "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}",
