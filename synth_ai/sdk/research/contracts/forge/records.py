@@ -54,17 +54,15 @@ class Trial(Contract):
     configuration: dict[str, JsonValue]
     executed_inputs: References
     execution: ExactReference | None = None
-    state: Literal[
-        "registered", "running", "succeeded", "failed", "interrupted", "rejected"
-    ]
+    state: Literal["registered", "running", "succeeded", "failed", "interrupted", "rejected"]
     sources: References = ()
 
 
 class Measurement(Contract):
     name: Identifier
-    value: float | None = Field(allow_inf_nan=False)
+    value: float | None = Field(strict=True, allow_inf_nan=False)
     unit: Identifier
-    uncertainty: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    uncertainty: float | None = Field(default=None, strict=True, ge=0, allow_inf_nan=False)
 
 
 class Result(Contract):
@@ -101,9 +99,7 @@ class Result(Contract):
         if self.outcome == "measured" and (
             not self.measurements or not self.evaluator or not self.evidence
         ):
-            raise ValueError(
-                "measured results require measurements, evaluator and evidence"
-            )
+            raise ValueError("measured results require measurements, evaluator and evidence")
         return self
 
 
@@ -117,9 +113,7 @@ class ResearchLog(Contract):
 class LogEntry(Contract):
     kind: Literal["log_entry"] = "log_entry"
     log: ExactReference
-    category: Literal[
-        "observation", "rationale", "attempt", "failure", "decision", "correction"
-    ]
+    category: Literal["observation", "rationale", "attempt", "failure", "decision", "correction"]
     text: Text
     occurred_at: AwareDatetime
     correction_of: ExactReference | None = None
@@ -182,13 +176,9 @@ class Artifact(Contract):
             or self.manifest.authority != "artifact-platform"
             or self.manifest.record_id != str(self.delivery.publication_id)
         ):
-            raise ValueError(
-                "delivery must pin the exact Artifact Platform publication"
-            )
+            raise ValueError("delivery must pin the exact Artifact Platform publication")
         if self.object.authority == "forge" or self.manifest.authority == "forge":
-            raise ValueError(
-                "artifact custody belongs to the canonical artifact authority"
-            )
+            raise ValueError("artifact custody belongs to the canonical artifact authority")
         return self
 
 

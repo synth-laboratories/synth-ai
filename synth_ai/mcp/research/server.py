@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, fields, is_dataclass
 from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
@@ -172,8 +172,10 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "research_create_experiment_revision",
         "research_register_trial",
         "research_record_result",
+        "research_record_execution_result",
         "research_review_revision",
         "research_get_record",
+        "research_get_record_citations",
         "research_list_records",
         "research_get_operation_receipt",
         "research_record_events",
@@ -386,7 +388,14 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
 
 def _mcp_jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return _mcp_jsonable(asdict(value))
+        document = {
+            item.name: getattr(value, item.name) for item in fields(value) if item.name != "raw"
+        }
+        raw = getattr(value, "raw", None)
+        if isinstance(raw, dict):
+            document = {**raw, **document}
+            document.pop("raw", None)
+        return _mcp_jsonable(document)
     if isinstance(value, Enum):
         return _mcp_jsonable(value.value)
     if isinstance(value, (datetime, date, time)):
@@ -394,6 +403,12 @@ def _mcp_jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_mcp_jsonable(item) for item in value]
     if isinstance(value, dict):
+        if value.get("schema_version") in {
+            "smr_experiment_bundle.v1",
+            "smr_experiment_history.v1",
+        } and isinstance(value.get("raw"), dict):
+            value = {**value["raw"], **value}
+            value.pop("raw", None)
         return {str(key): _mcp_jsonable(item) for key, item in value.items()}
     if isinstance(value, (set, frozenset)):
         normalized = [_mcp_jsonable(item) for item in value]
@@ -494,7 +509,7 @@ class ResearchMcpServer:
         return list_tool_payload(self._advertised_tools())
 
     def call_tool(self, name: str, arguments: JSONDict | None = None) -> Any:
-        return call_tool(self._advertised_tools(), name, arguments)
+        return _mcp_jsonable(call_tool(self._advertised_tools(), name, arguments))
 
     def _client_from_args(self, args: JSONDict) -> ResearchSession:
         resolved_api_key = optional_string(args, "api_key") or self._default_api_key
@@ -1698,6 +1713,7 @@ class ResearchMcpServer:
                 project_id,
                 visibility=visibility,
                 limit=limit,
+                cursor=args.get("cursor"),
             )
 
     def _tool_create_project_files(self, args: JSONDict) -> Any:
@@ -2364,36 +2380,6 @@ class ResearchMcpServer:
                 action=action,
                 reason=optional_string(args, "reason"),
                 idempotency_key=optional_string(args, "idempotency_key"),
-            )
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_list_run_participants(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.list_run_participants(run_id, project_id=project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_run_artifact_progress(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.get_run_artifact_progress(run_id, project_id=project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_list_run_actor_logs(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.list_run_actor_logs(
-                run_id,
-                project_id=project_id,
-                actor_id=optional_string(args, "actor_id"),
-                turn_id=optional_string(args, "turn_id"),
-                kind=optional_string(args, "kind"),
-                since=optional_string(args, "since"),
-                cursor=optional_string(args, "cursor"),
-                limit=optional_int(args, "limit"),
             )
             return asdict(result) if is_dataclass(result) else result
 

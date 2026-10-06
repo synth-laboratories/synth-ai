@@ -1394,16 +1394,11 @@ class ManagedResearchRunAuthorityMixin:
         *,
         project_id: str | None = None,
     ) -> SmrRunParticipants:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/participants"
-            if project_id
-            else f"/smr/runs/{run_id}/participants"
+        """Removed unimplemented legacy read; use the run journal/task reads (SYN-4003)."""
+        raise ResearchApiError(
+            "list_run_participants has no authoritative backend implementation",
+            failure_class="unsupported_backend_contract",
         )
-        payload = _coerce_dict(
-            self._request_json("GET", path),
-            label="list_run_participants",
-        )
-        return SmrRunParticipants.from_wire(payload)
 
     def get_run_artifact_progress(
         self,
@@ -1411,16 +1406,11 @@ class ManagedResearchRunAuthorityMixin:
         *,
         project_id: str | None = None,
     ) -> SmrRunArtifactProgress:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/artifact-progress"
-            if project_id
-            else f"/smr/runs/{run_id}/artifact-progress"
+        """Removed unimplemented legacy read; use the run journal/task reads (SYN-4003)."""
+        raise ResearchApiError(
+            "get_run_artifact_progress has no authoritative backend implementation",
+            failure_class="unsupported_backend_contract",
         )
-        payload = _coerce_dict(
-            self._request_json("GET", path),
-            label="get_run_artifact_progress",
-        )
-        return SmrRunArtifactProgress.from_wire(payload)
 
     def list_run_actor_logs(
         self,
@@ -1434,24 +1424,11 @@ class ManagedResearchRunAuthorityMixin:
         cursor: str | None = None,
         limit: int | None = None,
     ) -> SmrRunActorLogs:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/actor-logs"
-            if project_id
-            else f"/smr/runs/{run_id}/actor-logs"
+        """Removed unimplemented legacy read; use the run journal/task reads (SYN-4003)."""
+        raise ResearchApiError(
+            "list_run_actor_logs has no authoritative backend implementation",
+            failure_class="unsupported_backend_contract",
         )
-        params = build_query_params(
-            actor_id=actor_id,
-            turn_id=turn_id,
-            kind=kind,
-            since=since,
-            cursor=cursor,
-            limit=limit,
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path, params=params),
-            label="list_run_actor_logs",
-        )
-        return SmrRunActorLogs.from_wire(payload)
 
     def get_run_cost_summary(self, run_id: str) -> SmrRunCostSummary:
         payload = _coerce_dict(

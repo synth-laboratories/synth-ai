@@ -67,8 +67,11 @@ class ResearchApiError(SynthError, RuntimeError):
         remediation: str | None = None,
         cause: list[dict[str, Any]] | None = None,
         body: dict[str, Any] | None = None,
+        failure: SynthFailure | None = None,
+        operation_id: str | None = None,
     ) -> None:
-        super().__init__(message)
+        super().__init__(message, failure=failure)
+        self.operation_id = operation_id
         self.status_code = status_code
         self.response_text = response_text
         self.request_context: str | None = None
@@ -315,6 +318,83 @@ class ResearchStructuredDenialError(ResearchApiError):
             body=detail,
         )
         self.detail = dict(detail) if detail else {}
+
+
+class ResearchScientificRefusalError(ResearchApiError):
+    """A definitive scientific rejection retains code, identity and retry policy.
+
+    See forge_scientific_delivery.md. A scorer dependency refusal cannot become
+    a status-based retry or an uncertain effect.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        response_text: str,
+        detail: dict[str, Any],
+        operation_id: str | None,
+    ):
+        code = detail["error_code"]
+        operation_id = detail.get("operation_id") or operation_id
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+            operation_id=operation_id,
+            failure=SynthFailure(
+                code=SynthErrorCode(code),
+                category=SynthErrorCategory.OPERATION,
+                operation=operation_id,
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=status_code,
+                detail=message,
+            ),
+        )
+        self.detail = dict(detail)
+        self.authority_code = detail.get("authority_code")
+        self.receipt_lookup_required = code == "admission_expired"
+
+
+class ResearchOutcomeUncertainError(ResearchApiError):
+    """An original scientific operation needs receipt reconciliation.
+
+    See forge_scientific_delivery.md. Never turn an uncertain effect into a
+    deterministic denial or automatically submit a replacement operation.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        response_text: str,
+        detail: dict[str, Any],
+        operation_id: str | None,
+    ):
+        operation_id = detail.get("operation_id") or operation_id
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+            operation_id=operation_id,
+            failure=SynthFailure(
+                code=SynthErrorCode("outcome_uncertain"),
+                category=SynthErrorCategory.OPERATION,
+                operation=operation_id,
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=status_code,
+                detail=message,
+            ),
+        )
+        self.detail = dict(detail)
 
 
 LAUNCH_REFUSAL_CODES = frozenset(
@@ -686,6 +766,8 @@ __all__ = [
     "FencingTokenStaleError",
     "RateLimitedError",
     "ResearchApiError",
+    "ResearchOutcomeUncertainError",
+    "ResearchScientificRefusalError",
     "ResearchCheckpointQuotaExceededError",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchFundingLaneInvariantError",

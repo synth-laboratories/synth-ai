@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 
 from synth_ai.core.contracts.json_value import JsonValue
+from synth_ai.core.errors import RetryDirective, SynthErrorCategory, SynthErrorCode, SynthFailure
 from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.sdk.research.errors import (
@@ -32,7 +33,9 @@ from synth_ai.sdk.research.errors import (
     ResearchLimitRevisionConflictError,
     ResearchManagedInferenceUnavailableError,
     ResearchNotFoundError,
+    ResearchOutcomeUncertainError,
     ResearchProjectMonthlyBudgetExhaustedError,
+    ResearchScientificRefusalError,
     ResearchStructuredDenialError,
     ResearchUnsafeLimitExtensionError,
 )
@@ -186,6 +189,22 @@ def _raise_for_error_response(
                 status_code = response.status_code
                 response_text = response.text
                 stripped = code.strip()
+                if stripped == "outcome_uncertain":
+                    raise ResearchOutcomeUncertainError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                        operation_id=operation_id,
+                    )
+                if "/research/" in response.request.url.path and detail.get("retryable") is False:
+                    raise ResearchScientificRefusalError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                        operation_id=operation_id,
+                    )
                 if stripped in LAUNCH_REFUSAL_CODES:
                     raise ResearchLaunchRefusalError(
                         message,
@@ -325,10 +344,25 @@ def _raise_for_transport_exception(
     error: httpx.HTTPError,
     operation_id: str | None = None,
 ) -> None:
-    if isinstance(error, httpx.TimeoutException):
-        raise ResearchApiError(f"{method} {path} timed out") from error
+    timed_out = isinstance(error, httpx.TimeoutException)
+    message = (
+        f"{method} {path} timed out"
+        if timed_out
+        else f"{method} {path} failed: network error ({type(error).__name__})"
+    )
     raise ResearchApiError(
-        f"{method} {path} failed: network error ({type(error).__name__})"
+        message,
+        operation_id=operation_id,
+        failure=SynthFailure(
+            code=SynthErrorCode("transport_timeout" if timed_out else "transport_error"),
+            category=SynthErrorCategory.TRANSIENT_SERVICE,
+            operation=operation_id,
+            request_id=None,
+            correlation_id=None,
+            retry=RetryDirective(retryable=True),
+            status=None,
+            detail=message,
+        ),
     ) from error
 
 

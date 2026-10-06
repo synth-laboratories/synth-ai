@@ -7,6 +7,7 @@ from os import PathLike
 from typing import Any, Literal
 
 from synth_ai.sdk.research.contracts.types import (
+    OrgFile,
     ResourceUploadResult,
     RunFileMount,
     RunOutputFile,
@@ -26,7 +27,7 @@ class FilesAPI(_ClientNamespace):
         sync_session_id: str | None = None,
         project_id: str | None = None,
         metadata: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> OrgFile:
         """Create an org-owned file, optionally bound to a session or project.
 
         # See: backend/app/api/v1/managed_research/files.py::SmrFileCreateRequest
@@ -36,14 +37,16 @@ class FilesAPI(_ClientNamespace):
             raise ValueError("name must contain 1 through 512 characters")
         if encoding not in {"utf-8", "base64"}:
             raise ValueError("encoding must be utf-8 or base64")
-        return self._client.create_org_file(
-            name=name,
-            content=content,
-            encoding=encoding,
-            content_type=content_type,
-            sync_session_id=sync_session_id,
-            project_id=project_id,
-            metadata=dict(metadata or {}),
+        return OrgFile.from_wire(
+            self._client.create_org_file(
+                name=name,
+                content=content,
+                encoding=encoding,
+                content_type=content_type,
+                sync_session_id=sync_session_id,
+                project_id=project_id,
+                metadata=dict(metadata or {}),
+            )
         )
 
     def list_project(
@@ -52,6 +55,7 @@ class FilesAPI(_ClientNamespace):
         *,
         visibility: str | None = None,
         limit: int | None = None,
+        cursor: str | None = None,
     ) -> list[StoredFile]:
         return [
             StoredFile.from_wire(item)
@@ -59,6 +63,7 @@ class FilesAPI(_ClientNamespace):
                 project_id,
                 visibility=visibility,
                 limit=limit,
+                cursor=cursor,
             )
         ]
 

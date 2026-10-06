@@ -29,7 +29,7 @@ def extract_next_cursor(payload: Mapping[str, object]) -> PageCursor | None:
         return None
     if not isinstance(value, str) or not value.strip():
         raise ValueError("next_cursor must be a non-empty string when provided")
-    return PageCursor(value.strip())
+    return PageCursor(value)
 
 
 __all__ = ["PageCursor", "build_query_params", "extract_next_cursor"]

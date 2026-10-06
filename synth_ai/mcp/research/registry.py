@@ -112,9 +112,6 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_download_raw_trace": READ_SCOPES,
     "research_get_run_actor_usage": READ_SCOPES,
     "research_control_project_run_actor": WRITE_SCOPES,
-    "research_list_run_participants": READ_SCOPES,
-    "research_get_run_artifact_progress": READ_SCOPES,
-    "research_list_run_actor_logs": READ_SCOPES,
     "research_list_tasks": READ_SCOPES,
     "research_create_task": WRITE_SCOPES,
     "research_update_task": WRITE_SCOPES,
@@ -322,6 +319,16 @@ def call_tool(
         arguments = {}
     if not isinstance(arguments, dict):
         raise TypeError("tool arguments must be an object")
+    from jsonschema import Draft202012Validator
+    from jsonschema.exceptions import ValidationError
+
+    try:
+        Draft202012Validator(tool.input_schema).validate(arguments)
+    except ValidationError as error:
+        # Only the schema path is safe: input values may contain credentials.
+        raise ValueError(
+            f"{name} arguments violate schema at {list(error.absolute_schema_path)}"
+        ) from ValueError(f"MCP argument validation failed: {error.validator}")
     return tool.handler(arguments)
 
 

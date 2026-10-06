@@ -4163,6 +4163,76 @@
         "title": "CheckpointChatRequest",
         "type": "object"
       },
+      "CitationCheck": {
+        "additionalProperties": false,
+        "description": "Consumer view of Forge ``forge.citation-verification.v1`` (R06).",
+        "properties": {
+          "authority_code": {
+            "default": "",
+            "title": "Authority Code",
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "title": "Code",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "status": {
+            "enum": [
+              "retained",
+              "dangling",
+              "denied",
+              "conflict",
+              "unavailable",
+              "refused"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "status"
+        ],
+        "title": "CitationCheck",
+        "type": "object"
+      },
+      "CitationVerification": {
+        "additionalProperties": false,
+        "description": "Read-time custodian state of one retained revision's external citations.\n\nMirrors Forge ``forge_service.persistence.CitationVerification``\n(``GET /internal/v1/records/{record_id}/citations``). The retained record\nand its exact references are unchanged; ``retained`` is true only when\nevery external citation verified.",
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationCheck"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "record": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "retained": {
+            "title": "Retained",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "forge.citation-verification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "record",
+          "citations",
+          "retained"
+        ],
+        "title": "CitationVerification",
+        "type": "object"
+      },
       "ClaimEvidenceInput": {
         "additionalProperties": false,
         "properties": {
@@ -10966,6 +11036,31 @@
           "metering"
         ],
         "title": "EvaluationBinding",
+        "type": "object"
+      },
+      "Event": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 1.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "producer": {
+            "const": "forge",
+            "default": "forge",
+            "title": "Producer",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/Receipt"
+          }
+        },
+        "required": [
+          "cursor",
+          "receipt"
+        ],
+        "title": "Event",
         "type": "object"
       },
       "EvidenceReadiness": {
@@ -25563,6 +25658,78 @@
         "title": "ProducedResourceReferenceV1",
         "type": "object"
       },
+      "Producer": {
+        "additionalProperties": false,
+        "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authority": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Authority",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subject_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Subject Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority",
+          "subject_id"
+        ],
+        "title": "Producer",
+        "type": "object"
+      },
       "ProductUsageEventsRequest": {
         "properties": {
           "events": {
@@ -29245,10 +29412,10 @@
                 "log_entry": "#/components/schemas/LogEntry",
                 "report": "#/components/schemas/Report",
                 "research_log": "#/components/schemas/ResearchLog",
-                "resource_binding": "#/components/schemas/ResourceBinding",
-                "result": "#/components/schemas/Result",
+                "resource_binding": "#/components/schemas/ResourceBinding-Input",
+                "result": "#/components/schemas/Result-Input",
                 "review": "#/components/schemas/Review",
-                "scientific_export": "#/components/schemas/ScientificExport",
+                "scientific_export": "#/components/schemas/ScientificExport-Input",
                 "snapshot": "#/components/schemas/Snapshot",
                 "source_notice": "#/components/schemas/SourceNotice",
                 "trial": "#/components/schemas/Trial",
@@ -29270,7 +29437,7 @@
                 "$ref": "#/components/schemas/Trial"
               },
               {
-                "$ref": "#/components/schemas/Result"
+                "$ref": "#/components/schemas/Result-Input"
               },
               {
                 "$ref": "#/components/schemas/ResearchLog"
@@ -29291,13 +29458,13 @@
                 "$ref": "#/components/schemas/Snapshot"
               },
               {
-                "$ref": "#/components/schemas/ScientificExport"
+                "$ref": "#/components/schemas/ScientificExport-Input"
               },
               {
                 "$ref": "#/components/schemas/SourceNotice"
               },
               {
-                "$ref": "#/components/schemas/ResourceBinding"
+                "$ref": "#/components/schemas/ResourceBinding-Input"
               },
               {
                 "$ref": "#/components/schemas/WorkspaceBinding"
@@ -29803,6 +29970,53 @@
         "title": "QaCleanupReleasedGrant",
         "type": "object"
       },
+      "Receipt": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 1.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "payload_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Payload Digest Sha256",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "schema_version": {
+            "const": "forge.receipt.v1",
+            "default": "forge.receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "scope",
+          "operation_id",
+          "payload_digest_sha256",
+          "reference",
+          "cursor",
+          "recorded_at"
+        ],
+        "title": "Receipt",
+        "type": "object"
+      },
       "RecipientSource": {
         "description": "Which authority named a delivery job's recipient.",
         "enum": [
@@ -29811,6 +30025,110 @@
         ],
         "title": "RecipientSource",
         "type": "string"
+      },
+      "RecordRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "artifact": "#/components/schemas/Artifact",
+                "effort": "#/components/schemas/Effort",
+                "experiment": "#/components/schemas/Experiment",
+                "hypothesis": "#/components/schemas/Hypothesis",
+                "log_entry": "#/components/schemas/LogEntry",
+                "report": "#/components/schemas/Report",
+                "research_log": "#/components/schemas/ResearchLog",
+                "resource_binding": "#/components/schemas/ResourceBinding-Output",
+                "result": "#/components/schemas/Result-Output",
+                "review": "#/components/schemas/Review",
+                "scientific_export": "#/components/schemas/ScientificExport-Output",
+                "snapshot": "#/components/schemas/Snapshot",
+                "source_notice": "#/components/schemas/SourceNotice",
+                "trial": "#/components/schemas/Trial",
+                "workspace_binding": "#/components/schemas/WorkspaceBinding"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Effort"
+              },
+              {
+                "$ref": "#/components/schemas/Hypothesis"
+              },
+              {
+                "$ref": "#/components/schemas/Experiment"
+              },
+              {
+                "$ref": "#/components/schemas/Trial"
+              },
+              {
+                "$ref": "#/components/schemas/Result-Output"
+              },
+              {
+                "$ref": "#/components/schemas/ResearchLog"
+              },
+              {
+                "$ref": "#/components/schemas/LogEntry"
+              },
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "$ref": "#/components/schemas/Review"
+              },
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "$ref": "#/components/schemas/Snapshot"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificExport-Output"
+              },
+              {
+                "$ref": "#/components/schemas/SourceNotice"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBinding-Output"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceBinding"
+              }
+            ],
+            "title": "Payload"
+          },
+          "producer": {
+            "$ref": "#/components/schemas/Producer"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "scope",
+          "reference",
+          "payload",
+          "producer",
+          "operation_id",
+          "recorded_at"
+        ],
+        "title": "RecordRevision",
+        "type": "object"
       },
       "RecordUsageRequest": {
         "description": "Request to record usage for a session.",
@@ -31897,6 +32215,19 @@
         "title": "ResearchLog",
         "type": "object"
       },
+      "ResearchResultOutcome": {
+        "enum": [
+          "measured",
+          "failed",
+          "negative",
+          "null",
+          "inconclusive",
+          "interrupted",
+          "rejected"
+        ],
+        "title": "ResearchResultOutcome",
+        "type": "string"
+      },
       "ResolutionDecision": {
         "enum": [
           "accepted",
@@ -31955,7 +32286,103 @@
         "title": "ResolvedCredentialResponse",
         "type": "object"
       },
-      "ResourceBinding": {
+      "ResourceBinding-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "enum": [
+              "file",
+              "dataset",
+              "data_pool",
+              "model",
+              "checkpoint",
+              "evaluator",
+              "repository",
+              "workspace",
+              "image",
+              "deployment",
+              "pool",
+              "optimizer_job"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "resource_binding",
+            "default": "resource_binding",
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "splits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DatasetSplit"
+            },
+            "maxItems": 3,
+            "title": "Splits",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 128,
+            "title": "Usage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "category",
+          "title",
+          "resource",
+          "manifest"
+        ],
+        "title": "ResourceBinding",
+        "type": "object"
+      },
+      "ResourceBinding-Output": {
         "additionalProperties": false,
         "properties": {
           "admission": {
@@ -32237,7 +32664,137 @@
         "title": "ResourceRoutingPolicy",
         "type": "object"
       },
-      "Result": {
+      "Result-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "const": "result",
+            "default": "result",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "measurements": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Measurement"
+            },
+            "maxItems": 256,
+            "title": "Measurements",
+            "type": "array"
+          },
+          "missing_evidence": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Missing Evidence",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "measured",
+              "failed",
+              "negative",
+              "null",
+              "inconclusive",
+              "interrupted",
+              "rejected"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "scorer_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "trial": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Usage",
+            "type": "array"
+          },
+          "verification": {
+            "default": "unverified",
+            "enum": [
+              "unverified",
+              "producer_bound"
+            ],
+            "title": "Verification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trial",
+          "outcome"
+        ],
+        "title": "Result",
+        "type": "object"
+      },
+      "Result-Output": {
         "additionalProperties": false,
         "properties": {
           "evaluation": {
@@ -32817,6 +33374,21 @@
         ],
         "title": "RunInferenceRequest",
         "type": "object"
+      },
+      "RunLifecycleControlErrorCode": {
+        "enum": [
+          "already_in_state",
+          "already_terminal",
+          "terminal_run",
+          "run_finalizing",
+          "runtime_not_live",
+          "run_not_found",
+          "project_archived",
+          "lock_pressure",
+          "cleanup_in_progress"
+        ],
+        "title": "RunLifecycleControlErrorCode",
+        "type": "string"
       },
       "RunLifecycleEnqueueStatus": {
         "description": "Public route acknowledgement status, not run lifecycle authority.",
@@ -34501,7 +35073,7 @@
         "title": "SavedLoraUploadRequest",
         "type": "object"
       },
-      "ScientificExport": {
+      "ScientificExport-Input": {
         "additionalProperties": false,
         "properties": {
           "assets": {
@@ -34577,6 +35149,198 @@
           "exporter"
         ],
         "title": "ScientificExport",
+        "type": "object"
+      },
+      "ScientificExport-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/OutputAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/Credit"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "exporter": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "kind": {
+            "const": "scientific_export",
+            "default": "scientific_export",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Output Id",
+            "type": "string"
+          },
+          "proposed_public_sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 256,
+            "title": "Proposed Public Sources",
+            "type": "array"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Snapshots",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "output_id",
+          "snapshots",
+          "sources",
+          "assets",
+          "credits",
+          "recipe",
+          "exporter"
+        ],
+        "title": "ScientificExport",
+        "type": "object"
+      },
+      "ScientificWriterConflictDetail": {
+        "additionalProperties": true,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "scientific_writer_transferred",
+                  "transfer_fence_active",
+                  "provenance_unbound",
+                  "run_deployment_pins_missing"
+                ],
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/RunLifecycleControlErrorCode"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "title": "ScientificWriterConflictDetail",
+        "type": "object"
+      },
+      "ScientificWriterStateResponse": {
+        "properties": {
+          "fence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fence Id"
+          },
+          "forge_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forge Identity"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Digest Sha256"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WriterAuthorityState"
+          },
+          "transition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transition Id"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "state"
+        ],
+        "title": "ScientificWriterStateResponse",
         "type": "object"
       },
       "Scope": {
@@ -38637,6 +39401,18 @@
         "title": "SmrCapabilitiesResponse",
         "type": "object"
       },
+      "SmrConflictResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ScientificWriterConflictDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrConflictResponse",
+        "type": "object"
+      },
       "SmrCreateVisualReleaseRequest": {
         "properties": {
           "approval_authority": {
@@ -40910,6 +41686,15 @@
       "SmrExperimentBundleResponse": {
         "description": "One owner-assembled view of an experiment and all of its evidence.",
         "properties": {
+          "aggregate_scope": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "retained_subset"
+            ],
+            "title": "Aggregate Scope",
+            "type": "string"
+          },
           "artifact_index": {
             "items": {
               "additionalProperties": true,
@@ -40951,8 +41736,7 @@
           },
           "evaluations": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/SmrNativeExperimentEvaluationResponse"
             },
             "title": "Evaluations",
             "type": "array"
@@ -41020,10 +41804,26 @@
           },
           "trials": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/SmrNativeExperimentTrialResponse"
             },
             "title": "Trials",
+            "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "truncated_collections": {
+            "items": {
+              "enum": [
+                "trials",
+                "executions",
+                "evaluations"
+              ],
+              "type": "string"
+            },
+            "title": "Truncated Collections",
             "type": "array"
           },
           "updated_at": {
@@ -48931,6 +49731,17 @@
             ],
             "title": "Project Id"
           },
+          "stored_file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stored File Id"
+          },
           "sync_session_id": {
             "anyOf": [
               {
@@ -52346,6 +53157,146 @@
         ],
         "title": "SmrModelClass",
         "type": "string"
+      },
+      "SmrNativeExperimentEvaluationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "container_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Run Id"
+          },
+          "experiment_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Run Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ResearchResultOutcome",
+            "default": "measured"
+          },
+          "result_id": {
+            "title": "Result Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scorer_config_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Config Digest"
+          },
+          "scorer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Id"
+          },
+          "scorer_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Version"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "result_id",
+          "value"
+        ],
+        "title": "SmrNativeExperimentEvaluationResponse",
+        "type": "object"
+      },
+      "SmrNativeExperimentTrialResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "experiment_revision": {
+            "title": "Experiment Revision",
+            "type": "integer"
+          },
+          "experiment_run_id": {
+            "title": "Experiment Run Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_run_id",
+          "experiment_id",
+          "experiment_revision",
+          "run_id",
+          "role",
+          "created_at"
+        ],
+        "title": "SmrNativeExperimentTrialResponse",
+        "type": "object"
       },
       "SmrOauthStartResponse": {
         "properties": {
@@ -91292,6 +92243,16 @@
         ],
         "title": "WorkspacePushConfirmationReceipt",
         "type": "object"
+      },
+      "WriterAuthorityState": {
+        "enum": [
+          "native",
+          "fenced",
+          "forge_writer",
+          "reverted"
+        ],
+        "title": "WriterAuthorityState",
+        "type": "string"
       }
     }
   },
@@ -108236,6 +109197,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -124371,7 +125342,7 @@
     "/smr/projects/{project_id}/experiment-bundles": {
       "get": {
         "description": "Return experiment history and explicit missing-evidence alerts.",
-        "operationId": "list_project_experiment_bundles_smr_projects__project_id__experiment_bundles_get",
+        "operationId": "list_project_experiment_bundles",
         "parameters": [
           {
             "in": "path",
@@ -124538,7 +125509,7 @@
     "/smr/projects/{project_id}/experiments/compare": {
       "get": {
         "description": "Compare accepted experiments only across matching evidence dimensions.",
-        "operationId": "compare_project_experiments_smr_projects__project_id__experiments_compare_get",
+        "operationId": "compare_project_experiments",
         "parameters": [
           {
             "in": "path",
@@ -124703,7 +125674,7 @@
     "/smr/projects/{project_id}/experiments/{experiment_id}/bundle": {
       "get": {
         "description": "Return the owner-assembled experiment, evidence, and integrity view.",
-        "operationId": "get_project_experiment_bundle_smr_projects__project_id__experiments__experiment_id__bundle_get",
+        "operationId": "get_project_experiment_bundle",
         "parameters": [
           {
             "in": "path",
@@ -128774,7 +129745,7 @@
     },
     "/smr/projects/{project_id}/research/events": {
       "get": {
-        "operationId": "get_scientific_events_smr_projects__project_id__research_events_get",
+        "operationId": "get_scientific_events",
         "parameters": [
           {
             "in": "path",
@@ -128813,7 +129784,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Event"
+                  },
+                  "title": "Response Get Scientific Events Smr Projects  Project Id  Research Events Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -128838,7 +129815,7 @@
     "/smr/projects/{project_id}/research/execution-operations": {
       "post": {
         "description": "mloky (``intern``) or Orchestra (``swarm``) writes with its own service\ncredential under the admission it decided. The producer is the decision's\nexact ``producer_stamp`` (docs/contracts/admission.v1.md \u00a74.1, gap G15);\nunknown execution reference forms refuse ``binding_mismatch``.",
-        "operationId": "write_execution_record_smr_projects__project_id__research_execution_operations_post",
+        "operationId": "write_execution_record",
         "parameters": [
           {
             "in": "path",
@@ -128880,7 +129857,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
               }
             },
             "description": "Successful Response"
@@ -128904,7 +129883,7 @@
     },
     "/smr/projects/{project_id}/research/operations": {
       "post": {
-        "operationId": "write_scientific_record_smr_projects__project_id__research_operations_post",
+        "operationId": "write_scientific_record",
         "parameters": [
           {
             "in": "path",
@@ -128930,7 +129909,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
               }
             },
             "description": "Successful Response"
@@ -128954,7 +129935,7 @@
     },
     "/smr/projects/{project_id}/research/receipts/{operation_id}": {
       "get": {
-        "operationId": "get_scientific_receipt_smr_projects__project_id__research_receipts__operation_id__get",
+        "operationId": "get_scientific_receipt",
         "parameters": [
           {
             "in": "path",
@@ -128979,7 +129960,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
               }
             },
             "description": "Successful Response"
@@ -129003,7 +129986,7 @@
     },
     "/smr/projects/{project_id}/research/records": {
       "get": {
-        "operationId": "list_scientific_records_smr_projects__project_id__research_records_get",
+        "operationId": "list_scientific_records",
         "parameters": [
           {
             "in": "path",
@@ -129050,7 +130033,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecordRevision"
+                  },
+                  "title": "Response List Scientific Records Smr Projects  Project Id  Research Records Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -129074,7 +130063,7 @@
     },
     "/smr/projects/{project_id}/research/records/{record_id}": {
       "get": {
-        "operationId": "get_scientific_record_smr_projects__project_id__research_records__record_id__get",
+        "operationId": "get_scientific_record",
         "parameters": [
           {
             "in": "path",
@@ -129116,7 +130105,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRevision"
+                }
               }
             },
             "description": "Successful Response"
@@ -129140,7 +130131,7 @@
     },
     "/smr/projects/{project_id}/research/records/{record_id}/artifact": {
       "get": {
-        "operationId": "get_scientific_artifact_smr_projects__project_id__research_records__record_id__artifact_get",
+        "operationId": "get_scientific_artifact",
         "parameters": [
           {
             "in": "path",
@@ -129200,7 +130191,7 @@
     "/smr/projects/{project_id}/research/records/{record_id}/citations": {
       "get": {
         "description": "Read-only custodian state of a retained revision's external citations.\n\nDangling (deleted/retired), denied, conflicting or unavailable citations\nare reported explicitly; the retained record is never changed (R06).",
-        "operationId": "verify_scientific_record_citations_smr_projects__project_id__research_records__record_id__citations_get",
+        "operationId": "verify_scientific_record_citations",
         "parameters": [
           {
             "in": "path",
@@ -129242,7 +130233,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CitationVerification"
+                }
               }
             },
             "description": "Successful Response"
@@ -129259,6 +130252,49 @@
           }
         },
         "summary": "Verify Scientific Record Citations",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/writer-state": {
+      "get": {
+        "description": "Read current scope authority using the runtime-safe canonical reader.",
+        "operationId": "get_scientific_writer_state",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScientificWriterStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scientific Writer State",
         "tags": [
           "research"
         ]
@@ -130771,6 +131807,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -133184,6 +134230,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -133937,6 +134993,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -134549,6 +135615,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -137764,6 +138840,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -140208,6 +141294,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -140971,6 +142067,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -141592,6 +142698,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -142982,6 +144098,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -153010,6 +154136,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -154403,6 +155539,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -154970,6 +156116,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -156889,6 +158045,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -157638,6 +158804,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -158899,6 +160075,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -160318,6 +161504,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -160895,6 +162091,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -162786,6 +163992,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

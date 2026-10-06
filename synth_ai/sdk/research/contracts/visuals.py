@@ -25,6 +25,82 @@ from synth_ai.sdk.research.contracts.common import (
 )
 
 
+class VisualLifecycle(StrEnum):
+    ACTIVE = "active"
+    FROZEN = "frozen"
+    ARCHIVED = "archived"
+    DELETED = "deleted"
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalVisual:
+    """Logical Visual identity, separate from a rendered artifact version.
+
+    See backend SmrVisualLogicalResponse in public_api/v1/visuals.py.
+    """
+
+    visual_id: ArtifactId
+    org_id: str
+    project_id: ProjectId
+    title: str
+    lifecycle: VisualLifecycle
+    current_revision: JsonObject | None
+    revisions: tuple[JsonObject, ...]
+    releases: tuple[JsonObject, ...]
+    inaccessible_sources: bool
+    created_at: datetime
+    updated_at: datetime
+    resolved_revision: JsonObject | None = None
+    resolved_materialization_id: str | None = None
+    derivation: JsonObject | None = None
+    operation_receipts: tuple[JsonObject, ...] = ()
+    hosted_artifact_id: ArtifactId | None = None
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> LogicalVisual:
+        payload = object_value(value, operation_id="logical_visual")
+        inaccessible = payload.get("inaccessible_sources")
+        if not isinstance(inaccessible, bool):
+            raise ValueError("logical_visual.inaccessible_sources must be a boolean")
+
+        def optional_object(name: str) -> JsonObject | None:
+            item = payload.get(name)
+            return (
+                object_value(item, operation_id="logical_visual." + name)
+                if item is not None
+                else None
+            )
+
+        def objects(name: str) -> tuple[JsonObject, ...]:
+            return tuple(
+                object_value(item, operation_id="logical_visual." + name)
+                for item in array_value(
+                    payload.get(name, []), operation_id="logical_visual." + name
+                )
+            )
+
+        return cls(
+            visual_id=ArtifactId(required_text(payload, "visual_id")),
+            org_id=required_text(payload, "org_id"),
+            project_id=ProjectId(required_text(payload, "project_id")),
+            title=required_text(payload, "title"),
+            lifecycle=VisualLifecycle(required_text(payload, "lifecycle")),
+            current_revision=optional_object("current_revision"),
+            resolved_revision=optional_object("resolved_revision"),
+            resolved_materialization_id=optional_text(payload, "resolved_materialization_id"),
+            revisions=objects("revisions"),
+            releases=objects("releases"),
+            derivation=optional_object("derivation"),
+            operation_receipts=objects("operation_receipts"),
+            inaccessible_sources=inaccessible,
+            hosted_artifact_id=ArtifactId(payload["hosted_artifact_id"])
+            if payload.get("hosted_artifact_id") is not None
+            else None,
+            created_at=required_datetime(payload, "created_at"),
+            updated_at=required_datetime(payload, "updated_at"),
+        )
+
+
 class VisualStatus(StrEnum):
     """Lifecycle state of a Visual version."""
 
@@ -139,9 +215,13 @@ class Visual:
     evidence: VisualEvidencePayload | None = None
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> Visual:
+    def from_wire(cls, value: JsonValue) -> Visual | LogicalVisual:
         """Decode a Visual without admitting raw storage locations."""
         payload = object_value(value, operation_id="visual")
+        if "visual_id" in payload:
+            return LogicalVisual.from_wire(payload)
+        # COMPAT: rendered artifact versions retain the legacy Visual codec;
+        # retire with the artifact-version API, never synthesize missing fields.
         source_run_ids = tuple(
             SwarmId(required_text({"source_run_id": item}, "source_run_id"))
             for item in array_value(

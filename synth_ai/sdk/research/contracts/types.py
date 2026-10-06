@@ -472,6 +472,32 @@ def _reject_legacy_file_contract_fields(mapping: Mapping[str, object]) -> None:
 
 
 @dataclass(frozen=True)
+class OrgFile:
+    """Upload ID and selectable stored ID remain distinct (SYN-3990).
+
+    See backend launch_resource_inventory.md. Unbound uploads have no stored
+    identity; callers must never substitute file_id when selecting a launch.
+    """
+
+    file_id: str
+    name: str
+    project_id: str | None
+    stored_file_id: str | None
+    raw: dict[str, object] = field(default_factory=dict, repr=False)
+
+    @classmethod
+    def from_wire(cls, value: object) -> OrgFile:
+        wire = _require_mapping(value, label="org file")
+        return cls(
+            file_id=_require_string(wire, "file_id", label="org file"),
+            name=_require_string(wire, "name", label="org file"),
+            project_id=_optional_string(wire, "project_id"),
+            stored_file_id=_optional_string(wire, "stored_file_id"),
+            raw=dict(wire),
+        )
+
+
+@dataclass(frozen=True)
 class StoredFile:
     file_id: str
     org_id: str
@@ -2295,6 +2321,7 @@ __all__ = [
     "LaunchResourceReadiness",
     "SemanticProgressSnapshot",
     "StoredFile",
+    "OrgFile",
     "WorkspaceFileInput",
     "WorkspaceInputsState",
     "WorkspaceSourceRepo",

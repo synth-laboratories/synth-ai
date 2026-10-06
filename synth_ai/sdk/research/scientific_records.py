@@ -5,9 +5,12 @@ execution services directly. Explicit operation IDs survive uncertain responses.
 """
 
 import hashlib
+from typing import Literal
 from urllib.parse import quote
 
-from synth_ai.sdk.research.contracts.forge.contracts import contract_digest
+from pydantic import Field
+
+from synth_ai.sdk.research.contracts.forge.contracts import Contract, contract_digest
 from synth_ai.sdk.research.contracts.forge.operations import (
     Event,
     PublicWrite,
@@ -15,6 +18,31 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
+
+
+class ExecutionWriteRequest(Contract):
+    """An intent under an existing mloky/Orchestra producer admission.
+
+    Backend ExecutionWrite remains authoritative; this DTO cannot supply or
+    replace the producer stamp and native trial identity remains native.
+    """
+
+    organization_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    admission_id: str = Field(pattern=r"^adm_[0-9A-HJKMNP-TV-Z]{26}$")
+    write: PublicWrite
+
+
+class ScientificWriterState(Contract):
+    organization_id: str
+    project_id: str
+    state: Literal["native", "fenced", "forge_writer", "reverted"]
+    transition_id: str | None = None
+    fence_id: str | None = None
+    forge_identity: str | None = None
+    receipt_digest_sha256: str | None = None
 
 
 def _verified_bytes(record, content):
@@ -115,6 +143,30 @@ class ScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
 
+    def execution_write(self, project_id: str, request: ExecutionWriteRequest) -> Receipt:
+        """Write under an admitted execution; use its service credential.
+
+        No human stamp is synthesized. Null/negative outcomes remain ordinary
+        Result records with their declared evaluator/scorer references.
+        """
+        write = request.write
+        receipt = _receipt(
+            self._transport.request_json(
+                "POST",
+                _root(project_id) + "/execution-operations",
+                json_body=request.model_dump(mode="json"),
+                operation_id=write.operation_id,
+            ),
+            project_id,
+            write.operation_id,
+            payload=write.payload,
+            record_id=write.record_id,
+            expected_revision=write.expected_revision,
+        )
+        if receipt.scope.organization_id != request.organization_id:
+            raise ValueError("execution receipt belongs to a different organization")
+        return receipt
+
     def write(
         self,
         project_id: str,
@@ -138,6 +190,38 @@ class ScientificRecordsAPI:
             record_id=record_id,
             expected_revision=expected_revision,
         )
+
+    def writer_state(self, project_id: str) -> ScientificWriterState:
+        """Read the canonical scope writer without inferring it from refusals."""
+        result = ScientificWriterState.model_validate(
+            self._transport.request_json("GET", _root(project_id) + "/writer-state")
+        )
+        if result.project_id != project_id:
+            raise ValueError("writer state differs from requested project")
+        return result
+
+    def citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> CitationVerification:
+        """Read current custody for exact retained citations, without changing history."""
+        if revision is not None and (
+            isinstance(revision, bool) or not isinstance(revision, int) or revision < 1
+        ):
+            raise ValueError("citation revision must be a positive integer")
+        result = CitationVerification.model_validate(
+            self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/citations",
+                params={"revision": revision} if revision is not None else None,
+            )
+        )
+        if result.record.record_id != record_id or (
+            revision is not None and result.record.revision != str(revision)
+        ):
+            raise ValueError("citation verification differs from requested exact record")
+        if result.retained != all(check.status == "retained" for check in result.citations):
+            raise ValueError("citation verification retained flag contradicts custody checks")
+        return result
 
     def get(
         self, project_id: str, record_id: str, *, revision: int | None = None
@@ -194,6 +278,30 @@ class AsyncScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
 
+    async def execution_write(self, project_id: str, request: ExecutionWriteRequest) -> Receipt:
+        """Write under an admitted execution; use its service credential.
+
+        No human stamp is synthesized. Null/negative outcomes remain ordinary
+        Result records with their declared evaluator/scorer references.
+        """
+        write = request.write
+        receipt = _receipt(
+            await self._transport.request_json(
+                "POST",
+                _root(project_id) + "/execution-operations",
+                json_body=request.model_dump(mode="json"),
+                operation_id=write.operation_id,
+            ),
+            project_id,
+            write.operation_id,
+            payload=write.payload,
+            record_id=write.record_id,
+            expected_revision=write.expected_revision,
+        )
+        if receipt.scope.organization_id != request.organization_id:
+            raise ValueError("execution receipt belongs to a different organization")
+        return receipt
+
     async def write(
         self,
         project_id: str,
@@ -216,6 +324,38 @@ class AsyncScientificRecordsAPI:
             record_id=record_id,
             expected_revision=expected_revision,
         )
+
+    async def writer_state(self, project_id: str) -> ScientificWriterState:
+        """Read the canonical scope writer without inferring it from refusals."""
+        result = ScientificWriterState.model_validate(
+            await self._transport.request_json("GET", _root(project_id) + "/writer-state")
+        )
+        if result.project_id != project_id:
+            raise ValueError("writer state differs from requested project")
+        return result
+
+    async def citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> CitationVerification:
+        """Read current custody for exact retained citations, without changing history."""
+        if revision is not None and (
+            isinstance(revision, bool) or not isinstance(revision, int) or revision < 1
+        ):
+            raise ValueError("citation revision must be a positive integer")
+        result = CitationVerification.model_validate(
+            await self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/citations",
+                params={"revision": revision} if revision is not None else None,
+            )
+        )
+        if result.record.record_id != record_id or (
+            revision is not None and result.record.revision != str(revision)
+        ):
+            raise ValueError("citation verification differs from requested exact record")
+        if result.retained != all(check.status == "retained" for check in result.citations):
+            raise ValueError("citation verification retained flag contradicts custody checks")
+        return result
 
     async def get(
         self, project_id: str, record_id: str, *, revision: int | None = None
