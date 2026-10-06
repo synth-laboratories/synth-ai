@@ -22119,6 +22119,131 @@
         "title": "SmrOpenEndedQuestionInlineCreateRequest",
         "type": "object"
       },
+      "SmrOrchestraActionAnswerRequest": {
+        "additionalProperties": false,
+        "description": "Answer one Orchestra ``pending_questions[]`` action (``action_answer``).",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "response_text": {
+            "minLength": 1,
+            "title": "Response Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "response_text"
+        ],
+        "title": "SmrOrchestraActionAnswerRequest",
+        "type": "object"
+      },
+      "SmrOrchestraOperationReceiptResponse": {
+        "additionalProperties": false,
+        "description": "Orchestra's write receipt for a public answer/steer (HTTP 202).\n\n``status`` is Orchestra's: ``accepted`` for a new write, ``duplicate`` for\na replay of the same ``operation_id`` with the same request.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "control_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Seq"
+          },
+          "interaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interaction Id"
+          },
+          "kind": {
+            "enum": [
+              "action_answer",
+              "steer"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "operation_id": {
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "duplicate"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "operation_id",
+          "kind",
+          "status"
+        ],
+        "title": "SmrOrchestraOperationReceiptResponse",
+        "type": "object"
+      },
+      "SmrOrchestraSteerRequest": {
+        "additionalProperties": false,
+        "description": "Steer an orchestra-authority run (Orchestra ``RunControl::Steer``).",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "SmrOrchestraSteerRequest",
+        "type": "object"
+      },
       "SmrPatchVisualRequest": {
         "properties": {
           "summary": {
@@ -50558,6 +50683,78 @@
         ]
       }
     },
+    "/smr/runs/{run_id}/actions/{action_id}/answer": {
+      "post": {
+        "description": "Answer an Orchestra ``pending_questions[]`` action on an orchestra run.",
+        "operationId": "answer_run_action",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrOrchestraActionAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrOrchestraOperationReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Run not found in the caller's organization."
+          },
+          "409": {
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "orchestra_in_doubt | orchestra_unavailable (retryable)"
+          }
+        },
+        "summary": "Answer Run Action",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/runs/{run_id}/activity": {
       "get": {
         "description": "Return typed bounded execution activity for a swarm.",
@@ -52045,6 +52242,68 @@
           }
         },
         "summary": "Get Swarm Status",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/steer": {
+      "post": {
+        "description": "Steer an orchestra-authority run (Orchestra ``RunControl::Steer``).",
+        "operationId": "steer_run",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrOrchestraSteerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrOrchestraOperationReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Run not found in the caller's organization."
+          },
+          "409": {
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "orchestra_in_doubt | orchestra_unavailable (retryable)"
+          }
+        },
+        "summary": "Steer Run",
         "tags": [
           "smr"
         ]

@@ -428,6 +428,7 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     RuntimeWorkersSnapshot,
     SwarmRuntimeSnapshot,
 )
+from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
 from synth_ai.sdk.research.contracts.swarms import (
     ActiveActorModel,
     ActorHarness,
@@ -610,6 +611,7 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "SwarmControlReceipt",
     "AiCacheMode",
     "AiCachePolicy",
     "ActiveActorModel",
