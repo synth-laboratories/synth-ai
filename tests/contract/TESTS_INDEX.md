@@ -25,7 +25,9 @@ current candidate. Green laws moved to contract suites with finding IDs retained
 | SYN-4007 | MX10/RR12; 14 real handler laws, all 333 tool boundary, installed wheel, testing SDK version guard | green source checkpoint | installed stdio and final promotion |
 | SYN-4008 | MX04/05/09/PR17; current producer snapshot equality, routes, reviewed metadata dispositions | green source checkpoint | final source pin/provenance |
 | SYN-4009 | EX02–20; transport/stream/pagination contracts, canonical Forge strict measurements | green source | final promotion |
-| SYN-3937 (resumed) | RW09; backend `test_forge_discrepancy_law.py` Intern provenance | known red | owner-approved to resume; genuine Intern acceptance pending |
+| SYN-3937 (resumed) | RW09; exact Intern producer/Task custody contracts and PG proof | green source | actual admitted Intern/SDK/MCP/FG08 journey pending |
+
+Native runtime attachments remain native; immutable delivery intents bind them to exact Forge Experiment revisions. Source/PG tests cover lost replies, scoped references and outer rollback; live acceptance remains distinct.
 
 Current receipts: `artifacts/forge-bugfixes-20261006/`; released launch/Orchestra
 receipts: `artifacts/orchestra-discrepancy-unblock-20261006/`. Test counts from

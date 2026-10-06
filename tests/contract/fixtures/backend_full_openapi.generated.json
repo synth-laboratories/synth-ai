@@ -11133,6 +11133,30 @@
       },
       "ExactReference": {
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "record_id": {
+                  "pattern": "^intern-exec:"
+                }
+              },
+              "required": [
+                "record_id"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority": {
+                  "const": "mloky"
+                },
+                "kind": {
+                  "const": "mloky_execution"
+                }
+              }
+            }
+          }
+        ],
         "properties": {
           "authority": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -11150,7 +11174,7 @@
             "type": "string"
           },
           "record_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
             "title": "Record Id",
             "type": "string"
           },
@@ -22061,6 +22085,682 @@
           "principal_id"
         ],
         "title": "MqOrchestrateRequest",
+        "type": "object"
+      },
+      "NativeAttachmentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/NativeAttachmentRead"
+            },
+            "maxItems": 1000,
+            "title": "Attachments",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "attachments",
+          "truncated"
+        ],
+        "title": "NativeAttachmentPage",
+        "type": "object"
+      },
+      "NativeAttachmentRead": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment": {
+            "$ref": "#/components/schemas/NativeScientificAttachment"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Receipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "attached"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment",
+          "status"
+        ],
+        "title": "NativeAttachmentRead",
+        "type": "object"
+      },
+      "NativeResultPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "candidate_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Kind"
+          },
+          "candidate_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Label"
+          },
+          "caveats": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caveats"
+          },
+          "comparison_cohort_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparison Cohort Key"
+          },
+          "comparison_missing_dimensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Comparison Missing Dimensions",
+            "type": "array"
+          },
+          "container_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Digest"
+          },
+          "container_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Name"
+          },
+          "container_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Run Id"
+          },
+          "container_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Version"
+          },
+          "cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Cents"
+          },
+          "dataset_or_task_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Or Task Set Id"
+          },
+          "dataset_or_task_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Or Task Set Version"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "eval_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Profile Id"
+          },
+          "eval_profile_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Profile Version"
+          },
+          "evaluation_mode": {
+            "enum": [
+              "live",
+              "mock",
+              "fixture",
+              "offline_fallback"
+            ],
+            "title": "Evaluation Mode",
+            "type": "string"
+          },
+          "evidence_grade": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Grade"
+          },
+          "example_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Example Ids",
+            "type": "array"
+          },
+          "experiment_run_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Run Id"
+          },
+          "experiment_run_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intervention_receipt": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Intervention Receipt",
+            "type": "object"
+          },
+          "kind": {
+            "const": "native_result",
+            "default": "native_result",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lifecycle_success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Success"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metric": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "metric_direction": {
+            "default": "higher_is_better",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Metric Direction",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ResearchResultOutcome",
+            "default": "measured"
+          },
+          "per_example_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Example Artifact Id"
+          },
+          "per_example_artifact_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Example Artifact Path"
+          },
+          "reviewer_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Notes"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "sample_size": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Size"
+          },
+          "scientific_status": {
+            "enum": [
+              "scientific",
+              "non_scientific_smoke"
+            ],
+            "title": "Scientific Status",
+            "type": "string"
+          },
+          "scorer_config_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Config Digest"
+          },
+          "seed_set": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seed Set",
+            "type": "array"
+          },
+          "split_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Name"
+          },
+          "summary_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Artifact Id"
+          },
+          "summary_artifact_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Artifact Path"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "taskset_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taskset Seed"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens"
+          },
+          "truth_status": {
+            "default": "observed",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Truth Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verifier_or_scorer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Or Scorer Id"
+          },
+          "verifier_or_scorer_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Or Scorer Version"
+          },
+          "verifier_success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Success"
+          },
+          "wall_time_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wall Time Seconds"
+          }
+        },
+        "required": [
+          "evaluation_mode",
+          "scientific_status",
+          "intervention_receipt",
+          "metric",
+          "value"
+        ],
+        "title": "NativeResultPayload",
+        "type": "object"
+      },
+      "NativeRunLinkPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "native_run_link",
+            "default": "native_run_link",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "role": {
+            "default": "primary",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "source_role": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "source_role"
+        ],
+        "title": "NativeRunLinkPayload",
+        "type": "object"
+      },
+      "NativeScientificAttachment": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "native_result": "#/components/schemas/NativeResultPayload",
+                "native_run_link": "#/components/schemas/NativeRunLinkPayload"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NativeRunLinkPayload"
+              },
+              {
+                "$ref": "#/components/schemas/NativeResultPayload"
+              }
+            ],
+            "title": "Payload"
+          },
+          "producer": {
+            "$ref": "#/components/schemas/Producer"
+          },
+          "schema_version": {
+            "const": "smr.forge_native_attachment.v1",
+            "default": "smr.forge_native_attachment.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "scope",
+          "experiment",
+          "producer",
+          "payload"
+        ],
+        "title": "NativeScientificAttachment",
         "type": "object"
       },
       "NotebookEconomics": {
@@ -35392,6 +36092,17 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "mutation_applied": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mutation Applied"
           },
           "retryable": {
             "default": false,
@@ -130412,6 +131123,87 @@
           }
         },
         "summary": "Verify Scientific Record Citations",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/records/{record_id}/native-attachments": {
+      "get": {
+        "description": "Independently read typed native evidence and pending delivery state.",
+        "operationId": "get_native_scientific_attachments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAttachmentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Native Scientific Attachments",
         "tags": [
           "research"
         ]
