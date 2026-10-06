@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.sdk.research.contracts._wire import object_value
@@ -119,6 +119,17 @@ class SwarmHistoryPage:
     after: int
     entries: tuple[SwarmHistoryEntry, ...]
     next_after: int | None
+
+    def to_wire(self) -> JsonObject:
+        """Return the validated backend page shape without altering wire values."""
+        return {
+            "schema_version": "orchestra.journal_inspection.v1",
+            "run_id": str(self.swarm_id),
+            "head_sequence": self.head_sequence,
+            "after": self.after,
+            "entries": [asdict(entry) for entry in self.entries],
+            "next_after": self.next_after,
+        }
 
     @classmethod
     def from_wire(

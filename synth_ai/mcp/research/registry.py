@@ -98,6 +98,7 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_get_run": READ_SCOPES,
     "research_get_swarm_activity": READ_SCOPES,
     "research_get_swarm_configuration": READ_SCOPES,
+    "research_get_run_history": READ_SCOPES,
     "research_get_swarm_evidence": READ_SCOPES,
     "research_get_swarm_usage": READ_SCOPES,
     "research_get_run_execution": READ_SCOPES,
