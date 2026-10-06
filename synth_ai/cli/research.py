@@ -138,31 +138,79 @@ def swarms() -> None:
     """Create and observe stable Research swarms."""
 
 
+class LaunchMode(click.ParamType):
+    name = "live|dry_run"
+
+    def convert(self, value, param, context):
+        if value not in {"live", "dry_run"}:
+            self.fail("launch_input_mode_invalid: provenance_mode", param, context)
+        return value
+
+
+class LaunchBudget(click.ParamType):
+    name = "USD"
+
+    def convert(self, value, param, context):
+        import math
+
+        try:
+            amount = float(value)
+        except (ValueError, TypeError):
+            self.fail("launch_input_budget_invalid: budget_limit_usd", param, context)
+        if not math.isfinite(amount) or amount < 0:
+            self.fail("launch_input_budget_invalid: budget_limit_usd", param, context)
+        return amount
+
+
 @swarms.command("start")
 @click.option("--objective", required=True, help="Bounded objective for the swarm.")
-@click.option("--timebox-seconds", type=int, default=900, show_default=True)
+@click.option("--timebox-seconds", type=click.IntRange(min=1), default=900, show_default=True)
+@click.option("--deployment-pins", required=True, help="Deployment receipt JSON file.")
+@click.option("--provenance-mode", type=LaunchMode(), required=True)
+@click.option("--resource-bindings", required=True, help="Explicit resource inventory JSON file.")
+@click.option("--budget-limit-usd", type=LaunchBudget(), required=True)
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
 def swarms_start(
     objective: str,
     timebox_seconds: int,
+    deployment_pins: str,
+    provenance_mode: str,
+    resource_bindings: str,
+    budget_limit_usd: float,
     api_key: str | None,
     backend_url: str | None,
 ) -> None:
     """Create one swarm and print its durable identity."""
     from synth_ai import SynthClient
+    from synth_ai.cli.utils.research_launch import LaunchInputRefusalError, parse_launch_inputs
     from synth_ai.sdk.research.public import SwarmSpec
+
+    try:
+        inputs = parse_launch_inputs(
+            pins_path=deployment_pins,
+            resources_path=resource_bindings,
+            provenance_mode=provenance_mode,
+            budget_limit_usd=budget_limit_usd,
+        )
+        spec = SwarmSpec(
+            objective=objective,
+            timebox_seconds=timebox_seconds,
+            deployment_pins=inputs.deployment_pins,
+            provenance_mode=inputs.provenance_mode,
+            resource_bindings=inputs.resource_bindings,
+            limit=inputs.limit,
+        )
+    except LaunchInputRefusalError as error:
+        raise click.ClickException(str(error)) from error
+    except ValueError as error:
+        raise click.ClickException("launch_input_value_invalid: swarm specification") from error
 
     with SynthClient(
         api_key=_resolve_api_key(api_key),
         base_url=_resolve_backend_url(backend_url),
     ) as client:
-        handle = client.research.swarms.create(
-            SwarmSpec(
-                objective=objective,
-                timebox_seconds=timebox_seconds,
-            )
-        )
+        handle = client.research.swarms.create(spec)
         click.echo(
             json.dumps(
                 {
