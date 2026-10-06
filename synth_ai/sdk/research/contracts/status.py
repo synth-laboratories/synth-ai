@@ -353,6 +353,71 @@ class SwarmStatusFreshness:
 
 
 @dataclass(frozen=True, slots=True)
+class SwarmPendingAction:
+    """One unanswered native action question; answer it with ``answer_action``.
+
+    # See: openapi/research-v1.json SmrSwarmStatusPendingQuestionResponse
+    """
+
+    action_id: str
+    execution_id: str
+    question_text: str | None = None
+    question_text_ref: JsonObject | None = None
+    asked_at: datetime | None = None
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmPendingAction:
+        payload = object_value(value, operation_id="swarm pending action")
+        required = {"action_id", "execution_id"}
+        allowed = required | {"question_text", "question_text_ref", "asked_at"}
+        if required - payload.keys() or payload.keys() - allowed:
+            raise ValueError(
+                "swarm pending action fields drifted: "
+                f"missing={sorted(required - payload.keys())!r} "
+                f"extra={sorted(payload.keys() - allowed)!r}"
+            )
+        reference = payload.get("question_text_ref")
+        if reference is not None and not isinstance(reference, dict):
+            raise ValueError("question_text_ref must be an object or null")
+        return cls(
+            required_text(payload, "action_id"),
+            required_text(payload, "execution_id"),
+            optional_text(payload, "question_text"),
+            reference,
+            _optional_datetime(payload, "asked_at"),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "action_id": self.action_id,
+            "execution_id": self.execution_id,
+            "question_text": self.question_text,
+            "question_text_ref": self.question_text_ref,
+            "asked_at": None if self.asked_at is None else self.asked_at.isoformat(),
+        }
+
+
+_STATUS_FIELDS = frozenset(
+    {
+        "schema_version",
+        "run_id",
+        "project_id",
+        "state",
+        "liveness",
+        "terminal",
+        "finalization",
+        "recovery",
+        "progress",
+        "issues",
+        "failure",
+        "freshness",
+    }
+)
+# Orchestra-authority runs carry unanswered actions; older backends omit the key.
+_STATUS_OPTIONAL_FIELDS = frozenset({"pending_questions"})
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmStatus:
     """Cheap authoritative swarm status without actors/tasks/messages."""
 
@@ -368,29 +433,19 @@ class SwarmStatus:
     failure: SwarmStatusFailure
     freshness: SwarmStatusFreshness
     schema_version: int = 1
+    pending_actions: tuple[SwarmPendingAction, ...] = ()
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmStatus:
-        payload = _exact(
-            value,
-            label="retrieve_swarm_status",
-            fields=frozenset(
-                {
-                    "schema_version",
-                    "run_id",
-                    "project_id",
-                    "state",
-                    "liveness",
-                    "terminal",
-                    "finalization",
-                    "recovery",
-                    "progress",
-                    "issues",
-                    "failure",
-                    "freshness",
-                }
-            ),
-        )
+        payload = object_value(value, operation_id="retrieve_swarm_status")
+        present = payload.keys() - _STATUS_OPTIONAL_FIELDS
+        missing, extra = _STATUS_FIELDS - present, present - _STATUS_FIELDS
+        if missing or extra:
+            raise ValueError(
+                "retrieve_swarm_status fields drifted: "
+                f"missing={sorted(missing)!r} extra={sorted(extra)!r}"
+            )
+        pending = payload.get("pending_questions")
         schema_version = payload["schema_version"]
         if schema_version != 1:
             raise ValueError(f"unsupported swarm status schema_version {schema_version!r}")
@@ -407,6 +462,14 @@ class SwarmStatus:
             SwarmStatusFailure.from_wire(payload["failure"]),
             SwarmStatusFreshness.from_wire(payload["freshness"]),
             1,
+            tuple(
+                SwarmPendingAction.from_wire(item)
+                for item in (
+                    []
+                    if pending is None
+                    else array_value(pending, operation_id="swarm status pending_questions")
+                )
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -496,10 +559,12 @@ class SwarmStatus:
                 ),
                 "generated_at": self.freshness.generated_at.isoformat(),
             },
+            "pending_questions": [item.to_wire() for item in self.pending_actions],
         }
 
 
 __all__ = [
+    "SwarmPendingAction",
     "SwarmStatus",
     "SwarmStatusFailure",
     "SwarmStatusFinalization",

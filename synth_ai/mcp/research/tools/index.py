@@ -40,6 +40,7 @@ from synth_ai.sdk.index.public_search import (
 from synth_ai.sdk.index.search import (
     ContentsSpec,
     SearchBillingConstraints,
+    SearchFilters,
     SearchMode,
     SearchResult,
     SearchSpec,
@@ -91,6 +92,15 @@ class IndexSearchRequest(IndexContract):
         description="fast answers synchronously; deep is admitted and polled to completion.",
     )
     max_results: Annotated[StrictInt, Field(ge=1, le=10)] | None = None
+    filters: SearchFilters | None = Field(
+        default=None,
+        description=(
+            "Registered Contribution keywords: tags_any matches any, tags_all matches "
+            "every, tags_none excludes any. Keywords do not grant access; restricted "
+            "testing Contributions require explicit positive selection and a current "
+            "operator-authorized testing organization."
+        ),
+    )
     idempotency_key: str | None = Field(
         default=None,
         min_length=1,
@@ -124,10 +134,12 @@ class SearchEventsRequest(SearchIdentityRequest):
 
 class ContributionRequest(IndexContract):
     contribution_id: Identifier
+    search_id: Identifier | None = None
 
 
 class RevisionRequest(IndexContract):
     reference: ContributionReference
+    search_id: Identifier | None = None
 
 
 class DraftCreateRequest(IndexContract):
@@ -246,6 +258,7 @@ def build_index_tools(
                 query=request.query,
                 mode=request.mode,
                 max_results=request.max_results,
+                filters=request.filters,
                 billing=SearchBillingConstraints(
                     allow_wallet=True, max_charge_cents=grant.max_charge_cents
                 ),
@@ -278,6 +291,7 @@ def build_index_tools(
                 request.query,
                 mode=request.mode,
                 max_results=request.max_results,
+                filters=request.filters,
                 idempotency_key=request.idempotency_key,
                 wait=True,
                 timeout_s=DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
@@ -341,12 +355,24 @@ def build_index_tools(
     def contribution(arguments: JSONDict) -> JSONDict:
         request = ContributionRequest.model_validate(arguments)
         with client_factory() as client:
-            return client.contributions.retrieve(request.contribution_id).model_dump(mode="json")
+            params = {}
+            if request.search_id is not None:
+                if not isinstance(client, IndexAPI):
+                    raise ValueError("A testing Search receipt requires an API key")
+                params["search_id"] = request.search_id
+            return client.contributions.retrieve(request.contribution_id, **params).model_dump(
+                mode="json"
+            )
 
     def status(arguments: JSONDict) -> JSONDict:
         request = RevisionRequest.model_validate(arguments)
         with client_factory() as client:
-            return client.contributions.revisions.retrieve(request.reference).model_dump(
+            params = {}
+            if request.search_id is not None:
+                if not isinstance(client, IndexAPI):
+                    raise ValueError("A testing Search receipt requires an API key")
+                params["search_id"] = request.search_id
+            return client.contributions.revisions.retrieve(request.reference, **params).model_dump(
                 mode="json"
             )
 

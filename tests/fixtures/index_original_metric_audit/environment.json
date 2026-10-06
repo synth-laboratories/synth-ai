@@ -1,0 +1,8 @@
+{
+  "python": "3.13.14",
+  "dependencies": "Python standard library only",
+  "network": "none required",
+  "provider_budget_usd": 0,
+  "brief_id": "synthetic-metric-audit",
+  "source_sha": "969a0fa317c1be9599cb991d045eaecd96e7d8a1"
+}

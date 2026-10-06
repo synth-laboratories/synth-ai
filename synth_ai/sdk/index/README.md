@@ -172,6 +172,92 @@ environment, and it refuses keyed-only options (`--api-key`,
 
 ## Anonymous public browse and keyed (paid) search
 
+### Contribution keyword filters
+
+Keywords use the existing tag registry (`index.tags.list()`), including aliases
+resolved to canonical tag IDs by the backend. The Search pins the registry
+version used to resolve its filters. `SearchFilters.tags_any` requires at least one selected
+tag; `tags_all` requires every selected tag; `tags_none` excludes any selected
+tag. The three constraints combine with AND and apply before retrieval in both
+FAST and DEEP. Each list accepts at most ten distinct identifiers. Contradictory
+inclusion/exclusion is rejected. Unknown or inactive tags are rejected by the
+backend before execution.
+
+```python
+from synth_ai.sdk.index import SearchFilters
+
+# Add this argument to keyed search(...) or anonymous public_search(...).
+filters = SearchFilters(tags_any=("optimization",), tags_none=("obsolete",))
+```
+
+The identifiers above are examples; select active identifiers from the registry.
+The CLI mirrors these fields with repeatable `--tag-any`, `--tag-all`, and
+`--tag-none` options on `index search` and `index searches create`. MCP
+`index_search` accepts `filters`; `index_private_search` and
+`index_search_create` accept the same filters inside their `search` intent.
+
+Restricted testing material requires an authenticated organization with a live
+operator grant, existing Artifact read authorization, explicit private collection
+selection, and positive selection of its required keyword:
+
+```python
+from synth_ai.sdk.index import SearchBillingConstraints, SearchSpec
+from synth_ai.sdk.index.search import SearchScope
+
+intent = SearchSpec(
+    query="Compare the Cybernetics evidence",
+    scope=SearchScope(visibility="private", collection_ids=(testing_collection_id,)),
+    filters=SearchFilters(tags_all=("cybernetics",)),
+    billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=charge_ceiling),
+)
+result = synth.index.search(intent, idempotency_key=saved_request_key)
+```
+
+`testing_collection_id`, `charge_ceiling`, and `saved_request_key` come from your
+authorized collection and funding configuration. The query text alone does not
+opt in; the required keyword must be in `tags_any` or `tags_all`. Keywords never
+grant access. Operator restrictions survive author tag edits, and reads recheck
+current access. Restricted testing material is excluded from public search and
+public discovery. Removing an operator grant revokes access. Keyword selection
+and reader MCP tools cannot mint these grants. Frozen experiment membership remains a separate
+server-side concern; mutable keyword selection does not freeze an experiment.
+
+Operators with the dedicated `testing_corpus_admin` capability configure a
+testing corpus independently of author-editable tags. The backend routes are:
+
+| Operation | Route (under `/api/v1/index`) |
+| --- | --- |
+| Create corpus | `POST /testing-corpora` with `corpus_key`, `required_tag`, `reason` |
+| Bind exact sealed revision | `POST /testing-corpora/{corpus_id}/contributions/{contribution_id}/revisions/{revision_id}` with `reason` |
+| Grant testing organization | `POST /testing-corpora/{corpus_id}/organizations/{org_id}/grants` with `reason`, optional `expires_at` |
+| Revoke organization grant | `POST /testing-corpora/grants/{grant_id}/revoke` with `reason` |
+| Disable corpus | `POST /testing-corpora/{corpus_id}/disable` with `reason` |
+
+Membership binds an exact Contribution revision in a committed private/org
+Artifact collection. Operators separately provision Artifact read access and
+provide the selected collection IDs to testing organizations. A testing grant
+does not replace Artifact authorization or the explicit collection selection.
+Registry keywords are metadata; the operator policy enforces isolation even if
+an author changes or removes a keyword. Corpus disabling, expired grants and
+revocations are checked again when reading a saved Search.
+
+For restricted citations, reuse the delivered Search ID on subsequent reads:
+
+```python
+reference = result.citations[0]
+revision = synth.index.contributions.revisions.retrieve(reference, search_id=result.search_id)
+contents = synth.index.contents.retrieve(references=(reference,), search_id=result.search_id)
+# The same optional search_id is accepted by contributions.retrieve(),
+# contributions.assessments.list(), and contributions.assets.retrieve().
+```
+
+The receipt is required for testing-corpus readers; it grants no authority by
+itself. Existing reads omit the optional query parameter. MCP
+`index_get_contribution` and `index_contribution_status` accept `search_id` for
+authenticated readers; `index_get_contents` already accepts it. The CLI exposes
+the receipt as `index contribution status ... --search-id ID`. Raw Artifact
+manifest/asset URLs also accept `?search_id=ID`, under their existing authorization.
+
 Reading public capabilities, tags, and a known published Contribution ID needs
 no account or API key:
 
