@@ -55924,7 +55924,7 @@
             "description": "Run not found in the caller's organization."
           },
           "409": {
-            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived | run_stop_requested"
           },
           "422": {
             "content": {
@@ -57574,7 +57574,7 @@
             "description": "Run not found in the caller's organization."
           },
           "409": {
-            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived | run_stop_requested"
           },
           "422": {
             "content": {
