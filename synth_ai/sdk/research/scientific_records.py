@@ -18,6 +18,7 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.contracts.native_attachment import NativeAttachmentPage
 from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
 from synth_ai.sdk.research.errors import ResearchOutcomeUncertainError
 
@@ -225,6 +226,22 @@ class ScientificRecordsAPI:
             expected_revision=expected_revision,
         )
 
+    def native_attachments(
+        self, project_id: str, record_id: str, *, limit: int = 100, after: str | None = None
+    ) -> NativeAttachmentPage:
+        """Read native-owned execution evidence with explicit pending/attached state."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("native evidence limit must be 1 through 1000")
+        return _native_attachment_page(
+            self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/native-attachments",
+                params={"limit": limit, **({"after": after} if after is not None else {})},
+            ),
+            project_id,
+            record_id,
+        )
+
     def writer_state(self, project_id: str) -> ScientificWriterState:
         """Read the canonical scope writer without inferring it from refusals."""
         result = ScientificWriterState.model_validate(
@@ -358,6 +375,22 @@ class AsyncScientificRecordsAPI:
             expected_revision=expected_revision,
         )
 
+    async def native_attachments(
+        self, project_id: str, record_id: str, *, limit: int = 100, after: str | None = None
+    ) -> NativeAttachmentPage:
+        """Read exact native evidence without inferring delivery from accepted intent."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("native evidence limit must be 1 through 1000")
+        return _native_attachment_page(
+            await self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/native-attachments",
+                params={"limit": limit, **({"after": after} if after is not None else {})},
+            ),
+            project_id,
+            record_id,
+        )
+
     async def writer_state(self, project_id: str) -> ScientificWriterState:
         """Read the canonical scope writer without inferring it from refusals."""
         result = ScientificWriterState.model_validate(
@@ -441,3 +474,55 @@ class AsyncScientificRecordsAPI:
             "GET", _root(project_id) + "/events", params={"after": after, "limit": limit}
         )
         return _events(events, project_id, after, limit)
+
+
+def _native_attachment_page(document, project_id, record_id):
+    from synth_ai.core.errors import (
+        RetryDirective,
+        SynthErrorCategory,
+        SynthErrorCode,
+        SynthFailure,
+    )
+
+    from .errors import ResearchApiError
+
+    try:
+        page = NativeAttachmentPage.model_validate(document)
+        if any(
+            item.attachment.scope.project_id != project_id
+            or item.attachment.experiment.record_id != record_id
+            or (
+                item.receipt is not None
+                and (
+                    item.receipt.scope != item.attachment.scope
+                    or item.receipt.reference.record_id != record_id
+                    or item.receipt.reference.kind != "experiment"
+                    or item.receipt.reference.revision
+                    != str(int(item.attachment.experiment.revision) + 1)
+                )
+            )
+            for item in page.attachments
+        ):
+            raise ValueError("native evidence scope/canonical receipt identity differs")
+        if page.truncated != (page.next_cursor is not None):
+            raise ValueError("native evidence continuation identity differs")
+        return page
+    except (ValueError, TypeError) as error:
+        message = "Native evidence response violates its producer contract"
+        raise ResearchApiError(
+            message,
+            status_code=200,
+            operation_id="get_native_scientific_attachments",
+            cause=[{"kind": type(error).__name__}],
+            failure=SynthFailure(
+                code=SynthErrorCode("schema_integrity_conflict"),
+                category=SynthErrorCategory.CONTRACT_MISMATCH,
+                operation="get_native_scientific_attachments",
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=200,
+                detail=message,
+                reason="native_attachment_wire_contract",
+            ),
+        ) from None
