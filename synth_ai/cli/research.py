@@ -196,6 +196,29 @@ def swarms_configuration(
         click.echo(json.dumps(configuration.to_wire(), indent=2, sort_keys=True))
 
 
+@swarms.command("history")
+@click.argument("swarm_id")
+@click.option("--after", type=click.IntRange(0, 2**64 - 1), default=0, show_default=True)
+@click.option("--limit", type=click.IntRange(1, 256), default=100, show_default=True)
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def swarms_history(
+    swarm_id: str, after: int, limit: int, api_key: str | None, backend_url: str | None
+) -> None:
+    """Print a backend-authorized page of canonical journal history.
+
+    # See: backend/packages/smr/contracts/public_api/v1/run_history.py
+    """
+    from synth_ai import SynthClient
+    from synth_ai.sdk.research.public import SwarmId
+
+    with SynthClient(
+        api_key=_resolve_api_key(api_key), base_url=_resolve_backend_url(backend_url)
+    ) as client:
+        page = client.research.swarms.history(SwarmId(swarm_id), after=after, limit=limit)
+        click.echo(json.dumps(page.to_wire(), indent=2, sort_keys=True))
+
+
 @swarms.command("usage")
 @click.argument("swarm_id")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
