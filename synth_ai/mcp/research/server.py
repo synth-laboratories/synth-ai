@@ -16,6 +16,7 @@ from synth_ai.mcp.research.objective_tools import (
     objective_tool_operation_from_wire,
 )
 from synth_ai.mcp.research.registry import (
+    InvalidToolArguments,
     JSONDict,
     ToolDefinition,
     build_tool_registry,
@@ -1468,7 +1469,7 @@ class ResearchMcpServer:
         scope = require_string(args, "scope").strip().lower()
         if scope != "run":
             raise ValueError(
-                "scope must be 'run' (project-scope resource-limit extension is no longer supported)"
+                "scope must be 'run'; project resource-limit extension is unsupported"
             )
         limit_value = self._optional_float_arg(args, "limit_value")
         additional_value = self._optional_float_arg(args, "additional_value")
@@ -2860,6 +2861,23 @@ class ResearchMcpServer:
             if method in {"initialized", "notifications/initialized"}:
                 return None
             raise RpcError(-32601, f"Unsupported method: {method!r}")
+        except InvalidToolArguments as exc:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32602,
+                    "message": str(exc),
+                    "data": {
+                        "error": "tool_arguments_invalid",
+                        "tool": exc.tool_name,
+                        "schema_path": list(exc.schema_path),
+                        "validator": exc.validator,
+                        "retryable": False,
+                        "mutation_applied": False,
+                    },
+                },
+            }
         except RpcError as exc:
             return {
                 "jsonrpc": "2.0",
@@ -2996,7 +3014,7 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
 _INDEX_ENVIRONMENT_HELP = """\
 environment:
   SYNTH_BACKEND_URL              backend base URL (required when Index tools are enabled)
-  SYNTH_API_KEY                  API key; enables private/durable Search tools (public search needs none)
+  SYNTH_API_KEY                  API key for private/durable Search
   SYNTH_INDEX_MCP_WRITE_ENABLED  true|false; Contribution write tools (needs SYNTH_API_KEY)
 """
 

@@ -19,6 +19,7 @@ from synth_ai.sdk.research.contracts.forge.operations import (
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
 from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
+from synth_ai.sdk.research.errors import ResearchOutcomeUncertainError
 
 
 class ExecutionWriteRequest(Contract):
@@ -69,8 +70,15 @@ def _record(document, project_id, record_id, revision):
     return record
 
 
-def _receipt(
-    document, project_id, operation_id, *, payload=None, record_id=None, expected_revision=None
+def _validated_receipt(
+    document,
+    project_id,
+    operation_id,
+    *,
+    payload=None,
+    record_id=None,
+    expected_revision=None,
+    organization_id=None,
 ):
     receipt = Receipt.model_validate(document)
     if (
@@ -86,6 +94,8 @@ def _receipt(
         or receipt.reference.digest_sha256 != contract_digest(payload)
     ):
         raise ValueError("scientific receipt differs from submitted payload")
+    if organization_id is not None and receipt.scope.organization_id != organization_id:
+        raise ValueError("execution receipt belongs to a different organization")
     return receipt
 
 
@@ -104,6 +114,31 @@ def _records(documents, project_id, kind, after, limit):
     # Preserve native database collation; only that producer defines whether
     # an ID follows the opaque cursor. Python ordering is not interchangeable.
     return records
+
+
+def _receipt(document, project_id, operation_id, *, payload=None, **binding):
+    try:
+        return _validated_receipt(document, project_id, operation_id, payload=payload, **binding)
+    except ValueError as cause:
+        if payload is None:
+            raise
+        # The request was submitted before receipt decoding. Invalid success
+        # bytes cannot establish no effect or authorize a replacement intent.
+        raise ResearchOutcomeUncertainError(
+            "Scientific write outcome cannot be verified",
+            status_code=None,
+            response_text="",
+            detail={
+                "error_code": "outcome_uncertain",
+                "operation_id": operation_id,
+                "project_id": project_id,
+                "cause_code": "scientific_receipt_invalid",
+                "retryable": False,
+                "mutation_applied": None,
+                "receipt_lookup_required": True,
+            },
+            operation_id=operation_id,
+        ) from cause
 
 
 def _events(documents, project_id, after, limit):
@@ -162,9 +197,8 @@ class ScientificRecordsAPI:
             payload=write.payload,
             record_id=write.record_id,
             expected_revision=write.expected_revision,
+            organization_id=request.organization_id,
         )
-        if receipt.scope.organization_id != request.organization_id:
-            raise ValueError("execution receipt belongs to a different organization")
         return receipt
 
     def write(
@@ -297,9 +331,8 @@ class AsyncScientificRecordsAPI:
             payload=write.payload,
             record_id=write.record_id,
             expected_revision=write.expected_revision,
+            organization_id=request.organization_id,
         )
-        if receipt.scope.organization_id != request.organization_id:
-            raise ValueError("execution receipt belongs to a different organization")
         return receipt
 
     async def write(

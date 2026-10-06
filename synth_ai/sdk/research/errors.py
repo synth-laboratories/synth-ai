@@ -371,7 +371,7 @@ class ResearchOutcomeUncertainError(ResearchApiError):
         self,
         message: str,
         *,
-        status_code: int,
+        status_code: int | None,
         response_text: str,
         detail: dict[str, Any],
         operation_id: str | None,
@@ -395,6 +395,7 @@ class ResearchOutcomeUncertainError(ResearchApiError):
             ),
         )
         self.detail = dict(detail)
+        self.receipt_lookup_required = True
 
 
 LAUNCH_REFUSAL_CODES = frozenset(
