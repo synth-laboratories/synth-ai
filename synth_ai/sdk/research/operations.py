@@ -1293,6 +1293,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "retrieve_swarm_history",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/history",
+            idempotent=True,
+        ),
+        _operation(
             "retrieve_swarm_status",
             HttpMethod.GET,
             "/smr/runs/{run_id}/status",

@@ -29,6 +29,7 @@ from synth_ai.sdk.research.contracts.evidence import (
 from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
 from synth_ai.sdk.research.contracts.status import SwarmPendingAction, SwarmStatus
 from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
+from synth_ai.sdk.research.contracts.swarm_history import SwarmHistoryPage, history_parameters
 from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
 from synth_ai.sdk.research.contracts.swarm_tasks import (
     SwarmTask,
@@ -222,6 +223,10 @@ class SwarmHandle:
     ) -> SwarmActivity:
         """Return one bounded actor, task, message, event, and output snapshot."""
         return self._api.activity(self.swarm_id, window)
+
+    def history(self, *, after: int = 0, limit: int = 100) -> SwarmHistoryPage:
+        """Read a backend-authorized page of journal decisions and redacted inputs."""
+        return self._api.history(self.swarm_id, after=after, limit=limit)
 
     def status(self) -> SwarmStatus:
         """Return the cheap authoritative status projection."""
@@ -579,6 +584,20 @@ class SwarmsAPI:
             )
         )
         return SwarmActivity.from_wire(value)
+
+    def history(self, swarm_id: SwarmId, *, after: int = 0, limit: int = 100) -> SwarmHistoryPage:
+        """Read the canonical journal through the scoped backend history route.
+
+        # See: backend/packages/smr/contracts/public_api/v1/run_history.py
+        """
+        value = self._transport.execute(
+            _request(
+                "retrieve_swarm_history",
+                f"/smr/runs/{swarm_id}/history",
+                query=history_parameters(after, limit),
+            )
+        )
+        return SwarmHistoryPage.from_wire(value, swarm_id=swarm_id, after=after, limit=limit)
 
     def status(self, swarm_id: SwarmId) -> SwarmStatus:
         """Return the cheap authoritative status projection for a swarm."""
@@ -939,6 +958,10 @@ class AsyncSwarmHandle:
         """Return one bounded actor, task, message, event, and output snapshot."""
         return await self._api.activity(self.swarm_id, window)
 
+    async def history(self, *, after: int = 0, limit: int = 100) -> SwarmHistoryPage:
+        """Read a backend-authorized page of journal decisions and redacted inputs."""
+        return await self._api.history(self.swarm_id, after=after, limit=limit)
+
     async def status(self) -> SwarmStatus:
         """Return the cheap authoritative status projection."""
         return await self._api.status(self.swarm_id)
@@ -1278,6 +1301,22 @@ class AsyncSwarmsAPI:
             )
         )
         return SwarmActivity.from_wire(value)
+
+    async def history(
+        self, swarm_id: SwarmId, *, after: int = 0, limit: int = 100
+    ) -> SwarmHistoryPage:
+        """Read the canonical journal through the scoped backend history route.
+
+        # See: backend/packages/smr/contracts/public_api/v1/run_history.py
+        """
+        value = await self._transport.execute(
+            _request(
+                "retrieve_swarm_history",
+                f"/smr/runs/{swarm_id}/history",
+                query=history_parameters(after, limit),
+            )
+        )
+        return SwarmHistoryPage.from_wire(value, swarm_id=swarm_id, after=after, limit=limit)
 
     async def status(self, swarm_id: SwarmId) -> SwarmStatus:
         """Return the cheap authoritative status projection for a swarm."""
