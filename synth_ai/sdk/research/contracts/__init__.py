@@ -430,6 +430,7 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
 )
 from synth_ai.sdk.research.contracts.status import SwarmPendingAction
 from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
+<<<<<<< HEAD
 from synth_ai.sdk.research.contracts.swarm_tasks import (
     RetryKind,
     ReviewVerdict,
@@ -440,6 +441,12 @@ from synth_ai.sdk.research.contracts.swarm_tasks import (
     TaskDependency,
     TaskRetry,
     TaskReviewDecision,
+=======
+from synth_ai.sdk.research.contracts.swarm_history import (
+    SwarmHistoryDecision,
+    SwarmHistoryEntry,
+    SwarmHistoryPage,
+>>>>>>> cf314cc6 (Expose strict scoped Swarm journal history pages in sync and async SDKs)
 )
 from synth_ai.sdk.research.contracts.swarms import (
     ActiveActorModel,
@@ -626,6 +633,9 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "SwarmHistoryDecision",
+    "SwarmHistoryEntry",
+    "SwarmHistoryPage",
     "SwarmControlReceipt",
     "ReviewVerdict",
     "RetryKind",
