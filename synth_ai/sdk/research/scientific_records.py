@@ -18,8 +18,8 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
-from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
 from synth_ai.sdk.research.contracts.native_attachment import NativeAttachmentPage
+from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
 
 
 class ExecutionWriteRequest(Contract):
@@ -194,7 +194,7 @@ class ScientificRecordsAPI:
 
     def native_attachments(
         self, project_id: str, record_id: str, *, limit: int = 100, after: str | None = None
-    ):
+    ) -> NativeAttachmentPage:
         """Read native-owned execution evidence with explicit pending/attached state."""
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("native evidence limit must be 1 through 1000")
@@ -344,7 +344,7 @@ class AsyncScientificRecordsAPI:
 
     async def native_attachments(
         self, project_id: str, record_id: str, *, limit: int = 100, after: str | None = None
-    ):
+    ) -> NativeAttachmentPage:
         """Read exact native evidence without inferring delivery from accepted intent."""
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("native evidence limit must be 1 through 1000")
@@ -444,14 +444,14 @@ class AsyncScientificRecordsAPI:
 
 
 def _native_attachment_page(document, project_id, record_id):
-    from .contracts.native_attachment import NativeAttachmentPage
-    from .errors import ResearchApiError
     from synth_ai.core.errors import (
-        SynthFailure,
-        SynthErrorCode,
-        SynthErrorCategory,
         RetryDirective,
+        SynthErrorCategory,
+        SynthErrorCode,
+        SynthFailure,
     )
+
+    from .errors import ResearchApiError
 
     try:
         page = NativeAttachmentPage.model_validate(document)

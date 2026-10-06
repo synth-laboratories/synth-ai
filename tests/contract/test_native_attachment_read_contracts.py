@@ -1,14 +1,15 @@
 """SYN-3999 typed native evidence survives SDK sync/async and real MCP handler."""
 
 import asyncio
-from contextlib import contextmanager
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
-from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI, AsyncScientificRecordsAPI
 from synth_ai.mcp.research.tools.scientific_records import build_scientific_record_tools
 from synth_ai.sdk.research.errors import ResearchApiError
+from synth_ai.sdk.research.scientific_records import AsyncScientificRecordsAPI, ScientificRecordsAPI
 
 PAGE = json.loads(
     (Path(__file__).with_name("fixtures") / "native_attachment_page.json").read_text()
@@ -25,7 +26,7 @@ class Transport:
         return PAGE
 
 
-def test_sync_async_and_mcp_read_null_record_without_erasing_delivery_receipt__SYN3999():
+def test_sync_async_and_mcp_read_null_record_without_erasing_delivery_receipt__syn3999():
     transport = Transport()
     api = ScientificRecordsAPI(transport)
     page = api.native_attachments(PROJECT, "forge-only-experiment")
@@ -61,7 +62,7 @@ def test_sync_async_and_mcp_read_null_record_without_erasing_delivery_receipt__S
     assert json.loads(json.dumps(wire)) == page.model_dump(mode="json")
 
 
-def test_native_page_scope_substitution_and_boolean_limits_refuse__SYN3999():
+def test_native_page_scope_substitution_and_boolean_limits_refuse__syn3999():
     api = ScientificRecordsAPI(Transport())
     with pytest.raises(ResearchApiError):
         api.native_attachments("foreign", "forge-only-experiment")
