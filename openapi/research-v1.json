@@ -1982,6 +1982,59 @@
         "title": "AsyncStatus",
         "type": "string"
       },
+      "BackendContextBindGrantDeclaration": {
+        "additionalProperties": false,
+        "description": "Owner input for the backend service context-bind grant of one Intern.\n\nNo operation list: ``backend_context_bind_grant_declare`` stores exactly\n``task.command.bind_task_context`` + ``task.context.bind``.",
+        "properties": {
+          "expires_unix_ms": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expires Unix Ms",
+            "type": "integer"
+          },
+          "intern_id": {
+            "title": "Intern Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "policy_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "backend.context_bind_grant_declaration.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "smr_project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Smr Project Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "operation_id",
+          "intern_id",
+          "smr_project_ids",
+          "policy_revision",
+          "expires_unix_ms"
+        ],
+        "title": "BackendContextBindGrantDeclaration",
+        "type": "object"
+      },
       "BillingEntitlementAssetSnapshot": {
         "properties": {
           "asset_id": {
@@ -4659,6 +4712,30 @@
       },
       "ExactReference": {
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "record_id": {
+                  "pattern": "^intern-exec:"
+                }
+              },
+              "required": [
+                "record_id"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority": {
+                  "const": "mloky"
+                },
+                "kind": {
+                  "const": "mloky_execution"
+                }
+              }
+            }
+          }
+        ],
         "properties": {
           "authority": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -4676,7 +4753,7 @@
             "type": "string"
           },
           "record_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
             "title": "Record Id",
             "type": "string"
           },
@@ -8259,6 +8336,164 @@
         "title": "InternEffortWorkSummary",
         "type": "object"
       },
+      "InternIdentityCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "after_intern_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Intern Id"
+          },
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/InternIdentityResponse"
+            },
+            "maxItems": 32,
+            "title": "Identities",
+            "type": "array"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.identity_catalog_page.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "org_id",
+          "identities",
+          "after_intern_id"
+        ],
+        "title": "InternIdentityCatalogResponse",
+        "type": "object"
+      },
+      "InternIdentityProvisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Command Id",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ensure_default",
+              "create_additional"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.identity_provision_request.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "command_id",
+          "kind",
+          "display_name"
+        ],
+        "title": "InternIdentityProvisionRequest",
+        "type": "object"
+      },
+      "InternIdentityProvisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "title": "Command Id",
+            "type": "string"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/InternIdentityResponse"
+          },
+          "input_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Digest",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.identity_provision_receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "org_id",
+          "command_id",
+          "input_digest",
+          "identity"
+        ],
+        "title": "InternIdentityProvisionResponse",
+        "type": "object"
+      },
+      "InternIdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_id",
+          "research_intern_id",
+          "is_default"
+        ],
+        "title": "InternIdentityResponse",
+        "type": "object"
+      },
+      "InternIdentitySelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/InternIdentityResponse"
+          },
+          "schema_version": {
+            "const": "intern.identity_selection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "identity"
+        ],
+        "title": "InternIdentitySelectionResponse",
+        "type": "object"
+      },
       "InternMcpActionApprovalRequest": {
         "additionalProperties": false,
         "properties": {
@@ -10181,6 +10416,202 @@
         "title": "InternRuntimeResourceEpoch",
         "type": "object"
       },
+      "InternRuntimeRoute": {
+        "description": "Which actor control plane executes an org's Intern turns.",
+        "enum": [
+          "legacy_smr_runtime",
+          "mloky"
+        ],
+        "title": "InternRuntimeRoute",
+        "type": "string"
+      },
+      "InternRuntimeRouteReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "operation_id": {
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "principal_ref": {
+            "title": "Principal Ref",
+            "type": "string"
+          },
+          "prior_route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InternRuntimeRoute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^rrr_[0-9a-f]{32}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "recorded_unix_ms": {
+            "title": "Recorded Unix Ms",
+            "type": "integer"
+          },
+          "route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "schema_version": {
+            "const": "intern.runtime_route_receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "receipt_id",
+          "org_id",
+          "operation_id",
+          "principal_ref",
+          "prior_route",
+          "route",
+          "reason",
+          "changed",
+          "recorded_unix_ms"
+        ],
+        "title": "InternRuntimeRouteReceipt",
+        "type": "object"
+      },
+      "InternRuntimeRouteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "default_route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "latest_receipt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Receipt Id"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "schema_version": {
+            "const": "intern.runtime_route.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stored_route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InternRuntimeRoute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_unix_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Unix Ms"
+          }
+        },
+        "required": [
+          "schema_version",
+          "org_id",
+          "route",
+          "stored_route",
+          "default_route",
+          "reason",
+          "changed_by",
+          "updated_unix_ms",
+          "latest_receipt_id"
+        ],
+        "title": "InternRuntimeRouteResponse",
+        "type": "object"
+      },
+      "InternRuntimeRouteSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "schema_version": {
+            "const": "intern.runtime_route_selection.v1",
+            "default": "intern.runtime_route_selection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id",
+          "route",
+          "reason"
+        ],
+        "title": "InternRuntimeRouteSelectionRequest",
+        "type": "object"
+      },
       "InternSessionUsageResponse": {
         "additionalProperties": false,
         "description": "Usage receipt for one Intern runtime: its direct inference plus the runs it launched.",
@@ -10242,6 +10673,89 @@
           "metadata"
         ],
         "title": "InternSessionUsageResponse",
+        "type": "object"
+      },
+      "InternTaskGrantDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_unix_ms": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expires Unix Ms",
+            "type": "integer"
+          },
+          "intern_id": {
+            "title": "Intern Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "policy_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.task_grant_declaration.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "smr_project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Smr Project Ids",
+            "type": "array"
+          },
+          "task_operations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Task Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "operation_id",
+          "intern_id",
+          "smr_project_ids",
+          "task_operations",
+          "policy_revision",
+          "expires_unix_ms"
+        ],
+        "title": "InternTaskGrantDeclaration",
+        "type": "object"
+      },
+      "InternTaskGrantRevocation": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revocation_epoch": {
+            "minimum": 0.0,
+            "title": "Expected Revocation Epoch",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "intern.task_grant_revocation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "expected_revocation_epoch"
+        ],
+        "title": "InternTaskGrantRevocation",
         "type": "object"
       },
       "InternUsageBillingState": {
@@ -11300,6 +11814,682 @@
         ],
         "title": "MetaThreadSegmentStatus",
         "type": "string"
+      },
+      "NativeAttachmentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/NativeAttachmentRead"
+            },
+            "maxItems": 1000,
+            "title": "Attachments",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "attachments",
+          "truncated"
+        ],
+        "title": "NativeAttachmentPage",
+        "type": "object"
+      },
+      "NativeAttachmentRead": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment": {
+            "$ref": "#/components/schemas/NativeScientificAttachment"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Receipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "attached"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment",
+          "status"
+        ],
+        "title": "NativeAttachmentRead",
+        "type": "object"
+      },
+      "NativeResultPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "candidate_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Kind"
+          },
+          "candidate_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Label"
+          },
+          "caveats": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caveats"
+          },
+          "comparison_cohort_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparison Cohort Key"
+          },
+          "comparison_missing_dimensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Comparison Missing Dimensions",
+            "type": "array"
+          },
+          "container_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Digest"
+          },
+          "container_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Name"
+          },
+          "container_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Run Id"
+          },
+          "container_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Version"
+          },
+          "cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Cents"
+          },
+          "dataset_or_task_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Or Task Set Id"
+          },
+          "dataset_or_task_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Or Task Set Version"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "eval_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Profile Id"
+          },
+          "eval_profile_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Profile Version"
+          },
+          "evaluation_mode": {
+            "enum": [
+              "live",
+              "mock",
+              "fixture",
+              "offline_fallback"
+            ],
+            "title": "Evaluation Mode",
+            "type": "string"
+          },
+          "evidence_grade": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Grade"
+          },
+          "example_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Example Ids",
+            "type": "array"
+          },
+          "experiment_run_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Run Id"
+          },
+          "experiment_run_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intervention_receipt": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Intervention Receipt",
+            "type": "object"
+          },
+          "kind": {
+            "const": "native_result",
+            "default": "native_result",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lifecycle_success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Success"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metric": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "metric_direction": {
+            "default": "higher_is_better",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Metric Direction",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ResearchResultOutcome",
+            "default": "measured"
+          },
+          "per_example_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Example Artifact Id"
+          },
+          "per_example_artifact_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Example Artifact Path"
+          },
+          "reviewer_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Notes"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "sample_size": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Size"
+          },
+          "scientific_status": {
+            "enum": [
+              "scientific",
+              "non_scientific_smoke"
+            ],
+            "title": "Scientific Status",
+            "type": "string"
+          },
+          "scorer_config_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Config Digest"
+          },
+          "seed_set": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seed Set",
+            "type": "array"
+          },
+          "split_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Name"
+          },
+          "summary_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Artifact Id"
+          },
+          "summary_artifact_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Artifact Path"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "taskset_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taskset Seed"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens"
+          },
+          "truth_status": {
+            "default": "observed",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Truth Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verifier_or_scorer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Or Scorer Id"
+          },
+          "verifier_or_scorer_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Or Scorer Version"
+          },
+          "verifier_success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Success"
+          },
+          "wall_time_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wall Time Seconds"
+          }
+        },
+        "required": [
+          "evaluation_mode",
+          "scientific_status",
+          "intervention_receipt",
+          "metric",
+          "value"
+        ],
+        "title": "NativeResultPayload",
+        "type": "object"
+      },
+      "NativeRunLinkPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "native_run_link",
+            "default": "native_run_link",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "role": {
+            "default": "primary",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "source_role": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "source_role"
+        ],
+        "title": "NativeRunLinkPayload",
+        "type": "object"
+      },
+      "NativeScientificAttachment": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "native_result": "#/components/schemas/NativeResultPayload",
+                "native_run_link": "#/components/schemas/NativeRunLinkPayload"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NativeRunLinkPayload"
+              },
+              {
+                "$ref": "#/components/schemas/NativeResultPayload"
+              }
+            ],
+            "title": "Payload"
+          },
+          "producer": {
+            "$ref": "#/components/schemas/Producer"
+          },
+          "schema_version": {
+            "const": "smr.forge_native_attachment.v1",
+            "default": "smr.forge_native_attachment.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "scope",
+          "experiment",
+          "producer",
+          "payload"
+        ],
+        "title": "NativeScientificAttachment",
+        "type": "object"
       },
       "NotebookEconomics": {
         "additionalProperties": false,
@@ -16314,6 +17504,17 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "mutation_applied": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mutation Applied"
           },
           "retryable": {
             "default": false,
@@ -49340,6 +50541,87 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/research/records/{record_id}/native-attachments": {
+      "get": {
+        "description": "Independently read typed native evidence and pending delivery state.",
+        "operationId": "get_native_scientific_attachments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAttachmentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Native Scientific Attachments",
+        "tags": [
+          "research"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/research/writer-state": {
       "get": {
         "description": "Read current scope authority using the runtime-safe canonical reader.",
@@ -49933,6 +51215,168 @@
           }
         },
         "summary": "Prepare project setup authority",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/sublinear/tasks": {
+      "get": {
+        "operationId": "list_project_sublinear_tasks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sublinear List Tasks Smr Projects  Project Id  Sublinear Tasks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sublinear List Tasks",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/sublinear/tasks/{task_id}": {
+      "get": {
+        "operationId": "get_project_sublinear_task",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sublinear Get Task Smr Projects  Project Id  Sublinear Tasks  Task Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sublinear Get Task",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/sublinear/tasks/{task_id}/comments": {
+      "get": {
+        "operationId": "list_project_sublinear_task_comments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sublinear List Comments Smr Projects  Project Id  Sublinear Tasks  Task Id  Comments Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sublinear List Comments",
         "tags": [
           "smr"
         ]
@@ -52092,6 +53536,47 @@
         ]
       }
     },
+    "/smr/research-intern/backend-context-bind-grants": {
+      "post": {
+        "description": "Owner bind grant; notes/specifications/tanha/current/systems/intern/runtime_authority.md.",
+        "operationId": "declare_backend_context_bind_grant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackendContextBindGrantDeclaration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Declare Backend Context Bind Grant",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/decision-receipts/{digest_hex}": {
       "get": {
         "operationId": "get_public_magi_decision",
@@ -53380,6 +54865,168 @@
         ]
       }
     },
+    "/smr/research-intern/identities": {
+      "get": {
+        "operationId": "list_intern_identities",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_intern_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Intern Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternIdentityCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Identities",
+        "tags": [
+          "smr",
+          "research-intern",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "provision_intern_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternIdentityProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternIdentityProvisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provision Identity",
+        "tags": [
+          "smr",
+          "research-intern",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/identities/{intern_id}": {
+      "get": {
+        "operationId": "select_intern_identity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intern_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intern Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternIdentitySelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Identity",
+        "tags": [
+          "smr",
+          "research-intern",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/memory": {
       "get": {
         "description": "Bounded keyword search over this org's Intern memory.\n\nDeliberately a thin binding over ``services/intern/memory_search.py`` \u2014 the\nsame call the ``smr_intern_memory_search`` MCP tool makes. Reimplementing\nretrieval here would let the agent's memory and the operator's memory drift\napart, and the bounds (query length, limit ceiling, allowed kinds) are\nenforced once, in the service, for both callers.",
@@ -53967,6 +55614,70 @@
           }
         },
         "summary": "Create Intern Objective Link",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/runtime-route": {
+      "get": {
+        "description": "Org-owner read of the per-org Intern runtime route (A07).",
+        "operationId": "get_intern_runtime_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternRuntimeRouteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Intern Runtime Route",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "put": {
+        "description": "Org-owner selection; an exact ``operation_id`` retry returns the retained receipt.",
+        "operationId": "select_intern_runtime_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternRuntimeRouteSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternRuntimeRouteReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Intern Runtime Route",
         "tags": [
           "smr",
           "research-intern"
@@ -54795,6 +56506,204 @@
         ]
       }
     },
+    "/smr/research-intern/task-grants": {
+      "post": {
+        "operationId": "declare_intern_task_grant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternTaskGrantDeclaration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Declare Intern Task Grant",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/task-grants/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_intern_task_grant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternTaskGrantRevocation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Intern Task Grant",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/task-grants/{grant_id}/tasks/{task_id}": {
+      "get": {
+        "description": "Task-authority view (revision, assignments, attempts) under an owner Task grant.",
+        "operationId": "get_intern_task_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 16,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "snapshot_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Snapshot Revision"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Intern Task View",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/tasks/{intern_task_id}": {
       "patch": {
         "operationId": "patch_intern_effort_task",
@@ -55132,7 +57041,7 @@
             "description": "Run not found in the caller's organization."
           },
           "409": {
-            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived | run_stop_requested"
           },
           "422": {
             "content": {
@@ -56782,7 +58691,7 @@
             "description": "Run not found in the caller's organization."
           },
           "409": {
-            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived | run_stop_requested"
           },
           "422": {
             "content": {

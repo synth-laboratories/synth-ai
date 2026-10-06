@@ -3296,6 +3296,14 @@
     "methods": [
       "POST"
     ],
+    "path": "/internal/v1/forge/authority/native-attachments/verify",
+    "type": "_EffectiveRouteContext"
+  },
+  {
+    "in_schema": false,
+    "methods": [
+      "POST"
+    ],
     "path": "/internal/v1/forge/authority/references/verify",
     "type": "_EffectiveRouteContext"
   },
@@ -6687,6 +6695,14 @@
       "GET"
     ],
     "path": "/smr/projects/{project_id}/research/records/{record_id}/citations",
+    "type": "_EffectiveRouteContext"
+  },
+  {
+    "in_schema": true,
+    "methods": [
+      "GET"
+    ],
+    "path": "/smr/projects/{project_id}/research/records/{record_id}/native-attachments",
     "type": "_EffectiveRouteContext"
   },
   {

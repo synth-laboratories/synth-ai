@@ -1,20 +1,20 @@
 {
   "source_commits": {
-    "backend": "57902d11dfac68012c978dee79832943c89761e1",
+    "backend": "39141a839b754013ba8782a4e002e94adf65a3e0",
     "Forge": "90ab8f9172d670c834737b4522b09d510ea9ad7d",
     "synth-ai": "ed8b113f79af8cbf968b8c9a6a171c11837b5dff"
   },
   "fastapi_version": "0.141.1",
   "noise_policy": "No schema noise excluded in current producer-equality test. Generator uses backend requirements pins.",
   "fixture_sha256": {
-    "backend_full_openapi.generated.json": "e86c8ba45dd6027aedc88bf0bfa8dcd362931ce335b0000dc9bbf96534e101ee",
+    "backend_full_openapi.generated.json": "40eef8b3a47502e3fd5625d9176df55775735117acb59e6b5c08c690ec0559df",
     "run_control_enum.generated.json": "4b7a7106430dbf14a76172ed078ce8a138d321127c17309de90edcf5dd59452d",
-    "backend_all_routes.json": "1a54451e70726370c783117c478a96e0623dc5298d48a8d679a09186a1dbbf5b",
+    "backend_all_routes.json": "55d75be8d6493d392cb5fee7fc460c47763f2548429e401990738b937e5113a0",
     "public_enums.generated.json": "4b68e59876fc135dd966b41f484de399edb8d53589c4fae02c09be67b67e683d",
     "orchestra_provenance.json": "de32028166f904e218272209c30cd3605790e09f42f71a971ae36025951654d9",
-    "research_openapi.generated.json": "ed95e63df1eae2f0b0c90720f34bee26bf4d889b760ea8eb147dffee71a76d7a"
+    "research_openapi.generated.json": "8b752235d7ce6fd0ccaf31f4d3cb3de6ccaa3b0e554f03524af609e05ba0cc07"
   },
-  "generator_source_note": "Current composed backend and paired SDK; SDK snapshot changes are pinned by the final candidate receipt after commit.",
-  "backend_base_commit": "203ace3716d38a4f2123e0e67754710cfdebff37",
+  "generator_source_note": "Current joined backend39141a839b has identical producer body to isolatedaeffe014c; actual12 Intern/Task public routes registered. Final consumer source pinned in joined candidate receipt after commit.",
+  "backend_base_commit": "1c549a063d4fffaf738517516c6ec2837bb3d9fa",
   "pydantic_version": "2.12.5"
 }
