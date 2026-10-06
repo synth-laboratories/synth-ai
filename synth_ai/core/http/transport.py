@@ -17,6 +17,7 @@ import httpx
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import (
     HTTP_ERROR_BODY_CAPTURE_CHARS_MAX,
+    RUNTIME_UNAVAILABLE_CODES,
     AuthorizationError,
     ConflictError,
     ContractMismatchError,
@@ -27,6 +28,7 @@ from synth_ai.core.errors import (
     ResourceExhaustedError,
     ResourceRef,
     RetryDirective,
+    RuntimeUnavailableError,
     SynthErrorCategory,
     SynthErrorCode,
     SynthFailure,
@@ -81,7 +83,9 @@ def raise_http_error(response: httpx.Response, operation_id: str | None = None) 
         operation_id=operation_id,
     )
     error_type: type[HTTPError]
-    if response.status_code == 402:
+    if _declares_runtime_unavailable(detail):
+        error_type = RuntimeUnavailableError
+    elif response.status_code == 402:
         error_type = ResourceExhaustedError
     elif response.status_code == 403:
         error_type = AuthorizationError
@@ -104,6 +108,19 @@ def raise_http_error(response: httpx.Response, operation_id: str | None = None) 
     if response.status_code == 402:
         raise PaymentRequiredError.from_http_error(error)
     raise error
+
+
+def _declares_runtime_unavailable(decoded: JsonValue | None) -> bool:
+    """True when any declared error code names the runtime-unavailable refusal."""
+    if not isinstance(decoded, dict):
+        return False
+    nested = decoded.get("detail")
+    return any(
+        source.get(key) in RUNTIME_UNAVAILABLE_CODES
+        for source in (nested, decoded)
+        if isinstance(source, dict)
+        for key in ("error_code", "code", "error")
+    )
 
 
 def _response_message(decoded: JsonValue | None, *, fallback: str) -> str:

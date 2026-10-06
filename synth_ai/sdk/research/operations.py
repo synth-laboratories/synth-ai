@@ -1285,6 +1285,13 @@ RESEARCH_OPERATIONS = {
             "/smr/runs/{run_id}/activity",
             idempotent=True,
         ),
+        _operation("list_run_tasks", HttpMethod.GET, "/smr/runs/{run_id}/tasks", idempotent=True),
+        _operation(
+            "list_project_run_task_events",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/runs/{run_id}/task-events",
+            idempotent=True,
+        ),
         _operation(
             "retrieve_swarm_history",
             HttpMethod.GET,

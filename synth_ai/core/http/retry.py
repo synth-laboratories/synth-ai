@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from synth_ai.core.errors import ContractMismatchError, SynthError
+from synth_ai.core.errors import ContractMismatchError, RuntimeUnavailableError, SynthError
 from synth_ai.core.http.request import HttpMethod, HttpRequest, OperationMetadata
 
 
@@ -84,7 +84,7 @@ def should_retry_failure(
     error: BaseException,
 ) -> bool:
     """Decide whether one failed execute attempt may be retried."""
-    if isinstance(error, ContractMismatchError):
+    if isinstance(error, (ContractMismatchError, RuntimeUnavailableError)):
         return False
     if not policy.permits(
         request.operation,

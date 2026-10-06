@@ -428,11 +428,23 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
     RuntimeWorkersSnapshot,
     SwarmRuntimeSnapshot,
 )
+from synth_ai.sdk.research.contracts.status import SwarmPendingAction
 from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
 from synth_ai.sdk.research.contracts.swarm_history import (
     SwarmHistoryDecision,
     SwarmHistoryEntry,
     SwarmHistoryPage,
+)
+from synth_ai.sdk.research.contracts.swarm_tasks import (
+    RetryKind,
+    ReviewVerdict,
+    SwarmTask,
+    SwarmTaskEvent,
+    SwarmTaskEvents,
+    SwarmWorkGraph,
+    TaskDependency,
+    TaskRetry,
+    TaskReviewDecision,
 )
 from synth_ai.sdk.research.contracts.swarms import (
     ActiveActorModel,
@@ -620,6 +632,16 @@ __all__ = [
     "SwarmHistoryEntry",
     "SwarmHistoryPage",
     "SwarmControlReceipt",
+    "ReviewVerdict",
+    "RetryKind",
+    "SwarmPendingAction",
+    "SwarmTask",
+    "SwarmTaskEvent",
+    "SwarmTaskEvents",
+    "SwarmWorkGraph",
+    "TaskDependency",
+    "TaskReviewDecision",
+    "TaskRetry",
     "AiCacheMode",
     "AiCachePolicy",
     "ActiveActorModel",
