@@ -30,8 +30,8 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import ValidationError
 
-from synth_ai.mcp.research.tools.index import read_selected_files
 from synth_ai.sdk.index.contributions import ContributionUploadPrepared
+from synth_ai.sdk.index.local_files import read_selected_files
 from synth_ai.sdk.index.transfer import _transfer_content
 
 _ACCEPTED = (200, 201, 204)
