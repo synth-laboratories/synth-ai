@@ -41,6 +41,9 @@ class ManagedResearchActorControlActorType(StrEnum):
 
 class RunLifecycleControlErrorCode(StrEnum):
     ALREADY_IN_STATE = "already_in_state"
+    ALREADY_TERMINAL = "already_terminal"
+    RUN_FINALIZING = "run_finalizing"
+    CLEANUP_IN_PROGRESS = "cleanup_in_progress"
     TERMINAL_RUN = "terminal_run"
     RUNTIME_NOT_LIVE = "runtime_not_live"
     RUN_NOT_FOUND = "run_not_found"

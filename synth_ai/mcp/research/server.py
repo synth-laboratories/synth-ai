@@ -129,7 +129,7 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "intern_async_resume",
         "intern_async_send",
         "intern_async_tail",
-        # Effort-first product surface + spine memory (WP4 M1 / WP6 E6).
+        # Intern planner efforts are independent of optional Factory efforts.
         "intern_effort_board",
         "intern_effort_detail",
         "intern_memory_get",
@@ -146,21 +146,16 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "intern_sync_resume",
         "intern_sync_send",
         "intern_sync_tail",
-        "research_archive_factory",
         "research_archive_project",
         "research_branch_run_from_checkpoint",
-        "research_create_effort",
         "research_create_environment",
-        "research_create_factory",
         "research_create_image_release_upload",
         "research_create_runnable_project",
         "research_create_project_repository",
         "research_delete_project_repository",
         "research_finalize_image_release",
         "research_get_billing_entitlements",
-        "research_get_effort",
         "research_get_environment",
-        "research_get_factory",
         "research_get_launch_preflight",
         "research_get_limits",
         "research_get_project",
@@ -198,27 +193,20 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "research_get_swarm_usage",
         "research_get_swarm_workspace_archive",
         "research_list_active_runs",
-        "research_list_factories",
         "research_list_environments",
-        "research_list_factory_efforts",
         "research_list_customer_actor_images",
         "research_list_projects",
         "research_list_project_datasets",
         "research_list_project_repositories",
         "research_list_runs",
         "research_list_visuals",
-        "research_patch_effort",
-        "research_patch_factory",
         "research_patch_project",
         "research_archive_customer_actor_image",
-        "research_pause_factory",
         "research_pause_run",
         "research_prepare_project_setup",
         "research_preflight_environment",
-        "research_resume_factory",
         "research_resume_run",
         "research_retrieve_image_release",
-        "research_start_factory",
         "research_start_one_off_run",
         "research_stop_run",
         "research_trigger_run",
@@ -229,13 +217,11 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "research_confirm_workspace_push",
         "research_watch_run_events",
         "research_attach_source_repo",
-        "research_attach_research_intern_factory",
         "research_get_research_intern",
         "research_get_research_intern_acceptance_receipt",
         "research_get_research_intern_decision",
         "research_list_research_intern_acceptance_receipts",
         "research_list_research_intern_decisions",
-        "research_list_research_intern_factories",
         "research_provision_research_intern",
         "research_publish_research_intern_acceptance_receipt",
         "research_record_research_intern_decision",
@@ -2364,36 +2350,6 @@ class ResearchMcpServer:
                 action=action,
                 reason=optional_string(args, "reason"),
                 idempotency_key=optional_string(args, "idempotency_key"),
-            )
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_list_run_participants(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.list_run_participants(run_id, project_id=project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_run_artifact_progress(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.get_run_artifact_progress(run_id, project_id=project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_list_run_actor_logs(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.list_run_actor_logs(
-                run_id,
-                project_id=project_id,
-                actor_id=optional_string(args, "actor_id"),
-                turn_id=optional_string(args, "turn_id"),
-                kind=optional_string(args, "kind"),
-                since=optional_string(args, "since"),
-                cursor=optional_string(args, "cursor"),
-                limit=optional_int(args, "limit"),
             )
             return asdict(result) if is_dataclass(result) else result
 
