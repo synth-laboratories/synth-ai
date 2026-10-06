@@ -1,6 +1,6 @@
 # Forge discrepancy test index — 2026-10-06
 
-Scope: the ranked audit and its tests-only handoff. Product code is unchanged.
+Scope: ranked audit plus scoped product fixes. Historical audit receipts remain; current fix status is recorded below.
 
 Source pins: backend `7860732a2c1904c08d1a9eafe34a6c6f1eb50b6b`, synth-ai `67bc4c9ff7e4385dbf1b4fb759430bbe07b67ea9`, Forge `69815acd7f4e7781b12e041034c69b37cfd566e7`.
 
@@ -12,15 +12,15 @@ The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in 
 
 | Finding | Owning repo / test selector | Verified status |
 |---|---|---|
-| MX-01 | synth-ai: `tests/contract/test_discrepancy_law.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | red |
-| MX-01 | synth-ai: `tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02` | red |
-| MX-02 | synth-ai: `tests/contract/test_discrepancy_law.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | red |
-| MX-02 | synth-ai: `tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02` | red |
+| MX-01 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | green (SYN-4002/4003/4004) |
+| MX-01 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_sdk_call_resolves_to_backend__MX01_MX02` | green (SYN-4002/4003/4004) |
+| MX-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | green (SYN-4002/4003/4004) |
+| MX-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_sdk_call_resolves_to_backend__MX01_MX02` | green (SYN-4002/4003/4004) |
 | MX-03 | synth-ai: `tests/contract/test_discrepancy_contracts.py::test_registry_matches_backend__MX03` | green |
 | MX-04 | synth-ai: `tests/contract/test_discrepancy_law.py::test_full_vendored_snapshot_matches_backend__MX04` | red |
 | MX-04 | synth-ai: `tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04` | red |
 | MX-05 | backend: `tests/units/test_forge_discrepancy_law.py::test_committed_backend_request_schema_matches_source__MX05` | red |
-| MX-06 | synth-ai: `tests/contract/test_discrepancy_law.py::test_request_body_satisfies_backend__PR18_MX06` | red |
+| MX-06 | synth-ai: `tests/contract/test_factory_removal_contracts.py` | green: dead call and wrappers removed |
 | MX-07b | synth-ai: `tests/contract/test_discrepancy_law.py::test_request_body_satisfies_backend__PR18_MX06` | red |
 | MX-08 | synth-ai: `tests/contract/test_discrepancy_law.py::test_visual_backend_logical_response_parses__MX08` | red |
 | MX-09 | synth-ai: `tests/contract/test_discrepancy_law.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | red |
@@ -62,9 +62,9 @@ The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in 
 | RR-12 | synth-ai: `tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12` | red |
 | RR-14 | synth-ai: `tests/contract/test_discrepancy_law.py::test_transport_failure_keeps_original_intent_and_cause__RR14` | red |
 | RR-14 | synth-ai: `tests/contract/test_discrepancy_law.py::test_uncertain_write_preserves_operation_identity__RR14` | red |
-| RW-01 | synth-ai: `tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12` | red |
+| RW-01 | synth-ai: `tests/mcp/test_launch_schema_contracts.py::test_launch_schema_accepts_provenance__RW01_PR12` | green; merge/deployment gated by SYN-3988 |
 | RW-01 | testing: `synth_cloud/integration/forge/test_forge_stub_worker_journey_law.py::test_forge_stub_worker_journey__RW01_PR02_RR05` | blocked by deployed run-status projection |
-| RW-02 | synth-ai: `tests/contract/test_discrepancy_law.py::test_run_control_refusal_is_typed__RW02` | red |
+| RW-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_run_control_refusal_is_typed__RW02` | green (SYN-4002/4003/4004) |
 | RW-03 | backend: `tests/integration/test_discrepancy_postgres_law.py::test_branch_refuses_persisted_forge_writer__RW03` | red |
 | RW-03 | backend: `tests/units/test_forge_discrepancy_law.py::test_branch_checks_scientific_writer_before_insert__RW03` | red |
 | RW-05 | backend: `tests/units/test_forge_discrepancy_law.py::test_hold_requirement_visible_before_trigger__RW05` | red |
@@ -134,3 +134,26 @@ and provenance checks, aggregate holds, delivery bounds, typed readiness and
 first-class refusal/retry handling are implemented. Green laws moved to their
 matching contracts suites with assertions and IDs retained. Source was not
 published or deployed; other fix groups remain known-red.
+
+
+## Swarms → Orchestra fixes — 2026-10-06
+
+[Fix receipt](ORCHESTRA_FIX_RECEIPT_20261006.md) records SYN-4001–4004 and the
+owner's updated direction: Factory stays optional, outside the Swarms release.
+Historical aggregate red counts above are the original audit, not current status.
+
+| Finding | Current proof | Status |
+| --- | --- | --- |
+| RW-01 | `tests/mcp/test_launch_schema_contracts.py`, `test_launch_contracts.py`: four tools expose/forward pins, provenance and all three inventories | 16 passed; deployment/merge blocked by SYN-3988/SYN-3989 |
+| RW-02 | `test_orchestra_control_contracts.py`: 18 real transport refusals + producer enum parity; original parser law in `test_orchestra_route_contracts.py` | green |
+| MX-01 | `test_observability_removal_contracts.py`, promoted route laws | unsupported SDK/MCP methods removed with owner decision; green |
+| MX-02 | `test_factory_removal_contracts.py`, promoted route laws | dead TAG Factory context calls/wrappers removed; green |
+| MX-03 | `test_orchestra_route_contracts.py::test_task_reads_in_producer_public_contract`, `test_discrepancy_contracts.py` | already fixed in backend dev; both exact IDs verified from fresh OpenAPI |
+| MX-06 | `test_factory_removal_contracts.py::test_dead_factory_call_removed` | dead status patch removed; green |
+| Factory modularity | `test_factory_removal_contracts.py`: run/Swarm boundary and optional MCP discovery; optional trace-store compatibility suite | Factory implementation preserved; no Factory type dependency in run/Swarm clients |
+
+Backend authority `304f00b8`: fresh route dump includes all 1538 app routes and
+132 hidden routes. No external-route allowlist. Pinned source provenance and
+live authority overrides accompany the portable tests. Backend source was not
+changed; no duplicate registry fix, CI wiring, provider calls, slot mutation,
+or package publication.

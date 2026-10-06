@@ -17,7 +17,6 @@ from synth_ai.sdk.research.contracts.canonical_usage import (
     SmrRunUsage,
 )
 from synth_ai.sdk.research.contracts.checkpoints import Checkpoint
-from synth_ai.sdk.research.contracts.factory_operations import Effort, FactoryResult
 from synth_ai.sdk.research.contracts.limit_evidence import SmrRunLimitEvidencePage
 from synth_ai.sdk.research.contracts.operator_evidence import SmrRunOperatorEvidence
 from synth_ai.sdk.research.contracts.run_authority import (
@@ -31,11 +30,8 @@ from synth_ai.sdk.research.contracts.run_control import (
     ManagedResearchRunControlAck,
 )
 from synth_ai.sdk.research.contracts.run_diagnostics import (
-    SmrRunActorLogs,
     SmrRunActorUsage,
-    SmrRunArtifactProgress,
     SmrRunCostSummary,
-    SmrRunParticipants,
     SmrRunTraces,
 )
 from synth_ai.sdk.research.contracts.run_execution import RunExecutionProjection
@@ -193,45 +189,6 @@ def _dev_environment_launch_kwargs(
     return payload
 
 
-class RunResultsAPI:
-    """Result surface scoped to one run: ``run.results.list()``.
-
-    A run's Results are the Factory Results produced by that run. The run is
-    resolved to its Effort and Factory, then the factory-scoped Result listing
-    is filtered by ``run_id``. A run that does not belong to a Factory Effort
-    has no Factory Results and returns an empty list.
-    """
-
-    def __init__(self, run: RunHandle) -> None:
-        self._run = run
-        self._client = run._client
-
-    def list(
-        self,
-        *,
-        kind: str | None = None,
-        readiness: str | None = None,
-        evaluation_status: str | None = None,
-        current_best: bool | None = None,
-        limit: int = 100,
-    ) -> List[FactoryResult]:
-        run = self._run.get()
-        effort_id = getattr(run, "effort_id", None)
-        if not effort_id:
-            return []
-        effort = Effort.from_wire(self._client.get_effort(str(effort_id)))
-        return self._client.factories.results.list(
-            effort.factory_id,
-            effort_id=effort_id,
-            run_id=self._run.run_id,
-            kind=kind,
-            readiness=readiness,
-            evaluation_status=evaluation_status,
-            current_best=current_best,
-            limit=limit,
-        )
-
-
 def _is_transient_control_plane_projection(error: ResearchApiError) -> bool:
     """True for the backend's fail-closed 503 while a run projection is mid-write.
 
@@ -269,12 +226,6 @@ class RunHandle:
     @property
     def ref(self) -> RunRef:
         return RunRef(project_id=self.project_id, run_id=self.run_id)
-
-    @property
-    def results(self) -> RunResultsAPI:
-        """Factory Results produced by this run: ``run.results.list()``."""
-
-        return RunResultsAPI(self)
 
     def public_state(self) -> ManagedResearchRun:
         return self._client.get_run_public_state(
@@ -1167,25 +1118,6 @@ class RunHandle:
 
     def datasets(self) -> List[dict[str, Any]]:
         return self._client.list_run_datasets(self.run_id, project_id=self.project_id)
-
-    def participants(self) -> SmrRunParticipants:
-        return self._client.list_run_participants(
-            self.run_id,
-            project_id=self.project_id,
-        )
-
-    def artifact_progress(self) -> SmrRunArtifactProgress:
-        return self._client.get_run_artifact_progress(
-            self.run_id,
-            project_id=self.project_id,
-        )
-
-    def actor_logs(self, **kwargs: Any) -> SmrRunActorLogs:
-        return self._client.list_run_actor_logs(
-            self.run_id,
-            project_id=self.project_id,
-            **kwargs,
-        )
 
     def control_actor(
         self,
@@ -2292,35 +2224,6 @@ class RunsAPI(_ClientNamespace):
         if project_id:
             return self._client.get_project_run_actor_usage(project_id, run_id)
         return self._client.get_run_actor_usage(run_id)
-
-    def participants(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunParticipants:
-        return self._client.list_run_participants(run_id, project_id=project_id)
-
-    def artifact_progress(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunArtifactProgress:
-        return self._client.get_run_artifact_progress(run_id, project_id=project_id)
-
-    def actor_logs(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        **kwargs: Any,
-    ) -> SmrRunActorLogs:
-        return self._client.list_run_actor_logs(
-            run_id,
-            project_id=project_id,
-            **kwargs,
-        )
 
     def actor_trace(
         self,

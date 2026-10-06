@@ -21,7 +21,6 @@ from synth_ai.sdk.research.contracts._wire import (
 )
 from synth_ai.sdk.research.contracts.common import (
     ConfigurationVersionId,
-    EffortId,
     OrganizationId,
     ProjectId,
     SwarmId,
@@ -1059,6 +1058,7 @@ class KickoffArtifact:
 
 class AiCacheMode(StrEnum):
     """Read, write, and combined inference-cache routing modes."""
+
     READ = "read"
     WRITE = "write"
     READWRITE = "readwrite"
@@ -1189,7 +1189,7 @@ class SwarmSpec:
     primary_parent: OpenEndedQuestionSpec | DirectedEffortOutcomeSpec | None = None
     worker_pool_id: str | None = None
     dev_environment_id: str | None = None
-    effort_id: EffortId | None = None
+    effort_id: str | None = None
     idempotency_key: str | None = None
     provider: (
         InferenceProvider
@@ -1392,7 +1392,7 @@ class Swarm:
     created_at: datetime
     updated_at: datetime
     work_mode: WorkMode | None = None
-    effort_id: EffortId | None = None
+    effort_id: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     terminal_outcome: SwarmTerminalOutcome | None = None
@@ -1434,7 +1434,7 @@ class Swarm:
             created_at=required_datetime(payload, "created_at"),
             updated_at=required_datetime(payload, "updated_at"),
             work_mode=WorkMode(work_mode) if work_mode is not None else None,
-            effort_id=EffortId(effort_id) if effort_id is not None else None,
+            effort_id=effort_id,
             started_at=_optional_datetime(payload, "started_at"),
             finished_at=_optional_datetime(payload, "finished_at"),
             terminal_outcome=(

@@ -13,11 +13,8 @@ from synth_ai.sdk.research.contracts.operator_evidence import SmrRunOperatorEvid
 from synth_ai.sdk.research.contracts.run_authority import ManagedResearchRunTask
 from synth_ai.sdk.research.contracts.run_control import ManagedResearchRunControlError
 from synth_ai.sdk.research.contracts.run_diagnostics import (
-    SmrRunActorLogs,
     SmrRunActorUsage,
-    SmrRunArtifactProgress,
     SmrRunCostSummary,
-    SmrRunParticipants,
     SmrRunTraces,
 )
 from synth_ai.sdk.research.contracts.run_events import RunRuntimeStreamEvent
@@ -1387,71 +1384,6 @@ class ManagedResearchRunAuthorityMixin:
             label="get_project_run_actor_usage",
         )
         return SmrRunActorUsage.from_wire(payload)
-
-    def list_run_participants(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunParticipants:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/participants"
-            if project_id
-            else f"/smr/runs/{run_id}/participants"
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path),
-            label="list_run_participants",
-        )
-        return SmrRunParticipants.from_wire(payload)
-
-    def get_run_artifact_progress(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunArtifactProgress:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/artifact-progress"
-            if project_id
-            else f"/smr/runs/{run_id}/artifact-progress"
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path),
-            label="get_run_artifact_progress",
-        )
-        return SmrRunArtifactProgress.from_wire(payload)
-
-    def list_run_actor_logs(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        actor_id: str | None = None,
-        turn_id: str | None = None,
-        kind: str | None = None,
-        since: str | None = None,
-        cursor: str | None = None,
-        limit: int | None = None,
-    ) -> SmrRunActorLogs:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/actor-logs"
-            if project_id
-            else f"/smr/runs/{run_id}/actor-logs"
-        )
-        params = build_query_params(
-            actor_id=actor_id,
-            turn_id=turn_id,
-            kind=kind,
-            since=since,
-            cursor=cursor,
-            limit=limit,
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path, params=params),
-            label="list_run_actor_logs",
-        )
-        return SmrRunActorLogs.from_wire(payload)
 
     def get_run_cost_summary(self, run_id: str) -> SmrRunCostSummary:
         payload = _coerce_dict(
