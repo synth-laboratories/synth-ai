@@ -347,12 +347,12 @@ class InternSyncRuntimeBudget(_StrictContract):
 
 
 class InternSyncSessionCreateRequest(_StrictContract):
-    research_intern_id: str | None = Field(default=None,min_length=36,max_length=36)
+    research_intern_id: str | None = Field(default=None, min_length=36, max_length=36)
 
     @field_validator("research_intern_id")
     @classmethod
-    def canonical_owner(cls,value:str|None)->str|None:
-        if value is not None and str(UUID(value))!=value:
+    def canonical_owner(cls, value: str | None) -> str | None:
+        if value is not None and str(UUID(value)) != value:
             raise ValueError("intern_owner_identity_invalid")
         return value
 
@@ -794,12 +794,12 @@ class InternAsyncRuntimeBudget(_StrictContract):
 
 
 class InternAsyncEnsureRequest(_StrictContract):
-    research_intern_id: str | None = Field(default=None,min_length=36,max_length=36)
+    research_intern_id: str | None = Field(default=None, min_length=36, max_length=36)
 
     @field_validator("research_intern_id")
     @classmethod
-    def canonical_owner(cls,value:str|None)->str|None:
-        if value is not None and str(UUID(value))!=value:
+    def canonical_owner(cls, value: str | None) -> str | None:
+        if value is not None and str(UUID(value)) != value:
             raise ValueError("intern_owner_identity_invalid")
         return value
 
