@@ -141,7 +141,6 @@ from synth_ai.sdk.research.contracts.wire_models import (
     FactoryCreateRequest,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
-    FactoryLifecycleState,
     FactoryPatchRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
@@ -1386,26 +1385,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             label="get_default_tag_scope",
         )
 
-    def get_tag_scope_factory_context(self, scope_id: str) -> dict[str, Any]:
-        scope_id_value = _require_non_empty_string(scope_id, field_name="scope_id")
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/api/tag/v1/scopes/{scope_id_value}/factory-context",
-            ),
-            label="get_tag_scope_factory_context",
-        )
-
-    def get_tag_session_factory_context(self, session_id: str) -> dict[str, Any]:
-        session_id_value = _require_non_empty_string(session_id, field_name="session_id")
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/api/tag/v1/sessions/{session_id_value}/factory-context",
-            ),
-            label="get_tag_session_factory_context",
-        )
-
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return self.usage.get_billing_entitlements()
 
@@ -1740,28 +1719,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 json_body=factory_patch_payload(request),
             ),
             label="patch_factory",
-        )
-
-    def patch_factory_status_compat(
-        self,
-        factory_id: str,
-        status: FactoryLifecycleState | str,
-    ) -> dict[str, Any]:
-        """Patch lifecycle state on deployments that predate transition routes.
-
-        Use only after the deployment's OpenAPI proves that ``PATCH status`` is
-        authoritative and the named start/pause/resume/archive routes are absent.
-        Current deployments should use the named transition methods instead.
-        """
-
-        normalized_status = FactoryLifecycleState(str(status)).value
-        return _coerce_dict(
-            self._request_json(
-                "PATCH",
-                f"/smr/factories/{factory_id}",
-                json_body={"status": normalized_status},
-            ),
-            label="patch_factory_status_compat",
         )
 
     def start_factory(

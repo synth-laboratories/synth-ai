@@ -1,0 +1,237 @@
+"""Correct contracts for the 2026-10-06 audit; expected failures carry finding IDs."""
+
+import dataclasses
+import inspect
+import json
+import re
+from pathlib import Path
+
+import pytest
+from synth_ai.sdk.research.contracts.factory_operations import (
+    ExperimentBundle,
+    ExperimentComparison,
+    ExperimentHistory,
+)
+from synth_ai.sdk.research.session.client import ResearchSession
+
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = Path(__file__).with_name("fixtures")
+SPEC = json.loads((FIXTURES / "research_openapi.generated.json").read_text())
+FULL = json.loads((FIXTURES / "backend_full_openapi.generated.json").read_text())
+
+
+def normalized(path):
+    return re.sub(r"\{[^}]+\}", "{}", path)
+
+
+def session(monkeypatch, response):
+    client = ResearchSession(api_key="offline-dummy", backend_base="http://offline.invalid")
+    sent = []
+
+    def request(method, path, **kwargs):
+        sent.append((method, path, kwargs))
+        return response
+
+    monkeypatch.setattr(client, "_request_json", request)
+    return client, sent
+
+
+def test_file_page_parses__PR01_MX11(monkeypatch):
+    client, _ = session(monkeypatch, {"files": [], "next_cursor": None})
+    try:
+        files = client.list_project_files("p")
+    except Exception as error:
+        pytest.fail(f"PR-01/MX-11: backend file page rejected: {type(error).__name__}: {error}")
+    assert files == [], "PR-01: empty backend page must decode"
+
+
+def test_file_pagination_cursor_exposed__PR01():
+    assert "cursor" in inspect.signature(ResearchSession.list_project_files).parameters, (
+        "PR-01: no cursor input to follow next_cursor"
+    )
+
+
+@pytest.mark.parametrize(
+    "method,finding,schema,kwargs",
+    [
+        (
+            "workspace_confirm_push",
+            "PR-18/MX-07b",
+            "WorkspaceConfirmPushRequest",
+            {"commit_sha": "a" * 40, "archive_key": "archive"},
+        ),
+    ],
+)
+def test_request_body_satisfies_backend__PR18(monkeypatch, method, finding, schema, kwargs):
+    client, sent = session(monkeypatch, {})
+    getattr(client, method)("p", **kwargs)
+    body = sent[-1][2]["json_body"]
+    contract = FULL["components"]["schemas"][schema]
+    missing = set(contract.get("required", [])) - body.keys()
+    forbidden = (
+        body.keys() - contract.get("properties", {}).keys()
+        if contract.get("additionalProperties") is False
+        else set()
+    )
+    assert not missing and not forbidden, (
+        f"{finding}: missing={sorted(missing)}, forbidden={sorted(forbidden)}"
+    )
+
+
+def test_comparison_retains_integrity_status_and_findings__RR02():
+    wire = {
+        "schema_version": "smr_experiment_comparison.v1",
+        "project_id": "p",
+        "experiment_ids": ["e1", "e2"],
+        "comparable": False,
+        "status": "integrity_failed",
+        "findings": [{"code": "scorer_mismatch"}],
+    }
+    comparison = ExperimentComparison.from_wire(wire)
+    assert getattr(comparison, "status", None) == wire["status"], (
+        "RR-02: integrity_failed status lost"
+    )
+    assert list(comparison.findings) == wire["findings"], "RR-02: findings lost"
+
+
+@pytest.mark.parametrize(
+    "model,field,finding",
+    [
+        (ExperimentBundle, "trials", "RR-03"),
+        (ExperimentBundle, "artifact_index", "RR-03"),
+        (ExperimentHistory, "raw", "RR-03"),
+    ],
+)
+def test_research_evidence_has_typed_fields__RR03(model, field, finding):
+    assert field in {f.name for f in dataclasses.fields(model)}, (
+        f"{finding}: {model.__name__}.{field} missing"
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/smr/projects/{project_id}/research/records/{record_id}",
+        "/smr/projects/{project_id}/research/records/{record_id}/citations",
+        "/smr/projects/{project_id}/experiments/{experiment_id}/bundle",
+        "/smr/projects/{project_id}/experiment-bundles",
+    ],
+)
+def test_scientific_read_has_bounded_response_contract__RR06_RR07(path):
+    assert path in SPEC["paths"], (
+        f"RR-06/RR-07: scientific read missing from public contract: {path}"
+    )
+    schema = SPEC["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert schema, f"RR-07: untyped response for {path}"
+
+
+def test_uncertain_write_preserves_operation_identity__RR14():
+    import httpx
+    from synth_ai.sdk.research.errors import ResearchApiError, ResearchStructuredDenialError
+    from synth_ai.sdk.research.transport.http import _raise_for_error_response
+
+    response = httpx.Response(
+        503,
+        request=httpx.Request("POST", "http://offline.invalid/smr/projects/p/research/operations"),
+        json={
+            "detail": {
+                "error_code": "outcome_uncertain",
+                "message": "receipt lookup required",
+                "operation_id": "original",
+            }
+        },
+    )
+    with pytest.raises(ResearchApiError) as refused:
+        _raise_for_error_response(response, operation_id="original")
+    assert type(refused.value) not in {ResearchStructuredDenialError, ResearchApiError}, (
+        "RR-14: uncertain committed effect indistinguishable from deterministic denial"
+    )
+    assert getattr(refused.value, "operation_id", None) == "original", (
+        "RR-14: uncertain outcome drops original operation id"
+    )
+
+
+def test_visual_backend_logical_response_parses__MX08():
+    from synth_ai.sdk.research.contracts.visuals import Visual
+
+    wire = {
+        "visual_id": "v",
+        "project_id": "p",
+        "org_id": "o",
+        "title": "visual",
+        "lifecycle": "draft",
+        "current_revision": None,
+        "revisions": [],
+        "releases": [],
+        "inaccessible_sources": [],
+        "created_at": "2026-10-06T00:00:00Z",
+        "updated_at": "2026-10-06T00:00:00Z",
+    }
+    # The contract's logical response has no artifact fields; no fictitious fields may be added.
+    try:
+        visual = Visual.from_wire(wire)
+    except (ValueError, TypeError) as failure:
+        pytest.fail(f"MX-08: backend logical visual response rejected: {failure}")
+    assert str(visual.visual_id) == "v", "MX-08: visual identity changed"
+
+
+def test_citations_client_available__RR06():
+    from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI
+
+    assert callable(getattr(ScientificRecordsAPI, "citations", None)), (
+        "RR-06: no SDK method for citation verification"
+    )
+
+
+def test_execution_operations_client_available__RR05():
+    from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI
+
+    assert callable(getattr(ScientificRecordsAPI, "execution_write", None)), (
+        "RR-05: admitted actor writes have no SDK execution-operations client"
+    )
+
+
+@pytest.mark.parametrize("failure_kind", ["timeout", "connection"])
+def test_transport_failure_keeps_original_intent_and_cause__RR14(failure_kind):
+    import httpx
+    from synth_ai.sdk.research.errors import ResearchApiError
+    from synth_ai.sdk.research.transport.http import _raise_for_transport_exception
+
+    cause = (
+        httpx.ReadTimeout("no response")
+        if failure_kind == "timeout"
+        else httpx.ConnectError("connection lost")
+    )
+    with pytest.raises(ResearchApiError) as refused:
+        _raise_for_transport_exception(
+            "POST", "/smr/projects/p/research/operations", cause, operation_id="original"
+        )
+    assert refused.value.__cause__ is cause, "RR-14: transport cause chain lost"
+    assert getattr(refused.value, "operation_id", None) == "original", (
+        "RR-14: uncertain write drops original operation identity"
+    )
+
+
+def test_native_result_identity_is_typed__RR04():
+    from typing import get_type_hints
+
+    annotation = get_type_hints(ExperimentBundle)["evaluations"]
+    assert "dict[str, object]" not in str(annotation), (
+        "RR-04: experiment_run_id and scorer identity live only in untyped evaluation dictionaries"
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ManagedResearchRunState",
+        "ManagedResearchRunTerminalOutcome",
+        "ManagedResearchRunLivenessPhase",
+    ],
+)
+def test_sdk_public_state_vocabulary_matches_backend__RW17(name):
+    from synth_ai.sdk.research.contracts import run_state
+
+    expected = json.loads((FIXTURES / "public_enums.generated.json").read_text())[name]
+    actual = sorted(item.value for item in getattr(run_state, name))
+    assert actual == expected, f"RW-17: SDK advertises {name} values backend does not emit"

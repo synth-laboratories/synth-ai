@@ -1,0 +1,17 @@
+{
+  "source_commits": {
+    "synth-ai": "67bc4c9ff7e4385dbf1b4fb759430bbe07b67ea9",
+    "Forge": "69815acd7f4e7781b12e041034c69b37cfd566e7",
+    "backend": "d2b11ef07f727565ce69504ea106843b97a931ff"
+  },
+  "fastapi_version": "0.128.0",
+  "noise_policy": "Ignore Body_publish_*_visual and ValidationError ctx/input differences only; generator environment 0.128.0 differs from locked 0.141.1.",
+  "fixture_sha256": {
+    "backend_full_openapi.generated.json": "72f31592914a6d61a02bdd84339b443bfe0f497af42b4727418b43992601390a",
+    "backend_all_routes.json": "4f9a7145e2060ff3fec5b28a3dfe9d530ebcb6b40a81de545bf264c663028126",
+    "public_enums.generated.json": "4b68e59876fc135dd966b41f484de399edb8d53589c4fae02c09be67b67e683d",
+    "research_openapi.generated.json": "382c38d285e626d04ab5e32a4db3172d554c363fbf631a8b02697eb9d960078f"
+  },
+  "generator_source_note": "Generated launch-fix backend source matches implementation commit d2b11ef07f727565ce69504ea106843b97a931ff; SDK implementation is pinned by the launch receipt.",
+  "backend_base_commit": "203ace3716d38a4f2123e0e67754710cfdebff37"
+}

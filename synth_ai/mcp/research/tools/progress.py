@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
+from synth_ai.mcp.research.tools.launch_schemas import (
+    launch_provenance_properties,
+    launch_resource_bindings_schema,
+)
 from synth_ai.mcp.research.tools.policy_schemas import run_policy_input_schema
 from synth_ai.sdk.research.contracts.smr_actor_models import (
     SMR_ACTOR_SUBTYPE_VALUES,
@@ -67,7 +71,7 @@ def _provider_bindings_schema() -> dict[str, Any]:
     return {
         "type": "array",
         "description": (
-            "Run-scoped provider bindings. Use resource_bindings only for external "
+            "Run-scoped provider bindings. Resource inventories name stored files, external "
             "repos and credential refs."
         ),
         "items": {
@@ -281,10 +285,8 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional staged-run kickoff contract.",
                     },
-                    "resource_bindings": {
-                        "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
-                    },
+                    "resource_bindings": launch_resource_bindings_schema(),
+                    **launch_provenance_properties(),
                     "ai_cache": {
                         "type": "object",
                         "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",

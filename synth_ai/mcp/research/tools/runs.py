@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
+from synth_ai.mcp.research.tools.launch_schemas import (
+    launch_provenance_properties,
+    launch_resource_bindings_schema,
+)
 from synth_ai.mcp.research.tools.policy_schemas import run_policy_input_schema
 from synth_ai.sdk.research.contracts.run_control import ManagedResearchActorControlAction
 from synth_ai.sdk.research.contracts.runtime_intent import (
@@ -145,7 +149,7 @@ def _provider_bindings_schema() -> dict[str, Any]:
     return {
         "type": "array",
         "description": (
-            "Run-scoped provider bindings. Use resource_bindings only for external "
+            "Run-scoped provider bindings. Resource inventories name stored files, external "
             "repos and credential refs."
         ),
         "items": {
@@ -379,10 +383,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional staged-run kickoff contract.",
                     },
-                    "resource_bindings": {
-                        "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
-                    },
+                    "resource_bindings": launch_resource_bindings_schema(),
                     "ai_cache": {
                         "type": "object",
                         "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",
@@ -486,10 +487,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional staged-run kickoff contract.",
                     },
-                    "resource_bindings": {
-                        "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
-                    },
+                    "resource_bindings": launch_resource_bindings_schema(),
                     "ai_cache": {
                         "type": "object",
                         "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",
@@ -626,10 +624,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional staged-run kickoff contract. This becomes the authoritative staged contract persisted on the run.",
                     },
-                    "resource_bindings": {
-                        "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
-                    },
+                    "resource_bindings": launch_resource_bindings_schema(),
                     "ai_cache": {
                         "type": "object",
                         "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",
@@ -755,10 +750,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional staged-run kickoff contract.",
                     },
-                    "resource_bindings": {
-                        "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
-                    },
+                    "resource_bindings": launch_resource_bindings_schema(),
                     "ai_cache": {
                         "type": "object",
                         "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",
@@ -1480,62 +1472,6 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_control_project_run_actor,
         ),
         ToolDefinition(
-            name="research_list_run_participants",
-            description=(
-                "List participant sessions for a run from actor/session records, including whether usage recording is present or missing."
-            ),
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project-scoped route enforcement.",
-                    },
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_list_run_participants,
-        ),
-        ToolDefinition(
-            name="research_get_run_artifact_progress",
-            description="Read live required/optional artifact progress for a run.",
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project-scoped route enforcement.",
-                    },
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_get_run_artifact_progress,
-        ),
-        ToolDefinition(
-            name="research_list_run_actor_logs",
-            description="List redacted exec stdout/stderr actor log events for a run.",
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project-scoped route enforcement.",
-                    },
-                    "actor_id": {"type": "string", "description": "Optional actor id filter."},
-                    "turn_id": {"type": "string", "description": "Optional turn id filter."},
-                    "kind": {
-                        "type": "string",
-                        "description": "Optional kind filter: exec.stdout, exec.stderr, stdout, or stderr.",
-                    },
-                    "since": {"type": "string", "description": "Optional ISO-8601 lower bound."},
-                    "cursor": {"type": "string", "description": "Optional pagination cursor."},
-                    "limit": {"type": "integer", "minimum": 1, "maximum": 500},
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_list_run_actor_logs,
-        ),
-        ToolDefinition(
             name="research_stop_run",
             description=(
                 "Stop a queued or running run. Response includes "
@@ -2033,6 +1969,20 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_runs_by_effort,
         ),
     ]
+    for tool in tools:
+        if tool.name in {
+            "research_start_run",
+            "research_trigger_run",
+            "research_start_one_off_run",
+            "research_start_run_in_dev_environment",
+            "research_start_swarm_in_dev_environment",
+        }:
+            tool.input_schema["properties"].update(launch_provenance_properties())
+            tool.input_schema["properties"]["resource_bindings"] = launch_resource_bindings_schema()
+            required = tool.input_schema.setdefault("required", [])
+            for field in ("deployment_pins", "provenance_mode", "resource_bindings"):
+                if field not in required:
+                    required.append(field)
     return tools
 
 
