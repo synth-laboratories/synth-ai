@@ -193,6 +193,7 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "research_get_run_transcript",
         "research_get_swarm_activity",
         "research_get_swarm_configuration",
+        "research_get_run_history",
         "research_get_swarm_evidence",
         "research_get_swarm_status",
         "research_get_swarm_usage",
@@ -2015,6 +2016,13 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             result = client.runs.get(run_id, project_id=project_id)
             return asdict(result) if is_dataclass(result) else result
+
+    def _tool_get_run_history(self, args: JSONDict) -> JSONDict:
+        run_id = SwarmId(require_string(args, "run_id"))
+        after = _optional_int_default(args, "after", 0)
+        limit = _optional_int_default(args, "limit", 100)
+        with self._core_client_from_args(args) as client:
+            return client.swarms.history(run_id, after=after, limit=limit).to_wire()
 
     def _tool_get_swarm_configuration(self, args: JSONDict) -> JSONDict:
         swarm_id = SwarmId(require_string(args, "run_id"))
