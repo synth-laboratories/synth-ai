@@ -9,6 +9,7 @@ requests.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import cast
 from urllib.parse import quote
 
@@ -27,8 +28,8 @@ from synth_ai.sdk.research.contracts.intern_authority import (
     InternRuntimeRouteView,
     InternTaskGrant,
     InternTaskGrantDeclaration,
-    InternTaskView,
     InternTaskGrantRevocation,
+    InternTaskView,
     ProjectSublinearTask,
     ProjectSublinearTaskComments,
     ProjectSublinearTaskList,
@@ -50,11 +51,7 @@ def _segment(value: str, *, name: str) -> str:
 
 
 def _request(
-    operation_id: str,
-    path: str,
-    *,
-    query: JsonObject | None = None,
-    body: JsonObject | None = None,
+    operation_id: str, path: str, *, query: JsonObject | None = None, body: JsonObject | None = None
 ) -> HttpRequest:
     return HttpRequest(research_operation(operation_id), path, query=query or {}, body=body)
 
@@ -83,17 +80,13 @@ def _get_task_view(
         raise ValueError(f"limit must be between 1 and {_TASK_VIEW_LIMIT_MAX}")
     if (snapshot_revision is None) != (after_revision is None):
         raise ValueError("snapshot_revision and after_revision are given together")
-    query: JsonObject = {
-        "project_id": _canonical_project(project_id),
-        "limit": limit,
-    }
+    query: JsonObject = {"project_id": _canonical_project(project_id), "limit": limit}
     if snapshot_revision is not None and after_revision is not None:
         query["snapshot_revision"] = snapshot_revision
         query["after_revision"] = after_revision
     return _request(
         "get_intern_task_view",
-        f"{_TASK_GRANTS}/{_segment(grant_id, name='grant_id')}/tasks/"
-        f"{_segment(task_id, name='task_id')}",
+        f"{_TASK_GRANTS}/{_segment(grant_id, name='grant_id')}/tasks/{_segment(task_id, name='task_id')}",
         query=query,
     )
 
@@ -111,7 +104,9 @@ def _checked_route_receipt(
         or receipt.route is not request.route
         or receipt.reason != request.reason
     ):
-        raise ValueError("intern_runtime_route_receipt_identity_mismatch")
+        raise _contract_failure(
+            "select_intern_runtime_route", "intern_runtime_route_receipt_identity_mismatch"
+        )
     return receipt
 
 
@@ -122,13 +117,10 @@ def _checked_task_view(
         view.grant_id != grant_id
         or view.task_id != task_id
         or view.project_id != project_id
-        or view.current_task.get("issue_id") != task_id
+        or (view.current_task.get("issue_id") != task_id)
     ):
-        raise ValueError("intern_task_view_identity_mismatch")
+        raise _contract_failure("get_intern_task_view", "intern_task_view_identity_mismatch")
     return view
-
-
-# -- request builders (shared by sync/async) --------------------------------
 
 
 def _provision_identity(request: InternIdentityProvisionRequest) -> HttpRequest:
@@ -203,16 +195,17 @@ def _list_sublinear_task_comments(project_id: str, task_id: str) -> HttpRequest:
     )
 
 
-# -- response identity checks ----------------------------------------------
-
-
 def _checked_provision(
     request: InternIdentityProvisionRequest, receipt: InternIdentityProvisionReceipt
 ) -> InternIdentityProvisionReceipt:
     if receipt.command_id != request.command_id:
-        raise ValueError("Intern identity provision receipt command drifted")
+        raise _contract_failure(
+            "provision_intern_identity", "Intern identity provision receipt command drifted"
+        )
     if receipt.identity.org_id != receipt.org_id:
-        raise ValueError("Intern identity provision receipt org drifted")
+        raise _contract_failure(
+            "provision_intern_identity", "Intern identity provision receipt org drifted"
+        )
     return receipt
 
 
@@ -220,7 +213,7 @@ def _checked_selection(
     intern_id: str, selection: InternIdentitySelection
 ) -> InternIdentitySelection:
     if selection.identity.research_intern_id != intern_id:
-        raise ValueError("Intern identity selection drifted")
+        raise _contract_failure("select_intern_identity", "Intern identity selection drifted")
     return selection
 
 
@@ -231,13 +224,14 @@ def _checked_grant(
     policy_revision: str,
     project_count: int,
     task_operations: tuple[str, ...] | None,
+    operation_id: str = "declare_intern_task_grant",
 ) -> InternTaskGrant:
     if grant.intern_id != intern_id or grant.policy_revision != policy_revision:
-        raise ValueError("Intern Task grant identity drifted")
+        raise _contract_failure(operation_id, "Intern Task grant identity drifted")
     if len(grant.catalog_projects.project_ids) != project_count:
-        raise ValueError("Intern Task grant project scope drifted")
+        raise _contract_failure(operation_id, "Intern Task grant project scope drifted")
     if task_operations is not None and grant.task_operations != task_operations:
-        raise ValueError("Intern Task grant operations drifted")
+        raise _contract_failure(operation_id, "Intern Task grant operations drifted")
     return grant
 
 
@@ -262,12 +256,15 @@ def _checked_context_bind(
         policy_revision=request.policy_revision,
         project_count=len(request.smr_project_ids),
         task_operations=("task.command.bind_task_context", "task.context.bind"),
+        operation_id="declare_backend_context_bind_grant",
     )
 
 
 def _checked_revoked(grant_id: str, grant: InternTaskGrant) -> InternTaskGrant:
     if grant.grant_id != grant_id:
-        raise ValueError("Intern Task grant revocation identity drifted")
+        raise _contract_failure(
+            "revoke_intern_task_grant", "Intern Task grant revocation identity drifted"
+        )
     return grant
 
 
@@ -275,13 +272,17 @@ def _checked_task(
     project_id: str, task_id: str, view: ProjectSublinearTask
 ) -> ProjectSublinearTask:
     if view.project_id != project_id or view.task.id != task_id:
-        raise ValueError("project Sublinear Task identity drifted")
+        raise _contract_failure(
+            "get_project_sublinear_task", "project Sublinear Task identity drifted"
+        )
     return view
 
 
 def _checked_task_list(project_id: str, page: ProjectSublinearTaskList) -> ProjectSublinearTaskList:
     if page.project_id != project_id:
-        raise ValueError("project Sublinear Task list identity drifted")
+        raise _contract_failure(
+            "list_project_sublinear_tasks", "project Sublinear Task list identity drifted"
+        )
     return page
 
 
@@ -289,11 +290,11 @@ def _checked_comments(
     project_id: str, task_id: str, page: ProjectSublinearTaskComments
 ) -> ProjectSublinearTaskComments:
     if page.project_id != project_id or page.task_id != task_id:
-        raise ValueError("project Sublinear Task comments identity drifted")
+        raise _contract_failure(
+            "list_project_sublinear_task_comments",
+            "project Sublinear Task comments identity drifted",
+        )
     return page
-
-
-# -- sync -------------------------------------------------------------------
 
 
 class ResearchInternIdentitiesAPI:
@@ -303,21 +304,27 @@ class ResearchInternIdentitiesAPI:
         self._transport = transport
 
     def provision(self, request: InternIdentityProvisionRequest) -> InternIdentityProvisionReceipt:
-        receipt = InternIdentityProvisionReceipt.from_wire(
-            self._transport.execute(_provision_identity(request))
+        receipt = _decode_response(
+            InternIdentityProvisionReceipt,
+            self._transport.execute(_provision_identity(request)),
+            "provision_intern_identity",
         )
         return _checked_provision(request, receipt)
 
     def list(
         self, *, operation_id: str, after_intern_id: str | None = None
     ) -> InternIdentityCatalogPage:
-        return InternIdentityCatalogPage.from_wire(
-            self._transport.execute(_list_identities(operation_id, after_intern_id))
+        return _decode_response(
+            InternIdentityCatalogPage,
+            self._transport.execute(_list_identities(operation_id, after_intern_id)),
+            "list_intern_identities",
         )
 
     def select(self, intern_id: str, *, operation_id: str) -> InternIdentitySelection:
-        selection = InternIdentitySelection.from_wire(
-            self._transport.execute(_select_identity(intern_id, operation_id))
+        selection = _decode_response(
+            InternIdentitySelection,
+            self._transport.execute(_select_identity(intern_id, operation_id)),
+            "select_intern_identity",
         )
         return _checked_selection(intern_id, selection)
 
@@ -329,20 +336,28 @@ class ResearchInternTaskGrantsAPI:
         self._transport = transport
 
     def declare(self, request: InternTaskGrantDeclaration) -> InternTaskGrant:
-        grant = InternTaskGrant.from_wire(self._transport.execute(_declare_task_grant(request)))
+        grant = _decode_response(
+            InternTaskGrant,
+            self._transport.execute(_declare_task_grant(request)),
+            "declare_intern_task_grant",
+        )
         return _checked_declared(request, grant)
 
     def revoke(self, grant_id: str, *, expected_revocation_epoch: int) -> InternTaskGrant:
-        grant = InternTaskGrant.from_wire(
-            self._transport.execute(_revoke_task_grant(grant_id, expected_revocation_epoch))
+        grant = _decode_response(
+            InternTaskGrant,
+            self._transport.execute(_revoke_task_grant(grant_id, expected_revocation_epoch)),
+            "revoke_intern_task_grant",
         )
         return _checked_revoked(grant_id, grant)
 
     def declare_backend_context_bind(
         self, request: BackendContextBindGrantDeclaration
     ) -> InternTaskGrant:
-        grant = InternTaskGrant.from_wire(
-            self._transport.execute(_declare_context_bind_grant(request))
+        grant = _decode_response(
+            InternTaskGrant,
+            self._transport.execute(_declare_context_bind_grant(request)),
+            "declare_backend_context_bind_grant",
         )
         return _checked_context_bind(request, grant)
 
@@ -354,20 +369,26 @@ class ProjectSublinearTasksAPI:
         self._transport = transport
 
     def list(self, project_id: str, *, limit: int = 50) -> ProjectSublinearTaskList:
-        page = ProjectSublinearTaskList.from_wire(
-            self._transport.execute(_list_sublinear_tasks(project_id, limit))
+        page = _decode_response(
+            ProjectSublinearTaskList,
+            self._transport.execute(_list_sublinear_tasks(project_id, limit)),
+            "list_project_sublinear_tasks",
         )
         return _checked_task_list(project_id, page)
 
     def get(self, project_id: str, task_id: str) -> ProjectSublinearTask:
-        view = ProjectSublinearTask.from_wire(
-            self._transport.execute(_get_sublinear_task(project_id, task_id))
+        view = _decode_response(
+            ProjectSublinearTask,
+            self._transport.execute(_get_sublinear_task(project_id, task_id)),
+            "get_project_sublinear_task",
         )
         return _checked_task(project_id, task_id, view)
 
     def comments(self, project_id: str, task_id: str) -> ProjectSublinearTaskComments:
-        page = ProjectSublinearTaskComments.from_wire(
-            self._transport.execute(_list_sublinear_task_comments(project_id, task_id))
+        page = _decode_response(
+            ProjectSublinearTaskComments,
+            self._transport.execute(_list_sublinear_task_comments(project_id, task_id)),
+            "list_project_sublinear_task_comments",
         )
         return _checked_comments(project_id, task_id, page)
 
@@ -379,11 +400,17 @@ class ResearchInternRuntimeRouteAPI:
         self._transport = transport
 
     def get(self) -> InternRuntimeRouteView:
-        return InternRuntimeRouteView.from_wire(self._transport.execute(_get_runtime_route()))
+        return _decode_response(
+            InternRuntimeRouteView,
+            self._transport.execute(_get_runtime_route()),
+            "get_intern_runtime_route",
+        )
 
     def select(self, request: InternRuntimeRouteSelectionRequest) -> InternRuntimeRouteReceipt:
-        receipt = InternRuntimeRouteReceipt.from_wire(
-            self._transport.execute(_select_runtime_route(request))
+        receipt = _decode_response(
+            InternRuntimeRouteReceipt,
+            self._transport.execute(_select_runtime_route(request)),
+            "select_intern_runtime_route",
         )
         return _checked_route_receipt(request, receipt)
 
@@ -404,17 +431,16 @@ class ResearchInternTaskViewsAPI:
         snapshot_revision: int | None = None,
         after_revision: int | None = None,
     ) -> InternTaskView:
-        view = InternTaskView.from_wire(
+        view = _decode_response(
+            InternTaskView,
             self._transport.execute(
                 _get_task_view(
                     grant_id, task_id, project_id, limit, snapshot_revision, after_revision
                 )
-            )
+            ),
+            "get_intern_task_view",
         )
         return _checked_task_view(grant_id, task_id, project_id, view)
-
-
-# -- async ------------------------------------------------------------------
 
 
 class AsyncResearchInternIdentitiesAPI:
@@ -424,21 +450,27 @@ class AsyncResearchInternIdentitiesAPI:
     async def provision(
         self, request: InternIdentityProvisionRequest
     ) -> InternIdentityProvisionReceipt:
-        receipt = InternIdentityProvisionReceipt.from_wire(
-            await self._transport.execute(_provision_identity(request))
+        receipt = _decode_response(
+            InternIdentityProvisionReceipt,
+            await self._transport.execute(_provision_identity(request)),
+            "provision_intern_identity",
         )
         return _checked_provision(request, receipt)
 
     async def list(
         self, *, operation_id: str, after_intern_id: str | None = None
     ) -> InternIdentityCatalogPage:
-        return InternIdentityCatalogPage.from_wire(
-            await self._transport.execute(_list_identities(operation_id, after_intern_id))
+        return _decode_response(
+            InternIdentityCatalogPage,
+            await self._transport.execute(_list_identities(operation_id, after_intern_id)),
+            "list_intern_identities",
         )
 
     async def select(self, intern_id: str, *, operation_id: str) -> InternIdentitySelection:
-        selection = InternIdentitySelection.from_wire(
-            await self._transport.execute(_select_identity(intern_id, operation_id))
+        selection = _decode_response(
+            InternIdentitySelection,
+            await self._transport.execute(_select_identity(intern_id, operation_id)),
+            "select_intern_identity",
         )
         return _checked_selection(intern_id, selection)
 
@@ -448,22 +480,28 @@ class AsyncResearchInternTaskGrantsAPI:
         self._transport = transport
 
     async def declare(self, request: InternTaskGrantDeclaration) -> InternTaskGrant:
-        grant = InternTaskGrant.from_wire(
-            await self._transport.execute(_declare_task_grant(request))
+        grant = _decode_response(
+            InternTaskGrant,
+            await self._transport.execute(_declare_task_grant(request)),
+            "declare_intern_task_grant",
         )
         return _checked_declared(request, grant)
 
     async def revoke(self, grant_id: str, *, expected_revocation_epoch: int) -> InternTaskGrant:
-        grant = InternTaskGrant.from_wire(
-            await self._transport.execute(_revoke_task_grant(grant_id, expected_revocation_epoch))
+        grant = _decode_response(
+            InternTaskGrant,
+            await self._transport.execute(_revoke_task_grant(grant_id, expected_revocation_epoch)),
+            "revoke_intern_task_grant",
         )
         return _checked_revoked(grant_id, grant)
 
     async def declare_backend_context_bind(
         self, request: BackendContextBindGrantDeclaration
     ) -> InternTaskGrant:
-        grant = InternTaskGrant.from_wire(
-            await self._transport.execute(_declare_context_bind_grant(request))
+        grant = _decode_response(
+            InternTaskGrant,
+            await self._transport.execute(_declare_context_bind_grant(request)),
+            "declare_backend_context_bind_grant",
         )
         return _checked_context_bind(request, grant)
 
@@ -473,20 +511,26 @@ class AsyncProjectSublinearTasksAPI:
         self._transport = transport
 
     async def list(self, project_id: str, *, limit: int = 50) -> ProjectSublinearTaskList:
-        page = ProjectSublinearTaskList.from_wire(
-            await self._transport.execute(_list_sublinear_tasks(project_id, limit))
+        page = _decode_response(
+            ProjectSublinearTaskList,
+            await self._transport.execute(_list_sublinear_tasks(project_id, limit)),
+            "list_project_sublinear_tasks",
         )
         return _checked_task_list(project_id, page)
 
     async def get(self, project_id: str, task_id: str) -> ProjectSublinearTask:
-        view = ProjectSublinearTask.from_wire(
-            await self._transport.execute(_get_sublinear_task(project_id, task_id))
+        view = _decode_response(
+            ProjectSublinearTask,
+            await self._transport.execute(_get_sublinear_task(project_id, task_id)),
+            "get_project_sublinear_task",
         )
         return _checked_task(project_id, task_id, view)
 
     async def comments(self, project_id: str, task_id: str) -> ProjectSublinearTaskComments:
-        page = ProjectSublinearTaskComments.from_wire(
-            await self._transport.execute(_list_sublinear_task_comments(project_id, task_id))
+        page = _decode_response(
+            ProjectSublinearTaskComments,
+            await self._transport.execute(_list_sublinear_task_comments(project_id, task_id)),
+            "list_project_sublinear_task_comments",
         )
         return _checked_comments(project_id, task_id, page)
 
@@ -496,15 +540,19 @@ class AsyncResearchInternRuntimeRouteAPI:
         self._transport = transport
 
     async def get(self) -> InternRuntimeRouteView:
-        return InternRuntimeRouteView.from_wire(
-            await self._transport.execute(_get_runtime_route())
+        return _decode_response(
+            InternRuntimeRouteView,
+            await self._transport.execute(_get_runtime_route()),
+            "get_intern_runtime_route",
         )
 
     async def select(
         self, request: InternRuntimeRouteSelectionRequest
     ) -> InternRuntimeRouteReceipt:
-        receipt = InternRuntimeRouteReceipt.from_wire(
-            await self._transport.execute(_select_runtime_route(request))
+        receipt = _decode_response(
+            InternRuntimeRouteReceipt,
+            await self._transport.execute(_select_runtime_route(request)),
+            "select_intern_runtime_route",
         )
         return _checked_route_receipt(request, receipt)
 
@@ -523,12 +571,14 @@ class AsyncResearchInternTaskViewsAPI:
         snapshot_revision: int | None = None,
         after_revision: int | None = None,
     ) -> InternTaskView:
-        view = InternTaskView.from_wire(
+        view = _decode_response(
+            InternTaskView,
             await self._transport.execute(
                 _get_task_view(
                     grant_id, task_id, project_id, limit, snapshot_revision, after_revision
                 )
-            )
+            ),
+            "get_intern_task_view",
         )
         return _checked_task_view(grant_id, task_id, project_id, view)
 
@@ -545,3 +595,70 @@ __all__ = [
     "ResearchInternTaskViewsAPI",
     "ResearchInternTaskGrantsAPI",
 ]
+
+
+def _contract_failure(operation_id, message, *, cause_kind=None):
+    from synth_ai.core.errors import (
+        RetryDirective,
+        SynthErrorCategory,
+        SynthErrorCode,
+        SynthFailure,
+    )
+    from synth_ai.sdk.research.errors import ResearchApiError
+
+    return ResearchApiError(
+        message,
+        operation_id=operation_id,
+        cause=[]
+        if cause_kind is None
+        else [
+            {
+                "type": cause_kind,
+                "module": "intern_authority",
+                "message": "response failed typed producer validation",
+            }
+        ],
+        failure=SynthFailure(
+            code=SynthErrorCode("schema_integrity_conflict"),
+            category=SynthErrorCategory.CONTRACT_MISMATCH,
+            operation=operation_id,
+            request_id=None,
+            correlation_id=None,
+            retry=RetryDirective(retryable=False),
+            status=None,
+            detail=message,
+            reason="intern_authority_wire_contract",
+        ),
+    )
+
+
+def _decode_response(model, document, operation_id):
+    try:
+        validator = _producer_validator(model.__name__)
+        if validator is not None and next(validator.iter_errors(document), None) is not None:
+            raise ValueError("owning Intern wire schema refused response")
+        return model.from_wire(document)
+    except (ValueError, TypeError) as error:
+        raise _contract_failure(
+            operation_id,
+            "Intern authority response violates its producer contract",
+            cause_kind=type(error).__name__,
+        ) from None
+
+
+
+
+@lru_cache(maxsize=16)
+def _producer_validator(model_name):
+    import json
+    from importlib.resources import files
+
+    from jsonschema import Draft202012Validator
+
+    producer = json.loads(
+        files("synth_ai.sdk.research.contracts")
+        .joinpath("intern_authority_producer.json")
+        .read_text()
+    )
+    schema = producer["models"].get(model_name)
+    return None if schema is None else Draft202012Validator(schema)

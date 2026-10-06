@@ -76,6 +76,7 @@ class InternIdentityProvisionRequest(_Contract):
     def _storage_text(cls, value: str) -> str:
         if "\x00" in value:
             raise ValueError("intern_provisioning_display_name_invalid")
+        value.encode("utf-8")
         return value
 
 
