@@ -13,8 +13,10 @@ from typing import Annotated, Literal, Self
 
 from pydantic import (
     AwareDatetime,
+    BeforeValidator,
     Field,
     StringConstraints,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
@@ -76,6 +78,7 @@ def contract_digest(value: IndexContract) -> str:
 
 class FrozenObject(IndexContract):
     """One exact frozen artifact declaration with its role in the research archive."""
+
     #: Unique identity of this frozen object within the snapshot.
     object_id: Identifier
     #: Declared input role; native session exports must use the session purpose.
@@ -95,6 +98,7 @@ class FrozenObject(IndexContract):
 
 class SessionExport(IndexContract):
     """Bounded native session capture with an explicit cutoff and completeness gaps."""
+
     #: Exact wire schema identifier.
     schema_version: Literal["synth.research.session-export.v1"] = "synth.research.session-export.v1"
     #: Native session producer: Codex, Swarms or mlok.
@@ -142,6 +146,7 @@ class SessionExport(IndexContract):
 
 class Attempt(IndexContract):
     """Retained research attempt, including unsuccessful and excluded work."""
+
     #: Unique research attempt identifier within the snapshot.
     attempt_id: Identifier
     #: Recorded result; failed, excluded, cancelled and abandoned attempts remain evidence.
@@ -158,6 +163,7 @@ class Attempt(IndexContract):
 
 class ResearchSnapshot(IndexContract):
     """Closed research input archive with exact objects, sessions and attempt ledger."""
+
     #: Exact wire schema identifier.
     schema_version: Literal["synth.research.snapshot.v1"] = "synth.research.snapshot.v1"
     #: Frozen snapshot identity.
@@ -210,6 +216,7 @@ class ResearchSnapshot(IndexContract):
 
 class OutputBinding(IndexContract):
     """Approved release asset bound to one frozen source object and digest."""
+
     #: Identifier of the deliverable asset produced by this recipe output.
     release_asset_id: Identifier
     #: Frozen object supplying the exact output bytes.
@@ -220,6 +227,7 @@ class OutputBinding(IndexContract):
 
 class BuildRecipe(IndexContract):
     """Deterministic frozen-copy recipe with explicit environment, authored inputs and outputs."""
+
     #: Exact wire schema identifier.
     schema_version: Literal["synth.research.build-recipe.v1"] = "synth.research.build-recipe.v1"
     #: Identifier of this deterministic build recipe.
@@ -245,6 +253,7 @@ class BuildRecipe(IndexContract):
 
 class ApprovedRepresentation(IndexContract):
     """Explicit indexable interpretation of an exact deliverable asset."""
+
     #: Unique identity of the approved indexable representation.
     representation_id: Identifier
     #: Identifier of the exact deliverable asset.
@@ -259,6 +268,7 @@ class ApprovedRepresentation(IndexContract):
 
 class DeliverableAsset(IndexContract):
     """Exact asset bytes approved for release disclosure."""
+
     #: Identifier of the exact deliverable asset.
     asset_id: Identifier
     #: Lowercase SHA-256 digest of the exact referenced bytes.
@@ -267,6 +277,7 @@ class DeliverableAsset(IndexContract):
 
 class ReleaseDisclosure(IndexContract):
     """Audience-bound release assets and representations; excludes private archive identities."""
+
     #: Exact wire schema identifier.
     schema_version: Literal["synth.contribution.release-disclosure.v1"] = (
         "synth.contribution.release-disclosure.v1"
@@ -306,6 +317,7 @@ class ReleaseDisclosure(IndexContract):
 
 class ReproductionReceipt(IndexContract):
     """Verifier observation binding reproduction scope and outcome to exact inputs and outputs."""
+
     #: Exact wire schema identifier.
     schema_version: Literal["synth.research.reproduction-receipt.v1"] = (
         "synth.research.reproduction-receipt.v1"
@@ -334,6 +346,7 @@ class ReproductionReceipt(IndexContract):
 
 class DerivationBinding(IndexContract):
     """Validated join of frozen archive, recipe, disclosure and reproduction evidence."""
+
     #: Exact wire schema identifier.
     schema_version: Literal["synth.research.derivation.v1"] = "synth.research.derivation.v1"
     #: Exact closed retained-input snapshot.
@@ -385,3 +398,76 @@ class DerivationBinding(IndexContract):
             if not set(receipt.evidence_object_ids).issubset(objects):
                 raise ValueError("receipt evidence is not frozen")
         return self
+
+
+class ScientificSnapshot(ResearchSnapshot):
+    """Human-capable frozen inventory; never invent execution evidence for a copy."""
+
+    schema_version: Literal["synth.research.snapshot.v2"] = "synth.research.snapshot.v2"
+    attempts: tuple[Attempt, ...] = Field(default=(), max_length=100_000)
+
+
+class FrozenCopyRecipe(BuildRecipe):
+    schema_version: Literal["synth.research.build-recipe.v2"] = "synth.research.build-recipe.v2"
+    builder_version: Literal["frozen-copy-v2"] = "frozen-copy-v2"
+    environment_object_ids: tuple[Identifier, ...] = Field(default=(), max_length=64)
+
+
+class ScientificReleaseDisclosure(ReleaseDisclosure):
+    """Full-credit reviewer exclusions, bound without exposing private source IDs."""
+
+    schema_version: Literal["synth.contribution.release-disclosure.v2"] = (
+        "synth.contribution.release-disclosure.v2"
+    )
+    credited_principal_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=32)
+
+    @model_validator(mode="after")
+    def unique_credit(self):
+        require_unique(self.credited_principal_ids, "credited principals")
+        return self
+
+
+class ScientificDerivation(DerivationBinding):
+    schema_version: Literal["synth.research.derivation.v2"] = "synth.research.derivation.v2"
+    snapshot: ScientificSnapshot
+    recipe: FrozenCopyRecipe
+    disclosure: ScientificReleaseDisclosure
+
+
+def _legacy_derivation_version(value):
+    if isinstance(value, dict) and "schema_version" not in value:
+        return {**value, "schema_version": "synth.research.derivation.v1"}
+    return value
+
+
+VersionedDerivation = Annotated[
+    DerivationBinding | ScientificDerivation,
+    Field(discriminator="schema_version"),
+    BeforeValidator(_legacy_derivation_version),
+]
+_DERIVATION_ADAPTER = TypeAdapter(VersionedDerivation)
+
+
+def decode_derivation(value: dict | bytes) -> DerivationBinding | ScientificDerivation:
+    """Decode an explicit version, retaining v1's required attempts/environment."""
+    if isinstance(value, bytes):
+        return _DERIVATION_ADAPTER.validate_json(value)
+    return _DERIVATION_ADAPTER.validate_python(value)
+
+
+def _legacy_disclosure_version(value):
+    if isinstance(value, dict) and "schema_version" not in value:
+        return {**value, "schema_version": "synth.contribution.release-disclosure.v1"}
+    return value
+
+
+VersionedDisclosure = Annotated[
+    ReleaseDisclosure | ScientificReleaseDisclosure,
+    Field(discriminator="schema_version"),
+    BeforeValidator(_legacy_disclosure_version),
+]
+_DISCLOSURE_ADAPTER = TypeAdapter(VersionedDisclosure)
+
+
+def decode_disclosure(value: dict) -> ReleaseDisclosure | ScientificReleaseDisclosure:
+    return _DISCLOSURE_ADAPTER.validate_python(value)

@@ -1,0 +1,37 @@
+{
+  "scope": "actual newseal all6assets; deterministic100 syntheticrows; no generalization/corpus/organicvalue certification",
+  "started_at": "2026-10-01T00:16:43.535000+00:00",
+  "finished_at": "2026-10-01T00:16:43.567736+00:00",
+  "recount": {
+    "feature_rule": {
+      "accuracy": 1.0,
+      "macro_accuracy": 1.0,
+      "per_class_accuracy": {
+        "0": 1.0,
+        "1": 1.0
+      }
+    },
+    "majority": {
+      "accuracy": 0.9,
+      "macro_accuracy": 0.5,
+      "per_class_accuracy": {
+        "0": 1.0,
+        "1": 0.0
+      }
+    }
+  },
+  "all6bytes_verified": true,
+  "cpu_timeout_seconds": 20,
+  "provider_execution_usd": 0,
+  "private_full_receipt_sha256": "63ce02ede2e7e8cbe8352507c8a5f1b6747c8fdc4fc0238f8e11a55e23ecf3f6",
+  "original_private_source_revision": "969a0fa317c1be9599cb991d045eaecd96e7d8a1",
+  "asset_sha256": {
+    "experiment.py": "fde15b6d4160ef28fa72a5e86ab1bdc81b8961f9b67f8848f0a4ea549057599f",
+    "inputs.json": "e48a551a3296ae43dce0c4749133544b918d3e6bd35d187473d12866cde1f365",
+    "outputs.json": "0295d931434137d381846ccf4649a63e6a5f823192ba6217bd7cf77e7883b3f0",
+    "report.md": "d398419e9330143c157326b192720b8979d5b8af9ba2118ae43075f7ac4e3ae3",
+    "reproduction.json": "a7fbf74281cad7feaa786d1d5047f996db1c4224bd2eb3c8f13ff96fa671dc8e",
+    "environment.json": "d07459ab7504a66a941672c2691f2cd01d4732dc776ab8ec3d924dbabd4aa871"
+  },
+  "published_trace_scope": "Numeric CPU evidence only. Private case, actor, capability, key and host-path identifiers are omitted; original full receipt is preserved privately."
+}

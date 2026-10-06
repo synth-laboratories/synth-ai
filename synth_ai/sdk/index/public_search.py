@@ -28,7 +28,7 @@ from synth_ai.core.http.transport import HttpTransport
 
 from .catalog import PublicSearchCapability
 from .errors import IndexErrorCode
-from .search import SearchMode
+from .search import SearchFilters, SearchMode
 
 PUBLIC_SEARCH_TOKEN_HEADER = "X-Search-Token"
 #: Monitor release decision id. Delivered as a response header (never in the body) so
@@ -575,6 +575,7 @@ class PublicSearchClient:
         *,
         mode: SearchMode | str = SearchMode.FAST,
         max_results: int | None = None,
+        filters: SearchFilters | None = None,
         idempotency_key: str | None = None,
         timeout_s: float | None = None,
     ) -> PublicSearchResult | PublicSearchHandle:
@@ -583,6 +584,8 @@ class PublicSearchClient:
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must be a non-empty string")
         body: dict[str, Any] = {"mode": mode.value, "query": query}
+        if filters is not None:
+            body["filters"] = filters.model_dump(mode="json")
         if max_results is not None:
             if isinstance(max_results, bool) or not isinstance(max_results, int) or max_results < 1:
                 raise ValueError("max_results must be a positive integer")
@@ -617,13 +620,18 @@ class PublicSearchClient:
         *,
         mode: SearchMode | str = SearchMode.FAST,
         max_results: int | None = None,
+        filters: SearchFilters | None = None,
         idempotency_key: str | None = None,
         wait: bool = True,
         timeout_s: float = DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
     ) -> PublicSearchResult | PublicSearchHandle:
         """Fast: the result. Deep: the result after polling, or the handle if ``wait=False``."""
         started = self.start(
-            query, mode=mode, max_results=max_results, idempotency_key=idempotency_key
+            query,
+            mode=mode,
+            max_results=max_results,
+            filters=filters,
+            idempotency_key=idempotency_key,
         )
         if isinstance(started, PublicSearchHandle) and wait:
             return started.wait(timeout_s=timeout_s)
@@ -895,6 +903,7 @@ class PublicSearchOperations:
         *,
         mode: SearchMode | str = SearchMode.FAST,
         max_results: int | None = None,
+        filters: SearchFilters | None = None,
         idempotency_key: str | None = None,
         wait: bool = True,
         timeout_s: float = DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
@@ -909,6 +918,7 @@ class PublicSearchOperations:
             query,
             mode=mode,
             max_results=max_results,
+            filters=filters,
             idempotency_key=idempotency_key,
             wait=wait,
             timeout_s=timeout_s,

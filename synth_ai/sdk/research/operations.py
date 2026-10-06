@@ -23,6 +23,52 @@ RESEARCH_OPERATIONS = {
     operation.operation_id: operation
     for operation in (
         _operation(
+            "steer_run", HttpMethod.POST, "/smr/runs/{run_id}/steer", mutation=True, idempotent=True
+        ),
+        _operation(
+            "answer_run_action",
+            HttpMethod.POST,
+            "/smr/runs/{run_id}/actions/{action_id}/answer",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "getExactDatasetRevision",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "getExactDatasetRevisionManifest",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/manifest",
+            idempotent=True,
+        ),
+        _operation(
+            "getExactDatasetRevisionContent",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/content",
+            idempotent=True,
+        ),
+        _operation(
+            "listProjectDataPools",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-pools",
+            idempotent=True,
+        ),
+        _operation(
+            "getProjectDataPoolInventory",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-pools/{pool_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "getPinnedProjectDataPoolFile",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-pools/{pool_id}/files/{file_id}/content",
+            idempotent=True,
+        ),
+        _operation(
             "detach_research_intern_factory",
             HttpMethod.DELETE,
             "/smr/research-intern/factories/{factory_id}",
@@ -1237,6 +1283,13 @@ RESEARCH_OPERATIONS = {
             "retrieve_swarm_activity",
             HttpMethod.GET,
             "/smr/runs/{run_id}/activity",
+            idempotent=True,
+        ),
+        _operation("list_run_tasks", HttpMethod.GET, "/smr/runs/{run_id}/tasks", idempotent=True),
+        _operation(
+            "list_project_run_task_events",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/runs/{run_id}/task-events",
             idempotent=True,
         ),
         _operation(

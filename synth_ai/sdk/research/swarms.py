@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncIterator, Iterator, Mapping
+from urllib.parse import quote
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import SynthError
@@ -19,14 +20,22 @@ from synth_ai.sdk.research.contracts.common import (
     ProjectId,
     SwarmId,
     WorkProductId,
+    require_text,
 )
 from synth_ai.sdk.research.contracts.evidence import (
     ContentDisposition,
     SwarmEvidence,
 )
 from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
-from synth_ai.sdk.research.contracts.status import SwarmStatus
+from synth_ai.sdk.research.contracts.status import SwarmPendingAction, SwarmStatus
+from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
 from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
+from synth_ai.sdk.research.contracts.swarm_tasks import (
+    SwarmTask,
+    SwarmTaskEvents,
+    SwarmWorkGraph,
+    swarm_tasks_from_wire,
+)
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
@@ -98,6 +107,52 @@ def _stream_timeout(timeout_seconds: float | None) -> float | None:
     if timeout_seconds is not None and timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive when provided")
     return timeout_seconds
+
+
+def _control_body(field: str, text: str, idempotency_key: str | None) -> JsonObject:
+    if not isinstance(text, str) or not text.strip() or len(text.encode("utf-8")) > 16_384:
+        raise ValueError(f"{field} must be nonblank and at most 16384 UTF-8 bytes")
+    body: JsonObject = {field: text}
+    if idempotency_key is not None:
+        key = require_text(idempotency_key, field_name="idempotency_key")
+        if len(key) > 255:
+            raise ValueError("idempotency_key must be at most 255 characters")
+        body["idempotency_key"] = key
+    return body
+
+
+def _control_receipt(
+    value: JsonValue, swarm_id: SwarmId, kind: str, action_id: str | None = None
+) -> SwarmControlReceipt:
+    receipt = SwarmControlReceipt.from_wire(value)
+    if (
+        receipt.swarm_id != swarm_id
+        or receipt.kind != kind
+        or (action_id is not None and receipt.action_id != action_id)
+    ):
+        raise ValueError("swarm control receipt does not match the request scope")
+    return receipt
+
+
+def _task_events_limit(limit: int) -> int:
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer from 1 through 1000")
+    return limit
+
+
+def _task_events_request(swarm_id: SwarmId, project_id: ProjectId, limit: int) -> HttpRequest:
+    return _request(
+        "list_project_run_task_events",
+        f"/smr/projects/{project_id}/runs/{swarm_id}/task-events",
+        query={"limit": _task_events_limit(limit)},
+    )
+
+
+def _task_events(value: JsonValue, swarm_id: SwarmId, project_id: ProjectId) -> SwarmTaskEvents:
+    events = SwarmTaskEvents.from_wire(value)
+    if events.swarm_id != swarm_id or events.project_id != project_id:
+        raise ValueError("task events do not match the request scope")
+    return events
 
 
 class SwarmHandle:
@@ -280,6 +335,34 @@ class SwarmHandle:
             last_event_id=last_event_id,
             timeout_seconds=timeout_seconds,
         )
+
+    def steer(self, message: str, *, idempotency_key: str | None = None) -> SwarmControlReceipt:
+        """Request native steering; acceptance is distinct from execution delivery."""
+        return self._api.steer(self.swarm_id, message, idempotency_key=idempotency_key)
+
+    def answer_action(
+        self, action_id: str, response_text: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Answer the correlated action exposed by authoritative native history."""
+        return self._api.answer_action(
+            self.swarm_id, action_id, response_text, idempotency_key=idempotency_key
+        )
+
+    def pending_actions(self) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions; each ``action_id`` feeds ``answer_action``."""
+        return self._api.pending_actions(self.swarm_id)
+
+    def tasks(self) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges and retry lineage."""
+        return self._api.tasks(self.swarm_id)
+
+    def task_events(self, *, limit: int = 500) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events)."""
+        return self._api.task_events(self.swarm_id, self.project_id, limit=limit)
+
+    def work_graph(self, *, limit: int = 500) -> SwarmWorkGraph:
+        """Tasks, dependencies, reviewer verdicts and retries."""
+        return self._api.work_graph(self.swarm_id, self.project_id, limit=limit)
 
 
 class SwarmsAPI:
@@ -731,6 +814,62 @@ class SwarmsAPI:
         ):
             yield decode_swarm_event(event)
 
+    def steer(
+        self, swarm_id: SwarmId, message: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Steer through the backend's native control ledger; reuse a key for retries."""
+        value = self._transport.execute(
+            _request(
+                "steer_run",
+                f"/smr/runs/{swarm_id}/steer",
+                body=_control_body("message", message, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "steer")
+
+    def answer_action(
+        self,
+        swarm_id: SwarmId,
+        action_id: str,
+        response_text: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> SwarmControlReceipt:
+        """Answer a native action; changed bytes with the same key conflict server-side."""
+        action = require_text(action_id, field_name="action_id")
+        value = self._transport.execute(
+            _request(
+                "answer_run_action",
+                f"/smr/runs/{swarm_id}/actions/{quote(action, safe='')}/answer",
+                body=_control_body("response_text", response_text, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "action_answer", action)
+
+    def pending_actions(self, swarm_id: SwarmId) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions from the authoritative status projection."""
+        return self.status(swarm_id).pending_actions
+
+    def tasks(self, swarm_id: SwarmId) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges (``depends_on_task_keys``) and ``retry_of``."""
+        value = self._transport.execute(_request("list_run_tasks", f"/smr/runs/{swarm_id}/tasks"))
+        return swarm_tasks_from_wire(value, swarm_id)
+
+    def task_events(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events, ascending)."""
+        value = self._transport.execute(_task_events_request(swarm_id, project_id, limit))
+        return _task_events(value, swarm_id, project_id)
+
+    def work_graph(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmWorkGraph:
+        """Tasks, dependency edges, reviewer verdicts and retries in one typed read."""
+        tasks = self.tasks(swarm_id)
+        events = self.task_events(swarm_id, project_id, limit=limit)
+        return SwarmWorkGraph.build(swarm_id, tasks, events.events)
+
 
 class AsyncSwarmHandle:
     """Handle returned when creating a Swarm."""
@@ -917,6 +1056,36 @@ class AsyncSwarmHandle:
             timeout_seconds=timeout_seconds,
         ):
             yield event
+
+    async def steer(
+        self, message: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Request native steering; acceptance is distinct from execution delivery."""
+        return await self._api.steer(self.swarm_id, message, idempotency_key=idempotency_key)
+
+    async def answer_action(
+        self, action_id: str, response_text: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Answer the correlated action exposed by authoritative native history."""
+        return await self._api.answer_action(
+            self.swarm_id, action_id, response_text, idempotency_key=idempotency_key
+        )
+
+    async def pending_actions(self) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions; each ``action_id`` feeds ``answer_action``."""
+        return await self._api.pending_actions(self.swarm_id)
+
+    async def tasks(self) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges and retry lineage."""
+        return await self._api.tasks(self.swarm_id)
+
+    async def task_events(self, *, limit: int = 500) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events)."""
+        return await self._api.task_events(self.swarm_id, self.project_id, limit=limit)
+
+    async def work_graph(self, *, limit: int = 500) -> SwarmWorkGraph:
+        """Tasks, dependencies, reviewer verdicts and retries."""
+        return await self._api.work_graph(self.swarm_id, self.project_id, limit=limit)
 
 
 class AsyncSwarmsAPI:
@@ -1339,6 +1508,64 @@ class AsyncSwarmsAPI:
             operation_id="stream_run_events",
         ):
             yield decode_swarm_event(event)
+
+    async def steer(
+        self, swarm_id: SwarmId, message: str, *, idempotency_key: str | None = None
+    ) -> SwarmControlReceipt:
+        """Steer through the backend's native control ledger; reuse a key for retries."""
+        value = await self._transport.execute(
+            _request(
+                "steer_run",
+                f"/smr/runs/{swarm_id}/steer",
+                body=_control_body("message", message, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "steer")
+
+    async def answer_action(
+        self,
+        swarm_id: SwarmId,
+        action_id: str,
+        response_text: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> SwarmControlReceipt:
+        """Answer a native action; changed bytes with the same key conflict server-side."""
+        action = require_text(action_id, field_name="action_id")
+        value = await self._transport.execute(
+            _request(
+                "answer_run_action",
+                f"/smr/runs/{swarm_id}/actions/{quote(action, safe='')}/answer",
+                body=_control_body("response_text", response_text, idempotency_key),
+            )
+        )
+        return _control_receipt(value, swarm_id, "action_answer", action)
+
+    async def pending_actions(self, swarm_id: SwarmId) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions from the authoritative status projection."""
+        return (await self.status(swarm_id)).pending_actions
+
+    async def tasks(self, swarm_id: SwarmId) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges (``depends_on_task_keys``) and ``retry_of``."""
+        value = await self._transport.execute(
+            _request("list_run_tasks", f"/smr/runs/{swarm_id}/tasks")
+        )
+        return swarm_tasks_from_wire(value, swarm_id)
+
+    async def task_events(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events, ascending)."""
+        value = await self._transport.execute(_task_events_request(swarm_id, project_id, limit))
+        return _task_events(value, swarm_id, project_id)
+
+    async def work_graph(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmWorkGraph:
+        """Tasks, dependency edges, reviewer verdicts and retries in one typed read."""
+        tasks = await self.tasks(swarm_id)
+        events = await self.task_events(swarm_id, project_id, limit=limit)
+        return SwarmWorkGraph.build(swarm_id, tasks, events.events)
 
 
 ResearchSwarmHandle = SwarmHandle

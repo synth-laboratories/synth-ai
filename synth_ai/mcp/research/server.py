@@ -64,8 +64,13 @@ from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
 from synth_ai.mcp.research.tools.repos import build_repo_tools
 from synth_ai.mcp.research.tools.research_intern import build_research_intern_tools
+from synth_ai.mcp.research.tools.resource_reads import (
+    RESOURCE_READ_TOOL_NAMES,
+    build_resource_read_tools,
+)
 from synth_ai.mcp.research.tools.resources import build_resource_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
+from synth_ai.mcp.research.tools.scientific_records import build_scientific_record_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.visuals import build_visual_tools
@@ -107,7 +112,7 @@ def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
     return default if value is None else value
 
 
-_STABLE_TOOL_NAMES = frozenset(
+_STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
     {
         "intern_async_cancel",
         "intern_async_command",
@@ -159,6 +164,20 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_launch_preflight",
         "research_get_limits",
         "research_get_project",
+        "research_save_record",
+        "research_create_log",
+        "research_append_log_entry",
+        "research_save_report",
+        "research_attach_artifact",
+        "research_create_experiment_revision",
+        "research_register_trial",
+        "research_record_result",
+        "research_review_revision",
+        "research_get_record",
+        "research_list_records",
+        "research_get_operation_receipt",
+        "research_record_events",
+        "research_read_artifact",
         "research_get_project_economics",
         "research_get_project_dataset_content",
         "research_get_project_setup",
@@ -536,6 +555,7 @@ class ResearchMcpServer:
             *build_research_intern_tools(self._core_client_from_args),
             *build_intern_program_tools(self._core_client_from_args),
             *build_resource_tools(self),
+            *build_resource_read_tools(self._core_client_from_args),
             *build_run_tools(self),
             *build_progress_tools(self),
             *build_project_data_tools(self._core_client_from_args),
@@ -543,6 +563,7 @@ class ResearchMcpServer:
             *build_image_release_tools(self._core_client_from_args),
             *build_visual_tools(self._core_client_from_args),
             *build_log_tools(self),
+            *build_scientific_record_tools(self._core_client_from_args),
             *build_approval_tools(self),
             *build_artifact_tools(self),
             *build_integration_tools(self),

@@ -18,8 +18,10 @@ from ..manifest import encode_manifest
 from ..package import ContributionPackage
 from .contracts import (
     DerivationBinding,
+    ScientificDerivation,
     canonical_bytes,
     contract_digest,
+    decode_derivation,
 )
 
 OBJECT_BYTES_MAX = 64 * 1024 * 1024
@@ -32,6 +34,7 @@ class FrozenBuildError(ValueError):
     Examples:
         error = FrozenBuildError("frozen_object_missing", "declared input is absent")
     """
+
     def __init__(self, code: str, detail: str) -> None:
         """Keep a machine-readable error code alongside a descriptive refusal.
 
@@ -70,7 +73,9 @@ def _read_object(root: Path, declaration: ArtifactObjectDeclaration) -> bytes:
     return content
 
 
-def verify_archive(root: Path, binding: DerivationBinding) -> dict[str, bytes]:
+def verify_archive(
+    root: Path, binding: DerivationBinding | ScientificDerivation
+) -> dict[str, bytes]:
     """Verify every retained input, including unsuccessful attempts and native exports.
 
     Args:
@@ -106,7 +111,7 @@ def verify_archive(root: Path, binding: DerivationBinding) -> dict[str, bytes]:
 
 
 def validate_release_binding(
-    binding: DerivationBinding,
+    binding: DerivationBinding | ScientificDerivation,
     descriptor: bytes,
     manifest: ArtifactManifest,
 ) -> ContributionPackage:
@@ -170,7 +175,7 @@ def build_release(
     archive_root: Path,
     destination: Path,
     *,
-    binding: DerivationBinding,
+    binding: DerivationBinding | ScientificDerivation,
     descriptor: bytes,
     manifest: ArtifactManifest,
 ) -> dict:
@@ -196,7 +201,7 @@ def build_release(
     Examples:
         result = build_release(archive_root, destination, binding=binding, descriptor=descriptor, manifest=manifest)
     """
-    binding = DerivationBinding.model_validate_json(canonical_bytes(binding))
+    binding = decode_derivation(canonical_bytes(binding))
     package = validate_release_binding(binding, descriptor, manifest)
     archive_root = archive_root.resolve(strict=True)
     destination = destination.absolute()
@@ -257,7 +262,7 @@ def build_release(
 def verify_release(
     destination: Path,
     *,
-    binding: DerivationBinding,
+    binding: DerivationBinding | ScientificDerivation,
     descriptor: bytes,
     manifest: ArtifactManifest,
 ) -> dict:

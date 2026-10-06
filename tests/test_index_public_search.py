@@ -854,7 +854,13 @@ def test_mcp_index_search_is_anonymous_and_returns_terms() -> None:
     assert "search_token" not in str(out)
     assert TOKEN not in str(out)
     schema = tool.input_schema
-    assert set(schema["properties"]) == {"query", "mode", "max_results", "idempotency_key"}
+    assert set(schema["properties"]) == {
+        "query",
+        "mode",
+        "max_results",
+        "idempotency_key",
+        "filters",
+    }
     assert schema["required"] == ["query"]
 
 
@@ -1019,7 +1025,13 @@ def test_mcp_index_search_keyed_with_wallet_consent_runs_paid_search_with_a_cap(
             for tool in build_index_tools(factory, include_lifecycle=False)
             if tool.name == "index_search"
         )
-        first = tool.handler({"query": "RLVR verifier design", "mode": "fast"})
+        first = tool.handler(
+            {
+                "query": "RLVR verifier design",
+                "mode": "fast",
+                "filters": {"tags_all": ["optimization"], "tags_none": ["obsolete"]},
+            }
+        )
         tool.handler({"query": "second call reuses the consent read", "mode": "fast"})
     finally:
         keyed_client.close()
@@ -1034,6 +1046,8 @@ def test_mcp_index_search_keyed_with_wallet_consent_runs_paid_search_with_a_cap(
     body = json.loads(seen[1].content)
     assert body["billing"] == {"allow_wallet": True, "max_charge_cents": 5}
     assert body["mode"] == "fast"
+    assert body["filters"]["tags_all"] == ["optimization"]
+    assert body["filters"]["tags_none"] == ["obsolete"]
     assert seen[1].headers["authorization"] == "Bearer sk-test"
     assert seen[1].headers["idempotency-key"]
     assert first["paid"] is True
