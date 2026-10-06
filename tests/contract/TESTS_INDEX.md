@@ -192,3 +192,39 @@ Backend authority `304f00b8`: fresh route dump includes all 1538 app routes and
 live authority overrides accompany the portable tests. Backend source was not
 changed; no duplicate registry fix, CI wiring, provider calls, slot mutation,
 or package publication.
+
+
+## Joined discrepancy fixes — current acceptance, 2026-10-06
+
+Historical reds above remain retained reproductions. The joined continuation is
+backend PR #1891, Forge PR #5 and SDK PR #426. Source contracts are qualified;
+cloud deployment, public installed-package verification and the owned worker
+journeys are separate acceptance gates and remain pending. Assertions retain
+finding IDs; no CI wiring or model calls were added.
+
+| Ticket / findings | Tests (SDK paths relative to `tests/`) | Current status |
+| --- | --- | --- |
+| SYN-3990 / PR-01, PR-03, PR-04, MX-11 | `contract/test_scientific_discrepancy_fix_contracts.py`; backend `test_forge_discrepancy_contracts.py` | page/cursor and stable stored identity source laws pass |
+| SYN-3991 / RR-01, MX-12 | backend `test_forge_discrepancy_contracts.py`; Forge `test_discrepancy_fixes_contracts.py` | definitive code/status/retry/mutation refusals pass |
+| SYN-3992 / RR-05 | `contract/test_scientific_discrepancy_fix_contracts.py`; backend native outcome/attachment PG tests | typed null/negative/scorer source and PG pass; genuine worker journey pending |
+| SYN-3993 / RR-02, RR-08, RR-14 | `contract/test_discrepancy_fixes_contracts.py`, `test_scientific_receipt_uncertainty_contracts.py`; backend refusal laws | status/findings, cause, original intent and malformed-success uncertainty pass |
+| SYN-3994 / RR-03, RR-04 | `contract/test_scientific_discrepancy_fix_contracts.py`, `test_discrepancy_fixes_contracts.py` | typed native identity/history and single MCP payload pass |
+| SYN-3995 / RR-06, RR-07, RR-11, RR-13 | `contract/test_discrepancy_fixes_contracts.py`; backend bounded research/truncation laws; `mcp/test_installed_stdio_scientific_contracts.py` | source and installed stdio/HTTP citations pass |
+| SYN-3996 / RR-09 | backend `test_forge_discrepancy_contracts.py::test_late_retry_does_not_replay_expired_admission__RR09`; Forge receipt recovery tests | fake-clock typed expiry and receipt-first recovery pass; immutable admissions are never renewed |
+| SYN-3997 / RW-03 | backend `integration/test_discrepancy_postgres_contracts.py` plus branch/fence PG tests | persisted writer guard passes |
+| SYN-3998 / RW-07, RW-08 | `contract/test_writer_refusal_directives.py`, `test_archived_launch_refusal_contracts.py`; backend closed response laws | typed writer/fence/provenance/archive refusals and strict retry directives pass |
+| SYN-3999 / RW-04 and writer drift | `contract/test_intern_execution_reference_contracts.py`, `test_native_attachment_read_contracts.py`; backend native custody/bridge/fence PG suites | admitted native producers and exact references pass; live mapped writer and transfer pending |
+| SYN-4000 | testing `integration/forge/test_forge_stub_worker_journey_law.py`; backend native run projection laws | 503 source regression passes; genuine owned-slot trial/result/resource/cleanup acceptance pending |
+| SYN-4005 / MX-08 | `contract/test_visual_logical_contracts.py`, `test_discrepancy_fixes_contracts.py` | logical Visual schema/bytes pass |
+| SYN-4006 / PR-18, MX-07b | `contract/test_discrepancy_fixes_contracts.py`; workspace confirm-push MCP tests | required run identity forwarding passes |
+| SYN-4007 / MX-10, RR-12 | `mcp/test_all_tool_result_boundary_contracts.py`, `test_installed_stdio_scientific_contracts.py`; testing installed-SDK guard | every advertised result JSON boundary and real stdio pass; stale shared venv fails runner guard |
+| SYN-4008 / MX-04, MX-05, MX-09; Tier 3 drift | `contract/test_operation_metadata_dispositions.py`, `test_orchestra_route_contracts.py`, `test_discrepancy_contracts.py`; backend generated snapshot equality | producer snapshots/all-route resolution enforce drift; newly restored Intern operations are being registered in the bounded producer contract |
+| SYN-4009 / EX-02–EX-20 | `contract/test_transport_extension_fixes_contracts.py`, `test_streaming_extension_fixes_contracts.py`, `test_boundary_extension_fixes_contracts.py`; Forge strict measurement tests | finite values, strict booleans, SSE framing, closed MCP arguments, identity and opaque page boundaries pass |
+| SYN-3937 / RW-09 | testing `integration/forge/test_forge_intern_journey_law.py`; typed Intern owning-schema tests; backend genuine Task/B01/custody tests | offline and PG provenance pass; actual Intern execution, installed SDK/MCP and FG08 transfer pending |
+
+Current migration graph has one head, `20261122_forge_native_attachment_intents`;
+public owner-release and notice revisions 20/21 are preserved. Full actual
+production-backup 60930→22 and stage-shaped 17→22 rehearsals preserve records,
+managed grants and customer counts. Populated native/public append-only history
+requires forward-compatible recovery or a retained backup, not destructive SQL
+downgrade. Detailed receipts are in `artifacts/forge-bugfixes-20261006/`.
