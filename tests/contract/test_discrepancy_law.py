@@ -15,7 +15,6 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     ExperimentHistory,
 )
 from synth_ai.sdk.research.contracts.run_control import ManagedResearchRunControlError
-from synth_ai.sdk.research.contracts.types import RunResourceBindings
 from synth_ai.sdk.research.session.client import ResearchSession
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -60,36 +59,6 @@ def test_sdk_call_resolves_to_backend__MX01_MX02(method, path, finding, tmp_path
         method in r["methods"] and normalized(r["path"]) == normalized(path) for r in routes
     )
     assert not active or exists, f"{finding}: SDK calls nonexistent backend route {method} {path}"
-
-
-@pytest.mark.parametrize(
-    "schema",
-    [
-        "AsyncRuntimeEnsureRequest",
-        "SmrRunResourceBindingsRequest",
-        "SmrRunnableProjectCreateRequest",
-        "SmrAgentModel",
-        "SmrProjectTriggerRequest",
-    ],
-)
-def test_vendored_schema_matches_generated__MX04(schema):
-    vendored = json.loads((ROOT / "openapi/research-v1.json").read_text())
-    assert vendored["components"]["schemas"][schema] == SPEC["components"]["schemas"][schema], (
-        f"MX-04: stale vendored {schema}"
-    )
-
-
-def test_explicit_empty_resource_inventories_round_trip__PR02():
-    names = {f.name for f in dataclasses.fields(RunResourceBindings)}
-    assert "model_file_ids" in names, "PR-02: typed bindings omit model_file_ids"
-    bindings = RunResourceBindings(
-        model_file_ids=[], external_repository_ids=[], credential_ref_ids=[]
-    )
-    assert bindings.to_wire() == {
-        "model_file_ids": [],
-        "external_repository_ids": [],
-        "credential_ref_ids": [],
-    }, "PR-02: explicit empty inventories must survive serialization"
 
 
 def session(monkeypatch, response):
@@ -219,40 +188,6 @@ def test_scientific_read_has_bounded_response_contract__RR06_RR07(path):
     assert schema, f"RR-07: untyped response for {path}"
 
 
-@pytest.mark.parametrize(
-    "code,expected_retryable",
-    [
-        ("scientific_writer_transferred", False),
-        ("transfer_fence_active", True),
-        ("provenance_unbound", False),
-        ("run_deployment_pins_missing", False),
-    ],
-)
-def test_authority_errors_are_first_class__RW08(code, expected_retryable):
-    import httpx
-    from synth_ai.sdk.research.errors import ResearchApiError, ResearchStructuredDenialError
-    from synth_ai.sdk.research.transport.http import _raise_for_error_response
-
-    response = httpx.Response(
-        409 if code in {"scientific_writer_transferred", "transfer_fence_active"} else 422,
-        request=httpx.Request("POST", "http://offline.invalid/smr/projects/p/trigger"),
-        json={
-            "detail": {
-                "error_code": code,
-                "message": "launch refused",
-                "operation_id": "intent",
-                "retry_after": "fence_release" if expected_retryable else None,
-            }
-        },
-    )
-    with pytest.raises(ResearchApiError) as refused:
-        _raise_for_error_response(response, operation_id="intent")
-    assert type(refused.value) not in {ResearchStructuredDenialError, ResearchApiError}, (
-        f"RW-08: {code} degrades to generic denial"
-    )
-    assert refused.value.retryable is expected_retryable, f"RW-08: {code} retryability lost"
-
-
 def test_uncertain_write_preserves_operation_identity__RR14():
     import httpx
     from synth_ai.sdk.research.errors import ResearchApiError, ResearchStructuredDenialError
@@ -340,15 +275,6 @@ def test_transport_failure_keeps_original_intent_and_cause__RR14(failure_kind):
     )
 
 
-@pytest.mark.parametrize("field", ["resource_readiness", "runtime_readiness", "checks"])
-def test_preflight_keeps_typed_readiness__PR08(field):
-    from synth_ai.sdk.research.contracts.types import SmrLaunchPreflight
-
-    assert field in {member.name for member in dataclasses.fields(SmrLaunchPreflight)}, (
-        f"PR-08: typed preflight loses {field}"
-    )
-
-
 def test_native_result_identity_is_typed__RR04():
     from typing import get_type_hints
 
@@ -419,22 +345,3 @@ def test_sdk_public_state_vocabulary_matches_backend__RW17(name):
     expected = json.loads((FIXTURES / "public_enums.generated.json").read_text())[name]
     actual = sorted(item.value for item in getattr(run_state, name))
     assert actual == expected, f"RW-17: SDK advertises {name} values backend does not emit"
-
-
-def test_full_vendored_snapshot_matches_backend__MX04():
-    def without_generator_noise(specification):
-        specification = json.loads(json.dumps(specification))
-        schemas = specification["components"]["schemas"]
-        for name in list(schemas):
-            if name.startswith("Body_publish_") and name.endswith("_visual"):
-                del schemas[name]
-        for name in ("ValidationError",):
-            schema = schemas.get(name, {})
-            for field in ("ctx", "input"):
-                schema.get("properties", {}).pop(field, None)
-        return specification
-
-    vendored = json.loads((ROOT / "openapi/research-v1.json").read_text())
-    assert without_generator_noise(vendored) == without_generator_noise(SPEC), (
-        "MX-04: SDK snapshot differs from authoritative generated backend surface"
-    )

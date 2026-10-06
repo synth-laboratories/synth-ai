@@ -52,44 +52,6 @@ async def invoke(mode, handler, action):
         await transport.close()
 
 
-@pytest.mark.parametrize("mode", ["sync", "async"])
-@pytest.mark.parametrize("status", [409, 429, 503])
-@pytest.mark.parametrize("method", [HttpMethod.GET, HttpMethod.POST])
-def test_explicit_refusal_is_attempted_once__EX01(mode, status, method):
-    requests = []
-
-    def response(request):
-        requests.append(request)
-        return httpx.Response(
-            status,
-            json={
-                "detail": {
-                    "error_code": "permanent_refusal",
-                    "retryable": False,
-                    "message": "blocked by declared policy",
-                }
-            },
-        )
-
-    with pytest.raises(SynthError) as refusal:
-        asyncio.run(
-            invoke(
-                mode,
-                response,
-                lambda transport: transport.execute(
-                    HttpRequest(
-                        operation(method), "/probe", headers={"Idempotency-Key": "original-intent"}
-                    )
-                ),
-            )
-        )
-    assert refusal.value.error_code == "permanent_refusal", "EX-01: refusal identity lost"
-    assert refusal.value.retryable is False, "EX-01: explicit retryability lost"
-    assert len(requests) == 1, (
-        f"EX-01: explicit retryable=false was attempted {len(requests)} times"
-    )
-
-
 @pytest.mark.parametrize("header", ["IDEMPOTENCY-KEY", "iDeMpOtEnCy-KeY"])
 def test_idempotency_header_is_case_insensitive__EX02(header):
     request = HttpRequest(operation(HttpMethod.POST), "/probe", headers={header: "original-intent"})

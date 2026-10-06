@@ -18,12 +18,14 @@ from synth_ai.core.contracts.json_value import JsonValue
 from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.sdk.research.errors import (
+    LAUNCH_REFUSAL_CODES,
     ResearchApiError,
     ResearchCheckpointQuotaExceededError,
     ResearchConcurrentRunLimitExceededError,
     ResearchFundingLaneInvariantError,
     ResearchInferenceProviderUnavailableError,
     ResearchInsufficientCreditsError,
+    ResearchLaunchRefusalError,
     ResearchLimitExceededError,
     ResearchLimitExtensionGuardedResumeBlockedError,
     ResearchLimitExtensionIdempotencyConflictError,
@@ -143,6 +145,40 @@ def _raise_for_error_response(
         payload = None
     if isinstance(payload, dict):
         detail = payload.get("detail")
+        if response.status_code == 422 and isinstance(detail, list):
+            launch_code = None
+            for issue in detail:
+                location = issue.get("loc") if isinstance(issue, dict) else None
+                if (
+                    not isinstance(location, (list, tuple))
+                    or len(location) < 2
+                    or location[0] != "body"
+                ):
+                    continue
+                if location[1] == "provenance_mode":
+                    launch_code = (
+                        "provenance_unbound"
+                        if issue.get("type") == "missing"
+                        else "run_provenance_mode_invalid"
+                    )
+                    break
+                if location[1] == "resource_bindings" and issue.get("type") == "missing":
+                    launch_code = "resource_inventory_unspecified"
+                    break
+                if location[1] == "deployment_pins":
+                    launch_code = (
+                        "run_deployment_pins_missing"
+                        if len(location) == 2
+                        else "run_deployment_pin_invalid"
+                    )
+            if launch_code is not None:
+                raise ResearchLaunchRefusalError(
+                    "Launch request does not satisfy its declared provenance inputs.",
+                    status_code=422,
+                    response_text=response.text,
+                    operation_id=operation_id,
+                    detail={"error_code": launch_code, "validation_errors": detail},
+                )
         if isinstance(detail, dict):
             code = detail.get("error_code")
             if isinstance(code, str) and code.strip():
@@ -150,6 +186,14 @@ def _raise_for_error_response(
                 status_code = response.status_code
                 response_text = response.text
                 stripped = code.strip()
+                if stripped in LAUNCH_REFUSAL_CODES:
+                    raise ResearchLaunchRefusalError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                        operation_id=operation_id,
+                    )
                 if status_code == 404 and stripped.endswith(("_not_found", "_retention_expired")):
                     # Typed retrievability evidence: preserve the backend's
                     # exact not-found condition and lookup scope so a genuine

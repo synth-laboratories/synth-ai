@@ -317,6 +317,71 @@ class ResearchStructuredDenialError(ResearchApiError):
         self.detail = dict(detail) if detail else {}
 
 
+LAUNCH_REFUSAL_CODES = frozenset(
+    {
+        "provenance_unbound",
+        "run_provenance_mode_invalid",
+        "run_deployment_pins_missing",
+        "run_deployment_pin_invalid",
+        "run_deployment_pin_placeholder",
+        "run_trace_store_not_provisioned",
+        "resource_inventory_unspecified",
+        "resource_delivery_limit_exceeded",
+        "native_budget_unbound",
+        "native_role_budget_exceeds_run",
+        "orchestra_plan_budget_unbound",
+        "orchestra_plan_token_ceiling_unbound",
+        "scientific_writer_transferred",
+        "transfer_fence_active",
+    }
+)
+
+
+class ResearchLaunchRefusalError(ResearchStructuredDenialError):
+    """First-class launch refusal retaining authority, limits and retry posture.
+
+    See backend launch_resource_inventory.md and packages/smr/run_provenance.py.
+    A fence may require waiting; missing inputs and permanent writer changes do not retry.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        response_text: str | None = None,
+        detail: dict[str, Any] | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            message, status_code=status_code, response_text=response_text, detail=detail
+        )
+        code = self.detail.get("error_code")
+        if code not in LAUNCH_REFUSAL_CODES:
+            raise ValueError("Unknown launch refusal code")
+        retryable = code == "transfer_fence_active"
+        self.failure = SynthFailure(
+            code=SynthErrorCode(code),
+            category=(
+                SynthErrorCategory.TRANSIENT_SERVICE
+                if retryable
+                else SynthErrorCategory.RESOURCE_EXHAUSTED
+                if code in {"native_role_budget_exceeds_run", "resource_delivery_limit_exceeded"}
+                else SynthErrorCategory.CONFLICT
+                if code == "scientific_writer_transferred"
+                else SynthErrorCategory.VALIDATION
+            ),
+            operation=operation_id,
+            request_id=None,
+            correlation_id=None,
+            retry=RetryDirective(retryable=retryable),
+            status=status_code,
+            detail=message,
+        )
+        self.retry_after = self.detail.get("retry_after")
+        self.operation_id = self.detail.get("operation_id", operation_id)
+
+
 class ResearchNotFoundError(ResearchStructuredDenialError):
     """Raised when the backend reports a typed ``*_not_found`` condition (HTTP 404).
 
@@ -637,6 +702,7 @@ __all__ = [
     "ResearchOperationError",
     "ResearchProjectMonthlyBudgetExhaustedError",
     "ResearchStructuredDenialError",
+    "ResearchLaunchRefusalError",
     "ResearchUnsafeLimitExtensionError",
     "ResourceExhaustedError",
     "RetryDirective",

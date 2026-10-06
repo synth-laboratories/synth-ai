@@ -38967,6 +38967,7 @@
         "type": "object"
       },
       "SmrDeploymentPinRequest": {
+        "additionalProperties": false,
         "description": "One repository's resolved deployment receipt for run provenance.\n\nMirrors ``packages.smr.run_provenance.DeploymentPin``; validated and\ndigest-stamped at launch by the provenance binding authority.",
         "properties": {
           "artifact_digest": {
@@ -50330,6 +50331,30 @@
         "title": "SmrLaunchCapabilitiesResponse",
         "type": "object"
       },
+      "SmrLaunchHoldRequirementsResponse": {
+        "properties": {
+          "minimum_run_ceiling_micros": {
+            "minimum": 1.0,
+            "title": "Minimum Run Ceiling Micros",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/SmrLaunchRoleHoldResponse"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "minimum_run_ceiling_micros"
+        ],
+        "title": "SmrLaunchHoldRequirementsResponse",
+        "type": "object"
+      },
       "SmrLaunchPreflightCheckResponse": {
         "properties": {
           "code": {
@@ -50410,6 +50435,18 @@
             ],
             "title": "Blocked Reason"
           },
+          "delivery_limits": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Limits"
+          },
           "inline_repository_names": {
             "items": {
               "type": "string"
@@ -50422,6 +50459,13 @@
               "type": "string"
             },
             "title": "Missing Credential Ref Ids",
+            "type": "array"
+          },
+          "missing_model_file_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Model File Ids",
             "type": "array"
           },
           "missing_repository_ids": {
@@ -50440,6 +50484,13 @@
               "type": "string"
             },
             "title": "Selected Credential Ref Ids",
+            "type": "array"
+          },
+          "selected_model_file_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Selected Model File Ids",
             "type": "array"
           },
           "selected_repository_ids": {
@@ -50548,6 +50599,16 @@
               }
             ],
             "title": "Effective Plan"
+          },
+          "hold_requirements": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrLaunchHoldRequirementsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "launch_mode": {
             "anyOf": [
@@ -50927,6 +50988,30 @@
           "autumn_feature_id"
         ],
         "title": "SmrLaunchPromoStatusResponse",
+        "type": "object"
+      },
+      "SmrLaunchRoleHoldResponse": {
+        "properties": {
+          "hold_micros": {
+            "minimum": 1.0,
+            "title": "Hold Micros",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "orchestrator",
+              "reviewer",
+              "worker"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "hold_micros"
+        ],
+        "title": "SmrLaunchRoleHoldResponse",
         "type": "object"
       },
       "SmrLinearOauthCallbackRequest": {
@@ -56315,19 +56400,13 @@
             "title": "Ai Cache"
           },
           "deployment_pins": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/SmrDeploymentPinRequest"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Resolved deployment receipts binding this run to exact frozen deployments (one pin per participating repository). Required when provenance_mode is set; placeholder pins are refused in live mode.",
-            "title": "Deployment Pins"
+            "description": "Resolved deployment receipts binding this run to exact frozen deployments (one pin per participating repository). Non-empty pins are required in both modes; placeholders are refused in live mode.",
+            "items": {
+              "$ref": "#/components/schemas/SmrDeploymentPinRequest"
+            },
+            "minItems": 1,
+            "title": "Deployment Pins",
+            "type": "array"
           },
           "dev_environment_id": {
             "anyOf": [
@@ -56581,20 +56660,13 @@
             ]
           },
           "provenance_mode": {
-            "anyOf": [
-              {
-                "enum": [
-                  "live",
-                  "dry_run"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Run provenance posture; required. 'live' requires non-placeholder deployment_pins and a provisioned Factory trace store; 'dry_run' validates pin shape and still requires a Factory-linked run's trace store. Omitted refuses provenance_unbound.",
-            "title": "Provenance Mode"
+            "enum": [
+              "live",
+              "dry_run"
+            ],
+            "title": "Provenance Mode",
+            "type": "string"
           },
           "provider": {
             "anyOf": [
@@ -56645,14 +56717,7 @@
             "type": "array"
           },
           "resource_bindings": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SmrRunResourceBindingsRequest"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SmrRunResourceBindingsRequest"
           },
           "roles": {
             "anyOf": [
@@ -56791,6 +56856,11 @@
             "title": "Worker Pool Id"
           }
         },
+        "required": [
+          "deployment_pins",
+          "provenance_mode",
+          "resource_bindings"
+        ],
         "title": "SmrProjectTriggerRequest",
         "type": "object"
       },
@@ -66304,6 +66374,11 @@
             "type": "array"
           }
         },
+        "required": [
+          "model_file_ids",
+          "external_repository_ids",
+          "credential_ref_ids"
+        ],
         "title": "SmrRunResourceBindingsRequest",
         "type": "object"
       },
@@ -126513,7 +126588,7 @@
     },
     "/smr/projects/{project_id}/launch-preflight": {
       "post": {
-        "description": "Canonical launch-preflight evaluation for a concrete project-scoped run request.",
+        "description": "Canonical launch-preflight evaluation for a concrete project-scoped run request. Against a slot_authority placement it resolves the placement the trigger will redeem, so it requires the trigger's idempotency_key_run_create (or idempotency_key); without one it refuses 422 placement_operation_id_required.",
         "operationId": "preflight_project_run",
         "parameters": [
           {
@@ -153451,7 +153526,7 @@
     },
     "/smr/runs/{run_id}/history": {
       "get": {
-        "operationId": "read_run_history_smr_runs__run_id__history_get",
+        "operationId": "retrieve_swarm_history",
         "parameters": [
           {
             "in": "path",

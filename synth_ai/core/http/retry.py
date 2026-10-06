@@ -92,6 +92,9 @@ def should_retry_failure(
     ):
         return False
     if isinstance(error, SynthError):
+        if error.failure is not None:
+            # The first-class directive is authoritative, including an explicit false.
+            return error.failure.retry.retryable
         if error.retryable:
             return True
         status = None

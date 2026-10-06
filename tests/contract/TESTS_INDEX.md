@@ -123,3 +123,14 @@ and `streaming_boundary_test_results.json`. These are six SSE framing/metadata
 issues and seven closed-argument/idempotency/page-boundary issues. All are
 reproduced offline; both SDK transports and both public MCP entry points are
 covered where applicable. No product changes, CI, slots or paid effects.
+
+## Launch-path product fixes — 2026-10-06
+
+This branch now includes product fixes. Historical red receipts above remain
+evidence of the audit; they are not the current status of repaired launch laws.
+[Launch fix receipt](LAUNCH_FIX_RECEIPT_20261006.md) records 77 primary green
+checks and compatibility validation. Pins, explicit inventories, preflight writer
+and provenance checks, aggregate holds, delivery bounds, typed readiness and
+first-class refusal/retry handling are implemented. Green laws moved to their
+matching contracts suites with assertions and IDs retained. Source was not
+published or deployed; other fix groups remain known-red.
