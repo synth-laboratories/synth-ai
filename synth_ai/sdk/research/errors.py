@@ -191,7 +191,7 @@ class ResearchFundingLaneInvariantError(ResearchApiError):
 
 
 class ResearchInsufficientCreditsError(ResearchApiError):
-    """Raised when run start is blocked for credit headroom (HTTP 402, ``smr_insufficient_credits``)."""
+    """Run start lacks credit headroom (402, ``smr_insufficient_credits``)."""
 
     def __init__(
         self,
@@ -206,7 +206,7 @@ class ResearchInsufficientCreditsError(ResearchApiError):
 
 
 class ResearchProjectMonthlyBudgetExhaustedError(ResearchApiError):
-    """Raised when the project monthly budget is exhausted (HTTP 402, ``smr_project_monthly_budget_exhausted``)."""
+    """Project budget exhausted (402, ``smr_project_monthly_budget_exhausted``)."""
 
     def __init__(
         self,
@@ -301,7 +301,7 @@ class ResearchConcurrentRunLimitExceededError(ResearchApiError):
 
 
 class ResearchStructuredDenialError(ResearchApiError):
-    """Raised for other JSON error bodies that include a string ``error_code`` (forward-compatible)."""
+    """Forward-compatible JSON refusal carrying a string ``error_code``."""
 
     def __init__(
         self,
@@ -439,7 +439,9 @@ class ResearchLaunchRefusalError(ResearchStructuredDenialError):
         code = self.detail.get("error_code")
         if code not in LAUNCH_REFUSAL_CODES:
             raise ValueError("Unknown launch refusal code")
-        retryable = code == "transfer_fence_active"
+        retryable = self.detail.get("retryable", code == "transfer_fence_active")
+        if not isinstance(retryable, bool):
+            raise ValueError("launch refusal retryable must be a boolean")
         self.failure = SynthFailure(
             code=SynthErrorCode(code),
             category=(
@@ -646,11 +648,11 @@ class ClaimSupersededError(CloudDeploymentClaimError):
 
 
 class FencingTokenRequiredError(CloudDeploymentClaimError):
-    """Mutating op refused: an active claim requires ``X-Fencing-Token`` (HTTP 409, ``fencing_token_required``)."""
+    """Active claim requires ``X-Fencing-Token`` (409, ``fencing_token_required``)."""
 
 
 class FencingTokenStaleError(CloudDeploymentClaimError):
-    """Mutating op refused: the presented fencing token was superseded (HTTP 409, ``fencing_token_stale``)."""
+    """Presented token was superseded (409, ``fencing_token_stale``)."""
 
 
 _CLAIM_REASON_ERRORS: dict[str, type[CloudDeploymentClaimError]] = {

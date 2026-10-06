@@ -444,6 +444,8 @@ __all__ = [
     "ResearchVisualPromotionRequest",
     "ResearchVisualVersions",
     "Visual",
+    "LogicalVisual",
+    "VisualLifecycle",
     "VisualBlobState",
     "VisualEvidencePayload",
     "VisualPage",

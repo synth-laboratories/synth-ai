@@ -1,3 +1,36 @@
+# Discrepancy acceptance index — current continuation
+
+Current continuation covers SYN-3988–SYN-4009. Snapshot-based checks are source
+contracts; installed slot/staging acceptance is recorded separately. Historical
+red receipts below retain their original commits/counts and do not describe the
+current candidate. Green laws moved to contract suites with finding IDs retained.
+
+| Ticket | Finding IDs / current tests | Source status | Remaining delivery |
+| --- | --- | --- | --- |
+| SYN-3988/3989/4001 | PR02/06/07/09/10/12/13/15, RW01/05/06/08/13; launch contracts, backend inventory HTTP, full B04 gate | released dev682 / staging fa0be4849 | Done in Linear; retain release receipt |
+| SYN-3990 | PR01/03/04, MX11; discrepancy fixes, scientific behavior, backend file laws | green source | installed SDK/MCP and final promotion |
+| SYN-3991 | RR01/MX12; backend deterministic Forge refusal/page contracts | green source | final promotion |
+| SYN-3992 | RR05; native result contracts, PG outcomes, SDK execution behavior | green source | admitted installed journey |
+| SYN-3993 | RR02/08/14; comparison/uncertainty/transport contracts | green source | final promotion |
+| SYN-3994 | RR03/04; typed trial/result/history and MCP evidence behavior | green source | final promotion |
+| SYN-3995 | RR06/07/11/13; bounded research snapshot, citations, truncation | green source | final promotion |
+| SYN-3996 | RR09; backend expiry/refusal law retained as contract | green source | final promotion |
+| SYN-3997 | RW03; persisted writer PG branch contract | green source | final promotion |
+| SYN-3998 | RW07/08; 409 schema, writer-state client, authoritative retry directives | green source | final promotion |
+| SYN-3999 | RW04/17 and docs; runtime delegation, qualified launch, fence PG role/race, archive PG lock | green source checkpoint | full installed producer acceptance |
+| SYN-4000 | RW01/PR02/RR05; owned reader/frozen evidence unit contracts; testing stub journey law | source green, slot law pending | actual persisted trial/result/resource journey and cleanup |
+| SYN-4002/4003/4004 | RW02/MX01/02/03/06; Orchestra/refusal/removal contracts | released dev682 | Done in Linear |
+| SYN-4005 | MX08; logical Visual schema/sync/async/bytes contracts | green source | final promotion |
+| SYN-4006 | PR18/MX07b; workspace request-body contract | green source | final promotion |
+| SYN-4007 | MX10/RR12; 14 real handler laws, all 333 tool boundary, installed wheel, testing SDK version guard | green source checkpoint | installed stdio and final promotion |
+| SYN-4008 | MX04/05/09/PR17; current producer snapshot equality, routes, reviewed metadata dispositions | green source checkpoint | final source pin/provenance |
+| SYN-4009 | EX02–20; transport/stream/pagination contracts, canonical Forge strict measurements | green source | final promotion |
+| SYN-3937 (resumed) | RW09; backend `test_forge_discrepancy_law.py` Intern provenance | known red | owner-approved to resume; genuine Intern acceptance pending |
+
+Current receipts: `artifacts/forge-bugfixes-20261006/`; released launch/Orchestra
+receipts: `artifacts/orchestra-discrepancy-unblock-20261006/`. Test counts from
+intermediate states overlap; use the final candidate receipt for exact pins.
+
 # Forge discrepancy test index — 2026-10-06
 
 Scope: ranked audit plus scoped product fixes. Historical audit receipts remain; current fix status is recorded below.
@@ -17,51 +50,51 @@ The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in 
 | MX-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | green (SYN-4002/4003/4004) |
 | MX-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_sdk_call_resolves_to_backend__MX01_MX02` | green (SYN-4002/4003/4004) |
 | MX-03 | synth-ai: `tests/contract/test_discrepancy_contracts.py::test_registry_matches_backend__MX03` | green |
-| MX-04 | synth-ai: `tests/contract/test_discrepancy_law.py::test_full_vendored_snapshot_matches_backend__MX04` | red |
-| MX-04 | synth-ai: `tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04` | red |
+| MX-04 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_full_vendored_snapshot_matches_backend__MX04` | red |
+| MX-04 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_vendored_schema_matches_generated__MX04` | red |
 | MX-05 | backend: `tests/units/test_forge_discrepancy_law.py::test_committed_backend_request_schema_matches_source__MX05` | red |
 | MX-06 | synth-ai: `tests/contract/test_factory_removal_contracts.py` | green: dead call and wrappers removed |
-| MX-07b | synth-ai: `tests/contract/test_discrepancy_law.py::test_request_body_satisfies_backend__PR18_MX06` | red |
-| MX-08 | synth-ai: `tests/contract/test_discrepancy_law.py::test_visual_backend_logical_response_parses__MX08` | red |
-| MX-09 | synth-ai: `tests/contract/test_discrepancy_law.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | red |
-| MX-10 | synth-ai: `tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12` | red |
-| MX-11 | synth-ai: `tests/contract/test_discrepancy_law.py::test_file_page_parses__PR01_MX11` | red |
-| MX-12 | Forge: `tests/test_discrepancy_law.py::test_validation_rejection_has_machine_code__MX12` | red |
+| MX-07b | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_request_body_satisfies_backend__PR18_MX06` | red |
+| MX-08 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_visual_backend_logical_response_parses__MX08` | red |
+| MX-09 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_all_raw_sdk_calls_resolve_to_backend__MX09` | red |
+| MX-10 | synth-ai: `tests/mcp/test_serialization_discrepancy_contracts.py::test_public_call_tool_returns_json__MX10_RR12` | red |
+| MX-11 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_file_page_parses__PR01_MX11` | red |
+| MX-12 | Forge: `tests/test_discrepancy_fixes_contracts.py::test_validation_rejection_has_machine_code__MX12` | red |
 | MX-12 | backend: `tests/units/test_forge_discrepancy_law.py::test_definitive_forge_write_refusal_is_not_uncertain__RR01_MX12` | red |
 | MX-12 | backend: `tests/units/test_forge_discrepancy_law.py::test_forge_page_limit_is_bounded_before_send__MX12` | red |
-| PR-01 | synth-ai: `tests/contract/test_discrepancy_law.py::test_file_page_parses__PR01_MX11` | red |
-| PR-01 | synth-ai: `tests/contract/test_discrepancy_law.py::test_file_pagination_cursor_exposed__PR01` | red |
-| PR-02 | synth-ai: `tests/contract/test_discrepancy_law.py::test_explicit_empty_resource_inventories_round_trip__PR02` | red |
+| PR-01 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_file_page_parses__PR01_MX11` | red |
+| PR-01 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_file_pagination_cursor_exposed__PR01` | red |
+| PR-02 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_explicit_empty_resource_inventories_round_trip__PR02` | red |
 | PR-02 | testing: `synth_cloud/integration/forge/test_forge_stub_worker_journey_law.py::test_forge_stub_worker_journey__RW01_PR02_RR05` | blocked by deployed run-status projection |
 | PR-03 | backend: `tests/units/test_forge_discrepancy_law.py::test_project_upload_exposes_launch_inventory_identity__PR03` | red |
 | PR-04 | backend: `tests/units/test_forge_discrepancy_law.py::test_metadata_patch_preserves_stored_file_identity__PR04` | red |
 | PR-06 | backend: `tests/units/test_forge_discrepancy_law.py::test_native_delivery_limit_has_specific_code__PR06_PR15` | red |
 | PR-07 | backend: `tests/units/test_forge_discrepancy_law.py::test_resource_readiness_keeps_selected_and_missing_files__PR07` | red |
-| PR-08 | synth-ai: `tests/contract/test_discrepancy_law.py::test_preflight_keeps_typed_readiness__PR08` | red |
+| PR-08 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_preflight_keeps_typed_readiness__PR08` | red |
 | PR-09 | backend: `tests/units/test_forge_discrepancy_law.py::test_trigger_required_fields_match_runtime__PR09_RW13` | red |
 | PR-10 | backend: `tests/units/test_forge_discrepancy_law.py::test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06` | red |
 | PR-12 | synth-ai: `tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12` | red |
 | PR-13 | backend: `tests/units/test_forge_discrepancy_law.py::test_verifier_only_project_accepts_explicit_no_model_files__PR13` | red |
 | PR-15 | backend: `tests/units/test_forge_discrepancy_law.py::test_native_delivery_limit_has_specific_code__PR06_PR15` | red |
-| PR-18 | synth-ai: `tests/contract/test_discrepancy_law.py::test_request_body_satisfies_backend__PR18_MX06` | red |
-| RR-01 | Forge: `tests/test_discrepancy_law.py::test_producer_bound_result_is_specific_refusal__RR01` | red |
+| PR-18 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_request_body_satisfies_backend__PR18_MX06` | red |
+| RR-01 | Forge: `tests/test_discrepancy_fixes_contracts.py::test_producer_bound_result_is_specific_refusal__RR01` | red |
 | RR-01 | backend: `tests/units/test_forge_discrepancy_law.py::test_definitive_forge_write_refusal_is_not_uncertain__RR01_MX12` | red |
-| RR-02 | synth-ai: `tests/contract/test_discrepancy_law.py::test_comparison_retains_integrity_status_and_findings__RR02` | red |
-| RR-03 | synth-ai: `tests/contract/test_discrepancy_law.py::test_research_evidence_has_typed_fields__RR03` | red |
-| RR-04 | synth-ai: `tests/contract/test_discrepancy_law.py::test_native_result_identity_is_typed__RR04` | red |
+| RR-02 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_comparison_retains_integrity_status_and_findings__RR02` | red |
+| RR-03 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_research_evidence_has_typed_fields__RR03` | red |
+| RR-04 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_native_result_identity_is_typed__RR04` | red |
 | RR-05 | backend: `tests/units/test_forge_discrepancy_law.py::test_agent_result_accepts_null_outcome__RR05` | red |
-| RR-05 | synth-ai: `tests/contract/test_discrepancy_law.py::test_execution_operations_client_available__RR05` | red |
+| RR-05 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_execution_operations_client_available__RR05` | red |
 | RR-05 | testing: `synth_cloud/integration/forge/test_forge_stub_worker_journey_law.py::test_forge_stub_worker_journey__RW01_PR02_RR05` | blocked by deployed run-status projection |
-| RR-06 | synth-ai: `tests/contract/test_discrepancy_law.py::test_citations_client_available__RR06` | red |
-| RR-06 | synth-ai: `tests/contract/test_discrepancy_law.py::test_scientific_read_has_bounded_response_contract__RR06_RR07` | red |
-| RR-07 | synth-ai: `tests/contract/test_discrepancy_law.py::test_scientific_read_has_bounded_response_contract__RR06_RR07` | red |
+| RR-06 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_citations_client_available__RR06` | red |
+| RR-06 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_scientific_read_has_bounded_response_contract__RR06_RR07` | red |
+| RR-07 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_scientific_read_has_bounded_response_contract__RR06_RR07` | red |
 | RR-08 | backend: `tests/units/test_forge_discrepancy_law.py::test_integrity_damage_is_service_error__RR08` | red |
 | RR-09 | backend: `tests/units/test_forge_discrepancy_law.py::test_late_retry_does_not_replay_expired_admission__RR09` | red |
 | RR-11 | backend: `tests/units/test_forge_discrepancy_law.py::test_bundle_truncation_is_explicit__RR11` | red |
 | RR-12 | backend: `tests/units/test_forge_discrepancy_law.py::test_backend_environment_sdk_satisfies_declared_pin__RR12` | red |
-| RR-12 | synth-ai: `tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12` | red |
-| RR-14 | synth-ai: `tests/contract/test_discrepancy_law.py::test_transport_failure_keeps_original_intent_and_cause__RR14` | red |
-| RR-14 | synth-ai: `tests/contract/test_discrepancy_law.py::test_uncertain_write_preserves_operation_identity__RR14` | red |
+| RR-12 | synth-ai: `tests/mcp/test_serialization_discrepancy_contracts.py::test_public_call_tool_returns_json__MX10_RR12` | red |
+| RR-14 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_transport_failure_keeps_original_intent_and_cause__RR14` | red |
+| RR-14 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_uncertain_write_preserves_operation_identity__RR14` | red |
 | RW-01 | synth-ai: `tests/mcp/test_launch_schema_contracts.py::test_launch_schema_accepts_provenance__RW01_PR12` | green; merge/deployment gated by SYN-3988 |
 | RW-01 | testing: `synth_cloud/integration/forge/test_forge_stub_worker_journey_law.py::test_forge_stub_worker_journey__RW01_PR02_RR05` | blocked by deployed run-status projection |
 | RW-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_run_control_refusal_is_typed__RW02` | green (SYN-4002/4003/4004) |
@@ -73,10 +106,10 @@ The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in 
 | RW-06 | backend: `tests/units/test_forge_discrepancy_law.py::test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06` | red |
 | RW-06 | backend: `tests/units/test_forge_discrepancy_law.py::test_preflight_detects_orchestra_budget_refusal__RW05_RW06` | red |
 | RW-07 | backend: `tests/units/test_forge_discrepancy_law.py::test_refusal_response_declared__RW07` | red |
-| RW-08 | synth-ai: `tests/contract/test_discrepancy_law.py::test_authority_errors_are_first_class__RW08` | red |
+| RW-08 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_authority_errors_are_first_class__RW08` | red |
 | RW-09 | backend: `tests/units/test_forge_discrepancy_law.py::test_intern_write_uses_execution_provenance__RW09` | red |
 | RW-13 | backend: `tests/units/test_forge_discrepancy_law.py::test_trigger_required_fields_match_runtime__PR09_RW13` | red |
-| RW-17 | synth-ai: `tests/contract/test_discrepancy_law.py::test_sdk_public_state_vocabulary_matches_backend__RW17` | red |
+| RW-17 | synth-ai: `tests/contract/test_discrepancy_fixes_contracts.py::test_sdk_public_state_vocabulary_matches_backend__RW17` | red |
 
 ## Tier 3 and explicit exceptions
 
@@ -99,7 +132,7 @@ The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in 
 - synth-ai: `PYTHONPATH="$SDK_WORKTREE" backend/.venv/bin/python -m pytest "$SDK_WORKTREE/tests/contract" "$SDK_WORKTREE/tests/mcp" -q --tb=short`.
 - backend: put its worktree first on PYTHONPATH; run `tests/units/test_forge_discrepancy_law.py` plus `test_discrepancy_contracts.py`.
 - Postgres: supply an explicit disposable loopback PG16 URL named `discrepancy_*` via DISCREPANCY_TEST_DATABASE_URL; select `tests/integration/test_discrepancy_postgres_law.py`.
-- Forge: put packages, services/forge, app on PYTHONPATH; run `tests/test_discrepancy_law.py`.
+- Forge: put packages, services/forge, app on PYTHONPATH; run `tests/test_discrepancy_fixes_contracts.py`.
 - testing: `./testctl validate`; owned slot via `slotctl eval-exec slot5 --target local-dockerized --workspace foundation-finish-20261005 --memory-bytes 536870912 -- <installed-python> -m pytest synth_cloud/integration/forge --synth-target slot5`.
 - Complete node/status receipts are committed in `test_results.json`; raw junit/logs, deployment-pin witness, slot evidence and cleanup receipts are retained locally at `artifacts/discrepancy-tests-20261006/`.
 - Ruff E/F/I checks pass for all new offline tests/helpers; formatter applied. First-class error laws preserve stable codes, causal chains, retryability and uncertain intent identity. Known-red assertions are not weakened.

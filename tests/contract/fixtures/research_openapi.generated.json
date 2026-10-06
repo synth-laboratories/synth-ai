@@ -2229,7 +2229,7 @@
       "Body_publish_project_visual_smr_projects__project_id__visuals_post": {
         "properties": {
           "html": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Html",
             "type": "string"
           },
@@ -2241,7 +2241,7 @@
           "preview_png": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -2301,7 +2301,7 @@
       "Body_publish_run_visual_smr_runs__run_id__visuals_post": {
         "properties": {
           "html": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Html",
             "type": "string"
           },
@@ -2313,7 +2313,7 @@
           "preview_png": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -2598,6 +2598,33 @@
         ],
         "title": "ClaimKind",
         "type": "string"
+      },
+      "ContextSnapshotRef": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "policy_revision": {
+            "pattern": "^[a-z][a-z0-9_.-]{0,62}\\.v[0-9]{1,4}$",
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "pattern": "^ctx_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "digest",
+          "policy_revision"
+        ],
+        "title": "ContextSnapshotRef",
+        "type": "object"
       },
       "CraftaxScorerImageReleaseDeclaration": {
         "additionalProperties": false,
@@ -5578,6 +5605,78 @@
         ],
         "title": "FactoryStorageTechnology",
         "type": "string"
+      },
+      "FrozenResourceDigest": {
+        "additionalProperties": false,
+        "properties": {
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "content_sha256"
+        ],
+        "title": "FrozenResourceDigest",
+        "type": "object"
+      },
+      "FrozenResourceEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RefusalCode"
+              },
+              {
+                "const": "snapshot_binding_mismatch",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "resources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FrozenResourceDigest"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContextSnapshotRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "bound",
+              "pending",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FrozenResourceEvidence",
+        "type": "object"
       },
       "GitFileMode": {
         "description": "Git tree modes a workspace file may be committed with.\n\nOnly the two portable blob modes are accepted. ``REGULAR`` is the default\nso a caller must say so explicitly before anything lands executable.",
@@ -14029,6 +14128,27 @@
         ],
         "title": "RecordRevision",
         "type": "object"
+      },
+      "RefusalCode": {
+        "enum": [
+          "unsupported_schema",
+          "malformed_request",
+          "unauthenticated",
+          "service_scope_denied",
+          "operation_conflict",
+          "context_source_missing",
+          "context_empty",
+          "context_budget_invalid",
+          "context_budget_exceeded",
+          "provenance_unbound",
+          "snapshot_unknown",
+          "snapshot_integrity_conflict",
+          "context_engine_unbound",
+          "authority_unavailable",
+          "in_doubt"
+        ],
+        "title": "RefusalCode",
+        "type": "string"
       },
       "RegistryActorRuntimeImageRegistrationRequest": {
         "additionalProperties": false,
@@ -30729,6 +30849,16 @@
             ],
             "title": "Finished At"
           },
+          "frozen_resources": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenResourceEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "host_kind": {
             "anyOf": [
               {
@@ -34651,7 +34781,10 @@
             "enum": [
               "none",
               "usage_facts",
-              "spend_ledger"
+              "spend_ledger",
+              "admission_settlements",
+              "usage_facts_and_admission_settlements",
+              "spend_ledger_and_admission_settlements"
             ],
             "title": "Source",
             "type": "string"
@@ -41509,6 +41642,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [

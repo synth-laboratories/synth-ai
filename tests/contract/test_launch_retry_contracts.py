@@ -6,7 +6,7 @@ import httpx
 import pytest
 from synth_ai.core.errors import SynthError
 from synth_ai.core.http.request import HttpMethod, HttpRequest
-from test_transport_extension_law import invoke, operation
+from test_transport_extension_fixes_contracts import invoke, operation
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])

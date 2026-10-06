@@ -7,7 +7,7 @@ import pytest
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.retry import RetryPolicy
 from synth_ai.core.http.transport import _retry_after_seconds
-from test_transport_extension_law import invoke, operation
+from test_transport_extension_fixes_contracts import invoke, operation
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])
