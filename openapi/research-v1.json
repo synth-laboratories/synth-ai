@@ -25774,6 +25774,28 @@
         "title": "SmrRunDurableTraceSummaryResponse",
         "type": "object"
       },
+      "SmrRunEventCursorResponse": {
+        "properties": {
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          },
+          "order": {
+            "default": "occurred_at_asc_event_id_asc",
+            "title": "Order",
+            "type": "string"
+          }
+        },
+        "title": "SmrRunEventCursorResponse",
+        "type": "object"
+      },
       "SmrRunEvidenceSummaryResponse": {
         "properties": {
           "artifact_count": {
@@ -28960,6 +28982,386 @@
         "title": "SmrRunStartBlockerResponse",
         "type": "object"
       },
+      "SmrRunTaskEventResponse": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Label"
+          },
+          "display_kind": {
+            "title": "Display Kind",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_kind": {
+            "title": "Event Kind",
+            "type": "string"
+          },
+          "event_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event State"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "participant_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participant Role"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "previous_event_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Event State"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_row_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row Id"
+          },
+          "source_row_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row Kind"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "task_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Key"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_kind",
+          "display_kind",
+          "summary",
+          "source",
+          "occurred_at"
+        ],
+        "title": "SmrRunTaskEventResponse",
+        "type": "object"
+      },
+      "SmrRunTaskEventsResponse": {
+        "properties": {
+          "cursor": {
+            "$ref": "#/components/schemas/SmrRunEventCursorResponse"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/SmrRunTaskEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "smr_run_task_events.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "run_id",
+          "generated_at"
+        ],
+        "title": "SmrRunTaskEventsResponse",
+        "type": "object"
+      },
+      "SmrRunTaskResponse": {
+        "properties": {
+          "agent_goal_assignment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Goal Assignment"
+          },
+          "claimed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed By"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "depends_on_task_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depends On Task Keys"
+          },
+          "diagnostics": {
+            "additionalProperties": true,
+            "title": "Diagnostics",
+            "type": "object"
+          },
+          "execution_owner": {
+            "title": "Execution Owner",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_heartbeat_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heartbeat At"
+          },
+          "lease_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Expires At"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "output": {
+            "additionalProperties": true,
+            "title": "Output",
+            "type": "object"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_task_state": {
+            "title": "Public Task State",
+            "type": "string"
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "task_dispatch": {
+            "additionalProperties": true,
+            "title": "Task Dispatch",
+            "type": "object"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_key": {
+            "title": "Task Key",
+            "type": "string"
+          },
+          "task_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task State"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "worker_pool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Pool"
+          }
+        },
+        "required": [
+          "task_id",
+          "run_id",
+          "org_id",
+          "project_id",
+          "task_key",
+          "kind",
+          "public_task_state",
+          "execution_owner",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrRunTaskResponse",
+        "type": "object"
+      },
       "SmrRunTaskSummary": {
         "properties": {
           "acceptance_criteria_count": {
@@ -30903,6 +31305,63 @@
         "title": "SmrSwarmStatusLivenessResponse",
         "type": "object"
       },
+      "SmrSwarmStatusPendingQuestionResponse": {
+        "additionalProperties": false,
+        "description": "One unanswered Orchestra action question (mloky ``required_action``).\n\nPresent only for orchestra-authority runs; answer it with\n``POST /smr/runs/{run_id}/actions/{action_id}/answer``. The question text\nlives in the mloky artifact named by ``question_text_ref``; ``question_text``\nis filled only when the projection carries it inline.",
+        "properties": {
+          "action_id": {
+            "minLength": 1,
+            "title": "Action Id",
+            "type": "string"
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "execution_id": {
+            "minLength": 1,
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "question_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Text"
+          },
+          "question_text_ref": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Text Ref"
+          }
+        },
+        "required": [
+          "action_id",
+          "execution_id"
+        ],
+        "title": "SmrSwarmStatusPendingQuestionResponse",
+        "type": "object"
+      },
       "SmrSwarmStatusProgressResponse": {
         "additionalProperties": false,
         "description": "Last compact progress signal exposed by the status projection.",
@@ -30990,6 +31449,13 @@
           },
           "liveness": {
             "$ref": "#/components/schemas/SmrSwarmStatusLivenessResponse"
+          },
+          "pending_questions": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmStatusPendingQuestionResponse"
+            },
+            "title": "Pending Questions",
+            "type": "array"
           },
           "progress": {
             "$ref": "#/components/schemas/SmrSwarmStatusProgressResponse"
@@ -45463,6 +45929,69 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/runs/{run_id}/task-events": {
+      "get": {
+        "operationId": "list_project_run_task_events",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrRunTaskEventsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Run Task Events",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/setup": {
       "get": {
         "description": "Canonical setup-authority projection for the managed-research run-start flow.",
@@ -52429,6 +52958,52 @@
         "tags": [
           "smr",
           "research-notebooks"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/tasks": {
+      "get": {
+        "operationId": "list_run_tasks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrRunTaskResponse"
+                  },
+                  "title": "Response Get Run Tasks Smr Runs  Run Id  Tasks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Tasks",
+        "tags": [
+          "smr"
         ]
       }
     },
