@@ -405,6 +405,94 @@
         "title": "AgentConfigV1",
         "type": "object"
       },
+      "Artifact": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_count": {
+            "minimum": 0.0,
+            "title": "Byte Count",
+            "type": "integer"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArtifactDeliveryBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "artifact",
+            "default": "artifact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "media_type": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "role": {
+            "enum": [
+              "input",
+              "intermediate",
+              "output",
+              "evidence"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "object",
+          "manifest",
+          "role",
+          "media_type",
+          "byte_count"
+        ],
+        "title": "Artifact",
+        "type": "object"
+      },
+      "ArtifactDeliveryBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "logical_path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Logical Path",
+            "type": "string"
+          },
+          "publication_id": {
+            "format": "uuid",
+            "title": "Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id",
+          "logical_path"
+        ],
+        "title": "ArtifactDeliveryBinding",
+        "type": "object"
+      },
       "AsyncBlockerHandoffContextV1": {
         "additionalProperties": false,
         "properties": {
@@ -1894,6 +1982,59 @@
         "title": "AsyncStatus",
         "type": "string"
       },
+      "BackendContextBindGrantDeclaration": {
+        "additionalProperties": false,
+        "description": "Owner input for the backend service context-bind grant of one Intern.\n\nNo operation list: ``backend_context_bind_grant_declare`` stores exactly\n``task.command.bind_task_context`` + ``task.context.bind``.",
+        "properties": {
+          "expires_unix_ms": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expires Unix Ms",
+            "type": "integer"
+          },
+          "intern_id": {
+            "title": "Intern Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "policy_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "backend.context_bind_grant_declaration.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "smr_project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Smr Project Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "operation_id",
+          "intern_id",
+          "smr_project_ids",
+          "policy_revision",
+          "expires_unix_ms"
+        ],
+        "title": "BackendContextBindGrantDeclaration",
+        "type": "object"
+      },
       "BillingEntitlementAssetSnapshot": {
         "properties": {
           "asset_id": {
@@ -2141,7 +2282,7 @@
       "Body_publish_project_visual_smr_projects__project_id__visuals_post": {
         "properties": {
           "html": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Html",
             "type": "string"
           },
@@ -2153,7 +2294,7 @@
           "preview_png": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -2213,7 +2354,7 @@
       "Body_publish_run_visual_smr_runs__run_id__visuals_post": {
         "properties": {
           "html": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Html",
             "type": "string"
           },
@@ -2225,7 +2366,7 @@
           "preview_png": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -2397,6 +2538,76 @@
         "title": "CandidatePublicationResponse",
         "type": "object"
       },
+      "CitationCheck": {
+        "additionalProperties": false,
+        "description": "Consumer view of Forge ``forge.citation-verification.v1`` (R06).",
+        "properties": {
+          "authority_code": {
+            "default": "",
+            "title": "Authority Code",
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "title": "Code",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "status": {
+            "enum": [
+              "retained",
+              "dangling",
+              "denied",
+              "conflict",
+              "unavailable",
+              "refused"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "status"
+        ],
+        "title": "CitationCheck",
+        "type": "object"
+      },
+      "CitationVerification": {
+        "additionalProperties": false,
+        "description": "Read-time custodian state of one retained revision's external citations.\n\nMirrors Forge ``forge_service.persistence.CitationVerification``\n(``GET /internal/v1/records/{record_id}/citations``). The retained record\nand its exact references are unchanged; ``retained`` is true only when\nevery external citation verified.",
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationCheck"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "record": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "retained": {
+            "title": "Retained",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "forge.citation-verification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "record",
+          "citations",
+          "retained"
+        ],
+        "title": "CitationVerification",
+        "type": "object"
+      },
       "ClaimEvidenceInput": {
         "additionalProperties": false,
         "properties": {
@@ -2440,6 +2651,33 @@
         ],
         "title": "ClaimKind",
         "type": "string"
+      },
+      "ContextSnapshotRef": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "policy_revision": {
+            "pattern": "^[a-z][a-z0-9_.-]{0,62}\\.v[0-9]{1,4}$",
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "pattern": "^ctx_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "digest",
+          "policy_revision"
+        ],
+        "title": "ContextSnapshotRef",
+        "type": "object"
       },
       "CraftaxScorerImageReleaseDeclaration": {
         "additionalProperties": false,
@@ -2577,6 +2815,51 @@
           "declaration"
         ],
         "title": "CraftaxScorerImageReleaseResponse",
+        "type": "object"
+      },
+      "Credit": {
+        "additionalProperties": false,
+        "properties": {
+          "contributor_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contributor Id",
+            "type": "string"
+          },
+          "license": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "author",
+              "data",
+              "implementation",
+              "method",
+              "review",
+              "funding"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "upstream_contribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "contributor_id",
+          "role",
+          "license"
+        ],
+        "title": "Credit",
         "type": "object"
       },
       "CrossMetaThreadMessageCreateRequestV1": {
@@ -3476,6 +3759,38 @@
         "title": "DatasetRevisionState",
         "type": "string"
       },
+      "DatasetSplit": {
+        "additionalProperties": false,
+        "properties": {
+          "ancestors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 128,
+            "title": "Ancestors",
+            "type": "array"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "role": {
+            "enum": [
+              "train",
+              "dev",
+              "heldout"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "manifest"
+        ],
+        "title": "DatasetSplit",
+        "type": "object"
+      },
       "Delivery": {
         "additionalProperties": false,
         "description": "Product read model for one Code Factory coding session.",
@@ -3870,6 +4185,37 @@
         "title": "DraftDeliveryAuthorityResponse",
         "type": "object"
       },
+      "Effort": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "effort",
+            "default": "effort",
+            "title": "Kind",
+            "type": "string"
+          },
+          "objective": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Objective",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "objective"
+        ],
+        "title": "Effort",
+        "type": "object"
+      },
       "EnsureDraftDeliveryRequest": {
         "additionalProperties": false,
         "description": "The only public creation intent accepted by Managed Research.",
@@ -4180,6 +4526,169 @@
         "title": "EnvironmentSecretSpec",
         "type": "object"
       },
+      "EvaluationBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_protocol": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "comparator": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "consumed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Consumed",
+            "type": "array"
+          },
+          "consumed_assets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Consumed Assets",
+            "type": "array"
+          },
+          "corpus": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Data",
+            "type": "array"
+          },
+          "delivered": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Delivered",
+            "type": "array"
+          },
+          "evaluator": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "harness": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 128,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "metering": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Metering",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "native_events": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "native_result": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "overlap_disposition": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "panel": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "scorer_receipt": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "seeds": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Seeds",
+            "type": "array"
+          },
+          "split_manifest": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "task": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "usage_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 128,
+            "title": "Usage Receipts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task",
+          "panel",
+          "corpus",
+          "model",
+          "harness",
+          "data",
+          "split_manifest",
+          "seeds",
+          "configuration",
+          "comparator",
+          "budget_protocol",
+          "overlap_disposition",
+          "evaluator",
+          "scorer_receipt",
+          "native_result",
+          "native_events",
+          "metering"
+        ],
+        "title": "EvaluationBinding",
+        "type": "object"
+      },
+      "Event": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 1.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "producer": {
+            "const": "forge",
+            "default": "forge",
+            "title": "Producer",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/Receipt"
+          }
+        },
+        "required": [
+          "cursor",
+          "receipt"
+        ],
+        "title": "Event",
+        "type": "object"
+      },
       "EvidenceReadiness": {
         "enum": [
           "not_required",
@@ -4200,6 +4709,172 @@
         ],
         "title": "EvidenceRelation",
         "type": "string"
+      },
+      "ExactReference": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "record_id": {
+                  "pattern": "^intern-exec:"
+                }
+              },
+              "required": [
+                "record_id"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority": {
+                  "const": "mloky"
+                },
+                "kind": {
+                  "const": "mloky_execution"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "authority": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Authority",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority",
+          "kind",
+          "record_id",
+          "revision",
+          "digest_sha256"
+        ],
+        "title": "ExactReference",
+        "type": "object"
+      },
+      "ExecutionWrite": {
+        "additionalProperties": false,
+        "description": "An Intern/Swarm write under a ``forge_producer_write`` admission (G15).",
+        "properties": {
+          "admission_id": {
+            "pattern": "^adm_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Admission Id",
+            "type": "string"
+          },
+          "organization_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "write": {
+            "$ref": "#/components/schemas/PublicWrite"
+          }
+        },
+        "required": [
+          "organization_id",
+          "admission_id",
+          "write"
+        ],
+        "title": "ExecutionWrite",
+        "type": "object"
+      },
+      "Experiment": {
+        "additionalProperties": false,
+        "properties": {
+          "arms": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 128,
+            "title": "Arms",
+            "type": "array"
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hypothesis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inputs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Inputs",
+            "type": "array"
+          },
+          "kind": {
+            "const": "experiment",
+            "default": "experiment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "specification": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Specification",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "specification"
+        ],
+        "title": "Experiment",
+        "type": "object"
       },
       "ExternalExecutionStatus": {
         "enum": [
@@ -5008,6 +5683,78 @@
         "title": "FactoryStorageTechnology",
         "type": "string"
       },
+      "FrozenResourceDigest": {
+        "additionalProperties": false,
+        "properties": {
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "content_sha256"
+        ],
+        "title": "FrozenResourceDigest",
+        "type": "object"
+      },
+      "FrozenResourceEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RefusalCode"
+              },
+              {
+                "const": "snapshot_binding_mismatch",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "resources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FrozenResourceDigest"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContextSnapshotRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "bound",
+              "pending",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FrozenResourceEvidence",
+        "type": "object"
+      },
       "GitFileMode": {
         "description": "Git tree modes a workspace file may be committed with.\n\nOnly the two portable blob modes are accepted. ``REGULAR`` is the default\nso a caller must say so explicitly before anything lands executable.",
         "enum": [
@@ -5209,6 +5956,58 @@
           "decision"
         ],
         "title": "HistoryEntry",
+        "type": "object"
+      },
+      "Hypothesis": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_plan": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Analysis Plan",
+            "type": "string"
+          },
+          "decision_rule": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Decision Rule",
+            "type": "string"
+          },
+          "kind": {
+            "const": "hypothesis",
+            "default": "hypothesis",
+            "title": "Kind",
+            "type": "string"
+          },
+          "prediction": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Prediction",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "statement": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "prediction",
+          "decision_rule",
+          "analysis_plan"
+        ],
+        "title": "Hypothesis",
         "type": "object"
       },
       "ImageReleaseArtifact": {
@@ -7537,6 +8336,164 @@
         "title": "InternEffortWorkSummary",
         "type": "object"
       },
+      "InternIdentityCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "after_intern_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Intern Id"
+          },
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/InternIdentityResponse"
+            },
+            "maxItems": 32,
+            "title": "Identities",
+            "type": "array"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.identity_catalog_page.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "org_id",
+          "identities",
+          "after_intern_id"
+        ],
+        "title": "InternIdentityCatalogResponse",
+        "type": "object"
+      },
+      "InternIdentityProvisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Command Id",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ensure_default",
+              "create_additional"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.identity_provision_request.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "command_id",
+          "kind",
+          "display_name"
+        ],
+        "title": "InternIdentityProvisionRequest",
+        "type": "object"
+      },
+      "InternIdentityProvisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "title": "Command Id",
+            "type": "string"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/InternIdentityResponse"
+          },
+          "input_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Digest",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.identity_provision_receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "org_id",
+          "command_id",
+          "input_digest",
+          "identity"
+        ],
+        "title": "InternIdentityProvisionResponse",
+        "type": "object"
+      },
+      "InternIdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_id",
+          "research_intern_id",
+          "is_default"
+        ],
+        "title": "InternIdentityResponse",
+        "type": "object"
+      },
+      "InternIdentitySelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/InternIdentityResponse"
+          },
+          "schema_version": {
+            "const": "intern.identity_selection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "identity"
+        ],
+        "title": "InternIdentitySelectionResponse",
+        "type": "object"
+      },
       "InternMcpActionApprovalRequest": {
         "additionalProperties": false,
         "properties": {
@@ -9459,6 +10416,202 @@
         "title": "InternRuntimeResourceEpoch",
         "type": "object"
       },
+      "InternRuntimeRoute": {
+        "description": "Which actor control plane executes an org's Intern turns.",
+        "enum": [
+          "legacy_smr_runtime",
+          "mloky"
+        ],
+        "title": "InternRuntimeRoute",
+        "type": "string"
+      },
+      "InternRuntimeRouteReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "operation_id": {
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "principal_ref": {
+            "title": "Principal Ref",
+            "type": "string"
+          },
+          "prior_route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InternRuntimeRoute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^rrr_[0-9a-f]{32}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "recorded_unix_ms": {
+            "title": "Recorded Unix Ms",
+            "type": "integer"
+          },
+          "route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "schema_version": {
+            "const": "intern.runtime_route_receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "receipt_id",
+          "org_id",
+          "operation_id",
+          "principal_ref",
+          "prior_route",
+          "route",
+          "reason",
+          "changed",
+          "recorded_unix_ms"
+        ],
+        "title": "InternRuntimeRouteReceipt",
+        "type": "object"
+      },
+      "InternRuntimeRouteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "default_route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "latest_receipt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Receipt Id"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "schema_version": {
+            "const": "intern.runtime_route.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stored_route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InternRuntimeRoute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_unix_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Unix Ms"
+          }
+        },
+        "required": [
+          "schema_version",
+          "org_id",
+          "route",
+          "stored_route",
+          "default_route",
+          "reason",
+          "changed_by",
+          "updated_unix_ms",
+          "latest_receipt_id"
+        ],
+        "title": "InternRuntimeRouteResponse",
+        "type": "object"
+      },
+      "InternRuntimeRouteSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "route": {
+            "$ref": "#/components/schemas/InternRuntimeRoute"
+          },
+          "schema_version": {
+            "const": "intern.runtime_route_selection.v1",
+            "default": "intern.runtime_route_selection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id",
+          "route",
+          "reason"
+        ],
+        "title": "InternRuntimeRouteSelectionRequest",
+        "type": "object"
+      },
       "InternSessionUsageResponse": {
         "additionalProperties": false,
         "description": "Usage receipt for one Intern runtime: its direct inference plus the runs it launched.",
@@ -9522,6 +10675,89 @@
         "title": "InternSessionUsageResponse",
         "type": "object"
       },
+      "InternTaskGrantDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_unix_ms": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expires Unix Ms",
+            "type": "integer"
+          },
+          "intern_id": {
+            "title": "Intern Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "policy_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "intern.task_grant_declaration.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "smr_project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Smr Project Ids",
+            "type": "array"
+          },
+          "task_operations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Task Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "operation_id",
+          "intern_id",
+          "smr_project_ids",
+          "task_operations",
+          "policy_revision",
+          "expires_unix_ms"
+        ],
+        "title": "InternTaskGrantDeclaration",
+        "type": "object"
+      },
+      "InternTaskGrantRevocation": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revocation_epoch": {
+            "minimum": 0.0,
+            "title": "Expected Revocation Epoch",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "intern.task_grant_revocation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "expected_revocation_epoch"
+        ],
+        "title": "InternTaskGrantRevocation",
+        "type": "object"
+      },
       "InternUsageBillingState": {
         "additionalProperties": false,
         "properties": {
@@ -9576,6 +10812,70 @@
         "type": "object"
       },
       "JsonValue": {},
+      "LogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "observation",
+              "rationale",
+              "attempt",
+              "failure",
+              "decision",
+              "correction"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "correction_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "log_entry",
+            "default": "log_entry",
+            "title": "Kind",
+            "type": "string"
+          },
+          "log": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "text": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "log",
+          "category",
+          "text",
+          "occurred_at"
+        ],
+        "title": "LogEntry",
+        "type": "object"
+      },
       "MagiActuationStatus": {
         "enum": [
           "not_requested",
@@ -10109,6 +11409,51 @@
         "title": "MagiMode",
         "type": "string"
       },
+      "Measurement": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "uncertainty": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty"
+          },
+          "unit": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit"
+        ],
+        "title": "Measurement",
+        "type": "object"
+      },
       "MetaHandoffContinueRequestV1": {
         "additionalProperties": false,
         "description": "Attended continue after approve \u2014 optional child AgentConfig override.",
@@ -10469,6 +11814,682 @@
         ],
         "title": "MetaThreadSegmentStatus",
         "type": "string"
+      },
+      "NativeAttachmentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/NativeAttachmentRead"
+            },
+            "maxItems": 1000,
+            "title": "Attachments",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "attachments",
+          "truncated"
+        ],
+        "title": "NativeAttachmentPage",
+        "type": "object"
+      },
+      "NativeAttachmentRead": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment": {
+            "$ref": "#/components/schemas/NativeScientificAttachment"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Receipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "attached"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment",
+          "status"
+        ],
+        "title": "NativeAttachmentRead",
+        "type": "object"
+      },
+      "NativeResultPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "candidate_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Kind"
+          },
+          "candidate_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Label"
+          },
+          "caveats": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caveats"
+          },
+          "comparison_cohort_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparison Cohort Key"
+          },
+          "comparison_missing_dimensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Comparison Missing Dimensions",
+            "type": "array"
+          },
+          "container_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Digest"
+          },
+          "container_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Name"
+          },
+          "container_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Run Id"
+          },
+          "container_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Version"
+          },
+          "cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Cents"
+          },
+          "dataset_or_task_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Or Task Set Id"
+          },
+          "dataset_or_task_set_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Or Task Set Version"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "eval_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Profile Id"
+          },
+          "eval_profile_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Profile Version"
+          },
+          "evaluation_mode": {
+            "enum": [
+              "live",
+              "mock",
+              "fixture",
+              "offline_fallback"
+            ],
+            "title": "Evaluation Mode",
+            "type": "string"
+          },
+          "evidence_grade": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Grade"
+          },
+          "example_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Example Ids",
+            "type": "array"
+          },
+          "experiment_run_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Run Id"
+          },
+          "experiment_run_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intervention_receipt": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Intervention Receipt",
+            "type": "object"
+          },
+          "kind": {
+            "const": "native_result",
+            "default": "native_result",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lifecycle_success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Success"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metric": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "metric_direction": {
+            "default": "higher_is_better",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Metric Direction",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ResearchResultOutcome",
+            "default": "measured"
+          },
+          "per_example_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Example Artifact Id"
+          },
+          "per_example_artifact_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Example Artifact Path"
+          },
+          "reviewer_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Notes"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "sample_size": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Size"
+          },
+          "scientific_status": {
+            "enum": [
+              "scientific",
+              "non_scientific_smoke"
+            ],
+            "title": "Scientific Status",
+            "type": "string"
+          },
+          "scorer_config_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Config Digest"
+          },
+          "seed_set": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seed Set",
+            "type": "array"
+          },
+          "split_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Name"
+          },
+          "summary_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Artifact Id"
+          },
+          "summary_artifact_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Artifact Path"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "taskset_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taskset Seed"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens"
+          },
+          "truth_status": {
+            "default": "observed",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Truth Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verifier_or_scorer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Or Scorer Id"
+          },
+          "verifier_or_scorer_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Or Scorer Version"
+          },
+          "verifier_success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Success"
+          },
+          "wall_time_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wall Time Seconds"
+          }
+        },
+        "required": [
+          "evaluation_mode",
+          "scientific_status",
+          "intervention_receipt",
+          "metric",
+          "value"
+        ],
+        "title": "NativeResultPayload",
+        "type": "object"
+      },
+      "NativeRunLinkPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "native_run_link",
+            "default": "native_run_link",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "role": {
+            "default": "primary",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "source_role": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "source_role"
+        ],
+        "title": "NativeRunLinkPayload",
+        "type": "object"
+      },
+      "NativeScientificAttachment": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "native_result": "#/components/schemas/NativeResultPayload",
+                "native_run_link": "#/components/schemas/NativeRunLinkPayload"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NativeRunLinkPayload"
+              },
+              {
+                "$ref": "#/components/schemas/NativeResultPayload"
+              }
+            ],
+            "title": "Payload"
+          },
+          "producer": {
+            "$ref": "#/components/schemas/Producer"
+          },
+          "schema_version": {
+            "const": "smr.forge_native_attachment.v1",
+            "default": "smr.forge_native_attachment.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "scope",
+          "experiment",
+          "producer",
+          "payload"
+        ],
+        "title": "NativeScientificAttachment",
+        "type": "object"
       },
       "NotebookEconomics": {
         "additionalProperties": false,
@@ -11038,6 +13059,38 @@
         "title": "OriginRuntimeKind",
         "type": "string"
       },
+      "OutputAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "license": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ExactReference"
+          }
+        },
+        "required": [
+          "asset_id",
+          "source",
+          "digest_sha256",
+          "license"
+        ],
+        "title": "OutputAsset",
+        "type": "object"
+      },
       "ParentObjectiveKind": {
         "enum": [
           "open_ended_question",
@@ -11127,6 +13180,78 @@
           "resource_id"
         ],
         "title": "ProducedResourceReferenceV1",
+        "type": "object"
+      },
+      "Producer": {
+        "additionalProperties": false,
+        "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authority": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Authority",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subject_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Subject Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority",
+          "subject_id"
+        ],
+        "title": "Producer",
         "type": "object"
       },
       "ProjectComputerCleanupReceiptResponse": {
@@ -12801,6 +14926,112 @@
         "title": "ProjectWorkspaceSnapshotManifest",
         "type": "object"
       },
+      "PublicWrite": {
+        "additionalProperties": false,
+        "description": "Public intent; backend supplies authenticated producer and canonical scope.",
+        "properties": {
+          "expected_revision": {
+            "maximum": 2147483646.0,
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "artifact": "#/components/schemas/Artifact",
+                "effort": "#/components/schemas/Effort",
+                "experiment": "#/components/schemas/Experiment",
+                "hypothesis": "#/components/schemas/Hypothesis",
+                "log_entry": "#/components/schemas/LogEntry",
+                "report": "#/components/schemas/Report",
+                "research_log": "#/components/schemas/ResearchLog",
+                "resource_binding": "#/components/schemas/ResourceBinding-Input",
+                "result": "#/components/schemas/Result-Input",
+                "review": "#/components/schemas/Review",
+                "scientific_export": "#/components/schemas/ScientificExport-Input",
+                "snapshot": "#/components/schemas/Snapshot",
+                "source_notice": "#/components/schemas/SourceNotice",
+                "trial": "#/components/schemas/Trial",
+                "workspace_binding": "#/components/schemas/WorkspaceBinding"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Effort"
+              },
+              {
+                "$ref": "#/components/schemas/Hypothesis"
+              },
+              {
+                "$ref": "#/components/schemas/Experiment"
+              },
+              {
+                "$ref": "#/components/schemas/Trial"
+              },
+              {
+                "$ref": "#/components/schemas/Result-Input"
+              },
+              {
+                "$ref": "#/components/schemas/ResearchLog"
+              },
+              {
+                "$ref": "#/components/schemas/LogEntry"
+              },
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "$ref": "#/components/schemas/Review"
+              },
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "$ref": "#/components/schemas/Snapshot"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificExport-Input"
+              },
+              {
+                "$ref": "#/components/schemas/SourceNotice"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBinding-Input"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceBinding"
+              }
+            ],
+            "title": "Payload"
+          },
+          "record_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "request_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Request Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id",
+          "record_id",
+          "expected_revision",
+          "payload",
+          "request_digest_sha256"
+        ],
+        "title": "PublicWrite",
+        "type": "object"
+      },
       "PullRequestBinding": {
         "additionalProperties": false,
         "properties": {
@@ -12937,6 +15168,178 @@
         "title": "PullRequestState",
         "type": "string"
       },
+      "Receipt": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 1.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "payload_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Payload Digest Sha256",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "schema_version": {
+            "const": "forge.receipt.v1",
+            "default": "forge.receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "scope",
+          "operation_id",
+          "payload_digest_sha256",
+          "reference",
+          "cursor",
+          "recorded_at"
+        ],
+        "title": "Receipt",
+        "type": "object"
+      },
+      "RecordRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "artifact": "#/components/schemas/Artifact",
+                "effort": "#/components/schemas/Effort",
+                "experiment": "#/components/schemas/Experiment",
+                "hypothesis": "#/components/schemas/Hypothesis",
+                "log_entry": "#/components/schemas/LogEntry",
+                "report": "#/components/schemas/Report",
+                "research_log": "#/components/schemas/ResearchLog",
+                "resource_binding": "#/components/schemas/ResourceBinding-Output",
+                "result": "#/components/schemas/Result-Output",
+                "review": "#/components/schemas/Review",
+                "scientific_export": "#/components/schemas/ScientificExport-Output",
+                "snapshot": "#/components/schemas/Snapshot",
+                "source_notice": "#/components/schemas/SourceNotice",
+                "trial": "#/components/schemas/Trial",
+                "workspace_binding": "#/components/schemas/WorkspaceBinding"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Effort"
+              },
+              {
+                "$ref": "#/components/schemas/Hypothesis"
+              },
+              {
+                "$ref": "#/components/schemas/Experiment"
+              },
+              {
+                "$ref": "#/components/schemas/Trial"
+              },
+              {
+                "$ref": "#/components/schemas/Result-Output"
+              },
+              {
+                "$ref": "#/components/schemas/ResearchLog"
+              },
+              {
+                "$ref": "#/components/schemas/LogEntry"
+              },
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "$ref": "#/components/schemas/Review"
+              },
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "$ref": "#/components/schemas/Snapshot"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificExport-Output"
+              },
+              {
+                "$ref": "#/components/schemas/SourceNotice"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBinding-Output"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceBinding"
+              }
+            ],
+            "title": "Payload"
+          },
+          "producer": {
+            "$ref": "#/components/schemas/Producer"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          }
+        },
+        "required": [
+          "scope",
+          "reference",
+          "payload",
+          "producer",
+          "operation_id",
+          "recorded_at"
+        ],
+        "title": "RecordRevision",
+        "type": "object"
+      },
+      "RefusalCode": {
+        "enum": [
+          "unsupported_schema",
+          "malformed_request",
+          "unauthenticated",
+          "service_scope_denied",
+          "operation_conflict",
+          "context_source_missing",
+          "context_empty",
+          "context_budget_invalid",
+          "context_budget_exceeded",
+          "provenance_unbound",
+          "snapshot_unknown",
+          "snapshot_integrity_conflict",
+          "context_engine_unbound",
+          "authority_unavailable",
+          "in_doubt"
+        ],
+        "title": "RefusalCode",
+        "type": "string"
+      },
       "RegistryActorRuntimeImageRegistrationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -12981,6 +15384,73 @@
           "runtime_image_release"
         ],
         "title": "RegistryActorRuntimeImageRegistrationResponse",
+        "type": "object"
+      },
+      "Report": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 262144,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "claims": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Claims",
+            "type": "array"
+          },
+          "kind": {
+            "const": "report",
+            "default": "report",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "methods": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Methods",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body",
+          "methods"
+        ],
+        "title": "Report",
         "type": "object"
       },
       "ResearchClaimEdgeCreate": {
@@ -13622,6 +16092,60 @@
         "title": "ResearchInternStatus",
         "type": "string"
       },
+      "ResearchLog": {
+        "additionalProperties": false,
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "research_log",
+            "default": "research_log",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ResearchLog",
+        "type": "object"
+      },
+      "ResearchResultOutcome": {
+        "enum": [
+          "measured",
+          "failed",
+          "negative",
+          "null",
+          "inconclusive",
+          "interrupted",
+          "rejected"
+        ],
+        "title": "ResearchResultOutcome",
+        "type": "string"
+      },
       "ResolutionDecision": {
         "enum": [
           "accepted",
@@ -13631,6 +16155,198 @@
         ],
         "title": "ResolutionDecision",
         "type": "string"
+      },
+      "ResourceBinding-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "enum": [
+              "file",
+              "dataset",
+              "data_pool",
+              "model",
+              "checkpoint",
+              "evaluator",
+              "repository",
+              "workspace",
+              "image",
+              "deployment",
+              "pool",
+              "optimizer_job"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "resource_binding",
+            "default": "resource_binding",
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "splits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DatasetSplit"
+            },
+            "maxItems": 3,
+            "title": "Splits",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 128,
+            "title": "Usage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "category",
+          "title",
+          "resource",
+          "manifest"
+        ],
+        "title": "ResourceBinding",
+        "type": "object"
+      },
+      "ResourceBinding-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "enum": [
+              "file",
+              "dataset",
+              "data_pool",
+              "model",
+              "checkpoint",
+              "evaluator",
+              "repository",
+              "workspace",
+              "image",
+              "deployment",
+              "pool",
+              "optimizer_job"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "resource_binding",
+            "default": "resource_binding",
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "splits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DatasetSplit"
+            },
+            "maxItems": 3,
+            "title": "Splits",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 128,
+            "title": "Usage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "category",
+          "title",
+          "resource",
+          "manifest"
+        ],
+        "title": "ResourceBinding",
+        "type": "object"
       },
       "ResourceCapability": {
         "enum": [
@@ -13818,6 +16534,266 @@
         "title": "ResourceRoutingPolicy",
         "type": "object"
       },
+      "Result-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "const": "result",
+            "default": "result",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "measurements": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Measurement"
+            },
+            "maxItems": 256,
+            "title": "Measurements",
+            "type": "array"
+          },
+          "missing_evidence": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Missing Evidence",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "measured",
+              "failed",
+              "negative",
+              "null",
+              "inconclusive",
+              "interrupted",
+              "rejected"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "scorer_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "trial": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Usage",
+            "type": "array"
+          },
+          "verification": {
+            "default": "unverified",
+            "enum": [
+              "unverified",
+              "producer_bound"
+            ],
+            "title": "Verification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trial",
+          "outcome"
+        ],
+        "title": "Result",
+        "type": "object"
+      },
+      "Result-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "const": "result",
+            "default": "result",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "measurements": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Measurement"
+            },
+            "maxItems": 256,
+            "title": "Measurements",
+            "type": "array"
+          },
+          "missing_evidence": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Missing Evidence",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "measured",
+              "failed",
+              "negative",
+              "null",
+              "inconclusive",
+              "interrupted",
+              "rejected"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "scorer_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "trial": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Usage",
+            "type": "array"
+          },
+          "verification": {
+            "default": "unverified",
+            "enum": [
+              "unverified",
+              "producer_bound"
+            ],
+            "title": "Verification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trial",
+          "outcome"
+        ],
+        "title": "Result",
+        "type": "object"
+      },
       "ResumeConditionResponse": {
         "additionalProperties": false,
         "description": "Wire form of packages.intern.async_.phase.ResumeCondition.\n\n# See: INTERN_ASYNC_RUNTIME_PHASE_REFACTOR_HANDOFF_2026-08-08.md \u00a76.3",
@@ -13904,6 +16880,52 @@
         "title": "ResumeKind",
         "type": "string"
       },
+      "Review": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "comment",
+              "approved",
+              "rejected",
+              "needs_correction"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "kind": {
+            "const": "review",
+            "default": "review",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ExactReference"
+          }
+        },
+        "required": [
+          "target",
+          "decision",
+          "rationale"
+        ],
+        "title": "Review",
+        "type": "object"
+      },
       "RunHistoryPage": {
         "additionalProperties": false,
         "properties": {
@@ -13960,6 +16982,21 @@
         ],
         "title": "RunHistoryPage",
         "type": "object"
+      },
+      "RunLifecycleControlErrorCode": {
+        "enum": [
+          "already_in_state",
+          "already_terminal",
+          "terminal_run",
+          "run_finalizing",
+          "runtime_not_live",
+          "run_not_found",
+          "project_archived",
+          "lock_pressure",
+          "cleanup_in_progress"
+        ],
+        "title": "RunLifecycleControlErrorCode",
+        "type": "string"
       },
       "RunLifecycleEnqueueStatus": {
         "description": "Public route acknowledgement status, not run lifecycle authority.",
@@ -14287,6 +17324,308 @@
         ],
         "title": "RuntimePhaseWire",
         "type": "string"
+      },
+      "ScientificExport-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/OutputAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/Credit"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "exporter": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "kind": {
+            "const": "scientific_export",
+            "default": "scientific_export",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Output Id",
+            "type": "string"
+          },
+          "proposed_public_sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 256,
+            "title": "Proposed Public Sources",
+            "type": "array"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Snapshots",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "output_id",
+          "snapshots",
+          "sources",
+          "assets",
+          "credits",
+          "recipe",
+          "exporter"
+        ],
+        "title": "ScientificExport",
+        "type": "object"
+      },
+      "ScientificExport-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/OutputAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/Credit"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "exporter": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "kind": {
+            "const": "scientific_export",
+            "default": "scientific_export",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Output Id",
+            "type": "string"
+          },
+          "proposed_public_sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 256,
+            "title": "Proposed Public Sources",
+            "type": "array"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Snapshots",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "output_id",
+          "snapshots",
+          "sources",
+          "assets",
+          "credits",
+          "recipe",
+          "exporter"
+        ],
+        "title": "ScientificExport",
+        "type": "object"
+      },
+      "ScientificWriterConflictDetail": {
+        "additionalProperties": true,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "scientific_writer_transferred",
+                  "transfer_fence_active",
+                  "provenance_unbound",
+                  "run_deployment_pins_missing"
+                ],
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/RunLifecycleControlErrorCode"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mutation_applied": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mutation Applied"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "title": "ScientificWriterConflictDetail",
+        "type": "object"
+      },
+      "ScientificWriterStateResponse": {
+        "properties": {
+          "fence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fence Id"
+          },
+          "forge_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forge Identity"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Digest Sha256"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WriterAuthorityState"
+          },
+          "transition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transition Id"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "state"
+        ],
+        "title": "ScientificWriterStateResponse",
+        "type": "object"
+      },
+      "Scope": {
+        "additionalProperties": false,
+        "properties": {
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id"
+        ],
+        "title": "Scope",
+        "type": "object"
       },
       "SealedDatasetRevision": {
         "additionalProperties": false,
@@ -15735,6 +19074,18 @@
         ],
         "title": "SmrBranchMode",
         "type": "string"
+      },
+      "SmrConflictResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ScientificWriterConflictDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrConflictResponse",
+        "type": "object"
       },
       "SmrCreateVisualReleaseRequest": {
         "properties": {
@@ -17580,6 +20931,220 @@
         "title": "SmrExecutionProfileRequest",
         "type": "object"
       },
+      "SmrExperimentBundleIntegrityResponse": {
+        "properties": {
+          "accepted_cycle": {
+            "default": false,
+            "title": "Accepted Cycle",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "smr_experiment_bundle_integrity.v1",
+            "default": "smr_experiment_bundle_integrity.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "collecting",
+              "complete",
+              "incomplete"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "terminal": {
+            "default": false,
+            "title": "Terminal",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "SmrExperimentBundleIntegrityResponse",
+        "type": "object"
+      },
+      "SmrExperimentBundleResponse": {
+        "description": "One owner-assembled view of an experiment and all of its evidence.",
+        "properties": {
+          "aggregate_scope": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "retained_subset"
+            ],
+            "title": "Aggregate Scope",
+            "type": "string"
+          },
+          "artifact_index": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Artifact Index",
+            "type": "array"
+          },
+          "candidate": {
+            "additionalProperties": true,
+            "title": "Candidate",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decisions": {
+            "additionalProperties": true,
+            "title": "Decisions",
+            "type": "object"
+          },
+          "economics": {
+            "additionalProperties": true,
+            "title": "Economics",
+            "type": "object"
+          },
+          "effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Id"
+          },
+          "evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/SmrNativeExperimentEvaluationResponse"
+            },
+            "title": "Evaluations",
+            "type": "array"
+          },
+          "executions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Executions",
+            "type": "array"
+          },
+          "experiment": {
+            "additionalProperties": true,
+            "title": "Experiment",
+            "type": "object"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factory Id"
+          },
+          "integrity": {
+            "$ref": "#/components/schemas/SmrExperimentBundleIntegrityResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Run Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "smr_experiment_bundle.v1",
+            "default": "smr_experiment_bundle.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "trace_index": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Trace Index",
+            "type": "array"
+          },
+          "trials": {
+            "items": {
+              "$ref": "#/components/schemas/SmrNativeExperimentTrialResponse"
+            },
+            "title": "Trials",
+            "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "truncated_collections": {
+            "items": {
+              "enum": [
+                "trials",
+                "executions",
+                "evaluations"
+              ],
+              "type": "string"
+            },
+            "title": "Truncated Collections",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "workspace_layout": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Workspace Layout",
+            "type": "object"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "project_id",
+          "integrity",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrExperimentBundleResponse",
+        "type": "object"
+      },
       "SmrExperimentComparisonResponse": {
         "description": "Comparable owner evidence for an explicit experiment set.",
         "properties": {
@@ -17881,6 +21446,53 @@
           "project_id"
         ],
         "title": "SmrExperimentDagResponse",
+        "type": "object"
+      },
+      "SmrExperimentHistoryResponse": {
+        "description": "Owner-assembled experiment history with explicit evidence alerts.",
+        "properties": {
+          "accepted_cycles": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Accepted Cycles",
+            "type": "integer"
+          },
+          "bundles": {
+            "items": {
+              "$ref": "#/components/schemas/SmrExperimentBundleResponse"
+            },
+            "title": "Bundles",
+            "type": "array"
+          },
+          "incomplete_cycles": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Incomplete Cycles",
+            "type": "integer"
+          },
+          "missing_evidence_alerts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Missing Evidence Alerts",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr_experiment_history.v1",
+            "default": "smr_experiment_history.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "SmrExperimentHistoryResponse",
         "type": "object"
       },
       "SmrExportVisualRevisionRequest": {
@@ -22316,6 +25928,146 @@
           "host_kind"
         ],
         "title": "SmrLocalExecutionRequest",
+        "type": "object"
+      },
+      "SmrNativeExperimentEvaluationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "container_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Run Id"
+          },
+          "experiment_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Run Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ResearchResultOutcome",
+            "default": "measured"
+          },
+          "result_id": {
+            "title": "Result Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scorer_config_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Config Digest"
+          },
+          "scorer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Id"
+          },
+          "scorer_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scorer Version"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "result_id",
+          "value"
+        ],
+        "title": "SmrNativeExperimentEvaluationResponse",
+        "type": "object"
+      },
+      "SmrNativeExperimentTrialResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "experiment_revision": {
+            "title": "Experiment Revision",
+            "type": "integer"
+          },
+          "experiment_run_id": {
+            "title": "Experiment Run Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_run_id",
+          "experiment_id",
+          "experiment_revision",
+          "run_id",
+          "role",
+          "created_at"
+        ],
+        "title": "SmrNativeExperimentTrialResponse",
         "type": "object"
       },
       "SmrOpenEndedQuestionInlineCreateRequest": {
@@ -28298,6 +32050,16 @@
             ],
             "title": "Finished At"
           },
+          "frozen_resources": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenResourceEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "host_kind": {
             "anyOf": [
               {
@@ -32220,7 +35982,10 @@
             "enum": [
               "none",
               "usage_facts",
-              "spend_ledger"
+              "spend_ledger",
+              "admission_settlements",
+              "usage_facts_and_admission_settlements",
+              "spend_ledger_and_admission_settlements"
             ],
             "title": "Source",
             "type": "string"
@@ -34780,6 +38545,86 @@
         "title": "SmrWorkspaceStoredFileResponse",
         "type": "object"
       },
+      "Snapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "archive": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "capture_completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Capture Completeness",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "imported_log_count": {
+            "anyOf": [
+              {
+                "maximum": 5000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported Log Count"
+          },
+          "imported_log_head_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported Log Head Sha256"
+          },
+          "kind": {
+            "const": "snapshot",
+            "default": "snapshot",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cutoff_at",
+          "sources",
+          "archive",
+          "capture_completeness"
+        ],
+        "title": "Snapshot",
+        "type": "object"
+      },
       "SourceAccessState": {
         "enum": [
           "accessible",
@@ -34797,6 +38642,71 @@
         ],
         "title": "SourceIntegrityState",
         "type": "string"
+      },
+      "SourceNotice": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "enum": [
+              "correction",
+              "supersession",
+              "retraction"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "kind": {
+            "const": "source_notice",
+            "default": "source_notice",
+            "title": "Kind",
+            "type": "string"
+          },
+          "original": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "pinned_releases": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Pinned Releases",
+            "type": "array"
+          },
+          "reason": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "replacement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "original",
+          "disposition",
+          "reason",
+          "pinned_releases"
+        ],
+        "title": "SourceNotice",
+        "type": "object"
       },
       "StopReason": {
         "enum": [
@@ -38784,6 +42694,86 @@
         "title": "TranscriptReplayMode",
         "type": "string"
       },
+      "Trial": {
+        "additionalProperties": false,
+        "properties": {
+          "arm": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arm"
+          },
+          "configuration": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Configuration",
+            "type": "object"
+          },
+          "executed_inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Executed Inputs",
+            "type": "array"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "kind": {
+            "const": "trial",
+            "default": "trial",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "registered",
+              "running",
+              "succeeded",
+              "failed",
+              "interrupted",
+              "rejected"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment",
+          "configuration",
+          "executed_inputs",
+          "state"
+        ],
+        "title": "Trial",
+        "type": "object"
+      },
       "UsageLimit-Input": {
         "additionalProperties": false,
         "properties": {
@@ -38853,6 +42843,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -39492,6 +43489,60 @@
         "title": "WorkProductStatus",
         "type": "string"
       },
+      "WorkspaceBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "archive": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "commit": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "kind": {
+            "const": "workspace_binding",
+            "default": "workspace_binding",
+            "title": "Kind",
+            "type": "string"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExactReference"
+            },
+            "maxItems": 1024,
+            "title": "Sources",
+            "type": "array"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/ExactReference"
+          }
+        },
+        "required": [
+          "repository",
+          "commit",
+          "archive",
+          "image",
+          "workspace"
+        ],
+        "title": "WorkspaceBinding",
+        "type": "object"
+      },
       "WorkspaceConfirmPushRequest": {
         "additionalProperties": false,
         "properties": {
@@ -39712,6 +43763,16 @@
         ],
         "title": "WorkspacePushConfirmationReceipt",
         "type": "object"
+      },
+      "WriterAuthorityState": {
+        "enum": [
+          "native",
+          "fenced",
+          "forge_writer",
+          "reverted"
+        ],
+        "title": "WriterAuthorityState",
+        "type": "string"
       }
     }
   },
@@ -45485,6 +49546,120 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/experiment-bundles": {
+      "get": {
+        "description": "Return experiment history and explicit missing-evidence alerts.",
+        "operationId": "list_project_experiment_bundles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrExperimentHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Experiment Bundles",
+        "tags": [
+          "smr",
+          "experiments"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/experiments/compare": {
+      "get": {
+        "description": "Compare accepted experiments only across matching evidence dimensions.",
+        "operationId": "compare_project_experiments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "experiment_ids",
+            "required": true,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 2,
+              "title": "Experiment Ids",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrExperimentComparisonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare Project Experiments",
+        "tags": [
+          "smr",
+          "experiments"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/experiments/dag": {
       "get": {
         "operationId": "get_project_experiment_dag",
@@ -45534,6 +49709,59 @@
           }
         },
         "summary": "Get Project Experiment Dag",
+        "tags": [
+          "smr",
+          "experiments"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/experiments/{experiment_id}/bundle": {
+      "get": {
+        "description": "Return the owner-assembled experiment, evidence, and integrity view.",
+        "operationId": "get_project_experiment_bundle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrExperimentBundleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Experiment Bundle",
         "tags": [
           "smr",
           "experiments"
@@ -45796,6 +50024,644 @@
         "summary": "Get project launch preflight",
         "tags": [
           "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/events": {
+      "get": {
+        "operationId": "get_scientific_events",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Event"
+                  },
+                  "title": "Response Get Scientific Events Smr Projects  Project Id  Research Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scientific Events",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/execution-operations": {
+      "post": {
+        "description": "mloky (``intern``) or Orchestra (``swarm``) writes with its own service\ncredential under the admission it decided. The producer is the decision's\nexact ``producer_stamp`` (docs/contracts/admission.v1.md \u00a74.1, gap G15);\nunknown execution reference forms refuse ``binding_mismatch``.",
+        "operationId": "write_execution_record",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Execution Record",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/operations": {
+      "post": {
+        "operationId": "write_scientific_record",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Scientific Record",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/receipts/{operation_id}": {
+      "get": {
+        "operationId": "get_scientific_receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scientific Receipt",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/records": {
+      "get": {
+        "operationId": "list_scientific_records",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "After",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecordRevision"
+                  },
+                  "title": "Response List Scientific Records Smr Projects  Project Id  Research Records Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scientific Records",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/records/{record_id}": {
+      "get": {
+        "operationId": "get_scientific_record",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scientific Record",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/records/{record_id}/artifact": {
+      "get": {
+        "operationId": "get_scientific_artifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scientific Artifact",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/records/{record_id}/citations": {
+      "get": {
+        "description": "Read-only custodian state of a retained revision's external citations.\n\nDangling (deleted/retired), denied, conflicting or unavailable citations\nare reported explicitly; the retained record is never changed (R06).",
+        "operationId": "verify_scientific_record_citations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationVerification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Scientific Record Citations",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/records/{record_id}/native-attachments": {
+      "get": {
+        "description": "Independently read typed native evidence and pending delivery state.",
+        "operationId": "get_native_scientific_attachments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAttachmentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Native Scientific Attachments",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/research/writer-state": {
+      "get": {
+        "description": "Read current scope authority using the runtime-safe canonical reader.",
+        "operationId": "get_scientific_writer_state",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScientificWriterStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scientific Writer State",
+        "tags": [
+          "research"
         ]
       }
     },
@@ -46354,6 +51220,168 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/sublinear/tasks": {
+      "get": {
+        "operationId": "list_project_sublinear_tasks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sublinear List Tasks Smr Projects  Project Id  Sublinear Tasks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sublinear List Tasks",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/sublinear/tasks/{task_id}": {
+      "get": {
+        "operationId": "get_project_sublinear_task",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sublinear Get Task Smr Projects  Project Id  Sublinear Tasks  Task Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sublinear Get Task",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/sublinear/tasks/{task_id}/comments": {
+      "get": {
+        "operationId": "list_project_sublinear_task_comments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sublinear List Comments Smr Projects  Project Id  Sublinear Tasks  Task Id  Comments Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sublinear List Comments",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/trigger": {
       "post": {
         "description": "Canonical project-scoped run trigger. Use the same payload that you validated through launch preflight.",
@@ -46389,6 +51417,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -48498,6 +53536,47 @@
         ]
       }
     },
+    "/smr/research-intern/backend-context-bind-grants": {
+      "post": {
+        "description": "Owner bind grant; notes/specifications/tanha/current/systems/intern/runtime_authority.md.",
+        "operationId": "declare_backend_context_bind_grant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackendContextBindGrantDeclaration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Declare Backend Context Bind Grant",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/decision-receipts/{digest_hex}": {
       "get": {
         "operationId": "get_public_magi_decision",
@@ -49786,6 +54865,168 @@
         ]
       }
     },
+    "/smr/research-intern/identities": {
+      "get": {
+        "operationId": "list_intern_identities",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_intern_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Intern Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternIdentityCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Identities",
+        "tags": [
+          "smr",
+          "research-intern",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "provision_intern_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternIdentityProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternIdentityProvisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provision Identity",
+        "tags": [
+          "smr",
+          "research-intern",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/identities/{intern_id}": {
+      "get": {
+        "operationId": "select_intern_identity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intern_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intern Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternIdentitySelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Identity",
+        "tags": [
+          "smr",
+          "research-intern",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/memory": {
       "get": {
         "description": "Bounded keyword search over this org's Intern memory.\n\nDeliberately a thin binding over ``services/intern/memory_search.py`` \u2014 the\nsame call the ``smr_intern_memory_search`` MCP tool makes. Reimplementing\nretrieval here would let the agent's memory and the operator's memory drift\napart, and the bounds (query length, limit ceiling, allowed kinds) are\nenforced once, in the service, for both callers.",
@@ -50373,6 +55614,70 @@
           }
         },
         "summary": "Create Intern Objective Link",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/runtime-route": {
+      "get": {
+        "description": "Org-owner read of the per-org Intern runtime route (A07).",
+        "operationId": "get_intern_runtime_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternRuntimeRouteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Intern Runtime Route",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "put": {
+        "description": "Org-owner selection; an exact ``operation_id`` retry returns the retained receipt.",
+        "operationId": "select_intern_runtime_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternRuntimeRouteSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternRuntimeRouteReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Intern Runtime Route",
         "tags": [
           "smr",
           "research-intern"
@@ -51201,6 +56506,204 @@
         ]
       }
     },
+    "/smr/research-intern/task-grants": {
+      "post": {
+        "operationId": "declare_intern_task_grant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternTaskGrantDeclaration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Declare Intern Task Grant",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/task-grants/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_intern_task_grant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternTaskGrantRevocation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Intern Task Grant",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/task-grants/{grant_id}/tasks/{task_id}": {
+      "get": {
+        "description": "Task-authority view (revision, assignments, attempts) under an owner Task grant.",
+        "operationId": "get_intern_task_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 16,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "snapshot_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Snapshot Revision"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Intern Task View",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/research-intern/tasks/{intern_task_id}": {
       "patch": {
         "operationId": "patch_intern_effort_task",
@@ -51538,7 +57041,7 @@
             "description": "Run not found in the caller's organization."
           },
           "409": {
-            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived | run_stop_requested"
           },
           "422": {
             "content": {
@@ -51697,6 +57200,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -51986,6 +57499,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -52121,6 +57644,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -53158,7 +58691,7 @@
             "description": "Run not found in the caller's organization."
           },
           "409": {
-            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived"
+            "description": "run_not_orchestra_authority | terminal_run | answer_conflict | idempotency_conflict | orchestra_run_not_launched | project_archived | run_stop_requested"
           },
           "422": {
             "content": {
@@ -53230,6 +58763,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -53606,6 +59149,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

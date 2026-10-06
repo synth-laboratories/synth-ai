@@ -162,6 +162,23 @@ synth-ai index --help      # Synth Index Search and research intake
 synth-ai research --help   # Swarms and Research projects
 ```
 
+Swarm launches take explicit deployment receipts, provenance mode, resource
+inventory and a finite budget limit:
+
+```bash
+synth-ai research swarms start --objective "Review the retained research" \
+  --deployment-pins deployment-pins.json --provenance-mode live \
+  --resource-bindings resource-bindings.json --budget-limit-usd 2
+```
+
+`deployment-pins.json` contains exactly `{"deployment_pins": [...]}`, with
+receipts from the deployed services (`DeploymentPin.to_wire()`).
+`resource-bindings.json` contains the three explicit arrays `model_file_ids`,
+`external_repository_ids` and `credential_ref_ids`; empty arrays select none.
+Files are limited to 64 KiB. Duplicate or unknown fields, unqualified timestamps,
+and invalid budget values refuse before a client opens. `dry_run` remains an
+explicit provenance mode; the backend validates the authority of every receipt.
+
 ## Synth Index
 
 Index Search returns a cited `response` plus the exact Contribution revisions it

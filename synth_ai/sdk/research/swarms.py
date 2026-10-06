@@ -75,9 +75,6 @@ def _swarms_page(value: JsonValue, *, limit: int) -> SyncPage[Swarm]:
         raise ValueError("list_project_runs response must be an array or page object")
     items, next_cursor, has_more = page_from_wire(value)
     swarms = [Swarm.from_wire(item) for item in items]
-    if next_cursor is None and len(swarms) == limit and swarms:
-        next_cursor = str(swarms[-1].swarm_id)
-        has_more = True
     return SyncPage(
         items=swarms,
         next_cursor=next_cursor,

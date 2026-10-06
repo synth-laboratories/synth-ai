@@ -1,0 +1,618 @@
+{
+  "models": {
+    "BackendContextBindGrantDeclaration": {
+      "additionalProperties": false,
+      "description": "Owner input for the backend service context-bind grant of one Intern.\n\nNo operation list: ``backend_context_bind_grant_declare`` stores exactly\n``task.command.bind_task_context`` + ``task.context.bind``.",
+      "properties": {
+        "expires_unix_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Expires Unix Ms",
+          "type": "integer"
+        },
+        "intern_id": {
+          "title": "Intern Id",
+          "type": "string"
+        },
+        "operation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "policy_revision": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Policy Revision",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "backend.context_bind_grant_declaration.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "smr_project_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Smr Project Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "operation_id",
+        "intern_id",
+        "smr_project_ids",
+        "policy_revision",
+        "expires_unix_ms"
+      ],
+      "title": "BackendContextBindGrantDeclaration",
+      "type": "object"
+    },
+    "InternIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "is_default": {
+          "title": "Is Default",
+          "type": "boolean"
+        },
+        "org_id": {
+          "title": "Org Id",
+          "type": "string"
+        },
+        "research_intern_id": {
+          "title": "Research Intern Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "org_id",
+        "research_intern_id",
+        "is_default"
+      ],
+      "title": "InternIdentityResponse",
+      "type": "object"
+    },
+    "InternIdentityCatalogPage": {
+      "$defs": {
+        "InternIdentityResponse": {
+          "additionalProperties": false,
+          "properties": {
+            "is_default": {
+              "title": "Is Default",
+              "type": "boolean"
+            },
+            "org_id": {
+              "title": "Org Id",
+              "type": "string"
+            },
+            "research_intern_id": {
+              "title": "Research Intern Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "org_id",
+            "research_intern_id",
+            "is_default"
+          ],
+          "title": "InternIdentityResponse",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "after_intern_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "After Intern Id"
+        },
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/InternIdentityResponse"
+          },
+          "maxItems": 32,
+          "title": "Identities",
+          "type": "array"
+        },
+        "org_id": {
+          "title": "Org Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "intern.identity_catalog_page.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "org_id",
+        "identities",
+        "after_intern_id"
+      ],
+      "title": "InternIdentityCatalogResponse",
+      "type": "object"
+    },
+    "InternIdentityProvisionReceipt": {
+      "$defs": {
+        "InternIdentityResponse": {
+          "additionalProperties": false,
+          "properties": {
+            "is_default": {
+              "title": "Is Default",
+              "type": "boolean"
+            },
+            "org_id": {
+              "title": "Org Id",
+              "type": "string"
+            },
+            "research_intern_id": {
+              "title": "Research Intern Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "org_id",
+            "research_intern_id",
+            "is_default"
+          ],
+          "title": "InternIdentityResponse",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "command_id": {
+          "title": "Command Id",
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/$defs/InternIdentityResponse"
+        },
+        "input_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Digest",
+          "type": "string"
+        },
+        "org_id": {
+          "title": "Org Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "intern.identity_provision_receipt.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "org_id",
+        "command_id",
+        "input_digest",
+        "identity"
+      ],
+      "title": "InternIdentityProvisionResponse",
+      "type": "object"
+    },
+    "InternIdentityProvisionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "command_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Command Id",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "ensure_default",
+            "create_additional"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "intern.identity_provision_request.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "command_id",
+        "kind",
+        "display_name"
+      ],
+      "title": "InternIdentityProvisionRequest",
+      "type": "object"
+    },
+    "InternIdentitySelection": {
+      "$defs": {
+        "InternIdentityResponse": {
+          "additionalProperties": false,
+          "properties": {
+            "is_default": {
+              "title": "Is Default",
+              "type": "boolean"
+            },
+            "org_id": {
+              "title": "Org Id",
+              "type": "string"
+            },
+            "research_intern_id": {
+              "title": "Research Intern Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "org_id",
+            "research_intern_id",
+            "is_default"
+          ],
+          "title": "InternIdentityResponse",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/InternIdentityResponse"
+        },
+        "schema_version": {
+          "const": "intern.identity_selection.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "identity"
+      ],
+      "title": "InternIdentitySelectionResponse",
+      "type": "object"
+    },
+    "InternRuntimeRouteReceipt": {
+      "$defs": {
+        "InternRuntimeRoute": {
+          "description": "Which actor control plane executes an org's Intern turns.",
+          "enum": [
+            "legacy_smr_runtime",
+            "mloky"
+          ],
+          "title": "InternRuntimeRoute",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "title": "Changed",
+          "type": "boolean"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "org_id": {
+          "title": "Org Id",
+          "type": "string"
+        },
+        "principal_ref": {
+          "title": "Principal Ref",
+          "type": "string"
+        },
+        "prior_route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InternRuntimeRoute"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "receipt_id": {
+          "pattern": "^rrr_[0-9a-f]{32}$",
+          "title": "Receipt Id",
+          "type": "string"
+        },
+        "recorded_unix_ms": {
+          "title": "Recorded Unix Ms",
+          "type": "integer"
+        },
+        "route": {
+          "$ref": "#/$defs/InternRuntimeRoute"
+        },
+        "schema_version": {
+          "const": "intern.runtime_route_receipt.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "receipt_id",
+        "org_id",
+        "operation_id",
+        "principal_ref",
+        "prior_route",
+        "route",
+        "reason",
+        "changed",
+        "recorded_unix_ms"
+      ],
+      "title": "InternRuntimeRouteReceipt",
+      "type": "object"
+    },
+    "InternRuntimeRouteSelectionRequest": {
+      "$defs": {
+        "InternRuntimeRoute": {
+          "description": "Which actor control plane executes an org's Intern turns.",
+          "enum": [
+            "legacy_smr_runtime",
+            "mloky"
+          ],
+          "title": "InternRuntimeRoute",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "route": {
+          "$ref": "#/$defs/InternRuntimeRoute"
+        },
+        "schema_version": {
+          "const": "intern.runtime_route_selection.v1",
+          "default": "intern.runtime_route_selection.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "route",
+        "reason"
+      ],
+      "title": "InternRuntimeRouteSelectionRequest",
+      "type": "object"
+    },
+    "InternRuntimeRouteView": {
+      "$defs": {
+        "InternRuntimeRoute": {
+          "description": "Which actor control plane executes an org's Intern turns.",
+          "enum": [
+            "legacy_smr_runtime",
+            "mloky"
+          ],
+          "title": "InternRuntimeRoute",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "changed_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Changed By"
+        },
+        "default_route": {
+          "$ref": "#/$defs/InternRuntimeRoute"
+        },
+        "latest_receipt_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest Receipt Id"
+        },
+        "org_id": {
+          "title": "Org Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "route": {
+          "$ref": "#/$defs/InternRuntimeRoute"
+        },
+        "schema_version": {
+          "const": "intern.runtime_route.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stored_route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InternRuntimeRoute"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_unix_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Updated Unix Ms"
+        }
+      },
+      "required": [
+        "schema_version",
+        "org_id",
+        "route",
+        "stored_route",
+        "default_route",
+        "reason",
+        "changed_by",
+        "updated_unix_ms",
+        "latest_receipt_id"
+      ],
+      "title": "InternRuntimeRouteResponse",
+      "type": "object"
+    },
+    "InternTaskGrantDeclaration": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_unix_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Expires Unix Ms",
+          "type": "integer"
+        },
+        "intern_id": {
+          "title": "Intern Id",
+          "type": "string"
+        },
+        "operation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "policy_revision": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Policy Revision",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "intern.task_grant_declaration.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "smr_project_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Smr Project Ids",
+          "type": "array"
+        },
+        "task_operations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Task Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "operation_id",
+        "intern_id",
+        "smr_project_ids",
+        "task_operations",
+        "policy_revision",
+        "expires_unix_ms"
+      ],
+      "title": "InternTaskGrantDeclaration",
+      "type": "object"
+    },
+    "InternTaskGrantRevocation": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revocation_epoch": {
+          "minimum": 0,
+          "title": "Expected Revocation Epoch",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "intern.task_grant_revocation.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "expected_revocation_epoch"
+      ],
+      "title": "InternTaskGrantRevocation",
+      "type": "object"
+    }
+  },
+  "schema_version": "sdk.intern_authority_producer.v1",
+  "sources": {
+    "packages/intern/identity_api.py": "4a7177aa93f2b817148de96eb0571871f62f733d254d3b696658cea5edbddf44",
+    "packages/intern/runtime_route_api.py": "89056127d20e459f48db936688e2c2a91431f6206d123b5ec6f4cda9dc1da0aa",
+    "packages/intern/task_grants.py": "832637a8d66dc12c5ffcc90a7fbc477c0b907ae65b05f2e0ec0b8a1b86097231"
+  },
+  "task_operations": [
+    "task.catalog.read",
+    "task.command.adopt",
+    "task.command.assign",
+    "task.command.cancel_wait",
+    "task.command.create",
+    "task.command.open_wait",
+    "task.command.request_effort_task",
+    "task.command.retain_attempt",
+    "task.command.set_dependencies",
+    "task.command.set_priority",
+    "task.command.update_attempt",
+    "task.history.read",
+    "task.receipt.read",
+    "task.wait.temporal_timer"
+  ]
+}

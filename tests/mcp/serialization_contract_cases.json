@@ -1196,7 +1196,22 @@
       "project_id": "00000000-0000-4000-8000-000000000001",
       "dev_environment_id": "00000000-0000-4000-8000-000000000001",
       "objective": "audit",
-      "intended_horizon_hours": 1
+      "intended_horizon_hours": 1,
+      "provenance_mode": "live",
+      "deployment_pins": [
+        {
+          "repository": "backend",
+          "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "environment": "slot5",
+          "resolved_at": "2026-10-06T00:00:00Z",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "resource_bindings": {
+        "model_file_ids": [],
+        "external_repository_ids": [],
+        "credential_ref_ids": []
+      }
     }
   },
   {

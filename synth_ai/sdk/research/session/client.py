@@ -2872,6 +2872,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         self,
         project_id: str,
         *,
+        run_id: str,
         commit_sha: str,
         archive_key: str,
     ) -> dict[str, Any]:
@@ -2880,6 +2881,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 "POST",
                 f"/smr/projects/{project_id}/workspace/confirm-push",
                 json_body={
+                    "run_id": str(run_id or "").strip(),
                     "commit_sha": str(commit_sha or "").strip(),
                     "archive_key": str(archive_key or "").strip(),
                 },
@@ -2933,14 +2935,38 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         *,
         visibility: str | None = None,
         limit: int | None = None,
+        cursor: str | None = None,
     ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/files",
-                params=build_query_params(visibility=visibility, limit=limit),
-            ),
-            label="list_project_files",
+        """Read bounded project-file pages without changing opaque cursors.
+
+        See backend launch_resource_inventory.md; returned file_id values are
+        selectable stored IDs. Refuse malformed pages and repeated cursors.
+        """
+        files: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for _ in range(1000):
+            if cursor is not None:
+                if not isinstance(cursor, str) or cursor in seen:
+                    raise ResearchApiError(
+                        "Project file listing returned an invalid or repeated cursor"
+                    )
+                seen.add(cursor)
+            page = _coerce_dict(
+                self._request_json(
+                    "GET",
+                    f"/smr/projects/{project_id}/files",
+                    params=build_query_params(visibility=visibility, limit=limit, cursor=cursor),
+                ),
+                label="list_project_files page",
+            )
+            files.extend(_coerce_dict_list(page.get("files"), label="list_project_files files"))
+            cursor = page.get("next_cursor")
+            if cursor is None:
+                return files
+            if not isinstance(cursor, str) or cursor == "":
+                raise ResearchApiError("Project file listing returned an invalid next_cursor")
+        raise ResearchApiError(
+            "Project file listing exceeded 1000 pages; no partial result returned"
         )
 
     def create_org_file(

@@ -79,6 +79,10 @@ def assert_serializable_public_tool(monkeypatch, case):
     routes.sort(key=lambda route: -sum("{" not in segment for segment in route[1].split("/")))
 
     def send(client, request, *args, **kwargs):
+        if request.headers.get("accept") == "text/event-stream":
+            return httpx.Response(
+                200, content=b"", headers={"content-type": "text/event-stream"}, request=request
+            )
         hit = next(
             (
                 route

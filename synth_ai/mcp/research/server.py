@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, fields, is_dataclass
 from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
@@ -16,6 +16,7 @@ from synth_ai.mcp.research.objective_tools import (
     objective_tool_operation_from_wire,
 )
 from synth_ai.mcp.research.registry import (
+    InvalidToolArguments,
     JSONDict,
     ToolDefinition,
     build_tool_registry,
@@ -167,8 +168,11 @@ _STABLE_TOOL_NAMES = RESOURCE_READ_TOOL_NAMES | frozenset(
         "research_create_experiment_revision",
         "research_register_trial",
         "research_record_result",
+        "research_record_execution_result",
         "research_review_revision",
         "research_get_record",
+        "research_get_record_citations",
+        "research_get_native_attachments",
         "research_list_records",
         "research_get_operation_receipt",
         "research_record_events",
@@ -372,7 +376,14 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
 
 def _mcp_jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return _mcp_jsonable(asdict(value))
+        document = {
+            item.name: getattr(value, item.name) for item in fields(value) if item.name != "raw"
+        }
+        raw = getattr(value, "raw", None)
+        if isinstance(raw, dict):
+            document = {**raw, **document}
+            document.pop("raw", None)
+        return _mcp_jsonable(document)
     if isinstance(value, Enum):
         return _mcp_jsonable(value.value)
     if isinstance(value, (datetime, date, time)):
@@ -380,6 +391,12 @@ def _mcp_jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_mcp_jsonable(item) for item in value]
     if isinstance(value, dict):
+        if value.get("schema_version") in {
+            "smr_experiment_bundle.v1",
+            "smr_experiment_history.v1",
+        } and isinstance(value.get("raw"), dict):
+            value = {**value["raw"], **value}
+            value.pop("raw", None)
         return {str(key): _mcp_jsonable(item) for key, item in value.items()}
     if isinstance(value, (set, frozenset)):
         normalized = [_mcp_jsonable(item) for item in value]
@@ -480,7 +497,7 @@ class ResearchMcpServer:
         return list_tool_payload(self._advertised_tools())
 
     def call_tool(self, name: str, arguments: JSONDict | None = None) -> Any:
-        return call_tool(self._advertised_tools(), name, arguments)
+        return _mcp_jsonable(call_tool(self._advertised_tools(), name, arguments))
 
     def _client_from_args(self, args: JSONDict) -> ResearchSession:
         resolved_api_key = optional_string(args, "api_key") or self._default_api_key
@@ -1453,7 +1470,7 @@ class ResearchMcpServer:
         scope = require_string(args, "scope").strip().lower()
         if scope != "run":
             raise ValueError(
-                "scope must be 'run' (project-scope resource-limit extension is no longer supported)"
+                "scope must be 'run'; project resource-limit extension is unsupported"
             )
         limit_value = self._optional_float_arg(args, "limit_value")
         additional_value = self._optional_float_arg(args, "additional_value")
@@ -1684,6 +1701,7 @@ class ResearchMcpServer:
                 project_id,
                 visibility=visibility,
                 limit=limit,
+                cursor=args.get("cursor"),
             )
 
     def _tool_create_project_files(self, args: JSONDict) -> Any:
@@ -2844,6 +2862,23 @@ class ResearchMcpServer:
             if method in {"initialized", "notifications/initialized"}:
                 return None
             raise RpcError(-32601, f"Unsupported method: {method!r}")
+        except InvalidToolArguments as exc:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32602,
+                    "message": str(exc),
+                    "data": {
+                        "error": "tool_arguments_invalid",
+                        "tool": exc.tool_name,
+                        "schema_path": list(exc.schema_path),
+                        "validator": exc.validator,
+                        "retryable": False,
+                        "mutation_applied": False,
+                    },
+                },
+            }
         except RpcError as exc:
             return {
                 "jsonrpc": "2.0",
@@ -2980,7 +3015,7 @@ def _stdio_server(*, index_only: bool = False) -> ResearchMcpServer:
 _INDEX_ENVIRONMENT_HELP = """\
 environment:
   SYNTH_BACKEND_URL              backend base URL (required when Index tools are enabled)
-  SYNTH_API_KEY                  API key; enables private/durable Search tools (public search needs none)
+  SYNTH_API_KEY                  API key for private/durable Search
   SYNTH_INDEX_MCP_WRITE_ENABLED  true|false; Contribution write tools (needs SYNTH_API_KEY)
 """
 

@@ -17,7 +17,10 @@
     "tool": "research_compare_experiments",
     "args": {
       "project_id": "00000000-0000-4000-8000-000000000001",
-      "experiment_ids": []
+      "experiment_ids": [
+        "e1",
+        "e2"
+      ]
     }
   },
   {

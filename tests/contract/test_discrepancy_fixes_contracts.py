@@ -58,7 +58,7 @@ def test_file_pagination_cursor_exposed__PR01():
             "workspace_confirm_push",
             "PR-18/MX-07b",
             "WorkspaceConfirmPushRequest",
-            {"commit_sha": "a" * 40, "archive_key": "archive"},
+            {"run_id": "r", "commit_sha": "a" * 40, "archive_key": "archive"},
         ),
     ],
 )
@@ -159,11 +159,11 @@ def test_visual_backend_logical_response_parses__MX08():
         "project_id": "p",
         "org_id": "o",
         "title": "visual",
-        "lifecycle": "draft",
+        "lifecycle": "active",
         "current_revision": None,
         "revisions": [],
         "releases": [],
-        "inaccessible_sources": [],
+        "inaccessible_sources": False,
         "created_at": "2026-10-06T00:00:00Z",
         "updated_at": "2026-10-06T00:00:00Z",
     }

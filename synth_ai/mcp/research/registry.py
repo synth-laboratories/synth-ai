@@ -9,6 +9,17 @@ from typing import Any
 JSONDict = dict[str, Any]
 ToolHandler = Callable[[JSONDict], Any]
 
+
+class InvalidToolArguments(ValueError):
+    """Sanitized closed-schema refusal before any tool handler effect."""
+
+    def __init__(self, tool_name, schema_path, validator):
+        self.tool_name = tool_name
+        self.schema_path = tuple(schema_path)
+        self.validator = validator
+        super().__init__(f"{tool_name} arguments violate schema at {list(schema_path)}")
+
+
 READ_SCOPE = "smr:read"
 WRITE_SCOPE = "smr:write"
 READ_SCOPES: tuple[str, ...] = (READ_SCOPE,)
@@ -318,11 +329,22 @@ def call_tool(
     if arguments is None:
         arguments = {}
     if not isinstance(arguments, dict):
-        raise TypeError("tool arguments must be an object")
+        raise InvalidToolArguments(name, (), "type")
+    from jsonschema import Draft202012Validator
+    from jsonschema.exceptions import ValidationError
+
+    try:
+        Draft202012Validator(tool.input_schema).validate(arguments)
+    except ValidationError as error:
+        # Only the schema path is safe: input values may contain credentials.
+        raise InvalidToolArguments(
+            name, error.absolute_schema_path, error.validator
+        ) from ValueError(f"MCP argument validation failed: {error.validator}")
     return tool.handler(arguments)
 
 
 __all__ = [
+    "InvalidToolArguments",
     "JSONDict",
     "READ_SCOPE",
     "READ_SCOPES",

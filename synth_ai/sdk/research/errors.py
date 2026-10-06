@@ -67,8 +67,11 @@ class ResearchApiError(SynthError, RuntimeError):
         remediation: str | None = None,
         cause: list[dict[str, Any]] | None = None,
         body: dict[str, Any] | None = None,
+        failure: SynthFailure | None = None,
+        operation_id: str | None = None,
     ) -> None:
-        super().__init__(message)
+        super().__init__(message, failure=failure)
+        self.operation_id = operation_id
         self.status_code = status_code
         self.response_text = response_text
         self.request_context: str | None = None
@@ -188,7 +191,7 @@ class ResearchFundingLaneInvariantError(ResearchApiError):
 
 
 class ResearchInsufficientCreditsError(ResearchApiError):
-    """Raised when run start is blocked for credit headroom (HTTP 402, ``smr_insufficient_credits``)."""
+    """Run start lacks credit headroom (402, ``smr_insufficient_credits``)."""
 
     def __init__(
         self,
@@ -203,7 +206,7 @@ class ResearchInsufficientCreditsError(ResearchApiError):
 
 
 class ResearchProjectMonthlyBudgetExhaustedError(ResearchApiError):
-    """Raised when the project monthly budget is exhausted (HTTP 402, ``smr_project_monthly_budget_exhausted``)."""
+    """Project budget exhausted (402, ``smr_project_monthly_budget_exhausted``)."""
 
     def __init__(
         self,
@@ -298,7 +301,7 @@ class ResearchConcurrentRunLimitExceededError(ResearchApiError):
 
 
 class ResearchStructuredDenialError(ResearchApiError):
-    """Raised for other JSON error bodies that include a string ``error_code`` (forward-compatible)."""
+    """Forward-compatible JSON refusal carrying a string ``error_code``."""
 
     def __init__(
         self,
@@ -317,8 +320,87 @@ class ResearchStructuredDenialError(ResearchApiError):
         self.detail = dict(detail) if detail else {}
 
 
+class ResearchScientificRefusalError(ResearchApiError):
+    """A definitive scientific rejection retains code, identity and retry policy.
+
+    See forge_scientific_delivery.md. A scorer dependency refusal cannot become
+    a status-based retry or an uncertain effect.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        response_text: str,
+        detail: dict[str, Any],
+        operation_id: str | None,
+    ):
+        code = detail["error_code"]
+        operation_id = detail.get("operation_id") or operation_id
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+            operation_id=operation_id,
+            failure=SynthFailure(
+                code=SynthErrorCode(code),
+                category=SynthErrorCategory.OPERATION,
+                operation=operation_id,
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=status_code,
+                detail=message,
+            ),
+        )
+        self.detail = dict(detail)
+        self.authority_code = detail.get("authority_code")
+        self.receipt_lookup_required = code == "admission_expired"
+
+
+class ResearchOutcomeUncertainError(ResearchApiError):
+    """An original scientific operation needs receipt reconciliation.
+
+    See forge_scientific_delivery.md. Never turn an uncertain effect into a
+    deterministic denial or automatically submit a replacement operation.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None,
+        response_text: str,
+        detail: dict[str, Any],
+        operation_id: str | None,
+    ):
+        operation_id = detail.get("operation_id") or operation_id
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+            operation_id=operation_id,
+            failure=SynthFailure(
+                code=SynthErrorCode("outcome_uncertain"),
+                category=SynthErrorCategory.OPERATION,
+                operation=operation_id,
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=status_code,
+                detail=message,
+            ),
+        )
+        self.detail = dict(detail)
+        self.receipt_lookup_required = True
+
+
 LAUNCH_REFUSAL_CODES = frozenset(
     {
+        "project_archived",
         "provenance_unbound",
         "run_provenance_mode_invalid",
         "run_deployment_pins_missing",
@@ -359,7 +441,9 @@ class ResearchLaunchRefusalError(ResearchStructuredDenialError):
         code = self.detail.get("error_code")
         if code not in LAUNCH_REFUSAL_CODES:
             raise ValueError("Unknown launch refusal code")
-        retryable = code == "transfer_fence_active"
+        retryable = self.detail.get("retryable", code == "transfer_fence_active")
+        if not isinstance(retryable, bool):
+            raise ValueError("launch refusal retryable must be a boolean")
         self.failure = SynthFailure(
             code=SynthErrorCode(code),
             category=(
@@ -368,7 +452,7 @@ class ResearchLaunchRefusalError(ResearchStructuredDenialError):
                 else SynthErrorCategory.RESOURCE_EXHAUSTED
                 if code in {"native_role_budget_exceeds_run", "resource_delivery_limit_exceeded"}
                 else SynthErrorCategory.CONFLICT
-                if code == "scientific_writer_transferred"
+                if code in {"scientific_writer_transferred", "project_archived"}
                 else SynthErrorCategory.VALIDATION
             ),
             operation=operation_id,
@@ -566,11 +650,11 @@ class ClaimSupersededError(CloudDeploymentClaimError):
 
 
 class FencingTokenRequiredError(CloudDeploymentClaimError):
-    """Mutating op refused: an active claim requires ``X-Fencing-Token`` (HTTP 409, ``fencing_token_required``)."""
+    """Active claim requires ``X-Fencing-Token`` (409, ``fencing_token_required``)."""
 
 
 class FencingTokenStaleError(CloudDeploymentClaimError):
-    """Mutating op refused: the presented fencing token was superseded (HTTP 409, ``fencing_token_stale``)."""
+    """Presented token was superseded (409, ``fencing_token_stale``)."""
 
 
 _CLAIM_REASON_ERRORS: dict[str, type[CloudDeploymentClaimError]] = {
@@ -686,6 +770,8 @@ __all__ = [
     "FencingTokenStaleError",
     "RateLimitedError",
     "ResearchApiError",
+    "ResearchOutcomeUncertainError",
+    "ResearchScientificRefusalError",
     "ResearchCheckpointQuotaExceededError",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchFundingLaneInvariantError",
