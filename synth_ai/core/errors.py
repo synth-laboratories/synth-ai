@@ -210,6 +210,22 @@ class TransientServiceError(HTTPError):
     """A classified transient service failure safe to reconsider by policy."""
 
 
+# Backend error codes for a typed "execution runtime (Orchestra) is unavailable"
+# refusal: create preflight, native controls, status reads and cancel/stop.
+RUNTIME_UNAVAILABLE_CODES: frozenset[str] = frozenset(
+    {"orchestra_unavailable", "swarm_status_orchestra_unavailable"}
+)
+
+
+class RuntimeUnavailableError(HTTPError):
+    """The backend refused because the execution runtime is unavailable.
+
+    Raised for the backend's typed Orchestra-unavailable refusal (any status).
+    The transport never retries it; ``retryable`` reports the server's own
+    directive so the caller decides when to try again.
+    """
+
+
 class ContractMismatchError(HTTPError):
     """The server response violates the versioned SDK contract."""
 
@@ -324,6 +340,8 @@ __all__ = [
     "ResourceExhaustedError",
     "RateLimitedError",
     "TransientServiceError",
+    "RuntimeUnavailableError",
+    "RUNTIME_UNAVAILABLE_CODES",
     "ContractMismatchError",
     "ResearchOperationError",
     "TimeoutError",

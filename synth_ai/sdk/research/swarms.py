@@ -27,9 +27,15 @@ from synth_ai.sdk.research.contracts.evidence import (
     SwarmEvidence,
 )
 from synth_ai.sdk.research.contracts.resource_settlement import RunResourceSettlement
-from synth_ai.sdk.research.contracts.status import SwarmStatus
+from synth_ai.sdk.research.contracts.status import SwarmPendingAction, SwarmStatus
 from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
 from synth_ai.sdk.research.contracts.swarm_rollouts import SwarmRollout, swarm_rollouts_from_wire
+from synth_ai.sdk.research.contracts.swarm_tasks import (
+    SwarmTask,
+    SwarmTaskEvents,
+    SwarmWorkGraph,
+    swarm_tasks_from_wire,
+)
 from synth_ai.sdk.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
@@ -126,6 +132,27 @@ def _control_receipt(
     ):
         raise ValueError("swarm control receipt does not match the request scope")
     return receipt
+
+
+def _task_events_limit(limit: int) -> int:
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer from 1 through 1000")
+    return limit
+
+
+def _task_events_request(swarm_id: SwarmId, project_id: ProjectId, limit: int) -> HttpRequest:
+    return _request(
+        "list_project_run_task_events",
+        f"/smr/projects/{project_id}/runs/{swarm_id}/task-events",
+        query={"limit": _task_events_limit(limit)},
+    )
+
+
+def _task_events(value: JsonValue, swarm_id: SwarmId, project_id: ProjectId) -> SwarmTaskEvents:
+    events = SwarmTaskEvents.from_wire(value)
+    if events.swarm_id != swarm_id or events.project_id != project_id:
+        raise ValueError("task events do not match the request scope")
+    return events
 
 
 class SwarmHandle:
@@ -320,6 +347,22 @@ class SwarmHandle:
         return self._api.answer_action(
             self.swarm_id, action_id, response_text, idempotency_key=idempotency_key
         )
+
+    def pending_actions(self) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions; each ``action_id`` feeds ``answer_action``."""
+        return self._api.pending_actions(self.swarm_id)
+
+    def tasks(self) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges and retry lineage."""
+        return self._api.tasks(self.swarm_id)
+
+    def task_events(self, *, limit: int = 500) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events)."""
+        return self._api.task_events(self.swarm_id, self.project_id, limit=limit)
+
+    def work_graph(self, *, limit: int = 500) -> SwarmWorkGraph:
+        """Tasks, dependencies, reviewer verdicts and retries."""
+        return self._api.work_graph(self.swarm_id, self.project_id, limit=limit)
 
 
 class SwarmsAPI:
@@ -803,6 +846,30 @@ class SwarmsAPI:
         )
         return _control_receipt(value, swarm_id, "action_answer", action)
 
+    def pending_actions(self, swarm_id: SwarmId) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions from the authoritative status projection."""
+        return self.status(swarm_id).pending_actions
+
+    def tasks(self, swarm_id: SwarmId) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges (``depends_on_task_keys``) and ``retry_of``."""
+        value = self._transport.execute(_request("list_run_tasks", f"/smr/runs/{swarm_id}/tasks"))
+        return swarm_tasks_from_wire(value, swarm_id)
+
+    def task_events(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events, ascending)."""
+        value = self._transport.execute(_task_events_request(swarm_id, project_id, limit))
+        return _task_events(value, swarm_id, project_id)
+
+    def work_graph(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmWorkGraph:
+        """Tasks, dependency edges, reviewer verdicts and retries in one typed read."""
+        tasks = self.tasks(swarm_id)
+        events = self.task_events(swarm_id, project_id, limit=limit)
+        return SwarmWorkGraph.build(swarm_id, tasks, events.events)
+
 
 class AsyncSwarmHandle:
     """Handle returned when creating a Swarm."""
@@ -1003,6 +1070,22 @@ class AsyncSwarmHandle:
         return await self._api.answer_action(
             self.swarm_id, action_id, response_text, idempotency_key=idempotency_key
         )
+
+    async def pending_actions(self) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions; each ``action_id`` feeds ``answer_action``."""
+        return await self._api.pending_actions(self.swarm_id)
+
+    async def tasks(self) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges and retry lineage."""
+        return await self._api.tasks(self.swarm_id)
+
+    async def task_events(self, *, limit: int = 500) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events)."""
+        return await self._api.task_events(self.swarm_id, self.project_id, limit=limit)
+
+    async def work_graph(self, *, limit: int = 500) -> SwarmWorkGraph:
+        """Tasks, dependencies, reviewer verdicts and retries."""
+        return await self._api.work_graph(self.swarm_id, self.project_id, limit=limit)
 
 
 class AsyncSwarmsAPI:
@@ -1457,6 +1540,32 @@ class AsyncSwarmsAPI:
             )
         )
         return _control_receipt(value, swarm_id, "action_answer", action)
+
+    async def pending_actions(self, swarm_id: SwarmId) -> tuple[SwarmPendingAction, ...]:
+        """Unanswered native actions from the authoritative status projection."""
+        return (await self.status(swarm_id)).pending_actions
+
+    async def tasks(self, swarm_id: SwarmId) -> tuple[SwarmTask, ...]:
+        """Tasks with dependency edges (``depends_on_task_keys``) and ``retry_of``."""
+        value = await self._transport.execute(
+            _request("list_run_tasks", f"/smr/runs/{swarm_id}/tasks")
+        )
+        return swarm_tasks_from_wire(value, swarm_id)
+
+    async def task_events(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmTaskEvents:
+        """Typed task-state history (latest ``limit`` events, ascending)."""
+        value = await self._transport.execute(_task_events_request(swarm_id, project_id, limit))
+        return _task_events(value, swarm_id, project_id)
+
+    async def work_graph(
+        self, swarm_id: SwarmId, project_id: ProjectId, *, limit: int = 500
+    ) -> SwarmWorkGraph:
+        """Tasks, dependency edges, reviewer verdicts and retries in one typed read."""
+        tasks = await self.tasks(swarm_id)
+        events = await self.task_events(swarm_id, project_id, limit=limit)
+        return SwarmWorkGraph.build(swarm_id, tasks, events.events)
 
 
 ResearchSwarmHandle = SwarmHandle
