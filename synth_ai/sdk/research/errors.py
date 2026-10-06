@@ -399,6 +399,7 @@ class ResearchOutcomeUncertainError(ResearchApiError):
 
 LAUNCH_REFUSAL_CODES = frozenset(
     {
+        "project_archived",
         "provenance_unbound",
         "run_provenance_mode_invalid",
         "run_deployment_pins_missing",
@@ -450,7 +451,7 @@ class ResearchLaunchRefusalError(ResearchStructuredDenialError):
                 else SynthErrorCategory.RESOURCE_EXHAUSTED
                 if code in {"native_role_budget_exceeds_run", "resource_delivery_limit_exceeded"}
                 else SynthErrorCategory.CONFLICT
-                if code == "scientific_writer_transferred"
+                if code in {"scientific_writer_transferred", "project_archived"}
                 else SynthErrorCategory.VALIDATION
             ),
             operation=operation_id,
