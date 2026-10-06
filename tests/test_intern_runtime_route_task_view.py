@@ -13,6 +13,7 @@ from synth_ai.sdk.research.contracts.intern_authority import (
     InternRuntimeRoute,
     InternRuntimeRouteSelectionRequest,
 )
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.operations import RESEARCH_OPERATIONS
 from synth_ai.sdk.research.research_intern import AsyncResearchInternAPI, ResearchInternAPI
 
@@ -132,7 +133,9 @@ def test_sync_and_async_arms_send_identical_requests() -> None:
         "route": "mloky",
         "reason": "A07 qualification",
     }
-    assert sent[2][1] == f"/smr/research-intern/task-grants/{GRANT}/tasks/{TASK.replace(':', '%3A')}"
+    assert (
+        sent[2][1] == f"/smr/research-intern/task-grants/{GRANT}/tasks/{TASK.replace(':', '%3A')}"
+    )
     assert sent[2][2] == {
         "project_id": PROJECT,
         "limit": 16,
@@ -190,5 +193,8 @@ def test_task_view_cursor_and_limit_bounds_refuse_before_io() -> None:
     ],
 )
 def test_identity_drift_and_unknown_fields_fail_closed(override: dict, call: Any) -> None:
-    with pytest.raises((ValueError, ValidationError)):
+    with pytest.raises(ResearchApiError) as caught:
         call(ResearchInternAPI(_Transport(override)))  # type: ignore[arg-type]
+    assert caught.value.failure.code == "schema_integrity_conflict"
+    assert caught.value.operation_id == next(iter(override))
+    assert caught.value.failure.retry.retryable is False

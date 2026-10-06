@@ -25,6 +25,7 @@ from synth_ai.sdk.research.contracts.intern_authority import (
     InternTaskGrantDeclaration,
     InternTaskGrantStatus,
 )
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.operations import RESEARCH_OPERATIONS
 from synth_ai.sdk.research.research_intern import AsyncResearchInternAPI, ResearchInternAPI
 
@@ -296,8 +297,11 @@ def test_grant_declaration_refuses_locally_like_backend(field: str, value: Any) 
 
 def test_unknown_response_fields_are_contract_changes() -> None:
     transport = _Transport({"declare_intern_task_grant": {**_active(TASK_GRANT), "extra": 1}})
-    with pytest.raises(ValidationError):
+    with pytest.raises(ResearchApiError) as caught:
         ResearchInternAPI(transport).task_grants.declare(_grant_request())  # type: ignore[arg-type]
+    assert caught.value.failure.code == "schema_integrity_conflict"
+    assert caught.value.failure.retry.retryable is False
+    assert caught.value.operation_id == "declare_intern_task_grant"
 
 
 @pytest.mark.parametrize(
@@ -343,8 +347,10 @@ def test_unknown_response_fields_are_contract_changes() -> None:
 )
 def test_identity_drift_fails_closed(op: str, payload: Any, call: Any, message: str) -> None:
     api = ResearchInternAPI(_Transport({op: payload}))  # type: ignore[arg-type]
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(ResearchApiError, match=message) as caught:
         call(api)
+    assert caught.value.operation_id == op
+    assert caught.value.failure.retry.retryable is False
 
 
 def test_sublinear_task_list_limit_is_bounded_like_backend() -> None:
