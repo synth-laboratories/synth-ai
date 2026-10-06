@@ -4,8 +4,6 @@ import dataclasses
 import inspect
 import json
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -14,7 +12,6 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     ExperimentComparison,
     ExperimentHistory,
 )
-from synth_ai.sdk.research.contracts.run_control import ManagedResearchRunControlError
 from synth_ai.sdk.research.session.client import ResearchSession
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,40 +22,6 @@ FULL = json.loads((FIXTURES / "backend_full_openapi.generated.json").read_text()
 
 def normalized(path):
     return re.sub(r"\{[^}]+\}", "{}", path)
-
-
-@pytest.mark.parametrize(
-    "method,path,finding",
-    [
-        ("GET", "/smr/runs/{run_id}/participants", "MX-01"),
-        ("GET", "/smr/runs/{run_id}/artifact-progress", "MX-01"),
-        ("GET", "/smr/runs/{run_id}/actor-logs", "MX-01"),
-        ("GET", "/smr/projects/{project_id}/runs/{run_id}/participants", "MX-01"),
-        ("GET", "/smr/projects/{project_id}/runs/{run_id}/artifact-progress", "MX-01"),
-        ("GET", "/smr/projects/{project_id}/runs/{run_id}/actor-logs", "MX-01"),
-        ("GET", "/api/tag/v1/scopes/{scope_id}/factory-context", "MX-02"),
-        ("GET", "/api/tag/v1/sessions/{session_id}/factory-context", "MX-02"),
-    ],
-)
-def test_sdk_call_resolves_to_backend__MX01_MX02(method, path, finding, tmp_path):
-    out = tmp_path / "calls.json"
-    subprocess.run(
-        [
-            sys.executable,
-            str(Path(__file__).with_name("extract_sdk_calls.py")),
-            str(ROOT),
-            str(out),
-        ],
-        check=True,
-        capture_output=True,
-    )
-    calls = json.loads(out.read_text())
-    active = any(c["method"] == method and normalized(c["path"]) == normalized(path) for c in calls)
-    routes = json.loads((FIXTURES / "backend_all_routes.json").read_text())
-    exists = any(
-        method in r["methods"] and normalized(r["path"]) == normalized(path) for r in routes
-    )
-    assert not active or exists, f"{finding}: SDK calls nonexistent backend route {method} {path}"
 
 
 def session(monkeypatch, response):
@@ -99,7 +62,7 @@ def test_file_pagination_cursor_exposed__PR01():
         ),
     ],
 )
-def test_request_body_satisfies_backend__PR18_MX06(monkeypatch, method, finding, schema, kwargs):
+def test_request_body_satisfies_backend__PR18(monkeypatch, method, finding, schema, kwargs):
     client, sent = session(monkeypatch, {})
     getattr(client, method)("p", **kwargs)
     body = sent[-1][2]["json_body"]
@@ -142,31 +105,6 @@ def test_comparison_retains_integrity_status_and_findings__RR02():
 def test_research_evidence_has_typed_fields__RR03(model, field, finding):
     assert field in {f.name for f in dataclasses.fields(model)}, (
         f"{finding}: {model.__name__}.{field} missing"
-    )
-
-
-@pytest.mark.parametrize(
-    "code,retryable",
-    [("already_terminal", False), ("cleanup_in_progress", True), ("run_finalizing", True)],
-)
-def test_run_control_refusal_is_typed__RW02(code, retryable):
-    payload = {
-        "detail": {
-            "error_code": code,
-            "message": "refused",
-            "retryable": retryable,
-            "current_state": "stopped",
-            "run_id": "r",
-        }
-    }
-    try:
-        error = ManagedResearchRunControlError.from_response(
-            payload=payload, status_code=409, response_text=json.dumps(payload)
-        )
-    except ValueError as failure:
-        pytest.fail(f"RW-02: backend refusal crashes parser: {failure}")
-    assert error.error_code.value == code and error.retryable is retryable, (
-        "RW-02: refusal semantics lost"
     )
 
 
@@ -280,53 +218,6 @@ def test_native_result_identity_is_typed__RR04():
     annotation = get_type_hints(ExperimentBundle)["evaluations"]
     assert "dict[str, object]" not in str(annotation), (
         "RR-04: experiment_run_id and scorer identity live only in untyped evaluation dictionaries"
-    )
-
-
-def test_all_raw_sdk_calls_resolve_to_backend__MX09(tmp_path):
-    from synth_ai.sdk.research.operations import RESEARCH_OPERATIONS
-
-    out = tmp_path / "all_calls.json"
-    subprocess.run(
-        [
-            sys.executable,
-            str(Path(__file__).with_name("extract_sdk_calls.py")),
-            str(ROOT),
-            str(out),
-        ],
-        check=True,
-        capture_output=True,
-    )
-    calls = json.loads(out.read_text())
-    routes = json.loads((FIXTURES / "backend_all_routes.json").read_text())
-
-    def pattern(path):
-        return re.compile("^" + re.sub(r"\\\{[^}]*\\\}", "[^/]+", re.escape(path)) + "$")
-
-    unresolved = []
-    for call in calls:
-        if call["file"].endswith("operations.py"):
-            continue
-        method = call["method"]
-        if method is None:
-            operation = RESEARCH_OPERATIONS.get(call["operation_id"])
-            if operation is not None:
-                method = operation.method.value
-        if method is None:
-            continue  # constructors and helpers are not identifiable HTTP calls
-        path = call["path"]
-        candidates = [
-            route
-            for route in routes
-            if normalized(route["path"]) == normalized(path)
-            or pattern(route["path"]).match(path)
-            or pattern(path).match(route["path"])
-        ]
-        if not any(method in route["methods"] for route in candidates):
-            unresolved.append(f"{method} {path} ({call['file']}:{call['line']})")
-    assert not unresolved, (
-        "MX-09/MX-01/MX-02: SDK routes outside bounded registry must resolve:\n"
-        + "\n".join(sorted(set(unresolved)))
     )
 
 

@@ -44,7 +44,6 @@ from synth_ai.sdk.research.contracts.swarms import (
     SwarmPreflight,
     SwarmSpec,
 )
-from synth_ai.sdk.research.contracts.traces import TraceQueryResult
 from synth_ai.sdk.research.contracts.transcript import (
     SwarmTranscriptPage,
     TranscriptView,
@@ -52,10 +51,6 @@ from synth_ai.sdk.research.contracts.transcript import (
 from synth_ai.sdk.research.contracts.usage import SwarmUsage
 from synth_ai.sdk.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.sdk.research.operations import research_operation
-from synth_ai.sdk.research.traces import (
-    AsyncFactoryTraceStoreAPI,
-    FactoryTraceStoreAPI,
-)
 
 
 def _request(
@@ -180,38 +175,6 @@ class SwarmHandle:
     def evidence(self) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         return self._api.evidence(self.swarm_id)
-
-    def trace_store(self, factory_id: str) -> FactoryTraceStoreAPI:
-        """Open a Factory trace store for this Swarm's Trace V5 records."""
-        return FactoryTraceStoreAPI(self._api._transport, factory_id)
-
-    def traces(
-        self,
-        factory_id: str,
-        *,
-        actor_id: str | None = None,
-        session_id: str | None = None,
-        criterion_id: str | None = None,
-        annotation_label: str | None = None,
-        reward_id: str | None = None,
-        reward_min: float | None = None,
-        reward_max: float | None = None,
-        workflow_address: str | None = None,
-        limit: int = 100,
-    ) -> TraceQueryResult:
-        """Query this Swarm's traces from one Factory-owned store."""
-        return self.trace_store(factory_id).query(
-            run_id=str(self.swarm_id),
-            actor_id=actor_id,
-            session_id=session_id,
-            criterion_id=criterion_id,
-            annotation_label=annotation_label,
-            reward_id=reward_id,
-            reward_min=reward_min,
-            reward_max=reward_max,
-            workflow_address=workflow_address,
-            limit=limit,
-        )
 
     def activity(
         self,
@@ -896,38 +859,6 @@ class AsyncSwarmHandle:
     async def evidence(self) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         return await self._api.evidence(self.swarm_id)
-
-    def trace_store(self, factory_id: str) -> AsyncFactoryTraceStoreAPI:
-        """Open an async Factory trace store for this Swarm's Trace V5 records."""
-        return AsyncFactoryTraceStoreAPI(self._api._transport, factory_id)
-
-    async def traces(
-        self,
-        factory_id: str,
-        *,
-        actor_id: str | None = None,
-        session_id: str | None = None,
-        criterion_id: str | None = None,
-        annotation_label: str | None = None,
-        reward_id: str | None = None,
-        reward_min: float | None = None,
-        reward_max: float | None = None,
-        workflow_address: str | None = None,
-        limit: int = 100,
-    ) -> TraceQueryResult:
-        """Query this Swarm's traces from one Factory-owned store."""
-        return await self.trace_store(factory_id).query(
-            run_id=str(self.swarm_id),
-            actor_id=actor_id,
-            session_id=session_id,
-            criterion_id=criterion_id,
-            annotation_label=annotation_label,
-            reward_id=reward_id,
-            reward_min=reward_min,
-            reward_max=reward_max,
-            workflow_address=workflow_address,
-            limit=limit,
-        )
 
     async def activity(
         self,

@@ -13,11 +13,8 @@ from synth_ai.sdk.research.contracts.operator_evidence import SmrRunOperatorEvid
 from synth_ai.sdk.research.contracts.run_authority import ManagedResearchRunTask
 from synth_ai.sdk.research.contracts.run_control import ManagedResearchRunControlError
 from synth_ai.sdk.research.contracts.run_diagnostics import (
-    SmrRunActorLogs,
     SmrRunActorUsage,
-    SmrRunArtifactProgress,
     SmrRunCostSummary,
-    SmrRunParticipants,
     SmrRunTraces,
 )
 from synth_ai.sdk.research.contracts.run_events import RunRuntimeStreamEvent
@@ -1387,48 +1384,6 @@ class ManagedResearchRunAuthorityMixin:
             label="get_project_run_actor_usage",
         )
         return SmrRunActorUsage.from_wire(payload)
-
-    def list_run_participants(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunParticipants:
-        """Removed unimplemented legacy read; use the run journal/task reads (SYN-4003)."""
-        raise ResearchApiError(
-            "list_run_participants has no authoritative backend implementation",
-            failure_class="unsupported_backend_contract",
-        )
-
-    def get_run_artifact_progress(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunArtifactProgress:
-        """Removed unimplemented legacy read; use the run journal/task reads (SYN-4003)."""
-        raise ResearchApiError(
-            "get_run_artifact_progress has no authoritative backend implementation",
-            failure_class="unsupported_backend_contract",
-        )
-
-    def list_run_actor_logs(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        actor_id: str | None = None,
-        turn_id: str | None = None,
-        kind: str | None = None,
-        since: str | None = None,
-        cursor: str | None = None,
-        limit: int | None = None,
-    ) -> SmrRunActorLogs:
-        """Removed unimplemented legacy read; use the run journal/task reads (SYN-4003)."""
-        raise ResearchApiError(
-            "list_run_actor_logs has no authoritative backend implementation",
-            failure_class="unsupported_backend_contract",
-        )
 
     def get_run_cost_summary(self, run_id: str) -> SmrRunCostSummary:
         payload = _coerce_dict(
