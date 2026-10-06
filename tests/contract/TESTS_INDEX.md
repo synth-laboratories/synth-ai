@@ -62,7 +62,7 @@ The fresh bounded/full OpenAPI, hidden-route and enum fixtures are committed in 
 | RR-12 | synth-ai: `tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12` | red |
 | RR-14 | synth-ai: `tests/contract/test_discrepancy_law.py::test_transport_failure_keeps_original_intent_and_cause__RR14` | red |
 | RR-14 | synth-ai: `tests/contract/test_discrepancy_law.py::test_uncertain_write_preserves_operation_identity__RR14` | red |
-| RW-01 | synth-ai: `tests/mcp/test_launch_schema_contracts.py::test_launch_schema_accepts_provenance__RW01_PR12` | green; merge/deployment gated by SYN-3988 |
+| RW-01 | synth-ai: `tests/mcp/test_launch_schema_contracts.py::test_launch_schema_accepts_provenance__RW01_PR12` | green; released0.22.2.dev682 after staging backendfa0be484 |
 | RW-01 | testing: `synth_cloud/integration/forge/test_forge_stub_worker_journey_law.py::test_forge_stub_worker_journey__RW01_PR02_RR05` | blocked by deployed run-status projection |
 | RW-02 | synth-ai: `tests/contract/test_orchestra_route_contracts.py::test_run_control_refusal_is_typed__RW02` | green (SYN-4002/4003/4004) |
 | RW-03 | backend: `tests/integration/test_discrepancy_postgres_law.py::test_branch_refuses_persisted_forge_writer__RW03` | red |
@@ -157,3 +157,14 @@ Backend authority `304f00b8`: fresh route dump includes all 1538 app routes and
 live authority overrides accompany the portable tests. Backend source was not
 changed; no duplicate registry fix, CI wiring, provider calls, slot mutation,
 or package publication.
+
+
+## Released Orchestra fixes — 2026-10-06 18:19 UTC
+
+[Release receipt](ORCHESTRA_RELEASE_RECEIPT_20261006.md) supersedes the earlier
+source-fix deployment blockers. SYN-3989 and the launch fix are integrated;
+backendfa0be484 is verified on one digest across all four staging services;
+SDK0.22.2.dev682 is publicly installed and byte-verified against source4e77cfb5.
+RW-01, RW-02, MX-01, MX-02, MX-03 and MX-06 are complete for this release.
+Factory remains optional, separate from run/Swarm types and default MCP discovery.
+No production promotion, model calls, slot2 changes or unattended work.
