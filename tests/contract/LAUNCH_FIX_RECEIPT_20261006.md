@@ -74,3 +74,5 @@ backend tests/units/test_launch_discrepancy_contracts.py and SDK
 are test_launch_contract_fixes.py and tests/mcp/test_launch_contracts.py.
 
 Backend implementation commit: `d2b11ef07f727565ce69504ea106843b97a931ff`.
+
+SDK implementation commit: `dc7e0571ee51d77a2449baf08dafb41414cb4890`. Both source candidates must be coordinated at any later release; published SDK/backend environments have not received these commits.
