@@ -430,6 +430,11 @@ from synth_ai.sdk.research.contracts.runtime_stream_snapshot import (
 )
 from synth_ai.sdk.research.contracts.status import SwarmPendingAction
 from synth_ai.sdk.research.contracts.swarm_controls import SwarmControlReceipt
+from synth_ai.sdk.research.contracts.swarm_history import (
+    SwarmHistoryDecision,
+    SwarmHistoryEntry,
+    SwarmHistoryPage,
+)
 from synth_ai.sdk.research.contracts.swarm_tasks import (
     RetryKind,
     ReviewVerdict,
@@ -440,11 +445,6 @@ from synth_ai.sdk.research.contracts.swarm_tasks import (
     TaskDependency,
     TaskRetry,
     TaskReviewDecision,
-)
-from synth_ai.sdk.research.contracts.swarm_history import (
-    SwarmHistoryDecision,
-    SwarmHistoryEntry,
-    SwarmHistoryPage,
 )
 from synth_ai.sdk.research.contracts.swarms import (
     ActiveActorModel,

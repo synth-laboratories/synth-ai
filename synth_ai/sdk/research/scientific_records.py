@@ -18,7 +18,9 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
-from synth_ai.sdk.research.contracts.forge_citations import CitationVerification as ForgeCitationVerification
+from synth_ai.sdk.research.contracts.forge_citations import (
+    CitationVerification as ForgeCitationVerification,
+)
 from synth_ai.sdk.research.contracts.forge_uploads import Uploaded, UploadRequest
 from synth_ai.sdk.research.contracts.native_attachment import NativeAttachmentPage
 from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
