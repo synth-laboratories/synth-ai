@@ -30,6 +30,7 @@ from synth_ai.core.errors import (
     RateLimitedError,
     ResearchOperationError,
     ResourceExhaustedError,
+    ResourceRef,
     RetryDirective,
     SynthError,
     SynthErrorCategory,
@@ -483,10 +484,10 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
       ``intern_acceptance_fixture_retention_expired`` (the resource existed;
       its read-only retention window ended). (Named to avoid shadowing the
       read-only ``SynthError.error_code`` transport-failure property.)
-    - ``resource``: the resource segment of the condition (``async_runtime``,
-      ``sync_session``, ``acceptance_fixture``, ...), or ``None`` when the
-      code has neither the ``intern_*_not_found`` nor the
-      ``intern_*_retention_expired`` shape.
+    - ``lookup_resource``: the resource kind parsed from the condition
+      (``run``, ``async_runtime``, ``acceptance_fixture``, ...).
+    - ``resource``: the standard immutable ``ResourceRef`` when the backend
+      provides both a resource kind and its scoped identifier; otherwise ``None``.
     - ``scope_identifier``: the lookup key the backend echoed back (the
       organization id for org-singleton lookups such as the Async Intern, the
       resource id otherwise), when the backend provided one.
@@ -505,6 +506,7 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
         status_code: int | None = None,
         response_text: str | None = None,
         detail: dict[str, Any] | None = None,
+        operation_id: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -515,19 +517,37 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
         code = self.detail.get("error_code")
         self.backend_error_code: str = code.strip() if isinstance(code, str) else ""
         resource: str | None = None
-        if self.backend_error_code.startswith("intern_"):
-            for suffix in ("_not_found", "_retention_expired"):
-                if self.backend_error_code.endswith(suffix):
-                    resource = self.backend_error_code.removeprefix("intern_").removesuffix(suffix)
-                    break
-        self.resource: str | None = resource
+        for suffix in ("_not_found", "_retention_expired"):
+            if self.backend_error_code.endswith(suffix):
+                resource = self.backend_error_code.removeprefix("intern_").removesuffix(suffix)
+                break
+        self.lookup_resource: str | None = resource
         scope: str | None = None
-        for key in ("runtime_id", "resource_id", "fixture_id", "async_runtime_id", "org_id"):
+        for key in (
+            "run_id",
+            "runtime_id",
+            "resource_id",
+            "fixture_id",
+            "async_runtime_id",
+            "org_id",
+        ):
             value = self.detail.get(key)
             if isinstance(value, str) and value.strip():
                 scope = value.strip()
                 break
         self.scope_identifier: str | None = scope
+        self.operation_id = operation_id
+        self.failure = SynthFailure(
+            code=SynthErrorCode(self.backend_error_code or "research_not_found"),
+            category=SynthErrorCategory.OPERATION,
+            operation=operation_id,
+            request_id=None,
+            correlation_id=None,
+            retry=RetryDirective(retryable=self.detail.get("retryable") is True),
+            status=status_code,
+            detail=message,
+            resource=ResourceRef(resource, scope) if resource and scope else None,
+        )
 
 
 class ResearchLimitExtensionError(ResearchApiError):

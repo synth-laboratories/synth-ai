@@ -226,6 +226,7 @@ def _raise_for_error_response(
                         status_code=status_code,
                         response_text=response_text,
                         detail=detail,
+                        operation_id=operation_id,
                     )
                 if stripped == "smr_limit_exceeded":
                     raise ResearchLimitExceededError(
