@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from synth_ai.sdk.research.contracts.tag import (
-    TagFactoryContext,
     TagMessageRequest,
     TagScope,
     TagSession,
@@ -87,20 +86,6 @@ class TagAPI(_ClientNamespace):
 
     def get_default_scope(self) -> TagScope:
         return TagScope.from_wire(self._client.get_default_tag_scope())
-
-    def get_factory_context(
-        self,
-        *,
-        scope_id: str | None = None,
-        session_id: str | None = None,
-    ) -> TagFactoryContext:
-        if (scope_id is None) == (session_id is None):
-            raise ValueError("exactly one of scope_id or session_id is required")
-        if scope_id is not None:
-            payload = self._client.get_tag_scope_factory_context(scope_id)
-        else:
-            payload = self._client.get_tag_session_factory_context(str(session_id))
-        return TagFactoryContext.from_payload(payload)
 
 
 __all__ = ["TagAPI"]

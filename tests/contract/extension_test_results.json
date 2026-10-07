@@ -1,0 +1,284 @@
+[
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[GET-409-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[GET-409-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[GET-429-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[GET-429-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[GET-503-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[GET-503-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>, <Request('GET', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[POST-409-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[POST-409-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[POST-429-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[POST-429-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[POST-503-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_explicit_refusal_is_attempted_once__EX01[POST-503-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-01: explicit retryable=false was attempted 3 times\nassert 3 == 1\n +  where 3 = len([<Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>, <Request('POST', 'http://offline.invalid/probe')>])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_idempotency_header_is_case_insensitive__EX02[IDEMPOTENCY-KEY]",
+    "status": "red",
+    "reason": "AssertionError: EX-02: valid HTTP header casing loses idempotency identity\nassert None == 'original-intent'\n +  where None = idempotency_key_from_request(HttpRequest(operation=OperationMetadata(operation_id='offline_probe', method=<HttpMethod.POST: 'POST'>, path_template=...potent=True), path='/probe', query={}, body=None, headers={'IDEMPOTENCY-KEY': 'original-intent'}, timeout_seconds=None))"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_idempotency_header_is_case_insensitive__EX02[iDeMpOtEnCy-KeY]",
+    "status": "red",
+    "reason": "AssertionError: EX-02: valid HTTP header casing loses idempotency identity\nassert None == 'original-intent'\n +  where None = idempotency_key_from_request(HttpRequest(operation=OperationMetadata(operation_id='offline_probe', method=<HttpMethod.POST: 'POST'>, path_template=...potent=True), path='/probe', query={}, body=None, headers={'iDeMpOtEnCy-KeY': 'original-intent'}, timeout_seconds=None))"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_retry_configuration_is_finite_and_typed__EX03[kwargs0]",
+    "status": "red",
+    "reason": "Failed: EX-03: non-finite or non-integer retry configuration accepted: {'delay_seconds_initial': nan}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_retry_configuration_is_finite_and_typed__EX03[kwargs1]",
+    "status": "red",
+    "reason": "Failed: EX-03: non-finite or non-integer retry configuration accepted: {'delay_seconds_max': nan}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_retry_configuration_is_finite_and_typed__EX03[kwargs2]",
+    "status": "red",
+    "reason": "Failed: EX-03: non-finite or non-integer retry configuration accepted: {'delay_seconds_max': inf}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_retry_configuration_is_finite_and_typed__EX03[kwargs3]",
+    "status": "red",
+    "reason": "Failed: EX-03: non-finite or non-integer retry configuration accepted: {'attempts_max': 2.5}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_retry_configuration_is_finite_and_typed__EX03[kwargs4]",
+    "status": "red",
+    "reason": "Failed: EX-03: non-finite or non-integer retry configuration accepted: {'attempts_max': True}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_redirect_without_location_is_not_success__EX04[json-sync]",
+    "status": "red",
+    "reason": "Failed: EX-04: HTTP 302 with no Location accepted as successful response data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_redirect_without_location_is_not_success__EX04[json-async]",
+    "status": "red",
+    "reason": "Failed: EX-04: HTTP 302 with no Location accepted as successful response data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_redirect_without_location_is_not_success__EX04[bytes-sync]",
+    "status": "red",
+    "reason": "Failed: EX-04: HTTP 302 with no Location accepted as successful response data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_redirect_without_location_is_not_success__EX04[bytes-async]",
+    "status": "red",
+    "reason": "Failed: EX-04: HTTP 302 with no Location accepted as successful response data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_empty_json_success_is_contract_failure__EX05[sync]",
+    "status": "red",
+    "reason": "Failed: EX-05: empty HTTP 200 JSON response fabricated as {}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_empty_json_success_is_contract_failure__EX05[async]",
+    "status": "red",
+    "reason": "Failed: EX-05: empty HTTP 200 JSON response fabricated as {}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_nonfinite_json_number_is_contract_failure__EX07[NaN-sync]",
+    "status": "red",
+    "reason": "Failed: EX-07: non-JSON numeric token NaN passed strict JSON boundary"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_nonfinite_json_number_is_contract_failure__EX07[NaN-async]",
+    "status": "red",
+    "reason": "Failed: EX-07: non-JSON numeric token NaN passed strict JSON boundary"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_nonfinite_json_number_is_contract_failure__EX07[Infinity-sync]",
+    "status": "red",
+    "reason": "Failed: EX-07: non-JSON numeric token Infinity passed strict JSON boundary"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_nonfinite_json_number_is_contract_failure__EX07[Infinity-async]",
+    "status": "red",
+    "reason": "Failed: EX-07: non-JSON numeric token Infinity passed strict JSON boundary"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_nonfinite_json_number_is_contract_failure__EX07[-Infinity-sync]",
+    "status": "red",
+    "reason": "Failed: EX-07: non-JSON numeric token -Infinity passed strict JSON boundary"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_law.py::test_nonfinite_json_number_is_contract_failure__EX07[-Infinity-async]",
+    "status": "red",
+    "reason": "Failed: EX-07: non-JSON numeric token -Infinity passed strict JSON boundary"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_explicit_retryable_response_can_recover[sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_explicit_retryable_response_can_recover[async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_invalid_retry_after_is_ignored[NaN]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_invalid_retry_after_is_ignored[inf]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_invalid_retry_after_is_ignored[-1]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_retry_policy_valid_boundaries",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_finite_json_and_numeric_looking_strings_remain_valid[sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_transport_extension_contracts.py::test_finite_json_and_numeric_looking_strings_remain_valid[async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_law.py::test_boolean_is_not_numeric_measurement__EX06[False-value]",
+    "status": "red",
+    "reason": "Failed: EX-06: boolean value silently converted into scientific numeric evidence"
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_law.py::test_boolean_is_not_numeric_measurement__EX06[False-uncertainty]",
+    "status": "red",
+    "reason": "Failed: EX-06: boolean uncertainty silently converted into scientific numeric evidence"
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_law.py::test_boolean_is_not_numeric_measurement__EX06[True-value]",
+    "status": "red",
+    "reason": "Failed: EX-06: boolean value silently converted into scientific numeric evidence"
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_law.py::test_boolean_is_not_numeric_measurement__EX06[True-uncertainty]",
+    "status": "red",
+    "reason": "Failed: EX-06: boolean uncertainty silently converted into scientific numeric evidence"
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_contracts.py::test_valid_measurement_values_round_trip[None]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_contracts.py::test_valid_measurement_values_round_trip[-1.0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_contracts.py::test_valid_measurement_values_round_trip[0.0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_measurement_extension_contracts.py::test_valid_measurement_values_round_trip[1.0]",
+    "status": "green",
+    "reason": ""
+  }
+]

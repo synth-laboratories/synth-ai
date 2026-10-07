@@ -999,12 +999,13 @@
         "type": "object"
       },
       "CapabilityGrantRequest": {
-        "description": "Issue one review/publish grant to a member of ``org_id``.",
+        "description": "Issue a named capability; private research imports always expire.\n\nSee notes/specifications/synth-index/private-research-import-authority.md.",
         "properties": {
           "capability": {
             "enum": [
               "review",
-              "publish"
+              "publish",
+              "research_import"
             ],
             "title": "Capability",
             "type": "string"
@@ -1046,7 +1047,8 @@
           "capability": {
             "enum": [
               "review",
-              "publish"
+              "publish",
+              "research_import"
             ],
             "title": "Capability",
             "type": "string"
@@ -3578,6 +3580,36 @@
         "title": "CreateCorpus",
         "type": "object"
       },
+      "CreatePrivateResearchAdoptionSpec": {
+        "additionalProperties": false,
+        "description": "Exact original input; destination custody comes exclusively from verified auth.",
+        "properties": {
+          "adopted_manifest_base64": {
+            "maxLength": 349528,
+            "minLength": 1,
+            "title": "Adopted Manifest Base64",
+            "type": "string"
+          },
+          "bundle_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Bundle Digest",
+            "type": "string"
+          },
+          "original_manifest_base64": {
+            "maxLength": 349528,
+            "minLength": 1,
+            "title": "Original Manifest Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bundle_digest",
+          "original_manifest_base64",
+          "adopted_manifest_base64"
+        ],
+        "title": "CreatePrivateResearchAdoptionSpec",
+        "type": "object"
+      },
       "CreateResearchContributionSpec": {
         "additionalProperties": false,
         "description": "Reviewed export identity, never caller-selected origin or rights state.",
@@ -4080,6 +4112,30 @@
       },
       "ExactReference": {
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "record_id": {
+                  "pattern": "^intern-exec:"
+                }
+              },
+              "required": [
+                "record_id"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority": {
+                  "const": "mloky"
+                },
+                "kind": {
+                  "const": "mloky_execution"
+                }
+              }
+            }
+          }
+        ],
         "properties": {
           "authority": {
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -4097,7 +4153,7 @@
             "type": "string"
           },
           "record_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
             "title": "Record Id",
             "type": "string"
           },
@@ -4329,8 +4385,160 @@
         "title": "FindingView",
         "type": "object"
       },
+      "ForgeProjectionOutput": {
+        "additionalProperties": false,
+        "description": "An approved release output referenced by scientific provenance, not copied.",
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "projection": {
+            "enum": [
+              "export_asset",
+              "public_provenance"
+            ],
+            "title": "Projection",
+            "type": "string"
+          },
+          "release_asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Asset Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_asset_id",
+          "digest_sha256",
+          "projection"
+        ],
+        "title": "ForgeProjectionOutput",
+        "type": "object"
+      },
+      "ForgeProjectionRecipe-Input": {
+        "additionalProperties": false,
+        "description": "Closed Forge v3 primary-archive projection; current registration is authority.",
+        "properties": {
+          "builder_version": {
+            "const": "forge-export-projection-v1",
+            "default": "forge-export-projection-v1",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/ForgeProjectionOutput"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.forge-projection.v1",
+            "default": "synth.research.forge-projection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scientific_archive_object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Scientific Archive Object Id",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          },
+          "source_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Digest Sha256",
+            "type": "string"
+          },
+          "source_revision_reference": {
+            "$ref": "#/components/schemas/RevisionReference"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "source_digest_sha256",
+          "source_revision_reference",
+          "scientific_archive_object_id",
+          "outputs"
+        ],
+        "title": "ForgeProjectionRecipe",
+        "type": "object"
+      },
+      "ForgeProjectionRecipe-Output": {
+        "additionalProperties": false,
+        "description": "Closed Forge v3 primary-archive projection; current registration is authority.",
+        "properties": {
+          "builder_version": {
+            "const": "forge-export-projection-v1",
+            "default": "forge-export-projection-v1",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/ForgeProjectionOutput"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.forge-projection.v1",
+            "default": "synth.research.forge-projection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scientific_archive_object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Scientific Archive Object Id",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          },
+          "source_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Digest Sha256",
+            "type": "string"
+          },
+          "source_revision_reference": {
+            "$ref": "#/components/schemas/RevisionReference"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "source_digest_sha256",
+          "source_revision_reference",
+          "scientific_archive_object_id",
+          "outputs"
+        ],
+        "title": "ForgeProjectionRecipe",
+        "type": "object"
+      },
       "ForgePublicResearchSource-Input": {
         "additionalProperties": false,
+        "description": "Public projection of one Forge export, pinned to its provenance reference.\n\n``revision_reference`` (Forge decision 0001, ``forge.revision-reference.v1``)\nbinds the selected export's producer, operation and time, not only its payload;\n``archive_schema_version`` names the private archive version that carries those\nreferences (v3). ``services.contributions.forge_review_policy`` refuses a public\nsource that omits either; they stay optional on the wire so older private\nregistrations still decode.",
         "properties": {
           "archive_manifest_digest_sha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -4341,6 +4549,18 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Archive Publication Id",
             "type": "string"
+          },
+          "archive_schema_version": {
+            "anyOf": [
+              {
+                "const": "forge.private-archive.v3",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive Schema Version"
           },
           "export": {
             "$ref": "#/components/schemas/ExactReference"
@@ -4357,6 +4577,16 @@
           },
           "public_provenance": {
             "$ref": "#/components/schemas/PublicScientificProvenance-Input"
+          },
+          "revision_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevisionReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schema_version": {
             "const": "synth.index.forge-source.v2",
@@ -4378,6 +4608,7 @@
       },
       "ForgePublicResearchSource-Output": {
         "additionalProperties": false,
+        "description": "Public projection of one Forge export, pinned to its provenance reference.\n\n``revision_reference`` (Forge decision 0001, ``forge.revision-reference.v1``)\nbinds the selected export's producer, operation and time, not only its payload;\n``archive_schema_version`` names the private archive version that carries those\nreferences (v3). ``services.contributions.forge_review_policy`` refuses a public\nsource that omits either; they stay optional on the wire so older private\nregistrations still decode.",
         "properties": {
           "archive_manifest_digest_sha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -4388,6 +4619,18 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Archive Publication Id",
             "type": "string"
+          },
+          "archive_schema_version": {
+            "anyOf": [
+              {
+                "const": "forge.private-archive.v3",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive Schema Version"
           },
           "export": {
             "$ref": "#/components/schemas/ExactReference"
@@ -4404,6 +4647,16 @@
           },
           "public_provenance": {
             "$ref": "#/components/schemas/PublicScientificProvenance-Output"
+          },
+          "revision_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevisionReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schema_version": {
             "const": "synth.index.forge-source.v2",
@@ -5224,6 +5477,59 @@
           "entries"
         ],
         "title": "MyRewards",
+        "type": "object"
+      },
+      "NoticeConsentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PublicNoticeField"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "fields"
+        ],
+        "title": "NoticeConsentRequest",
+        "type": "object"
+      },
+      "NoticeConsentView": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PublicNoticeField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "subject_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Subject Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_digest",
+          "fields",
+          "active"
+        ],
+        "title": "NoticeConsentView",
         "type": "object"
       },
       "OperationUsage": {
@@ -6402,6 +6708,18 @@
         ],
         "title": "PublicLineageRevision",
         "type": "object"
+      },
+      "PublicNoticeField": {
+        "description": "The complete allowlist. Nothing outside it can enter public bytes.",
+        "enum": [
+          "disposition",
+          "recorded_at",
+          "reason",
+          "original_digest",
+          "replacement_digest"
+        ],
+        "title": "PublicNoticeField",
+        "type": "string"
       },
       "PublicProfileValue": {
         "additionalProperties": false,
@@ -8366,6 +8684,27 @@
         "title": "ResearchSource",
         "type": "object"
       },
+      "RetainedNoticesView": {
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "minimum": 0.0,
+            "title": "Next Cursor",
+            "type": "integer"
+          },
+          "retained": {
+            "minimum": 0.0,
+            "title": "Retained",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retained",
+          "next_cursor"
+        ],
+        "title": "RetainedNoticesView",
+        "type": "object"
+      },
       "ReuseSummary": {
         "additionalProperties": false,
         "properties": {
@@ -8746,6 +9085,32 @@
           "parent_revision_id"
         ],
         "title": "RevisionCreateSpec",
+        "type": "object"
+      },
+      "RevisionReference": {
+        "additionalProperties": false,
+        "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+        "properties": {
+          "document_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Document Digest Sha256",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "schema_version": {
+            "const": "forge.revision-reference.v1",
+            "default": "forge.revision-reference.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "document_digest_sha256"
+        ],
+        "title": "RevisionReference",
         "type": "object"
       },
       "RevisionStatus": {
@@ -9396,6 +9761,50 @@
         "title": "RunPreflightSpec",
         "type": "object"
       },
+      "ScientificApprovedRepresentation": {
+        "additionalProperties": false,
+        "description": "V2 also admits explicit structured UTF-8 scientific evidence.",
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "utf8_text",
+              "approved_caption",
+              "structured_text"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "representation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Representation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "representation_id",
+          "asset_id",
+          "digest_sha256",
+          "parser_version",
+          "kind"
+        ],
+        "title": "ScientificApprovedRepresentation",
+        "type": "object"
+      },
       "ScientificDerivation-Input": {
         "additionalProperties": false,
         "properties": {
@@ -9403,7 +9812,22 @@
             "$ref": "#/components/schemas/ScientificReleaseDisclosure"
           },
           "recipe": {
-            "$ref": "#/components/schemas/FrozenCopyRecipe"
+            "discriminator": {
+              "mapping": {
+                "synth.research.build-recipe.v2": "#/components/schemas/FrozenCopyRecipe",
+                "synth.research.forge-projection.v1": "#/components/schemas/ForgeProjectionRecipe-Input"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FrozenCopyRecipe"
+              },
+              {
+                "$ref": "#/components/schemas/ForgeProjectionRecipe-Input"
+              }
+            ],
+            "title": "Recipe"
           },
           "reproduction_receipts": {
             "default": [],
@@ -9439,7 +9863,22 @@
             "$ref": "#/components/schemas/ScientificReleaseDisclosure"
           },
           "recipe": {
-            "$ref": "#/components/schemas/FrozenCopyRecipe"
+            "discriminator": {
+              "mapping": {
+                "synth.research.build-recipe.v2": "#/components/schemas/FrozenCopyRecipe",
+                "synth.research.forge-projection.v1": "#/components/schemas/ForgeProjectionRecipe-Output"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FrozenCopyRecipe"
+              },
+              {
+                "$ref": "#/components/schemas/ForgeProjectionRecipe-Output"
+              }
+            ],
+            "title": "Recipe"
           },
           "reproduction_receipts": {
             "default": [],
@@ -9519,7 +9958,7 @@
           },
           "representations": {
             "items": {
-              "$ref": "#/components/schemas/ApprovedRepresentation"
+              "$ref": "#/components/schemas/ScientificApprovedRepresentation"
             },
             "maxItems": 1024,
             "minItems": 1,
@@ -9834,8 +10273,8 @@
             "type": "integer"
           },
           "relative_score_floor": {
-            "default": 0.85,
-            "description": "After ColBERT, drop hits below this fraction of the top MaxSim. Omit for 0.85; 0 fills max_results.",
+            "default": 0.0,
+            "description": "After lexical ranking, drop hits below this fraction of the top BM25 score. Omit for 0; matching hits fill max_results.",
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Relative Score Floor",
@@ -11464,13 +11903,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
@@ -12408,6 +12840,94 @@
           }
         },
         "summary": "Lookup Research",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/research/private-source-adoptions": {
+      "post": {
+        "description": "Adopt private local custody while retaining original source identity.\n\nSee notes/specifications/synth-index/private-research-source-adoption.md.",
+        "operationId": "index.contributions.research.private_adoption.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePrivateResearchAdoptionSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt Private Source",
         "tags": [
           "index-contributions"
         ]
@@ -13561,6 +14081,228 @@
         ]
       }
     },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices/consents/{subject_digest}": {
+      "delete": {
+        "operationId": "index.research.forge_notices.consent.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Subject Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "index-research"
+        ]
+      },
+      "put": {
+        "operationId": "index.research.forge_notices.consent.grant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Subject Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices/retained": {
+      "post": {
+        "description": "Copy one owner-read private page into write-once retained storage.",
+        "operationId": "index.research.forge_notices.retain",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifest_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetainedNoticesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retain",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/release-consent": {
       "post": {
         "operationId": "index.research.consent.create",
@@ -14058,7 +14800,7 @@
     },
     "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-registration": {
       "post": {
-        "description": "Bind a resealed export bundle to a research correction child draft.",
+        "description": "Bind a resealed legacy bundle; Forge children retain their export.",
         "operationId": "index.contributions.research.correction_registration",
         "parameters": [
           {
@@ -16259,6 +17001,55 @@
           }
         },
         "summary": "Classification",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices": {
+      "get": {
+        "operationId": "index.public.forge_notices.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Notices",
         "tags": [
           "index-public"
         ]

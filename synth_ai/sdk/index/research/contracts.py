@@ -21,6 +21,8 @@ from pydantic import (
     model_validator,
 )
 
+from synth_ai.sdk.research.contracts.forge.operations import RevisionReference
+
 from ..artifacts import ArtifactObjectDeclaration
 from ..contracts import (
     ContributionAudience,
@@ -413,6 +415,21 @@ class FrozenCopyRecipe(BuildRecipe):
     environment_object_ids: tuple[Identifier, ...] = Field(default=(), max_length=64)
 
 
+class ScientificApprovedRepresentation(ApprovedRepresentation):
+    """V2 also admits explicit structured UTF-8 scientific evidence."""
+
+    kind: Literal["utf8_text", "approved_caption", "structured_text"]
+
+    @model_validator(mode="after")
+    def closed_structured_parser(self):
+        if self.kind == "structured_text" and self.parser_version not in {
+            "junit-xml-v1",
+            "forge-public-provenance-json-v1",
+        }:
+            raise ValueError("Unsupported structured scientific parser")
+        return self
+
+
 class ScientificReleaseDisclosure(ReleaseDisclosure):
     """Full-credit reviewer exclusions, bound without exposing private source IDs."""
 
@@ -420,6 +437,9 @@ class ScientificReleaseDisclosure(ReleaseDisclosure):
         "synth.contribution.release-disclosure.v2"
     )
     credited_principal_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=32)
+    representations: tuple[ScientificApprovedRepresentation, ...] = Field(
+        min_length=1, max_length=1024
+    )
 
     @model_validator(mode="after")
     def unique_credit(self):
@@ -427,11 +447,81 @@ class ScientificReleaseDisclosure(ReleaseDisclosure):
         return self
 
 
+class ForgeProjectionOutput(IndexContract):
+    """An approved release output referenced by scientific provenance, not copied."""
+
+    release_asset_id: Identifier
+    digest_sha256: Digest
+    projection: Literal["export_asset", "public_provenance"]
+
+
+class ForgeProjectionRecipe(IndexContract):
+    """Closed Forge v3 primary-archive projection; current registration is authority."""
+
+    schema_version: Literal["synth.research.forge-projection.v1"] = (
+        "synth.research.forge-projection.v1"
+    )
+    recipe_id: Identifier
+    snapshot_digest_sha256: Digest
+    builder_version: Literal["forge-export-projection-v1"] = "forge-export-projection-v1"
+    source_digest_sha256: Digest
+    source_revision_reference: RevisionReference
+    scientific_archive_object_id: Identifier
+    outputs: tuple[ForgeProjectionOutput, ...] = Field(min_length=1, max_length=1024)
+
+    @model_validator(mode="after")
+    def unique_outputs(self):
+        require_unique(
+            tuple(output.release_asset_id for output in self.outputs),
+            "projection outputs",
+        )
+        return self
+
+
 class ScientificDerivation(DerivationBinding):
     schema_version: Literal["synth.research.derivation.v2"] = "synth.research.derivation.v2"
     snapshot: ScientificSnapshot
-    recipe: FrozenCopyRecipe
+    recipe: Annotated[
+        FrozenCopyRecipe | ForgeProjectionRecipe, Field(discriminator="schema_version")
+    ]
     disclosure: ScientificReleaseDisclosure
+
+    @model_validator(mode="after")
+    def validate_exact_binding(self) -> Self:
+        if isinstance(self.recipe, FrozenCopyRecipe):
+            return super().validate_exact_binding()
+        if self.recipe.snapshot_digest_sha256 != contract_digest(self.snapshot):
+            raise ValueError("projection recipe binds a different snapshot")
+        if self.snapshot.archive_collection_id == self.disclosure.release_collection_id:
+            raise ValueError("archive and release require separate collections")
+        objects = {item.object_id: item for item in self.snapshot.objects}
+        archive = objects.get(self.recipe.scientific_archive_object_id)
+        if (
+            archive is None
+            or archive.purpose != "data"
+            or archive.object.logical_path != "scientific-archive.json"
+        ):
+            raise ValueError("projection requires exact frozen scientific archive object")
+        outputs = {item.release_asset_id: item.digest_sha256 for item in self.recipe.outputs}
+        declared = {
+            item.asset_id: item.digest_sha256 for item in self.disclosure.deliverable_assets
+        }
+        if outputs != declared:
+            raise ValueError("projection outputs differ from exact disclosure")
+        for receipt in self.reproduction_receipts:
+            if (
+                receipt.snapshot_digest_sha256,
+                receipt.recipe_digest_sha256,
+                receipt.release_manifest_digest_sha256,
+            ) != (
+                contract_digest(self.snapshot),
+                contract_digest(self.recipe),
+                self.disclosure.release_manifest_digest_sha256,
+            ):
+                raise ValueError("reproduction receipt binds different inputs or outputs")
+            if not set(receipt.evidence_object_ids).issubset(objects):
+                raise ValueError("receipt evidence is not frozen")
+        return self
 
 
 def _legacy_derivation_version(value):

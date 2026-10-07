@@ -332,6 +332,9 @@ class UsageSource(StrEnum):
     NONE = "none"
     USAGE_FACTS = "usage_facts"
     SPEND_LEDGER = "spend_ledger"
+    ADMISSION_SETTLEMENTS = "admission_settlements"
+    USAGE_FACTS_AND_ADMISSION_SETTLEMENTS = "usage_facts_and_admission_settlements"
+    SPEND_LEDGER_AND_ADMISSION_SETTLEMENTS = "spend_ledger_and_admission_settlements"
 
 
 @dataclass(frozen=True, slots=True)

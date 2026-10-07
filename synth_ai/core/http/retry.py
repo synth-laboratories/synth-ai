@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from synth_ai.core.errors import ContractMismatchError, RuntimeUnavailableError, SynthError
@@ -19,8 +20,19 @@ class RetryPolicy:
     retry_statuses: frozenset[int] = frozenset({408, 409, 429, 500, 502, 503, 504})
 
     def __post_init__(self) -> None:
-        if self.attempts_max < 1:
-            raise ValueError("attempts_max must be at least 1")
+        if (
+            isinstance(self.attempts_max, bool)
+            or not isinstance(self.attempts_max, int)
+            or not 1 <= self.attempts_max <= 100
+        ):
+            raise ValueError("attempts_max must be an integer from 1 through 100")
+        for delay in (self.delay_seconds_initial, self.delay_seconds_max):
+            if (
+                isinstance(delay, bool)
+                or not isinstance(delay, (int, float))
+                or not math.isfinite(delay)
+            ):
+                raise ValueError("retry delays must be finite numbers")
         if self.delay_seconds_initial < 0 or self.delay_seconds_max < 0:
             raise ValueError("retry delays must be non-negative")
         if self.delay_seconds_initial > self.delay_seconds_max:
@@ -57,25 +69,28 @@ class RetryPolicy:
         )
         if retry_after_seconds is None:
             return exponential
-        if retry_after_seconds < 0:
+        if not math.isfinite(retry_after_seconds) or retry_after_seconds < 0:
             raise ValueError("retry_after_seconds must be non-negative")
         return min(self.delay_seconds_max, max(exponential, retry_after_seconds))
 
 
 def idempotency_key_from_request(request: HttpRequest) -> str | None:
     """Extract an idempotency key from headers or JSON body fields."""
-    for header_name in ("Idempotency-Key", "idempotency-key"):
-        header_value = request.headers.get(header_name)
-        if isinstance(header_value, str) and header_value.strip():
-            return header_value.strip()
-    body = request.body
-    if not isinstance(body, dict):
-        return None
-    for field_name in ("idempotency_key", "idempotency_key_run_create"):
-        value = body.get(field_name)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
+    values = [value for name, value in request.headers.items() if name.lower() == "idempotency-key"]
+    if isinstance(request.body, dict):
+        values.extend(
+            request.body[name]
+            for name in ("idempotency_key", "idempotency_key_run_create")
+            if name in request.body
+        )
+    identities = set()
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("idempotency identity must be a non-empty string")
+        identities.add(value)
+    if len(identities) > 1:
+        raise ValueError("request contains conflicting idempotency identities")
+    return next(iter(identities), None)
 
 
 def should_retry_failure(
@@ -92,6 +107,9 @@ def should_retry_failure(
     ):
         return False
     if isinstance(error, SynthError):
+        if error.failure is not None:
+            # The first-class directive is authoritative, including an explicit false.
+            return error.failure.retry.retryable
         if error.retryable:
             return True
         status = None

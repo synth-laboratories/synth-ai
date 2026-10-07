@@ -387,6 +387,8 @@ class RunLaunchRequest:
     run_policy: dict[str, Any] | None = None
     kickoff_contract: dict[str, Any] | None = None
     resource_bindings: dict[str, Any] | None = None
+    deployment_pins: list[dict[str, Any]] | None = None
+    provenance_mode: str | None = None
     evidence_obligations: EvidenceObligations | None = None
     open_ended_question: dict[str, Any] | None = None
     directed_effort_outcome: dict[str, Any] | None = None
@@ -462,6 +464,8 @@ class RunLaunchRequest:
             run_policy=optional_research_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
+            deployment_pins=_optional_object_list(payload, "deployment_pins"),
+            provenance_mode=optional_string(payload, "provenance_mode"),
             evidence_obligations=optional_evidence_obligations(payload),
             open_ended_question=_optional_object(payload, "open_ended_question"),
             directed_effort_outcome=_optional_object(payload, "directed_effort_outcome"),
@@ -508,6 +512,8 @@ class RunLaunchRequest:
             "run_policy": self.run_policy,
             "kickoff_contract": self.kickoff_contract,
             "resource_bindings": self.resource_bindings,
+            "deployment_pins": self.deployment_pins,
+            "provenance_mode": self.provenance_mode,
             "evidence_obligations": self.evidence_obligations,
             "open_ended_question": self.open_ended_question,
             "directed_effort_outcome": self.directed_effort_outcome,
@@ -554,6 +560,8 @@ class OneOffRunLaunchRequest:
     run_policy: dict[str, Any] | None = None
     kickoff_contract: dict[str, Any] | None = None
     resource_bindings: dict[str, Any] | None = None
+    deployment_pins: list[dict[str, Any]] | None = None
+    provenance_mode: str | None = None
     evidence_obligations: EvidenceObligations | None = None
     open_ended_question: dict[str, Any] | None = None
     directed_effort_outcome: dict[str, Any] | None = None
@@ -628,6 +636,8 @@ class OneOffRunLaunchRequest:
             run_policy=optional_research_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
+            deployment_pins=_optional_object_list(payload, "deployment_pins"),
+            provenance_mode=optional_string(payload, "provenance_mode"),
             evidence_obligations=optional_evidence_obligations(payload),
             open_ended_question=_optional_object(payload, "open_ended_question"),
             directed_effort_outcome=_optional_object(payload, "directed_effort_outcome"),
@@ -674,6 +684,8 @@ class OneOffRunLaunchRequest:
             "run_policy": self.run_policy,
             "kickoff_contract": self.kickoff_contract,
             "resource_bindings": self.resource_bindings,
+            "deployment_pins": self.deployment_pins,
+            "provenance_mode": self.provenance_mode,
             "evidence_obligations": self.evidence_obligations,
             "open_ended_question": self.open_ended_question,
             "directed_effort_outcome": self.directed_effort_outcome,

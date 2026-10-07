@@ -5,9 +5,12 @@ execution services directly. Explicit operation IDs survive uncertain responses.
 """
 
 import hashlib
+from typing import Literal
 from urllib.parse import quote
 
-from synth_ai.sdk.research.contracts.forge.contracts import contract_digest
+from pydantic import Field
+
+from synth_ai.sdk.research.contracts.forge.contracts import Contract, contract_digest
 from synth_ai.sdk.research.contracts.forge.operations import (
     Event,
     PublicWrite,
@@ -15,6 +18,33 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.contracts.native_attachment import NativeAttachmentPage
+from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
+from synth_ai.sdk.research.errors import ResearchOutcomeUncertainError
+
+
+class ExecutionWriteRequest(Contract):
+    """An intent under an existing mloky/Orchestra producer admission.
+
+    Backend ExecutionWrite remains authoritative; this DTO cannot supply or
+    replace the producer stamp and native trial identity remains native.
+    """
+
+    organization_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    admission_id: str = Field(pattern=r"^adm_[0-9A-HJKMNP-TV-Z]{26}$")
+    write: PublicWrite
+
+
+class ScientificWriterState(Contract):
+    organization_id: str
+    project_id: str
+    state: Literal["native", "fenced", "forge_writer", "reverted"]
+    transition_id: str | None = None
+    fence_id: str | None = None
+    forge_identity: str | None = None
+    receipt_digest_sha256: str | None = None
 
 
 def _verified_bytes(record, content):
@@ -41,8 +71,15 @@ def _record(document, project_id, record_id, revision):
     return record
 
 
-def _receipt(
-    document, project_id, operation_id, *, payload=None, record_id=None, expected_revision=None
+def _validated_receipt(
+    document,
+    project_id,
+    operation_id,
+    *,
+    payload=None,
+    record_id=None,
+    expected_revision=None,
+    organization_id=None,
 ):
     receipt = Receipt.model_validate(document)
     if (
@@ -58,6 +95,8 @@ def _receipt(
         or receipt.reference.digest_sha256 != contract_digest(payload)
     ):
         raise ValueError("scientific receipt differs from submitted payload")
+    if organization_id is not None and receipt.scope.organization_id != organization_id:
+        raise ValueError("execution receipt belongs to a different organization")
     return receipt
 
 
@@ -76,6 +115,31 @@ def _records(documents, project_id, kind, after, limit):
     # Preserve native database collation; only that producer defines whether
     # an ID follows the opaque cursor. Python ordering is not interchangeable.
     return records
+
+
+def _receipt(document, project_id, operation_id, *, payload=None, **binding):
+    try:
+        return _validated_receipt(document, project_id, operation_id, payload=payload, **binding)
+    except ValueError as cause:
+        if payload is None:
+            raise
+        # The request was submitted before receipt decoding. Invalid success
+        # bytes cannot establish no effect or authorize a replacement intent.
+        raise ResearchOutcomeUncertainError(
+            "Scientific write outcome cannot be verified",
+            status_code=None,
+            response_text="",
+            detail={
+                "error_code": "outcome_uncertain",
+                "operation_id": operation_id,
+                "project_id": project_id,
+                "cause_code": "scientific_receipt_invalid",
+                "retryable": False,
+                "mutation_applied": None,
+                "receipt_lookup_required": True,
+            },
+            operation_id=operation_id,
+        ) from cause
 
 
 def _events(documents, project_id, after, limit):
@@ -115,6 +179,29 @@ class ScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
 
+    def execution_write(self, project_id: str, request: ExecutionWriteRequest) -> Receipt:
+        """Write under an admitted execution; use its service credential.
+
+        No human stamp is synthesized. Null/negative outcomes remain ordinary
+        Result records with their declared evaluator/scorer references.
+        """
+        write = request.write
+        receipt = _receipt(
+            self._transport.request_json(
+                "POST",
+                _root(project_id) + "/execution-operations",
+                json_body=request.model_dump(mode="json"),
+                operation_id=write.operation_id,
+            ),
+            project_id,
+            write.operation_id,
+            payload=write.payload,
+            record_id=write.record_id,
+            expected_revision=write.expected_revision,
+            organization_id=request.organization_id,
+        )
+        return receipt
+
     def write(
         self,
         project_id: str,
@@ -138,6 +225,54 @@ class ScientificRecordsAPI:
             record_id=record_id,
             expected_revision=expected_revision,
         )
+
+    def native_attachments(
+        self, project_id: str, record_id: str, *, limit: int = 100, after: str | None = None
+    ) -> NativeAttachmentPage:
+        """Read native-owned execution evidence with explicit pending/attached state."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("native evidence limit must be 1 through 1000")
+        return _native_attachment_page(
+            self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/native-attachments",
+                params={"limit": limit, **({"after": after} if after is not None else {})},
+            ),
+            project_id,
+            record_id,
+        )
+
+    def writer_state(self, project_id: str) -> ScientificWriterState:
+        """Read the canonical scope writer without inferring it from refusals."""
+        result = ScientificWriterState.model_validate(
+            self._transport.request_json("GET", _root(project_id) + "/writer-state")
+        )
+        if result.project_id != project_id:
+            raise ValueError("writer state differs from requested project")
+        return result
+
+    def citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> CitationVerification:
+        """Read current custody for exact retained citations, without changing history."""
+        if revision is not None and (
+            isinstance(revision, bool) or not isinstance(revision, int) or revision < 1
+        ):
+            raise ValueError("citation revision must be a positive integer")
+        result = CitationVerification.model_validate(
+            self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/citations",
+                params={"revision": revision} if revision is not None else None,
+            )
+        )
+        if result.record.record_id != record_id or (
+            revision is not None and result.record.revision != str(revision)
+        ):
+            raise ValueError("citation verification differs from requested exact record")
+        if result.retained != all(check.status == "retained" for check in result.citations):
+            raise ValueError("citation verification retained flag contradicts custody checks")
+        return result
 
     def get(
         self, project_id: str, record_id: str, *, revision: int | None = None
@@ -194,6 +329,29 @@ class AsyncScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
 
+    async def execution_write(self, project_id: str, request: ExecutionWriteRequest) -> Receipt:
+        """Write under an admitted execution; use its service credential.
+
+        No human stamp is synthesized. Null/negative outcomes remain ordinary
+        Result records with their declared evaluator/scorer references.
+        """
+        write = request.write
+        receipt = _receipt(
+            await self._transport.request_json(
+                "POST",
+                _root(project_id) + "/execution-operations",
+                json_body=request.model_dump(mode="json"),
+                operation_id=write.operation_id,
+            ),
+            project_id,
+            write.operation_id,
+            payload=write.payload,
+            record_id=write.record_id,
+            expected_revision=write.expected_revision,
+            organization_id=request.organization_id,
+        )
+        return receipt
+
     async def write(
         self,
         project_id: str,
@@ -216,6 +374,54 @@ class AsyncScientificRecordsAPI:
             record_id=record_id,
             expected_revision=expected_revision,
         )
+
+    async def native_attachments(
+        self, project_id: str, record_id: str, *, limit: int = 100, after: str | None = None
+    ) -> NativeAttachmentPage:
+        """Read exact native evidence without inferring delivery from accepted intent."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("native evidence limit must be 1 through 1000")
+        return _native_attachment_page(
+            await self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/native-attachments",
+                params={"limit": limit, **({"after": after} if after is not None else {})},
+            ),
+            project_id,
+            record_id,
+        )
+
+    async def writer_state(self, project_id: str) -> ScientificWriterState:
+        """Read the canonical scope writer without inferring it from refusals."""
+        result = ScientificWriterState.model_validate(
+            await self._transport.request_json("GET", _root(project_id) + "/writer-state")
+        )
+        if result.project_id != project_id:
+            raise ValueError("writer state differs from requested project")
+        return result
+
+    async def citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> CitationVerification:
+        """Read current custody for exact retained citations, without changing history."""
+        if revision is not None and (
+            isinstance(revision, bool) or not isinstance(revision, int) or revision < 1
+        ):
+            raise ValueError("citation revision must be a positive integer")
+        result = CitationVerification.model_validate(
+            await self._transport.request_json(
+                "GET",
+                _root(project_id) + f"/records/{quote(record_id, safe='')}/citations",
+                params={"revision": revision} if revision is not None else None,
+            )
+        )
+        if result.record.record_id != record_id or (
+            revision is not None and result.record.revision != str(revision)
+        ):
+            raise ValueError("citation verification differs from requested exact record")
+        if result.retained != all(check.status == "retained" for check in result.citations):
+            raise ValueError("citation verification retained flag contradicts custody checks")
+        return result
 
     async def get(
         self, project_id: str, record_id: str, *, revision: int | None = None
@@ -268,3 +474,55 @@ class AsyncScientificRecordsAPI:
             "GET", _root(project_id) + "/events", params={"after": after, "limit": limit}
         )
         return _events(events, project_id, after, limit)
+
+
+def _native_attachment_page(document, project_id, record_id):
+    from synth_ai.core.errors import (
+        RetryDirective,
+        SynthErrorCategory,
+        SynthErrorCode,
+        SynthFailure,
+    )
+
+    from .errors import ResearchApiError
+
+    try:
+        page = NativeAttachmentPage.model_validate(document)
+        if any(
+            item.attachment.scope.project_id != project_id
+            or item.attachment.experiment.record_id != record_id
+            or (
+                item.receipt is not None
+                and (
+                    item.receipt.scope != item.attachment.scope
+                    or item.receipt.reference.record_id != record_id
+                    or item.receipt.reference.kind != "experiment"
+                    or item.receipt.reference.revision
+                    != str(int(item.attachment.experiment.revision) + 1)
+                )
+            )
+            for item in page.attachments
+        ):
+            raise ValueError("native evidence scope/canonical receipt identity differs")
+        if page.truncated != (page.next_cursor is not None):
+            raise ValueError("native evidence continuation identity differs")
+        return page
+    except (ValueError, TypeError) as error:
+        message = "Native evidence response violates its producer contract"
+        raise ResearchApiError(
+            message,
+            status_code=200,
+            operation_id="get_native_scientific_attachments",
+            cause=[{"kind": type(error).__name__}],
+            failure=SynthFailure(
+                code=SynthErrorCode("schema_integrity_conflict"),
+                category=SynthErrorCategory.CONTRACT_MISMATCH,
+                operation="get_native_scientific_attachments",
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=200,
+                detail=message,
+                reason="native_attachment_wire_contract",
+            ),
+        ) from None

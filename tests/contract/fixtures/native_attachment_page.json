@@ -1,0 +1,120 @@
+{
+  "attachments": [
+    {
+      "attachment": {
+        "schema_version": "smr.forge_native_attachment.v1",
+        "attachment_id": "d6ee7421-69d2-52d8-a086-feb25b9a7882",
+        "scope": {
+          "organization_id": "00000000-0000-0000-0000-00000000000a",
+          "project_id": "00000000-0000-0000-0000-00000000000b"
+        },
+        "experiment": {
+          "authority": "forge",
+          "kind": "experiment",
+          "record_id": "forge-only-experiment",
+          "revision": "1",
+          "digest_sha256": "0279aabe25eef2de2ff96cd65cb59b14f45a396785a3ae8b5604cb50c1ad58ea"
+        },
+        "producer": {
+          "authority": "mloky",
+          "subject_id": "00000000-0000-0000-0000-000000000301",
+          "execution": {
+            "authority": "mloky",
+            "kind": "mloky_execution",
+            "record_id": "intern-exec:fd9a7f387dc1b6e127b381f844086851f9876ae02fa01e883cf3c310a0ddc8ef",
+            "revision": "1",
+            "digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "context": null,
+          "admission": {
+            "authority": "backend",
+            "kind": "admission",
+            "record_id": "child",
+            "revision": "1",
+            "digest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "grant": {
+            "authority": "backend",
+            "kind": "grant",
+            "record_id": "grant",
+            "revision": "1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "budget": null
+        },
+        "payload": {
+          "kind": "native_result",
+          "evaluation_mode": "fixture",
+          "scientific_status": "non_scientific_smoke",
+          "intervention_receipt": {
+            "schema_version": "intervention_receipt.v1"
+          },
+          "lifecycle_success": null,
+          "verifier_success": null,
+          "run_id": "native-run",
+          "experiment_run_id": null,
+          "experiment_run_ref": null,
+          "container_run_id": null,
+          "candidate_id": null,
+          "candidate_kind": null,
+          "candidate_label": null,
+          "metric": "score",
+          "metric_direction": "higher_is_better",
+          "value": null,
+          "outcome": "null",
+          "baseline_value": null,
+          "delta": null,
+          "dataset_or_task_set_id": null,
+          "dataset_or_task_set_version": null,
+          "container_name": null,
+          "container_version": null,
+          "container_digest": null,
+          "eval_profile_id": null,
+          "eval_profile_version": null,
+          "verifier_or_scorer_id": null,
+          "verifier_or_scorer_version": null,
+          "taskset_seed": null,
+          "task_ids": [],
+          "example_ids": [],
+          "sample_size": null,
+          "seed_set": [],
+          "split_name": null,
+          "scorer_config_digest": null,
+          "per_example_artifact_id": null,
+          "summary_artifact_id": null,
+          "per_example_artifact_path": null,
+          "summary_artifact_path": null,
+          "cost_cents": null,
+          "tokens": null,
+          "wall_time_seconds": null,
+          "evidence_grade": null,
+          "truth_status": "observed",
+          "caveats": null,
+          "reviewer_notes": null,
+          "metadata": {}
+        }
+      },
+      "status": "attached",
+      "receipt": {
+        "schema_version": "forge.receipt.v1",
+        "scope": {
+          "organization_id": "00000000-0000-0000-0000-00000000000a",
+          "project_id": "00000000-0000-0000-0000-00000000000b"
+        },
+        "operation_id": "smr.null-intent.native_attachment",
+        "payload_digest_sha256": "45aef1fd81ef1d0f5bf2b9bc06af6a3fe61ace74de36f9ffe870189b1bafe000",
+        "reference": {
+          "authority": "forge",
+          "kind": "experiment",
+          "record_id": "forge-only-experiment",
+          "revision": "2",
+          "digest_sha256": "cc59ccd81c64c2d68c0f5f6308543b8a06e4d13a68c4a5344156b49f97c145b0"
+        },
+        "cursor": 2,
+        "recorded_at": "2026-10-06T21:04:55.105482Z"
+      }
+    }
+  ],
+  "truncated": false,
+  "next_cursor": null
+}

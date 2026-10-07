@@ -30,6 +30,7 @@ from synth_ai.core.errors import (
     RateLimitedError,
     ResearchOperationError,
     ResourceExhaustedError,
+    ResourceRef,
     RetryDirective,
     SynthError,
     SynthErrorCategory,
@@ -67,8 +68,11 @@ class ResearchApiError(SynthError, RuntimeError):
         remediation: str | None = None,
         cause: list[dict[str, Any]] | None = None,
         body: dict[str, Any] | None = None,
+        failure: SynthFailure | None = None,
+        operation_id: str | None = None,
     ) -> None:
-        super().__init__(message)
+        super().__init__(message, failure=failure)
+        self.operation_id = operation_id
         self.status_code = status_code
         self.response_text = response_text
         self.request_context: str | None = None
@@ -188,7 +192,7 @@ class ResearchFundingLaneInvariantError(ResearchApiError):
 
 
 class ResearchInsufficientCreditsError(ResearchApiError):
-    """Raised when run start is blocked for credit headroom (HTTP 402, ``smr_insufficient_credits``)."""
+    """Run start lacks credit headroom (402, ``smr_insufficient_credits``)."""
 
     def __init__(
         self,
@@ -203,7 +207,7 @@ class ResearchInsufficientCreditsError(ResearchApiError):
 
 
 class ResearchProjectMonthlyBudgetExhaustedError(ResearchApiError):
-    """Raised when the project monthly budget is exhausted (HTTP 402, ``smr_project_monthly_budget_exhausted``)."""
+    """Project budget exhausted (402, ``smr_project_monthly_budget_exhausted``)."""
 
     def __init__(
         self,
@@ -298,7 +302,7 @@ class ResearchConcurrentRunLimitExceededError(ResearchApiError):
 
 
 class ResearchStructuredDenialError(ResearchApiError):
-    """Raised for other JSON error bodies that include a string ``error_code`` (forward-compatible)."""
+    """Forward-compatible JSON refusal carrying a string ``error_code``."""
 
     def __init__(
         self,
@@ -315,6 +319,152 @@ class ResearchStructuredDenialError(ResearchApiError):
             body=detail,
         )
         self.detail = dict(detail) if detail else {}
+
+
+class ResearchScientificRefusalError(ResearchApiError):
+    """A definitive scientific rejection retains code, identity and retry policy.
+
+    See forge_scientific_delivery.md. A scorer dependency refusal cannot become
+    a status-based retry or an uncertain effect.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        response_text: str,
+        detail: dict[str, Any],
+        operation_id: str | None,
+    ):
+        code = detail["error_code"]
+        operation_id = detail.get("operation_id") or operation_id
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+            operation_id=operation_id,
+            failure=SynthFailure(
+                code=SynthErrorCode(code),
+                category=SynthErrorCategory.OPERATION,
+                operation=operation_id,
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=status_code,
+                detail=message,
+            ),
+        )
+        self.detail = dict(detail)
+        self.authority_code = detail.get("authority_code")
+        self.receipt_lookup_required = code == "admission_expired"
+
+
+class ResearchOutcomeUncertainError(ResearchApiError):
+    """An original scientific operation needs receipt reconciliation.
+
+    See forge_scientific_delivery.md. Never turn an uncertain effect into a
+    deterministic denial or automatically submit a replacement operation.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None,
+        response_text: str,
+        detail: dict[str, Any],
+        operation_id: str | None,
+    ):
+        operation_id = detail.get("operation_id") or operation_id
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+            operation_id=operation_id,
+            failure=SynthFailure(
+                code=SynthErrorCode("outcome_uncertain"),
+                category=SynthErrorCategory.OPERATION,
+                operation=operation_id,
+                request_id=None,
+                correlation_id=None,
+                retry=RetryDirective(retryable=False),
+                status=status_code,
+                detail=message,
+            ),
+        )
+        self.detail = dict(detail)
+        self.receipt_lookup_required = True
+
+
+LAUNCH_REFUSAL_CODES = frozenset(
+    {
+        "project_archived",
+        "provenance_unbound",
+        "run_provenance_mode_invalid",
+        "run_deployment_pins_missing",
+        "run_deployment_pin_invalid",
+        "run_deployment_pin_placeholder",
+        "run_trace_store_not_provisioned",
+        "resource_inventory_unspecified",
+        "resource_delivery_limit_exceeded",
+        "native_budget_unbound",
+        "native_role_budget_exceeds_run",
+        "orchestra_plan_budget_unbound",
+        "orchestra_plan_token_ceiling_unbound",
+        "scientific_writer_transferred",
+        "transfer_fence_active",
+    }
+)
+
+
+class ResearchLaunchRefusalError(ResearchStructuredDenialError):
+    """First-class launch refusal retaining authority, limits and retry posture.
+
+    See backend launch_resource_inventory.md and packages/smr/run_provenance.py.
+    A fence may require waiting; missing inputs and permanent writer changes do not retry.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        response_text: str | None = None,
+        detail: dict[str, Any] | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            message, status_code=status_code, response_text=response_text, detail=detail
+        )
+        code = self.detail.get("error_code")
+        if code not in LAUNCH_REFUSAL_CODES:
+            raise ValueError("Unknown launch refusal code")
+        retryable = self.detail.get("retryable", code == "transfer_fence_active")
+        if not isinstance(retryable, bool):
+            raise ValueError("launch refusal retryable must be a boolean")
+        self.failure = SynthFailure(
+            code=SynthErrorCode(code),
+            category=(
+                SynthErrorCategory.TRANSIENT_SERVICE
+                if retryable
+                else SynthErrorCategory.RESOURCE_EXHAUSTED
+                if code in {"native_role_budget_exceeds_run", "resource_delivery_limit_exceeded"}
+                else SynthErrorCategory.CONFLICT
+                if code in {"scientific_writer_transferred", "project_archived"}
+                else SynthErrorCategory.VALIDATION
+            ),
+            operation=operation_id,
+            request_id=None,
+            correlation_id=None,
+            retry=RetryDirective(retryable=retryable),
+            status=status_code,
+            detail=message,
+        )
+        self.retry_after = self.detail.get("retry_after")
+        self.operation_id = self.detail.get("operation_id", operation_id)
 
 
 class ResearchNotFoundError(ResearchStructuredDenialError):
@@ -334,10 +484,10 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
       ``intern_acceptance_fixture_retention_expired`` (the resource existed;
       its read-only retention window ended). (Named to avoid shadowing the
       read-only ``SynthError.error_code`` transport-failure property.)
-    - ``resource``: the resource segment of the condition (``async_runtime``,
-      ``sync_session``, ``acceptance_fixture``, ...), or ``None`` when the
-      code has neither the ``intern_*_not_found`` nor the
-      ``intern_*_retention_expired`` shape.
+    - ``lookup_resource``: the resource kind parsed from the condition
+      (``run``, ``async_runtime``, ``acceptance_fixture``, ...).
+    - ``resource``: the standard immutable ``ResourceRef`` when the backend
+      provides both a resource kind and its scoped identifier; otherwise ``None``.
     - ``scope_identifier``: the lookup key the backend echoed back (the
       organization id for org-singleton lookups such as the Async Intern, the
       resource id otherwise), when the backend provided one.
@@ -356,6 +506,7 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
         status_code: int | None = None,
         response_text: str | None = None,
         detail: dict[str, Any] | None = None,
+        operation_id: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -366,19 +517,37 @@ class ResearchNotFoundError(ResearchStructuredDenialError):
         code = self.detail.get("error_code")
         self.backend_error_code: str = code.strip() if isinstance(code, str) else ""
         resource: str | None = None
-        if self.backend_error_code.startswith("intern_"):
-            for suffix in ("_not_found", "_retention_expired"):
-                if self.backend_error_code.endswith(suffix):
-                    resource = self.backend_error_code.removeprefix("intern_").removesuffix(suffix)
-                    break
-        self.resource: str | None = resource
+        for suffix in ("_not_found", "_retention_expired"):
+            if self.backend_error_code.endswith(suffix):
+                resource = self.backend_error_code.removeprefix("intern_").removesuffix(suffix)
+                break
+        self.lookup_resource: str | None = resource
         scope: str | None = None
-        for key in ("runtime_id", "resource_id", "fixture_id", "async_runtime_id", "org_id"):
+        for key in (
+            "run_id",
+            "runtime_id",
+            "resource_id",
+            "fixture_id",
+            "async_runtime_id",
+            "org_id",
+        ):
             value = self.detail.get(key)
             if isinstance(value, str) and value.strip():
                 scope = value.strip()
                 break
         self.scope_identifier: str | None = scope
+        self.operation_id = operation_id
+        self.failure = SynthFailure(
+            code=SynthErrorCode(self.backend_error_code or "research_not_found"),
+            category=SynthErrorCategory.OPERATION,
+            operation=operation_id,
+            request_id=None,
+            correlation_id=None,
+            retry=RetryDirective(retryable=self.detail.get("retryable") is True),
+            status=status_code,
+            detail=message,
+            resource=ResourceRef(resource, scope) if resource and scope else None,
+        )
 
 
 class ResearchLimitExtensionError(ResearchApiError):
@@ -501,11 +670,11 @@ class ClaimSupersededError(CloudDeploymentClaimError):
 
 
 class FencingTokenRequiredError(CloudDeploymentClaimError):
-    """Mutating op refused: an active claim requires ``X-Fencing-Token`` (HTTP 409, ``fencing_token_required``)."""
+    """Active claim requires ``X-Fencing-Token`` (409, ``fencing_token_required``)."""
 
 
 class FencingTokenStaleError(CloudDeploymentClaimError):
-    """Mutating op refused: the presented fencing token was superseded (HTTP 409, ``fencing_token_stale``)."""
+    """Presented token was superseded (409, ``fencing_token_stale``)."""
 
 
 _CLAIM_REASON_ERRORS: dict[str, type[CloudDeploymentClaimError]] = {
@@ -621,6 +790,8 @@ __all__ = [
     "FencingTokenStaleError",
     "RateLimitedError",
     "ResearchApiError",
+    "ResearchOutcomeUncertainError",
+    "ResearchScientificRefusalError",
     "ResearchCheckpointQuotaExceededError",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchFundingLaneInvariantError",
@@ -637,6 +808,7 @@ __all__ = [
     "ResearchOperationError",
     "ResearchProjectMonthlyBudgetExhaustedError",
     "ResearchStructuredDenialError",
+    "ResearchLaunchRefusalError",
     "ResearchUnsafeLimitExtensionError",
     "ResourceExhaustedError",
     "RetryDirective",
