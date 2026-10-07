@@ -18,6 +18,7 @@ from ..manifest import encode_manifest
 from ..package import ContributionPackage
 from .contracts import (
     DerivationBinding,
+    ForgeProjectionRecipe,
     ScientificDerivation,
     canonical_bytes,
     contract_digest,
@@ -160,6 +161,18 @@ def validate_release_binding(
         )
     for representation in disclosure.representations:
         asset = next(item for item in package.assets if item.asset_id == representation.asset_id)
+        if representation.kind == "structured_text" and (
+            representation.parser_version,
+            asset.object.media_type,
+        ) not in {
+            ("junit-xml-v1", "application/xml"),
+            ("junit-xml-v1", "text/xml"),
+            ("forge-public-provenance-json-v1", "application/json"),
+        }:
+            raise FrozenBuildError(
+                "representation_type_mismatch",
+                "Structured scientific representation requires its declared parser/media pair",
+            )
         if representation.kind == "utf8_text" and asset.object.media_type not in (
             "text/plain",
             "text/markdown",
@@ -202,6 +215,11 @@ def build_release(
         result = build_release(archive_root, destination, binding=binding, descriptor=descriptor, manifest=manifest)
     """
     binding = decode_derivation(canonical_bytes(binding))
+    if isinstance(binding.recipe, ForgeProjectionRecipe):
+        raise FrozenBuildError(
+            "forge_projection_not_frozen_copy",
+            "Referenced public asset bytes are not reconstructible from the primary scientific archive; no copy/reproduction receipt is inferred",
+        )
     package = validate_release_binding(binding, descriptor, manifest)
     archive_root = archive_root.resolve(strict=True)
     destination = destination.absolute()

@@ -21,7 +21,6 @@ from synth_ai.sdk.research.contracts.factory_operations import (
     FactoryWakeDueResult,
 )
 from synth_ai.sdk.research.contracts.tag import (
-    TagFactoryContext,
     TagMessageRequest,
     TagScope,
     TagSession,
@@ -163,10 +162,6 @@ class ResearchFactoriesTagSessionsAPI:
         """
         return self._session.tag.control_session(session_id, action)
 
-    def get_factory_context(self, session_id: str) -> TagFactoryContext:
-        """Read the Factory champion and candidate context bound to a session."""
-        return self._session.tag.get_factory_context(session_id=session_id)
-
 
 class ResearchFactoriesTagScopesAPI:
     """Resolve default Tag scopes for an organization."""
@@ -177,10 +172,6 @@ class ResearchFactoriesTagScopesAPI:
     def get_default(self) -> TagScope:
         """Return the org default Tag scope used when ``scope_id`` is omitted."""
         return self._session.tag.get_default_scope()
-
-    def get_factory_context(self, scope_id: str = "default") -> TagFactoryContext:
-        """Read Factory champion and candidate context for a Tag scope."""
-        return self._session.tag.get_factory_context(scope_id=scope_id)
 
 
 class ResearchFactoriesTagAPI:

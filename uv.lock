@@ -2085,6 +2085,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pynacl" },
 ]
@@ -2108,6 +2109,7 @@ dev = [
     { name = "build" },
     { name = "httpx" },
     { name = "ipykernel" },
+    { name = "jsonschema" },
     { name = "keyring" },
     { name = "mdxify" },
     { name = "nbstripout" },
@@ -2128,6 +2130,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
     { name = "click", specifier = ">=8.1.7,<8.2" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "jsonschema", specifier = ">=4.18,<5" },
     { name = "keyring", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "mdxify", marker = "extra == 'dev'", specifier = ">=0.2.0" },
     { name = "nest-asyncio", marker = "extra == 'dev'", specifier = ">=1.6.0" },
@@ -2145,6 +2148,7 @@ dev = [
     { name = "build", specifier = ">=1.2.2.post1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipykernel", specifier = ">=7.1.0" },
+    { name = "jsonschema", specifier = ">=4.18,<5" },
     { name = "keyring", specifier = ">=24.0.0" },
     { name = "mdxify", specifier = ">=0.2.0" },
     { name = "nbstripout", specifier = ">=0.8.2" },

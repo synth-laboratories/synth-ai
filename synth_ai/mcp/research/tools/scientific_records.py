@@ -6,6 +6,11 @@ from pydantic import Field
 from synth_ai.mcp.research.registry import READ_SCOPES, WRITE_SCOPES, ToolDefinition
 from synth_ai.sdk.research.contracts.forge.contracts import Contract, Identifier
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.scientific_records import ExecutionWriteRequest
+
+
+class ExecutionWriteArguments(ExecutionWriteRequest):
+    project_id: Identifier
 
 
 class WriteArguments(Contract):
@@ -40,6 +45,13 @@ class ListArguments(Contract):
     limit: int = Field(default=100, ge=1, le=1000)
 
 
+class NativeAttachmentArguments(Contract):
+    project_id: Identifier
+    record_id: Identifier
+    limit: int = Field(default=100, ge=1, le=1000)
+    after: str | None = None
+
+
 class EventArguments(Contract):
     project_id: Identifier
     after: int = Field(default=0, ge=0)
@@ -47,7 +59,39 @@ class EventArguments(Contract):
 
 
 def build_scientific_record_tools(client_factory):
-    tools = []
+    def execution_writer(arguments):
+        selected = ExecutionWriteArguments.model_validate(arguments)
+        if selected.write.payload.kind != "result":
+            raise ValueError("execution result tool requires a result payload")
+        request = ExecutionWriteRequest.model_validate(selected.model_dump(exclude={"project_id"}))
+        with client_factory({}) as client:
+            return client.records.execution_write(selected.project_id, request).model_dump(
+                mode="json"
+            )
+
+    def native_reader(arguments):
+        selected = NativeAttachmentArguments.model_validate(arguments)
+        with client_factory({}) as client:
+            return client.records.native_attachments(
+                selected.project_id, selected.record_id, limit=selected.limit, after=selected.after
+            ).model_dump(mode="json")
+
+    tools = [
+        ToolDefinition(
+            name="research_get_native_attachments",
+            description="Read native execution evidence and canonical attachment receipts.",
+            input_schema=NativeAttachmentArguments.model_json_schema(),
+            handler=native_reader,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="research_record_execution_result",
+            description="Record a scientific result under an existing execution producer admission.",
+            input_schema=ExecutionWriteArguments.model_json_schema(),
+            handler=execution_writer,
+            required_scopes=WRITE_SCOPES,
+        ),
+    ]
     for name, kind in (
         ("research_save_record", None),
         ("research_create_log", "research_log"),
@@ -96,6 +140,23 @@ def build_scientific_record_tools(client_factory):
                 required_scopes=WRITE_SCOPES,
             )
         )
+
+    def citation_reader(arguments):
+        selected = ReadArguments.model_validate(arguments)
+        with client_factory({}) as client:
+            return client.records.citations(
+                selected.project_id, selected.record_id, revision=selected.revision
+            ).model_dump(mode="json")
+
+    tools.append(
+        ToolDefinition(
+            name="research_get_record_citations",
+            description="Read current custody of a retained record's exact citations.",
+            input_schema=ReadArguments.model_json_schema(),
+            handler=citation_reader,
+            required_scopes=READ_SCOPES,
+        )
+    )
     for name, model, method in (
         ("research_get_record", ReadArguments, "get"),
         ("research_list_records", ListArguments, "list"),

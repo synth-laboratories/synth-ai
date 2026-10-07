@@ -119,11 +119,13 @@ class _BoundProjectFilesAPI:
         *,
         visibility: str | None = None,
         limit: int | None = None,
+        cursor: str | None = None,
     ) -> List[dict[str, Any]]:
         return self._client.list_project_files(
             self.project_id,
             visibility=visibility,
             limit=limit,
+            cursor=cursor,
         )
 
     def upload(

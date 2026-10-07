@@ -472,6 +472,32 @@ def _reject_legacy_file_contract_fields(mapping: Mapping[str, object]) -> None:
 
 
 @dataclass(frozen=True)
+class OrgFile:
+    """Upload ID and selectable stored ID remain distinct (SYN-3990).
+
+    See backend launch_resource_inventory.md. Unbound uploads have no stored
+    identity; callers must never substitute file_id when selecting a launch.
+    """
+
+    file_id: str
+    name: str
+    project_id: str | None
+    stored_file_id: str | None
+    raw: dict[str, object] = field(default_factory=dict, repr=False)
+
+    @classmethod
+    def from_wire(cls, value: object) -> OrgFile:
+        wire = _require_mapping(value, label="org file")
+        return cls(
+            file_id=_require_string(wire, "file_id", label="org file"),
+            name=_require_string(wire, "name", label="org file"),
+            project_id=_optional_string(wire, "project_id"),
+            stored_file_id=_optional_string(wire, "stored_file_id"),
+            raw=dict(wire),
+        )
+
+
+@dataclass(frozen=True)
 class StoredFile:
     file_id: str
     org_id: str
@@ -1488,12 +1514,16 @@ class RunResourceBindings:
     external_repository_ids: list[str] = field(default_factory=list)
     external_repositories: list[InlineExternalRepositoryBinding] = field(default_factory=list)
     credential_ref_ids: list[str] = field(default_factory=list)
+    model_file_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_wire(cls, payload: object) -> RunResourceBindings:
         mapping = _require_mapping(payload, label="run resource bindings")
         external_repository_payload = _optional_array(mapping, "external_repositories")
         return cls(
+            model_file_ids=_string_list(
+                mapping.get("model_file_ids"), label="run resource bindings.model_file_ids"
+            ),
             external_repository_ids=_string_list(
                 mapping.get("external_repository_ids"),
                 label="run resource bindings.external_repository_ids",
@@ -1509,7 +1539,12 @@ class RunResourceBindings:
         )
 
     def to_wire(self) -> dict[str, object]:
-        payload: dict[str, object] = {}
+        # Empty inventory lists are explicit selections, not absent defaults.
+        payload: dict[str, object] = {
+            "model_file_ids": list(self.model_file_ids),
+            "external_repository_ids": list(self.external_repository_ids),
+            "credential_ref_ids": list(self.credential_ref_ids),
+        }
         if self.external_repository_ids:
             payload["external_repository_ids"] = list(self.external_repository_ids)
         if self.external_repositories:
@@ -1749,6 +1784,73 @@ class SmrResolvedActorProfiles:
 
 
 @dataclass(frozen=True)
+class LaunchRoleHold:
+    role: str
+    hold_micros: int
+
+
+@dataclass(frozen=True)
+class LaunchHoldRequirements:
+    roles: tuple[LaunchRoleHold, ...]
+    minimum_run_ceiling_micros: int
+
+    @classmethod
+    def from_wire(cls, payload: object) -> LaunchHoldRequirements | None:
+        """Verify the producer's actual role-hold sum, not a spend estimate."""
+        if payload is None:
+            return None
+        mapping = _require_mapping(payload, label="launch hold requirements")
+        roles = []
+        for value in _optional_array(mapping, "roles"):
+            item = _require_mapping(value, label="launch role hold")
+            role = item.get("role")
+            amount = item.get("hold_micros")
+            if (
+                role not in {"worker", "reviewer", "orchestrator"}
+                or type(amount) is not int
+                or amount <= 0
+            ):
+                raise ValueError(
+                    "launch role hold requires a known role and positive integer micros"
+                )
+            roles.append(LaunchRoleHold(role, amount))
+        minimum = mapping.get("minimum_run_ceiling_micros")
+        if {item.role for item in roles} != {"worker", "reviewer", "orchestrator"} or len(
+            roles
+        ) != 3:
+            raise ValueError("launch holds require every selected native role exactly once")
+        if type(minimum) is not int or minimum != sum(item.hold_micros for item in roles):
+            raise ValueError("launch minimum ceiling differs from the selected role hold sum")
+        return cls(tuple(roles), minimum)
+
+
+@dataclass(frozen=True)
+class LaunchResourceReadiness:
+    ready: bool
+    blocked_reason: str | None = None
+    selected_model_file_ids: tuple[str, ...] = ()
+    missing_model_file_ids: tuple[str, ...] = ()
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> LaunchResourceReadiness | None:
+        if payload is None:
+            return None
+        mapping = _require_mapping(payload, label="launch resource readiness")
+        if type(mapping.get("ready")) is not bool:
+            raise ValueError("launch resource readiness requires a boolean ready state")
+        return cls(
+            mapping["ready"],
+            _optional_string(mapping, "blocked_reason"),
+            tuple(
+                _string_list(mapping.get("selected_model_file_ids"), label="selected model files")
+            ),
+            tuple(_string_list(mapping.get("missing_model_file_ids"), label="missing model files")),
+            dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class SmrLaunchPreflight:
     project_id: str | None = None
     project_alias: str | None = None
@@ -1771,6 +1873,10 @@ class SmrLaunchPreflight:
     resolved_actor_profiles: SmrResolvedActorProfiles | None = None
     launch_mode: str | None = None
     dev_environment: dict[str, object] = field(default_factory=dict)
+    resource_readiness: LaunchResourceReadiness | None = None
+    runtime_readiness: dict[str, object] = field(default_factory=dict)
+    checks: tuple[dict[str, object], ...] = ()
+    hold_requirements: LaunchHoldRequirements | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrLaunchPreflight:
@@ -1820,6 +1926,13 @@ class SmrLaunchPreflight:
             ),
             launch_mode=_optional_string(mapping, "launch_mode"),
             dev_environment=_optional_object_dict(mapping.get("dev_environment")),
+            resource_readiness=LaunchResourceReadiness.from_wire(mapping.get("resource_readiness")),
+            runtime_readiness=_optional_object_dict(mapping.get("runtime_readiness")),
+            checks=tuple(
+                dict(_require_mapping(item, label="launch preflight check"))
+                for item in _optional_array(mapping, "checks")
+            ),
+            hold_requirements=LaunchHoldRequirements.from_wire(mapping.get("hold_requirements")),
         )
 
 
@@ -2203,8 +2316,12 @@ __all__ = [
     "RunOutputFile",
     "RunRepositoryMount",
     "RunResourceBindings",
+    "LaunchRoleHold",
+    "LaunchHoldRequirements",
+    "LaunchResourceReadiness",
     "SemanticProgressSnapshot",
     "StoredFile",
+    "OrgFile",
     "WorkspaceFileInput",
     "WorkspaceInputsState",
     "WorkspaceSourceRepo",

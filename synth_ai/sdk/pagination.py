@@ -22,14 +22,20 @@ def page_from_wire(
 ) -> tuple[list[object], str | None, bool]:
     if isinstance(payload, list):
         return list(payload), None, False
-    items = payload.get("items")
+    if not isinstance(payload, dict):
+        raise TypeError("page must be an object or legacy list")
+    items = payload.get("items") if "items" in payload else payload.get("data")
     if not isinstance(items, list):
-        items_obj = payload.get("data")
-        items = items_obj if isinstance(items_obj, list) else []
-    next_cursor = payload.get("next_cursor") or payload.get("cursor")
-    cursor_text = str(next_cursor).strip() if next_cursor is not None else None
-    has_more = bool(payload.get("has_more")) if "has_more" in payload else bool(cursor_text)
-    return list(items), cursor_text or None, has_more
+        raise ValueError("page items must be an array")
+    next_cursor = payload.get("next_cursor") if "next_cursor" in payload else payload.get("cursor")
+    if next_cursor is not None and (not isinstance(next_cursor, str) or not next_cursor.strip()):
+        raise ValueError("page next_cursor must be a non-empty string or null")
+    has_more = payload.get("has_more", next_cursor is not None)
+    if not isinstance(has_more, bool):
+        raise ValueError("page has_more must be a boolean")
+    if has_more != (next_cursor is not None):
+        raise ValueError("page continuation contradicts next_cursor")
+    return list(items), next_cursor, has_more
 
 
 __all__ = ["SyncPage", "page_from_wire"]

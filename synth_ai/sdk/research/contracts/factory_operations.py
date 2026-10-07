@@ -18,6 +18,10 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from synth_ai.sdk.research.contracts.experiment_evidence import (
+    NativeExperimentResult,
+    NativeExperimentTrial,
+)
 from synth_ai.sdk.research.contracts.factories import (
     EffortMaintenanceRecurrencePolicy,
     EffortRecurrence,
@@ -1747,7 +1751,7 @@ class ExperimentBundle:
     experiment: dict[str, object] = field(default_factory=dict)
     candidate: dict[str, object] = field(default_factory=dict)
     executions: tuple[dict[str, object], ...] = ()
-    evaluations: tuple[dict[str, object], ...] = ()
+    evaluations: tuple[NativeExperimentResult, ...] = ()
     trace_index: tuple[dict[str, object], ...] = ()
     economics: dict[str, object] = field(default_factory=dict)
     decisions: dict[str, object] = field(default_factory=dict)
@@ -1755,6 +1759,15 @@ class ExperimentBundle:
     workspace_layout: dict[str, object] = field(default_factory=dict)
     integrity: dict[str, object] = field(default_factory=dict)
     raw: dict[str, object] = field(default_factory=dict)
+    trials: tuple[NativeExperimentTrial, ...] = ()
+    artifact_index: tuple[dict[str, object], ...] = ()
+    factory_id: str | None = None
+    effort_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    truncated: bool = False
+    truncated_collections: tuple[str, ...] = ()
+    aggregate_scope: str = "complete"
 
     @property
     def accepted_cycle(self) -> bool:
@@ -1779,7 +1792,7 @@ class ExperimentBundle:
                 for item in list(mapping.get("executions") or [])
             ),
             evaluations=tuple(
-                _optional_object_dict(item, label="experiment bundle evaluation")
+                NativeExperimentResult.from_wire(item)
                 for item in list(mapping.get("evaluations") or [])
             ),
             trace_index=tuple(
@@ -1802,6 +1815,20 @@ class ExperimentBundle:
                 mapping.get("integrity"), label="experiment bundle integrity"
             ),
             raw=dict(mapping),
+            trials=tuple(
+                NativeExperimentTrial.from_wire(item)
+                for item in _optional_object_tuple(mapping.get("trials"), label="bundle trials")
+            ),
+            artifact_index=_optional_object_tuple(
+                mapping.get("artifact_index"), label="bundle artifact index"
+            ),
+            factory_id=_optional_string(mapping, "factory_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            updated_at=_optional_datetime(mapping, "updated_at"),
+            truncated=_optional_bool(mapping, "truncated") or False,
+            truncated_collections=_string_tuple(mapping.get("truncated_collections")),
+            aggregate_scope=_optional_string(mapping, "aggregate_scope") or "complete",
         )
 
 
@@ -1813,11 +1840,13 @@ class ExperimentHistory:
     accepted_cycles: int = 0
     incomplete_cycles: int = 0
     missing_evidence_alerts: tuple[dict[str, object], ...] = ()
+    raw: dict[str, object] = field(default_factory=dict)
 
     @classmethod
     def from_wire(cls, payload: object) -> ExperimentHistory:
         mapping = _require_mapping(payload, label="experiment history")
         return cls(
+            raw=dict(mapping),
             project_id=_require_string(mapping, "project_id", label="experiment history"),
             schema_version=_require_string(mapping, "schema_version", label="experiment history"),
             bundles=tuple(
@@ -1839,6 +1868,13 @@ class ExperimentHistory:
         )
 
 
+class ExperimentComparisonStatus(StrEnum):
+    COMPARABLE = "comparable"
+    NOT_COMPARABLE = "not_comparable"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    INTEGRITY_FAILED = "integrity_failed"
+
+
 @dataclass(frozen=True)
 class ExperimentComparison:
     project_id: str
@@ -1848,6 +1884,8 @@ class ExperimentComparison:
     comparison_dimensions: dict[str, object] = field(default_factory=dict)
     rows: tuple[dict[str, object], ...] = ()
     not_comparable_reasons: tuple[str, ...] = ()
+    status: ExperimentComparisonStatus | None = None
+    findings: tuple[dict[str, object], ...] = ()
 
     @classmethod
     def from_wire(cls, payload: object) -> ExperimentComparison:
@@ -1868,6 +1906,10 @@ class ExperimentComparison:
                 label="experiment comparison rows",
             ),
             not_comparable_reasons=_string_tuple(mapping.get("not_comparable_reasons")),
+            status=ExperimentComparisonStatus(mapping["status"])
+            if mapping.get("status") is not None
+            else None,
+            findings=_optional_object_tuple(mapping.get("findings"), label="comparison findings"),
         )
 
 

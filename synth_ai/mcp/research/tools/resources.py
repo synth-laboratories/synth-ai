@@ -34,6 +34,7 @@ def build_resource_tools(server: Any) -> list[ToolDefinition]:
                 {
                     "project_id": {"type": "string"},
                     "visibility": {"type": "string"},
+                    "cursor": {"type": "string"},
                     "limit": {"type": "integer"},
                 },
                 required=["project_id"],

@@ -21,12 +21,12 @@ from synth_ai.sdk.research.contracts._wire import (
 )
 from synth_ai.sdk.research.contracts.common import (
     ConfigurationVersionId,
-    EffortId,
     OrganizationId,
     ProjectId,
     SwarmId,
     require_text,
 )
+from synth_ai.sdk.research.contracts.types import RunResourceBindings
 
 FrozenJsonScalar: TypeAlias = str | int | float | bool | None
 FrozenJsonValue: TypeAlias = (
@@ -1059,6 +1059,7 @@ class KickoffArtifact:
 
 class AiCacheMode(StrEnum):
     """Read, write, and combined inference-cache routing modes."""
+
     READ = "read"
     WRITE = "write"
     READWRITE = "readwrite"
@@ -1153,6 +1154,54 @@ class AiCachePolicy:
         return payload
 
 
+class ProvenanceMode(StrEnum):
+    """Launch provenance posture (backend ``SmrProjectTriggerRequest.provenance_mode``)."""
+
+    LIVE = "live"
+    DRY_RUN = "dry_run"
+
+
+@dataclass(frozen=True, slots=True)
+class DeploymentPin:
+    """One repository's resolved deployment receipt (backend ``SmrDeploymentPinRequest``).
+
+    The backend provenance authority refuses placeholder pins in ``live`` mode;
+    the SDK checks shape only.
+    """
+
+    repository: str
+    commit_sha: str
+    environment: str
+    resolved_at: datetime
+    deployment_id: str | None = None
+    artifact_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        require_text(self.repository, field_name="deployment_pin.repository")
+        require_text(self.commit_sha, field_name="deployment_pin.commit_sha")
+        require_text(self.environment, field_name="deployment_pin.environment")
+        if not isinstance(self.resolved_at, datetime):
+            raise ValueError("deployment_pin.resolved_at must be a datetime")
+        if self.resolved_at.tzinfo is None:
+            raise ValueError("deployment_pin.resolved_at must be timezone-aware")
+        for name, value in (
+            ("deployment_id", self.deployment_id),
+            ("artifact_digest", self.artifact_digest),
+        ):
+            if value is not None:
+                require_text(value, field_name=f"deployment_pin.{name}")
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "repository": self.repository,
+            "commit_sha": self.commit_sha,
+            "deployment_id": self.deployment_id,
+            "artifact_digest": self.artifact_digest,
+            "environment": self.environment,
+            "resolved_at": self.resolved_at.isoformat(),
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class SwarmSpec:
     objective: str
@@ -1189,8 +1238,17 @@ class SwarmSpec:
     primary_parent: OpenEndedQuestionSpec | DirectedEffortOutcomeSpec | None = None
     worker_pool_id: str | None = None
     dev_environment_id: str | None = None
-    effort_id: EffortId | None = None
+    effort_id: str | None = None
     idempotency_key: str | None = None
+    #: Explicit launch resource inventories. Always serialized: the backend
+    #: refuses ``resource_inventory_unspecified`` when the lists are omitted,
+    #: and an empty list selects none.
+    resource_bindings: RunResourceBindings = field(default_factory=RunResourceBindings)
+    #: Resolved deployment receipts, one per participating repository. Must be
+    #: non-empty together with ``provenance_mode``; leaving both unset sends
+    #: neither and the backend refuses ``provenance_unbound``.
+    deployment_pins: tuple[DeploymentPin, ...] = ()
+    provenance_mode: ProvenanceMode | None = None
     provider: (
         InferenceProvider
         | str
@@ -1274,6 +1332,16 @@ class SwarmSpec:
             )
         ):
             raise ValueError("execution_target cannot be combined with legacy placement fields")
+        if not isinstance(self.resource_bindings, RunResourceBindings):
+            raise ValueError("resource_bindings must be RunResourceBindings")
+        pins = tuple(self.deployment_pins)
+        if any(not isinstance(pin, DeploymentPin) for pin in pins):
+            raise ValueError("deployment_pins values must be DeploymentPin")
+        object.__setattr__(self, "deployment_pins", pins)
+        if self.provenance_mode is not None:
+            object.__setattr__(self, "provenance_mode", ProvenanceMode(self.provenance_mode))
+        if (self.provenance_mode is None) != (not pins):
+            raise ValueError("deployment_pins and provenance_mode must be supplied together")
         normalized_images: dict[str, ActorImageBinding] = {}
         for role, binding in dict(self.actor_image_overrides).items():
             if not isinstance(binding, ActorImageBinding):
@@ -1378,6 +1446,10 @@ class SwarmSpec:
             payload["primary_parent_ref"] = self.primary_parent_ref.to_wire()
         if self.primary_parent is not None:
             payload["primary_parent"] = self.primary_parent.to_wire()
+        payload["resource_bindings"] = cast(JsonObject, self.resource_bindings.to_wire())
+        if self.provenance_mode is not None:
+            payload["deployment_pins"] = [pin.to_wire() for pin in self.deployment_pins]
+            payload["provenance_mode"] = self.provenance_mode.value
         return payload
 
 
@@ -1392,7 +1464,7 @@ class Swarm:
     created_at: datetime
     updated_at: datetime
     work_mode: WorkMode | None = None
-    effort_id: EffortId | None = None
+    effort_id: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     terminal_outcome: SwarmTerminalOutcome | None = None
@@ -1434,7 +1506,7 @@ class Swarm:
             created_at=required_datetime(payload, "created_at"),
             updated_at=required_datetime(payload, "updated_at"),
             work_mode=WorkMode(work_mode) if work_mode is not None else None,
-            effort_id=EffortId(effort_id) if effort_id is not None else None,
+            effort_id=effort_id,
             started_at=_optional_datetime(payload, "started_at"),
             finished_at=_optional_datetime(payload, "finished_at"),
             terminal_outcome=(

@@ -49,6 +49,8 @@ DecodeErrorHandler = Callable[[str, str, httpx.Response, Exception, str | None],
 
 
 def _decode_json_value(value: object, *, context: str) -> JsonValue:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(f"{context} contains a non-finite JSON number")
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, list):
@@ -339,6 +341,48 @@ def raise_json_decode_error(
     ) from error
 
 
+def require_response_contract(
+    response: httpx.Response,
+    *,
+    method: str,
+    path: str,
+    operation_id: str | None,
+    sse: bool = False,
+) -> None:
+    """Validate representation/status before exposing bytes or events.
+
+    See core_research_migration.md. Redirects are not operation results; SSE
+    streams require an explicit event-stream media type before any event emits.
+    """
+    reason = None
+    if response.is_redirect:
+        reason = "redirect response is not an operation result"
+    elif (
+        sse
+        and response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        != "text/event-stream"
+    ):
+        reason = "SSE response requires Content-Type text/event-stream"
+    if reason is not None:
+        message = f"{method} {path}: {reason}"
+        raise ContractMismatchError(
+            response.status_code,
+            str(response.request.url),
+            message,
+            "",
+            failure=SynthFailure(
+                code=SynthErrorCode("response_contract_invalid"),
+                category=SynthErrorCategory.CONTRACT_MISMATCH,
+                operation=operation_id,
+                request_id=response.headers.get("x-request-id"),
+                correlation_id=response.headers.get("x-correlation-id"),
+                retry=RetryDirective(retryable=False),
+                status=response.status_code,
+                detail=message,
+            ),
+        )
+
+
 @dataclass(slots=True)
 class HttpTransport:
     """One strict sync transport for JSON, bytes, and SSE operations."""
@@ -393,8 +437,13 @@ class HttpTransport:
             return None
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(response, method=method, path=path, operation_id=operation_id)
         if not response.content:
-            return {}
+            if response.status_code in {204, 205} or method == "HEAD":
+                return None
+            self.decode_error_handler(
+                method, path, response, ValueError("JSON response body is empty"), operation_id
+            )
         try:
             return _decode_json_value(response.json(), context=f"{method} {path} response")
         except (json.JSONDecodeError, ValueError) as exc:
@@ -448,6 +497,7 @@ class HttpTransport:
             self.exception_handler(method, path, exc, operation_id)
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(response, method=method, path=path, operation_id=operation_id)
         return bytes(response.content)
 
     def request_external_bytes(
@@ -470,6 +520,7 @@ class HttpTransport:
             self.exception_handler("GET", url, exc, operation_id)
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(response, method="GET", path=url, operation_id=operation_id)
         return bytes(response.content)
 
     def request_multipart_json(
@@ -502,6 +553,9 @@ class HttpTransport:
             self.exception_handler(method, request.path, exc, operation_id)
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(
+            response, method=method, path=request.path, operation_id=operation_id
+        )
         try:
             return _decode_json_value(
                 response.json(),
@@ -533,6 +587,9 @@ class HttpTransport:
                 if response.is_error:
                     response.read()
                     self.error_handler(response, operation_id)
+                require_response_contract(
+                    response, method="GET", path=path, operation_id=operation_id, sse=True
+                )
                 yield from iter_sse_events(response.iter_lines())
         except httpx.TimeoutException as exc:
             self.exception_handler("GET", path, exc, operation_id)

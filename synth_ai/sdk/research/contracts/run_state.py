@@ -26,16 +26,11 @@ from synth_ai.sdk.research.contracts.smr_work_modes import SmrWorkMode, coerce_s
 class RunState(StrEnum):
     UNKNOWN = "unknown"
     QUEUED = "queued"
-    PLANNING = "planning"
     RUNNING = "running"
-    EXECUTING = "executing"
-    REVIEWING = "reviewing"
-    REVIEWER_REQUIRED = "reviewer_required"
     BLOCKED = "blocked"
     PAUSED = "paused"
     FINALIZING = "finalizing"
     DONE = "done"
-    PARTIAL = "partial"
     FAILED = "failed"
     STOPPED = "stopped"
     CANCELED = "canceled"
@@ -50,7 +45,6 @@ ManagedResearchRunState = RunState
 _TERMINAL_RUN_STATES = frozenset(
     {
         RunState.DONE,
-        RunState.PARTIAL,
         RunState.FAILED,
         RunState.STOPPED,
         RunState.CANCELED,
@@ -59,9 +53,7 @@ _TERMINAL_RUN_STATES = frozenset(
 
 
 class ManagedResearchRunTerminalOutcome(StrEnum):
-    DONE = "done"
     SUCCEEDED = "succeeded"
-    PARTIAL = "partial"
     FAILED = "failed"
     STOPPED = "stopped"
     CANCELED = "canceled"
@@ -78,22 +70,7 @@ class ManagedResearchRunLivenessPhase(StrEnum):
     BOOTSTRAPPING = "bootstrapping"
     QUEUED = "queued"
     WAITING = "waiting"
-    PLANNING = "planning"
     WORKING = "working"
-    EXECUTING = "executing"
-    REVIEWING = "reviewing"
-    BLOCKED = "blocked"
-    PAUSED = "paused"
-    ADMITTED = "admitted"
-    RUNTIME_INTENT_PENDING = "runtime_intent_pending"
-    STARTUP_PENDING = "startup_pending"
-    STARTUP_BLOCKED = "startup_blocked"
-    PARTICIPANT_REQUESTED = "participant_requested"
-    PARTICIPANT_STARTING = "participant_starting"
-    PARTICIPANT_LIVE = "participant_live"
-    TASK_RUNNING = "task_running"
-    RUNTIME_REGISTERED = "runtime_registered"
-    DEGRADED = "degraded"
     FINALIZING = "finalizing"
     TERMINAL = "terminal"
     UNKNOWN = "unknown"

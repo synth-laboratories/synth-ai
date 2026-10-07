@@ -1,0 +1,423 @@
+[
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "DELETE",
+    "operation_id": "detach_research_intern_factory",
+    "path": "/smr/research-intern/factories/{factory_id}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "append_objective_answer_revision",
+    "path": "/smr/objectives/{objective_id}/answers/{answer_id}/revisions",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "append_research_claim_revision",
+    "path": "/smr/objectives/{objective_id}/claims/{claim_id}/revisions",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "archive_visual",
+    "path": "/smr/visuals/{visual_id}:archive",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "command_intern_async_assignment",
+    "path": "/smr/research-intern/async-assignments/{assignment_id}/commands",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "compare_owned_experiments",
+    "path": "/smr/experiments/compare",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_intern_async_assignment",
+    "path": "/smr/research-intern/async-assignments",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_objective_answer",
+    "path": "/smr/objectives/{objective_id}/answers",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_research_claim",
+    "path": "/smr/objectives/{objective_id}/claims",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_research_claim_edge",
+    "path": "/smr/objectives/{objective_id}/claim-edges",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_visual",
+    "path": "/smr/visuals",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_visual_release",
+    "path": "/smr/visuals/{visual_id}/releases",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "create_visual_revision",
+    "path": "/smr/visuals/{visual_id}/revisions",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "decide_intern_runtime_mcp_action_approval",
+    "path": "/smr/research-intern/runtimes/{runtime_kind}/{runtime_id}/mcp-actions/{action_id}/approval",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "derive_visual",
+    "path": "/smr/visuals/{visual_id}:derive",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "diff_visual_revision",
+    "path": "/smr/visuals/{visual_id}/revisions/{revision}/diff",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "ensure_intern_async_runtime_alias",
+    "path": "/smr/research-intern/async/ensure",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "export_visual_revision",
+    "path": "/smr/visuals/{visual_id}/revisions/{revision}:export",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [
+      "synth_ai/sdk/research/session/usage.py:292"
+    ],
+    "disposition": "legacy_direct_call",
+    "method": "POST",
+    "operation_id": "extend_project_run_resource_limit",
+    "path": "/smr/projects/{project_id}/runs/{run_id}/resource-limit-extensions",
+    "reason": "Legacy request facade calls this backend-owned operation without using its metadata name."
+  },
+  {
+    "call_sites": [
+      "synth_ai/sdk/research/session/usage.py:204"
+    ],
+    "disposition": "legacy_direct_call",
+    "method": "POST",
+    "operation_id": "extend_run_resource_limit",
+    "path": "/smr/runs/{run_id}/resource-limit-extensions",
+    "reason": "Legacy request facade calls this backend-owned operation without using its metadata name."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "finalize_visual_revision",
+    "path": "/smr/visuals/{visual_id}/revisions/{revision}:finalize",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "freeze_visual",
+    "path": "/smr/visuals/{visual_id}:freeze",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_effort_deo_frontier",
+    "path": "/smr/efforts/{effort_id}/frontier",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_factory_runtime_policy",
+    "path": "/smr/factories/{factory_id}/runtime-policy",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_intern_async_assignment",
+    "path": "/smr/research-intern/async-assignments/{assignment_id}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_project_experiment_dag",
+    "path": "/smr/projects/{project_id}/experiments/dag",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_public_magi_decision",
+    "path": "/smr/research-intern/decision-receipts/{digest_hex}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_factory_runtime_policy_history",
+    "path": "/smr/factories/{factory_id}/runtime-policy/history",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_intern_async_assignments",
+    "path": "/smr/research-intern/async-assignments",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_objective_answer_revisions",
+    "path": "/smr/objectives/{objective_id}/answers/{answer_id}/revisions",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_objective_answers",
+    "path": "/smr/objectives/{objective_id}/answers",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [
+      "synth_ai/sdk/research/session/usage.py:251"
+    ],
+    "disposition": "legacy_direct_call",
+    "method": "GET",
+    "operation_id": "list_project_run_limit_evidence",
+    "path": "/smr/projects/{project_id}/runs/{run_id}/limit-evidence",
+    "reason": "Legacy request facade calls this backend-owned operation without using its metadata name."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_research_claim_revisions",
+    "path": "/smr/objectives/{objective_id}/claims/{claim_id}/revisions",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_research_claims",
+    "path": "/smr/objectives/{objective_id}/claims",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [
+      "synth_ai/sdk/research/session/usage.py:165"
+    ],
+    "disposition": "legacy_direct_call",
+    "method": "GET",
+    "operation_id": "list_run_limit_evidence",
+    "path": "/smr/runs/{run_id}/limit-evidence",
+    "reason": "Legacy request facade calls this backend-owned operation without using its metadata name."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "message_intern_async_runtime",
+    "path": "/smr/research-intern/async/messages",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "PATCH",
+    "operation_id": "patch_factory_runtime_policy",
+    "path": "/smr/factories/{factory_id}/runtime-policy",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "PUT",
+    "operation_id": "replace_factory_runtime_policy",
+    "path": "/smr/factories/{factory_id}/runtime-policy",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "retrieve_effort_notebook",
+    "path": "/smr/efforts/{effort_id}/notebook",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "retrieve_factory_notebook",
+    "path": "/smr/factories/{factory_id}/notebook",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "retrieve_oeq_resolution",
+    "path": "/smr/objectives/{objective_id}/oeq-resolution",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "retrieve_swarm_notebook",
+    "path": "/smr/runs/{run_id}/swarm-notebook",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "retrieve_visual_revision",
+    "path": "/smr/visuals/{visual_id}/revisions/{revision}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "review_objective_answer",
+    "path": "/smr/objectives/{objective_id}/reviews",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "revoke_visual_release",
+    "path": "/smr/visuals/{visual_id}/releases/{release_id}:revoke",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "standup_factory",
+    "path": "/smr/factories/standup",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "submit_factory_runtime_command",
+    "path": "/smr/factories/{factory_id}/commands/{command}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "verify_factory_trace_store_cross_factory_denial",
+    "path": "/smr/factories/{factory_id}/trace-store:verify-cross-factory-denial",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [
+      "synth_ai/sdk/research/session/client.py:5784"
+    ],
+    "disposition": "legacy_direct_call",
+    "method": "GET",
+    "operation_id": "list_project_active_runs",
+    "path": "/smr/projects/{project_id}/runs/active",
+    "reason": "Legacy request facade calls this backend-owned operation without using its metadata name."
+  },
+  {
+    "call_sites": [
+      "synth_ai/sdk/research/session/client.py:5812",
+      "synth_ai/sdk/research/session/client.py:5823"
+    ],
+    "disposition": "legacy_direct_call",
+    "method": "GET",
+    "operation_id": "retrieve_project_run",
+    "path": "/smr/projects/{project_id}/runs/{run_id}",
+    "reason": "Legacy request facade calls this backend-owned operation without using its metadata name."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "stream_run_trace_capture",
+    "path": "/smr/runs/{run_id}/traces/{capture_id}/stream",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  }
+]

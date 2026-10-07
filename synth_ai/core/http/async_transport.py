@@ -29,6 +29,7 @@ from synth_ai.core.http.transport import (
     raise_http_error,
     raise_json_decode_error,
     raise_transport_exception,
+    require_response_contract,
 )
 
 
@@ -86,8 +87,13 @@ class AsyncHttpTransport:
             return None
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(response, method=method, path=path, operation_id=operation_id)
         if not response.content:
-            return {}
+            if response.status_code in {204, 205} or method == "HEAD":
+                return None
+            self.decode_error_handler(
+                method, path, response, ValueError("JSON response body is empty"), operation_id
+            )
         try:
             return _decode_json_value(response.json(), context=f"{method} {path} response")
         except (json.JSONDecodeError, ValueError) as exc:
@@ -141,6 +147,7 @@ class AsyncHttpTransport:
             self.exception_handler(method, path, exc, operation_id)
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(response, method=method, path=path, operation_id=operation_id)
         return bytes(response.content)
 
     async def request_multipart_json(
@@ -173,6 +180,9 @@ class AsyncHttpTransport:
             self.exception_handler(method, request.path, exc, operation_id)
         if response.is_error:
             self.error_handler(response, operation_id)
+        require_response_contract(
+            response, method=method, path=request.path, operation_id=operation_id
+        )
         try:
             return _decode_json_value(
                 response.json(),
@@ -204,6 +214,9 @@ class AsyncHttpTransport:
                 if response.is_error:
                     await response.aread()
                     self.error_handler(response, operation_id)
+                require_response_contract(
+                    response, method="GET", path=path, operation_id=operation_id, sse=True
+                )
                 async for event in iter_sse_events_async(response.aiter_lines()):
                     yield event
         except httpx.TimeoutException as exc:
