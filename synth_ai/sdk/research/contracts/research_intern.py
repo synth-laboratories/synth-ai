@@ -807,7 +807,7 @@ class InternAsyncEnsureRequest(_StrictContract):
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
     # Backend supported modes only; omission preserves autonomous wire behavior.
-    bootstrap_mode: Literal["autonomous", "observe_existing_run"] | None = None
+    bootstrap_mode: Literal["autonomous", "observe_existing_run", "deferred"] | None = None
     budget: InternAsyncRuntimeBudget = Field(default_factory=InternAsyncRuntimeBudget)
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Bounded wait for Factory-ready before binding; 0 refuses immediately.
@@ -833,6 +833,21 @@ class InternAsyncEnsureRequest(_StrictContract):
                     str(UUID(identifier)) != identifier or UUID(identifier).int == 0
                 ):
                     raise ValueError("intern_observation_binding_identity_invalid")
+        if self.bootstrap_mode == "deferred":
+            if any(
+                identifier is not None
+                for identifier in (
+                    self.binding.factory_id,
+                    self.binding.effort_id,
+                    self.binding.run_id,
+                )
+            ):
+                raise ValueError("intern_deferred_existing_run_binding_forbidden")
+            if self.binding.project_id is not None and (
+                str(UUID(self.binding.project_id)) != self.binding.project_id
+                or UUID(self.binding.project_id).int == 0
+            ):
+                raise ValueError("intern_deferred_project_identity_invalid")
         return self
 
 
