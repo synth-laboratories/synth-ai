@@ -803,9 +803,11 @@ class InternAsyncEnsureRequest(_StrictContract):
             raise ValueError("intern_owner_identity_invalid")
         return value
 
-    objective: str = Field(min_length=1, max_length=20_000)
+    objective: str = Field(default="", max_length=20_000)
     idempotency_key: str = Field(min_length=1, max_length=512)
     binding: InternRuntimeBinding = Field(default_factory=InternRuntimeBinding)
+    # Backend supported modes only; omission preserves autonomous wire behavior.
+    bootstrap_mode: Literal["autonomous", "observe_existing_run"] | None = None
     budget: InternAsyncRuntimeBudget = Field(default_factory=InternAsyncRuntimeBudget)
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Bounded wait for Factory-ready before binding; 0 refuses immediately.
@@ -818,6 +820,19 @@ class InternAsyncEnsureRequest(_StrictContract):
     def require_index_reads_for_drafts(self):
         if self.index_draft_enabled and not self.index_enabled:
             raise ValueError("Index draft preparation requires index_enabled")
+        if self.bootstrap_mode == "observe_existing_run":
+            if not all((self.binding.factory_id, self.binding.project_id, self.binding.run_id)):
+                raise ValueError("intern_observation_run_binding_required")
+            for identifier in (
+                self.binding.factory_id,
+                self.binding.project_id,
+                self.binding.run_id,
+                self.binding.effort_id,
+            ):
+                if identifier is not None and (
+                    str(UUID(identifier)) != identifier or UUID(identifier).int == 0
+                ):
+                    raise ValueError("intern_observation_binding_identity_invalid")
         return self
 
 

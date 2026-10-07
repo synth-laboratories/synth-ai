@@ -1477,6 +1477,84 @@ class ResearchInternAsyncRuntimeAPI:
             raise ValueError("Async Intern command receipt identity drifted")
         return receipt
 
+    def command_assignment(
+        self,
+        assignment_id: str,
+        request: InternAsyncCommandRequest,
+        *,
+        research_intern_id: str,
+    ) -> InternAsyncCommandReceipt:
+        """Control the selected owner's exact assignment without default fallback.
+
+        See backend packages/intern/contracts.py and
+        notes/specifications/tanha/current/systems/intern/runtime_authority.md.
+        The selected owner's current assignment must match before dispatch;
+        the backend independently authenticates organization and owner custody.
+        """
+        if str(UUID(assignment_id)) != assignment_id or UUID(assignment_id).int == 0:
+            raise ValueError("intern_async_assignment_identity_invalid")
+        owner = self.get(research_intern_id=research_intern_id)
+        if owner.async_assignment_id != assignment_id or owner.async_runtime_id != assignment_id:
+            raise ValueError("intern_async_assignment_owner_mismatch")
+        receipt = InternAsyncCommandReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "command_intern_async_assignment",
+                    f"/smr/research-intern/async-assignments/{assignment_id}/commands",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id or receipt.runtime_id != assignment_id:
+            raise ValueError("Async Intern assignment command receipt identity drifted")
+        return receipt
+
+    def pause_assignment(
+        self,
+        assignment_id: str,
+        *,
+        research_intern_id: str,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        """Pause the exact selected assignment; never target the default Intern."""
+        return self.command_assignment(
+            assignment_id,
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.PAUSE,
+                payload={"reason": reason},
+            ),
+            research_intern_id=research_intern_id,
+        )
+
+    def cancel_assignment(
+        self,
+        assignment_id: str,
+        *,
+        research_intern_id: str,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        """Cancel the exact selected assignment; never target the default Intern."""
+        return self.command_assignment(
+            assignment_id,
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.CANCEL,
+                payload={"reason": reason},
+            ),
+            research_intern_id=research_intern_id,
+        )
+
     def handoff_model(self, request: InternAsyncHandoffModelRequest) -> InternAsyncCommandReceipt:
         """Change Async model/effort via spine handoff (no meta-thread id)."""
 
@@ -3394,6 +3472,84 @@ class AsyncResearchInternAsyncRuntimeAPI:
         if receipt.command_id != request.command_id:
             raise ValueError("Async Intern command receipt identity drifted")
         return receipt
+
+    async def command_assignment(
+        self,
+        assignment_id: str,
+        request: InternAsyncCommandRequest,
+        *,
+        research_intern_id: str,
+    ) -> InternAsyncCommandReceipt:
+        """Control the selected owner's exact assignment without default fallback.
+
+        See backend packages/intern/contracts.py and
+        notes/specifications/tanha/current/systems/intern/runtime_authority.md.
+        The selected owner's current assignment must match before dispatch;
+        the backend independently authenticates organization and owner custody.
+        """
+        if str(UUID(assignment_id)) != assignment_id or UUID(assignment_id).int == 0:
+            raise ValueError("intern_async_assignment_identity_invalid")
+        owner = await self.get(research_intern_id=research_intern_id)
+        if owner.async_assignment_id != assignment_id or owner.async_runtime_id != assignment_id:
+            raise ValueError("intern_async_assignment_owner_mismatch")
+        receipt = InternAsyncCommandReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "command_intern_async_assignment",
+                    f"/smr/research-intern/async-assignments/{assignment_id}/commands",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if receipt.command_id != request.command_id or receipt.runtime_id != assignment_id:
+            raise ValueError("Async Intern assignment command receipt identity drifted")
+        return receipt
+
+    async def pause_assignment(
+        self,
+        assignment_id: str,
+        *,
+        research_intern_id: str,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        """Pause the exact selected assignment; never target the default Intern."""
+        return await self.command_assignment(
+            assignment_id,
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.PAUSE,
+                payload={"reason": reason},
+            ),
+            research_intern_id=research_intern_id,
+        )
+
+    async def cancel_assignment(
+        self,
+        assignment_id: str,
+        *,
+        research_intern_id: str,
+        command_id: str,
+        idempotency_key: str,
+        expected_generation: int,
+        reason: str,
+    ) -> InternAsyncCommandReceipt:
+        """Cancel the exact selected assignment; never target the default Intern."""
+        return await self.command_assignment(
+            assignment_id,
+            InternAsyncCommandRequest(
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+                expected_generation=expected_generation,
+                command_kind=InternAsyncCommandKind.CANCEL,
+                payload={"reason": reason},
+            ),
+            research_intern_id=research_intern_id,
+        )
 
     async def handoff_model(
         self, request: InternAsyncHandoffModelRequest
