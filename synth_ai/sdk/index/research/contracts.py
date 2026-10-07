@@ -420,6 +420,15 @@ class ScientificApprovedRepresentation(ApprovedRepresentation):
 
     kind: Literal["utf8_text", "approved_caption", "structured_text"]
 
+    @model_validator(mode="after")
+    def closed_structured_parser(self):
+        if self.kind == "structured_text" and self.parser_version not in {
+            "junit-xml-v1",
+            "forge-public-provenance-json-v1",
+        }:
+            raise ValueError("Unsupported structured scientific parser")
+        return self
+
 
 class ScientificReleaseDisclosure(ReleaseDisclosure):
     """Full-credit reviewer exclusions, bound without exposing private source IDs."""
