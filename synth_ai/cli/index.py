@@ -633,8 +633,8 @@ def contribution_status(contribution_id, revision_id, search_id, api_key, backen
 @_lifecycle_target_options
 def contribution_upload(draft_file, upload_spec_file, root, files, api_key, backend_url):
     """Prepare, transfer exactly the selected files, then finalize. Does not submit."""
-    from synth_ai.mcp.research.tools.index import read_selected_files
     from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
+    from synth_ai.sdk.index.local_files import read_selected_files
 
     selected: dict[str, str] = {}
     for item in files:

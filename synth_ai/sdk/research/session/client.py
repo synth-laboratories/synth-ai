@@ -164,6 +164,7 @@ from synth_ai.sdk.research.errors import (
 )
 from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.session._client_helpers import (
+    _PROJECT_FILES_PAGE_MAX,
     _coerce_dict,
     _coerce_dict_list,
     _fencing_headers,
@@ -173,6 +174,7 @@ from synth_ai.sdk.research.session._client_helpers import (
     _optional_mapping,
     _optional_non_empty_string,
     _positive_int_env,
+    _project_files_page,
     _require_fencing_headers,
     _require_non_empty_string,
     assert_hosted_launch_surface,
@@ -2894,21 +2896,9 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         project_id: str,
         directory: str | os.PathLike[str],
     ) -> dict[str, Any]:
-        root = Path(directory).resolve()
-        if not root.exists() or not root.is_dir():
-            raise ValueError(f"workspace directory does not exist: {root}")
-        files: list[dict[str, Any]] = []
-        for path in sorted(root.rglob("*")):
-            if not path.is_file():
-                continue
-            files.append(
-                {
-                    "path": path.relative_to(root).as_posix(),
-                    "content_path": path,
-                    "content_type": _guess_content_type(path.name),
-                }
-            )
-        return self.upload_workspace_files(project_id, files)
+        from synth_ai.sdk.research.session.directory_inputs import collect_directory_entries
+
+        return self.upload_workspace_files(project_id, collect_directory_entries(directory))
 
     def upload_workspace_source_bundle(
         self,
@@ -2937,33 +2927,37 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         limit: int | None = None,
         cursor: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Read bounded project-file pages without changing opaque cursors.
+        """Read bounded project-file pages, preserving opaque cursors.
 
-        See backend launch_resource_inventory.md; returned file_id values are
-        selectable stored IDs. Refuse malformed pages and repeated cursors.
+        Accept the legacy bare-list response. With a limit, return at most
+        that many files; malformed or repeated cursors never return partial data.
+        See backend launch_resource_inventory.md and resource_catalog.py.
         """
+        if limit is not None and (type(limit) is not int or limit < 1):
+            raise ValueError("limit must be a positive integer")
         files: list[dict[str, Any]] = []
         seen: set[str] = set()
         for _ in range(1000):
             if cursor is not None:
-                if not isinstance(cursor, str) or cursor in seen:
+                if not isinstance(cursor, str) or not cursor or cursor in seen:
                     raise ResearchApiError(
                         "Project file listing returned an invalid or repeated cursor"
                     )
                 seen.add(cursor)
-            page = _coerce_dict(
-                self._request_json(
-                    "GET",
-                    f"/smr/projects/{project_id}/files",
-                    params=build_query_params(visibility=visibility, limit=limit, cursor=cursor),
-                ),
-                label="list_project_files page",
+            remaining = None if limit is None else limit - len(files)
+            page_limit = None if remaining is None else min(remaining, _PROJECT_FILES_PAGE_MAX)
+            payload = self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/files",
+                params=build_query_params(visibility=visibility, limit=page_limit, cursor=cursor),
             )
-            files.extend(_coerce_dict_list(page.get("files"), label="list_project_files files"))
-            cursor = page.get("next_cursor")
+            page, cursor = _project_files_page(payload)
+            files.extend(page)
+            if limit is not None and len(files) >= limit:
+                return files[:limit]
             if cursor is None:
                 return files
-            if not isinstance(cursor, str) or cursor == "":
+            if not isinstance(cursor, str) or not cursor:
                 raise ResearchApiError("Project file listing returned an invalid next_cursor")
         raise ResearchApiError(
             "Project file listing exceeded 1000 pages; no partial result returned"

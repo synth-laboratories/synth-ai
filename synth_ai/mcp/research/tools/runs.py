@@ -822,6 +822,19 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run,
         ),
         ToolDefinition(
+            name="research_get_run_history",
+            description="Read a bounded backend-authorized journal page with decision reasons and redacted inputs.",
+            input_schema=tool_schema(
+                {
+                    "run_id": {"type": "string", "description": "Research run id."},
+                    "after": {"type": "integer", "minimum": 0, "maximum": 2**64 - 1},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 256},
+                },
+                required=["run_id"],
+            ),
+            handler=server._tool_get_run_history,
+        ),
+        ToolDefinition(
             name="research_get_swarm_configuration",
             description=(
                 "Fetch the immutable, versioned, secret-redacted configuration "

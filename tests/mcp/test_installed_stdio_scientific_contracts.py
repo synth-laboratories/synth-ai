@@ -193,6 +193,7 @@ def test_installed_mcp_retains_null_receipt_citations_and_closed_arguments__SYN4
     }
     advertised = {tool["name"] for tool in responses[2]["result"]["tools"]}
     assert {"research_get_record_citations", "research_record_execution_result"} <= advertised
+    assert "result" in responses[3], responses[3]
     assert responses[3]["result"]["structuredContent"] == citation
     assert "result" in responses[4], responses[4]
     assert responses[4]["result"]["structuredContent"]["operation_id"] == "stdio-result"

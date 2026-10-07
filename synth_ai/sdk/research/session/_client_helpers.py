@@ -261,6 +261,30 @@ def _coerce_dict_list(payload: Any, *, label: str) -> list[dict[str, Any]]:
     raise ResearchApiError(f"Expected list response for {label}, received {type(payload).__name__}")
 
 
+_PROJECT_FILES_PAGE_MAX = 500
+
+
+def _project_files_page(payload: Any) -> tuple[list[dict[str, Any]], str | None]:
+    """Decode one ``GET /smr/projects/{id}/files`` page.
+
+    Canonical wire: ``{"files": [...], "next_cursor": str | null}``. A bare list
+    is the pre-pagination wire and is a single final page.
+    """
+    if isinstance(payload, list):
+        return _coerce_dict_list(payload, label="list_project_files"), None
+    if not isinstance(payload, dict) or "files" not in payload:
+        raise ResearchApiError(
+            "Expected list_project_files page with 'files', received " + type(payload).__name__
+        )
+    files = _coerce_dict_list(payload["files"], label="list_project_files")
+    cursor = payload.get("next_cursor")
+    if cursor is None:
+        return files, None
+    if not isinstance(cursor, str) or not cursor.strip():
+        raise ResearchApiError("list_project_files next_cursor must be a non-empty string")
+    return files, cursor
+
+
 def _require_non_empty_string(value: str | None, *, field_name: str) -> str:
     text = str(value or "").strip()
     if not text:
