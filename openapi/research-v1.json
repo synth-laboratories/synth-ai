@@ -5830,12 +5830,12 @@
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
-            "type": "array",
-            "title": "Detail"
+            "title": "Detail",
+            "type": "array"
           }
         },
-        "type": "object",
-        "title": "HTTPValidationError"
+        "title": "HTTPValidationError",
+        "type": "object"
       },
       "HistoryDecision": {
         "additionalProperties": false,
@@ -42843,6 +42843,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -42854,32 +42861,25 @@
                 }
               ]
             },
-            "type": "array",
-            "title": "Location"
+            "title": "Location",
+            "type": "array"
           },
           "msg": {
-            "type": "string",
-            "title": "Message"
+            "title": "Message",
+            "type": "string"
           },
           "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
+            "title": "Error Type",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "loc",
           "msg",
           "type"
         ],
-        "title": "ValidationError"
+        "title": "ValidationError",
+        "type": "object"
       },
       "VisualAudienceKind": {
         "enum": [
@@ -43764,7 +43764,6 @@
         "title": "WorkspacePushConfirmationReceipt",
         "type": "object"
       },
-<<<<<<< HEAD
       "WriterAuthorityState": {
         "enum": [
           "native",
@@ -43774,185 +43773,6 @@
         ],
         "title": "WriterAuthorityState",
         "type": "string"
-=======
-      "RunHistoryPage": {
-        "properties": {
-          "schema_version": {
-            "type": "string",
-            "const": "orchestra.journal_inspection.v1",
-            "title": "Schema Version"
-          },
-          "run_id": {
-            "type": "string",
-            "title": "Run Id"
-          },
-          "head_sequence": {
-            "type": "integer",
-            "maximum": 1.8446744073709552e+19,
-            "minimum": 0.0,
-            "title": "Head Sequence"
-          },
-          "after": {
-            "type": "integer",
-            "maximum": 1.8446744073709552e+19,
-            "minimum": 0.0,
-            "title": "After"
-          },
-          "entries": {
-            "items": {
-              "$ref": "#/components/schemas/HistoryEntry"
-            },
-            "type": "array",
-            "maxItems": 256,
-            "title": "Entries"
-          },
-          "next_after": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 1.8446744073709552e+19,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next After"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "schema_version",
-          "run_id",
-          "head_sequence",
-          "after",
-          "entries",
-          "next_after"
-        ],
-        "title": "RunHistoryPage"
-      },
-      "HistoryEntry": {
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "maximum": 1.8446744073709552e+19,
-            "minimum": 0.0,
-            "title": "Sequence"
-          },
-          "generation": {
-            "type": "integer",
-            "maximum": 1.8446744073709552e+19,
-            "minimum": 0.0,
-            "title": "Generation"
-          },
-          "command_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Command Id"
-          },
-          "causation_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Causation Id"
-          },
-          "source_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Source Id"
-          },
-          "occurred_at_ms": {
-            "type": "integer",
-            "title": "Occurred At Ms"
-          },
-          "recorded_at_ms": {
-            "type": "integer",
-            "title": "Recorded At Ms"
-          },
-          "input": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            },
-            "type": "object",
-            "title": "Input"
-          },
-          "decision": {
-            "$ref": "#/components/schemas/HistoryDecision"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "sequence",
-          "generation",
-          "command_id",
-          "causation_id",
-          "source_id",
-          "occurred_at_ms",
-          "recorded_at_ms",
-          "input",
-          "decision"
-        ],
-        "title": "HistoryEntry"
-      },
-      "HistoryDecision": {
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "maximum": 1.8446744073709552e+19,
-            "minimum": 0.0,
-            "title": "Sequence"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Reason"
-          },
-          "input_digest": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Input Digest"
-          },
-          "state_before_digest": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "State Before Digest"
-          },
-          "state_after_digest": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "State After Digest"
-          },
-          "intents_digest": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Intents Digest"
-          },
-          "events_digest": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Events Digest"
-          },
-          "wakes_digest": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Wakes Digest"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "sequence",
-          "reason",
-          "input_digest",
-          "state_before_digest",
-          "state_after_digest",
-          "intents_digest",
-          "events_digest",
-          "wakes_digest"
-        ],
-        "title": "HistoryDecision"
->>>>>>> cf314cc6 (Expose strict scoped Swarm journal history pages in sync and async SDKs)
       }
     }
   },
@@ -61039,72 +60859,6 @@
           "smr",
           "work_products"
         ]
-      }
-    },
-    "/smr/runs/{run_id}/history": {
-      "get": {
-        "tags": [
-          "smr"
-        ],
-        "summary": "Read Run History",
-        "operationId": "retrieve_swarm_history",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Run Id"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 18446744073709551615,
-              "minimum": 0,
-              "default": 0,
-              "title": "After"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 256,
-              "minimum": 1,
-              "default": 100,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RunHistoryPage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     }
   }
