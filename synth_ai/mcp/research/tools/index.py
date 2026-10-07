@@ -7,8 +7,7 @@ Upload reads only explicitly listed files under an explicit root: this stdio ser
 runs on the caller's machine; the hosted server cannot read a client's disk.
 """
 
-import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import Annotated
 
@@ -24,11 +23,11 @@ from synth_ai.mcp.research.tools.index_qa import (
     QA_READ_TOOL_NAMES,
     build_qa_tools,
 )
-from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.sdk.index.catalog import PublicSearchCapability
 from synth_ai.sdk.index.client import STATUS_POLL_TIMEOUT_SECONDS, IndexAPI, PublicIndexAPI
 from synth_ai.sdk.index.contracts import ContributionReference, Identifier, IndexContract
 from synth_ai.sdk.index.contributions import ContributionDraft, ContributionUploadSpec
+from synth_ai.sdk.index.local_files import read_selected_files
 from synth_ai.sdk.index.public_search import (
     DEFAULT_PUBLIC_SEARCH_WAIT_SECONDS,
     PublicSearchDisabledError,
@@ -75,11 +74,6 @@ INDEX_WRITE_TOOL_NAMES: tuple[str, ...] = (
 )
 INDEX_TOOL_NAMES = frozenset(INDEX_READ_TOOL_NAMES + INDEX_WRITE_TOOL_NAMES)
 
-_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
-_CREDENTIAL = re.compile(
-    rb"(sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY"
-    rb"|ghp_[A-Za-z0-9]{30,}|xox[bpa]-[A-Za-z0-9-]{10,})"
-)
 _KEY = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_.-]+$")
 
 
@@ -156,20 +150,6 @@ class UploadRequest(IndexContract):
 class SubmitRequest(IndexContract):
     reference: ContributionReference
     spec: ContributionSubmitSpec
-
-
-def read_selected_files(root: str, files: Mapping[str, str]) -> dict[str, bytes]:
-    """Read exactly the listed regular files; reject escapes, symlinks and secrets."""
-    content: dict[str, bytes] = {}
-    total = 0
-    with SelectedFileReader(root) as reader:
-        for logical_path, relative in files.items():
-            data = reader.read(relative, _UPLOAD_MAX_BYTES - total)
-            total += len(data)
-            if _CREDENTIAL.search(data):
-                raise ValueError(f"{logical_path}: possible credential; remove it before upload")
-            content[logical_path] = data
-    return content
 
 
 _PUBLIC_SEARCH_DESCRIPTION = (

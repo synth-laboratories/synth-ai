@@ -21,6 +21,7 @@ class RuntimeIntentKind(StrEnum):
     RECORD_SPEND = "record_spend"
     PLAN_TASKS = "plan_tasks"
     WRITE_PROJECT_MILESTONES = "write_project_milestones"
+    TOOL_WRITE = "tool_write"
 
 
 class RuntimeIntentStatus(StrEnum):
@@ -284,6 +285,38 @@ class RuntimeIntentReceipt:
 
 
 @dataclass(frozen=True)
+class RuntimeScientificRecordReference:
+    """Consumer of backend docs/contracts/runtime-scientific-record.v1.md."""
+
+    schema_version: str
+    kind: str
+    record_id: str
+    parent_entry_id: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> RuntimeScientificRecordReference:
+        from uuid import UUID
+
+        mapping = _require_mapping(payload, label="scientific record reference")
+        if mapping.get("schema_version") != "runtime_scientific_record.v1":
+            raise ValueError("unsupported scientific record reference version")
+        kind = str(mapping.get("kind") or "")
+        if kind not in {
+            "experiment_log_append",
+            "experiment_log_attach_link",
+            "work_product_publish_report",
+        }:
+            raise ValueError("unsupported scientific record reference kind")
+        identity = str(UUID(str(mapping.get("record_id") or "")))
+        parent = mapping.get("parent_entry_id")
+        if parent is not None:
+            parent = str(UUID(str(parent)))
+        if kind == "experiment_log_attach_link" and parent is None:
+            raise ValueError("scientific link reference requires parent entry")
+        return cls("runtime_scientific_record.v1", kind, identity, parent)
+
+
+@dataclass(frozen=True)
 class RuntimeIntentView(RuntimeIntentReceipt):
     message_id: str = ""
     seq: int = 0
@@ -301,6 +334,7 @@ class RuntimeIntentView(RuntimeIntentReceipt):
     error_detail: str | None = None
     retryable: bool = False
     applied_mode: str | None = None
+    scientific_record: RuntimeScientificRecordReference | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> RuntimeIntentView:
@@ -331,6 +365,11 @@ class RuntimeIntentView(RuntimeIntentReceipt):
             error_detail=_optional_string(mapping, "error_detail"),
             retryable=bool(mapping.get("retryable", False)),
             applied_mode=_optional_string(mapping, "applied_mode"),
+            scientific_record=(
+                RuntimeScientificRecordReference.from_wire(mapping["scientific_record"])
+                if mapping.get("scientific_record") is not None
+                else None
+            ),
         )
 
 
@@ -341,4 +380,5 @@ __all__ = [
     "RuntimeIntentStatus",
     "RuntimeIntentView",
     "RuntimeMessageMode",
+    "RuntimeScientificRecordReference",
 ]

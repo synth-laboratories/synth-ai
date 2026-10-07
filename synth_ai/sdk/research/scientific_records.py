@@ -18,6 +18,10 @@ from synth_ai.sdk.research.contracts.forge.operations import (
     RecordRevision,
 )
 from synth_ai.sdk.research.contracts.forge.records import Artifact, Record
+from synth_ai.sdk.research.contracts.forge_citations import (
+    CitationVerification as ForgeCitationVerification,
+)
+from synth_ai.sdk.research.contracts.forge_uploads import Uploaded, UploadRequest
 from synth_ai.sdk.research.contracts.native_attachment import NativeAttachmentPage
 from synth_ai.sdk.research.contracts.scientific_citations import CitationVerification
 from synth_ai.sdk.research.errors import ResearchOutcomeUncertainError
@@ -47,6 +51,7 @@ class ScientificWriterState(Contract):
     receipt_digest_sha256: str | None = None
 
 
+
 def _verified_bytes(record, content):
     if (
         not isinstance(record.payload, Artifact)
@@ -69,6 +74,25 @@ def _record(document, project_id, record_id, revision):
     ):
         raise ValueError("scientific response differs from requested exact identity")
     return record
+
+
+def _citations(document, record_id, revision):
+    verification = ForgeCitationVerification.model_validate(document)
+    record = verification.record
+    if (
+        record.authority != "forge"
+        or record.record_id != record_id
+        or (revision is not None and record.revision != str(revision))
+        or any(check.reference.authority == "forge" for check in verification.citations)
+        or verification.retained
+        != all(check.status == "retained" for check in verification.citations)
+    ):
+        raise ValueError("citation verification differs from requested exact identity")
+    return verification
+
+
+def _citations_path(project_id, record_id):
+    return _root(project_id) + "/records/" + quote(record_id, safe="") + "/citations"
 
 
 def _validated_receipt(
@@ -175,6 +199,62 @@ def _body(payload: Record, record_id: str, operation_id: str, expected_revision:
     return request.model_dump(mode="json")
 
 
+def _uploaded(document, request):
+    uploaded = Uploaded.model_validate(document)
+    if (
+        uploaded.scope != request.scope
+        or uploaded.operation_id != request.operation_id
+        or uploaded.request_digest_sha256 != contract_digest(request)
+        or uploaded.manifest.authority != "artifact-platform"
+        or uploaded.manifest.kind != "manifest"
+        or uploaded.manifest.record_id != uploaded.publication_id
+        or uploaded.manifest.revision != str(uploaded.revision)
+    ):
+        raise ValueError("private publication response differs from scoped operation")
+    declarations = {item.logical_path: item for item in request.objects}
+    actual = {item.logical_path: item for item in uploaded.objects}
+    if len(actual) != len(uploaded.objects) or set(actual) != set(declarations):
+        raise ValueError("private publication object selection differs")
+    for path, item in actual.items():
+        expected = declarations[path]
+        if (
+            item.size_bytes != expected.size_bytes
+            or item.media_type != expected.media_type
+            or item.reference.authority != "artifact-platform"
+            or item.reference.kind != "object"
+            or item.reference.record_id != uploaded.publication_id
+            or item.reference.revision != str(uploaded.revision)
+            or item.reference.digest_sha256 != expected.digest_sha256
+        ):
+            raise ValueError("private publication byte receipt differs")
+    manifest = {
+        "schema_version": "synth.artifact-platform.v1",
+        "manifest_schema_version": "forge.scientific.evidence.v1",
+        "publication_id": uploaded.publication_id,
+        "collection_id": uploaded.collection_id,
+        "revision": uploaded.revision,
+        "objects": [
+            {
+                "logical_path": item.logical_path,
+                "digest_sha256": item.digest_sha256,
+                "size_bytes": item.size_bytes,
+                "media_type": item.media_type,
+            }
+            for item in sorted(request.objects, key=lambda item: item.logical_path)
+        ],
+    }
+    if contract_digest(manifest) != uploaded.manifest.digest_sha256:
+        raise ValueError("private publication manifest identity differs")
+    return uploaded
+
+
+def _upload_body(project_id, request):
+    request = UploadRequest.model_validate(request.model_dump(mode="json"))
+    if request.scope.project_id != project_id:
+        raise ValueError("private upload belongs to another project")
+    return request.model_dump(mode="json")
+
+
 class ScientificRecordsAPI:
     def __init__(self, transport):
         self._transport = transport
@@ -201,6 +281,21 @@ class ScientificRecordsAPI:
             organization_id=request.organization_id,
         )
         return receipt
+
+    def upload_artifacts(self, project_id: str, request: UploadRequest) -> Uploaded:
+        """Retain bounded private evidence with a retryable operation identity.
+
+        See backend docs/contracts/forge-authority.v1.md. This creates no public
+        contribution or release approval and returns no storage credentials.
+        """
+        body = _upload_body(project_id, request)
+        document = self._transport.request_json(
+            "POST",
+            f"/smr/projects/{quote(project_id, safe='')}/forge-artifacts",
+            json_body=body,
+            operation_id=request.operation_id,
+        )
+        return _uploaded(document, request)
 
     def write(
         self,
@@ -288,6 +383,24 @@ class ScientificRecordsAPI:
             revision,
         )
 
+    def verify_citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> ForgeCitationVerification:
+        """Current custodian state of a retained revision's external citations.
+
+        Read-only; dangling/denied/conflict/unavailable citations are explicit
+        and the retained record is unchanged.
+        """
+        return _citations(
+            self._transport.request_json(
+                "GET",
+                _citations_path(project_id, record_id),
+                params={"revision": revision} if revision is not None else None,
+            ),
+            record_id,
+            revision,
+        )
+
     def list(
         self, project_id: str, kind: str, *, after: str = "", limit: int = 100
     ) -> tuple[RecordRevision, ...]:
@@ -351,6 +464,17 @@ class AsyncScientificRecordsAPI:
             organization_id=request.organization_id,
         )
         return receipt
+
+    async def upload_artifacts(self, project_id: str, request: UploadRequest) -> Uploaded:
+        """Async parity for bounded private evidence retention; see Forge authority v1."""
+        body = _upload_body(project_id, request)
+        document = await self._transport.request_json(
+            "POST",
+            f"/smr/projects/{quote(project_id, safe='')}/forge-artifacts",
+            json_body=body,
+            operation_id=request.operation_id,
+        )
+        return _uploaded(document, request)
 
     async def write(
         self,
@@ -433,6 +557,19 @@ class AsyncScientificRecordsAPI:
                 params={"revision": revision} if revision is not None else None,
             ),
             project_id,
+            record_id,
+            revision,
+        )
+
+    async def verify_citations(
+        self, project_id: str, record_id: str, *, revision: int | None = None
+    ) -> ForgeCitationVerification:
+        return _citations(
+            await self._transport.request_json(
+                "GET",
+                _citations_path(project_id, record_id),
+                params={"revision": revision} if revision is not None else None,
+            ),
             record_id,
             revision,
         )
