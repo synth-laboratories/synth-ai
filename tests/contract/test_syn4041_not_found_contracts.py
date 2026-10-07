@@ -2,7 +2,6 @@
 
 import httpx
 import pytest
-
 from synth_ai.core.errors import ResourceRef, SynthErrorCode
 from synth_ai.sdk.research.errors import ResearchNotFoundError
 from synth_ai.sdk.research.transport.http import _raise_for_error_response
@@ -21,7 +20,7 @@ from synth_ai.sdk.research.transport.http import _raise_for_error_response
         ),
     ],
 )
-def test_scoped_404_is_a_first_class_error__SYN4041(code, scope_field, scope, kind):
+def test_scoped_404_is_a_first_class_error__syn4041(code, scope_field, scope, kind):
     detail = {
         "error_code": code,
         "message": "Resource unavailable in this scope.",
@@ -48,7 +47,7 @@ def test_scoped_404_is_a_first_class_error__SYN4041(code, scope_field, scope, ki
     assert error.detail == detail
 
 
-def test_scoped_404_does_not_invent_a_resource_identity__SYN4041():
+def test_scoped_404_does_not_invent_a_resource_identity__syn4041():
     response = httpx.Response(
         404,
         json={"detail": {"error_code": "run_not_found", "retryable": False}},
