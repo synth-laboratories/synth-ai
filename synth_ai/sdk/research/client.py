@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from synth_ai.core.auth.credentials import ApiCredential, resolve_api_credential
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.sdk.research.environments import AsyncEnvironmentsAPI, EnvironmentsAPI
 from synth_ai.sdk.research.factories import AsyncFactoriesAPI, FactoriesAPI
 from synth_ai.sdk.research.image_releases import (
@@ -49,7 +49,7 @@ class Client:
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = HttpTransport(
-            base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
+            base_url=resolve_synth_backend_url(base_url),
             headers=self._credential.authorization_headers(),
             timeout_seconds=timeout_seconds,
         )
@@ -123,7 +123,7 @@ class AsyncClient:
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = AsyncHttpTransport(
-            base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
+            base_url=resolve_synth_backend_url(base_url),
             headers=self._credential.authorization_headers(),
             timeout_seconds=timeout_seconds,
         )

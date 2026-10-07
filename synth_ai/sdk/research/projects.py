@@ -61,7 +61,7 @@ def _projects_page(value: object, *, limit: int) -> SyncPage[Project]:
         raise ValueError("list_projects response must be an array or page object")
     items, next_cursor, has_more = page_from_wire(value)
     projects = [Project.from_wire(cast(JsonValue, item)) for item in items]
-    if next_cursor is None and len(projects) == limit and projects:
+    if isinstance(value, list) and next_cursor is None and len(projects) == limit and projects:
         next_cursor = str(projects[-1].project_id)
         has_more = True
     return SyncPage(

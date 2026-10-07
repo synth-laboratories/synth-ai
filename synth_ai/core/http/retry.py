@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from synth_ai.core.errors import ContractMismatchError, SynthError
 from synth_ai.core.http.request import HttpMethod, HttpRequest, OperationMetadata
@@ -21,7 +22,12 @@ class RetryPolicy:
     def __post_init__(self) -> None:
         if self.attempts_max < 1:
             raise ValueError("attempts_max must be at least 1")
-        if self.delay_seconds_initial < 0 or self.delay_seconds_max < 0:
+        if (
+            not math.isfinite(self.delay_seconds_initial)
+            or not math.isfinite(self.delay_seconds_max)
+            or self.delay_seconds_initial < 0
+            or self.delay_seconds_max < 0
+        ):
             raise ValueError("retry delays must be non-negative")
         if self.delay_seconds_initial > self.delay_seconds_max:
             raise ValueError("delay_seconds_initial cannot exceed delay_seconds_max")
@@ -57,25 +63,24 @@ class RetryPolicy:
         )
         if retry_after_seconds is None:
             return exponential
-        if retry_after_seconds < 0:
+        if not math.isfinite(retry_after_seconds) or retry_after_seconds < 0:
             raise ValueError("retry_after_seconds must be non-negative")
         return min(self.delay_seconds_max, max(exponential, retry_after_seconds))
 
 
 def idempotency_key_from_request(request: HttpRequest) -> str | None:
     """Extract an idempotency key from headers or JSON body fields."""
-    for header_name in ("Idempotency-Key", "idempotency-key"):
-        header_value = request.headers.get(header_name)
-        if isinstance(header_value, str) and header_value.strip():
-            return header_value.strip()
+    values = [value for name, value in request.headers.items() if name.lower() == "idempotency-key"]
     body = request.body
-    if not isinstance(body, dict):
+    if isinstance(body, dict):
+        values.extend(
+            body[name] for name in ("idempotency_key", "idempotency_key_run_create") if name in body
+        )
+    # Ambiguous or explicitly blank authority must not cause an automatic replay.
+    if not values or any(not isinstance(value, str) or not value.strip() for value in values):
         return None
-    for field_name in ("idempotency_key", "idempotency_key_run_create"):
-        value = body.get(field_name)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
+    normalized = {value.strip() for value in values}
+    return next(iter(normalized)) if len(normalized) == 1 else None
 
 
 def should_retry_failure(
@@ -99,7 +104,7 @@ def should_retry_failure(
             status = error.failure.status
         if status is None and hasattr(error, "status"):
             status = error.status
-        return isinstance(status, int) and status in policy.retry_statuses
+        return isinstance(status, int) and status != 409 and status in policy.retry_statuses
     return False
 
 

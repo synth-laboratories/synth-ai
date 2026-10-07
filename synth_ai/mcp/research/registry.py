@@ -307,6 +307,17 @@ def call_tool(
         arguments = {}
     if not isinstance(arguments, dict):
         raise TypeError("tool arguments must be an object")
+    schema = tool.input_schema
+    properties = schema.get("properties", {})
+    if schema.get("additionalProperties") is False and isinstance(properties, dict):
+        unknown = set(arguments) - set(properties)
+        if unknown:
+            raise ValueError("unknown tool arguments: " + ", ".join(sorted(unknown)))
+    required = schema.get("required", [])
+    if isinstance(required, list):
+        missing = [name for name in required if isinstance(name, str) and name not in arguments]
+        if missing:
+            raise ValueError("missing required tool arguments: " + ", ".join(missing))
     return tool.handler(arguments)
 
 

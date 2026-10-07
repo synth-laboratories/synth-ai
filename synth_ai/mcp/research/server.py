@@ -443,22 +443,28 @@ class ResearchMcpServer:
         return list_tool_payload(self._advertised_tools())
 
     def call_tool(self, name: str, arguments: JSONDict | None = None) -> Any:
+        self._reject_client_overrides(arguments or {})
         return call_tool(self._advertised_tools(), name, arguments)
 
+    @staticmethod
+    def _reject_client_overrides(args: JSONDict) -> None:
+        if isinstance(args, dict) and {"api_key", "backend_base"}.intersection(args):
+            raise ValueError("MCP credentials and backend routing must be configured on the server")
+
     def _client_from_args(self, args: JSONDict) -> ResearchSession:
-        resolved_api_key = optional_string(args, "api_key") or self._default_api_key
-        resolved_backend_base = optional_string(args, "backend_base") or self._default_backend_base
+        self._reject_client_overrides(args)
         return ResearchSession(
-            api_key=resolved_api_key,
-            backend_base=resolved_backend_base,
+            api_key=self._default_api_key,
+            backend_base=self._default_backend_base,
             timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
         )
 
     def _core_client_from_args(self, args: JSONDict) -> CoreResearchClient:
-        """Build the stable typed client for noun-first MCP tools."""
+        """Build the stable typed client using trusted server configuration."""
+        self._reject_client_overrides(args)
         return CoreResearchClient(
-            api_key=optional_string(args, "api_key") or self._default_api_key,
-            base_url=(optional_string(args, "backend_base") or self._default_backend_base),
+            api_key=self._default_api_key,
+            base_url=self._default_backend_base,
             timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
         )
 
@@ -508,7 +514,7 @@ class ResearchMcpServer:
         project_id = optional_string(args, "project_id")
         checks: dict[str, Any] = {}
         try:
-            api_key = optional_string(args, "api_key") or get_api_key(required=False)
+            api_key = self._default_api_key or get_api_key(required=False)
             checks["api_key"] = {
                 "status": "pass" if api_key else "warn",
                 "configured": bool(api_key),

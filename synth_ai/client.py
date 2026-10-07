@@ -6,7 +6,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from synth_ai.core.auth.credentials import resolve_api_credential
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 
 if TYPE_CHECKING:
     from synth_ai.sdk.optimizers import AsyncOptimizersClient, OptimizersClient
@@ -19,7 +19,7 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 
 def _resolve_base_url(base_url: str | None) -> str:
-    return normalize_backend_base(base_url or BACKEND_URL_BASE)
+    return resolve_synth_backend_url(base_url)
 
 
 class SynthClient:

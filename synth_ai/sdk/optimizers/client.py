@@ -10,7 +10,7 @@ from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.sdk.optimizers.contracts import (
     HostedTrainingModelCatalog,
     OptimizerRunOutputs,
@@ -252,7 +252,7 @@ class OptimizersClient:
     ) -> None:
         credential = resolve_api_credential(api_key)
         self._transport = HttpTransport(
-            base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
+            base_url=resolve_synth_backend_url(base_url),
             headers=credential.authorization_headers(),
             timeout_seconds=timeout_seconds,
         )
@@ -276,7 +276,7 @@ class AsyncOptimizersClient:
     ) -> None:
         credential = resolve_api_credential(api_key)
         self._transport = AsyncHttpTransport(
-            base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
+            base_url=resolve_synth_backend_url(base_url),
             headers=credential.authorization_headers(),
             timeout_seconds=timeout_seconds,
         )

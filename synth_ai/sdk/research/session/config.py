@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from synth_ai.core.auth.credentials import resolve_api_credential
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_WORKSPACE_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 600.0
@@ -30,34 +30,8 @@ def _require_explicit_backend() -> bool:
 
 
 def resolve_backend_base(backend_base: str | None) -> str:
-    """Resolve the backend base URL from, in order: explicit argument,
-    SYNTH_BACKEND_URL, then the package default (prod unless configured
-    otherwise via SYNTH_BACKEND_URL_OVERRIDE / environment detection).
-
-    The package default is deliberate for customers. It is a hazard for
-    internal callers, who should set SYNTH_REQUIRE_EXPLICIT_BACKEND=1 so that
-    reaching this fallback raises instead of silently targeting production.
-    """
-    explicit = str(backend_base or "").strip()
-    if explicit:
-        return normalize_backend_base(explicit).rstrip("/")
-
-    from_env = str(os.getenv("SYNTH_BACKEND_URL") or "").strip()
-    if from_env:
-        return normalize_backend_base(from_env).rstrip("/")
-
-    if _require_explicit_backend():
-        raise ValueError(
-            "synth_backend_base_unspecified: no backend_base argument and no "
-            "SYNTH_BACKEND_URL, and " + REQUIRE_EXPLICIT_BACKEND_ENV + " is set. "
-            "Refusing to fall back to the package default, which resolves to "
-            f"{BACKEND_URL_BASE!r}. Pass backend_base explicitly."
-        )
-
-    # Single default path. Previously a third fallback hardcoded the prod URL
-    # here, which bypassed BACKEND_URL_BASE entirely and could target prod even
-    # when the package was configured for another environment.
-    return normalize_backend_base(BACKEND_URL_BASE).rstrip("/")
+    """Use the shared construction-time backend configuration authority."""
+    return resolve_synth_backend_url(backend_base)
 
 
 def resolve_api_key(api_key: str | None) -> str:

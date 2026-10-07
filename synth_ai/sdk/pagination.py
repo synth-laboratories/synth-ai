@@ -1,4 +1,7 @@
-"""Cursor pagination helpers for hero SDK list methods."""
+"""Cursor pagination helpers for hero SDK list methods.
+
+# See: testing/specifications/sdk/core_research_migration.md
+"""
 
 from __future__ import annotations
 
@@ -22,14 +25,21 @@ def page_from_wire(
 ) -> tuple[list[object], str | None, bool]:
     if isinstance(payload, list):
         return list(payload), None, False
-    items = payload.get("items")
+    if not isinstance(payload, dict):
+        raise ValueError("page response must be an object or array")
+    items = payload.get("items") if "items" in payload else payload.get("data")
     if not isinstance(items, list):
-        items_obj = payload.get("data")
-        items = items_obj if isinstance(items_obj, list) else []
-    next_cursor = payload.get("next_cursor") or payload.get("cursor")
-    cursor_text = str(next_cursor).strip() if next_cursor is not None else None
-    has_more = bool(payload.get("has_more")) if "has_more" in payload else bool(cursor_text)
-    return list(items), cursor_text or None, has_more
+        raise ValueError("page response requires an items or data array")
+    # Explicit null is terminal evidence; do not resurrect a stale legacy token.
+    next_cursor = payload.get("next_cursor") if "next_cursor" in payload else payload.get("cursor")
+    if next_cursor is not None and not isinstance(next_cursor, str):
+        raise ValueError("page cursor must be a string or null")
+    has_more = payload.get("has_more", bool(next_cursor))
+    if not isinstance(has_more, bool):
+        raise ValueError("page has_more must be a boolean")
+    if has_more and not next_cursor:
+        raise ValueError("continuing page requires a nonempty cursor")
+    return list(items), next_cursor or None, has_more
 
 
 __all__ = ["SyncPage", "page_from_wire"]

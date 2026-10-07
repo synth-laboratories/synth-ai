@@ -5,19 +5,16 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
-import os
 from pathlib import Path
 
 import click
 
 from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 
 
 def _resolve_backend_url(backend_url: str | None) -> str:
-    return normalize_backend_base(
-        backend_url or os.environ.get("SYNTH_BACKEND_URL") or BACKEND_URL_BASE
-    )
+    return resolve_synth_backend_url(backend_url)
 
 
 def _resolve_api_key(api_key: str | None) -> str:

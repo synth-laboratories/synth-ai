@@ -12,7 +12,9 @@ from synth_ai.core.utils.paths import SYNTH_HOME_DIR
 
 
 def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | None:
-    """Read an API key from the process environment, then from ``~/.synth_ai``.
+    """Read an API key from the process environment, then known Synth config files.
+
+    # See: testing/specifications/sdk/core_research_migration.md
 
     Args:
         env_key: Environment variable name to check
@@ -23,14 +25,14 @@ def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | 
 
     Raises:
         AuthenticationError: If required and not found
-        ConfigurationError: If a config file exists but cannot be read
+        ConfigError: If a known config file exists but cannot be read
     """
-    value = os.getenv(env_key) or _load_user_env().get(env_key)
+    value = (os.getenv(env_key) or "").strip() or _load_user_env().get(env_key)
     if not value and required:
         raise AuthenticationError(
             f"Missing required API key: {env_key}\n"
             f"Set it via: export {env_key}=<your-key>\n"
-            f"Or run synth-ai setup to store it in {SYNTH_HOME_DIR}"
+            f"Or store {env_key} in {SYNTH_HOME_DIR / 'config.json'}"
         )
     return value
 
@@ -46,22 +48,18 @@ def _load_user_env() -> dict[str, str]:
         try:
             with path.open("r", encoding="utf-8") as handle:
                 payload: Any = json.load(handle)
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ConfigError(f"Cannot read Synth config at {path}: {exc}") from exc
         if not isinstance(payload, dict):
             raise ConfigError(f"Synth config at {path} must contain a JSON object")
         for key, value in payload.items():
-            if isinstance(value, str):
-                values[str(key)] = value
-            elif value is not None:
-                values[str(key)] = str(value)
+            if isinstance(value, str) and value.strip():
+                values.setdefault(str(key), value.strip())
     return values
 
 
 def _candidate_config_paths() -> list[Path]:
-    paths = [SYNTH_HOME_DIR / "config.json"]
-    if SYNTH_HOME_DIR.exists():
-        paths.extend(sorted(SYNTH_HOME_DIR.glob("*.json")))
+    paths = [SYNTH_HOME_DIR / "config.json", Path.home() / ".config" / "synth" / "config.json"]
     unique: list[Path] = []
     seen: set[Path] = set()
     for path in paths:

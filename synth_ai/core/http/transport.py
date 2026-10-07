@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 import json
+import math
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -142,8 +145,16 @@ def _failure_from_response(
         request_id=request_id,
         correlation_id=correlation_id,
         retry=RetryDirective(
-            retryable=category
-            in {SynthErrorCategory.RATE_LIMITED, SynthErrorCategory.TRANSIENT_SERVICE},
+            # Only a typed server directive can make a conflict replayable.
+            # Strings/numbers must not turn a permanent denial into retries.
+            retryable=next(
+                (
+                    source["retryable"]
+                    for source in sources
+                    if type(source.get("retryable")) is bool
+                ),
+                category in {SynthErrorCategory.RATE_LIMITED, SynthErrorCategory.TRANSIENT_SERVICE},
+            ),
             retry_after_seconds=retry_after_seconds,
         ),
         status=response.status_code,
@@ -174,8 +185,14 @@ def _retry_after_seconds(response: httpx.Response) -> float | None:
     try:
         seconds = float(value)
     except ValueError:
-        return None
-    return seconds if seconds >= 0 else None
+        try:
+            deadline = parsedate_to_datetime(value)
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            seconds = max(0.0, (deadline - datetime.now(timezone.utc)).total_seconds())
+        except (ValueError, TypeError, OverflowError):
+            return None
+    return seconds if math.isfinite(seconds) and seconds >= 0 else None
 
 
 def _error_category(status: int) -> SynthErrorCategory:
@@ -316,7 +333,7 @@ class HttpTransport:
             return None
         if response.is_error:
             self.error_handler(response, operation_id)
-        if not response.content:
+        if not response.content and response.status_code == 204:
             return {}
         try:
             return _decode_json_value(response.json(), context=f"{method} {path} response")

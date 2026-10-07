@@ -86,7 +86,7 @@ class AsyncHttpTransport:
             return None
         if response.is_error:
             self.error_handler(response, operation_id)
-        if not response.content:
+        if not response.content and response.status_code == 204:
             return {}
         try:
             return _decode_json_value(response.json(), context=f"{method} {path} response")

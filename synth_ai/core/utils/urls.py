@@ -128,13 +128,31 @@ def normalize_backend_base(url: str) -> str:
 
 
 def resolve_synth_backend_url(override: str | None = None) -> str:
-    if override and override.strip():
-        coerced = _coerce_backend_override(override)
-        if coerced:
-            return normalize_backend_base(coerced)
-        if _looks_like_url(override):
-            return normalize_backend_base(override)
-    return BACKEND_URL_BASE
+    """Resolve each client at construction; authenticated remote targets require HTTPS.
+
+    # See: testing/specifications/sdk/core_research_migration.md
+    """
+    explicit = str(override or "").strip()
+    configured = str(os.getenv("SYNTH_BACKEND_URL") or "").strip()
+    strict = str(os.getenv("SYNTH_REQUIRE_EXPLICIT_BACKEND") or "").strip().lower()
+    if not explicit and not configured and strict in {"1", "true", "yes"}:
+        raise ValueError(
+            "synth_backend_base_unspecified: pass a backend URL explicitly or set "
+            "SYNTH_BACKEND_URL when SYNTH_REQUIRE_EXPLICIT_BACKEND is set"
+        )
+    raw = (
+        (_coerce_backend_override(explicit) or explicit)
+        if explicit
+        else (configured or _resolve_backend_url())
+    )
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("Synth backend URL must be an absolute HTTP(S) URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("Synth backend URL must not contain credentials")
+    if parsed.scheme == "http" and not is_local_hostname(parsed.hostname):
+        raise ValueError("Synth backend URL requires HTTPS outside local development hosts")
+    return normalize_backend_base(raw)
 
 
 def is_local_hostname(host: str | None) -> bool:

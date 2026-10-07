@@ -588,13 +588,14 @@ class ResearchRunsAPI:
         from synth_ai.sdk.pagination import page_from_wire
 
         payload = self.logs(project_id, run_id, limit=limit, cursor=cursor)
+        # This endpoint's documented legacy envelopes use a named log array.
+        # Normalize that array before the shared strict page decoder.
+        if isinstance(payload, dict):
+            for key in ("entries", "logs", "records"):
+                if isinstance(payload.get(key), list):
+                    payload = {**payload, "items": payload[key]}
+                    break
         raw_items, next_cursor, has_more = page_from_wire(payload)
-        if isinstance(payload, dict) and isinstance(payload.get("entries"), list):
-            raw_items = payload["entries"]
-        elif isinstance(payload, dict) and isinstance(payload.get("logs"), list):
-            raw_items = payload["logs"]
-        elif isinstance(payload, dict) and isinstance(payload.get("records"), list):
-            raw_items = payload["records"]
         normalized = [cast(dict[str, Any], item) for item in raw_items if isinstance(item, dict)]
         return SyncPage(items=normalized, next_cursor=next_cursor, has_more=has_more)
 

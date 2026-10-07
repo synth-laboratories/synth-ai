@@ -62,7 +62,8 @@ def _upload_idempotency_key(
         sort_keys=True,
     ).encode("utf-8")
     digest = hashlib.sha256(canonical).hexdigest()
-    return f"workspace-upload-v1:{digest}"
+    contract_version = 2 if any(item.mode is not None for item in files) else 1
+    return f"workspace-upload-v{contract_version}:{digest}"
 
 
 def _idempotent_upload_body(
@@ -214,7 +215,10 @@ class ProjectWorkspaceAPI:
                 body=_idempotent_upload_body(project_id, request),
             )
         )
-        return WorkspaceFilesUploadReceipt.from_wire(value)
+        receipt = WorkspaceFilesUploadReceipt.from_wire(value)
+        if receipt.project_id != project_id:
+            raise ValueError("workspace upload response identity drifted")
+        return receipt
 
     def upload_batches(
         self,
@@ -313,7 +317,10 @@ class AsyncProjectWorkspaceAPI:
                 body=_idempotent_upload_body(project_id, request),
             )
         )
-        return WorkspaceFilesUploadReceipt.from_wire(value)
+        receipt = WorkspaceFilesUploadReceipt.from_wire(value)
+        if receipt.project_id != project_id:
+            raise ValueError("workspace upload response identity drifted")
+        return receipt
 
     async def upload_batches(
         self,
