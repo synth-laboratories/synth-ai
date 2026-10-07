@@ -64,7 +64,9 @@ class Measurement(Contract):
     name: Identifier
     value: float | None = Field(strict=True, allow_inf_nan=False)
     unit: Identifier
-    uncertainty: float | None = Field(default=None, strict=True, ge=0, allow_inf_nan=False)
+    uncertainty: float | None = Field(
+        default=None, strict=True, ge=0, allow_inf_nan=False
+    )
 
 
 class Result(Contract):
@@ -103,6 +105,12 @@ class Result(Contract):
         ):
             raise ValueError(
                 "measured results require measurements, evaluator and evidence"
+            )
+        if self.outcome == "measured" and not any(
+            measurement.value is not None for measurement in self.measurements
+        ):
+            raise ValueError(
+                "measured results require at least one numeric measurement"
             )
         return self
 

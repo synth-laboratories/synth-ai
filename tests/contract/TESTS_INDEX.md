@@ -228,3 +228,16 @@ production-backup 60930→22 and stage-shaped 17→22 rehearsals preserve record
 managed grants and customer counts. Populated native/public append-only history
 requires forward-compatible recovery or a retained backup, not destructive SQL
 downgrade. Detailed receipts are in `artifacts/forge-bugfixes-20261006/`.
+
+### SYN-3992 code-only completion (owner scope2026-10-07)
+
+`test_result_outcome_law.py` covers ordinary MCP result dispatch across all seven
+outcomes, asynchronous SDK preservation of null/negative/inconclusive values,
+and refusal of an all-null measured intent before client creation or effects.
+The owning Forge law also preserves partly unavailable metrics alongside an
+actual numeric observation. Backend generated contracts and native scalar
+validation agree; the original runtime failure suites pass on current dev.
+The owner removed the live Intern/worker journey requirement. No live journey
+is claimed by these in-process tests. Existing migration18 is already shipped
+ancestry beneath25 and remains byte-identical; this correction adds no data
+migration or alternate head.
