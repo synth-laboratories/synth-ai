@@ -29,6 +29,11 @@ IndexClientFactory = Callable[[], AbstractContextManager[IndexAPI]]
 
 INDEX_READ_TOOL_NAMES: tuple[str, ...] = (
     "index_search",
+    "index_search_create",
+    "index_search_get",
+    "index_search_result",
+    "index_search_events",
+    "index_search_cancel",
     "index_get_contribution",
     "index_get_contents",
     "index_contribution_status",
@@ -51,6 +56,15 @@ _KEY = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_.-]+$")
 class IndexSearchRequest(IndexContract):
     search: SearchSpec
     idempotency_key: str = _KEY
+
+
+class SearchRequest(IndexContract):
+    search_id: Identifier
+
+
+class SearchEventsRequest(SearchRequest):
+    after: int = Field(default=0, ge=0)
+    limit: int = Field(default=200, ge=1, le=200)
 
 
 class ContributionRequest(IndexContract):
@@ -105,6 +119,36 @@ def build_index_tools(client_factory: IndexClientFactory) -> list[ToolDefinition
                 request.search, idempotency_key=request.idempotency_key
             ).model_dump(mode="json")
 
+    def create_search(arguments: JSONDict) -> JSONDict:
+        request = IndexSearchRequest.model_validate(arguments)
+        with client_factory() as client:
+            handle = client.searches.create(
+                request.search, idempotency_key=request.idempotency_key
+            )
+            return handle.snapshot.model_dump(mode="json")
+
+    def get_search(arguments: JSONDict) -> JSONDict:
+        request = SearchRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.get(request.search_id).model_dump(mode="json")
+
+    def search_result(arguments: JSONDict) -> JSONDict:
+        request = SearchRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.result(request.search_id).model_dump(mode="json")
+
+    def search_events(arguments: JSONDict) -> JSONDict:
+        request = SearchEventsRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.events(
+                request.search_id, after=request.after, limit=request.limit
+            ).model_dump(mode="json")
+
+    def cancel_search(arguments: JSONDict) -> JSONDict:
+        request = SearchRequest.model_validate(arguments)
+        with client_factory() as client:
+            return client.searches.cancel(request.search_id).model_dump(mode="json")
+
     def contents(arguments: JSONDict) -> JSONDict:
         request = ContentsSpec.model_validate(arguments)
         with client_factory() as client:
@@ -154,9 +198,44 @@ def build_index_tools(client_factory: IndexClientFactory) -> list[ToolDefinition
     return [
         ToolDefinition(
             name="index_search",
-            description="Search reviewed Synth Index research Contributions. Public scope is free; explicitly selected authorized private scope may incur usage charges. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
+            description="Run a one-shot fast search over reviewed Synth Index research Contributions. Public scope is free; explicitly selected authorized private scope may incur usage charges. Reuse the same idempotency key when retrying a logical search. Preserve exact revision citations.",
             input_schema=IndexSearchRequest.model_json_schema(),
             handler=search,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_create",
+            description="Create a durable fast or deep search. Returns its stable search ID and current state; reconnect with the get, events, and result tools. The backend never silently substitutes fast for deep.",
+            input_schema=IndexSearchRequest.model_json_schema(),
+            handler=create_search,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_get",
+            description="Read a durable search's current state without resubmitting it.",
+            input_schema=SearchRequest.model_json_schema(),
+            handler=get_search,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_result",
+            description="Read a durable search result once available, including exact versions, evidence citations, partial reason, and server-authored usage.",
+            input_schema=SearchRequest.model_json_schema(),
+            handler=search_result,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_events",
+            description="Read an ordered page of reconnectable search events after a sequence number. Events expose progress, never private model reasoning.",
+            input_schema=SearchEventsRequest.model_json_schema(),
+            handler=search_events,
+            required_scopes=read,
+        ),
+        ToolDefinition(
+            name="index_search_cancel",
+            description="Request durable cancellation of a queued or running search.",
+            input_schema=SearchRequest.model_json_schema(),
+            handler=cancel_search,
             required_scopes=read,
         ),
         ToolDefinition(

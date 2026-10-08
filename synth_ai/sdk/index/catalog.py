@@ -20,6 +20,7 @@ from .contracts import (
     WorkflowStage,
 )
 from .lifecycle import Capability, Digest, Title
+from .search import SearchMode
 
 Count = Annotated[StrictInt, Field(ge=0)]
 
@@ -46,10 +47,10 @@ class Capabilities(IndexContract):
     api_version: Literal["synth.index.api.v1"] = "synth.index.api.v1"
     contribution_schema_versions: tuple[Identifier, ...]
     taxonomy_version: Identifier
-    modes: tuple[Literal["fast"], ...]
-    search_modes: tuple[Literal["fast"], ...]
+    modes: tuple[SearchMode, ...]
+    search_modes: tuple[SearchMode, ...]
     visibilities: tuple[Literal["public", "private"], ...]
-    deep_search: Literal[False] = False
+    deep_search: bool = False
     search_filters: bool
     private_search: PrivateSearchCapability
     upload: FeatureCapability

@@ -40,7 +40,25 @@ from .lifecycle import (
 )
 from .package import ContributionPackage
 from .public import AsyncPublicIndexClient, PublicIndexClient
-from .search import ContentsResult, ContentsSpec, PublicSearchResult, SearchResult, SearchSpec
+from .search import (
+    ContentsResult,
+    ContentsSpec,
+    PublicSearchResult,
+    Search,
+    SearchCancellation,
+    SearchEvent,
+    SearchEventKind,
+    SearchEventPage,
+    SearchExecutionLimits,
+    SearchExecutionVersions,
+    SearchFailure,
+    SearchMode,
+    SearchPartialReason,
+    SearchResult,
+    SearchSpec,
+    SearchState,
+    SearchUsage,
+)
 from .submission import ContributionSubmission, ContributionSubmitSpec, RevisionStatus
 
 __all__ = [
@@ -83,8 +101,20 @@ __all__ = [
     "RevisionStatus",
     "RevisionView",
     "RewardAward",
+    "Search",
+    "SearchCancellation",
+    "SearchEvent",
+    "SearchEventKind",
+    "SearchEventPage",
+    "SearchExecutionLimits",
+    "SearchExecutionVersions",
+    "SearchFailure",
+    "SearchMode",
+    "SearchPartialReason",
     "SearchResult",
     "SearchSpec",
+    "SearchState",
+    "SearchUsage",
     "TagRegistry",
     "WithdrawalSpec",
     "index_error_code",

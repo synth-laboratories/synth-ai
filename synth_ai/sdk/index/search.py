@@ -5,6 +5,7 @@ Private selection is explicit and never an access grant. Token limits are checke
 again by the pinned encoder; UTF-8 byte bounds here do not claim token equivalence.
 """
 
+from enum import StrEnum
 from typing import Annotated, Literal, Self
 
 from pydantic import (
@@ -16,6 +17,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.types import JsonValue
 
 from .artifacts import ArtifactDigest
 from .contracts import (
@@ -53,12 +55,32 @@ class SearchContent(IndexContract):
     max_excerpts_per_result: Annotated[StrictInt, Field(ge=0, le=2)] = 2
 
 
+class SearchMode(StrEnum):
+    FAST = "fast"
+    DEEP = "deep"
+
+
+class SearchExecutionLimits(IndexContract):
+    """Caller ceilings for deep execution; server policy may only tighten them."""
+
+    deadline_seconds: Annotated[StrictInt, Field(ge=1, le=90)] = 90
+    max_model_turns: Annotated[StrictInt, Field(ge=1, le=6)] = 6
+    max_searches: Annotated[StrictInt, Field(ge=1, le=8)] = 8
+    max_reads: Annotated[StrictInt, Field(ge=1, le=12)] = 12
+    max_active_context_tokens: Annotated[
+        StrictInt, Field(ge=1024, le=32_768)
+    ] = 32_768
+    max_inference_tokens: Annotated[StrictInt, Field(ge=1)] | None = None
+    max_cost_usd_micros: Annotated[StrictInt, Field(ge=1)] | None = None
+
+
 class SearchSpec(IndexContract):
     query: Annotated[str, Field(min_length=1, max_length=8192)]
-    mode: Literal["fast"] = "fast"
+    mode: SearchMode = SearchMode.FAST
     scope: SearchScope = Field(default_factory=SearchScope)
     filters: SearchFilters = Field(default_factory=SearchFilters)
     content: SearchContent = Field(default_factory=SearchContent)
+    limits: SearchExecutionLimits | None = None
 
     @field_validator("query")
     @classmethod
@@ -66,6 +88,12 @@ class SearchSpec(IndexContract):
         if len(value.encode("utf-8")) > 8192 or "\x00" in value:
             raise ValueError("query must fit 8192 UTF-8 bytes and contain no NUL")
         return value
+
+    @model_validator(mode="after")
+    def check_mode_options(self) -> Self:
+        if self.mode == SearchMode.FAST and self.limits is not None:
+            raise ValueError("execution limits are supported only for deep search")
+        return self
 
 
 class ContentsSpec(IndexContract):
@@ -118,33 +146,165 @@ class SearchHit(IndexContract):
     limitations: Annotated[str, Field(min_length=1, max_length=2048)]
     assessment_ids: tuple[Identifier, ...] = Field(min_length=1, max_length=16)
 
+    @model_validator(mode="after")
+    def check_citations_are_bound(self) -> Self:
+        if any(excerpt.asset_digest_sha256 is None for excerpt in self.highlights):
+            raise ValueError("delivered excerpts must cite an exact asset digest")
+        return self
+
 
 class SearchUsage(IndexContract):
     """Server-authored successful logical search receipt; never contributor earnings."""
 
+    mode: SearchMode = SearchMode.FAST
     billing_scope: Literal["public", "private"]
     logical_units: Annotated[StrictInt, Field(ge=1, le=1)] = 1
-    price_version: Literal["synth.index.fast.v1"] = "synth.index.fast.v1"
-    amount_cents: Annotated[StrictInt, Field(ge=0, le=5)]
+    price_version: Identifier | None = "synth.index.fast.v1"
+    amount_cents: Annotated[StrictInt, Field(ge=0)]
     receipt_id: Identifier
+    search_calls: Annotated[StrictInt, Field(ge=1)] = 1
+    read_calls: Annotated[StrictInt, Field(ge=0)] = 0
+    input_tokens: Annotated[StrictInt, Field(ge=0)] = 0
+    output_tokens: Annotated[StrictInt, Field(ge=0)] = 0
+    inference_cost_usd_micros: Annotated[StrictInt, Field(ge=0)] = 0
 
     @model_validator(mode="after")
     def check_published_rate(self) -> Self:
-        expected = 0 if self.billing_scope == "public" else 5
-        if self.amount_cents != expected:
-            raise ValueError("successful public search is free; private search is five cents")
+        if self.mode == SearchMode.FAST:
+            expected = 0 if self.billing_scope == "public" else 5
+            if (
+                self.price_version != "synth.index.fast.v1"
+                or self.amount_cents != expected
+                or self.read_calls
+                or self.input_tokens
+                or self.output_tokens
+                or self.inference_cost_usd_micros
+            ):
+                raise ValueError(
+                    "fast usage must use its published rate and no deep inference"
+                )
+        elif self.price_version == "synth.index.fast.v1":
+            raise ValueError("deep usage cannot use the fast-search price version")
+        elif self.price_version is None and self.amount_cents:
+            raise ValueError("unpriced deep usage cannot report a charged amount")
         return self
+
+
+class SearchExecutionVersions(IndexContract):
+    corpus_generation: Identifier
+    ranker_version: Identifier
+    parser_version: Identifier
+    taxonomy_version: Identifier
+    reranker_version: Identifier | None = None
+    policy_version: Identifier | None = None
+    agent_version: Identifier | None = None
+    model_version: Identifier | None = None
+
+
+class SearchPartialReason(StrEnum):
+    DEADLINE_EXCEEDED = "deadline_exceeded"
+    TOKEN_BUDGET_EXHAUSTED = "token_budget_exhausted"
+    COST_BUDGET_EXHAUSTED = "cost_budget_exhausted"
+    TOOL_LIMIT_EXHAUSTED = "tool_limit_exhausted"
+    EVIDENCE_REVOKED = "evidence_revoked"
+
+
+class SearchState(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class SearchEventKind(StrEnum):
+    CREATED = "created"
+    CLAIMED = "claimed"
+    TOOL_COMPLETED = "tool_completed"
+    CHECKPOINTED = "checkpointed"
+    CANCELLATION_REQUESTED = "cancellation_requested"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class SearchEvent(IndexContract):
+    """Reconnectable execution event; never private model reasoning."""
+
+    search_id: Identifier
+    sequence: Annotated[StrictInt, Field(ge=1)]
+    kind: SearchEventKind
+    operation_id: Identifier | None = None
+    payload: dict[str, JsonValue] = Field(default_factory=dict)
+    created_at: AwareDatetime
+
+
+class SearchEventPage(IndexContract):
+    search_id: Identifier
+    events: tuple[SearchEvent, ...] = Field(default=(), max_length=200)
+    next_after: Annotated[StrictInt, Field(ge=0)]
+
+
+class SearchFailure(IndexContract):
+    code: Identifier
+    retryable: bool
+
+
+class Search(IndexContract):
+    """Authorized lifecycle snapshot; a client wait timeout does not mutate it."""
+
+    search_id: Identifier
+    spec: SearchSpec
+    state: SearchState
+    requested_mode: SearchMode
+    effective_mode: SearchMode | None = None
+    cancellation_requested: bool = False
+    result_available: bool = False
+    failure: SearchFailure | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def check_lifecycle(self) -> Self:
+        if self.requested_mode != self.spec.mode:
+            raise ValueError("search snapshot mode must match its specification")
+        if self.effective_mode is not None and self.effective_mode != self.requested_mode:
+            raise ValueError("search snapshot cannot silently substitute a mode")
+        if self.updated_at < self.created_at:
+            raise ValueError("search update cannot precede creation")
+        if self.state == SearchState.COMPLETED and (
+            self.effective_mode is None or not self.result_available
+        ):
+            raise ValueError("completed search requires an available result")
+        if self.state == SearchState.FAILED and self.failure is None:
+            raise ValueError("failed search requires a typed failure")
+        if self.state != SearchState.FAILED and self.failure is not None:
+            raise ValueError("only a failed search carries a failure")
+        return self
+
+
+class SearchCancellation(IndexContract):
+    search_id: Identifier
+    state: SearchState
+    cancellation_requested: Literal[True] = True
 
 
 class SearchResult(IndexContract):
     search_id: Identifier
     request_id: Identifier
-    mode: Literal["fast"] = "fast"
-    status: Literal["completed"] = "completed"
+    requested_mode: SearchMode
+    effective_mode: SearchMode
+    status: Literal["completed", "partial"] = "completed"
+    partial_reason: SearchPartialReason | None = None
+    unresolved_evidence_needs: tuple[
+        Annotated[str, Field(min_length=1, max_length=512)], ...
+    ] = Field(default=(), max_length=16)
     corpus_generation: Identifier
     ranker_version: Identifier
     parser_version: Identifier
     taxonomy_version: Identifier
+    execution_versions: SearchExecutionVersions
     results: tuple[SearchHit, ...] = Field(max_length=10)
     usage: SearchUsage
 
@@ -155,6 +315,28 @@ class SearchResult(IndexContract):
             "result contributions",
         )
         require_unique(tuple(hit.id for hit in self.results), "hit IDs")
+        if self.requested_mode != self.effective_mode:
+            raise ValueError("requested and effective mode must match")
+        if self.usage.mode != self.effective_mode:
+            raise ValueError("usage mode must match the effective search mode")
+        if self.status == "completed" and (
+            self.partial_reason is not None or self.unresolved_evidence_needs
+        ):
+            raise ValueError("completed search cannot carry partial outcome fields")
+        if self.status == "partial" and self.partial_reason is None:
+            raise ValueError("partial search requires a typed partial reason")
+        if any(
+            getattr(self.execution_versions, name) != getattr(self, name)
+            for name in (
+                "corpus_generation",
+                "ranker_version",
+                "parser_version",
+                "taxonomy_version",
+            )
+        ):
+            raise ValueError("execution versions must match canonical result versions")
+        if self.status == "partial" and self.effective_mode != SearchMode.DEEP:
+            raise ValueError("only deep search may return a partial result")
         return self
 
 
