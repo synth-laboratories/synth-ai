@@ -48,6 +48,7 @@ from synth_ai.sdk.research.contracts.factory_operations import (
 from synth_ai.sdk.research.contracts.local_execution_profile import (
     LocalExecutionProfile,
 )
+from synth_ai.sdk.research.contracts.placement import PlacementPolicy, RunEnvironmentCatalog
 from synth_ai.sdk.research.contracts.run_execution import RunExecutionProjection
 from synth_ai.sdk.research.contracts.run_launch import (
     RunLaunchRequest,
@@ -573,8 +574,8 @@ def _build_project_run_payload(
     roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
     workflow: Mapping[str, Any] | dict[str, Any] | None = None,
-    sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
-    environment: Mapping[str, Any] | dict[str, Any] | None = None,
+    sandbox_override: PlacementPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
+    environment: RunEnvironmentCatalog | Mapping[str, Any] | dict[str, Any] | None = None,
     dev_environment_id: str | None = None,
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
@@ -795,13 +796,13 @@ def _build_project_run_payload(
     if normalized_workflow:
         payload["workflow"] = normalized_workflow
     normalized_sandbox_override = _optional_mapping(
-        sandbox_override,
+        sandbox_override.to_wire() if isinstance(sandbox_override, PlacementPolicy) else sandbox_override,
         field_name="sandbox_override",
     )
     if normalized_sandbox_override:
         payload["sandbox_override"] = normalized_sandbox_override
     normalized_environment = _optional_mapping(
-        environment,
+        environment.to_wire() if isinstance(environment, RunEnvironmentCatalog) else environment,
         field_name="environment",
     )
     if normalized_environment:

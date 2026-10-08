@@ -26,6 +26,11 @@ from synth_ai.sdk.research.contracts.common import (
     SwarmId,
     require_text,
 )
+from synth_ai.sdk.research.contracts.placement import (
+    PlacementMode,
+    PlacementPolicy,
+    RunEnvironmentCatalog,
+)
 
 FrozenJsonScalar: TypeAlias = str | int | float | bool | None
 FrozenJsonValue: TypeAlias = (
@@ -1080,6 +1085,8 @@ class SwarmSpec:
     local_execution: LocalExecution | None = None
     execution_profile: ExecutionProfile | None = None
     environment: SwarmEnvironment | None = None
+    environment_catalog: RunEnvironmentCatalog | None = None
+    placement: PlacementPolicy | None = None
     environment_name: str | None = None
     primary_parent_ref: PrimaryParentRef | None = None
     primary_parent: OpenEndedQuestionSpec | DirectedEffortOutcomeSpec | None = None
@@ -1129,6 +1136,28 @@ class SwarmSpec:
             SwarmEnvironment,
         ):
             raise ValueError("environment must be SwarmEnvironment")
+        if self.environment_catalog is not None and not isinstance(
+            self.environment_catalog, RunEnvironmentCatalog
+        ):
+            raise ValueError("environment_catalog must be RunEnvironmentCatalog")
+        if self.placement is not None and not isinstance(self.placement, PlacementPolicy):
+            raise ValueError("placement must be PlacementPolicy")
+        if self.placement is not None and self.placement.groups:
+            if self.environment_catalog is None:
+                raise ValueError("placement groups require environment_catalog")
+            grouped_environments = {
+                group.environment_release_id for group in self.placement.groups.values()
+            }
+            allowed_environments = set(self.environment_catalog.allowed)
+            if not grouped_environments <= allowed_environments:
+                raise ValueError("placement groups must reference allowed environment releases")
+            if (
+                self.placement.default is PlacementMode.SHARED_GROUP
+                and grouped_environments != allowed_environments
+            ):
+                raise ValueError(
+                    "shared_group default requires exactly one group for every allowed environment"
+                )
         if self.environment is not None and self.environment_name is not None:
             raise ValueError("environment cannot be combined with environment_name")
         if self.primary_parent_ref is not None and not isinstance(
@@ -1250,6 +1279,10 @@ class SwarmSpec:
             payload["execution_profile"] = self.execution_profile.to_wire()
         if self.environment is not None:
             payload["environment"] = self.environment.to_wire()
+        if self.environment_catalog is not None:
+            payload["environments"] = self.environment_catalog.to_wire()
+        if self.placement is not None:
+            payload["placement"] = self.placement.to_wire()
         if self.primary_parent_ref is not None:
             payload["primary_parent_ref"] = self.primary_parent_ref.to_wire()
         if self.primary_parent is not None:
