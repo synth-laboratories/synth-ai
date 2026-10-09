@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     )
 
 _SCHEMA = "orchestra.owner.run-execution.v1"
+_PORT_SCHEMA = "orchestra.execution-public-view.v1"
+_SCHEMAS = frozenset({_SCHEMA, _PORT_SCHEMA})
 _VIEW = "run_execution"
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 
@@ -47,25 +49,33 @@ def _scope(scope: OwnerReadScope) -> JsonObject:
     }
 
 
+def _schema(value: JsonValue) -> str:
+    if not isinstance(value, str) or value not in _SCHEMAS:
+        raise ValueError("execution owner view schema unsupported")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class ExecutionReadCursor:
     """A position in one Orchestra view, independent of Sublinear publication."""
 
     scope: OwnerReadScope
     sequence: int
+    schema: str = _SCHEMA
 
     def __post_init__(self) -> None:
         _integer(self.sequence)
+        _schema(self.schema)
 
     @classmethod
     def from_wire(cls, value: JsonValue, scope: OwnerReadScope) -> ExecutionReadCursor:
         body = _object(value, {"scope", "sequence", "view", "schema"})
-        if body["scope"] != _scope(scope) or body["view"] != _VIEW or body["schema"] != _SCHEMA:
+        if body["scope"] != _scope(scope) or body["view"] != _VIEW:
             raise ValueError("execution owner cursor scope or view mismatch")
-        return cls(scope, _integer(body["sequence"]))
+        return cls(scope, _integer(body["sequence"]), _schema(body["schema"]))
 
     def wire(self) -> JsonObject:
-        return {"scope": _scope(self.scope), "sequence": self.sequence, "view": _VIEW, "schema": _SCHEMA}
+        return {"scope": _scope(self.scope), "sequence": self.sequence, "view": _VIEW, "schema": self.schema}
 
     def event_id(self) -> str:
         """Return the exact canonical cursor accepted by the owner HTTP API."""
@@ -110,17 +120,39 @@ class ExecutionReadValue:
     ) -> ExecutionReadValue:
         body = _object(payload, {"kind", "schema", "canonical_json", "sha256"})
         raw = body["canonical_json"]
-        if body["kind"] != "inline" or body["schema"] != _SCHEMA or not isinstance(raw, str):
+        if body["kind"] != "inline" or body["schema"] != position.schema or not isinstance(raw, str):
             raise ValueError("execution owner public view payload invalid")
         encoded = raw.encode("utf-8")
         digest = "sha256:" + hashlib.sha256(encoded).hexdigest()
         if len(encoded) > 131072 or body["sha256"] != digest:
             raise ValueError("execution owner public view digest mismatch")
         value = object_value(cast(JsonValue, json.loads(raw)), operation_id="execution public view")
+        if position.schema == _PORT_SCHEMA:
+            fields = {"schema_version", "kind", "sequence", "generation"}
+            fields |= {"scope", "execution"} if kind == "snapshot" else {"input_sha256", "input_bytes"}
+            value = _object(value, fields)
+            _integer(value.get("generation"))
+            if kind == "position":
+                original_digest = value.get("input_sha256")
+                if (
+                    not isinstance(original_digest, str)
+                    or not _DIGEST.fullmatch(original_digest)
+                    or _integer(value.get("input_bytes")) == 0
+                ):
+                    raise ValueError("execution owner position original invalid")
+            else:
+                object_value(value.get("execution"), operation_id="execution public view state")
         if (
-            value.get("schema_version") != _SCHEMA
+            value.get("schema_version") != position.schema
             or value.get("kind") != kind
-            or value.get("scope") != _scope(position.scope)
+            or (
+                value.get("scope") != _scope(position.scope)
+                and not (
+                    position.schema == _PORT_SCHEMA
+                    and kind == "position"
+                    and "scope" not in value
+                )
+            )
             or _integer(value.get("sequence")) != position.sequence
         ):
             raise ValueError("execution owner public view binding mismatch")
@@ -162,12 +194,16 @@ class ExecutionEventPage:
         retention = ExecutionReadRetention.from_wire(body["retention"])
         retention.contains(after)
         next_cursor = ExecutionReadCursor.from_wire(body["next"], after.scope)
+        if next_cursor.schema != after.schema:
+            raise ValueError("execution owner page changed view schema")
         retention.contains(next_cursor)
         events: list[ExecutionReadValue] = []
         previous = after.sequence
         for row in rows:
             item = _object(row, {"cursor", "body"})
             position = ExecutionReadCursor.from_wire(item["cursor"], after.scope)
+            if position.schema != after.schema:
+                raise ValueError("execution owner event changed view schema")
             retention.contains(position)
             if position.sequence <= previous:
                 raise ValueError("execution owner page did not advance")
