@@ -194,6 +194,36 @@ def _spec_bytes(raw: bytes, digest: str) -> bytes:
     return raw
 
 
+def _manifest_request(
+    graph: PlanningGraphRead, scope: OwnerReadScope
+) -> tuple[dict[str, JsonValue], str]:
+    if graph.scope != scope:
+        raise ValueError("planning graph scope differs from reader")
+    reference = object_value(graph.metadata.get("manifest"), operation_id="graph manifest")
+    digest = reference.get("sha256")
+    if (
+        set(reference) != {"owner", "schema", "reference", "sha256"}
+        or reference["owner"] != "sublinear"
+        or not isinstance(reference["schema"], str)
+        or reference["schema"] not in {"sublinear.graph-manifest.v1", "sublinear.graph-manifest.v2"}
+        or not isinstance(digest, str)
+        or not _DIGEST.fullmatch(digest)
+        or reference["reference"] != f"run.{scope.run_id}.manifest.{digest.removeprefix('sha256:')}"
+    ):
+        raise ValueError("planning graph manifest reference invalid")
+    return {"graph_revision": _integer(graph.position.graph_revision)}, digest
+
+
+def _manifest_bytes(raw: bytes, digest: str) -> bytes:
+    if (
+        not raw
+        or len(raw) > 4 * 1024 * 1024
+        or "sha256:" + hashlib.sha256(raw).hexdigest() != digest
+    ):
+        raise ValueError("planning owner manifest bytes differ from pinned reference")
+    return raw
+
+
 class PlanningReads:
     """Scoped owner operations; pages retain their own revision, without a merge.
 
@@ -222,6 +252,14 @@ class PlanningReads:
             limit=limit,
             after_task_id=after_task_id,
         )
+
+    def graph_spec(self, graph: PlanningGraphRead) -> bytes:
+        """Read original dependency manifest bytes at the captured owner revision.
+
+        # See: testing/specifications/sdk/owner_reads.md
+        """
+        query, digest = _manifest_request(graph, self._reader.access.scope)
+        return _manifest_bytes(self._reader.read_bytes("/graph/spec", query=query), digest)
 
     def task(self, task_id: str) -> PlanningTaskRead:
         _entity(task_id)
@@ -266,6 +304,14 @@ class AsyncPlanningReads:
             limit=limit,
             after_task_id=after_task_id,
         )
+
+    async def graph_spec(self, graph: PlanningGraphRead) -> bytes:
+        """Async original manifest read; owner authority remains server-checked.
+
+        # See: testing/specifications/sdk/owner_reads.md
+        """
+        query, digest = _manifest_request(graph, self._reader.access.scope)
+        return _manifest_bytes(await self._reader.read_bytes("/graph/spec", query=query), digest)
 
     async def task(self, task_id: str) -> PlanningTaskRead:
         _entity(task_id)
