@@ -38,7 +38,7 @@ class AsyncHttpTransport:
     """One native async transport for JSON, bytes, and SSE operations."""
 
     base_url: str
-    headers: Mapping[str, str]
+    headers: Mapping[str, str] = field(repr=False)
     timeout_seconds: float = 30.0
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     error_handler: ErrorHandler = raise_http_error
