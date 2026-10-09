@@ -69,7 +69,7 @@ def _origin(value: str) -> str:
     return value.rstrip("/")
 
 
-class OwnerReadAccessExpired(SynthError, ValueError):
+class OwnerReadAccessExpiredError(SynthError, ValueError):
     """A scoped owner-read credential passed its expiry; issue a fresh one.
 
     Subclasses ``ValueError`` so callers of the earlier untyped refusal still
@@ -85,6 +85,10 @@ class OwnerReadAccessExpired(SynthError, ValueError):
             f"owner read access for {owner} run {run_id} expired at "
             f"{expired_at.isoformat()}; issue fresh access for the same scope"
         )
+
+
+# Preserve the name used by the initial owner-read expiry implementation.
+OwnerReadAccessExpired = OwnerReadAccessExpiredError
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +185,7 @@ class OwnerReadAccess:
         self, resource: str, query: Mapping[str, JsonValue] | None
     ) -> tuple[str, dict[str, JsonValue]]:
         if datetime.now(UTC) >= self.expires_at:
-            raise OwnerReadAccessExpired(
+            raise OwnerReadAccessExpiredError(
                 owner=self.owner, run_id=self.scope.run_id, expired_at=self.expires_at
             )
         if resource:
@@ -316,6 +320,7 @@ __all__ = [
     "AsyncOwnerReadClient",
     "OwnerReadAccess",
     "OwnerReadAccessExpired",
+    "OwnerReadAccessExpiredError",
     "OwnerReadClient",
     "OwnerReadScope",
 ]

@@ -21,6 +21,7 @@ from synth_ai.sdk.research.owner_reads import (
     AsyncOwnerReadClient,
     OwnerReadAccess,
     OwnerReadAccessExpired,
+    OwnerReadAccessExpiredError,
     OwnerReadClient,
     OwnerReadScope,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "ProjectDataPoolInventory",
     "OwnerReadAccess",
     "OwnerReadAccessExpired",
+    "OwnerReadAccessExpiredError",
     "OwnerReadClient",
     "OwnerReadScope",
     "PlanningGraphRead",
