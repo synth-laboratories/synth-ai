@@ -118,7 +118,7 @@ def _declares_runtime_unavailable(decoded: JsonValue | None) -> bool:
         return False
     nested = decoded.get("detail")
     return any(
-        source.get(key) in RUNTIME_UNAVAILABLE_CODES
+        isinstance(source.get(key), str) and source.get(key) in RUNTIME_UNAVAILABLE_CODES
         for source in (nested, decoded)
         if isinstance(source, dict)
         for key in ("error_code", "code", "error")
@@ -388,7 +388,7 @@ class HttpTransport:
     """One strict sync transport for JSON, bytes, and SSE operations."""
 
     base_url: str
-    headers: Mapping[str, str]
+    headers: Mapping[str, str] = field(repr=False)
     timeout_seconds: float = 30.0
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     error_handler: ErrorHandler = raise_http_error
