@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from synth_ai.core.contracts.json_value import JsonValue
+from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
@@ -66,6 +67,24 @@ def _origin(value: str) -> str:
     if parsed.port == 0:
         raise ValueError("owner origin cannot use port zero")
     return value.rstrip("/")
+
+
+class OwnerReadAccessExpired(SynthError, ValueError):
+    """A scoped owner-read credential passed its expiry; issue a fresh one.
+
+    Subclasses ``ValueError`` so callers of the earlier untyped refusal still
+    catch it. Carries the owner, run and expiry so a caller can re-issue the
+    same scope instead of failing the read.
+    """
+
+    def __init__(self, *, owner: str, run_id: str, expired_at: datetime) -> None:
+        self.owner = owner
+        self.run_id = run_id
+        self.expired_at = expired_at
+        super().__init__(
+            f"owner read access for {owner} run {run_id} expired at "
+            f"{expired_at.isoformat()}; issue fresh access for the same scope"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,7 +181,9 @@ class OwnerReadAccess:
         self, resource: str, query: Mapping[str, JsonValue] | None
     ) -> tuple[str, dict[str, JsonValue]]:
         if datetime.now(UTC) >= self.expires_at:
-            raise ValueError("owner read access expired")
+            raise OwnerReadAccessExpired(
+                owner=self.owner, run_id=self.scope.run_id, expired_at=self.expires_at
+            )
         if resource:
             _path(resource)
         supplied = dict(query or {})
@@ -291,4 +312,10 @@ class AsyncOwnerReadClient:
         await self.close()
 
 
-__all__ = ["AsyncOwnerReadClient", "OwnerReadAccess", "OwnerReadClient", "OwnerReadScope"]
+__all__ = [
+    "AsyncOwnerReadClient",
+    "OwnerReadAccess",
+    "OwnerReadAccessExpired",
+    "OwnerReadClient",
+    "OwnerReadScope",
+]
