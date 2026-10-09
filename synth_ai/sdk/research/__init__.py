@@ -14,6 +14,11 @@ from synth_ai.sdk.research.hierarchy_models import (
     HierarchyCommand,
     HierarchyOriginal,
     HierarchyRead,
+    HierarchyReviewAcceptance,
+    HierarchyReviewAcceptanceRequest,
+    HierarchyReviewTarget,
+    HierarchyReviewTargetRequest,
+    HierarchyRunScope,
     HierarchyScope,
 )
 from synth_ai.sdk.research.operations import RESEARCH_OPERATIONS, research_operation
@@ -38,6 +43,11 @@ __all__ = [
     "AsyncHierarchyClient",
     "HierarchyClient",
     "HierarchyScope",
+    "HierarchyRunScope",
+    "HierarchyReviewTargetRequest",
+    "HierarchyReviewTarget",
+    "HierarchyReviewAcceptanceRequest",
+    "HierarchyReviewAcceptance",
     "HierarchyCommand",
     "HierarchyRead",
     "HierarchyOriginal",
