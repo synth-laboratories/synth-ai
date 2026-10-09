@@ -394,6 +394,7 @@ class HttpTransport:
     error_handler: ErrorHandler = raise_http_error
     exception_handler: ExceptionHandler = raise_transport_exception
     decode_error_handler: DecodeErrorHandler = raise_json_decode_error
+    follow_redirects: bool = True
     client: httpx.Client = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -402,7 +403,7 @@ class HttpTransport:
             headers=dict(self.headers),
             timeout=self.timeout_seconds,
             limits=httpx.Limits(max_keepalive_connections=0),
-            follow_redirects=True,
+            follow_redirects=self.follow_redirects,
         )
 
     def close(self) -> None:

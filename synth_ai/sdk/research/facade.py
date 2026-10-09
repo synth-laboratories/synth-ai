@@ -13,6 +13,7 @@ from synth_ai.sdk.research.experiments import ResearchExperimentsAPI
 from synth_ai.sdk.research.factories import FactoriesAPI
 from synth_ai.sdk.research.image_releases import ImageReleasesAPI
 from synth_ai.sdk.research.knowledge import ResearchKnowledgeAPI
+from synth_ai.sdk.research.owner_reads import Owner, OwnerReadClient, OwnerReadScope
 from synth_ai.sdk.research.projects import ResearchProjectsAPI
 from synth_ai.sdk.research.research_intern import ResearchInternAPI
 from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI
@@ -144,6 +145,10 @@ class Client:
                 timeout_seconds=self.timeout_seconds,
             )
         return self._session
+
+    def owner_reads(self, *, owner: Owner, scope: OwnerReadScope) -> OwnerReadClient:
+        """Open scoped owner reads; see testing/specifications/sdk/owner_reads.md."""
+        return self._core.owner_reads(owner=owner, scope=scope)
 
     @property
     def advanced(self) -> ResearchAdvancedAPI:
