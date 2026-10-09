@@ -21,6 +21,7 @@ from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
 
 if TYPE_CHECKING:
+    from synth_ai.sdk.research.execution_reads import AsyncExecutionReads, ExecutionReads
     from synth_ai.sdk.research.planning_reads import AsyncPlanningReads, PlanningReads
 
 Owner = Literal["orchestra", "sublinear"]
@@ -226,6 +227,13 @@ class OwnerReadClient:
 
         return PlanningReads(self)
 
+    @property
+    def execution(self) -> ExecutionReads:
+        """Direct Orchestra views; see testing/specifications/sdk/owner_reads.md."""
+        from synth_ai.sdk.research.execution_reads import ExecutionReads
+
+        return ExecutionReads(self)
+
     def read_json(
         self, resource: str = "", *, query: Mapping[str, JsonValue] | None = None
     ) -> JsonValue:
@@ -280,6 +288,13 @@ class AsyncOwnerReadClient:
         from synth_ai.sdk.research.planning_reads import AsyncPlanningReads
 
         return AsyncPlanningReads(self)
+
+    @property
+    def execution(self) -> AsyncExecutionReads:
+        """Direct Orchestra views; see testing/specifications/sdk/owner_reads.md."""
+        from synth_ai.sdk.research.execution_reads import AsyncExecutionReads
+
+        return AsyncExecutionReads(self)
 
     async def read_json(
         self, resource: str = "", *, query: Mapping[str, JsonValue] | None = None
