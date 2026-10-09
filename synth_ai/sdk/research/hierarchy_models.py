@@ -472,3 +472,132 @@ class HierarchyTransferBundle(Closed):
         ):
             raise ValueError("hierarchy transfer bundle join mismatch")
         return self
+
+
+class HierarchyRunScope(Closed):
+    organization_id: EntityId
+    project_id: EntityId
+    stream_id: EntityId
+
+
+class HierarchyReviewTargetRequest(Closed):
+    schema_version: Literal["synth.hierarchy-review-target-request.v1"]
+    scope: HierarchyScope
+    operation_id: OperationId
+    command_target: EntityKey
+    expected_entity_revision: Natural
+    authority_epoch: Positive
+    subject: EntityKey
+    task_link: EntityKey
+    run_scope: HierarchyRunScope
+    task_id: EntityId
+    enrollment: HierarchyReference
+    run_binding: HierarchyReference
+    objective: EntityKey | None
+    answer_revision: EntityKey | None
+
+    @model_validator(mode="after")
+    def scoped(self) -> Self:
+        if (
+            self.scope.organization_id != self.run_scope.organization_id
+            or self.scope.project_id != self.run_scope.project_id
+            or self.task_link.kind != "task_link"
+            or self.command_target.kind
+            not in {"milestone", "progress_claim", "oeq_resolution", "review"}
+            or (
+                self.expected_entity_revision == 0
+                and self.command_target.kind not in {"oeq_resolution", "review"}
+            )
+            or self.enrollment.owner != "orchestra"
+            or self.enrollment.schema_ != "orchestra.machine-enrollment.v1"
+            or self.run_binding.owner != "backend"
+            or self.run_binding.schema_ != "synth.orchestra-run-policy-binding.v1"
+            or (self.objective is not None and self.objective.kind != "objective")
+            or (self.answer_revision is not None and self.answer_revision.kind != "answer_revision")
+        ):
+            raise ValueError("hierarchy review target scope invalid")
+        return self
+
+
+class HierarchyReviewTarget(Closed):
+    schema_version: Literal["synth.hierarchy-review-target.v1"]
+    request: HierarchyReviewTargetRequest
+    scope: HierarchyScope
+    target_original: HierarchyOriginal | None
+    subject_original: HierarchyOriginal
+    task_link_original: HierarchyOriginal
+    task: HierarchyReference
+    task_original: HierarchyOriginal
+    principal_grant: HierarchyReference
+
+    @model_validator(mode="after")
+    def task_custody(self) -> Self:
+        task = self.task_original.document()
+        run_scope = self.request.run_scope
+        if (
+            self.scope != self.request.scope
+            or self.task != self.task_original.reference
+            or self.task.owner != "sublinear"
+            or self.task.schema_ != "sublinear.task-reference.v1"
+            or task.get("task_id") != self.request.task_id
+            or task.get("scope")
+            != {
+                "organization_id": run_scope.organization_id,
+                "project_id": run_scope.project_id,
+                "run_id": run_scope.stream_id,
+            }
+        ):
+            raise ValueError("hierarchy review target original task mismatch")
+        expected_scope = self.scope.model_dump(mode="json")
+        for original, entity in (
+            (self.subject_original, self.request.subject),
+            (self.task_link_original, self.request.task_link),
+        ):
+            value = original.document()
+            if (
+                original.reference.owner not in {"backend", "sublinear"}
+                or value.get("scope") != expected_scope
+                or value.get("entity") != entity.model_dump(mode="json")
+            ):
+                raise ValueError("hierarchy review target entity custody mismatch")
+        link = self.task_link_original.document().get("body")
+        if (
+            not isinstance(link, dict)
+            or link.get("task") != self.task.model_dump(mode="json", by_alias=True)
+            or self.principal_grant.owner != "backend"
+            or self.principal_grant.schema_ != "synth.hierarchy-principal-grant.v1"
+        ):
+            raise ValueError("hierarchy review target task link mismatch")
+        return self
+
+
+class HierarchyReviewAcceptanceRequest(Closed):
+    schema_version: Literal["synth.hierarchy-review-acceptance-request.v1"]
+    scope: HierarchyScope
+    operation_id: OperationId
+    target_binding: HierarchyReference
+    enrollment: HierarchyReference
+    run_binding: HierarchyReference
+    finalization_operation_id: OperationId
+    finalization_message_id: EntityId
+    closing_receipt: HierarchyReference | None
+    decision: ReviewDecision
+
+
+class HierarchyReviewAcceptance(Closed):
+    schema_version: Literal["synth.hierarchy-review-acceptance.v1"]
+    scope: HierarchyScope
+    operation_id: OperationId
+    command_target: EntityKey
+    expected_entity_revision: Natural
+    authority_epoch: Positive
+    decision: ReviewDecision
+    objective: EntityKey | None
+    answer_revision: EntityKey | None
+    target_binding: HierarchyReference
+    reviewer_original: HierarchyReference
+    product_evidence: HierarchyReference
+    task_finalization: HierarchyReference
+    reviewer_allocation: HierarchyReference
+    task_link_original: HierarchyReference
+    principal_grant: HierarchyReference

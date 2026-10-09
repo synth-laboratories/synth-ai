@@ -25,6 +25,10 @@ from synth_ai.sdk.research.hierarchy_models import (
     HierarchyRead,
     HierarchyReadReply,
     HierarchyReference,
+    HierarchyReviewAcceptance,
+    HierarchyReviewAcceptanceRequest,
+    HierarchyReviewTarget,
+    HierarchyReviewTargetRequest,
     HierarchyScope,
     HierarchyTransferBundle,
     HierarchyTransferReceipt,
@@ -87,6 +91,39 @@ def _scoped(result: Model, scope: HierarchyScope) -> Model:
             ) or not original.reference.reference.startswith(f"project.{scope.project_id}."):
                 raise ValueError("hierarchy original reply scope mismatch")
     return result
+
+
+def _review_target(value: JsonValue, request: HierarchyReviewTargetRequest) -> HierarchyOriginal:
+    original = _decode(HierarchyOriginal, value)
+    target = _decode(HierarchyReviewTarget, original.document())
+    if (
+        original.reference.owner != "backend"
+        or original.reference.schema_ != target.schema_version
+        or original.reference.reference
+        != f"project.{request.scope.project_id}.review-target.{request.operation_id}"
+        or target.request != request
+    ):
+        raise ValueError("hierarchy review target reply mismatch")
+    return original
+
+
+def _review_acceptance(
+    value: JsonValue, request: HierarchyReviewAcceptanceRequest
+) -> HierarchyOriginal:
+    original = _decode(HierarchyOriginal, value)
+    acceptance = _decode(HierarchyReviewAcceptance, original.document())
+    if (
+        original.reference.owner != "backend"
+        or original.reference.schema_ != acceptance.schema_version
+        or original.reference.reference
+        != f"project.{request.scope.project_id}.review-acceptance.{request.operation_id}"
+        or acceptance.scope != request.scope
+        or acceptance.operation_id != request.operation_id
+        or acceptance.target_binding != request.target_binding
+        or acceptance.decision != request.decision
+    ):
+        raise ValueError("hierarchy review acceptance reply mismatch")
+    return original
 
 
 def _transfer(
@@ -169,6 +206,26 @@ class HierarchyClient:
         if result.operation_id != command.operation_id or result.entity != command.target:
             raise ValueError("hierarchy command receipt identity mismatch")
         return result
+
+    def issue_review_target(self, request: HierarchyReviewTargetRequest) -> HierarchyOriginal:
+        """Retain genuine revision-bound review provenance; see hierarchy_owner.md."""
+        _scoped(request, self.scope)
+        return _review_target(
+            self._backend.request_json(
+                "POST", "/smr/v1/hierarchy/review-targets", json_body=_wire(request)
+            ),
+            request,
+        )
+
+    def accept_review(self, request: HierarchyReviewAcceptanceRequest) -> HierarchyOriginal:
+        """Join original reviewer and product evidence; see hierarchy_owner.md."""
+        _scoped(request, self.scope)
+        return _review_acceptance(
+            self._backend.request_json(
+                "POST", "/smr/v1/hierarchy/review-acceptances", json_body=_wire(request)
+            ),
+            request,
+        )
 
     def enroll(self, operation_id: str) -> HierarchyOriginal:
         """Explicitly enroll this selected project; see hierarchy_owner.md."""
@@ -385,6 +442,26 @@ class AsyncHierarchyClient:
         if result.operation_id != command.operation_id or result.entity != command.target:
             raise ValueError("hierarchy command receipt identity mismatch")
         return result
+
+    async def issue_review_target(self, request: HierarchyReviewTargetRequest) -> HierarchyOriginal:
+        """Retain genuine revision-bound review provenance; see hierarchy_owner.md."""
+        _scoped(request, self.scope)
+        return _review_target(
+            await self._backend.request_json(
+                "POST", "/smr/v1/hierarchy/review-targets", json_body=_wire(request)
+            ),
+            request,
+        )
+
+    async def accept_review(self, request: HierarchyReviewAcceptanceRequest) -> HierarchyOriginal:
+        """Join original reviewer and product evidence; see hierarchy_owner.md."""
+        _scoped(request, self.scope)
+        return _review_acceptance(
+            await self._backend.request_json(
+                "POST", "/smr/v1/hierarchy/review-acceptances", json_body=_wire(request)
+            ),
+            request,
+        )
 
     async def enroll(self, operation_id: str) -> HierarchyOriginal:
         """Explicitly enroll this selected project; see hierarchy_owner.md."""
