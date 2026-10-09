@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 Owner = Literal["orchestra", "sublinear"]
 _PATH = re.compile(r"/[A-Za-z0-9_./-]*\Z")
 _SCOPE_KEYS = frozenset({"organization_id", "project_id", "run_id"})
+_MANAGED_READ_ORIGINS = {"orchestra": "http://orchestra:8790", "sublinear": "http://sublinear:8011"}
 
 
 def _canonical_id(value: str) -> None:
@@ -59,7 +60,8 @@ def _origin(value: str) -> str:
         loopback = loopback or ipaddress.ip_address(parsed.hostname).is_loopback
     except ValueError:
         loopback = parsed.hostname == "localhost"
-    if parsed.scheme != "https" and not (parsed.scheme == "http" and loopback):
+    if (parsed.scheme != "https" and not (parsed.scheme == "http" and loopback)
+            and value not in _MANAGED_READ_ORIGINS.values()):
         raise ValueError("owner reads require HTTPS or explicit loopback HTTP")
     if parsed.port == 0:
         raise ValueError("owner origin cannot use port zero")
@@ -98,6 +100,8 @@ class OwnerReadAccess:
             raise ValueError("unsupported read owner")
         if _origin(self.origin) != self.origin:
             raise ValueError("owner read origin must be normalized")
+        if self.origin in _MANAGED_READ_ORIGINS.values() and self.origin != _MANAGED_READ_ORIGINS[self.owner]:
+            raise ValueError("managed owner read origin belongs to another owner")
         if _path(self.path_prefix) == "/" or self.path_prefix.endswith("/"):
             raise ValueError("owner reads require an explicit resource prefix")
         if not self.token or any(ord(char) <= 32 or ord(char) >= 127 for char in self.token):
