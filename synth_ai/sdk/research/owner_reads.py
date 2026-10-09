@@ -10,7 +10,7 @@ import re
 from collections.abc import AsyncIterator, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -18,6 +18,9 @@ from synth_ai.core.contracts.json_value import JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.streaming import SseEvent
 from synth_ai.core.http.transport import HttpTransport
+
+if TYPE_CHECKING:
+    from synth_ai.sdk.research.planning_reads import AsyncPlanningReads, PlanningReads
 
 Owner = Literal["orchestra", "sublinear"]
 _PATH = re.compile(r"/[A-Za-z0-9_./-]*\Z")
@@ -187,6 +190,13 @@ class OwnerReadClient:
             follow_redirects=False,
         )
 
+    @property
+    def planning(self) -> PlanningReads:
+        """Direct Sublinear operations; see testing/specifications/sdk/owner_reads.md."""
+        from synth_ai.sdk.research.planning_reads import PlanningReads
+
+        return PlanningReads(self)
+
     def read_json(
         self, resource: str = "", *, query: Mapping[str, JsonValue] | None = None
     ) -> JsonValue:
@@ -234,6 +244,13 @@ class AsyncOwnerReadClient:
             timeout_seconds=timeout_seconds,
             follow_redirects=False,
         )
+
+    @property
+    def planning(self) -> AsyncPlanningReads:
+        """Direct Sublinear operations; see testing/specifications/sdk/owner_reads.md."""
+        from synth_ai.sdk.research.planning_reads import AsyncPlanningReads
+
+        return AsyncPlanningReads(self)
 
     async def read_json(
         self, resource: str = "", *, query: Mapping[str, JsonValue] | None = None

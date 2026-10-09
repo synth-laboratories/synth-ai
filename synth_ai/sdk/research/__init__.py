@@ -15,6 +15,14 @@ from synth_ai.sdk.research.owner_reads import (
     OwnerReadClient,
     OwnerReadScope,
 )
+from synth_ai.sdk.research.planning_reads import (
+    AsyncPlanningReads,
+    PlanningGraphRead,
+    PlanningReadPosition,
+    PlanningReads,
+    PlanningTaskPage,
+    PlanningTaskRead,
+)
 
 AsyncResearchClient = AsyncClient
 
@@ -22,6 +30,7 @@ __all__ = [
     "AsyncClient",
     "AsyncResearchClient",
     "AsyncOwnerReadClient",
+    "AsyncPlanningReads",
     "Client",
     "DataPoolReadReference",
     "DatasetRevisionReadReference",
@@ -30,6 +39,11 @@ __all__ = [
     "OwnerReadAccess",
     "OwnerReadClient",
     "OwnerReadScope",
+    "PlanningGraphRead",
+    "PlanningReadPosition",
+    "PlanningReads",
+    "PlanningTaskPage",
+    "PlanningTaskRead",
     "RESEARCH_OPERATIONS",
     "ResearchClient",
     "research_operation",
