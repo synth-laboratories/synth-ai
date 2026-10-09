@@ -8,6 +8,14 @@ from synth_ai.sdk.research.contracts.resource_reads import (
     ProjectDataPoolInventory,
 )
 from synth_ai.sdk.research.facade import ResearchClient
+from synth_ai.sdk.research.hierarchy import AsyncHierarchyClient, HierarchyClient
+from synth_ai.sdk.research.hierarchy_models import (
+    EntityKey,
+    HierarchyCommand,
+    HierarchyOriginal,
+    HierarchyRead,
+    HierarchyScope,
+)
 from synth_ai.sdk.research.operations import RESEARCH_OPERATIONS, research_operation
 from synth_ai.sdk.research.owner_reads import (
     AsyncOwnerReadClient,
@@ -27,6 +35,13 @@ from synth_ai.sdk.research.planning_reads import (
 AsyncResearchClient = AsyncClient
 
 __all__ = [
+    "AsyncHierarchyClient",
+    "HierarchyClient",
+    "HierarchyScope",
+    "HierarchyCommand",
+    "HierarchyRead",
+    "HierarchyOriginal",
+    "EntityKey",
     "AsyncClient",
     "AsyncResearchClient",
     "AsyncOwnerReadClient",

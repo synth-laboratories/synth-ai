@@ -11,6 +11,8 @@ from synth_ai.sdk.research.container_pools.api import ContainerPoolsAPI
 from synth_ai.sdk.research.environments import EnvironmentsAPI
 from synth_ai.sdk.research.experiments import ResearchExperimentsAPI
 from synth_ai.sdk.research.factories import FactoriesAPI
+from synth_ai.sdk.research.hierarchy import HierarchyClient
+from synth_ai.sdk.research.hierarchy_models import HierarchyPermission, HierarchyScope
 from synth_ai.sdk.research.image_releases import ImageReleasesAPI
 from synth_ai.sdk.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.sdk.research.owner_reads import Owner, OwnerReadClient, OwnerReadScope
@@ -145,6 +147,12 @@ class Client:
                 timeout_seconds=self.timeout_seconds,
             )
         return self._session
+
+    def hierarchy(
+        self, *, scope: HierarchyScope, permissions: tuple[HierarchyPermission, ...] = ("read",)
+    ) -> HierarchyClient:
+        """Direct project owner API; see testing/specifications/sdk/hierarchy_owner.md."""
+        return self._core.hierarchy(scope=scope, permissions=permissions)
 
     def owner_reads(self, *, owner: Owner, scope: OwnerReadScope) -> OwnerReadClient:
         """Open scoped owner reads; see testing/specifications/sdk/owner_reads.md."""
