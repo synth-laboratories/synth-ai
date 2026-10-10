@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from synth_ai.core.contracts.json_value import JsonObject
+from synth_ai.sdk.research.task_execution_reads import public_task_execution
+
 
 def _mapping(value: object, *, field_name: str) -> dict[str, Any]:
     if not isinstance(value, Mapping):
@@ -112,6 +115,7 @@ class ManagedResearchRunTask:
     last_heartbeat_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    execution: JsonObject | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> ManagedResearchRunTask:
@@ -177,6 +181,13 @@ class ManagedResearchRunTask:
                 mapping.get("finished_at"), field_name="run_task.finished_at"
             ),
             updated_at=updated_at,
+            execution=public_task_execution(
+                mapping.get("execution"),
+                organization_id=_text(mapping.get("org_id"), field_name="run_task.org_id"),
+                project_id=_text(mapping.get("project_id"), field_name="run_task.project_id"),
+                run_id=_text(mapping.get("run_id"), field_name="run_task.run_id"),
+                task_id=_text(mapping.get("task_id"), field_name="run_task.task_id"),
+            ),
         )
 
     def to_wire(self) -> dict[str, Any]:
@@ -207,6 +218,7 @@ class ManagedResearchRunTask:
             "started_at": _iso(self.started_at),
             "finished_at": _iso(self.finished_at),
             "updated_at": self.updated_at.isoformat(),
+            "execution": dict(self.execution) if self.execution is not None else None,
         }
 
 
