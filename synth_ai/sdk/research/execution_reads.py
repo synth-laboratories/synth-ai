@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         OwnerReadClient,
         OwnerReadScope,
     )
+    from synth_ai.sdk.research.task_execution_reads import TaskExecutionRead
 
 _SCHEMA = "orchestra.owner.run-execution.v1"
 _PORT_SCHEMA = "orchestra.execution-public-view.v1"
@@ -230,6 +231,15 @@ class ExecutionReads:
             raise ValueError("execution reads require Orchestra owner access")
         self._reader = reader
 
+    def task(self, task_id: str) -> TaskExecutionRead:
+        """Read scoped machine facts; see testing/specifications/sdk/owner_reads.md."""
+        from synth_ai.sdk.research.task_execution_reads import TaskExecutionRead, task_identity
+
+        return TaskExecutionRead.from_wire(
+            self._reader.read_json(f"/tasks/{task_identity(task_id)}/execution"),
+            scope=self._reader.access.scope, task_id=task_id,
+        )
+
     def snapshot(self) -> ExecutionSnapshot:
         return ExecutionSnapshot.from_wire(
             self._reader.read_json("/snapshot", query={"view": _VIEW}), self._reader.access.scope
@@ -247,6 +257,15 @@ class AsyncExecutionReads:
         if reader.access.owner != "orchestra":
             raise ValueError("execution reads require Orchestra owner access")
         self._reader = reader
+
+    async def task(self, task_id: str) -> TaskExecutionRead:
+        """Read scoped machine facts; see testing/specifications/sdk/owner_reads.md."""
+        from synth_ai.sdk.research.task_execution_reads import TaskExecutionRead, task_identity
+
+        return TaskExecutionRead.from_wire(
+            await self._reader.read_json(f"/tasks/{task_identity(task_id)}/execution"),
+            scope=self._reader.access.scope, task_id=task_id,
+        )
 
     async def snapshot(self) -> ExecutionSnapshot:
         return ExecutionSnapshot.from_wire(
