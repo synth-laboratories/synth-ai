@@ -23,7 +23,7 @@ synth-ai-index-mcp = "synth_ai.mcp.research.server:main_index"
 
 [project.optional-dependencies]
 pools = [
-    "synth-containers>=0.4.5.dev20261009,<0.5",
+    "synth-containers>=0.4.5.dev20261010,<0.5",
 ]
 dev = [
     "build>=1.2.2.post1",
@@ -49,7 +49,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
 # Unpublished coordinated candidate; wheel metadata retains the version bound.
-synth-containers = { path = "vendor/synth-containers/synth_containers-0.4.5.dev20261009-py3-none-any.whl" }
+synth-containers = { path = "vendor/synth-containers/synth_containers-0.4.5.dev20261010-py3-none-any.whl" }
 
 [tool.setuptools.packages.find]
 include = ["synth_ai", "synth_ai.*"]
