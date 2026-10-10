@@ -9,15 +9,13 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import cast
 from uuid import UUID
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.sdk.research.contracts._wire import object_value
 from synth_ai.sdk.research.execution_reads import ExecutionReadRetention
-
-if TYPE_CHECKING:
-    from synth_ai.sdk.research.owner_reads import OwnerReadScope
+from synth_ai.sdk.research.owner_reads import OwnerReadScope
 
 SCHEMA = "orchestra.task-execution-view.v1"
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -34,6 +32,21 @@ def task_identity(value: str) -> str:
     if identity.int == 0 or str(identity) != value:
         raise ValueError("Task execution read requires canonical nonzero UUID")
     return value
+
+
+def public_task_execution(
+    value: object, *, organization_id: str, project_id: str, run_id: str, task_id: str,
+) -> JsonObject | None:
+    """Retain an optional public Task envelope after its full owner binding check.
+
+    # See: testing/specifications/sdk/owner_reads.md
+    """
+    if value is None:
+        return None
+    packet = object_value(cast(JsonValue, value), operation_id="public Task execution")
+    scope = OwnerReadScope(organization_id=organization_id, project_id=project_id, run_id=run_id)
+    TaskExecutionRead.from_wire(packet, scope=scope, task_id=task_id)
+    return packet
 
 
 def _object(value: JsonValue, fields: set[str]) -> JsonObject:

@@ -25,6 +25,7 @@ from synth_ai.sdk.research.contracts._wire import (
     required_text,
 )
 from synth_ai.sdk.research.contracts.common import ProjectId, SwarmId
+from synth_ai.sdk.research.task_execution_reads import public_task_execution
 
 
 def _bounded(
@@ -96,6 +97,7 @@ _TASK_ALLOWED = _TASK_REQUIRED | {
     "task_dispatch",
     "task_state",
     "worker_pool",
+    "execution",
 }
 
 
@@ -113,6 +115,7 @@ class SwarmTask:
     updated_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    execution: JsonObject | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmTask:
@@ -135,6 +138,13 @@ class SwarmTask:
             required_datetime(payload, "updated_at"),
             optional_datetime(payload, "started_at"),
             optional_datetime(payload, "finished_at"),
+            public_task_execution(
+                payload.get("execution"),
+                organization_id=required_text(payload, "org_id"),
+                project_id=required_text(payload, "project_id"),
+                run_id=required_text(payload, "run_id"),
+                task_id=required_text(payload, "task_id"),
+            ),
         )
 
 
