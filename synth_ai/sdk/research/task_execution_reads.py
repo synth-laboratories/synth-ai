@@ -43,6 +43,15 @@ def _object(value: JsonValue, fields: set[str]) -> JsonObject:
     return result
 
 
+def _unique_object(pairs: list[tuple[str, JsonValue]]) -> JsonObject:
+    result: JsonObject = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Task execution owner duplicate field")
+        result[key] = value
+    return result
+
+
 def _integer(value: JsonValue, *, maximum: int = 2**64 - 1) -> int:
     if type(value) is not int or not 0 <= value <= maximum:
         raise ValueError("Task execution owner integer outside wire bounds")
@@ -230,7 +239,11 @@ class TaskExecutionRead:
         digest = "sha256:" + hashlib.sha256(encoded).hexdigest()
         if len(encoded) > 131072 or payload["sha256"] != digest:
             raise ValueError("Task execution view original bytes differ")
-        view = _object(cast(JsonValue, json.loads(raw)), {"schema_version", "scope", "task_id",
+        original = cast(JsonValue, json.loads(raw, object_pairs_hook=_unique_object))
+        if json.dumps(original, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False, allow_nan=False) != raw:
+            raise ValueError("Task execution view bytes are not canonical")
+        view = _object(original, {"schema_version", "scope", "task_id",
                         "configuration_digest", "graph", "task", "assignment",
                         "planned_actor_class", "planned_profile", "attempts"})
         if (view["schema_version"] != SCHEMA or view["scope"] != wire_scope
