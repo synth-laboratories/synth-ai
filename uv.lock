@@ -2080,7 +2080,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.22.2"
+version = "0.22.2.dev20261009"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -2135,7 +2135,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pynacl", specifier = ">=1.5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "synth-containers", marker = "extra == 'pools'", specifier = ">=0.4.3.dev2026091126,<0.5" },
+    { name = "synth-containers", marker = "extra == 'pools'", path = "vendor/synth-containers/synth_containers-0.4.5.dev20261009-py3-none-any.whl" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },
 ]
 provides-extras = ["pools", "dev", "research"]
@@ -2162,23 +2162,36 @@ dev = [
 
 [[package]]
 name = "synth-containers"
-version = "0.4.3"
-source = { registry = "https://pypi.org/simple" }
+version = "0.4.5.dev20261009"
+source = { path = "vendor/synth-containers/synth_containers-0.4.5.dev20261009-py3-none-any.whl" }
 dependencies = [
     { name = "certifi" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "idna" },
     { name = "pydantic" },
-    { name = "starlette" },
     { name = "uvicorn" },
     { name = "websockets" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1f/7f/d0682349835335198d05bdee717203ca0037481077d223f6453e4163a6e7/synth_containers-0.4.3.tar.gz", hash = "sha256:d0bab327439a93fc90c77f19c464a14b9f9cefb589ae76ba56bd66b07ea4efa7", size = 1084857, upload-time = "2026-09-10T00:29:47.255Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d3/0d/48e34c3340946a40301a9d2532700bdbf130034e2959a1402e40e9a39ef2/synth_containers-0.4.3-py3-none-any.whl", hash = "sha256:eaff16ec40b6e2c9a569751f415912178f3aa0ac63396749466ec92e1d734bf5", size = 949586, upload-time = "2026-09-10T00:29:45.202Z" },
+    { filename = "synth_containers-0.4.5.dev20261009-py3-none-any.whl", hash = "sha256:904f5e0930106c02fe662b01a2a934d2c79fcef14a6f71c8c882a0b05d480908" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.1" },
+    { name = "certifi", specifier = ">=2024.0.0" },
+    { name = "fastapi", specifier = ">=0.110.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },
+    { name = "twine", marker = "extra == 'dev'", specifier = ">=5.0.0" },
+    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.32" },
+    { name = "uvicorn", specifier = ">=0.30.0" },
+    { name = "websockets", specifier = ">=14.0" },
+    { name = "zstandard", specifier = ">=0.23.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "tenacity"

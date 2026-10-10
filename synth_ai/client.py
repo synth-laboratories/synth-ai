@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from synth_ai.sdk.optimizers import AsyncOptimizersClient, OptimizersClient
     from synth_ai.sdk.research import AsyncResearchClient
     from synth_ai.sdk.research.facade import ResearchClient
+    from synth_ai.sdk.tunnels import TunnelsClient, AsyncTunnelsClient
 
 
 def _resolve_api_key(api_key: str | None) -> str:
@@ -64,11 +65,28 @@ class SynthClient:
         self._index_timeout_seconds = (
             INDEX_TRANSPORT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
         )
+        self._tunnels_client: TunnelsClient | None = None
         self._research_client: ResearchClient | None = None
         self._optimizers_client: OptimizersClient | None = None
         self._index_api: IndexAPI | None = None
         self._index_transport: HttpTransport | None = None
         self._messaging_client: MessagingClient | None = None
+
+    @property
+    def tunnels(self) -> TunnelsClient:
+        """Return the canonical v2 control facade without owning a connector's lifetime."""
+        if self._tunnels_client is None:
+            from synth_ai.core.http.transport import HttpTransport
+            from synth_ai.sdk.tunnels import TunnelsClient
+
+            self._tunnels_client = TunnelsClient(
+                HttpTransport(
+                    base_url=self.base_url,
+                    headers={"Authorization": "Bearer " + self.api_key},
+                    timeout_seconds=self.timeout_seconds,
+                )
+            )
+        return self._tunnels_client
 
     @property
     def index(self) -> IndexAPI:
@@ -125,6 +143,9 @@ class SynthClient:
 
     def close(self) -> None:
         """Close all lazily opened SDK transports."""
+        if self._tunnels_client is not None:
+            self._tunnels_client.close()
+            self._tunnels_client = None
         if self._index_transport is not None:
             self._index_transport.close()
             self._index_transport = None
@@ -194,6 +215,7 @@ class AsyncSynthClient:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
         self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
+        self._async_tunnels_client: AsyncTunnelsClient | None = None
         self._index_timeout_seconds = (
             INDEX_TRANSPORT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
         )
@@ -203,6 +225,22 @@ class AsyncSynthClient:
         self._index_transport: AsyncHttpTransport | None = None
         self._pool_client: PoolClient | None = None
         self._async_messaging_client: AsyncMessagingClient | None = None
+
+    @property
+    def tunnels(self) -> AsyncTunnelsClient:
+        """Return the async v2 control facade; closing transport does not revoke a shared lease."""
+        if self._async_tunnels_client is None:
+            from synth_ai.core.http.async_transport import AsyncHttpTransport
+            from synth_ai.sdk.tunnels import AsyncTunnelsClient
+
+            self._async_tunnels_client = AsyncTunnelsClient(
+                AsyncHttpTransport(
+                    base_url=self.base_url,
+                    headers={"Authorization": "Bearer " + self.api_key},
+                    timeout_seconds=self.timeout_seconds,
+                )
+            )
+        return self._async_tunnels_client
 
     @property
     def index(self) -> AsyncIndexAPI:
@@ -292,6 +330,9 @@ class AsyncSynthClient:
 
     async def close(self) -> None:
         """Close all asynchronous Research transports."""
+        if self._async_tunnels_client is not None:
+            await self._async_tunnels_client.close()
+            self._async_tunnels_client = None
         try:
             if self._index_transport is not None:
                 await self._index_transport.close()
