@@ -49,10 +49,23 @@ def _integer(value: JsonValue, *, maximum: int = 2**64 - 1) -> int:
     return value
 
 
+def _name(value: JsonValue) -> str:
+    if (not isinstance(value, str) or not 1 <= len(value) <= 256
+            or not all(33 <= ord(character) <= 126 for character in value)):
+        raise ValueError("Task execution owner name invalid")
+    return value
+
+
+def _identity(value: JsonValue) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Task execution owner identity invalid")
+    return task_identity(value)
+
+
 def _reference(value: JsonValue) -> JsonObject:
     result = _object(value, {"owner", "schema", "reference", "sha256"})
-    if not all(isinstance(part, str) and part for part in result.values()):
-        raise ValueError("Task execution evidence reference invalid")
+    for field in ("owner", "schema", "reference"):
+        _name(result[field])
     digest = result["sha256"]
     if not isinstance(digest, str) or not _DIGEST.fullmatch(digest):
         raise ValueError("Task execution evidence digest invalid")
@@ -62,10 +75,9 @@ def _reference(value: JsonValue) -> JsonObject:
 def _attempt(value: JsonValue, scope: JsonObject, configuration: str) -> JsonObject:
     attempt = _object(value, _ATTEMPT_FIELDS)
     for field in ("actor_id", "attempt_id"):
-        identity = attempt[field]
-        if not isinstance(identity, str):
-            raise ValueError("Task execution attempt identity invalid")
-        task_identity(identity)
+        _identity(attempt[field])
+    for field in ("actor_class", "slot_key"):
+        _name(attempt[field])
     _integer(attempt["allocated_at_ms"], maximum=2**63 - 1)
     if attempt["started_at_ms"] is not None or attempt["finished_at_ms"] is not None:
         raise ValueError("Task execution v1 has no authoritative attempt clock")
@@ -76,6 +88,22 @@ def _attempt(value: JsonValue, scope: JsonObject, configuration: str) -> JsonObj
     if (inputs.get("scope") != scope or inputs.get("attempt_id") != attempt["attempt_id"]
             or inputs.get("configuration_digest") != configuration):
         raise ValueError("Task execution attempt leaves its binding")
+    for field in ("materialized_configuration", "actor_catalogue", "profile",
+                  "output_registry", "graph", "task", "assignment"):
+        _reference(inputs[field])
+    _name(inputs["requirement_revision"])
+    sources = inputs["dynamic_sources"]
+    if not isinstance(sources, list):
+        raise ValueError("Task execution dynamic source inventory invalid")
+    for value in sources:
+        source = _object(value, {"origin", "evidence"})
+        origin = _object(source["origin"], {"owner", "source_id", "source_revision", "source_cursor"})
+        for field in ("owner", "source_id", "source_revision"):
+            _name(origin[field])
+        if origin["source_cursor"] is not None:
+            _name(origin["source_cursor"])
+        if _reference(source["evidence"])["owner"] != origin["owner"]:
+            raise ValueError("Task execution dynamic source owner differs")
     allocation = _reference(attempt["allocation"])
     if (allocation["owner"] != "orchestra"
             or allocation["schema"] != "orchestra.prelaunch-attempt.v1"
@@ -124,6 +152,28 @@ def _attempt(value: JsonValue, scope: JsonObject, configuration: str) -> JsonObj
                                  "published", "validation", "acceptance"})
         if output.get("inputs") != inputs:
             raise ValueError("Task execution output leaves its attempt")
+        # OutputRecord binds the original catalogue; transport cannot choose a
+        # different registry even when all other attempt inputs are unchanged.
+        if _reference(output["registry"]) != inputs["output_registry"]:
+            raise ValueError("Task execution output registry differs")
+        for field in ("output_id", "requirement_id"):
+            _identity(output[field])
+        _name(output["kind"])
+        if output["subtype"] is not None:
+            _name(output["subtype"])
+        operation = output["operation_id"]
+        if not isinstance(operation, str) or not re.fullmatch(r"[0-9a-f]{64}", operation):
+            raise ValueError("Task execution output operation invalid")
+        digest = output["sha256"]
+        if not isinstance(digest, str) or not _DIGEST.fullmatch(digest):
+            raise ValueError("Task execution output digest invalid")
+        _reference(output["published"])
+        for field in ("validation", "acceptance"):
+            receipts = output[field]
+            if not isinstance(receipts, list):
+                raise ValueError("Task execution output receipt inventory invalid")
+            for receipt in receipts:
+                _reference(receipt)
     return attempt
 
 
@@ -158,8 +208,8 @@ class TaskExecutionRead:
                 or not isinstance(configuration, str) or not _DIGEST.fullmatch(configuration)):
             raise ValueError("Task execution owner scope or configuration differs")
         machine = _object(body["machine"], {"name", "reducer_version", "configuration_digest"})
-        if (not isinstance(machine["name"], str) or not machine["name"]
-                or _integer(machine["reducer_version"], maximum=2**32 - 1) == 0):
+        _name(machine["name"])
+        if _integer(machine["reducer_version"], maximum=2**32 - 1) == 0:
             raise ValueError("Task execution machine identity invalid")
         machine_digest = machine["configuration_digest"]
         if not isinstance(machine_digest, str) or not _DIGEST.fullmatch(machine_digest):
@@ -188,6 +238,7 @@ class TaskExecutionRead:
             raise ValueError("Task execution view binding differs")
         for field in ("graph", "task", "assignment", "planned_profile"):
             _reference(view[field])
+        _name(view["planned_actor_class"])
         rows = view["attempts"]
         if not isinstance(rows, list):
             raise ValueError("Task execution attempt inventory invalid")
