@@ -19,6 +19,7 @@ first access and will be removed in a future release.
 
 from __future__ import annotations
 
+import math
 import warnings
 from collections.abc import Mapping
 from typing import Any
@@ -312,13 +313,63 @@ class ResearchStructuredDenialError(ResearchApiError):
         response_text: str | None = None,
         detail: dict[str, Any] | None = None,
     ) -> None:
+        exact_detail = dict(detail) if detail else {}
+        code = exact_detail.get("error_code")
+        if not isinstance(code, str) or not code.strip():
+            code = f"http_{status_code}" if status_code is not None else "structured_denial"
+        category = {
+            400: SynthErrorCategory.VALIDATION,
+            401: SynthErrorCategory.AUTHENTICATION,
+            402: SynthErrorCategory.RESOURCE_EXHAUSTED,
+            403: SynthErrorCategory.AUTHORIZATION,
+            404: SynthErrorCategory.VALIDATION,
+            405: SynthErrorCategory.VALIDATION,
+            409: SynthErrorCategory.CONFLICT,
+            422: SynthErrorCategory.VALIDATION,
+            429: SynthErrorCategory.RATE_LIMITED,
+        }.get(status_code, SynthErrorCategory.OPERATION)
+        if status_code is not None and 500 <= status_code < 600:
+            category = SynthErrorCategory.TRANSIENT_SERVICE
+        retryable = exact_detail.get("retryable")
+        if not isinstance(retryable, bool):
+            retryable = category in {
+                SynthErrorCategory.RATE_LIMITED,
+                SynthErrorCategory.TRANSIENT_SERVICE,
+            }
+
+        def identity(name: str) -> str | None:
+            value = exact_detail.get(name)
+            return value if isinstance(value, str) and value.strip() else None
+
+        raw_delay = exact_detail.get("retry_after_seconds")
+        try:
+            delay = None if raw_delay is None or isinstance(raw_delay, bool) else float(raw_delay)
+        except (TypeError, ValueError, OverflowError):
+            delay = None
+        if delay is not None and (not math.isfinite(delay) or delay < 0):
+            delay = None
         super().__init__(
             message,
             status_code=status_code,
             response_text=response_text,
-            body=detail,
+            body=exact_detail,
+            operation_id=identity("operation_id"),
+            failure=SynthFailure(
+                code=SynthErrorCode(code),
+                category=category,
+                operation=identity("operation_id"),
+                request_id=identity("request_id"),
+                correlation_id=identity("correlation_id"),
+                retry=RetryDirective(
+                    retryable=retryable,
+                    retry_after_seconds=delay,
+                ),
+                status=status_code,
+                detail=message,
+                reason=identity("reason"),
+            ),
         )
-        self.detail = dict(detail) if detail else {}
+        self.detail = exact_detail
 
 
 class ResearchScientificRefusalError(ResearchApiError):
