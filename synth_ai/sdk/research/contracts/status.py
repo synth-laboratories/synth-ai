@@ -397,6 +397,50 @@ class SwarmPendingAction:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class SwarmStatusAuthorityRef:
+    """Evidence reference to the constructor terminal that owns terminal truth.
+
+    # See: backend services/smr/runtime/terminal_public_adapter.py (hotspot 2a)
+    """
+
+    owner: str
+    schema: str
+    reference: str
+    sha256: str
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> SwarmStatusAuthorityRef:
+        payload = _exact(
+            value,
+            label="swarm status authority_ref",
+            fields=frozenset({"owner", "schema", "reference", "sha256"}),
+        )
+        return cls(
+            required_text(payload, "owner"),
+            required_text(payload, "schema"),
+            required_text(payload, "reference"),
+            required_text(payload, "sha256"),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "owner": self.owner,
+            "schema": self.schema,
+            "reference": self.reference,
+            "sha256": self.sha256,
+        }
+
+
+def _optional_bool(payload: JsonObject, name: str) -> bool | None:
+    value = payload.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be a boolean or null")
+    return value
+
+
 _STATUS_FIELDS = frozenset(
     {
         "schema_version",
@@ -413,8 +457,11 @@ _STATUS_FIELDS = frozenset(
         "freshness",
     }
 )
-# Orchestra-authority runs carry unanswered actions; older backends omit the key.
-_STATUS_OPTIONAL_FIELDS = frozenset({"pending_questions"})
+# Known keys an older backend may omit. Each is parsed strictly when present:
+# Orchestra-authority runs carry unanswered actions (``pending_questions``);
+# the hotspot 2a terminal adapter (Pressure beceec07) carries ``active``,
+# ``authority_ref`` and ``finished_at``.
+_STATUS_OPTIONAL_FIELDS = frozenset({"pending_questions", "active", "authority_ref", "finished_at"})
 
 
 # Preserve both public names for the same strict pending-question contract.
@@ -438,6 +485,15 @@ class SwarmStatus:
     freshness: SwarmStatusFreshness
     schema_version: int = 1
     pending_actions: tuple[SwarmPendingAction, ...] = ()
+    # ``None`` means the backend did not send the key (older backend) or
+    # explicitly published no value (no terminal authority / refused authority).
+    active: bool | None = None
+    authority_ref: SwarmStatusAuthorityRef | None = None
+    finished_at: datetime | None = None
+    # Top-level keys this SDK does not know yet. Additive server fields must
+    # not break installed clients (Pressure 6204833e); their names are kept so
+    # callers can detect a newer server, their values are not interpreted.
+    unrecognized_fields: frozenset[str] = frozenset()
 
     @property
     def pending_questions(self) -> tuple[SwarmPendingAction, ...]:
@@ -446,14 +502,14 @@ class SwarmStatus:
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmStatus:
         payload = object_value(value, operation_id="retrieve_swarm_status")
-        present = payload.keys() - _STATUS_OPTIONAL_FIELDS
-        missing, extra = _STATUS_FIELDS - present, present - _STATUS_FIELDS
-        if missing or extra:
-            raise ValueError(
-                "retrieve_swarm_status fields drifted: "
-                f"missing={sorted(missing)!r} extra={sorted(extra)!r}"
-            )
+        missing = _STATUS_FIELDS - payload.keys()
+        if missing:
+            raise ValueError(f"retrieve_swarm_status fields drifted: missing={sorted(missing)!r}")
+        unrecognized = frozenset(
+            str(key) for key in payload.keys() - _STATUS_FIELDS - _STATUS_OPTIONAL_FIELDS
+        )
         pending = payload.get("pending_questions")
+        authority_ref = payload.get("authority_ref")
         schema_version = payload["schema_version"]
         if schema_version != 1:
             raise ValueError(f"unsupported swarm status schema_version {schema_version!r}")
@@ -478,6 +534,10 @@ class SwarmStatus:
                     else array_value(pending, operation_id="swarm status pending_questions")
                 )
             ),
+            _optional_bool(payload, "active"),
+            None if authority_ref is None else SwarmStatusAuthorityRef.from_wire(authority_ref),
+            _optional_datetime(payload, "finished_at"),
+            unrecognized,
         )
 
     def to_wire(self) -> JsonObject:
@@ -568,12 +628,16 @@ class SwarmStatus:
                 "generated_at": self.freshness.generated_at.isoformat(),
             },
             "pending_questions": [item.to_wire() for item in self.pending_actions],
+            "active": self.active,
+            "authority_ref": None if self.authority_ref is None else self.authority_ref.to_wire(),
+            "finished_at": None if self.finished_at is None else self.finished_at.isoformat(),
         }
 
 
 __all__ = [
     "SwarmPendingAction",
     "SwarmStatus",
+    "SwarmStatusAuthorityRef",
     "SwarmStatusFailure",
     "SwarmStatusFinalization",
     "SwarmStatusFreshness",
