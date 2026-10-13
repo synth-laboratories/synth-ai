@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import json
 import os
 import re
 from collections.abc import Iterable, Mapping
@@ -1016,6 +1018,22 @@ def _code_bundle_upload_payload(
     if commit_message:
         payload["commit_message"] = commit_message
     return payload
+
+
+def _code_bundle_upload_idempotency_key(project_id: str, payload: Mapping[str, Any]) -> str:
+    """Content-derived replay identity for one code-bundle upload.
+
+    The backend route is convergent on identical content: ``upload_id`` hashes
+    project+filename+bytes, and committing an identical tree is a no-op
+    (``_apply_files_commit`` returns ``committed=False``). A replay with the same
+    project and payload therefore cannot apply a second, different effect.
+    """
+    canonical = json.dumps(
+        {"project_id": project_id, "payload": dict(payload)},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "code-bundle-upload:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -3051,19 +3069,23 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         default_branch: str = "main",
         metadata: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        payload = _code_bundle_upload_payload(
+            bundle_path,
+            filename=filename,
+            content_type=content_type,
+            source_kind=source_kind,
+            commit_message=commit_message,
+            default_branch=default_branch,
+            metadata=metadata,
+        )
         return _coerce_dict(
             self._request_json(
                 "POST",
                 f"/smr/projects/{project_id}/workspace/code-bundle:upload",
-                json_body=_code_bundle_upload_payload(
-                    bundle_path,
-                    filename=filename,
-                    content_type=content_type,
-                    source_kind=source_kind,
-                    commit_message=commit_message,
-                    default_branch=default_branch,
-                    metadata=metadata,
-                ),
+                json_body=payload,
+                headers={
+                    "Idempotency-Key": _code_bundle_upload_idempotency_key(project_id, payload)
+                },
             ),
             label="upload_project_code_bundle",
         )
