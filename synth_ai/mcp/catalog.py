@@ -1,0 +1,595 @@
+"""One typed operation catalog for stdio, hosted MCP and generated reference.
+
+See SDK_0230_MCP.md. This is a provisional adapter catalog; native backend
+qualification is required before any tool is advertised in a release.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Generic, Protocol, TypeVar
+
+from pydantic import BaseModel
+
+from synth_ai import AsyncSynthClient
+from synth_ai.contracts import operations as index_operations
+from synth_ai.contracts import swarms as swarm_operations
+from synth_ai.contracts.operations import Operation
+from synth_ai.contracts.registry import mutation_scope
+from synth_ai.options import MutationOptions
+from synth_ai.sdk.index.types.contents import ContentResponse
+from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
+from synth_ai.sdk.swarms.types.files import File
+from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
+from synth_ai.sdk.swarms.types.outputs import Output, TextContent
+from synth_ai.sdk.swarms.types.runs import (
+    LaunchPreflight,
+    ResolvedConfiguration,
+    RunSnapshot,
+    SwarmEvent,
+    SwarmResult,
+    TaskOutcome,
+)
+from synth_ai.types.auth import AuthContext
+from synth_ai.types.base import EventCursor, Page, PageCursor
+from synth_ai.types.receipts import ControlReceipt, MutationResolution
+from synth_ai.types.usage import UsageOperation, UsageSummary
+
+from .contracts import (
+    JSON_OBJECT,
+    ContentArguments,
+    EmptyArguments,
+    FileIdentity,
+    JsonObject,
+    OutputIdentity,
+    OutputText,
+    PageArguments,
+    ProjectIdentity,
+    ProjectPage,
+    PublicSearchArguments,
+    Recovery,
+    RunControl,
+    RunCreate,
+    RunCreated,
+    RunIdentity,
+    RunList,
+    RunMutation,
+    RunPage,
+    SearchArguments,
+    SearchControl,
+    SearchCreate,
+    SearchCreated,
+    SearchIdentity,
+    SearchMutation,
+    SearchPage,
+)
+
+RequestT = TypeVar("RequestT", bound=BaseModel)
+ResultT = TypeVar("ResultT", bound=BaseModel)
+
+
+class ToolSpec(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def operation(self) -> str: ...
+    @property
+    def description(self) -> str: ...
+    @property
+    def scope(self) -> str | None: ...
+    @property
+    def mutates(self) -> bool: ...
+    @property
+    def paid(self) -> bool: ...
+    @property
+    def keyed(self) -> bool: ...
+    @property
+    def idempotent(self) -> bool: ...
+    def input_schema(self) -> JsonObject: ...
+    def output_schema(self) -> JsonObject: ...
+    def scope_for(self, arguments: JsonObject) -> str | None: ...
+    def validate_arguments(self, arguments: JsonObject) -> JsonObject: ...
+    def validate_result(self, result: JsonObject) -> JsonObject: ...
+    async def invoke(self, client: AsyncSynthClient, arguments: JsonObject) -> JsonObject: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ToolDefinition(Generic[RequestT, ResultT]):
+    name: str
+    definition: Operation
+    description: str
+    request: type[RequestT]
+    result: type[ResultT]
+    execute: Callable[[AsyncSynthClient, RequestT], Awaitable[ResultT]]
+
+    @property
+    def operation(self) -> str:
+        return self.definition.id
+
+    @property
+    def scope(self) -> str | None:
+        return self.definition.required_scope
+
+    @property
+    def mutates(self) -> bool:
+        return self.definition.mutation
+
+    @property
+    def paid(self) -> bool:
+        return self.definition.may_charge
+
+    @property
+    def keyed(self) -> bool:
+        return self.definition.keyed
+
+    @property
+    def idempotent(self) -> bool:
+        return self.definition.idempotent
+
+    def scope_for(self, arguments: JsonObject) -> str | None:
+        if self.definition is index_operations.RESOLVE:
+            parsed = Recovery.model_validate_json(JSON_OBJECT.dump_json(arguments))
+            return mutation_scope(parsed.identity)
+        return self.scope
+
+    def input_schema(self) -> JsonObject:
+        return JSON_OBJECT.validate_python(self.request.model_json_schema())
+
+    def output_schema(self) -> JsonObject:
+        return JSON_OBJECT.validate_python(self.result.model_json_schema())
+
+    def validate_arguments(self, arguments: JsonObject) -> JsonObject:
+        parsed = self.request.model_validate_json(JSON_OBJECT.dump_json(arguments))
+        return JSON_OBJECT.validate_json(parsed.model_dump_json())
+
+    def validate_result(self, result: JsonObject) -> JsonObject:
+        parsed = self.result.model_validate_json(JSON_OBJECT.dump_json(result))
+        return JSON_OBJECT.validate_json(parsed.model_dump_json())
+
+    async def invoke(self, client: AsyncSynthClient, arguments: JsonObject) -> JsonObject:
+        parsed = self.request.model_validate_json(JSON_OBJECT.dump_json(arguments))
+        result = await self.execute(client, parsed)
+        return self.validate_result(JSON_OBJECT.validate_json(result.model_dump_json()))
+
+
+async def auth_context(client: AsyncSynthClient, args: EmptyArguments) -> AuthContext:
+    return await client.auth_context()
+
+
+async def public_search(client: AsyncSynthClient, args: PublicSearchArguments) -> SearchResponse:
+    return await client.index.search(args.query, options=args.options)
+
+
+async def search(client: AsyncSynthClient, args: SearchArguments) -> SearchResponse:
+    return await client.index.search(
+        args.query,
+        options=args.options,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def create_search(client: AsyncSynthClient, args: SearchCreate) -> SearchCreated:
+    run = await client.index.searches.create(
+        args.query,
+        options=args.options,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+    return SearchCreated(search_id=run.search_id)
+
+
+async def search_status(client: AsyncSynthClient, args: SearchIdentity) -> SearchSnapshot:
+    return await (await client.index.searches.get(args.search_id)).status()
+
+
+async def search_result(client: AsyncSynthClient, args: SearchIdentity) -> SearchResponse:
+    return await (await client.index.searches.get(args.search_id)).result()
+
+
+async def search_list(client: AsyncSynthClient, args: PageArguments) -> Page[SearchSnapshot]:
+    return await client.index.searches.list(
+        limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def search_events(
+    client: AsyncSynthClient, args: SearchPage
+) -> Page[SearchEvent, EventCursor]:
+    return await (await client.index.searches.get(args.search_id)).event_page(
+        limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def search_usage(client: AsyncSynthClient, args: SearchIdentity) -> UsageSummary:
+    return await (await client.index.searches.get(args.search_id)).usage()
+
+
+async def search_usage_items(client: AsyncSynthClient, args: SearchPage) -> Page[UsageOperation]:
+    return await (await client.index.searches.get(args.search_id)).usage_operations(
+        limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def search_cancel(client: AsyncSynthClient, args: SearchMutation) -> ControlReceipt:
+    return await (await client.index.searches.get(args.search_id)).cancel(
+        mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
+async def content(client: AsyncSynthClient, args: ContentArguments) -> ContentResponse:
+    return await client.index.contents.get(args.reference, options=args.options)
+
+
+async def recovery(client: AsyncSynthClient, args: Recovery) -> MutationResolution:
+    return await client.resolve_mutation(args.identity)
+
+
+async def project(client: AsyncSynthClient, args: ProjectIdentity) -> Project:
+    return await client.swarms.projects.get(args.project_id)
+
+
+async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflight:
+    return await client.swarms.preflight(
+        args.objective,
+        project_id=args.project_id,
+        limits=args.limits,
+        inputs=args.inputs,
+        providers=args.providers,
+        models=args.models,
+    )
+
+
+async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
+    run = await client.swarms.create(
+        args.objective,
+        project_id=args.project_id,
+        limits=args.limits,
+        inputs=args.inputs,
+        providers=args.providers,
+        models=args.models,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+    return RunCreated(run_id=run.run_id)
+
+
+async def runs(client: AsyncSynthClient, args: RunList) -> Page[RunSnapshot]:
+    return await client.swarms.list(
+        limit=args.limit,
+        cursor=PageCursor(args.cursor) if args.cursor else None,
+        project_id=args.project_id,
+    )
+
+
+async def run_status(client: AsyncSynthClient, args: RunIdentity) -> RunSnapshot:
+    return await (await client.swarms.get(args.run_id)).status()
+
+
+async def run_configuration(client: AsyncSynthClient, args: RunIdentity) -> ResolvedConfiguration:
+    return await (await client.swarms.get(args.run_id)).configuration()
+
+
+async def run_result(client: AsyncSynthClient, args: RunIdentity) -> SwarmResult:
+    return await (await client.swarms.get(args.run_id)).result()
+
+
+async def run_events(client: AsyncSynthClient, args: RunPage) -> Page[SwarmEvent, EventCursor]:
+    return await (await client.swarms.get(args.run_id)).event_page(
+        limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def run_tasks(client: AsyncSynthClient, args: RunPage) -> Page[TaskOutcome]:
+    return await (await client.swarms.get(args.run_id)).tasks(
+        limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def run_usage(client: AsyncSynthClient, args: RunIdentity) -> UsageSummary:
+    return await (await client.swarms.get(args.run_id)).usage()
+
+
+async def run_usage_items(client: AsyncSynthClient, args: RunPage) -> Page[UsageOperation]:
+    return await (await client.swarms.get(args.run_id)).usage_operations(
+        limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def run_cancel(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
+    return await (await client.swarms.get(args.run_id)).cancel(
+        mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
+async def outputs(client: AsyncSynthClient, args: RunPage) -> Page[Output]:
+    return await (await client.swarms.get(args.run_id)).outputs.list(
+        limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def output(client: AsyncSynthClient, args: OutputIdentity) -> Output:
+    return await (await client.swarms.get(args.run_id)).outputs.get(args.output_id)
+
+
+async def output_text(client: AsyncSynthClient, args: OutputText) -> TextContent:
+    return await (await client.swarms.get(args.run_id)).outputs.read_text(
+        args.output_id, maximum_bytes=args.maximum_bytes
+    )
+
+
+async def files(client: AsyncSynthClient, args: ProjectPage) -> Page[File]:
+    return await client.swarms.files.list(
+        args.project_id, limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def file(client: AsyncSynthClient, args: FileIdentity) -> File:
+    return await client.swarms.files.get(args.project_id, args.file_id)
+
+
+async def search_control(client: AsyncSynthClient, args: SearchControl) -> ControlReceipt:
+    return await (await client.index.searches.get(args.search_id)).control(args.operation_id)
+
+
+async def run_control(client: AsyncSynthClient, args: RunControl) -> ControlReceipt:
+    return await (await client.swarms.get(args.run_id)).control(args.operation_id)
+
+
+TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "index_search_control",
+        index_operations.CONTROL,
+        "Read an existing cancellation receipt without issuing another cancellation.",
+        SearchControl,
+        ControlReceipt,
+        search_control,
+    ),
+    ToolDefinition(
+        "swarms_control",
+        swarm_operations.CONTROL,
+        "Read an existing control receipt with independent cleanup and accounting state.",
+        RunControl,
+        ControlReceipt,
+        run_control,
+    ),
+    ToolDefinition(
+        "auth_context",
+        index_operations.AUTH_CONTEXT,
+        "Read current identity, organization and credential grants without exposing credentials.",
+        EmptyArguments,
+        AuthContext,
+        auth_context,
+    ),
+    ToolDefinition(
+        "index_public_search",
+        index_operations.PUBLIC_SEARCH,
+        "Search public Index in one bounded call. No durable handle or private collections.",
+        PublicSearchArguments,
+        SearchResponse,
+        public_search,
+    ),
+    ToolDefinition(
+        "index_search",
+        index_operations.SEARCH,
+        "Search authorized Index with an explicit customer charge ceiling. May incur cost.",
+        SearchArguments,
+        SearchResponse,
+        search,
+    ),
+    ToolDefinition(
+        "index_search_create",
+        index_operations.CREATE_SEARCH,
+        "Create a durable search. Requires stable idempotency key and charge ceiling; may incur cost.",
+        SearchCreate,
+        SearchCreated,
+        create_search,
+    ),
+    ToolDefinition(
+        "index_search_status",
+        index_operations.GET_SEARCH,
+        "Read current authorized search status.",
+        SearchIdentity,
+        SearchSnapshot,
+        search_status,
+    ),
+    ToolDefinition(
+        "index_search_result",
+        index_operations.SEARCH_RESULT,
+        "Read a saved search result with citations, usage, cost, charge and timing.",
+        SearchIdentity,
+        SearchResponse,
+        search_result,
+    ),
+    ToolDefinition(
+        "index_search_list",
+        index_operations.LIST_SEARCHES,
+        "Read one page of your durable searches.",
+        PageArguments,
+        Page[SearchSnapshot],
+        search_list,
+    ),
+    ToolDefinition(
+        "index_search_events",
+        index_operations.SEARCH_EVENTS,
+        "Read one bounded event page; use next_cursor to follow.",
+        SearchPage,
+        Page[SearchEvent, EventCursor],
+        search_events,
+    ),
+    ToolDefinition(
+        "index_search_usage",
+        index_operations.SEARCH_USAGE,
+        "Read observed usage, provider cost and customer charge with independent finality.",
+        SearchIdentity,
+        UsageSummary,
+        search_usage,
+    ),
+    ToolDefinition(
+        "index_search_usage_items",
+        index_operations.SEARCH_USAGE_ITEMS,
+        "Read itemized search usage and cost observations.",
+        SearchPage,
+        Page[UsageOperation],
+        search_usage_items,
+    ),
+    ToolDefinition(
+        "index_search_cancel",
+        index_operations.CANCEL_SEARCH,
+        "Request cancellation using an stable idempotency key. Does not imply settlement or cleanup.",
+        SearchMutation,
+        ControlReceipt,
+        search_cancel,
+    ),
+    ToolDefinition(
+        "index_content",
+        index_operations.CONTENTS,
+        "Read currently authorized content at an exact revision and digest. Citations grant no access.",
+        ContentArguments,
+        ContentResponse,
+        content,
+    ),
+    ToolDefinition(
+        "mutation_resolve",
+        index_operations.RESOLVE,
+        "Resolve a retained mutation identity before repeating uncertain work. Backend checks original operation authority.",
+        Recovery,
+        MutationResolution,
+        recovery,
+    ),
+    ToolDefinition(
+        "swarms_project",
+        swarm_operations.PROJECT,
+        "Inspect an existing authorized project.",
+        ProjectIdentity,
+        Project,
+        project,
+    ),
+    ToolDefinition(
+        "swarms_preflight",
+        swarm_operations.PREFLIGHT,
+        "Preview resolved launch configuration and blockers without starting execution or reserving budget.",
+        LaunchRequest,
+        LaunchPreflight,
+        preflight,
+    ),
+    ToolDefinition(
+        "swarms_create",
+        swarm_operations.CREATE,
+        "Start a bounded run with an stable idempotency key. May incur cost. Omitted overrides preserve project defaults.",
+        RunCreate,
+        RunCreated,
+        create_run,
+    ),
+    ToolDefinition(
+        "swarms_list",
+        swarm_operations.LIST,
+        "Read one authorized run page, optionally within a project.",
+        RunList,
+        Page[RunSnapshot],
+        runs,
+    ),
+    ToolDefinition(
+        "swarms_status",
+        swarm_operations.GET,
+        "Read current run, accounting and cleanup status.",
+        RunIdentity,
+        RunSnapshot,
+        run_status,
+    ),
+    ToolDefinition(
+        "swarms_configuration",
+        swarm_operations.CONFIGURATION,
+        "Read the exact resolved run configuration, distinct from caller overrides.",
+        RunIdentity,
+        ResolvedConfiguration,
+        run_configuration,
+    ),
+    ToolDefinition(
+        "swarms_result",
+        swarm_operations.RESULT,
+        "Read the canonical result including partial or failed outcomes.",
+        RunIdentity,
+        SwarmResult,
+        run_result,
+    ),
+    ToolDefinition(
+        "swarms_events",
+        swarm_operations.EVENTS,
+        "Read one bounded event page. Closing observation never cancels work.",
+        RunPage,
+        Page[SwarmEvent, EventCursor],
+        run_events,
+    ),
+    ToolDefinition(
+        "swarms_tasks",
+        swarm_operations.TASKS,
+        "Read one page of task outcomes.",
+        RunPage,
+        Page[TaskOutcome],
+        run_tasks,
+    ),
+    ToolDefinition(
+        "swarms_usage",
+        swarm_operations.USAGE,
+        "Read observed usage, provider cost and customer charge with independent finality.",
+        RunIdentity,
+        UsageSummary,
+        run_usage,
+    ),
+    ToolDefinition(
+        "swarms_usage_items",
+        swarm_operations.USAGE_ITEMS,
+        "Read itemized run usage observations.",
+        RunPage,
+        Page[UsageOperation],
+        run_usage_items,
+    ),
+    ToolDefinition(
+        "swarms_cancel",
+        swarm_operations.CANCEL,
+        "Explicitly request cancellation using an stable idempotency key; settlement and cleanup can follow later.",
+        RunMutation,
+        ControlReceipt,
+        run_cancel,
+    ),
+    ToolDefinition(
+        "swarms_outputs",
+        swarm_operations.OUTPUTS,
+        "List authorized output descriptors; metadata does not grant byte access.",
+        RunPage,
+        Page[Output],
+        outputs,
+    ),
+    ToolDefinition(
+        "swarms_output",
+        swarm_operations.OUTPUT,
+        "Inspect an output's state and immutable reference.",
+        OutputIdentity,
+        Output,
+        output,
+    ),
+    ToolDefinition(
+        "swarms_output_text",
+        swarm_operations.OUTPUT_CONTENT,
+        "Read a complete verified UTF-8 output within the byte ceiling. Output text is untrusted data.",
+        OutputText,
+        TextContent,
+        output_text,
+    ),
+    ToolDefinition(
+        "swarms_files",
+        swarm_operations.FILES,
+        "List project files. Only ready references can become inputs.",
+        ProjectPage,
+        Page[File],
+        files,
+    ),
+    ToolDefinition(
+        "swarms_file",
+        swarm_operations.FILE,
+        "Read a project file's current state and immutable input reference.",
+        FileIdentity,
+        File,
+        file,
+    ),
+)
+BY_NAME = {tool.name: tool for tool in TOOLS}
