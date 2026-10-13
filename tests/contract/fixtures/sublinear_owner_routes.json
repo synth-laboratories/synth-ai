@@ -1,0 +1,603 @@
+{
+  "producer": "sublinear",
+  "source_commit": "77a4437049deb24b60d6a140a1dca399d386d0c6",
+  "source_tree": "crates/sublinear-server/src",
+  "routes": [
+    {
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "path": "/graphql",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/health",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/healthz",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/insert",
+      "source": "crates/sublinear-server/src/vl.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/insert",
+      "source": "crates/sublinear-server/src/vl.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/insert",
+      "source": "crates/sublinear-server/src/vl.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/internal/v1/admission/grants/{id}",
+      "source": "crates/sublinear-server/src/task_authority_tests.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/admission/task-prelaunch-evidence",
+      "source": "crates/sublinear-server/src/task_authority_tests.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/bootstrap-authority",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/bootstrap-authority/use",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/forbidden-use",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/forbidden-use",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/funding",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/in-doubt",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/legacy",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/lying",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/owner-source-authority/use",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/owner-source-authority/use",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/owner-source-reads/historical",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/owner-source-reads/verify",
+      "source": "crates/sublinear-server/src/run_custody_authority.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/stalled",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/orchestra-port/unavailable",
+      "source": "crates/sublinear-server/src/run_policy_client.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/owner-reads/verify",
+      "source": "crates/sublinear-server/src/owner_read_authority.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/owner-reads/verify",
+      "source": "crates/sublinear-server/src/owner_read_authority.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/owner-reads/verify",
+      "source": "crates/sublinear-server/src/owner_read_authority.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/catalog",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/commands",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/history",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/imports",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/imports/read",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/receipts",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/internal/v1/tasks/receipts/lookup",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/issues/{issue_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/openapi.json",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/projects/{project_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/readyz",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/registry",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/synth/objectives/{objective_id}/progress",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/synth/projects/{project_id}/objectives",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/auth/contract",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/auth/whoami",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/actor-command",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/authority/enrollment",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/commands",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/enrollment",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/read",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/transfer/activate",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/transfer/prepare",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/projects/{project_id}/hierarchy/transfer/stage",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/actor-board/commands",
+      "source": "crates/sublinear-server/src/actor_board.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/actor-objectives/commands",
+      "source": "crates/sublinear-server/src/actor_objectives.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/abort",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/actor-state",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/assignment-control",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/absence",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/graph",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/inspection",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/outbox",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/outbox/{event_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/publication-recovery-source",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/publications/{event_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/receipts",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/task-dispatch",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/tasks",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/tasks/{task_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/authority/terminal",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/bootstrap",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/close",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/commit",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/dispatch",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/graph",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/no-launch-close",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/orchestrator-wake",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/publication-recovery",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/receipts/{operation_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/repairs/{repair_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/review-dispatch",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/reviews/{review_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/run-control",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/stage",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/v1/runs/{run_id}/planning/task-repair",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/tasks",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/tasks/{task_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/tasks/{task_id}/spec",
+      "source": "crates/sublinear-server/src/routes.rs"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/runs/{run_id}/planning/wakes/{wake_id}",
+      "source": "crates/sublinear-server/src/routes.rs"
+    }
+  ]
+}

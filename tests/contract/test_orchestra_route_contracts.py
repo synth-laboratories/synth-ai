@@ -18,6 +18,13 @@ def normalized(path):
     return re.sub(r"\{[^}]+\}", "{}", path)
 
 
+# SDK modules that open a second transport against a Sublinear owner origin issued by a
+# backend capability exchange. Their raw calls resolve against the pinned Sublinear route
+# table (extract_sublinear_routes.py), never the backend's; backend calls in the same
+# module must still resolve against backend routes.
+SUBLINEAR_OWNER_ORIGIN_MODULES = frozenset({"synth_ai/sdk/research/hierarchy.py"})
+
+
 @pytest.mark.parametrize(
     "method,path,finding",
     [
@@ -102,8 +109,19 @@ def test_all_raw_sdk_calls_resolve_to_backend__MX09(tmp_path):
         ).read_text()
     )
 
+    owner_routes = json.loads((FIXTURES / "sublinear_owner_routes.json").read_text())["routes"]
+
     def pattern(path):
         return re.compile("^" + re.sub(r"\\\{[^}]*\\\}", "[^/]+", re.escape(path)) + "$")
+
+    def resolves(method, path, table):
+        return any(
+            method in route["methods"]
+            for route in table
+            if normalized(route["path"]) == normalized(path)
+            or pattern(route["path"]).match(path)
+            or pattern(path).match(route["path"])
+        )
 
     unresolved = []
     for call in calls:
@@ -117,14 +135,10 @@ def test_all_raw_sdk_calls_resolve_to_backend__MX09(tmp_path):
         if method is None:
             continue  # constructors and helpers are not identifiable HTTP calls
         path = call["path"]
-        candidates = [
-            route
-            for route in routes
-            if normalized(route["path"]) == normalized(path)
-            or pattern(route["path"]).match(path)
-            or pattern(path).match(route["path"])
-        ]
-        if not any(method in route["methods"] for route in candidates):
+        owner_origin = call["file"] in SUBLINEAR_OWNER_ORIGIN_MODULES
+        if not resolves(method, path, routes) and not (
+            owner_origin and resolves(method, path, owner_routes)
+        ):
             unresolved.append(f"{method} {path} ({call['file']}:{call['line']})")
     assert not unresolved, (
         "MX-09/MX-01/MX-02: SDK routes outside bounded registry must resolve:\n"

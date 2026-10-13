@@ -419,5 +419,101 @@
     "operation_id": "stream_run_trace_capture",
     "path": "/smr/runs/{run_id}/traces/{capture_id}/stream",
     "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "compare_project_experiments",
+    "path": "/smr/projects/{project_id}/experiments/compare",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_project_experiment_bundle",
+    "path": "/smr/projects/{project_id}/experiments/{experiment_id}/bundle",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_scientific_artifact",
+    "path": "/smr/projects/{project_id}/research/records/{record_id}/artifact",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_scientific_events",
+    "path": "/smr/projects/{project_id}/research/events",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_scientific_receipt",
+    "path": "/smr/projects/{project_id}/research/receipts/{operation_id}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_scientific_record",
+    "path": "/smr/projects/{project_id}/research/records/{record_id}",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "get_scientific_writer_state",
+    "path": "/smr/projects/{project_id}/research/writer-state",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_project_experiment_bundles",
+    "path": "/smr/projects/{project_id}/experiment-bundles",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "list_scientific_records",
+    "path": "/smr/projects/{project_id}/research/records",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "GET",
+    "operation_id": "verify_scientific_record_citations",
+    "path": "/smr/projects/{project_id}/research/records/{record_id}/citations",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "write_execution_record",
+    "path": "/smr/projects/{project_id}/research/execution-operations",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
+  },
+  {
+    "call_sites": [],
+    "disposition": "backend_metadata_catalogue",
+    "method": "POST",
+    "operation_id": "write_scientific_record",
+    "path": "/smr/projects/{project_id}/research/operations",
+    "reason": "Backend exports this operation in PUBLIC_OPERATION_IDS; it is metadata for caller-constructed HttpRequest values, with no typed SDK method. This is not execution coverage."
   }
 ]
