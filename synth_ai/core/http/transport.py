@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -37,7 +38,12 @@ from synth_ai.core.errors import (
 )
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.retry import (
+    DB_BACKPRESSURE_ERROR_CODE,
+    DbBackpressureRefusal,
+    DbBackpressureRetryExhaustedError,
+    DbBackpressureRetryPolicy,
     RetryPolicy,
+    request_permits_replay,
     retry_after_from_error,
     should_retry_failure,
 )
@@ -204,6 +210,37 @@ def _failure_from_response(
 # caller can reconnect instead of creating (and paying for) another one.
 SEARCH_ID_HEADER = "x-synth-search-id"
 SEARCH_RESOURCE_KIND = "index_search"
+
+
+def db_backpressure_refusal(response: httpx.Response) -> DbBackpressureRefusal | None:
+    """Decode the backend's typed DB backpressure refusal, or None for any other error."""
+    if response.status_code not in {429, 503}:
+        return None
+    try:
+        decoded = response.json()
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(decoded, dict):
+        return None
+    detail = decoded.get("detail")
+    body = detail if isinstance(detail, dict) else decoded
+    if DB_BACKPRESSURE_ERROR_CODE not in (body.get("error_code"), body.get("failure_class")):
+        return None
+
+    def text(key: str) -> str | None:
+        value = body.get(key)
+        return value if isinstance(value, str) and value.strip() else None
+
+    retry_after = _retry_after_seconds(response, sources=(cast(JsonObject, body),))
+    return DbBackpressureRefusal(
+        status=response.status_code,
+        error_code=DB_BACKPRESSURE_ERROR_CODE,
+        component=text("component"),
+        work_class=text("work_class"),
+        retry_after_seconds=retry_after,
+        operator_action=text("operator_action"),
+        message=text("message") or "database work rejected before starting",
+    )
 
 
 def _created_search(
@@ -395,6 +432,12 @@ class HttpTransport:
     exception_handler: ExceptionHandler = raise_transport_exception
     decode_error_handler: DecodeErrorHandler = raise_json_decode_error
     follow_redirects: bool = True
+    db_backpressure_policy: DbBackpressureRetryPolicy = field(
+        default_factory=DbBackpressureRetryPolicy
+    )
+    sleep: Callable[[float], None] = time.sleep
+    monotonic: Callable[[], float] = time.monotonic
+    rng: random.Random = field(default_factory=random.Random, repr=False)
     client: httpx.Client = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -421,19 +464,44 @@ class HttpTransport:
         timeout_seconds: float | None = None,
         operation_id: str | None = None,
     ) -> JsonValue:
-        try:
-            response = self.client.request(
-                method,
-                path,
-                params=cast(Any, params),
-                json=json_body,
-                headers=headers,
-                timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
+        replay_safe = request_permits_replay(method, {**self.headers, **(headers or {})})
+        attempts = 0
+        waited_seconds = 0.0
+        while True:
+            try:
+                response = self.client.request(
+                    method,
+                    path,
+                    params=cast(Any, params),
+                    json=json_body,
+                    headers=headers,
+                    timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
+                )
+            except httpx.TimeoutException as exc:
+                self.exception_handler(method, path, exc, operation_id)
+            except httpx.TransportError as exc:
+                self.exception_handler(method, path, exc, operation_id)
+            attempts += 1
+            refusal = db_backpressure_refusal(response) if replay_safe else None
+            if refusal is None:
+                break
+            delay = self.db_backpressure_policy.next_delay_seconds(
+                attempts_made=attempts,
+                waited_seconds=waited_seconds,
+                refusal=refusal,
+                rng=self.rng,
             )
-        except httpx.TimeoutException as exc:
-            self.exception_handler(method, path, exc, operation_id)
-        except httpx.TransportError as exc:
-            self.exception_handler(method, path, exc, operation_id)
+            if delay is None:
+                raise DbBackpressureRetryExhaustedError(
+                    method=method,
+                    path=path,
+                    operation_id=operation_id,
+                    refusal=refusal,
+                    attempts=attempts,
+                    waited_seconds=waited_seconds,
+                )
+            self.sleep(delay)
+            waited_seconds += delay
         if allow_not_found and response.status_code == 404:
             return None
         if response.is_error:
@@ -599,6 +667,7 @@ class HttpTransport:
 
 
 __all__ = [
+    "db_backpressure_refusal",
     "ErrorHandler",
     "ExceptionHandler",
     "DecodeErrorHandler",

@@ -104,10 +104,65 @@ def test_backend_pending_questions_decode() -> None:
     }
 
 
-def test_other_unknown_top_level_keys_still_rejected() -> None:
+def test_unknown_additive_top_level_keys_are_recorded_not_fatal() -> None:
+    # Pressure 6204833e: an additive server key must not break installed clients.
     payload = _with_questions([])
-    payload["surprise"] = 1
-    with pytest.raises(ValueError, match="extra=\\['surprise'\\]"):
+    payload["surprise"] = {"nested": [1, 2]}
+    status = SwarmStatus.from_wire(payload)
+    assert status.unrecognized_fields == frozenset({"surprise"})
+    known = SwarmStatus.from_wire(_with_questions([]))
+    assert status.to_wire() == known.to_wire()
+    assert "surprise" not in status.to_wire()
+
+
+AUTHORITY_REF = {
+    "owner": "backend",
+    "schema": "synth.orchestra-constructor-terminal.v5",
+    "reference": "ref-1",
+    "sha256": "a" * 64,
+}
+
+
+def test_terminal_adapter_keys_decode_strictly() -> None:
+    payload = _with_questions([])
+    payload.update(
+        active=False,
+        authority_ref=AUTHORITY_REF,
+        finished_at="2026-10-05T12:00:00Z",
+    )
+    status = SwarmStatus.from_wire(payload)
+    assert status.active is False
+    assert status.authority_ref is not None
+    assert status.authority_ref.to_wire() == AUTHORITY_REF
+    assert status.finished_at == datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+    assert status.unrecognized_fields == frozenset()
+    assert SwarmStatus.from_wire(status.to_wire()) == status
+
+
+def test_terminal_adapter_keys_absent_or_null_decode_as_none() -> None:
+    absent = SwarmStatus.from_wire(copy.deepcopy(LEGACY_PAYLOAD))
+    payload = _with_questions([])
+    payload.update(active=None, authority_ref=None, finished_at=None)
+    explicit = SwarmStatus.from_wire(payload)
+    for status in (absent, explicit):
+        assert (status.active, status.authority_ref, status.finished_at) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("active", "false"),
+        ("authority_ref", {**AUTHORITY_REF, "extra": 1}),
+        ("authority_ref", {"owner": "backend"}),
+        ("authority_ref", "ref-1"),
+        ("finished_at", "2026-10-05T12:00:00"),
+        ("finished_at", 1),
+    ],
+)
+def test_malformed_known_optional_keys_still_rejected(key: str, value: object) -> None:
+    payload = _with_questions([])
+    payload[key] = value
+    with pytest.raises(ValueError):
         SwarmStatus.from_wire(payload)
 
 
