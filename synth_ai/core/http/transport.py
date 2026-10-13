@@ -124,7 +124,7 @@ def _declares_runtime_unavailable(decoded: JsonValue | None) -> bool:
         return False
     nested = decoded.get("detail")
     return any(
-        source.get(key) in RUNTIME_UNAVAILABLE_CODES
+        isinstance(source.get(key), str) and source.get(key) in RUNTIME_UNAVAILABLE_CODES
         for source in (nested, decoded)
         if isinstance(source, dict)
         for key in ("error_code", "code", "error")
@@ -425,12 +425,13 @@ class HttpTransport:
     """One strict sync transport for JSON, bytes, and SSE operations."""
 
     base_url: str
-    headers: Mapping[str, str]
+    headers: Mapping[str, str] = field(repr=False)
     timeout_seconds: float = 30.0
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     error_handler: ErrorHandler = raise_http_error
     exception_handler: ExceptionHandler = raise_transport_exception
     decode_error_handler: DecodeErrorHandler = raise_json_decode_error
+    follow_redirects: bool = True
     db_backpressure_policy: DbBackpressureRetryPolicy = field(
         default_factory=DbBackpressureRetryPolicy
     )
@@ -445,7 +446,7 @@ class HttpTransport:
             headers=dict(self.headers),
             timeout=self.timeout_seconds,
             limits=httpx.Limits(max_keepalive_connections=0),
-            follow_redirects=True,
+            follow_redirects=self.follow_redirects,
         )
 
     def close(self) -> None:

@@ -16,3 +16,10 @@ route definitions. They are build- and test-time inputs only.
 Refreshed and checked by the sibling `testing/` repo:
 `scripts/sync_smr_schemas.py` writes them; `scripts/validate_synth_ai_contract.py`
 compares them against the backend. Do not hand-edit.
+
+The October 9 OP candidate snapshot is copied from backend source
+`fd096cbdceb5f6139ea91ceecaad03e0709c83d7` with
+`testing/scripts/sync_smr_schemas.py::sync_smr_openapi_snapshot`. Its SHA256 is
+`1b011d0bc3eb992b6719afc4829096963d131c6553c53745fda0ae30784c30ed`.
+The curated Research registry separately matches all 287 operations in
+`openapi/research-v1.json`, including backend registry additions.

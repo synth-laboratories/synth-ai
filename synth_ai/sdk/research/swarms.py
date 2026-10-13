@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncIterator, Iterator, Mapping
+from typing import cast
 from urllib.parse import quote
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
@@ -75,7 +76,10 @@ def _swarms_page(value: JsonValue, *, limit: int) -> SyncPage[Swarm]:
     if not isinstance(value, (dict, list)):
         raise ValueError("list_project_runs response must be an array or page object")
     items, next_cursor, has_more = page_from_wire(value)
-    swarms = [Swarm.from_wire(item) for item in items]
+    swarms = [Swarm.from_wire(cast(JsonValue, item)) for item in items]
+    if isinstance(value, list) and swarms and len(swarms) == limit:
+        # The backend resolves this exact run identity to its stable cursor.
+        next_cursor, has_more = str(swarms[-1].swarm_id), True
     return SyncPage(
         items=swarms,
         next_cursor=next_cursor,

@@ -11,17 +11,26 @@ from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk.research.container_pools.api import ContainerPoolsAPI
 from synth_ai.sdk.research.environments import AsyncEnvironmentsAPI, EnvironmentsAPI
 from synth_ai.sdk.research.factories import AsyncFactoriesAPI, FactoriesAPI
+from synth_ai.sdk.research.hierarchy import AsyncHierarchyClient, HierarchyClient
+from synth_ai.sdk.research.hierarchy_models import HierarchyPermission, HierarchyScope
 from synth_ai.sdk.research.image_releases import (
     AsyncImageReleasesAPI,
     ImageReleasesAPI,
+)
+from synth_ai.sdk.research.owner_reads import (
+    AsyncOwnerReadClient,
+    Owner,
+    OwnerReadAccess,
+    OwnerReadClient,
+    OwnerReadScope,
 )
 from synth_ai.sdk.research.projects import AsyncProjectsAPI, ProjectsAPI
 from synth_ai.sdk.research.research_intern import (
     AsyncResearchInternAPI,
     ResearchInternAPI,
 )
+from synth_ai.sdk.research.scientific_records import AsyncScientificRecordsAPI, ScientificRecordsAPI
 from synth_ai.sdk.research.swarms import AsyncSwarmsAPI, SwarmsAPI
-from synth_ai.sdk.research.scientific_records import ScientificRecordsAPI, AsyncScientificRecordsAPI
 from synth_ai.sdk.research.traces import AsyncResearchTracesAPI, ResearchTracesAPI
 from synth_ai.sdk.research.visuals import AsyncVisualsAPI, VisualsAPI
 
@@ -103,6 +112,29 @@ class Client:
         """Close the underlying HTTP transport."""
         self._transport.close()
 
+    def hierarchy(
+        self, *, scope: HierarchyScope, permissions: tuple[HierarchyPermission, ...] = ("read",)
+    ) -> HierarchyClient:
+        """Direct project owner API; see testing/specifications/sdk/hierarchy_owner.md."""
+        return HierarchyClient(self._transport, scope=scope, permissions=permissions)
+
+    def owner_reads(self, *, owner: Owner, scope: OwnerReadScope) -> OwnerReadClient:
+        """Issue separate scoped read access; see testing/specifications/sdk/owner_reads.md."""
+        value = self._transport.request_json(
+            "POST",
+            "/auth/capabilities/owner-read",
+            json_body={
+                "owner": owner,
+                "scope": {
+                    "organization_id": scope.organization_id,
+                    "project_id": scope.project_id,
+                    "stream_id": scope.run_id,
+                },
+            },
+        )
+        access = OwnerReadAccess.from_response(value, owner=owner, scope=scope)
+        return OwnerReadClient(owner=owner, base_url=access.origin, access=access)
+
     def __enter__(self) -> Client:
         return self
 
@@ -142,6 +174,29 @@ class AsyncClient:
     def transport(self) -> AsyncHttpTransport:
         """The shared typed async HTTP transport every namespace routes through."""
         return self._transport
+
+    def hierarchy(
+        self, *, scope: HierarchyScope, permissions: tuple[HierarchyPermission, ...] = ("read",)
+    ) -> AsyncHierarchyClient:
+        """Direct async project owner API; see testing/specifications/sdk/hierarchy_owner.md."""
+        return AsyncHierarchyClient(self._transport, scope=scope, permissions=permissions)
+
+    async def owner_reads(self, *, owner: Owner, scope: OwnerReadScope) -> AsyncOwnerReadClient:
+        """Issue separate scoped read access; see testing/specifications/sdk/owner_reads.md."""
+        value = await self._transport.request_json(
+            "POST",
+            "/auth/capabilities/owner-read",
+            json_body={
+                "owner": owner,
+                "scope": {
+                    "organization_id": scope.organization_id,
+                    "project_id": scope.project_id,
+                    "stream_id": scope.run_id,
+                },
+            },
+        )
+        access = OwnerReadAccess.from_response(value, owner=owner, scope=scope)
+        return AsyncOwnerReadClient(owner=owner, base_url=access.origin, access=access)
 
     @property
     def economics(self) -> AsyncEconomicsAPI:

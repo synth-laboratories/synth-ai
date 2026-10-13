@@ -46,6 +46,16 @@ class _ResearchSession(Protocol):
 
     def run(self, project_id: str, run_id: str) -> _RunHandle: ...
 
+    def get_run_results(self, project_id: str, run_id: str) -> dict[str, Any]: ...
+
+    def get_run_logs(
+        self, project_id: str, run_id: str, *, limit: int | None = None, cursor: str | None = None
+    ) -> dict[str, Any]: ...
+
+    def get_run_execution(self, project_id: str, run_id: str, **kwargs: Any) -> Any: ...
+
+    def get_run_orchestrator(self, project_id: str, run_id: str) -> dict[str, Any]: ...
+
 
 def _session_project(project: ProjectSelector | str | None) -> str | None:
     if isinstance(project, ProjectSelector):
@@ -588,13 +598,16 @@ class ResearchRunsAPI:
         from synth_ai.sdk.pagination import page_from_wire
 
         payload = self.logs(project_id, run_id, limit=limit, cursor=cursor)
+        if isinstance(payload, dict) and "items" not in payload and "data" not in payload:
+            for field_name in ("entries", "logs", "records"):
+                if field_name in payload:
+                    payload = {
+                        "items": payload[field_name],
+                        "next_cursor": payload.get("next_cursor"),
+                        "has_more": payload.get("has_more", False),
+                    }
+                    break
         raw_items, next_cursor, has_more = page_from_wire(payload)
-        if isinstance(payload, dict) and isinstance(payload.get("entries"), list):
-            raw_items = payload["entries"]
-        elif isinstance(payload, dict) and isinstance(payload.get("logs"), list):
-            raw_items = payload["logs"]
-        elif isinstance(payload, dict) and isinstance(payload.get("records"), list):
-            raw_items = payload["records"]
         normalized = [cast(dict[str, Any], item) for item in raw_items if isinstance(item, dict)]
         return SyncPage(items=normalized, next_cursor=next_cursor, has_more=has_more)
 

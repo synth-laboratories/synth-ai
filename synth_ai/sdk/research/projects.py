@@ -65,8 +65,11 @@ def _request(
 def _projects_page(value: object, *, limit: int) -> SyncPage[Project]:
     if not isinstance(value, (dict, list)):
         raise ValueError("list_projects response must be an array or page object")
-    items, next_cursor, has_more = page_from_wire(value)
+    items, next_cursor, has_more = page_from_wire(cast(dict[str, object] | list[object], value))
     projects = [Project.from_wire(cast(JsonValue, item)) for item in items]
+    if isinstance(value, list) and projects and len(projects) == limit:
+        # The backend accepts the last project identity as its legacy cursor.
+        next_cursor, has_more = str(projects[-1].project_id), True
     return SyncPage(
         items=projects,
         next_cursor=next_cursor,

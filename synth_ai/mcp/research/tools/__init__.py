@@ -7,6 +7,7 @@ from synth_ai.mcp.research.tools.factories import build_factory_tools
 from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
 from synth_ai.mcp.research.tools.intern_program import build_intern_program_tools
+from synth_ai.mcp.research.tools.local_files import SelectedFileReader
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
 from synth_ai.mcp.research.tools.progress import build_progress_tools
@@ -21,6 +22,7 @@ from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
 
 __all__ = [
+    "SelectedFileReader",
     "build_dataset_tools",
     "build_environment_tools",
     "build_export_tools",
