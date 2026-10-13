@@ -13,6 +13,17 @@ from synth_ai.types.usage import UsageSummary
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
 
 RunState = Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
+TaskState = Literal[
+    "queued",
+    "running",
+    "blocked",
+    "review_required",
+    "repair_required",
+    "completed",
+    "partial",
+    "failed",
+    "cancelled",
+]
 
 
 class ResolvedConfiguration(ResponseModel):
@@ -99,7 +110,7 @@ class SwarmResult(ResponseModel):
 class TaskOutcome(ResponseModel):
     run_id: Identifier
     task_id: Identifier
-    state: RunState
+    state: TaskState
     attempts: StrictInt = Field(ge=0, le=100)
     failure: RunFailure | None
 
