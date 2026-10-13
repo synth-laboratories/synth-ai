@@ -108,41 +108,18 @@ async def async_chunks(
 def transfer(
     status: TransferStatus, source: TransferSource, options: TransferOptions, hosts: tuple[str, ...]
 ) -> TransferReceipt:
-    url = validate_transfer(status, source, options, hosts)
-    deadline = time.monotonic() + options.timeout_seconds
+    # Use the same cancellable network owner as synchronous JSON/output calls.
+    from synth_ai.core.http.blocking import BlockingLoop
+
+    loop = BlockingLoop()
     try:
-        with httpx.Client(trust_env=False) as client:
-            request = client.build_request(
-                "PUT",
-                url,
-                content=chunks(source, options, deadline),
-                headers={
-                    "Content-Type": source.manifest.media_type,
-                    "Content-Length": str(source.manifest.byte_size),
-                },
-                timeout=options.timeout_seconds,
-            )
-            response = client.send(request, auth=None, follow_redirects=False, stream=True)
-            try:
-                if response.status_code not in {200, 204}:
-                    raise ContractError(
-                        "Upload destination refused transfer; no redirect is followed"
-                    )
-                etag = response.headers.get("ETag")
-                if time.monotonic() >= deadline:
-                    raise RequestTimeoutError("Upload deadline expired")
-                return TransferReceipt(
-                    upload_id=status.upload_id,
-                    byte_size=source.manifest.byte_size,
-                    digest_sha256=source.manifest.digest_sha256,
-                    etag=etag,
-                )
-            finally:
-                response.close()
-    except (httpx.TransportError, ContractError, RequestTimeoutError) as cause:
+        return loop.call(async_transfer(status, source, options, hosts), options.timeout_seconds)
+    except TimeoutError as cause:
         raise OutcomeUncertainError(
             "Upload transfer is uncertain; read upload status before repeating"
         ) from cause
+    finally:
+        loop.close()
 
 
 async def async_transfer(

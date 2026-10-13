@@ -22,7 +22,6 @@ class ClientOptions:
     read_retry_count: int = 2
     retry_delay_seconds: float = 0.1
     upload_hosts: tuple[str, ...] = ()
-    http_client: httpx.Client | None = None
     async_http_client: httpx.AsyncClient | None = None
 
     def __post_init__(self) -> None:

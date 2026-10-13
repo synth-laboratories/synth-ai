@@ -35,7 +35,7 @@ def resolve_url(base_url: str | None) -> str:
 
 
 class SynthClient:
-    """An owned SDK lifetime, with an optional borrowed HTTP client."""
+    """An owned SDK lifetime with cancellable network IO."""
 
     def __init__(
         self,
@@ -46,7 +46,9 @@ class SynthClient:
     ) -> None:
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
-            raise ValueError("SynthClient requires a synchronous injected client")
+            raise ValueError(
+                "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
+            )
         self._transport = HttpTransport(resolve_url(base_url), resolve_key(api_key), selected)
         self.index = IndexClient(self._transport, True)
         self.swarms = SwarmsClient(self._transport)
@@ -60,7 +62,9 @@ class SynthClient:
         See: backend/notes/specifications/sdk/index_contract.md."""
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
-            raise ValueError("SynthClient requires a synchronous injected client")
+            raise ValueError(
+                "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
+            )
         client = cls.__new__(cls)
         client._transport = HttpTransport(resolve_url(base_url), None, selected)
         client.index = IndexClient(client._transport, False)
@@ -95,7 +99,7 @@ class SynthClient:
         return result
 
     def close(self) -> None:
-        """End local ownership; borrowed transports and durable remote work are not cancelled.
+        """Close owned network resources without cancelling durable remote work.
 
         See: backend/notes/specifications/sdk/index_contract.md."""
         self._transport.close()
@@ -123,8 +127,6 @@ class AsyncSynthClient:
         options: ClientOptions | None = None,
     ) -> None:
         selected = options or ClientOptions()
-        if selected.http_client is not None:
-            raise ValueError("AsyncSynthClient requires an asynchronous injected client")
         self._transport = AsyncHttpTransport(resolve_url(base_url), resolve_key(api_key), selected)
         self.index = AsyncIndexClient(self._transport, True)
         self.swarms = AsyncSwarmsClient(self._transport)
@@ -137,8 +139,6 @@ class AsyncSynthClient:
 
         See: backend/notes/specifications/sdk/index_contract.md."""
         selected = options or ClientOptions()
-        if selected.http_client is not None:
-            raise ValueError("AsyncSynthClient requires an asynchronous injected client")
         client = cls.__new__(cls)
         client._transport = AsyncHttpTransport(resolve_url(base_url), None, selected)
         client.index = AsyncIndexClient(client._transport, False)

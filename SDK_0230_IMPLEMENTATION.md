@@ -197,7 +197,7 @@ synth_ai/
   core/                        internal shared mechanisms
     auth.py                    API-key resolution and explicit anonymous policy
     http/
-      client.py                owned/borrowed sync HTTP boundary
+      client.py                owned cancellable sync HTTP boundary
       async_client.py          native async HTTP boundary
       request.py               typed operation/request encoding
       response.py              bounded decoding and safe response metadata
@@ -355,7 +355,9 @@ a fresh authorized descriptor and requests exact revision/digest bytes from the
 backend. Streams verify identity headers, MIME, identity content encoding, total
 length and SHA256; chunks are provisional until EOF. Timeout/close never cancels
 the remote run. The transport closes active responses, including those created
-using an injected/borrowed HTTP client, without closing the borrowed client.
+using a borrowed async HTTP client, without closing that borrowed client.
+Synchronous clients now own their HTTP pool; synchronous injection was removed
+by owner decision on 2026-10-13.
 
 Downloads write a private sibling temporary file and link it into place only
 after complete verification and fsync. Existing destinations and symlinks are
@@ -392,3 +394,22 @@ The test engineer completed frozen Index verification at testing commit
 because all 30 candidate routes/contract negotiation are absent. Twenty runtime
 preflight blockers remain. That handoff is complete; backend adoption and native
 acceptance are not. No test reruns or slot mutations are part of this slice.
+
+
+## Owned synchronous deadlines (2026-10-13)
+
+The synchronous API owns an `httpx.AsyncClient` pool behind a private event loop.
+Request dispatch and every response read share one monotonic deadline; the
+network task acknowledges cancellation before timeout returns. This applies to
+JSON, output streams and signed uploads. Close drains owned tasks, closes the
+pool and joins the loop thread. Client construction performs no network calls.
+Pool initialization happens before a request's network deadline. Cleanup has a
+separate one-second bound so a failed close is explicit rather than unbounded.
+
+`ClientOptions.http_client` is removed. User-provided synchronous callbacks
+cannot be safely preempted, so accepting them would invalidate the deadline
+contract. `async_http_client` remains available to `AsyncSynthClient`; callers
+retain ownership of that injected client. The contract tests script the owned
+pool factory, and separate real socket tests cover delayed headers, delayed
+bodies, trickled bodies, mutation recovery identity and calls outside the main
+thread. These checks are network-lifetime evidence, not native product evidence.

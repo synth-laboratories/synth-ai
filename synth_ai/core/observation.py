@@ -146,7 +146,7 @@ class EventStream(Iterator[E]):
             raise
 
     def close(self) -> None:
-        """End local ownership; borrowed transports and durable remote work are not cancelled.
+        """End local observation without cancelling durable remote work.
 
         See: backend/notes/specifications/sdk/index_contract.md."""
         self._closed = True

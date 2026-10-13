@@ -1,4 +1,4 @@
-"""Owned/borrowed bounded sync exchange. See backend SDK index_contract.md."""
+"""Owned cancellable synchronous exchange. See backend SDK index_contract.md."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from synth_ai.errors import (
 from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.types.base import ClientTiming, ResponseModel
 
+from .blocking import DeadlineTransport
 from .cleanup import handle_cleanup_failure
 from .lifetime import Closeable
 from .request import build_request, encode_body, mutation_identity
@@ -36,9 +37,9 @@ class HttpTransport:
         self._api_key = api_key
         self._options = options
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
-        self._owned = options.http_client is None
-        self.client = options.http_client or httpx.Client(
-            trust_env=False, limits=httpx.Limits(max_connections=options.maximum_connections)
+        self._owned = True
+        self.client = httpx.Client(
+            trust_env=False, transport=DeadlineTransport(options.maximum_connections)
         )
         self._closed = False
         self._streams: set[Closeable] = set()

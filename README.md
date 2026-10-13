@@ -24,8 +24,9 @@ with SynthClient.anonymous() as client:
 This requires an index.v1 backend. Keyed calls require KeyedSearchOptions with
 an exact Money charge ceiling. Durable search and mutation recovery are keyed.
 Use typed content refs for current-rights retrieval; citations grant no access.
-SDK-created transports are owned; injected clients are borrowed. Async clients
-use native async HTTP and aclose. Local observer timeouts/close never cancel work.
+Synchronous clients own a cancellable HTTP pool; synchronous client injection is
+not supported. Async clients use native async HTTP and may borrow an AsyncClient.
+Local observer timeouts and close never cancel durable remote work.
 
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility
 aliases, old CLI or split MCP are shipped.
