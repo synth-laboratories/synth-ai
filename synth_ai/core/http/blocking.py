@@ -90,9 +90,9 @@ class BlockingLoop:
         finally:
             self._closed = True
             self._loop.call_soon_threadsafe(self._loop.stop)
-        self._thread.join(CLEANUP_SECONDS)
-        if self._thread.is_alive():
-            raise RuntimeError("SDK network loop did not close")
+            self._thread.join(CLEANUP_SECONDS)
+            if self._thread.is_alive():
+                raise RuntimeError("SDK network loop did not close")
 
 
 class ResponseStream(httpx.SyncByteStream):
