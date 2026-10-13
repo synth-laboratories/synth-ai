@@ -1055,7 +1055,10 @@
         "media_type": {
           "anyOf": [
             {
-              "const": "text/plain",
+              "enum": [
+                "text/plain",
+                "text/markdown"
+              ],
               "type": "string"
             },
             {

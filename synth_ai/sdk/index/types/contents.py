@@ -31,7 +31,7 @@ class ContentResponse(ResponseModel):
     reference: ContentRef
     status: Literal["available", "denied", "revoked", "missing"]
     text: str | None = Field(max_length=65536)
-    media_type: Literal["text/plain"] | None
+    media_type: Literal["text/plain", "text/markdown"] | None
     start_byte: StrictInt | None = Field(ge=0)
     end_byte: StrictInt | None = Field(ge=0)
     asset_byte_size: StrictInt | None = Field(ge=0)
