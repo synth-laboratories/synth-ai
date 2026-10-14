@@ -129,7 +129,12 @@ class TaskExecutionFacts(Model):
 
     activity: tuple[TaskActivity, ...] = Field(max_length=12)
     physical_completion_count: StrictInt = Field(ge=0, le=2**32 - 1)
-    finalizer: Literal["positive", "negative", "limit", "no_launch"] | None
+    finalizer: (
+        Literal[
+            "positive", "negative", "limit", "no_launch", "dispatch_abort", "limit_dispatch_abort"
+        ]
+        | None
+    )
     outcome: Literal["succeeded", "failed", "cancelled"] | None
     closing_recorded: bool
 
