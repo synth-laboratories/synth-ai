@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+
+from .annotations import AuthorAnnotations, ContributionAnnotations
 
 
 class ContributionFilter(Model):
@@ -20,12 +22,23 @@ class Contribution(ResponseModel):
     title: str | None = Field(max_length=256)
     status: Literal["draft", "submitted", "published", "withdrawn"]
     contents_readable: bool
+    annotations: ContributionAnnotations | None = None
+
+    @model_validator(mode="after")
+    def validate_annotations(self) -> Self:
+        if self.annotations is not None and (
+            self.annotations.contribution_id != self.contribution_id
+            or self.annotations.revision_id != self.revision_id
+        ):
+            raise ValueError("annotations belong to another contribution revision")
+        return self
 
 
 class ContributionDraft(Model):
     expected_revision_id: Identifier | None
     title: str = Field(min_length=1, max_length=256)
     summary: str = Field(min_length=1, max_length=8192)
+    annotations: AuthorAnnotations = Field(default_factory=AuthorAnnotations)
 
 
 class ContributionRevision(ResponseModel):

@@ -13,7 +13,10 @@ from synth_ai.types.base import Page, PageCursor
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
 
+from .history import validate_history_page
+from .search import validate_search_admission
 from .search_run import AsyncSearchRun, SearchRun
+from .types.history import SearchHistoryFilter, SearchHistoryPage, SearchHistoryRequest
 from .types.search import KeyedSearchOptions, KeyedSearchRequest, SearchSnapshot
 
 
@@ -32,20 +35,16 @@ class Searches:
             SearchSnapshot,
             body=KeyedSearchRequest(query=query, options=options),
             options=mutation,
-            validate=lambda received: verified(
-                received,
-                received.mode == options.mode,
-                "Search admission changed the requested mode",
-            ),
+            validate=lambda received: validate_search_admission(received, options),
         )
-        return SearchRun(self._transport, snapshot.search_id)
+        return SearchRun(self._transport, snapshot.search_id, expected_retention=options.retention)
 
     def get(self, search_id: str, *, request: ReadOptions | None = None) -> SearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
 
         See: backend/notes/specifications/sdk/index_contract.md."""
         search_id = identifier(search_id)
-        self._transport.request(
+        snapshot = self._transport.request(
             operations.GET_SEARCH,
             SearchSnapshot,
             path=f"/index/searches/{search_id}",
@@ -56,7 +55,11 @@ class Searches:
                 "Reattachment returned a different search",
             ),
         )
-        return SearchRun(self._transport, search_id)
+        return SearchRun(
+            self._transport,
+            search_id,
+            expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+        )
 
     def list(
         self, *, limit: int, cursor: PageCursor | None = None, request: ReadOptions | None = None
@@ -76,6 +79,26 @@ class Searches:
             ),
         )
         return result
+
+    def history(
+        self,
+        *,
+        limit: int,
+        filter: SearchHistoryFilter | None = None,
+        cursor: PageCursor | None = None,
+        request: ReadOptions | None = None,
+    ) -> SearchHistoryPage:
+        """Read one private retained-history page; no query execution or expiry extension.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        selected = filter or SearchHistoryFilter()
+        return self._transport.request(
+            operations.SEARCH_HISTORY,
+            SearchHistoryPage,
+            body=SearchHistoryRequest(limit=limit, cursor=cursor, filter=selected),
+            options=request,
+            validate=lambda result: validate_history_page(result, limit, selected),
+        )
 
     def resolve_creation(
         self, identity: MutationIdentity, *, request: ReadOptions | None = None
@@ -105,20 +128,18 @@ class AsyncSearches:
             SearchSnapshot,
             body=KeyedSearchRequest(query=query, options=options),
             options=mutation,
-            validate=lambda received: verified(
-                received,
-                received.mode == options.mode,
-                "Search admission changed the requested mode",
-            ),
+            validate=lambda received: validate_search_admission(received, options),
         )
-        return AsyncSearchRun(self._transport, snapshot.search_id)
+        return AsyncSearchRun(
+            self._transport, snapshot.search_id, expected_retention=options.retention
+        )
 
     async def get(self, search_id: str, *, request: ReadOptions | None = None) -> AsyncSearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
 
         See: backend/notes/specifications/sdk/index_contract.md."""
         search_id = identifier(search_id)
-        await self._transport.request(
+        snapshot = await self._transport.request(
             operations.GET_SEARCH,
             SearchSnapshot,
             path=f"/index/searches/{search_id}",
@@ -129,7 +150,11 @@ class AsyncSearches:
                 "Reattachment returned a different search",
             ),
         )
-        return AsyncSearchRun(self._transport, search_id)
+        return AsyncSearchRun(
+            self._transport,
+            search_id,
+            expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+        )
 
     async def list(
         self, *, limit: int, cursor: PageCursor | None = None, request: ReadOptions | None = None
@@ -149,6 +174,26 @@ class AsyncSearches:
             ),
         )
         return result
+
+    async def history(
+        self,
+        *,
+        limit: int,
+        filter: SearchHistoryFilter | None = None,
+        cursor: PageCursor | None = None,
+        request: ReadOptions | None = None,
+    ) -> SearchHistoryPage:
+        """Read one private retained-history page; no query execution or expiry extension.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        selected = filter or SearchHistoryFilter()
+        return await self._transport.request(
+            operations.SEARCH_HISTORY,
+            SearchHistoryPage,
+            body=SearchHistoryRequest(limit=limit, cursor=cursor, filter=selected),
+            options=request,
+            validate=lambda result: validate_history_page(result, limit, selected),
+        )
 
     async def resolve_creation(
         self, identity: MutationIdentity, *, request: ReadOptions | None = None

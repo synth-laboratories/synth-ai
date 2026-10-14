@@ -19,6 +19,8 @@ from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.index.types.contents import ContentResponse
+from synth_ai.sdk.index.types.contributions import Contribution
+from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
@@ -39,6 +41,7 @@ from synth_ai.types.usage import UsageOperation, UsageSummary
 from .contracts import (
     JSON_OBJECT,
     ContentArguments,
+    ContributionIdentity,
     EmptyArguments,
     FileIdentity,
     JsonObject,
@@ -47,6 +50,7 @@ from .contracts import (
     PageArguments,
     ProjectIdentity,
     ProjectPage,
+    PublicContributionsArguments,
     PublicSearchArguments,
     Recovery,
     RunControl,
@@ -60,6 +64,8 @@ from .contracts import (
     SearchControl,
     SearchCreate,
     SearchCreated,
+    SearchHistoryArguments,
+    SearchHistoryMutation,
     SearchIdentity,
     SearchMutation,
     SearchPage,
@@ -189,6 +195,39 @@ async def search_result(client: AsyncSynthClient, args: SearchIdentity) -> Searc
 async def search_list(client: AsyncSynthClient, args: PageArguments) -> Page[SearchSnapshot]:
     return await client.index.searches.list(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
+    )
+
+
+async def public_contributions(
+    client: AsyncSynthClient, args: PublicContributionsArguments
+) -> Page[Contribution]:
+    return await client.index.contributions.list(
+        limit=args.limit,
+        cursor=PageCursor(args.cursor) if args.cursor else None,
+        filter=args.filter,
+    )
+
+
+async def public_contribution(client: AsyncSynthClient, args: ContributionIdentity) -> Contribution:
+    return await client.index.contributions.get(args.contribution_id)
+
+
+async def search_history(
+    client: AsyncSynthClient, args: SearchHistoryArguments
+) -> SearchHistoryPage:
+    return await client.index.searches.history(
+        limit=args.limit,
+        cursor=PageCursor(args.cursor) if args.cursor else None,
+        filter=args.filter,
+    )
+
+
+async def delete_search_history(
+    client: AsyncSynthClient, args: SearchHistoryMutation
+) -> SearchHistoryDeletionReceipt:
+    return await (await client.index.searches.get(args.search_id)).delete_history(
+        expected_archive_digest_sha256=args.expected_archive_digest_sha256,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
 
 
@@ -406,6 +445,38 @@ TOOLS: tuple[ToolSpec, ...] = (
         PageArguments,
         Page[SearchSnapshot],
         search_list,
+    ),
+    ToolDefinition(
+        "index_public_contributions_list",
+        index_operations.CONTRIBUTIONS,
+        "Read one page of public Contributions and approved revision annotations. No private drafts.",
+        PublicContributionsArguments,
+        Page[Contribution],
+        public_contributions,
+    ),
+    ToolDefinition(
+        "index_public_contribution",
+        index_operations.CONTRIBUTION,
+        "Read one public Contribution and its approved revision-bound review ratings.",
+        ContributionIdentity,
+        Contribution,
+        public_contribution,
+    ),
+    ToolDefinition(
+        "index_search_history",
+        index_operations.SEARCH_HISTORY,
+        "Read one private 30-day retained-history page. ZDR searches have no retained history.",
+        SearchHistoryArguments,
+        SearchHistoryPage,
+        search_history,
+    ),
+    ToolDefinition(
+        "index_search_history_delete",
+        index_operations.DELETE_SEARCH_HISTORY,
+        "Delete the exact archived payload with a stable key. Does not cancel or rerun the search.",
+        SearchHistoryMutation,
+        SearchHistoryDeletionReceipt,
+        delete_search_history,
     ),
     ToolDefinition(
         "index_search_events",

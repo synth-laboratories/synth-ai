@@ -24,7 +24,7 @@ async def serve(profile: str, base_url: str) -> None:
         tool.name
         for tool in TOOLS
         if (
-            tool.operation.startswith("index.public.")
+            not tool.keyed
             if profile == "public"
             else not tool.mutates and not tool.paid
             if profile == "read"

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import Field, JsonValue, StrictInt, TypeAdapter
+from pydantic import Field, JsonValue, StrictInt, TypeAdapter, model_validator
 
 from synth_ai.sdk.index.types.contents import ContentOptions, ContentRef
+from synth_ai.sdk.index.types.contributions import ContributionFilter
+from synth_ai.sdk.index.types.history import SearchHistoryFilter
 from synth_ai.sdk.index.types.search import KeyedSearchOptions, PublicSearchOptions, Query
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
-from synth_ai.types.base import Cursor, Identifier, Model
+from synth_ai.types.base import Cursor, Digest, Identifier, Model
 from synth_ai.types.identity import MutationIdentity
 
 JsonObject = dict[str, JsonValue]
@@ -23,6 +25,24 @@ class EmptyArguments(Model):
 class PageArguments(Model):
     limit: StrictInt = Field(default=20, ge=1, le=100)
     cursor: Cursor | None = None
+
+
+class SearchHistoryArguments(PageArguments):
+    filter: SearchHistoryFilter = Field(default_factory=SearchHistoryFilter)
+
+
+class PublicContributionsArguments(PageArguments):
+    filter: ContributionFilter = Field(default_factory=ContributionFilter)
+
+    @model_validator(mode="after")
+    def validate_public_filter(self) -> Self:
+        if self.filter.status not in {None, "published"}:
+            raise ValueError("public Contribution tools cannot select draft metadata")
+        return self
+
+
+class ContributionIdentity(Model):
+    contribution_id: Identifier
 
 
 class SearchArguments(Model):
@@ -50,6 +70,10 @@ class SearchPage(SearchIdentity, PageArguments):
 
 class SearchMutation(SearchIdentity):
     idempotency_key: Identifier
+
+
+class SearchHistoryMutation(SearchMutation):
+    expected_archive_digest_sha256: Digest
 
 
 class SearchCreate(SearchArguments):

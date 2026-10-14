@@ -79,6 +79,21 @@ GET_SEARCH = Operation(
 LIST_SEARCHES = Operation(
     "index.searches.list", "GET", "/index/searches", True, required_scope="index:read"
 )
+SEARCH_HISTORY = Operation(
+    "index.searches.history",
+    "POST",
+    "/index/searches/history",
+    True,
+    required_scope="index:read",
+)
+DELETE_SEARCH_HISTORY = Operation(
+    "index.searches.history.delete",
+    "POST",
+    "/index/searches/{search_id}/history/delete",
+    True,
+    True,
+    required_scope="index:search",
+)
 SEARCH_EVENTS = Operation(
     "index.searches.events",
     "GET",
@@ -227,6 +242,8 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     CREATE_SEARCH,
     GET_SEARCH,
     LIST_SEARCHES,
+    SEARCH_HISTORY,
+    DELETE_SEARCH_HISTORY,
     SEARCH_EVENTS,
     SEARCH_RESULT,
     CANCEL_SEARCH,

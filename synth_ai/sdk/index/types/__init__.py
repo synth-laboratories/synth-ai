@@ -1,6 +1,14 @@
 """Explicit public product types."""
 
 from .account import AuthContext, Collection, IndexAccount
+from .annotations import (
+    AuthorAnnotations,
+    ContributionAnnotations,
+    ContributionMetadata,
+    ContributionReview,
+    Keyword,
+    RatingLevel,
+)
 from .contents import ContentOptions, ContentRef, ContentResponse
 from .contributions import (
     AttestationReceipt,
@@ -13,6 +21,15 @@ from .contributions import (
     RightsAttestation,
     SubmissionReceipt,
 )
+from .history import (
+    SearchHistoryDeletion,
+    SearchHistoryDeletionReceipt,
+    SearchHistoryEntry,
+    SearchHistoryFilter,
+    SearchHistoryPage,
+    SearchHistoryRequest,
+)
+from .retention import RetentionMode, SearchRetention
 from .search import (
     KeyedSearchOptions,
     Mode,
@@ -35,6 +52,20 @@ from .uploads import (
 )
 
 __all__ = [
+    "AuthorAnnotations",
+    "ContributionAnnotations",
+    "ContributionMetadata",
+    "ContributionReview",
+    "Keyword",
+    "RatingLevel",
+    "RetentionMode",
+    "SearchRetention",
+    "SearchHistoryDeletion",
+    "SearchHistoryDeletionReceipt",
+    "SearchHistoryEntry",
+    "SearchHistoryFilter",
+    "SearchHistoryPage",
+    "SearchHistoryRequest",
     "AuthContext",
     "Collection",
     "IndexAccount",

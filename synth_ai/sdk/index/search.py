@@ -10,6 +10,7 @@ from .types.search import (
     PublicSearchOptions,
     PublicSearchRequest,
     SearchResponse,
+    SearchSnapshot,
 )
 
 SearchOptions = PublicSearchOptions | KeyedSearchOptions
@@ -33,6 +34,12 @@ def search_request(query: str, options: SearchOptions, keyed: bool) -> SearchReq
 def validate_search_response(
     result: SearchResponse, options: SearchOptions, keyed: bool
 ) -> SearchResponse:
+    if result.retention is not None:
+        expected_retention = options.retention if isinstance(options, KeyedSearchOptions) else "zdr"
+        if result.retention.mode != expected_retention:
+            raise ContractError("Search changed the selected retention mode")
+    elif isinstance(options, KeyedSearchOptions) and options.retention == "retained":
+        raise ContractError("Retained search requires an explicit backend retention receipt")
     if result.mode != options.mode or len(result.citations) > options.max_results:
         raise ContractError("Search result violates requested mode or citation bounds")
     if keyed and result.search_id is None:
@@ -54,4 +61,19 @@ def validate_search_response(
             and charge.coefficient * 10**ceiling.scale > ceiling.coefficient * 10**charge.scale
         ):
             raise ContractError("Backend customer charge exceeds the selected ceiling")
+    return result
+
+
+def validate_search_admission(
+    result: SearchSnapshot, options: KeyedSearchOptions
+) -> SearchSnapshot:
+    """Preserve selected intent; retained history needs a native policy receipt.
+
+    See: backend/notes/specifications/sdk/index_contract.md."""
+    if result.mode != options.mode:
+        raise ContractError("Search admission changed the requested mode")
+    if result.retention is not None and result.retention.mode != options.retention:
+        raise ContractError("Search admission changed the selected retention mode")
+    if options.retention == "retained" and result.retention is None:
+        raise ContractError("Retained search requires an explicit backend retention receipt")
     return result

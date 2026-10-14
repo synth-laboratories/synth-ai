@@ -11,7 +11,9 @@ from synth_ai.types.base import Identifier, Model, ResponseModel
 from synth_ai.types.money import Money
 from synth_ai.types.usage import UsageSummary
 
+from .annotations import ContributionAnnotations
 from .contents import ContentRef
+from .retention import RetentionMode, SearchRetention, validate_retention_observation
 
 Mode = Literal["fast", "deep"]
 
@@ -40,6 +42,7 @@ class PublicSearchOptions(Model):
 class KeyedSearchOptions(PublicSearchOptions):
     maximum_charge: Money
     collection_ids: tuple[Identifier, ...] = Field(default=(), max_length=16)
+    retention: RetentionMode = "zdr"
 
     @model_validator(mode="after")
     def validate_charge_and_collections(self) -> Self:
@@ -53,6 +56,12 @@ class KeyedSearchOptions(PublicSearchOptions):
 Query = Annotated[str, Field(strict=True, min_length=1, max_length=8192)]
 
 
+def validate_query_text(value: str) -> str:
+    if not value.strip() or "\x00" in value or len(value.encode("utf-8")) > 8192:
+        raise ValueError("query must be nonblank, contain no NUL and fit 8192 UTF-8 bytes")
+    return value
+
+
 class PublicSearchRequest(Model):
     query: Query
     options: PublicSearchOptions
@@ -60,9 +69,7 @@ class PublicSearchRequest(Model):
     @field_validator("query")
     @classmethod
     def validate_query(cls, value: str) -> str:
-        if not value.strip() or "\x00" in value or len(value.encode("utf-8")) > 8192:
-            raise ValueError("query must be nonblank, contain no NUL and fit 8192 UTF-8 bytes")
-        return value
+        return validate_query_text(value)
 
 
 class KeyedSearchRequest(PublicSearchRequest):
@@ -72,6 +79,16 @@ class KeyedSearchRequest(PublicSearchRequest):
 class SearchCitation(Model):
     reference: ContentRef
     label: str = Field(min_length=1, max_length=256)
+    annotations: ContributionAnnotations | None = None
+
+    @model_validator(mode="after")
+    def validate_annotations(self) -> Self:
+        if self.annotations is not None and (
+            self.annotations.contribution_id != self.reference.contribution_id
+            or self.annotations.revision_id != self.reference.revision_id
+        ):
+            raise ValueError("citation annotations belong to another contribution revision")
+        return self
 
 
 class SearchFailure(Model):
@@ -92,9 +109,17 @@ class SearchResponse(ResponseModel):
     output_ready: bool
     accounting_final: bool
     cleanup_complete: bool
+    retention: SearchRetention | None = None
 
     @model_validator(mode="after")
     def validate_outcome(self) -> Self:
+        validate_retention_observation(self.retention, self.metadata.observed_at)
+        if self.retention is not None and (self.response is not None or self.citations):
+            if self.retention.content_state != "available":
+                raise ValueError("unavailable retained content cannot be disclosed")
+            expiry = self.retention.content_expires_at
+            if expiry is not None and expiry <= self.metadata.observed_at:
+                raise ValueError("expired content cannot be disclosed")
         if self.status == "failed" and self.failure is None:
             raise ValueError("failed result requires a failure")
         if self.status != "failed" and self.failure is not None:
@@ -129,6 +154,18 @@ class SearchSnapshot(ResponseModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+    retention: SearchRetention | None = None
+
+    @model_validator(mode="after")
+    def validate_retention(self) -> Self:
+        validate_retention_observation(self.retention, self.metadata.observed_at)
+        if (
+            self.result_available
+            and self.retention is not None
+            and self.retention.content_state != "available"
+        ):
+            raise ValueError("unavailable content cannot advertise a readable result")
+        return self
 
 
 class SearchEvent(Model):

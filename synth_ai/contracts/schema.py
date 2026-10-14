@@ -13,6 +13,12 @@ from pydantic import BaseModel
 from synth_ai.core.http.response import ErrorResponse
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions, TransferOptions
 from synth_ai.sdk.index.types.account import AuthContext, Collection, IndexAccount
+from synth_ai.sdk.index.types.annotations import (
+    AuthorAnnotations,
+    ContributionAnnotations,
+    ContributionMetadata,
+    ContributionReview,
+)
 from synth_ai.sdk.index.types.contents import (
     ContentOptions,
     ContentRef,
@@ -31,6 +37,15 @@ from synth_ai.sdk.index.types.contributions import (
     SubmissionReceipt,
     SubmissionRequest,
 )
+from synth_ai.sdk.index.types.history import (
+    SearchHistoryDeletion,
+    SearchHistoryDeletionReceipt,
+    SearchHistoryEntry,
+    SearchHistoryFilter,
+    SearchHistoryPage,
+    SearchHistoryRequest,
+)
+from synth_ai.sdk.index.types.retention import SearchRetention
 from synth_ai.sdk.index.types.search import (
     KeyedSearchOptions,
     KeyedSearchRequest,
@@ -55,6 +70,17 @@ from .operations import ALL_OPERATIONS, CONTRACT, PREFIX
 
 MODELS: tuple[type[BaseModel], ...] = (
     AuthContext,
+    AuthorAnnotations,
+    ContributionAnnotations,
+    ContributionMetadata,
+    ContributionReview,
+    SearchRetention,
+    SearchHistoryDeletion,
+    SearchHistoryDeletionReceipt,
+    SearchHistoryEntry,
+    SearchHistoryFilter,
+    SearchHistoryPage,
+    SearchHistoryRequest,
     Collection,
     IndexAccount,
     Contribution,
