@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.23.0.dev2026101309"
+version = "0.23.0.dev2026101401"
 description = "Synth Index SDK; local 0.23 Index and Swarms rebuild"
 keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
@@ -11,7 +11,8 @@ requires-python = ">=3.11"
 dependencies = [
     "typing-extensions>=4.12,<5",
     # Live SDK runtime
-    "pydantic>=2.11,<3",
+    # Contract generation is qualified against this exact schema serializer.
+    "pydantic==2.12.5",
     "httpx>=0.28.1,<1",
 ]
 

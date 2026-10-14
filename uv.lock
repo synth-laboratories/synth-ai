@@ -1086,7 +1086,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.23.0.dev2026101309"
+version = "0.23.0.dev2026101401"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
@@ -1114,7 +1114,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1,<1" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.30,<2" },
-    { name = "pydantic", specifier = ">=2.11,<3" },
+    { name = "pydantic", specifier = "==2.12.5" },
     { name = "typing-extensions", specifier = ">=4.12,<5" },
 ]
 provides-extras = ["mcp"]
