@@ -205,6 +205,14 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
+        },
+        "state": {
+          "enum": [
+            "pending_submission",
+            "attested"
+          ],
+          "title": "State",
+          "type": "string"
         }
       },
       "required": [
@@ -212,6 +220,7 @@
         "contribution_id",
         "revision_id",
         "accepted",
+        "state",
         "reason"
       ],
       "title": "AttestationReceipt",
@@ -1618,6 +1627,28 @@
     },
     "Contribution": {
       "$defs": {
+        "AuthorAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            }
+          },
+          "title": "AuthorAnnotations",
+          "type": "object"
+        },
         "ClientTiming": {
           "additionalProperties": false,
           "properties": {
@@ -1714,6 +1745,47 @@
             "review"
           ],
           "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionDraft": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "$ref": "#/$defs/AuthorAnnotations"
+            },
+            "expected_revision_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Revision Id"
+            },
+            "summary": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Summary",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "expected_revision_id",
+            "title",
+            "summary"
+          ],
+          "title": "ContributionDraft",
           "type": "object"
         },
         "ContributionMetadata": {
@@ -2029,6 +2101,17 @@
           "title": "Contribution Id",
           "type": "string"
         },
+        "draft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContributionDraft"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
         },
@@ -2050,6 +2133,9 @@
           "enum": [
             "draft",
             "submitted",
+            "changes_requested",
+            "rejected",
+            "qualified",
             "published",
             "withdrawn"
           ],
@@ -2388,13 +2474,13 @@
           "title": "Expected Revision Id"
         },
         "summary": {
-          "maxLength": 8192,
+          "maxLength": 2048,
           "minLength": 1,
           "title": "Summary",
           "type": "string"
         },
         "title": {
-          "maxLength": 256,
+          "maxLength": 200,
           "minLength": 1,
           "title": "Title",
           "type": "string"
@@ -2772,12 +2858,34 @@
           "type": "string"
         },
         "digest_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Digest Sha256",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Digest Sha256"
         },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
+        },
+        "parent_revision_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Revision Id"
         },
         "revision_id": {
           "maxLength": 128,
@@ -4563,6 +4671,28 @@
     },
     "Page[Contribution, NewType]": {
       "$defs": {
+        "AuthorAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            }
+          },
+          "title": "AuthorAnnotations",
+          "type": "object"
+        },
         "ClientTiming": {
           "additionalProperties": false,
           "properties": {
@@ -4621,6 +4751,17 @@
               "title": "Contribution Id",
               "type": "string"
             },
+            "draft": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionDraft"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "metadata": {
               "$ref": "#/$defs/ResponseMetadata"
             },
@@ -4642,6 +4783,9 @@
               "enum": [
                 "draft",
                 "submitted",
+                "changes_requested",
+                "rejected",
+                "qualified",
                 "published",
                 "withdrawn"
               ],
@@ -4735,6 +4879,47 @@
             "review"
           ],
           "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionDraft": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "$ref": "#/$defs/AuthorAnnotations"
+            },
+            "expected_revision_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Revision Id"
+            },
+            "summary": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Summary",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "expected_revision_id",
+            "title",
+            "summary"
+          ],
+          "title": "ContributionDraft",
           "type": "object"
         },
         "ContributionMetadata": {
@@ -5444,7 +5629,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -6243,7 +6430,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -6676,10 +6865,18 @@
           "title": "Digest Sha256",
           "type": "string"
         },
-        "license_expression": {
-          "maxLength": 256,
-          "minLength": 1,
-          "title": "License Expression",
+        "license_expressions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "License Expressions",
+          "type": "array"
+        },
+        "notices_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Notices Digest Sha256",
           "type": "string"
         },
         "revision_id": {
@@ -6688,12 +6885,20 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
+        },
+        "rights_decision_reference": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Rights Decision Reference",
+          "type": "string"
         }
       },
       "required": [
         "revision_id",
         "digest_sha256",
-        "license_expression",
+        "license_expressions",
+        "notices_digest_sha256",
+        "rights_decision_reference",
         "authorized_to_contribute"
       ],
       "title": "RightsAttestation",
@@ -7009,7 +7214,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -8734,7 +8941,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -10160,6 +10369,14 @@
           "title": "State",
           "type": "string"
         },
+        "transfer_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 5,
+          "title": "Transfer Headers",
+          "type": "object"
+        },
         "transfer_url": {
           "anyOf": [
             {
@@ -10502,7 +10719,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -10949,7 +11168,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -11274,6 +11495,16 @@
       "mutation": false,
       "path": "/api/v1/index/contributions/{contribution_id}",
       "required_scope": null
+    },
+    {
+      "id": "index.contributions.owner",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/index/contributions/{contribution_id}/owner",
+      "required_scope": "index:intake"
     },
     {
       "id": "index.contributions.create",

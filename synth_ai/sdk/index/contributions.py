@@ -92,6 +92,23 @@ class Contributions:
         )
         return result
 
+    def get_owner(
+        self, contribution_id: str, *, request: ReadOptions | None = None
+    ) -> Contribution:
+        """Read the current private owner resource without widening public browsing."""
+        contribution_id = identifier(contribution_id)
+        return self._transport.request(
+            operations.OWNED_CONTRIBUTION,
+            Contribution,
+            path=f"/index/contributions/{contribution_id}/owner",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Owner contribution identity mismatch",
+            ),
+        )
+
     def create(self, *, mutation: MutationOptions | None = None) -> Contribution:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
@@ -126,7 +143,7 @@ class Contributions:
         if resolution.resource is not None:
             if resolution.resource.kind != "contribution":
                 raise ContractError("Contribution resolver returned another resource type")
-            resource = self.get(resolution.resource.resource_id, request=request)
+            resource = self.get_owner(resolution.resource.resource_id, request=request)
         return CreationResolution(resolution.state, resource, resolution.metadata)
 
     def update(
@@ -314,6 +331,23 @@ class AsyncContributions:
         )
         return result
 
+    async def get_owner(
+        self, contribution_id: str, *, request: ReadOptions | None = None
+    ) -> Contribution:
+        """Read the current private owner resource without widening public browsing."""
+        contribution_id = identifier(contribution_id)
+        return await self._transport.request(
+            operations.OWNED_CONTRIBUTION,
+            Contribution,
+            path=f"/index/contributions/{contribution_id}/owner",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Owner contribution identity mismatch",
+            ),
+        )
+
     async def create(self, *, mutation: MutationOptions | None = None) -> Contribution:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
@@ -348,7 +382,7 @@ class AsyncContributions:
         if resolution.resource is not None:
             if resolution.resource.kind != "contribution":
                 raise ContractError("Contribution resolver returned another resource type")
-            resource = await self.get(resolution.resource.resource_id, request=request)
+            resource = await self.get_owner(resolution.resource.resource_id, request=request)
         return CreationResolution(resolution.state, resource, resolution.metadata)
 
     async def update(

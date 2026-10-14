@@ -16,7 +16,7 @@ import httpx
 from synth_ai.core.local_files import open_regular_file
 from synth_ai.errors import ContractError, OutcomeUncertainError, RequestTimeoutError
 from synth_ai.options import TransferOptions
-from synth_ai.types.uploads import TransferReceipt
+from synth_ai.types.uploads import TransferReceipt, validate_upload_headers
 
 
 class TransferManifest(Protocol):
@@ -46,6 +46,8 @@ class TransferStatus(Protocol):
     def transfer_url(self) -> str | None: ...
     @property
     def expires_at(self) -> datetime | None: ...
+    @property
+    def transfer_headers(self) -> dict[str, str]: ...
 
 
 def validate_transfer(
@@ -57,6 +59,12 @@ def validate_transfer(
         raise ValueError("upload grant expired")
     if status.manifest != source.manifest or source.manifest.byte_size > options.maximum_bytes:
         raise ValueError("source manifest or selected bound does not match upload")
+    validate_upload_headers(
+        status.transfer_headers,
+        size=source.manifest.byte_size,
+        digest=source.manifest.digest_sha256,
+        media_type=source.manifest.media_type,
+    )
     url = urlsplit(status.transfer_url)
     if (
         not (
@@ -139,6 +147,7 @@ async def async_transfer(
                 headers={
                     "Content-Type": source.manifest.media_type,
                     "Content-Length": str(source.manifest.byte_size),
+                    **status.transfer_headers,
                 },
                 timeout=options.timeout_seconds,
             )

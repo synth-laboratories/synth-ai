@@ -979,6 +979,14 @@
           "title": "State",
           "type": "string"
         },
+        "transfer_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 5,
+          "title": "Transfer Headers",
+          "type": "object"
+        },
         "transfer_url": {
           "anyOf": [
             {
@@ -3498,7 +3506,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -5116,7 +5126,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -5592,7 +5604,9 @@
                 "bytes",
                 "seconds",
                 "searches",
-                "reads"
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
               ],
               "title": "Unit",
               "type": "string"
@@ -6263,8 +6277,11 @@
               "title": "First Byte Ms"
             },
             "source": {
-              "const": "sdk_monotonic",
               "default": "sdk_monotonic",
+              "enum": [
+                "sdk_monotonic",
+                "server_monotonic"
+              ],
               "title": "Source",
               "type": "string"
             },
@@ -6330,8 +6347,11 @@
           "title": "First Byte Ms"
         },
         "source": {
-          "const": "sdk_monotonic",
           "default": "sdk_monotonic",
+          "enum": [
+            "sdk_monotonic",
+            "server_monotonic"
+          ],
           "title": "Source",
           "type": "string"
         },

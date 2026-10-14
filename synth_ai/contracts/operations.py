@@ -169,6 +169,13 @@ CONTRIBUTION = Operation(
     False,
     required_scope=None,
 )
+OWNED_CONTRIBUTION = Operation(
+    "index.contributions.owner",
+    "GET",
+    "/index/contributions/{contribution_id}/owner",
+    True,
+    required_scope="index:intake",
+)
 CREATE_CONTRIBUTION = Operation(
     "index.contributions.create",
     "POST",
@@ -259,6 +266,7 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     COLLECTION,
     CONTRIBUTIONS,
     CONTRIBUTION,
+    OWNED_CONTRIBUTION,
     CREATE_CONTRIBUTION,
     UPDATE_CONTRIBUTION,
     ATTEST,

@@ -13,6 +13,21 @@ from synth_ai.core.local_files import open_regular_file
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
 
 
+def validate_upload_headers(
+    headers: dict[str, str], *, size: int, digest: str, media_type: str
+) -> None:
+    """Only exact object-store headers may accompany a credential-isolated PUT."""
+    allowed = {
+        "Content-Length": str(size),
+        "Content-Type": media_type,
+        "If-None-Match": "*",
+        "x-amz-meta-sha256": digest,
+        "x-amz-meta-media-type": media_type,
+    }
+    if any(key not in allowed or value != allowed[key] for key, value in headers.items()):
+        raise ValueError("upload headers do not match the immutable manifest")
+
+
 class ContributionUploadManifest(Model):
     byte_size: StrictInt = Field(ge=1, le=32 * 1024 * 1024)
     digest_sha256: Digest
@@ -33,9 +48,16 @@ class UploadStatus(ResponseModel):
     manifest: ContributionUploadManifest
     transfer_url: str | None = Field(max_length=4096, repr=False)
     expires_at: AwareDatetime | None
+    transfer_headers: dict[str, str] = Field(default_factory=dict, max_length=5, repr=False)
 
     @model_validator(mode="after")
     def validate_grant(self) -> Self:
+        validate_upload_headers(
+            self.transfer_headers,
+            size=self.manifest.byte_size,
+            digest=self.manifest.digest_sha256,
+            media_type=self.manifest.media_type,
+        )
         if self.state == "prepared" and (self.transfer_url is None or self.expires_at is None):
             raise ValueError("prepared upload requires a scoped expiring transfer grant")
         return self

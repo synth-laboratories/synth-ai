@@ -11,6 +11,7 @@ from pydantic import AwareDatetime, Field, StrictInt, model_validator
 
 from synth_ai.core.local_files import open_regular_file
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.uploads import validate_upload_headers
 
 from .launch import FileRef
 
@@ -69,9 +70,16 @@ class FileUploadStatus(ResponseModel):
     manifest: FileManifest
     transfer_url: str | None = Field(max_length=4096, repr=False)
     expires_at: AwareDatetime | None
+    transfer_headers: dict[str, str] = Field(default_factory=dict, max_length=5, repr=False)
 
     @model_validator(mode="after")
     def validate_grant(self) -> Self:
+        validate_upload_headers(
+            self.transfer_headers,
+            size=self.manifest.byte_size,
+            digest=self.manifest.digest_sha256,
+            media_type=self.manifest.media_type,
+        )
         if self.state == "prepared" and (self.transfer_url is None or self.expires_at is None):
             raise ValueError("prepared upload requires a scoped expiring transfer grant")
         return self

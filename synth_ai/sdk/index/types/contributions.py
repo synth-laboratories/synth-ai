@@ -20,12 +20,17 @@ class Contribution(ResponseModel):
     contribution_id: Identifier
     revision_id: Identifier | None
     title: str | None = Field(max_length=256)
-    status: Literal["draft", "submitted", "published", "withdrawn"]
+    status: Literal[
+        "draft", "submitted", "changes_requested", "rejected", "qualified", "published", "withdrawn"
+    ]
     contents_readable: bool
     annotations: ContributionAnnotations | None = None
+    draft: ContributionDraft | None = None
 
     @model_validator(mode="after")
     def validate_annotations(self) -> Self:
+        if self.draft is not None and (self.status != "draft" or self.draft.expected_revision_id != self.revision_id):
+            raise ValueError("draft metadata requires the exact current draft revision")
         if self.annotations is not None and (
             self.annotations.contribution_id != self.contribution_id
             or self.annotations.revision_id != self.revision_id
@@ -36,21 +41,24 @@ class Contribution(ResponseModel):
 
 class ContributionDraft(Model):
     expected_revision_id: Identifier | None
-    title: str = Field(min_length=1, max_length=256)
-    summary: str = Field(min_length=1, max_length=8192)
+    title: str = Field(min_length=1, max_length=200)
+    summary: str = Field(min_length=1, max_length=2048)
     annotations: AuthorAnnotations = Field(default_factory=AuthorAnnotations)
 
 
 class ContributionRevision(ResponseModel):
     contribution_id: Identifier
     revision_id: Identifier
-    digest_sha256: Digest
+    digest_sha256: Digest | None
+    parent_revision_id: Identifier | None = None
 
 
 class RightsAttestation(Model):
     revision_id: Identifier
     digest_sha256: Digest
-    license_expression: str = Field(min_length=1, max_length=256)
+    license_expressions: tuple[str, ...] = Field(min_length=1, max_length=64)
+    notices_digest_sha256: Digest
+    rights_decision_reference: str = Field(min_length=1, max_length=512)
     authorized_to_contribute: Literal[True]
 
 
@@ -58,6 +66,7 @@ class AttestationReceipt(ResponseModel):
     contribution_id: Identifier
     revision_id: Identifier
     accepted: bool
+    state: Literal["pending_submission", "attested"]
     reason: str | None = Field(max_length=512)
 
 
