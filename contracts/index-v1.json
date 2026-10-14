@@ -467,6 +467,496 @@
       "title": "AuthContext",
       "type": "object"
     },
+    "AuthorAnnotations": {
+      "$defs": {
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "keywords": {
+          "default": [],
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Keywords",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ContributionMetadata"
+        }
+      },
+      "title": "AuthorAnnotations",
+      "type": "object"
+    },
+    "Capabilities": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ComponentIdentity": {
+          "additionalProperties": false,
+          "properties": {
+            "artifact_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Artifact Sha256",
+              "type": "string"
+            },
+            "component_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Component Id",
+              "type": "string"
+            },
+            "configuration_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Configuration Sha256",
+              "type": "string"
+            },
+            "source_commit": {
+              "pattern": "^[0-9a-f]{40}$",
+              "title": "Source Commit",
+              "type": "string"
+            },
+            "version": {
+              "maxLength": 64,
+              "pattern": "^[0-9][0-9A-Za-z._+-]*$",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "component_id",
+            "version",
+            "source_commit",
+            "artifact_sha256",
+            "configuration_sha256"
+          ],
+          "title": "ComponentIdentity",
+          "type": "object"
+        },
+        "ContractIdentity": {
+          "additionalProperties": false,
+          "properties": {
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "schema_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Schema Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contract",
+            "schema_sha256"
+          ],
+          "title": "ContractIdentity",
+          "type": "object"
+        },
+        "OperationCapability": {
+          "additionalProperties": false,
+          "properties": {
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "operation_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "not_implemented",
+                    "not_qualified",
+                    "disabled",
+                    "dependency_unavailable"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            },
+            "state": {
+              "enum": [
+                "enabled",
+                "unavailable"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "surfaces": {
+              "items": {
+                "enum": [
+                  "http",
+                  "mcp"
+                ],
+                "type": "string"
+              },
+              "maxItems": 2,
+              "title": "Surfaces",
+              "type": "array"
+            }
+          },
+          "required": [
+            "operation_id",
+            "contract",
+            "state",
+            "surfaces",
+            "reason"
+          ],
+          "title": "OperationCapability",
+          "type": "object"
+        },
+        "ReleaseIdentity": {
+          "additionalProperties": false,
+          "properties": {
+            "candidate_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Candidate Id",
+              "type": "string"
+            },
+            "components": {
+              "items": {
+                "$ref": "#/$defs/ComponentIdentity"
+              },
+              "maxItems": 32,
+              "minItems": 1,
+              "title": "Components",
+              "type": "array"
+            },
+            "environment": {
+              "enum": [
+                "local",
+                "development",
+                "staging",
+                "production"
+              ],
+              "title": "Environment",
+              "type": "string"
+            },
+            "manifest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Sha256",
+              "type": "string"
+            },
+            "release_train": {
+              "maxLength": 32,
+              "pattern": "^0\\.[0-9]+\\.[0-9]+$",
+              "title": "Release Train",
+              "type": "string"
+            }
+          },
+          "required": [
+            "environment",
+            "release_train",
+            "candidate_id",
+            "manifest_sha256",
+            "components"
+          ],
+          "title": "ReleaseIdentity",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admission": {
+          "anyOf": [
+            {
+              "enum": [
+                "candidate",
+                "qualified"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Admission"
+        },
+        "capability_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Capability Sha256",
+          "type": "string"
+        },
+        "contracts": {
+          "items": {
+            "$ref": "#/$defs/ContractIdentity"
+          },
+          "maxItems": 2,
+          "title": "Contracts",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/OperationCapability"
+          },
+          "maxItems": 128,
+          "title": "Operations",
+          "type": "array"
+        },
+        "release": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReleaseIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_version": {
+          "const": "synth.capabilities.v1",
+          "default": "synth.capabilities.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "release",
+        "admission",
+        "contracts",
+        "operations",
+        "capability_sha256"
+      ],
+      "title": "Capabilities",
+      "type": "object"
+    },
     "Collection": {
       "$defs": {
         "ClientTiming": {
@@ -1161,6 +1651,224 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ContributionAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "annotation_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Annotation Version",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            },
+            "review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionReview"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "annotation_version",
+            "review"
+          ],
+          "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        },
+        "ContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "const": "synth",
+              "title": "Authority",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "correctness": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Correctness",
+              "type": "string"
+            },
+            "evidence_references": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Evidence References",
+              "type": "array"
+            },
+            "quality": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "review_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Review Id",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "format": "date-time",
+              "title": "Reviewed At",
+              "type": "string"
+            },
+            "reviewer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Reviewer Id",
+              "type": "string"
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "rubric_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Rubric Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "review_id",
+            "rubric_version",
+            "reviewed_at",
+            "reviewer_id",
+            "authority",
+            "quality",
+            "confidence",
+            "correctness",
+            "evidence_references"
+          ],
+          "title": "ContributionReview",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -1299,6 +2007,17 @@
       },
       "additionalProperties": false,
       "properties": {
+        "annotations": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContributionAnnotations"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "contents_readable": {
           "title": "Contents Readable",
           "type": "boolean"
@@ -1361,9 +2080,299 @@
       "title": "Contribution",
       "type": "object"
     },
-    "ContributionDraft": {
+    "ContributionAnnotations": {
+      "$defs": {
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        },
+        "ContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "const": "synth",
+              "title": "Authority",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "correctness": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Correctness",
+              "type": "string"
+            },
+            "evidence_references": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Evidence References",
+              "type": "array"
+            },
+            "quality": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "review_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Review Id",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "format": "date-time",
+              "title": "Reviewed At",
+              "type": "string"
+            },
+            "reviewer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Reviewer Id",
+              "type": "string"
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "rubric_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Rubric Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "review_id",
+            "rubric_version",
+            "reviewed_at",
+            "reviewer_id",
+            "authority",
+            "quality",
+            "confidence",
+            "correctness",
+            "evidence_references"
+          ],
+          "title": "ContributionReview",
+          "type": "object"
+        }
+      },
       "additionalProperties": false,
       "properties": {
+        "annotation_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Annotation Version",
+          "type": "string"
+        },
+        "contribution_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Contribution Id",
+          "type": "string"
+        },
+        "keywords": {
+          "default": [],
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Keywords",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ContributionMetadata"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContributionReview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Revision Digest Sha256",
+          "type": "string"
+        },
+        "revision_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Revision Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contribution_id",
+        "revision_id",
+        "revision_digest_sha256",
+        "annotation_version",
+        "review"
+      ],
+      "title": "ContributionAnnotations",
+      "type": "object"
+    },
+    "ContributionDraft": {
+      "$defs": {
+        "AuthorAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            }
+          },
+          "title": "AuthorAnnotations",
+          "type": "object"
+        },
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "$ref": "#/$defs/AuthorAnnotations"
+        },
         "expected_revision_id": {
           "anyOf": [
             {
@@ -1427,6 +2436,159 @@
         }
       },
       "title": "ContributionFilter",
+      "type": "object"
+    },
+    "ContributionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "research_areas": {
+          "default": [],
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Research Areas",
+          "type": "array"
+        },
+        "topics": {
+          "default": [],
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Topics",
+          "type": "array"
+        },
+        "workflow_stages": {
+          "default": [],
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Workflow Stages",
+          "type": "array"
+        }
+      },
+      "title": "ContributionMetadata",
+      "type": "object"
+    },
+    "ContributionReview": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "const": "synth",
+          "title": "Authority",
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "med",
+            "high"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "contribution_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Contribution Id",
+          "type": "string"
+        },
+        "correctness": {
+          "enum": [
+            "low",
+            "med",
+            "high"
+          ],
+          "title": "Correctness",
+          "type": "string"
+        },
+        "evidence_references": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Evidence References",
+          "type": "array"
+        },
+        "quality": {
+          "enum": [
+            "low",
+            "med",
+            "high"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "review_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "reviewed_at": {
+          "format": "date-time",
+          "title": "Reviewed At",
+          "type": "string"
+        },
+        "reviewer_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Reviewer Id",
+          "type": "string"
+        },
+        "revision_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Revision Digest Sha256",
+          "type": "string"
+        },
+        "revision_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "rubric_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Rubric Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contribution_id",
+        "revision_id",
+        "revision_digest_sha256",
+        "review_id",
+        "rubric_version",
+        "reviewed_at",
+        "reviewer_id",
+        "authority",
+        "quality",
+        "confidence",
+        "correctness",
+        "evidence_references"
+      ],
+      "title": "ContributionReview",
       "type": "object"
     },
     "ContributionRevision": {
@@ -2502,6 +3664,15 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "retention": {
+          "default": "zdr",
+          "enum": [
+            "zdr",
+            "retained"
+          ],
+          "title": "Retention",
+          "type": "string"
         }
       },
       "required": [
@@ -2547,6 +3718,15 @@
                 "deep"
               ],
               "title": "Mode",
+              "type": "string"
+            },
+            "retention": {
+              "default": "zdr",
+              "enum": [
+                "zdr",
+                "retained"
+              ],
+              "title": "Retention",
               "type": "string"
             }
           },
@@ -3419,6 +4599,17 @@
         "Contribution": {
           "additionalProperties": false,
           "properties": {
+            "annotations": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionAnnotations"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "contents_readable": {
               "title": "Contents Readable",
               "type": "boolean"
@@ -3479,6 +4670,224 @@
             "contents_readable"
           ],
           "title": "Contribution",
+          "type": "object"
+        },
+        "ContributionAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "annotation_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Annotation Version",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            },
+            "review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionReview"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "annotation_version",
+            "review"
+          ],
+          "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        },
+        "ContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "const": "synth",
+              "title": "Authority",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "correctness": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Correctness",
+              "type": "string"
+            },
+            "evidence_references": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Evidence References",
+              "type": "array"
+            },
+            "quality": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "review_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Review Id",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "format": "date-time",
+              "title": "Reviewed At",
+              "type": "string"
+            },
+            "reviewer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Reviewer Id",
+              "type": "string"
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "rubric_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Rubric Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "review_id",
+            "rubric_version",
+            "reviewed_at",
+            "reviewer_id",
+            "authority",
+            "quality",
+            "confidence",
+            "correctness",
+            "evidence_references"
+          ],
+          "title": "ContributionReview",
           "type": "object"
         },
         "ResponseMetadata": {
@@ -4250,6 +5659,94 @@
           "title": "ResponseMetadata",
           "type": "object"
         },
+        "SearchRetention": {
+          "additionalProperties": false,
+          "properties": {
+            "archived_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Archived At"
+            },
+            "content_expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Expires At"
+            },
+            "content_state": {
+              "enum": [
+                "processing",
+                "available",
+                "expired",
+                "deleted",
+                "unavailable"
+              ],
+              "title": "Content State",
+              "type": "string"
+            },
+            "history_available": {
+              "title": "History Available",
+              "type": "boolean"
+            },
+            "mode": {
+              "enum": [
+                "zdr",
+                "retained"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "policy_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Policy Version",
+              "type": "string"
+            },
+            "purpose": {
+              "const": "customer_only",
+              "title": "Purpose",
+              "type": "string"
+            },
+            "retention_days": {
+              "anyOf": [
+                {
+                  "const": 30,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Retention Days"
+            }
+          },
+          "required": [
+            "mode",
+            "policy_version",
+            "purpose",
+            "content_state",
+            "archived_at",
+            "content_expires_at",
+            "retention_days",
+            "history_available"
+          ],
+          "title": "SearchRetention",
+          "type": "object"
+        },
         "SearchSnapshot": {
           "additionalProperties": false,
           "properties": {
@@ -4283,6 +5780,17 @@
             "result_available": {
               "title": "Result Available",
               "type": "boolean"
+            },
+            "retention": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SearchRetention"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "search_id": {
               "maxLength": 128,
@@ -5645,6 +7153,879 @@
       "title": "SearchEvent",
       "type": "object"
     },
+    "SearchHistoryDeletion": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_archive_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Archive Digest Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_archive_digest_sha256"
+      ],
+      "title": "SearchHistoryDeletion",
+      "type": "object"
+    },
+    "SearchHistoryDeletionReceipt": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "archive_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Archive Digest Sha256",
+          "type": "string"
+        },
+        "cleanup_complete": {
+          "title": "Cleanup Complete",
+          "type": "boolean"
+        },
+        "history_available": {
+          "const": false,
+          "title": "History Available",
+          "type": "boolean"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "search_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Search Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "deleted",
+            "already_deleted"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "search_id",
+        "archive_digest_sha256",
+        "state",
+        "history_available",
+        "cleanup_complete"
+      ],
+      "title": "SearchHistoryDeletionReceipt",
+      "type": "object"
+    },
+    "SearchHistoryEntry": {
+      "$defs": {
+        "SearchRetention": {
+          "additionalProperties": false,
+          "properties": {
+            "archived_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Archived At"
+            },
+            "content_expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Expires At"
+            },
+            "content_state": {
+              "enum": [
+                "processing",
+                "available",
+                "expired",
+                "deleted",
+                "unavailable"
+              ],
+              "title": "Content State",
+              "type": "string"
+            },
+            "history_available": {
+              "title": "History Available",
+              "type": "boolean"
+            },
+            "mode": {
+              "enum": [
+                "zdr",
+                "retained"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "policy_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Policy Version",
+              "type": "string"
+            },
+            "purpose": {
+              "const": "customer_only",
+              "title": "Purpose",
+              "type": "string"
+            },
+            "retention_days": {
+              "anyOf": [
+                {
+                  "const": 30,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Retention Days"
+            }
+          },
+          "required": [
+            "mode",
+            "policy_version",
+            "purpose",
+            "content_state",
+            "archived_at",
+            "content_expires_at",
+            "retention_days",
+            "history_available"
+          ],
+          "title": "SearchRetention",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "archive_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Archive Digest Sha256",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "fast",
+            "deep"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "query": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "retention": {
+          "$ref": "#/$defs/SearchRetention"
+        },
+        "search_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Search Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "search_id",
+        "query",
+        "mode",
+        "created_at",
+        "archive_digest_sha256",
+        "retention"
+      ],
+      "title": "SearchHistoryEntry",
+      "type": "object"
+    },
+    "SearchHistoryFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "created_after": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created After"
+        },
+        "created_before": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created Before"
+        },
+        "query": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "title": "SearchHistoryFilter",
+      "type": "object"
+    },
+    "SearchHistoryPage": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "SearchHistoryEntry": {
+          "additionalProperties": false,
+          "properties": {
+            "archive_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Archive Digest Sha256",
+              "type": "string"
+            },
+            "created_at": {
+              "format": "date-time",
+              "title": "Created At",
+              "type": "string"
+            },
+            "mode": {
+              "enum": [
+                "fast",
+                "deep"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "query": {
+              "maxLength": 8192,
+              "minLength": 1,
+              "title": "Query",
+              "type": "string"
+            },
+            "retention": {
+              "$ref": "#/$defs/SearchRetention"
+            },
+            "search_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "search_id",
+            "query",
+            "mode",
+            "created_at",
+            "archive_digest_sha256",
+            "retention"
+          ],
+          "title": "SearchHistoryEntry",
+          "type": "object"
+        },
+        "SearchHistoryFilter": {
+          "additionalProperties": false,
+          "properties": {
+            "created_after": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created After"
+            },
+            "created_before": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created Before"
+            },
+            "query": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "title": "SearchHistoryFilter",
+          "type": "object"
+        },
+        "SearchRetention": {
+          "additionalProperties": false,
+          "properties": {
+            "archived_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Archived At"
+            },
+            "content_expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Expires At"
+            },
+            "content_state": {
+              "enum": [
+                "processing",
+                "available",
+                "expired",
+                "deleted",
+                "unavailable"
+              ],
+              "title": "Content State",
+              "type": "string"
+            },
+            "history_available": {
+              "title": "History Available",
+              "type": "boolean"
+            },
+            "mode": {
+              "enum": [
+                "zdr",
+                "retained"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "policy_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Policy Version",
+              "type": "string"
+            },
+            "purpose": {
+              "const": "customer_only",
+              "title": "Purpose",
+              "type": "string"
+            },
+            "retention_days": {
+              "anyOf": [
+                {
+                  "const": 30,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Retention Days"
+            }
+          },
+          "required": [
+            "mode",
+            "policy_version",
+            "purpose",
+            "content_state",
+            "archived_at",
+            "content_expires_at",
+            "retention_days",
+            "history_available"
+          ],
+          "title": "SearchRetention",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "filter": {
+          "$ref": "#/$defs/SearchHistoryFilter"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/SearchHistoryEntry"
+          },
+          "maxItems": 200,
+          "title": "Items",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "metadata",
+        "items",
+        "next_cursor",
+        "complete",
+        "filter"
+      ],
+      "title": "SearchHistoryPage",
+      "type": "object"
+    },
+    "SearchHistoryRequest": {
+      "$defs": {
+        "SearchHistoryFilter": {
+          "additionalProperties": false,
+          "properties": {
+            "created_after": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created After"
+            },
+            "created_before": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created Before"
+            },
+            "query": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "title": "SearchHistoryFilter",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cursor"
+        },
+        "filter": {
+          "$ref": "#/$defs/SearchHistoryFilter"
+        },
+        "limit": {
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "title": "SearchHistoryRequest",
+      "type": "object"
+    },
     "SearchResponse": {
       "$defs": {
         "ClientTiming": {
@@ -5717,6 +8098,224 @@
             "digest_sha256"
           ],
           "title": "ContentRef",
+          "type": "object"
+        },
+        "ContributionAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "annotation_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Annotation Version",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            },
+            "review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionReview"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "annotation_version",
+            "review"
+          ],
+          "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        },
+        "ContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "const": "synth",
+              "title": "Authority",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "correctness": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Correctness",
+              "type": "string"
+            },
+            "evidence_references": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Evidence References",
+              "type": "array"
+            },
+            "quality": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "review_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Review Id",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "format": "date-time",
+              "title": "Reviewed At",
+              "type": "string"
+            },
+            "reviewer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Reviewer Id",
+              "type": "string"
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "rubric_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Rubric Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "review_id",
+            "rubric_version",
+            "reviewed_at",
+            "reviewer_id",
+            "authority",
+            "quality",
+            "confidence",
+            "correctness",
+            "evidence_references"
+          ],
+          "title": "ContributionReview",
           "type": "object"
         },
         "Money": {
@@ -5875,6 +8474,17 @@
         "SearchCitation": {
           "additionalProperties": false,
           "properties": {
+            "annotations": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionAnnotations"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "label": {
               "maxLength": 256,
               "minLength": 1,
@@ -5912,6 +8522,94 @@
             "retryable"
           ],
           "title": "SearchFailure",
+          "type": "object"
+        },
+        "SearchRetention": {
+          "additionalProperties": false,
+          "properties": {
+            "archived_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Archived At"
+            },
+            "content_expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Expires At"
+            },
+            "content_state": {
+              "enum": [
+                "processing",
+                "available",
+                "expired",
+                "deleted",
+                "unavailable"
+              ],
+              "title": "Content State",
+              "type": "string"
+            },
+            "history_available": {
+              "title": "History Available",
+              "type": "boolean"
+            },
+            "mode": {
+              "enum": [
+                "zdr",
+                "retained"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "policy_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Policy Version",
+              "type": "string"
+            },
+            "purpose": {
+              "const": "customer_only",
+              "title": "Purpose",
+              "type": "string"
+            },
+            "retention_days": {
+              "anyOf": [
+                {
+                  "const": 30,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Retention Days"
+            }
+          },
+          "required": [
+            "mode",
+            "policy_version",
+            "purpose",
+            "content_state",
+            "archived_at",
+            "content_expires_at",
+            "retention_days",
+            "history_available"
+          ],
+          "title": "SearchRetention",
           "type": "object"
         },
         "TimingSpan": {
@@ -6176,6 +8874,17 @@
           ],
           "title": "Response"
         },
+        "retention": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchRetention"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "search_id": {
           "anyOf": [
             {
@@ -6229,6 +8938,94 @@
         "cleanup_complete"
       ],
       "title": "SearchResponse",
+      "type": "object"
+    },
+    "SearchRetention": {
+      "additionalProperties": false,
+      "properties": {
+        "archived_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Archived At"
+        },
+        "content_expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content Expires At"
+        },
+        "content_state": {
+          "enum": [
+            "processing",
+            "available",
+            "expired",
+            "deleted",
+            "unavailable"
+          ],
+          "title": "Content State",
+          "type": "string"
+        },
+        "history_available": {
+          "title": "History Available",
+          "type": "boolean"
+        },
+        "mode": {
+          "enum": [
+            "zdr",
+            "retained"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "policy_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "purpose": {
+          "const": "customer_only",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "retention_days": {
+          "anyOf": [
+            {
+              "const": 30,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Retention Days"
+        }
+      },
+      "required": [
+        "mode",
+        "policy_version",
+        "purpose",
+        "content_state",
+        "archived_at",
+        "content_expires_at",
+        "retention_days",
+        "history_available"
+      ],
+      "title": "SearchRetention",
       "type": "object"
     },
     "SearchSnapshot": {
@@ -6333,6 +9130,94 @@
           "title": "ResponseMetadata",
           "type": "object"
         },
+        "SearchRetention": {
+          "additionalProperties": false,
+          "properties": {
+            "archived_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Archived At"
+            },
+            "content_expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Expires At"
+            },
+            "content_state": {
+              "enum": [
+                "processing",
+                "available",
+                "expired",
+                "deleted",
+                "unavailable"
+              ],
+              "title": "Content State",
+              "type": "string"
+            },
+            "history_available": {
+              "title": "History Available",
+              "type": "boolean"
+            },
+            "mode": {
+              "enum": [
+                "zdr",
+                "retained"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "policy_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Policy Version",
+              "type": "string"
+            },
+            "purpose": {
+              "const": "customer_only",
+              "title": "Purpose",
+              "type": "string"
+            },
+            "retention_days": {
+              "anyOf": [
+                {
+                  "const": 30,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Retention Days"
+            }
+          },
+          "required": [
+            "mode",
+            "policy_version",
+            "purpose",
+            "content_state",
+            "archived_at",
+            "content_expires_at",
+            "retention_days",
+            "history_available"
+          ],
+          "title": "SearchRetention",
+          "type": "object"
+        },
         "TimingSpan": {
           "additionalProperties": false,
           "properties": {
@@ -6434,6 +9319,17 @@
         "result_available": {
           "title": "Result Available",
           "type": "boolean"
+        },
+        "retention": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchRetention"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "search_id": {
           "maxLength": 128,
@@ -8130,6 +11026,16 @@
   },
   "operations": [
     {
+      "id": "capabilities.get",
+      "idempotent": true,
+      "keyed": false,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/capabilities",
+      "required_scope": null
+    },
+    {
       "id": "auth.context",
       "idempotent": true,
       "keyed": true,
@@ -8218,6 +11124,26 @@
       "mutation": false,
       "path": "/api/v1/index/searches",
       "required_scope": "index:read"
+    },
+    {
+      "id": "index.searches.history",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": false,
+      "path": "/api/v1/index/searches/history",
+      "required_scope": "index:read"
+    },
+    {
+      "id": "index.searches.history.delete",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/index/searches/{search_id}/history/delete",
+      "required_scope": "index:search"
     },
     {
       "id": "index.searches.events",

@@ -3768,6 +3768,9 @@
               "enum": [
                 "queued",
                 "running",
+                "blocked",
+                "review_required",
+                "repair_required",
                 "completed",
                 "partial",
                 "failed",
@@ -5990,6 +5993,9 @@
           "enum": [
             "queued",
             "running",
+            "blocked",
+            "review_required",
+            "repair_required",
             "completed",
             "partial",
             "failed",
