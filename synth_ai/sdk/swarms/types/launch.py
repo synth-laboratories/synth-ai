@@ -48,7 +48,7 @@ class Providers(Model):
 
 
 class Models(Model):
-    default: Literal["gpt-5.6-luna"] = "gpt-5.6-luna"
+    default: Literal["gpt-6-luna"] = "gpt-6-luna"
 
 
 ResolvedModelId = Annotated[str, Field(strict=True, min_length=1, max_length=256)]
