@@ -18,6 +18,13 @@ from .usage import AsyncUsage, Usage
 
 
 class IndexClient:
+    contents: Contents
+    searches: Searches
+    contributions: Contributions
+    account: Account
+    collections: Collections
+    usage: Usage
+
     def __init__(self, transport: HttpTransport, keyed: bool) -> None:
         self._transport = transport
         self._keyed = keyed
@@ -46,6 +53,13 @@ class IndexClient:
 
 
 class AsyncIndexClient:
+    contents: AsyncContents
+    searches: AsyncSearches
+    contributions: AsyncContributions
+    account: AsyncAccount
+    collections: AsyncCollections
+    usage: AsyncUsage
+
     def __init__(self, transport: AsyncHttpTransport, keyed: bool) -> None:
         self._transport = transport
         self._keyed = keyed
