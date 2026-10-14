@@ -14,7 +14,7 @@ from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
 
 from .history import validate_history_page
-from .search import validate_search_admission
+from .search import validate_search_admission, validate_search_page, validate_search_retention
 from .search_run import AsyncSearchRun, SearchRun
 from .types.history import SearchHistoryFilter, SearchHistoryPage, SearchHistoryRequest
 from .types.search import KeyedSearchOptions, KeyedSearchRequest, SearchSnapshot
@@ -50,7 +50,7 @@ class Searches:
             path=f"/index/searches/{search_id}",
             options=request,
             validate=lambda received: verified(
-                received,
+                validate_search_retention(received),
                 received.search_id == search_id,
                 "Reattachment returned a different search",
             ),
@@ -72,11 +72,7 @@ class Searches:
             Page[SearchSnapshot],
             query=page_parameters(limit, cursor),
             options=request,
-            validate=lambda received: verified(
-                received,
-                not len(received.items) > limit,
-                "Search page exceeded its requested limit",
-            ),
+            validate=lambda received: validate_search_page(received, limit),
         )
         return result
 
@@ -145,7 +141,7 @@ class AsyncSearches:
             path=f"/index/searches/{search_id}",
             options=request,
             validate=lambda received: verified(
-                received,
+                validate_search_retention(received),
                 received.search_id == search_id,
                 "Reattachment returned a different search",
             ),
@@ -167,11 +163,7 @@ class AsyncSearches:
             Page[SearchSnapshot],
             query=page_parameters(limit, cursor),
             options=request,
-            validate=lambda received: verified(
-                received,
-                not len(received.items) > limit,
-                "Search page exceeded its requested limit",
-            ),
+            validate=lambda received: validate_search_page(received, limit),
         )
         return result
 

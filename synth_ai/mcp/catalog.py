@@ -18,6 +18,7 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
 from synth_ai.sdk.index.types.contributions import Contribution
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
@@ -151,6 +152,12 @@ class ToolDefinition(Generic[RequestT, ResultT]):
 
     def validate_result(self, result: JsonObject) -> JsonObject:
         parsed = self.result.model_validate_json(JSON_OBJECT.dump_json(result))
+        if isinstance(parsed, (SearchResponse, SearchSnapshot)):
+            validate_search_retention(parsed)
+        elif isinstance(parsed, Page):
+            for item in parsed.items:
+                if isinstance(item, SearchSnapshot):
+                    validate_search_retention(item)
         return JSON_OBJECT.validate_json(parsed.model_dump_json())
 
     async def invoke(self, client: AsyncSynthClient, arguments: JsonObject) -> JsonObject:

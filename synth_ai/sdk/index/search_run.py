@@ -10,12 +10,13 @@ from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.observation import AsyncEventStream, EventStream
 from synth_ai.core.parameters import identifier, page_parameters, verified
-from synth_ai.errors import ContractError, RequestTimeoutError
+from synth_ai.errors import RequestTimeoutError
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
+from .search import validate_search_retention
 from .types.history import SearchHistoryDeletion, SearchHistoryDeletionReceipt
 from .types.retention import RetentionMode
 from .types.search import SearchEvent, SearchResponse, SearchSnapshot
@@ -72,12 +73,7 @@ class SearchRun:
         return result
 
     def _validate_retention(self, result: SearchResponse | SearchSnapshot) -> None:
-        if self._expected_retention is None:
-            return
-        if result.retention is not None and result.retention.mode != self._expected_retention:
-            raise ContractError("Saved search changed the selected retention mode")
-        if self._expected_retention == "retained" and result.retention is None:
-            raise ContractError("Retained search requires an explicit backend retention receipt")
+        validate_search_retention(result, self._expected_retention)
 
     def delete_history(
         self,
@@ -282,12 +278,7 @@ class AsyncSearchRun:
         return result
 
     def _validate_retention(self, result: SearchResponse | SearchSnapshot) -> None:
-        if self._expected_retention is None:
-            return
-        if result.retention is not None and result.retention.mode != self._expected_retention:
-            raise ContractError("Saved search changed the selected retention mode")
-        if self._expected_retention == "retained" and result.retention is None:
-            raise ContractError("Retained search requires an explicit backend retention receipt")
+        validate_search_retention(result, self._expected_retention)
 
     async def delete_history(
         self,

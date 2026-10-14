@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from synth_ai.errors import AuthenticationError, ContractError
+from typing import TypeVar
 
+from synth_ai.errors import AuthenticationError, ContractError
+from synth_ai.types.base import Page
+
+from .types.retention import RetentionMode
 from .types.search import (
     KeyedSearchOptions,
     KeyedSearchRequest,
@@ -15,6 +19,30 @@ from .types.search import (
 
 SearchOptions = PublicSearchOptions | KeyedSearchOptions
 SearchRequest = PublicSearchRequest | KeyedSearchRequest
+SearchObservation = TypeVar("SearchObservation", bound=SearchResponse | SearchSnapshot)
+
+
+def validate_search_retention(
+    result: SearchObservation, expected: RetentionMode | None = None
+) -> SearchObservation:
+    """Require native policy acknowledgment for every customer search observation.
+
+    See: backend/notes/specifications/sdk/customer_api_adoption.md. Default ZDR
+    is an enforceable contract, including reattachment and MCP delivery.
+    """
+    if result.retention is None:
+        raise ContractError("Search requires an explicit backend retention receipt")
+    if expected is not None and result.retention.mode != expected:
+        raise ContractError("Search changed the selected retention mode")
+    return result
+
+
+def validate_search_page(result: Page[SearchSnapshot], limit: int) -> Page[SearchSnapshot]:
+    if len(result.items) > limit:
+        raise ContractError("Search page exceeded its requested limit")
+    for item in result.items:
+        validate_search_retention(item)
+    return result
 
 
 def search_request(query: str, options: SearchOptions, keyed: bool) -> SearchRequest:
@@ -34,12 +62,9 @@ def search_request(query: str, options: SearchOptions, keyed: bool) -> SearchReq
 def validate_search_response(
     result: SearchResponse, options: SearchOptions, keyed: bool
 ) -> SearchResponse:
-    if result.retention is not None:
-        expected_retention = options.retention if isinstance(options, KeyedSearchOptions) else "zdr"
-        if result.retention.mode != expected_retention:
-            raise ContractError("Search changed the selected retention mode")
-    elif isinstance(options, KeyedSearchOptions) and options.retention == "retained":
-        raise ContractError("Retained search requires an explicit backend retention receipt")
+    validate_search_retention(
+        result, options.retention if isinstance(options, KeyedSearchOptions) else "zdr"
+    )
     if result.mode != options.mode or len(result.citations) > options.max_results:
         raise ContractError("Search result violates requested mode or citation bounds")
     if keyed and result.search_id is None:
@@ -67,13 +92,10 @@ def validate_search_response(
 def validate_search_admission(
     result: SearchSnapshot, options: KeyedSearchOptions
 ) -> SearchSnapshot:
-    """Preserve selected intent; retained history needs a native policy receipt.
+    """Preserve selected intent; every search needs a native policy receipt.
 
     See: backend/notes/specifications/sdk/index_contract.md."""
     if result.mode != options.mode:
         raise ContractError("Search admission changed the requested mode")
-    if result.retention is not None and result.retention.mode != options.retention:
-        raise ContractError("Search admission changed the selected retention mode")
-    if options.retention == "retained" and result.retention is None:
-        raise ContractError("Retained search requires an explicit backend retention receipt")
+    validate_search_retention(result, options.retention)
     return result
