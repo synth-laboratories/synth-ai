@@ -7,14 +7,16 @@ from dataclasses import dataclass
 from typing import Literal, Self
 
 import httpx
-from pydantic import Field, StrictInt, field_validator, model_validator
+from pydantic import Field, StrictInt, TypeAdapter, field_validator, model_validator
 
-from synth_ai.types.base import Identifier, Model
+from synth_ai.types.base import Digest, Identifier, Model
 from synth_ai.types.identity import MutationIdentity
 
 
 @dataclass(frozen=True, slots=True)
 class ClientOptions:
+    release_manifest_sha256: str | None = None
+    candidate_manifest_sha256: str | None = None
     timeout_seconds: float = 30.0
     connect_timeout_seconds: float = 10.0
     maximum_response_bytes: int = 1024 * 1024
@@ -25,6 +27,14 @@ class ClientOptions:
     async_http_client: httpx.AsyncClient | None = None
 
     def __post_init__(self) -> None:
+        if self.release_manifest_sha256 is not None:
+            TypeAdapter(Digest).validate_python(self.release_manifest_sha256)
+        if self.candidate_manifest_sha256 is not None:
+            TypeAdapter(Digest).validate_python(self.candidate_manifest_sha256)
+        if self.release_manifest_sha256 is not None and self.candidate_manifest_sha256 is not None:
+            raise ValueError(
+                "Select either a qualified release pin or a nonproduction candidate pin"
+            )
         if len(self.upload_hosts) > 32 or any(
             not host or host != host.lower() or any(character in host for character in "/:@ \n\r")
             for host in self.upload_hosts

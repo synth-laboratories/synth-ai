@@ -14,7 +14,7 @@ from .catalog import TOOLS
 from .runtime import SDKExecutor
 
 
-async def serve(profile: str, base_url: str) -> None:
+async def serve(profile: str, base_url: str, candidate_manifest_sha256: str | None = None) -> None:
     """Own both clients for this one-principal process and close them on exit."""
     from mcp.server.stdio import stdio_server
 
@@ -31,7 +31,9 @@ async def serve(profile: str, base_url: str) -> None:
             else True
         )
     )
-    options = ClientOptions(timeout_seconds=45, read_retry_count=0)
+    options = ClientOptions(
+        timeout_seconds=45, read_retry_count=0, candidate_manifest_sha256=candidate_manifest_sha256
+    )
     async with AsyncSynthClient.anonymous(base_url=base_url, options=options) as public_client:
         client = (
             public_client
@@ -54,8 +56,9 @@ def main() -> None:
     parser.add_argument(
         "--base-url", default=os.environ.get("SYNTH_API_BASE_URL", "https://api.usesynth.ai")
     )
+    parser.add_argument("--candidate-manifest-sha256")
     args = parser.parse_args()
-    asyncio.run(serve(args.profile, args.base_url))
+    asyncio.run(serve(args.profile, args.base_url, args.candidate_manifest_sha256))
 
 
 if __name__ == "__main__":

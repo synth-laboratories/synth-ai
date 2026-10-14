@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from types import TracebackType
 
-from synth_ai.contracts.operations import AUTH_CONTEXT
+from synth_ai.contracts.operations import AUTH_CONTEXT, CAPABILITIES
 from synth_ai.contracts.registry import recovery_operation
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
@@ -15,6 +15,7 @@ from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.types.auth import AuthContext
+from synth_ai.types.capabilities import Capabilities
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import MutationResolution
 
@@ -70,6 +71,22 @@ class SynthClient:
         client.index = IndexClient(client._transport, False)
         client.swarms = SwarmsClient(client._transport)
         return client
+
+    def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
+        """Read nonsecret deployment facts; these do not grant resource access.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        return self._transport.request(CAPABILITIES, Capabilities, options=request)
+
+    @property
+    def candidate_manifest_sha256(self) -> str | None:
+        """Explicit nonproduction candidate pin; absent for ordinary clients."""
+        return self._transport.candidate_manifest_sha256
+
+    @property
+    def base_url(self) -> str:
+        """The validated API origin selected for this client."""
+        return self._transport.base_url
 
     def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
         """Read verified identity and current grants without secrets or tenant overrides.
@@ -144,6 +161,22 @@ class AsyncSynthClient:
         client.index = AsyncIndexClient(client._transport, False)
         client.swarms = AsyncSwarmsClient(client._transport)
         return client
+
+    async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
+        """Read nonsecret deployment facts; these do not grant resource access.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        return await self._transport.request(CAPABILITIES, Capabilities, options=request)
+
+    @property
+    def candidate_manifest_sha256(self) -> str | None:
+        """Explicit nonproduction candidate pin; absent for ordinary clients."""
+        return self._transport.candidate_manifest_sha256
+
+    @property
+    def base_url(self) -> str:
+        """The validated API origin selected for this client."""
+        return self._transport.base_url
 
     async def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
         """Read verified identity and current grants without secrets or tenant overrides.

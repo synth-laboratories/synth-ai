@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from synth_ai.contracts.operations import PREFIX, Operation
 from synth_ai.errors import AuthenticationError
 from synth_ai.options import MutationOptions, ReadOptions
+from synth_ai.types.capabilities import NegotiatedCapability
 from synth_ai.types.identity import MutationIdentity
 
 CREDENTIAL_HEADERS = frozenset(
@@ -94,6 +95,7 @@ def build_request(
     identity: MutationIdentity | None,
     remaining_seconds: float,
     connect_seconds: float,
+    negotiated: NegotiatedCapability | None = None,
 ) -> httpx.Request:
     if operation.keyed and api_key is None:
         raise AuthenticationError("This operation requires an API key")
@@ -109,12 +111,22 @@ def build_request(
     )
     for header in CREDENTIAL_HEADERS:
         request.headers.pop(header, None)
+    for header in (
+        "X-Synth-Schema-SHA256",
+        "X-Synth-Capabilities-SHA256",
+        "X-Synth-Release-Manifest-SHA256",
+    ):
+        request.headers.pop(header, None)
+    if negotiated is not None:
+        request.headers["X-Synth-Schema-SHA256"] = negotiated.schema_sha256
+        request.headers["X-Synth-Capabilities-SHA256"] = negotiated.capability_sha256
+        request.headers["X-Synth-Release-Manifest-SHA256"] = negotiated.release_manifest_sha256
     request.headers["X-Synth-Contract"] = operation.contract
     request.headers["Accept-Encoding"] = "identity"
     request.headers["X-Synth-Request-Timeout-Ms"] = str(max(1, int(remaining_seconds * 1000)))
     if body:
         request.headers["Content-Type"] = "application/json"
-    if api_key is not None:
+    if api_key is not None and operation.id != "capabilities.get":
         request.headers["Authorization"] = "Bearer " + api_key
     if options is not None and options.request_id is not None:
         request.headers["X-Request-Id"] = options.request_id

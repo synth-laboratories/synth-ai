@@ -12,8 +12,10 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel
 
-from synth_ai.contracts.operations import Operation
+from synth_ai.contracts.operations import CAPABILITIES, Operation
+from synth_ai.core.capabilities import require_operation, validate_release
 from synth_ai.errors import (
+    AuthenticationError,
     ContractError,
     MutationCancelledError,
     OutcomeUncertainError,
@@ -23,11 +25,12 @@ from synth_ai.errors import (
 )
 from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.types.base import ClientTiming, ResponseModel
+from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 
 from .cleanup import handle_cleanup_failure
 from .lifetime import AsyncCloseable, await_cleanup
 from .request import build_request, encode_body, mutation_identity
-from .response import decode_response, retry_delay
+from .response import decode_response, retry_delay, validate_negotiated_response
 
 T = TypeVar("T", bound=ResponseModel)
 
@@ -71,6 +74,14 @@ class AsyncHttpTransport:
             await response.aclose()
         self._responses.discard(response)
         self._response_cleanup_tasks.pop(response, None)
+
+    @property
+    def candidate_manifest_sha256(self) -> str | None:
+        return self._options.candidate_manifest_sha256
+
+    @property
+    def base_url(self) -> str:
+        return self._base_url
 
     @property
     def request_timeout_seconds(self) -> float:
@@ -122,6 +133,29 @@ class AsyncHttpTransport:
         if errors:
             raise ExceptionGroup("SDK response cleanup failed", errors)
 
+    async def _negotiate(
+        self, operation: Operation, deadline: float
+    ) -> NegotiatedCapability | None:
+        if operation.keyed and self._api_key is None:
+            raise AuthenticationError("This operation requires an API key")
+        if operation.id == CAPABILITIES.id:
+            return None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RequestTimeoutError("Capability negotiation exceeded the request deadline")
+        receipt = await self.request(
+            CAPABILITIES,
+            Capabilities,
+            options=ReadOptions(timeout_seconds=remaining, read_retry_count=0),
+        )
+        return require_operation(
+            receipt,
+            operation,
+            surface="http",
+            expected_manifest_sha256=self._options.release_manifest_sha256,
+            candidate_manifest_sha256=self._options.candidate_manifest_sha256,
+        )
+
     async def _open_stream(
         self,
         operation: Operation,
@@ -136,6 +170,11 @@ class AsyncHttpTransport:
             raise RuntimeError("SDK client is closed")
         if operation.mutation or operation.method != "GET":
             raise ValueError("byte streams require an observational GET operation")
+        deadline = time.monotonic() + remaining_seconds
+        negotiated = await self._negotiate(operation, deadline)
+        remaining_seconds = deadline - time.monotonic()
+        if remaining_seconds <= 0:
+            raise RequestTimeoutError("Capability negotiation exceeded the stream deadline")
         request = build_request(
             self.client,
             self._base_url,
@@ -148,11 +187,21 @@ class AsyncHttpTransport:
             None,
             remaining_seconds,
             self._options.connect_timeout_seconds,
+            negotiated=negotiated,
         )
         request.headers["Accept"] = "application/octet-stream"
         request.headers["If-Match"] = '"' + digest + '"'
         response = await self.client.send(request, stream=True, auth=None, follow_redirects=False)
-        return await self._adopt_response(response)
+        response = await self._adopt_response(response)
+        try:
+            validate_negotiated_response(response, negotiated, None, False)
+        except BaseException as primary:
+            try:
+                await self._release_response(response)
+            except Exception as cause:
+                handle_cleanup_failure(cause, primary, mutation=False, identity=None)
+            raise
+        return response
 
     async def request(
         self,
@@ -176,6 +225,7 @@ class AsyncHttpTransport:
             else self._options.timeout_seconds
         )
         deadline = started + timeout
+        negotiated = await self._negotiate(operation, deadline)
         retry_count = (
             options.read_retry_count
             if options is not None and options.read_retry_count is not None
@@ -198,6 +248,7 @@ class AsyncHttpTransport:
                 identity,
                 remaining,
                 self._options.connect_timeout_seconds,
+                negotiated=negotiated,
             )
             response: httpx.Response | None = None
             try:
@@ -246,7 +297,14 @@ class AsyncHttpTransport:
                     identity,
                     operation.mutation,
                     operation.contract,
+                    negotiated=negotiated,
                 )
+                if operation.id == CAPABILITIES.id and isinstance(decoded, Capabilities):
+                    validate_release(
+                        decoded,
+                        self._options.release_manifest_sha256,
+                        self._options.candidate_manifest_sha256,
+                    )
                 return validate(decoded) if validate is not None else decoded
             except asyncio.CancelledError as cause:
                 if operation.mutation:

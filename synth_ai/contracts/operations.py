@@ -45,6 +45,7 @@ class Operation:
 
 
 AUTH_CONTEXT = Operation("auth.context", "GET", "/auth/context", True, required_scope=None)
+CAPABILITIES = Operation("capabilities.get", "GET", "/capabilities", False)
 RESOLVE = Operation("mutations.resolve", "GET", "/mutations/resolve", True, required_scope=None)
 PUBLIC_SEARCH = Operation(
     "index.public.search", "POST", "/index/public/search", False, True, required_scope=None
@@ -233,6 +234,7 @@ FINALIZE_UPLOAD = Operation(
 )
 
 ALL_OPERATIONS: tuple[Operation, ...] = (
+    CAPABILITIES,
     AUTH_CONTEXT,
     RESOLVE,
     PUBLIC_SEARCH,

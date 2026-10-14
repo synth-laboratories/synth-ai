@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal, Protocol
 from urllib.parse import urlsplit
@@ -27,8 +27,11 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from synth_ai.errors import AuthenticationError, PermissionDeniedError
+from synth_ai.contracts.registry import OPERATIONS_BY_ID
+from synth_ai.core.capabilities import require_operation, supports_operation
+from synth_ai.errors import AuthenticationError, PermissionDeniedError, UnsupportedOperationError
 from synth_ai.types.base import Identifier, Model
+from synth_ai.types.capabilities import Capabilities
 
 from .catalog import TOOLS, ToolSpec
 from .contracts import JsonObject
@@ -127,9 +130,26 @@ class PrincipalVerifier:
 
 
 class HostedExecutor:
-    def __init__(self, backend: AuthorizationBackend, enabled_tools: frozenset[str]) -> None:
+    def __init__(
+        self,
+        backend: AuthorizationBackend,
+        enabled_tools: frozenset[str],
+        capability_provider: Callable[[], Capabilities] | None,
+        candidate_manifest_sha256: str | None,
+    ) -> None:
         self._backend = backend
         self._enabled = enabled_tools
+        self._capability_provider = capability_provider
+        self._candidate_manifest_sha256 = candidate_manifest_sha256
+
+    def _capabilities(self) -> Capabilities:
+        if self._capability_provider is None:
+            raise UnsupportedOperationError(
+                "Backend capability identity is unavailable",
+                code="capabilities_unavailable",
+                status=503,
+            )
+        return self._capability_provider()
 
     def principal(self) -> VerifiedPrincipal:
         token = get_access_token()
@@ -139,10 +159,17 @@ class HostedExecutor:
 
     async def available_tools(self) -> frozenset[str]:
         principal = self.principal()
+        receipt = self._capabilities()
         return frozenset(
             tool.name
             for tool in TOOLS
             if tool.name in self._enabled
+            and supports_operation(
+                receipt,
+                OPERATIONS_BY_ID[tool.operation],
+                surface="mcp",
+                candidate_manifest_sha256=self._candidate_manifest_sha256,
+            )
             and tool.name in principal.allowed_tools
             and (tool.scope is None or tool.scope in principal.scopes)
         )
@@ -151,6 +178,12 @@ class HostedExecutor:
         principal = self.principal()
         if tool.name not in self._enabled or tool.name not in principal.allowed_tools:
             raise PermissionDeniedError("Tool is outside the active authorization")
+        require_operation(
+            self._capabilities(),
+            OPERATIONS_BY_ID[tool.operation],
+            surface="mcp",
+            candidate_manifest_sha256=self._candidate_manifest_sha256,
+        )
         scope = tool.scope_for(arguments)
         if scope is not None and scope not in principal.scopes:
             raise PermissionDeniedError(
@@ -165,6 +198,8 @@ def create_http_app(
     resource_url: str,
     issuer_url: str,
     enabled_tools: frozenset[str],
+    capability_provider: Callable[[], Capabilities] | None = None,
+    candidate_manifest_sha256: str | None = None,
     allowed_origins: tuple[str, ...] = (),
 ) -> Starlette:
     """Create one stateless protected MCP endpoint; backend supplies live authorization.
@@ -188,7 +223,9 @@ def create_http_app(
         raise ValueError("Hosted allowlist contains an unknown tool")
     resource = AnyHttpUrl(resource_url)
     issuer = AnyHttpUrl(issuer_url)
-    executor = HostedExecutor(backend, enabled_tools)
+    executor = HostedExecutor(
+        backend, enabled_tools, capability_provider, candidate_manifest_sha256
+    )
     server = create_server(executor)
     host = urlsplit(resource_url).netloc
     manager = StreamableHTTPSessionManager(

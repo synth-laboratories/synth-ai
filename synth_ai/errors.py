@@ -62,6 +62,10 @@ class ContractError(SynthError):
     """Version, shape, identity or bound mismatch."""
 
 
+class UnsupportedOperationError(SynthError):
+    """The selected backend has not enabled a compatible operation surface."""
+
+
 class ResultNotReadyError(SynthError):
     """The canonical result is not yet available."""
 

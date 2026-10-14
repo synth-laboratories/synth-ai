@@ -19,8 +19,10 @@ from synth_ai.errors import (
     RateLimitError,
     ResultNotReadyError,
     SynthError,
+    UnsupportedOperationError,
 )
 from synth_ai.types.base import ClientTiming, Identifier, Model, ResponseModel
+from synth_ai.types.capabilities import NegotiatedCapability
 from synth_ai.types.identity import MutationIdentity
 
 T = TypeVar("T", bound=ResponseModel)
@@ -45,6 +47,8 @@ def decode_response(
     identity: MutationIdentity | None,
     mutation: bool,
     contract: str,
+    *,
+    negotiated: NegotiatedCapability | None = None,
 ) -> T:
     """Validate negotiated version before accepting a body; never display raw bodies."""
     if response.headers.get("X-Synth-Contract") != contract:
@@ -84,7 +88,16 @@ def decode_response(
                 retry_after_seconds=error.retry_after_seconds,
             )
         kind: type[SynthError] = SynthError
-        if error.code == "result_not_ready":
+        if error.code in {
+            "operation_unavailable",
+            "capabilities_unavailable",
+            "schema_mismatch",
+            "capability_mismatch",
+            "release_mismatch",
+            "capability_negotiation_required",
+        }:
+            kind = UnsupportedOperationError
+        elif error.code == "result_not_ready":
             kind = ResultNotReadyError
         elif response.status_code == 401:
             kind = AuthenticationError
@@ -106,6 +119,7 @@ def decode_response(
             identity=identity,
             retry_after_seconds=error.retry_after_seconds,
         )
+    validate_negotiated_response(response, negotiated, identity, mutation)
     try:
         result = model.model_validate_json(body)
     except ValidationError as cause:
@@ -134,3 +148,29 @@ def retry_delay(response: httpx.Response, fallback: float) -> float:
     except ValueError:
         return fallback
     return seconds if math.isfinite(seconds) and seconds >= 0 else fallback
+
+
+def validate_negotiated_response(
+    response: httpx.Response,
+    negotiated: NegotiatedCapability | None,
+    identity: MutationIdentity | None,
+    mutation: bool,
+) -> None:
+    """Require a successful response from the same schema/capability/release.
+
+    See: backend/notes/specifications/sdk/index_contract.md."""
+    if negotiated is None or response.status_code not in {200, 206}:
+        return
+    pairs = (
+        ("X-Synth-Schema-SHA256", negotiated.schema_sha256),
+        ("X-Synth-Capabilities-SHA256", negotiated.capability_sha256),
+        ("X-Synth-Release-Manifest-SHA256", negotiated.release_manifest_sha256),
+    )
+    if any(response.headers.get(name) != value for name, value in pairs):
+        if mutation:
+            raise OutcomeUncertainError(
+                "Mutation response changed deployment identity; reconcile its identity",
+                identity=identity,
+                status=response.status_code,
+            )
+        raise ContractError("Response deployment identity does not match negotiation")

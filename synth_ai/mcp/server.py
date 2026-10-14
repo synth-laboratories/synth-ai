@@ -34,6 +34,7 @@ from synth_ai.errors import (
     ResultNotReadyError,
     SynthError,
     TransportError,
+    UnsupportedOperationError,
 )
 from synth_ai.types.base import Identifier
 from synth_ai.types.identity import MutationIdentity
@@ -63,6 +64,7 @@ def failure(error: ToolFailure, *, scope_challenge: str | None = None) -> CallTo
 
 def error_code(error: SynthError) -> str:
     for kind, name in (
+        (UnsupportedOperationError, "operation_unavailable"),
         (AuthenticationError, "authentication_required"),
         (PermissionDeniedError, "permission_denied"),
         (OutcomeUncertainError, "outcome_uncertain"),
