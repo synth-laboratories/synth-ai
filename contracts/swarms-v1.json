@@ -3782,7 +3782,9 @@
                     "positive",
                     "negative",
                     "limit",
-                    "no_launch"
+                    "no_launch",
+                    "dispatch_abort",
+                    "limit_dispatch_abort"
                   ],
                   "type": "string"
                 },
@@ -6035,7 +6037,9 @@
                     "positive",
                     "negative",
                     "limit",
-                    "no_launch"
+                    "no_launch",
+                    "dispatch_abort",
+                    "limit_dispatch_abort"
                   ],
                   "type": "string"
                 },
