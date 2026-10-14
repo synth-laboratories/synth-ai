@@ -264,15 +264,17 @@ def create_http_app(
     return Starlette(
         routes=routes,
         lifespan=lifespan,
+        # Starlette's permissive factory protocol is wider than its public
+        # ASGIApp alias; these constructors implement the actual ASGI contract.
         middleware=[
-            Middleware(AuthorizationAvailabilityMiddleware),
+            Middleware(AuthorizationAvailabilityMiddleware),  # ty: ignore[invalid-argument-type]
             Middleware(
-                AuthenticationMiddleware,
+                AuthenticationMiddleware,  # ty: ignore[invalid-argument-type]
                 backend=BearerAuthBackend(
                     PrincipalVerifier(backend, resource_url, issuer_url),
                     resource_server_url=resource,
                 ),
             ),
-            Middleware(AuthContextMiddleware),
+            Middleware(AuthContextMiddleware),  # ty: ignore[invalid-argument-type]
         ],
     )

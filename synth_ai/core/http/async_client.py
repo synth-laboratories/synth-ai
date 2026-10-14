@@ -82,7 +82,8 @@ class AsyncHttpTransport:
                 request, stream=True, auth=None, follow_redirects=False
             )
         finally:
-            self._send_tasks.discard(task)
+            if task is not None:
+                self._send_tasks.discard(task)
         # Transfer the reservation without an intervening suspension. Failed
         # cleanup retains this response and consumes capacity until client close.
         self._responses.add(response)

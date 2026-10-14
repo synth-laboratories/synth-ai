@@ -48,18 +48,18 @@ logger = logging.getLogger(__name__)
 
 def failure(error: ToolFailure, *, scope_challenge: str | None = None) -> CallToolResult:
     payload = JSON_OBJECT.validate_json(error.model_dump_json())
-    return CallToolResult(
+    result = CallToolResult(
         isError=True,
         content=[TextContent(type="text", text=error.model_dump_json())],
         structuredContent={"error": payload},
-        _meta={
+    )
+    if scope_challenge:
+        result.meta = {
             "mcp/www_authenticate": [
                 f'Bearer error="insufficient_scope", scope="{scope_challenge}"'
             ]
         }
-        if scope_challenge
-        else None,
-    )
+    return result
 
 
 def error_code(error: SynthError) -> str:
@@ -131,21 +131,20 @@ def create_server(
             ) from cause
         for spec in TOOLS:
             if spec.name in available:
-                visible.append(
-                    Tool(
-                        name=spec.name,
-                        description=spec.description,
-                        inputSchema=spec.input_schema(),
-                        outputSchema=spec.output_schema(),
-                        _meta={"synth/operation": spec.operation, "synth/mayCharge": spec.paid},
-                        annotations=ToolAnnotations(
-                            readOnlyHint=not spec.mutates,
-                            destructiveHint=spec.mutates,
-                            idempotentHint=spec.idempotent,
-                            openWorldHint=True,
-                        ),
-                    )
+                tool = Tool(
+                    name=spec.name,
+                    description=spec.description,
+                    inputSchema=spec.input_schema(),
+                    outputSchema=spec.output_schema(),
+                    annotations=ToolAnnotations(
+                        readOnlyHint=not spec.mutates,
+                        destructiveHint=spec.mutates,
+                        idempotentHint=spec.idempotent,
+                        openWorldHint=True,
+                    ),
                 )
+                tool.meta = {"synth/operation": spec.operation, "synth/mayCharge": spec.paid}
+                visible.append(tool)
         return visible
 
     @server.list_resources()
