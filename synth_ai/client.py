@@ -38,6 +38,10 @@ def resolve_url(base_url: str | None) -> str:
 class SynthClient:
     """An owned SDK lifetime with cancellable network IO."""
 
+    _transport: HttpTransport
+    index: IndexClient
+    swarms: SwarmsClient
+
     def __init__(
         self,
         *,
@@ -135,6 +139,10 @@ class SynthClient:
 
 class AsyncSynthClient:
     """Native async client; construction and anonymous factory do no IO."""
+
+    _transport: AsyncHttpTransport
+    index: AsyncIndexClient
+    swarms: AsyncSwarmsClient
 
     def __init__(
         self,
