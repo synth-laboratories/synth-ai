@@ -53,7 +53,7 @@ class Output(ResponseModel):
 class TransferTiming(Model):
     total_ms: float = Field(ge=0)
     first_byte_ms: float | None = Field(ge=0)
-    source: Literal["sdk_monotonic"] = "sdk_monotonic"
+    source: Literal["sdk_monotonic", "server_monotonic"] = "sdk_monotonic"
 
 
 class TextContent(ResponseModel):
