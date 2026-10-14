@@ -16,6 +16,7 @@ from hashlib import sha256
 from typing import Any, Awaitable
 from uuid import UUID, uuid4
 
+from synth_ai.core.contracts.rate_limits import ResponseMetadata
 from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
@@ -318,6 +319,7 @@ class _Call:
     headers: dict[str, str] | None = None
     params: dict[str, Any] | None = None
     raw: bool = False
+    response_metadata: ResponseMetadata | None = None
     # Per-request transport timeout; None keeps the client's default.
     timeout_seconds: float | None = None
 
@@ -339,6 +341,8 @@ class _Call:
                 kwargs["json_body"] = self.json_body
             if self.headers is not None:
                 kwargs["headers"] = self.headers
+        if self.response_metadata is not None:
+            kwargs["response_metadata"] = self.response_metadata
         return method, template.format(**(self.path_parameters or {})), kwargs
 
 
@@ -683,6 +687,7 @@ class SearchesAPI(_Resource):
         *,
         idempotency_key: str | None = None,
         retry: IndexRetryPolicy = DEFAULT_INDEX_RETRY_POLICY,
+        response_metadata: ResponseMetadata | None = None,
     ) -> Any:
         """Create one durable Search and return its handle.
 
@@ -698,6 +703,7 @@ class SearchesAPI(_Resource):
             Search.model_validate,
             json_body=_body(spec),
             headers=_key(idempotency_key),
+            response_metadata=response_metadata,
         )
         if self._asynchronous:
 
@@ -3000,6 +3006,7 @@ class _IndexRoot(_Resource):
         limits: SearchExecutionLimits | None = None,
         billing: SearchBillingConstraints | None = None,
         idempotency_key: str | None = None,
+        response_metadata: ResponseMetadata | None = None,
     ) -> Any:
         """Execute fast immediately or create-and-wait for one durable deep Search.
 
@@ -3010,7 +3017,9 @@ class _IndexRoot(_Resource):
         spec = _search_spec(spec, query, scope, filters, max_results, mode, limits, billing)
         if spec.mode == SearchMode.DEEP:
             key = _key(idempotency_key)["Idempotency-Key"]
-            handle = self.searches.create(spec, idempotency_key=key)
+            handle = self.searches.create(
+                spec, idempotency_key=key, response_metadata=response_metadata
+            )
             if self._asynchronous:
 
                 async def await_deep() -> SearchResult:
@@ -3030,6 +3039,7 @@ class _IndexRoot(_Resource):
                 lambda payload: _search_result(payload, spec),
                 json_body=spec.model_dump(mode="json"),
                 headers=_key(idempotency_key),
+                response_metadata=response_metadata,
             )
         )
 

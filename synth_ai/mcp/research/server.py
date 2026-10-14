@@ -273,6 +273,7 @@ def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
                 "correlation_id": failure.correlation_id,
                 "retryable": failure.retry.retryable,
                 "retry_after_seconds": failure.retry.retry_after_seconds,
+                "rate_limits": [asdict(item) for item in failure.rate_limits],
             }
         )
         if failure.status is not None:

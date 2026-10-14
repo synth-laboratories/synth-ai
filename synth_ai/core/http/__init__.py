@@ -1,5 +1,6 @@
 """Shared sync and async HTTP operation substrate."""
 
+from synth_ai.core.contracts.rate_limits import RateLimitSnapshot, ResponseMetadata
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpMethod, HttpRequest, OperationId, OperationMetadata
 from synth_ai.core.http.retry import RetryPolicy
@@ -14,6 +15,8 @@ __all__ = [
     "OperationId",
     "OperationMetadata",
     "RetryPolicy",
+    "RateLimitSnapshot",
+    "ResponseMetadata",
     "SseEvent",
     "iter_sse_events",
 ]

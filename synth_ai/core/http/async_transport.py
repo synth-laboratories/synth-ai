@@ -14,6 +14,7 @@ from typing import Any, cast
 import httpx
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.contracts.rate_limits import ResponseMetadata
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.retry import (
     RetryPolicy,
@@ -70,7 +71,10 @@ class AsyncHttpTransport:
         allow_not_found: bool = False,
         timeout_seconds: float | None = None,
         operation_id: str | None = None,
+        response_metadata: ResponseMetadata | None = None,
     ) -> JsonValue:
+        if response_metadata is not None:
+            response_metadata.rate_limits = ()
         try:
             response = await self.client.request(
                 method,
@@ -84,6 +88,8 @@ class AsyncHttpTransport:
             self.exception_handler(method, path, exc, operation_id)
         except httpx.TransportError as exc:
             self.exception_handler(method, path, exc, operation_id)
+        if response_metadata is not None:
+            response_metadata.capture(response.headers)
         if allow_not_found and response.status_code == 404:
             return None
         if response.is_error:

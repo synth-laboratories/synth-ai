@@ -16,6 +16,7 @@ from typing import Any, NoReturn, cast
 import httpx
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.contracts.rate_limits import ResponseMetadata, parse_rate_limits
 from synth_ai.core.errors import (
     HTTP_ERROR_BODY_CAPTURE_CHARS_MAX,
     RUNTIME_UNAVAILABLE_CODES,
@@ -203,6 +204,7 @@ def _failure_from_response(
         detail=message,
         resource=_created_search(response, sources),
         reason=reason,
+        rate_limits=parse_rate_limits(response.headers),
     )
 
 
@@ -463,7 +465,10 @@ class HttpTransport:
         allow_not_found: bool = False,
         timeout_seconds: float | None = None,
         operation_id: str | None = None,
+        response_metadata: ResponseMetadata | None = None,
     ) -> JsonValue:
+        if response_metadata is not None:
+            response_metadata.rate_limits = ()
         replay_safe = request_permits_replay(method, {**self.headers, **(headers or {})})
         attempts = 0
         waited_seconds = 0.0
@@ -502,6 +507,8 @@ class HttpTransport:
                 )
             self.sleep(delay)
             waited_seconds += delay
+        if response_metadata is not None:
+            response_metadata.capture(response.headers)
         if allow_not_found and response.status_code == 404:
             return None
         if response.is_error:

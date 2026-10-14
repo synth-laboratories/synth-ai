@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from synth_ai.core.contracts.rate_limits import RateLimitSnapshot
+
 HTTP_ERROR_BODY_CAPTURE_CHARS_MAX = 8192
 _DISPLAY_MESSAGE_CHARS_MAX = 4096
 _DISPLAY_BODY_CHARS_MAX = 4096
@@ -94,6 +96,7 @@ class SynthFailure:
     # Server-declared sub-cause of ``code`` (for example ``daily_spend_cap``
     # inside ``index_rate_limited``). Stable vocabulary owned by the backend.
     reason: str | None = None
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
 
 
 class SynthError(Exception):
@@ -137,6 +140,11 @@ class SynthError(Exception):
     def reason(self) -> str | None:
         """Server-declared sub-cause of the error code, when one was sent."""
         return self.failure.reason if self.failure is not None else None
+
+    @property
+    def rate_limits(self) -> tuple[RateLimitSnapshot, ...]:
+        """Recognized rate-capacity metadata from this failed response."""
+        return self.failure.rate_limits if self.failure is not None else ()
 
     @property
     def resource(self) -> ResourceRef | None:
@@ -187,6 +195,12 @@ class HTTPError(SynthError):
         if self.body_snippet:
             body = _safe_error_display(self.body_snippet, limit=_DISPLAY_BODY_CHARS_MAX)
             base += f" | body_excerpt={body}"
+        if self.rate_limits:
+            limits = "; ".join(
+                f"{item.dimension} remaining={item.remaining} limit={item.limit}"
+                for item in self.rate_limits
+            )
+            base += f" | rate_limits={limits}"
         return base
 
 
