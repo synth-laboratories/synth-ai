@@ -198,7 +198,7 @@ class AsyncHttpTransport:
         except BaseException as primary:
             try:
                 await self._release_response(response)
-            except Exception as cause:
+            except (Exception, asyncio.CancelledError) as cause:
                 handle_cleanup_failure(cause, primary, mutation=False, identity=None)
             raise
         return response
@@ -347,7 +347,7 @@ class AsyncHttpTransport:
                     primary = sys.exception()
                     try:
                         await self._release_response(response)
-                    except Exception as cause:
+                    except (Exception, asyncio.CancelledError) as cause:
                         handle_cleanup_failure(
                             cause, primary, mutation=operation.mutation, identity=identity
                         )

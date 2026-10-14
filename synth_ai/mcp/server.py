@@ -212,6 +212,7 @@ def create_server(
                     if dispatched
                     else "invalid_arguments",
                     message="Arguments or backend response do not match the typed contract",
+                    identity=retained_identity(arguments),
                     idempotency_key=retained_key(arguments),
                 )
             )
@@ -239,8 +240,14 @@ def create_server(
         except ValueError:
             return failure(
                 ToolFailure(
-                    code="invalid_arguments",
-                    message="Operation arguments violate a supported bound",
+                    code="outcome_uncertain"
+                    if dispatched and spec.mutates
+                    else "contract_mismatch"
+                    if dispatched
+                    else "invalid_arguments",
+                    message="Operation arguments or response violate a supported bound",
+                    identity=retained_identity(arguments),
+                    idempotency_key=retained_key(arguments),
                 )
             )
         except Exception as error:
@@ -249,7 +256,7 @@ def create_server(
             )
             return failure(
                 ToolFailure(
-                    code="internal_error",
+                    code="outcome_uncertain" if dispatched and spec.mutates else "internal_error",
                     message="MCP adapter could not complete the operation",
                     identity=retained_identity(arguments),
                     idempotency_key=retained_key(arguments),

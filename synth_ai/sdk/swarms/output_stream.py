@@ -16,7 +16,9 @@ import httpx
 
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
+from synth_ai.core.http.cleanup import handle_cleanup_failure
 from synth_ai.core.http.client import HttpTransport
+from synth_ai.core.http.lifetime import await_cleanup
 from synth_ai.core.http.response import decode_response
 from synth_ai.errors import (
     NotFoundError,
@@ -225,13 +227,15 @@ class OutputStream:
             validate_headers(response, reference)
             self._iterator = response.iter_bytes(chunk_size=self._options.chunk_bytes)
         except httpx.TimeoutException as cause:
-            self.close()
-            raise RequestTimeoutError("Output transfer timed out") from cause
+            primary = RequestTimeoutError("Output transfer timed out")
+            self._close_after_failure(primary)
+            raise primary from cause
         except httpx.TransportError as cause:
-            self.close()
-            raise TransportError("Output transfer could not open") from cause
-        except BaseException:
-            self.close()
+            primary = TransportError("Output transfer could not open")
+            self._close_after_failure(primary)
+            raise primary from cause
+        except BaseException as primary:
+            self._close_after_failure(primary)
             raise
 
     def __iter__(self) -> OutputStream:
@@ -263,12 +267,23 @@ class OutputStream:
                 raise StopIteration
             self._state.consume(chunk)
             return chunk
+        except httpx.TimeoutException as cause:
+            primary = RequestTimeoutError("Output transfer timed out")
+            self._close_after_failure(primary)
+            raise primary from cause
         except httpx.TransportError as cause:
-            self.close()
-            raise TransportError("Output transfer interrupted; no automatic retry") from cause
-        except BaseException:
-            self.close()
+            primary = TransportError("Output transfer interrupted; no automatic retry")
+            self._close_after_failure(primary)
+            raise primary from cause
+        except BaseException as primary:
+            self._close_after_failure(primary)
             raise
+
+    def _close_after_failure(self, primary: BaseException) -> None:
+        try:
+            self.close()
+        except Exception as cause:
+            handle_cleanup_failure(cause, primary, mutation=False, identity=None)
 
     def close(self) -> None:
         if self._closed:
@@ -296,7 +311,10 @@ class OutputStream:
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.close()
+        if exception is not None:
+            self._close_after_failure(exception)
+        else:
+            self.close()
 
 
 class AsyncOutputStream:
@@ -315,6 +333,7 @@ class AsyncOutputStream:
         self._iterator: AsyncIterator[bytes] | None = None
         self._closed = False
         self._reading = False
+        self._closing_task: asyncio.Task[None] | None = None
 
     @property
     def verified(self) -> bool:
@@ -352,8 +371,9 @@ class AsyncOutputStream:
             async with asyncio.timeout(timeout):
                 await self._open_response()
         except TimeoutError as cause:
-            await self.aclose()
-            raise RequestTimeoutError("Output opening deadline expired") from cause
+            primary = RequestTimeoutError("Output opening deadline expired")
+            await self._close_after_failure(primary)
+            raise primary from cause
 
     async def _open_response(self) -> None:
         if self._closed:
@@ -413,13 +433,15 @@ class AsyncOutputStream:
             validate_headers(response, reference)
             self._iterator = response.aiter_bytes(chunk_size=self._options.chunk_bytes)
         except httpx.TimeoutException as cause:
-            await self.aclose()
-            raise RequestTimeoutError("Output transfer timed out") from cause
+            primary = RequestTimeoutError("Output transfer timed out")
+            await self._close_after_failure(primary)
+            raise primary from cause
         except httpx.TransportError as cause:
-            await self.aclose()
-            raise TransportError("Output transfer could not open") from cause
-        except BaseException:
-            await self.aclose()
+            primary = TransportError("Output transfer could not open")
+            await self._close_after_failure(primary)
+            raise primary from cause
+        except BaseException as primary:
+            await self._close_after_failure(primary)
             raise
 
     def __aiter__(self) -> AsyncOutputStream:
@@ -452,19 +474,31 @@ class AsyncOutputStream:
                 raise StopAsyncIteration
             self._state.consume(chunk)
             return chunk
-        except TimeoutError as cause:
-            await self.aclose()
-            raise RequestTimeoutError("Output transfer deadline expired") from cause
+        except (TimeoutError, httpx.TimeoutException) as cause:
+            primary = RequestTimeoutError("Output transfer deadline expired")
+            await self._close_after_failure(primary)
+            raise primary from cause
         except httpx.TransportError as cause:
-            await self.aclose()
-            raise TransportError("Output transfer interrupted; no automatic retry") from cause
-        except BaseException:
-            await self.aclose()
+            primary = TransportError("Output transfer interrupted; no automatic retry")
+            await self._close_after_failure(primary)
+            raise primary from cause
+        except BaseException as primary:
+            await self._close_after_failure(primary)
             raise
 
+    async def _close_after_failure(self, primary: BaseException) -> None:
+        try:
+            await self.aclose()
+        except (Exception, asyncio.CancelledError) as cause:
+            handle_cleanup_failure(cause, primary, mutation=False, identity=None)
+
     async def aclose(self) -> None:
-        if self._closed:
-            return
+        if self._closing_task is None:
+            self._closed = True
+            self._closing_task = asyncio.create_task(self._close_response())
+        await await_cleanup(self._closing_task)
+
+    async def _close_response(self) -> None:
         self._closed = True
         try:
             if self._response is not None:
@@ -488,4 +522,7 @@ class AsyncOutputStream:
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        await self.aclose()
+        if exception is not None:
+            await self._close_after_failure(exception)
+        else:
+            await self.aclose()

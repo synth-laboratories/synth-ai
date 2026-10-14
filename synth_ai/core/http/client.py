@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 import time
 from collections.abc import Callable, Mapping
 from typing import TypeVar
@@ -47,6 +48,9 @@ class HttpTransport:
         self._closed = False
         self._streams: set[Closeable] = set()
         self._responses: set[httpx.Response] = set()
+        self._close_lock = threading.Lock()
+        self._close_finished = threading.Event()
+        self._close_error: BaseException | None = None
 
     def _adopt_response(self, response: httpx.Response) -> httpx.Response:
         if self._closed or len(self._responses) >= self._options.maximum_connections:
@@ -88,9 +92,27 @@ class HttpTransport:
         self._streams.discard(stream)
 
     def close(self) -> None:
-        if self._closed:
+        with self._close_lock:
+            if self._closed:
+                closing = False
+            else:
+                self._closed = True
+                closing = True
+        if not closing:
+            if not self._close_finished.wait(self._options.timeout_seconds + 4):
+                raise RuntimeError("SDK client cleanup did not complete")
+            if self._close_error is not None:
+                raise self._close_error
             return
-        self._closed = True
+        try:
+            self._close_resources()
+        except BaseException as error:
+            self._close_error = error
+            raise
+        finally:
+            self._close_finished.set()
+
+    def _close_resources(self) -> None:
         errors: list[Exception] = []
         for stream in tuple(self._streams):
             try:

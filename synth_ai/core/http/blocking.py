@@ -133,6 +133,8 @@ class DeadlineTransport(httpx.BaseTransport):
         self._client = self._create_client()
         self._lock = threading.Lock()
         self._closed = False
+        self._close_finished = threading.Event()
+        self._close_error: BaseException | None = None
 
     def _get_client(self) -> tuple[BlockingLoop, httpx.AsyncClient]:
         with self._lock:
@@ -178,12 +180,24 @@ class DeadlineTransport(httpx.BaseTransport):
     def close(self) -> None:
         with self._lock:
             if self._closed:
-                return
-            self._closed = True
+                closing = False
+            else:
+                self._closed = True
+                closing = True
+        if not closing:
+            if not self._close_finished.wait(4 * CLEANUP_SECONDS):
+                raise RuntimeError("SDK transport cleanup did not complete")
+            if self._close_error is not None:
+                raise self._close_error
+            return
+        try:
             loop, client = self._loop or BlockingLoop(), self._client
-        if loop is not None:
             try:
-                if client is not None:
-                    loop.call(client.aclose(), CLEANUP_SECONDS)
+                loop.call(client.aclose(), CLEANUP_SECONDS)
             finally:
                 loop.close()
+        except BaseException as error:
+            self._close_error = error
+            raise
+        finally:
+            self._close_finished.set()

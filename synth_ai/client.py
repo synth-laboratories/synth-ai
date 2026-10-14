@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from types import TracebackType
 
 from synth_ai.contracts.operations import AUTH_CONTEXT, CAPABILITIES
 from synth_ai.contracts.registry import recovery_operation
 from synth_ai.core.http.async_client import AsyncHttpTransport
+from synth_ai.core.http.cleanup import handle_cleanup_failure
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
@@ -134,7 +136,10 @@ class SynthClient:
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.close()
+        try:
+            self.close()
+        except Exception as cause:
+            handle_cleanup_failure(cause, exception, mutation=False, identity=None)
 
 
 class AsyncSynthClient:
@@ -228,4 +233,7 @@ class AsyncSynthClient:
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        await self.aclose()
+        try:
+            await self.aclose()
+        except (Exception, asyncio.CancelledError) as cause:
+            handle_cleanup_failure(cause, exception, mutation=False, identity=None)
