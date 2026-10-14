@@ -219,10 +219,12 @@ def create_server(
         except SynthError as error:
             return failure(
                 ToolFailure(
-                    code=error_code(error),
+                    code="outcome_uncertain"
+                    if dispatched and spec.mutates and isinstance(error, ContractError)
+                    else error_code(error),
                     message="Operation did not complete; inspect the typed code before retrying",
                     request_id=error.request_id,
-                    identity=error.identity,
+                    identity=error.identity or retained_identity(arguments),
                     retry_after_seconds=error.retry_after_seconds,
                     idempotency_key=retained_key(arguments),
                 ),

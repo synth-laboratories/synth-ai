@@ -51,12 +51,44 @@ class AsyncHttpTransport:
         self._closing_task: asyncio.Task[None] | None = None
         self._closing_deadline: float | None = None
         self._response_cleanup_tasks: dict[httpx.Response, asyncio.Task[None]] = {}
+        self._send_tasks: set[asyncio.Task[httpx.Response]] = set()
 
-    async def _adopt_response(self, response: httpx.Response) -> httpx.Response:
-        if self._closed or len(self._responses) >= self._options.maximum_connections:
-            await self._release_response(response)
-            raise ContractError("SDK client closed or active response limit reached")
+    async def _send_response(self, request: httpx.Request) -> httpx.Response:
+        # Reserve before network dispatch: borrowed pools cannot bound SDK custody.
+        if self._closed:
+            raise ContractError("SDK client is closed")
+        if len(self._responses) + len(self._send_tasks) >= self._options.maximum_connections:
+            raise ContractError("SDK active response limit reached")
+        task = asyncio.create_task(self._send_owned(request))
+        self._send_tasks.add(task)
+        try:
+            return await task
+        except asyncio.CancelledError as primary:
+            # A completed child may have transferred custody before cancellation
+            # prevents the caller from receiving its response.
+            if task.done() and not task.cancelled() and task.exception() is None:
+                try:
+                    await self._release_response(task.result())
+                except (Exception, asyncio.CancelledError) as cause:
+                    handle_cleanup_failure(cause, primary, mutation=False, identity=None)
+            raise
+        finally:
+            self._send_tasks.discard(task)
+
+    async def _send_owned(self, request: httpx.Request) -> httpx.Response:
+        task = asyncio.current_task()
+        try:
+            response = await self.client.send(
+                request, stream=True, auth=None, follow_redirects=False
+            )
+        finally:
+            self._send_tasks.discard(task)
+        # Transfer the reservation without an intervening suspension. Failed
+        # cleanup retains this response and consumes capacity until client close.
         self._responses.add(response)
+        if self._closed:
+            await self._release_response(response)
+            raise ContractError("SDK client closed during dispatch")
         return response
 
     async def _release_response(self, response: httpx.Response) -> None:
@@ -115,6 +147,11 @@ class AsyncHttpTransport:
 
     async def _close_resources(self) -> None:
         errors: list[Exception] = []
+        sends = tuple(self._send_tasks)
+        for task in sends:
+            task.cancel()
+        if sends:
+            await asyncio.gather(*sends, return_exceptions=True)
         for stream in tuple(self._streams):
             try:
                 await stream.aclose()
@@ -191,8 +228,7 @@ class AsyncHttpTransport:
         )
         request.headers["Accept"] = "application/octet-stream"
         request.headers["If-Match"] = '"' + digest + '"'
-        response = await self.client.send(request, stream=True, auth=None, follow_redirects=False)
-        response = await self._adopt_response(response)
+        response = await self._send_response(request)
         try:
             validate_negotiated_response(response, negotiated, None, False)
         except BaseException as primary:
@@ -253,10 +289,7 @@ class AsyncHttpTransport:
             response: httpx.Response | None = None
             try:
                 async with asyncio.timeout(remaining):
-                    response = await self.client.send(
-                        request, stream=True, auth=None, follow_redirects=False
-                    )
-                    await self._adopt_response(response)
+                    response = await self._send_response(request)
                     if response.headers.get("Content-Encoding", "identity").lower() != "identity":
                         raise ContractError(
                             "Compressed responses are outside the bounded wire contract"
