@@ -205,6 +205,14 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
+        },
+        "state": {
+          "enum": [
+            "pending_submission",
+            "attested"
+          ],
+          "title": "State",
+          "type": "string"
         }
       },
       "required": [
@@ -212,6 +220,7 @@
         "contribution_id",
         "revision_id",
         "accepted",
+        "state",
         "reason"
       ],
       "title": "AttestationReceipt",
@@ -6682,10 +6691,18 @@
           "title": "Digest Sha256",
           "type": "string"
         },
-        "license_expression": {
-          "maxLength": 256,
-          "minLength": 1,
-          "title": "License Expression",
+        "license_expressions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "License Expressions",
+          "type": "array"
+        },
+        "notices_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Notices Digest Sha256",
           "type": "string"
         },
         "revision_id": {
@@ -6694,12 +6711,20 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
+        },
+        "rights_decision_reference": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Rights Decision Reference",
+          "type": "string"
         }
       },
       "required": [
         "revision_id",
         "digest_sha256",
-        "license_expression",
+        "license_expressions",
+        "notices_digest_sha256",
+        "rights_decision_reference",
         "authorized_to_contribute"
       ],
       "title": "RightsAttestation",
@@ -10165,6 +10190,14 @@
           ],
           "title": "State",
           "type": "string"
+        },
+        "transfer_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 5,
+          "title": "Transfer Headers",
+          "type": "object"
         },
         "transfer_url": {
           "anyOf": [

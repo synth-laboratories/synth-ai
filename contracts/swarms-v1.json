@@ -979,6 +979,14 @@
           "title": "State",
           "type": "string"
         },
+        "transfer_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 5,
+          "title": "Transfer Headers",
+          "type": "object"
+        },
         "transfer_url": {
           "anyOf": [
             {

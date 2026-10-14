@@ -52,7 +52,9 @@ class ContributionRevision(ResponseModel):
 class RightsAttestation(Model):
     revision_id: Identifier
     digest_sha256: Digest
-    license_expression: str = Field(min_length=1, max_length=256)
+    license_expressions: tuple[str, ...] = Field(min_length=1, max_length=64)
+    notices_digest_sha256: Digest
+    rights_decision_reference: str = Field(min_length=1, max_length=512)
     authorized_to_contribute: Literal[True]
 
 
@@ -60,6 +62,7 @@ class AttestationReceipt(ResponseModel):
     contribution_id: Identifier
     revision_id: Identifier
     accepted: bool
+    state: Literal["pending_submission", "attested"]
     reason: str | None = Field(max_length=512)
 
 
