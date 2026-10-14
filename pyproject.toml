@@ -135,3 +135,7 @@ dev = [
     "ipykernel>=7.1.0",
     "mdxify>=0.2.0",
 ]
+
+[tool.pytest.ini_options]
+cache_dir = ".pytest_cache"
+addopts = "--basetemp=.pytest_tmp"
