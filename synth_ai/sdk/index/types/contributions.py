@@ -29,7 +29,9 @@ class Contribution(ResponseModel):
 
     @model_validator(mode="after")
     def validate_annotations(self) -> Self:
-        if self.draft is not None and (self.status != "draft" or self.draft.expected_revision_id != self.revision_id):
+        if self.draft is not None and (
+            self.status != "draft" or self.draft.expected_revision_id != self.revision_id
+        ):
             raise ValueError("draft metadata requires the exact current draft revision")
         if self.annotations is not None and (
             self.annotations.contribution_id != self.contribution_id

@@ -13,7 +13,16 @@ from .money import MoneyObservation
 
 class UsageMetric(Model):
     name: str = Field(min_length=1, max_length=128)
-    unit: Literal["tokens", "requests", "bytes", "seconds", "searches", "reads", "millicpu_seconds", "byte_seconds"]
+    unit: Literal[
+        "tokens",
+        "requests",
+        "bytes",
+        "seconds",
+        "searches",
+        "reads",
+        "millicpu_seconds",
+        "byte_seconds",
+    ]
     quantity: Decimal | None = Field(ge=0)
     state: Literal["measured", "estimated", "pending", "unknown"]
     source: str | None = Field(max_length=128)
