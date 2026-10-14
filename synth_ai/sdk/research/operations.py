@@ -1680,6 +1680,25 @@ DATASET_REVISION_PUBLICATION_OPERATIONS = {
 }
 
 
+RESEARCH_OPERATIONS.update(
+    {
+        OperationId("list_run_tool_approvals"): _operation(
+            "list_run_tool_approvals",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/tool-approvals",
+            idempotent=True,
+        ),
+        OperationId("decide_run_tool_approval"): _operation(
+            "decide_run_tool_approval",
+            HttpMethod.POST,
+            "/smr/runs/{run_id}/tool-approvals/{approval_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+    }
+)
+
+
 def research_operation(operation_id: str) -> OperationMetadata:
     try:
         return RESEARCH_OPERATIONS[OperationId(operation_id)]

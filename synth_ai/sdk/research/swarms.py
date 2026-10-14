@@ -46,6 +46,13 @@ from synth_ai.sdk.research.contracts.swarms import (
     SwarmPreflight,
     SwarmSpec,
 )
+from synth_ai.sdk.research.contracts.tool_approvals import (
+    ToolApprovalDecision,
+    ToolApprovals,
+    ToolApprovalVerdict,
+    approval_path,
+    decision_body,
+)
 from synth_ai.sdk.research.contracts.transcript import (
     SwarmTranscriptPage,
     TranscriptView,
@@ -471,6 +478,32 @@ class SwarmsAPI:
             )
         )
         return ResolvedSwarmConfiguration.from_wire(value)
+
+    def tool_approvals(self, swarm_id: SwarmId) -> ToolApprovals:
+        """Read pending approvals for exactly this run; no execution is started."""
+        value = self._transport.execute(
+            _request("list_run_tool_approvals", approval_path(swarm_id))
+        )
+        return ToolApprovals.from_wire(value, swarm_id)
+
+    def decide_tool_approval(
+        self,
+        swarm_id: SwarmId,
+        approval_id: str,
+        *,
+        decision: ToolApprovalDecision,
+        expected_revision: int,
+        reason: str | None = None,
+    ) -> ToolApprovalVerdict:
+        """Relay an explicit revision-bound decision; never retries with a new revision."""
+        value = self._transport.execute(
+            _request(
+                "decide_run_tool_approval",
+                approval_path(swarm_id, approval_id),
+                body=decision_body(decision, expected_revision, reason),
+            )
+        )
+        return ToolApprovalVerdict.from_wire(value)
 
     def usage(self, swarm_id: SwarmId) -> SwarmUsage:
         """Return typed cost, token, actor, and freshness evidence."""
@@ -1176,6 +1209,32 @@ class AsyncSwarmsAPI:
             )
         )
         return ResolvedSwarmConfiguration.from_wire(value)
+
+    async def tool_approvals(self, swarm_id: SwarmId) -> ToolApprovals:
+        """Read pending approvals for exactly this run; no execution is started."""
+        value = await self._transport.execute(
+            _request("list_run_tool_approvals", approval_path(swarm_id))
+        )
+        return ToolApprovals.from_wire(value, swarm_id)
+
+    async def decide_tool_approval(
+        self,
+        swarm_id: SwarmId,
+        approval_id: str,
+        *,
+        decision: ToolApprovalDecision,
+        expected_revision: int,
+        reason: str | None = None,
+    ) -> ToolApprovalVerdict:
+        """Relay an explicit revision-bound decision; never retries with a new revision."""
+        value = await self._transport.execute(
+            _request(
+                "decide_run_tool_approval",
+                approval_path(swarm_id, approval_id),
+                body=decision_body(decision, expected_revision, reason),
+            )
+        )
+        return ToolApprovalVerdict.from_wire(value)
 
     async def usage(self, swarm_id: SwarmId) -> SwarmUsage:
         """Return typed cost, token, actor, and freshness evidence."""

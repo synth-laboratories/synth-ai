@@ -405,6 +405,237 @@
         "title": "AgentConfigV1",
         "type": "object"
       },
+      "AgentsSandboxImageMaterialization": {
+        "additionalProperties": false,
+        "properties": {
+          "agents_image_policy_ref": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Agents Image Policy Ref",
+            "type": "string"
+          },
+          "codex_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Codex Sha256",
+            "type": "string"
+          },
+          "daytona_pullable": {
+            "title": "Daytona Pullable",
+            "type": "boolean"
+          },
+          "image_ref": {
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "image_release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Image Release Id",
+            "type": "string"
+          },
+          "image_substrates": {
+            "items": {
+              "enum": [
+                "org_registry",
+                "wasabi_artifact"
+              ],
+              "type": "string"
+            },
+            "title": "Image Substrates",
+            "type": "array"
+          },
+          "interface_mode": {
+            "const": "agents_sandbox",
+            "title": "Interface Mode",
+            "type": "string"
+          },
+          "resolved_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Resolved Digest",
+            "type": "string"
+          },
+          "runtime_image_release_id": {
+            "format": "uuid",
+            "title": "Runtime Image Release Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr-agents-sandbox-image-materialization-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection_kind": {
+            "const": "agents_sandbox",
+            "title": "Selection Kind",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "runtime_image_release_id",
+          "status",
+          "image_ref",
+          "resolved_digest",
+          "interface_mode",
+          "selection_kind",
+          "codex_sha256",
+          "agents_image_policy_ref",
+          "image_release_id",
+          "image_substrates",
+          "daytona_pullable"
+        ],
+        "title": "AgentsSandboxImageMaterialization",
+        "type": "object"
+      },
+      "AgentsSandboxImageReleaseDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "agents_image_policy_ref": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Agents Image Policy Ref",
+            "type": "string"
+          },
+          "archive_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Sha256",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 5000000000.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "codex_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Codex Sha256",
+            "type": "string"
+          },
+          "image_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Manifest Digest",
+            "type": "string"
+          },
+          "image_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "kind": {
+            "const": "agents_sandbox",
+            "title": "Kind",
+            "type": "string"
+          },
+          "platform_architecture": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ],
+            "title": "Platform Architecture",
+            "type": "string"
+          },
+          "platform_os": {
+            "const": "linux",
+            "title": "Platform Os",
+            "type": "string"
+          },
+          "source_commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Commit Sha",
+            "type": "string"
+          },
+          "source_repository": {
+            "maxLength": 512,
+            "minLength": 20,
+            "title": "Source Repository",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_sha256",
+          "archive_size_bytes",
+          "image_manifest_digest",
+          "image_ref",
+          "platform_os",
+          "platform_architecture",
+          "source_repository",
+          "source_commit_sha",
+          "kind",
+          "codex_sha256",
+          "agents_image_policy_ref"
+        ],
+        "title": "AgentsSandboxImageReleaseDeclaration",
+        "type": "object"
+      },
+      "AgentsSandboxImageReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/ImageReleaseArtifact"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/AgentsSandboxImageReleaseDeclaration"
+          },
+          "inspection": {
+            "$ref": "#/components/schemas/ImageReleaseInspection"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          },
+          "release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "runtime_image_release": {
+            "$ref": "#/components/schemas/AgentsSandboxImageMaterialization"
+          },
+          "schema_version": {
+            "const": "smr-image-release-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageReleaseStorageIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "release_id",
+          "org_id",
+          "artifact",
+          "inspection",
+          "declaration",
+          "runtime_image_release"
+        ],
+        "title": "AgentsSandboxImageReleaseResponse",
+        "type": "object"
+      },
       "Artifact": {
         "additionalProperties": false,
         "properties": {
@@ -1407,6 +1638,19 @@
             "maxLength": 20000,
             "title": "Objective",
             "type": "string"
+          },
+          "research_intern_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Research Intern Id"
           }
         },
         "required": [
@@ -6045,7 +6289,9 @@
             "discriminator": {
               "mapping": {
                 "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
-                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+                "agents_sandbox": "#/components/schemas/AgentsSandboxImageReleaseDeclaration",
+                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration",
+                "public_execution_verifier": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
               },
               "propertyName": "kind"
             },
@@ -6055,6 +6301,12 @@
               },
               {
                 "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageReleaseDeclaration"
               }
             ],
             "title": "Declaration"
@@ -6082,6 +6334,12 @@
               },
               {
                 "$ref": "#/components/schemas/ActorRuntimeImageReleaseResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PublicExecutionVerifierImageReleaseResponse"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageReleaseResponse"
               }
             ],
             "title": "Release"
@@ -6229,7 +6487,9 @@
             "discriminator": {
               "mapping": {
                 "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
-                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+                "agents_sandbox": "#/components/schemas/AgentsSandboxImageReleaseDeclaration",
+                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration",
+                "public_execution_verifier": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
               },
               "propertyName": "kind"
             },
@@ -6239,6 +6499,12 @@
               },
               {
                 "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageReleaseDeclaration"
               }
             ],
             "title": "Declaration"
@@ -6264,7 +6530,9 @@
             "discriminator": {
               "mapping": {
                 "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
-                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+                "agents_sandbox": "#/components/schemas/AgentsSandboxImageReleaseDeclaration",
+                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration",
+                "public_execution_verifier": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
               },
               "propertyName": "kind"
             },
@@ -6274,6 +6542,12 @@
               },
               {
                 "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageReleaseDeclaration"
               }
             ],
             "title": "Declaration"
@@ -10812,6 +11086,49 @@
         "type": "object"
       },
       "JsonValue": {},
+      "LimitAction": {
+        "enum": [
+          "notify",
+          "pause",
+          "stop"
+        ],
+        "title": "LimitAction",
+        "type": "string"
+      },
+      "LimitAmountSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/LimitAction",
+            "default": "pause"
+          },
+          "alert_at": {
+            "default": 0.9,
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Alert At",
+            "type": "number"
+          },
+          "cap": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap"
+          }
+        },
+        "required": [
+          "cap"
+        ],
+        "title": "LimitAmountSpec",
+        "type": "object"
+      },
       "LogEntry": {
         "additionalProperties": false,
         "properties": {
@@ -12478,7 +12795,7 @@
             "type": "string"
           },
           "scope": {
-            "$ref": "#/components/schemas/Scope"
+            "$ref": "#/components/schemas/packages__forge_contract__contracts__Scope"
           }
         },
         "required": [
@@ -14926,6 +15243,157 @@
         "title": "ProjectWorkspaceSnapshotManifest",
         "type": "object"
       },
+      "PublicExecutionVerifierImageReleaseDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Sha256",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 5000000000.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "executor_source_commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Executor Source Commit Sha",
+            "type": "string"
+          },
+          "executor_source_path": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Executor Source Path",
+            "type": "string"
+          },
+          "executor_source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Executor Source Sha256",
+            "type": "string"
+          },
+          "image_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Manifest Digest",
+            "type": "string"
+          },
+          "image_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "kind": {
+            "const": "public_execution_verifier",
+            "title": "Kind",
+            "type": "string"
+          },
+          "platform_architecture": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ],
+            "title": "Platform Architecture",
+            "type": "string"
+          },
+          "platform_os": {
+            "const": "linux",
+            "title": "Platform Os",
+            "type": "string"
+          },
+          "source_commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Commit Sha",
+            "type": "string"
+          },
+          "source_repository": {
+            "maxLength": 512,
+            "minLength": 20,
+            "title": "Source Repository",
+            "type": "string"
+          },
+          "verifier_suite": {
+            "const": "cardcodebench.public_compile_execute.v1",
+            "title": "Verifier Suite",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_sha256",
+          "archive_size_bytes",
+          "image_manifest_digest",
+          "image_ref",
+          "platform_os",
+          "platform_architecture",
+          "source_repository",
+          "source_commit_sha",
+          "kind",
+          "verifier_suite",
+          "executor_source_commit_sha",
+          "executor_source_path",
+          "executor_source_sha256"
+        ],
+        "title": "PublicExecutionVerifierImageReleaseDeclaration",
+        "type": "object"
+      },
+      "PublicExecutionVerifierImageReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/ImageReleaseArtifact"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/PublicExecutionVerifierImageReleaseDeclaration"
+          },
+          "inspection": {
+            "$ref": "#/components/schemas/ImageReleaseInspection"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          },
+          "release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr-image-release-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageReleaseStorageIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "release_id",
+          "org_id",
+          "artifact",
+          "inspection",
+          "declaration"
+        ],
+        "title": "PublicExecutionVerifierImageReleaseResponse",
+        "type": "object"
+      },
       "PublicWrite": {
         "additionalProperties": false,
         "description": "Public intent; backend supplies authenticated producer and canonical scope.",
@@ -15201,7 +15669,7 @@
             "type": "string"
           },
           "scope": {
-            "$ref": "#/components/schemas/Scope"
+            "$ref": "#/components/schemas/packages__forge_contract__contracts__Scope"
           }
         },
         "required": [
@@ -15305,7 +15773,7 @@
             "$ref": "#/components/schemas/ExactReference"
           },
           "scope": {
-            "$ref": "#/components/schemas/Scope"
+            "$ref": "#/components/schemas/packages__forge_contract__contracts__Scope"
           }
         },
         "required": [
@@ -15344,7 +15812,22 @@
         "additionalProperties": false,
         "properties": {
           "declaration": {
-            "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+            "discriminator": {
+              "mapping": {
+                "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
+                "agents_sandbox": "#/components/schemas/AgentsSandboxImageReleaseDeclaration"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageReleaseDeclaration"
+              }
+            ],
+            "title": "Declaration"
           },
           "image_config_digest": {
             "pattern": "^sha256:[0-9a-f]{64}$",
@@ -15371,7 +15854,15 @@
         "additionalProperties": false,
         "properties": {
           "runtime_image_release": {
-            "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageMaterialization"
+              }
+            ],
+            "title": "Runtime Image Release"
           },
           "schema_version": {
             "const": "smr-actor-image-registry-registration-v1",
@@ -17253,7 +17744,15 @@
         "additionalProperties": false,
         "properties": {
           "runtime_image_release": {
-            "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+              },
+              {
+                "$ref": "#/components/schemas/AgentsSandboxImageMaterialization"
+              }
+            ],
+            "title": "Runtime Image Release"
           },
           "schema_version": {
             "const": "smr-actor-image-archive-v1",
@@ -17273,7 +17772,14 @@
         "properties": {
           "releases": {
             "items": {
-              "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+                },
+                {
+                  "$ref": "#/components/schemas/AgentsSandboxImageMaterialization"
+                }
+              ]
             },
             "title": "Releases",
             "type": "array"
@@ -17323,6 +17829,17 @@
           "world:waiting"
         ],
         "title": "RuntimePhaseWire",
+        "type": "string"
+      },
+      "SandboxProvider": {
+        "enum": [
+          "exe_dev",
+          "daytona",
+          "modal",
+          "docker",
+          "local"
+        ],
+        "title": "SandboxProvider",
         "type": "string"
       },
       "ScientificExport-Input": {
@@ -17604,27 +18121,6 @@
           "state"
         ],
         "title": "ScientificWriterStateResponse",
-        "type": "object"
-      },
-      "Scope": {
-        "additionalProperties": false,
-        "properties": {
-          "organization_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Organization Id",
-            "type": "string"
-          },
-          "project_id": {
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
-            "title": "Project Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "organization_id",
-          "project_id"
-        ],
-        "title": "Scope",
         "type": "object"
       },
       "SealedDatasetRevision": {
@@ -25220,14 +25716,6 @@
         "title": "SmrGitHubToolConfigRequest",
         "type": "object"
       },
-      "SmrHostKind": {
-        "enum": [
-          "docker",
-          "daytona"
-        ],
-        "title": "SmrHostKind",
-        "type": "string"
-      },
       "SmrInferenceProvider": {
         "enum": [
           "baseten",
@@ -26814,6 +27302,20 @@
             ],
             "title": "Key Policy"
           },
+          "limit_envelope": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/LimitAmountSpec"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Envelope"
+          },
           "name": {
             "anyOf": [
               {
@@ -27347,10 +27849,15 @@
                 "$ref": "#/components/schemas/SmrAgentModel"
               },
               {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                "type": "string"
+              },
+              {
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openai-api/gpt-5.6-luna', 'openai-api/gpt-6-luna', 'openrouter/openai/gpt-5.6-luna', 'openrouter/openai/gpt-6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/moonshotai/Kimi-K3', 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'modal/moonshotai/Kimi-K3', 'openai-api/gpt-5.6-luna', 'openai-api/gpt-6-luna', 'openrouter/openai/gpt-5.6-luna', 'openrouter/openai/gpt-6-luna', 'openrouter/poolside/laguna-s-2.1', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4'. Use actor_model_overrides for actor-specific model selection.",
+            "title": "Agent Model"
           },
           "agent_model_params": {
             "anyOf": [
@@ -27498,7 +28005,7 @@
           "host_kind": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SmrHostKind"
+                "$ref": "#/components/schemas/SandboxProvider"
               },
               {
                 "type": "null"
@@ -27604,6 +28111,13 @@
               }
             ],
             "description": "Optional run-scoped usage limit."
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LimitAmountSpec"
+            },
+            "title": "Limits",
+            "type": "object"
           },
           "local_execution": {
             "anyOf": [
@@ -31888,6 +32402,17 @@
       },
       "SmrRunResponse": {
         "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
           "artifact_manifest": {
             "additionalProperties": true,
             "title": "Artifact Manifest",
@@ -31897,6 +32422,18 @@
             "additionalProperties": true,
             "title": "Authority Diagnostics",
             "type": "object"
+          },
+          "authority_ref": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Ref"
           },
           "candidate_publication": {
             "$ref": "#/components/schemas/CandidatePublicationResponse"
@@ -32063,7 +32600,7 @@
           "host_kind": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SmrHostKind"
+                "$ref": "#/components/schemas/SandboxProvider"
               },
               {
                 "type": "null"
@@ -32291,7 +32828,7 @@
           "resolved_host_kind": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SmrHostKind"
+                "$ref": "#/components/schemas/SandboxProvider"
               },
               {
                 "type": "null"
@@ -33680,6 +34217,13 @@
             "title": "Key Policy",
             "type": "object"
           },
+          "limit_envelope": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LimitAmountSpec"
+            },
+            "title": "Limit Envelope",
+            "type": "object"
+          },
           "metered_infra": {
             "additionalProperties": true,
             "title": "Metered Infra",
@@ -33819,7 +34363,10 @@
         "additionalProperties": false,
         "properties": {
           "actor_host": {
-            "const": "docker",
+            "enum": [
+              "docker",
+              "daytona"
+            ],
             "title": "Actor Host",
             "type": "string"
           },
@@ -35029,6 +35576,40 @@
         "title": "SmrSwarmSelectedArtifactContentResponse",
         "type": "object"
       },
+      "SmrSwarmStatusAuthorityRefResponse": {
+        "additionalProperties": false,
+        "description": "Evidence reference to the constructor terminal that owns terminal truth.",
+        "properties": {
+          "owner": {
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "reference": {
+            "minLength": 1,
+            "title": "Reference",
+            "type": "string"
+          },
+          "schema": {
+            "minLength": 1,
+            "title": "Schema",
+            "type": "string"
+          },
+          "sha256": {
+            "minLength": 1,
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "schema",
+          "reference",
+          "sha256"
+        ],
+        "title": "SmrSwarmStatusAuthorityRefResponse",
+        "type": "object"
+      },
       "SmrSwarmStatusFailureResponse": {
         "additionalProperties": false,
         "description": "Failure classification selected by the status projection.",
@@ -35480,11 +36061,44 @@
         "additionalProperties": false,
         "description": "Strict status projection for one public Research swarm.\n\nSee specifications/sdk/core_research_migration.md residual observability\ndisposition. This schema intentionally excludes actors, tasks, messages,\nartifacts, WorkProducts, logs, and traces.",
         "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "authority_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrSwarmStatusAuthorityRefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "failure": {
             "$ref": "#/components/schemas/SmrSwarmStatusFailureResponse"
           },
           "finalization": {
             "$ref": "#/components/schemas/SmrSwarmStatusFinalizationResponse"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
           },
           "freshness": {
             "$ref": "#/components/schemas/SmrSwarmStatusFreshnessResponse"
@@ -40540,6 +41154,19 @@
             "default": true,
             "title": "Require Operator Approval",
             "type": "boolean"
+          },
+          "research_intern_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Research Intern Id"
           }
         },
         "required": [
@@ -41113,6 +41740,48 @@
           "captured_at"
         ],
         "title": "SyncWorkspaceSnapshotIdentityV1",
+        "type": "object"
+      },
+      "ToolApprovalDecision": {
+        "enum": [
+          "approve",
+          "refuse"
+        ],
+        "title": "ToolApprovalDecision",
+        "type": "string"
+      },
+      "ToolApprovalDecisionBody": {
+        "additionalProperties": false,
+        "description": "Public `POST /smr/runs/{run_id}/tool-approvals/{approval_id}` body.",
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/ToolApprovalDecision"
+          },
+          "expected_revision": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "decision",
+          "expected_revision"
+        ],
+        "title": "ToolApprovalDecisionBody",
         "type": "object"
       },
       "TraceBundleDownloadObject": {
@@ -43773,6 +44442,27 @@
         ],
         "title": "WriterAuthorityState",
         "type": "string"
+      },
+      "packages__forge_contract__contracts__Scope": {
+        "additionalProperties": false,
+        "properties": {
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id"
+        ],
+        "title": "Scope",
+        "type": "object"
       }
     }
   },
@@ -52541,6 +53231,26 @@
       "get": {
         "description": "Get the organization's one Async Intern without an assignment id.",
         "operationId": "get_intern_async_runtime",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "research_intern_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Research Intern Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -52551,6 +53261,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Intern Async Runtime",
@@ -52606,6 +53326,24 @@
         "deprecated": true,
         "operationId": "list_intern_async_assignments",
         "parameters": [
+          {
+            "in": "query",
+            "name": "research_intern_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Research Intern Id"
+            }
+          },
           {
             "in": "query",
             "name": "limit",
@@ -56040,6 +56778,24 @@
         "parameters": [
           {
             "in": "query",
+            "name": "research_intern_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Research Intern Id"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -57493,7 +58249,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SmrRunResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SmrRunControlReceiptResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SmrRunResponse"
+                    }
+                  ],
+                  "title": "Response Pause Run Smr Runs  Run Id  Pause Post"
                 }
               }
             },
@@ -57639,7 +58403,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SmrRunResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SmrRunControlReceiptResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SmrRunResponse"
+                    }
+                  ],
+                  "title": "Response Resume Run Smr Runs  Run Id  Resume Post"
                 }
               }
             },
@@ -58892,6 +59664,116 @@
         ]
       }
     },
+    "/smr/runs/{run_id}/tool-approvals": {
+      "get": {
+        "operationId": "list_run_tool_approvals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "synth.orchestra-tool-approvals.v1"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Run Tool Approvals",
+        "tags": [
+          "smr",
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/tool-approvals/{approval_id}": {
+      "post": {
+        "operationId": "decide_run_tool_approval",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolApprovalDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Orchestra tool-approval verdict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Run Tool Approval",
+        "tags": [
+          "smr",
+          "smr"
+        ]
+      }
+    },
     "/smr/runs/{run_id}/traces/{capture_id}/stream": {
       "get": {
         "operationId": "stream_run_trace_capture",
@@ -59283,7 +60165,7 @@
     },
     "/smr/v1/image-releases/register-registry": {
       "post": {
-        "description": "Register a digest-pinned org image already published to the configured registry.",
+        "description": "Register a digest-pinned image already published to the environment's\ndeclared sandbox image registry (``sandbox_image_registries``).",
         "operationId": "register_customer_actor_registry_image",
         "requestBody": {
           "content": {
@@ -59389,6 +60271,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/ActorRuntimeImageReleaseResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicExecutionVerifierImageReleaseResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AgentsSandboxImageReleaseResponse"
                     }
                   ],
                   "title": "Response Get Image Release Smr V1 Image Releases  Release Id  Get"
