@@ -20,7 +20,9 @@ class Contribution(ResponseModel):
     contribution_id: Identifier
     revision_id: Identifier | None
     title: str | None = Field(max_length=256)
-    status: Literal["draft", "submitted", "published", "withdrawn"]
+    status: Literal[
+        "draft", "submitted", "changes_requested", "rejected", "qualified", "published", "withdrawn"
+    ]
     contents_readable: bool
     annotations: ContributionAnnotations | None = None
 

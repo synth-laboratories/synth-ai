@@ -4956,6 +4956,9 @@
                 "enum": [
                   "draft",
                   "submitted",
+                  "changes_requested",
+                  "rejected",
+                  "qualified",
                   "published",
                   "withdrawn"
                 ],
@@ -5839,6 +5842,9 @@
             "enum": [
               "draft",
               "submitted",
+              "changes_requested",
+              "rejected",
+              "qualified",
               "published",
               "withdrawn"
             ],
