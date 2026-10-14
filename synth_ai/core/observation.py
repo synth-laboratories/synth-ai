@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from collections import deque
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Generator, Iterator
+from contextlib import contextmanager
 from hashlib import sha256
 from types import TracebackType
 from typing import Protocol, TypeVar
 
-from synth_ai.core.http.lifetime import AsyncStreamOwner, StreamOwner
+from synth_ai.core.http.blocking import CLEANUP_SECONDS, CancellationScope
+from synth_ai.core.http.cleanup import handle_cleanup_failure
+from synth_ai.core.http.lifetime import AsyncStreamOwner, StreamOwner, await_cleanup
 from synth_ai.errors import ContractError, RequestTimeoutError
 from synth_ai.options import ObservationOptions, ReadOptions
 from synth_ai.types.base import EventCursor, Page
@@ -63,18 +67,38 @@ class EventStream(Iterator[E]):
         self._owner = owner
         self._registered = False
         self._reading = False
+        self._read_lock = threading.Lock()
+        self._reader_thread: int | None = None
+        self._reader_finished = threading.Event()
+        self._reader_finished.set()
+        self._close_finished = threading.Event()
+        self._close_error: BaseException | None = None
+        self._scope = CancellationScope()
+        self._wake = threading.Event()
+
+    @contextmanager
+    def _read(self) -> Generator[None, None, None]:
+        with self._read_lock:
+            if self._reading:
+                raise RuntimeError("Event stream permits one active reader")
+            self._reading = True
+            self._reader_thread = threading.get_ident()
+            self._reader_finished.clear()
+        try:
+            with self._scope.activate():
+                yield
+        finally:
+            with self._read_lock:
+                self._reading = False
+                self._reader_thread = None
+                self._reader_finished.set()
 
     def __iter__(self) -> EventStream[E]:
         return self
 
     def __next__(self) -> E:
-        if self._reading:
-            raise RuntimeError("Event stream permits one active reader")
-        self._reading = True
-        try:
+        with self._read():
             return self._next()
-        finally:
-            self._reading = False
 
     def _next(self) -> E:
         if self._closed:
@@ -90,6 +114,8 @@ class EventStream(Iterator[E]):
             if time.monotonic() >= self._deadline:
                 raise RequestTimeoutError("Event observation deadline expired")
             while not self._buffer:
+                if self._closed:
+                    raise StopIteration
                 if self._complete:
                     self.close()
                     raise StopIteration
@@ -134,27 +160,54 @@ class EventStream(Iterator[E]):
                 if not page.complete and page.next_cursor is None:
                     raise ContractError("Incomplete event page requires a resume cursor")
                 if not self._buffer and (not page.complete):
-                    time.sleep(
+                    self._wake.wait(
                         min(
                             self._options.poll_interval_seconds,
                             max(0, self._deadline - time.monotonic()),
                         )
                     )
             return self._buffer.popleft()
-        except BaseException:
-            self.close()
+        except BaseException as primary:
+            try:
+                self.close()
+            except Exception as cause:
+                handle_cleanup_failure(cause, primary, mutation=False, identity=None)
             raise
 
     def close(self) -> None:
         """End local observation without cancelling durable remote work.
 
         See: backend/notes/specifications/sdk/index_contract.md."""
-        self._closed = True
-        if self._owner is not None and self._registered:
-            self._owner._unregister_stream(self)
-            self._registered = False
-        self._buffer.clear()
-        self._seen.clear()
+        with self._read_lock:
+            own_reader = self._reader_thread == threading.get_ident()
+            closing = not self._closed
+            self._closed = True
+            self._wake.set()
+        if not closing:
+            if own_reader:
+                return
+            if not self._close_finished.wait(2 * CLEANUP_SECONDS):
+                raise RuntimeError("Event stream cleanup did not complete")
+            if self._close_error is not None:
+                raise self._close_error
+            return
+        completed = False
+        try:
+            self._scope.cancel()
+            if not own_reader and not self._reader_finished.wait(CLEANUP_SECONDS):
+                raise RuntimeError("Event stream reader did not close")
+            completed = True
+        except BaseException as error:
+            self._close_error = error
+            raise
+        finally:
+            if completed and self._owner is not None and self._registered:
+                self._owner._unregister_stream(self)
+                self._registered = False
+            if completed:
+                self._buffer.clear()
+                self._seen.clear()
+            self._close_finished.set()
 
     def __enter__(self) -> EventStream[E]:
         return self
@@ -165,7 +218,13 @@ class EventStream(Iterator[E]):
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.close()
+        if exception is not None:
+            try:
+                self.close()
+            except Exception as cause:
+                handle_cleanup_failure(cause, exception, mutation=False, identity=None)
+        else:
+            self.close()
 
 
 class AsyncEventStream(AsyncIterator[E]):
@@ -192,6 +251,8 @@ class AsyncEventStream(AsyncIterator[E]):
         self._owner = owner
         self._registered = False
         self._reading = False
+        self._reading_task: asyncio.Task[object] | None = None
+        self._closing_task: asyncio.Task[None] | None = None
 
     def __aiter__(self) -> AsyncEventStream[E]:
         return self
@@ -200,9 +261,12 @@ class AsyncEventStream(AsyncIterator[E]):
         if self._reading:
             raise RuntimeError("Event stream permits one active reader")
         self._reading = True
+        task = asyncio.create_task(self._next())
+        self._reading_task = task
         try:
-            return await self._next()
+            return await task
         finally:
+            self._reading_task = None
             self._reading = False
 
     async def _next(self) -> E:
@@ -219,6 +283,8 @@ class AsyncEventStream(AsyncIterator[E]):
             if time.monotonic() >= self._deadline:
                 raise RequestTimeoutError("Event observation deadline expired")
             while not self._buffer:
+                if self._closed:
+                    raise StopAsyncIteration
                 if self._complete:
                     await self.aclose()
                     raise StopAsyncIteration
@@ -274,22 +340,51 @@ class AsyncEventStream(AsyncIterator[E]):
                     )
             return self._buffer.popleft()
         except TimeoutError as cause:
-            await self.aclose()
-            raise RequestTimeoutError("Event observation deadline expired") from cause
-        except BaseException:
-            await self.aclose()
+            primary = RequestTimeoutError("Event observation deadline expired")
+            await self._close_after_failure(primary)
+            raise primary from cause
+        except BaseException as primary:
+            await self._close_after_failure(primary)
             raise
+
+    async def _close_after_failure(self, primary: BaseException) -> None:
+        try:
+            await self.aclose()
+        except (Exception, asyncio.CancelledError) as cause:
+            handle_cleanup_failure(cause, primary, mutation=False, identity=None)
 
     async def aclose(self) -> None:
         """End async local ownership without cancelling durable work or closing borrowed clients.
 
         See: backend/notes/specifications/sdk/index_contract.md."""
-        self._closed = True
-        if self._owner is not None and self._registered:
-            self._owner._unregister_stream(self)
-            self._registered = False
-        self._buffer.clear()
-        self._seen.clear()
+        if self._closing_task is not None and asyncio.current_task() is self._reading_task:
+            return
+        if self._closing_task is None:
+            self._closed = True
+            reader = self._reading_task
+            if reader is asyncio.current_task():
+                reader = None
+            self._closing_task = asyncio.create_task(self._close_owned(reader))
+        await await_cleanup(self._closing_task)
+
+    async def _close_owned(self, reader: asyncio.Task[object] | None) -> None:
+        completed = False
+        try:
+            if reader is not None:
+                reader.cancel()
+                done, _ = await asyncio.wait({reader}, timeout=self._options.idle_timeout_seconds)
+                if not done:
+                    raise RuntimeError("Event stream reader cancellation did not complete")
+                if not reader.cancelled():
+                    reader.exception()
+            completed = True
+        finally:
+            if completed and self._owner is not None and self._registered:
+                self._owner._unregister_stream(self)
+                self._registered = False
+            if completed:
+                self._buffer.clear()
+                self._seen.clear()
 
     async def __aenter__(self) -> AsyncEventStream[E]:
         return self
@@ -300,4 +395,7 @@ class AsyncEventStream(AsyncIterator[E]):
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        await self.aclose()
+        if exception is not None:
+            await self._close_after_failure(exception)
+        else:
+            await self.aclose()

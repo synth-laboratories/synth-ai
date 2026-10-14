@@ -320,6 +320,7 @@ class OutputStream:
             if self._close_error is not None:
                 raise self._close_error
             return
+        completed = False
         try:
             with self._scope.cleanup():
                 self._scope.cancel()
@@ -327,11 +328,13 @@ class OutputStream:
                     raise RuntimeError("Output stream reader did not close")
                 if self._response is not None:
                     self._transport._release_response(self._response)
+            completed = True
         except BaseException as error:
             self._close_error = error
             raise
         finally:
-            self._transport._unregister_stream(self)
+            if completed:
+                self._transport._unregister_stream(self)
             self._close_finished.set()
 
     def __enter__(self) -> OutputStream:
@@ -544,15 +547,24 @@ class AsyncOutputStream:
         await await_cleanup(self._closing_task)
 
     async def _close_response(self, reader: asyncio.Task[object] | None) -> None:
+        completed = False
         try:
             async with asyncio.timeout(self._transport.request_timeout_seconds):
                 if reader is not None:
                     reader.cancel()
-                    await asyncio.gather(reader, return_exceptions=True)
+                    done, _ = await asyncio.wait(
+                        {reader}, timeout=self._transport.request_timeout_seconds
+                    )
+                    if not done:
+                        raise RuntimeError("Output stream reader cancellation did not complete")
+                    if not reader.cancelled():
+                        reader.exception()
                 if self._response is not None:
                     await self._transport._release_response(self._response)
+            completed = True
         finally:
-            self._transport._unregister_stream(self)
+            if completed:
+                self._transport._unregister_stream(self)
 
     async def __aenter__(self) -> AsyncOutputStream:
         if self._reading:
