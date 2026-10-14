@@ -11,14 +11,85 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
-from collections.abc import Coroutine, Iterator
+from collections.abc import Coroutine, Generator, Iterator
 from concurrent.futures import TimeoutError as FutureTimeout
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TypeVar
 
 import httpx
 
 T = TypeVar("T")
 CLEANUP_SECONDS = 1.0
+_OBSERVATION_SCOPE: ContextVar[CancellationScope | None] = ContextVar(
+    "synth_observation", default=None
+)
+
+
+class ScopedCall:
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+        self.loop = loop
+        self.finished = threading.Event()
+        self._lock = threading.Lock()
+        self._task: asyncio.Task[object] | None = None
+        self._cancelled = False
+
+    def start(self, task: asyncio.Task[object] | None) -> bool:
+        with self._lock:
+            self._task = task
+            return not self._cancelled
+
+    def cancel(self) -> None:
+        with self._lock:
+            self._cancelled = True
+            if self._task is not None:
+                self.loop.call_soon_threadsafe(self._task.cancel)
+
+
+class CancellationScope:
+    """Cancel only network phases owned by one synchronous observation."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._calls: set[ScopedCall] = set()
+        self._closed = False
+
+    @contextmanager
+    def activate(self) -> Generator[None, None, None]:
+        token = _OBSERVATION_SCOPE.set(self)
+        try:
+            yield
+        finally:
+            _OBSERVATION_SCOPE.reset(token)
+
+    @contextmanager
+    def cleanup(self) -> Generator[None, None, None]:
+        token = _OBSERVATION_SCOPE.set(None)
+        try:
+            yield
+        finally:
+            _OBSERVATION_SCOPE.reset(token)
+
+    def register(self, call: ScopedCall) -> None:
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("SDK observation is closed")
+            self._calls.add(call)
+
+    def release(self, call: ScopedCall) -> None:
+        with self._lock:
+            self._calls.discard(call)
+
+    def cancel(self) -> None:
+        with self._lock:
+            self._closed = True
+            calls = tuple(self._calls)
+        for call in calls:
+            call.cancel()
+        deadline = time.monotonic() + CLEANUP_SECONDS
+        for call in calls:
+            if not call.finished.wait(max(0, deadline - time.monotonic())):
+                raise RuntimeError("SDK observation cancellation did not complete")
 
 
 class BlockingLoop:
@@ -40,22 +111,44 @@ class BlockingLoop:
             self._loop.close()
 
     def call(self, operation: Coroutine[None, None, T], timeout: float) -> T:
-        finished = threading.Event()
-
-        async def bounded() -> T:
-            try:
-                async with asyncio.timeout(max(0, timeout)):
-                    return await operation
-            finally:
-                finished.set()
-
         if self._closed:
             operation.close()
             raise RuntimeError("SDK network loop is closed")
         if threading.current_thread() is self._thread:
             operation.close()
             raise RuntimeError("Synchronous SDK calls cannot reenter their network loop")
-        future = asyncio.run_coroutine_threadsafe(bounded(), self._loop)
+        finished = threading.Event()
+        scope = _OBSERVATION_SCOPE.get()
+        owned = ScopedCall(self._loop) if scope is not None else None
+        if scope is not None and owned is not None:
+            try:
+                scope.register(owned)
+            except BaseException:
+                operation.close()
+                raise
+
+        async def bounded() -> T:
+            try:
+                if owned is not None and not owned.start(asyncio.current_task()):
+                    operation.close()
+                    raise asyncio.CancelledError
+                async with asyncio.timeout(max(0, timeout)):
+                    return await operation
+            finally:
+                finished.set()
+                if owned is not None:
+                    owned.finished.set()
+
+        exchange = bounded()
+        try:
+            future = asyncio.run_coroutine_threadsafe(exchange, self._loop)
+        except BaseException:
+            exchange.close()
+            operation.close()
+            if scope is not None and owned is not None:
+                scope.release(owned)
+                owned.finished.set()
+            raise
         try:
             return future.result(timeout=max(0, timeout) + CLEANUP_SECONDS)
         except FutureTimeout:
@@ -71,6 +164,9 @@ class BlockingLoop:
                 if not finished.wait(CLEANUP_SECONDS):
                     raise RuntimeError("SDK network cancellation did not complete") from None
             raise
+        finally:
+            if scope is not None and owned is not None:
+                scope.release(owned)
 
     def close(self) -> None:
         if self._closed:
@@ -120,7 +216,11 @@ class ResponseStream(httpx.SyncByteStream):
     def close(self) -> None:
         if self._closed:
             return
-        self._loop.call(self._response.aclose(), CLEANUP_SECONDS)
+        token = _OBSERVATION_SCOPE.set(None)
+        try:
+            self._loop.call(self._response.aclose(), CLEANUP_SECONDS)
+        finally:
+            _OBSERVATION_SCOPE.reset(token)
         self._closed = True
 
 

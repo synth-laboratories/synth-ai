@@ -7,8 +7,10 @@ as a downloaded file. Closing observation never changes a remote run.
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Generator, Iterator
+from contextlib import contextmanager
 from hashlib import sha256
 from types import TracebackType
 
@@ -16,6 +18,7 @@ import httpx
 
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
+from synth_ai.core.http.blocking import CLEANUP_SECONDS, CancellationScope
 from synth_ai.core.http.cleanup import handle_cleanup_failure
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.http.lifetime import await_cleanup
@@ -145,6 +148,30 @@ class OutputStream:
         self._iterator: Iterator[bytes] | None = None
         self._closed = False
         self._reading = False
+        self._read_lock = threading.Lock()
+        self._reader_thread: int | None = None
+        self._reader_finished = threading.Event()
+        self._reader_finished.set()
+        self._close_finished = threading.Event()
+        self._close_error: BaseException | None = None
+        self._scope = CancellationScope()
+
+    @contextmanager
+    def _read(self) -> Generator[None, None, None]:
+        with self._read_lock:
+            if self._reading:
+                raise RuntimeError("Output stream permits one active reader")
+            self._reading = True
+            self._reader_thread = threading.get_ident()
+            self._reader_finished.clear()
+        try:
+            with self._scope.activate():
+                yield
+        finally:
+            with self._read_lock:
+                self._reading = False
+                self._reader_thread = None
+                self._reader_finished.set()
 
     @property
     def verified(self) -> bool:
@@ -242,13 +269,8 @@ class OutputStream:
         return self
 
     def __next__(self) -> bytes:
-        if self._reading:
-            raise RuntimeError("Output stream permits one active reader")
-        self._reading = True
-        try:
+        with self._read():
             return self._next()
-        finally:
-            self._reading = False
 
     def _next(self) -> bytes:
         if self._closed:
@@ -286,24 +308,36 @@ class OutputStream:
             handle_cleanup_failure(cause, primary, mutation=False, identity=None)
 
     def close(self) -> None:
-        if self._closed:
+        with self._read_lock:
+            own_reader = self._reader_thread == threading.get_ident()
+            closing = not self._closed
+            self._closed = True
+        if not closing:
+            if own_reader:
+                return
+            if not self._close_finished.wait(4 * CLEANUP_SECONDS):
+                raise RuntimeError("Output stream cleanup did not complete")
+            if self._close_error is not None:
+                raise self._close_error
             return
-        self._closed = True
         try:
-            if self._response is not None:
-                self._transport._release_response(self._response)
+            with self._scope.cleanup():
+                self._scope.cancel()
+                if not own_reader and not self._reader_finished.wait(CLEANUP_SECONDS):
+                    raise RuntimeError("Output stream reader did not close")
+                if self._response is not None:
+                    self._transport._release_response(self._response)
+        except BaseException as error:
+            self._close_error = error
+            raise
         finally:
             self._transport._unregister_stream(self)
+            self._close_finished.set()
 
     def __enter__(self) -> OutputStream:
-        if self._reading:
-            raise RuntimeError("Output stream permits one active reader")
-        self._reading = True
-        try:
+        with self._read():
             self._open()
             return self
-        finally:
-            self._reading = False
 
     def __exit__(
         self,
@@ -334,6 +368,7 @@ class AsyncOutputStream:
         self._closed = False
         self._reading = False
         self._closing_task: asyncio.Task[None] | None = None
+        self._reading_task: asyncio.Task[object] | None = None
 
     @property
     def verified(self) -> bool:
@@ -451,9 +486,12 @@ class AsyncOutputStream:
         if self._reading:
             raise RuntimeError("Output stream permits one active reader")
         self._reading = True
+        task = asyncio.create_task(self._next())
+        self._reading_task = task
         try:
-            return await self._next()
+            return await task
         finally:
+            self._reading_task = None
             self._reading = False
 
     async def _next(self) -> bytes:
@@ -493,16 +531,26 @@ class AsyncOutputStream:
             handle_cleanup_failure(cause, primary, mutation=False, identity=None)
 
     async def aclose(self) -> None:
+        # An external close owns cancellation; its reader must unwind without
+        # waiting on the task that is draining that same reader.
+        if self._closing_task is not None and asyncio.current_task() is self._reading_task:
+            return
         if self._closing_task is None:
             self._closed = True
-            self._closing_task = asyncio.create_task(self._close_response())
+            reader = self._reading_task
+            if reader is asyncio.current_task():
+                reader = None
+            self._closing_task = asyncio.create_task(self._close_response(reader))
         await await_cleanup(self._closing_task)
 
-    async def _close_response(self) -> None:
-        self._closed = True
+    async def _close_response(self, reader: asyncio.Task[object] | None) -> None:
         try:
-            if self._response is not None:
-                await self._transport._release_response(self._response)
+            async with asyncio.timeout(self._transport.request_timeout_seconds):
+                if reader is not None:
+                    reader.cancel()
+                    await asyncio.gather(reader, return_exceptions=True)
+                if self._response is not None:
+                    await self._transport._release_response(self._response)
         finally:
             self._transport._unregister_stream(self)
 
@@ -510,10 +558,13 @@ class AsyncOutputStream:
         if self._reading:
             raise RuntimeError("Output stream permits one active reader")
         self._reading = True
+        task = asyncio.create_task(self._open())
+        self._reading_task = task
         try:
-            await self._open()
+            await task
             return self
         finally:
+            self._reading_task = None
             self._reading = False
 
     async def __aexit__(
