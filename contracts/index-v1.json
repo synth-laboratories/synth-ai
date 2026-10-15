@@ -116,6 +116,7 @@
                 "swarms.docker",
                 "swarms.daytona",
                 "swarms.openrouter",
+                "swarms.openai",
                 "swarms.tinker",
                 "swarms.synth",
                 "monitor"
@@ -609,7 +610,7 @@
           "items": {
             "$ref": "#/$defs/AccountEntitlement"
           },
-          "maxItems": 10,
+          "maxItems": 11,
           "minItems": 10,
           "title": "Subproducts",
           "type": "array"
