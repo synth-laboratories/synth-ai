@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import NoReturn
 
 from synth_ai.contracts import operations as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.observation import AsyncEventStream, EventStream
 from synth_ai.core.parameters import identifier, page_parameters, verified
-from synth_ai.errors import RequestTimeoutError
+from synth_ai.errors import ContractError, OperationFailedError, RequestTimeoutError
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
@@ -20,6 +21,28 @@ from .search import validate_search_retention
 from .types.history import SearchHistoryDeletion, SearchHistoryDeletionReceipt
 from .types.retention import RetentionMode
 from .types.search import SearchEvent, SearchResponse, SearchSnapshot
+
+
+_TERMINAL_WITHOUT_RESULT = frozenset({"failed", "cancelled"})
+
+
+def _raise_terminal(search_id: str, snapshot: SearchSnapshot, result: SearchResponse) -> NoReturn:
+    """Fail early and hard on a terminal Search with no deliverable result."""
+    if result.status != snapshot.state:
+        raise ContractError(
+            f"Search {search_id} reported state {snapshot.state!r} but its result is "
+            f"{result.status!r}",
+            code="search_terminal_state_mismatch",
+            request_id=result.metadata.request_id,
+        )
+    failure = result.failure
+    code = failure.code if failure is not None else "search_cancelled"
+    retryable = failure.retryable if failure is not None else False
+    raise OperationFailedError(
+        f"Search {search_id} {result.status}: {code} (retryable={retryable})",
+        code=code,
+        request_id=result.metadata.request_id,
+    )
 
 
 class SearchRun:
@@ -214,6 +237,20 @@ class SearchRun:
                 read_retry_count=observation.retry_count_max,
             )
             snapshot = self.status(request=request)
+            if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
+                # A failed/cancelled Search never becomes result_available; fail
+                # now with its typed cause instead of polling to the deadline.
+                remaining = deadline - time.monotonic()
+                _raise_terminal(
+                    self.search_id,
+                    snapshot,
+                    self.result(
+                        request=ReadOptions(
+                            timeout_seconds=max(remaining, 1.0),
+                            read_retry_count=observation.retry_count_max,
+                        )
+                    ),
+                )
             if snapshot.result_available:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -421,6 +458,18 @@ class AsyncSearchRun:
                 read_retry_count=observation.retry_count_max,
             )
             snapshot = await self.status(request=request)
+            if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
+                remaining = deadline - time.monotonic()
+                _raise_terminal(
+                    self.search_id,
+                    snapshot,
+                    await self.result(
+                        request=ReadOptions(
+                            timeout_seconds=max(remaining, 1.0),
+                            read_retry_count=observation.retry_count_max,
+                        )
+                    ),
+                )
             if snapshot.result_available:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
