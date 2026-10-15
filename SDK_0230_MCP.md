@@ -1,6 +1,6 @@
 # Unified MCP implementation — 0.23 local candidate
 
-Implemented on the unpublished 0.23 development branch. Installed SDK/MCP and
+Implemented on the 0.23 development branch. Installed SDK/MCP and
 local backend evidence is recorded with each release cohort. Hosted deployment,
 native five-lane acceptance and production qualification remain separate gates.
 
@@ -11,11 +11,17 @@ Install the optional `synth-ai[mcp]` extra. `synth-ai-mcp` (also
 The SDK dependency is `mcp>=1.30,<2`; uv.lock pins the local build.
 
 - `--profile public`: explicit anonymous public Index search; ignores ambient API keys.
-- `--profile read` (default): keyed reads. Requires `SYNTH_API_KEY`.
+- `--profile read` (default): keyed reads using an explicit/environment API key or stored CLI login.
 - `--profile action`: keyed reads, paid searches, run creation and cancellation.
 - `--base-url` or `SYNTH_API_URL`: one API origin (default `https://api.usesynth.ai`). Legacy `SYNTH_API_BASE_URL` and `SYNTH_BACKEND_URL` are accepted with a value-free deprecation warning.
 
 Profiles narrow discovery and invocation; they never grant backend permission.
+New-work tool listings also use the current organization account policy. Index
+search requires a usable FAST or DEEP mode; Swarms creation and preflight require
+usable compute and provider resources. Missing policy hides these entries while
+status, cancellation and recovery keep their own authorization. Each discovery
+reads current policy; it does not cache positive grants. Invocation still reaches
+native admission for request-specific conditions and accepted-mutation replay.
 Do not put credentials in command-line arguments, tool parameters or MCP settings
 visible to models. Stdio stdout belongs to the protocol. API-key retrieval stays
 in the existing explicit/environment mechanism; no Keychain access was added.

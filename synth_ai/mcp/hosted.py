@@ -29,12 +29,19 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from synth_ai.contracts.registry import OPERATIONS_BY_ID
 from synth_ai.core.capabilities import require_operation, supports_operation
-from synth_ai.errors import AuthenticationError, PermissionDeniedError, UnsupportedOperationError
+from synth_ai.errors import (
+    AuthenticationError,
+    PermissionDeniedError,
+    SynthError,
+    UnsupportedOperationError,
+)
+from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.base import Identifier, Model
 from synth_ai.types.capabilities import Capabilities
 
 from .catalog import TOOLS, ToolSpec
-from .contracts import JsonObject
+from .contracts import JSON_OBJECT, JsonObject
+from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
 from .server import create_server
 
 
@@ -173,6 +180,24 @@ class HostedExecutor:
             and tool.name in principal.allowed_tools
             and (tool.scope is None or tool.scope in principal.scopes)
         )
+
+    async def visible_tools(self) -> frozenset[str]:
+        available = await self.available_tools()
+        if not available & POLICY_ACTION_TOOLS:
+            return available
+        if "account_entitlements" not in available:
+            return visible_policy_tools(available, None)
+        principal = self.principal()
+        try:
+            value = await self._backend.invoke(principal, "account_entitlements", {})
+            policy = AccountEntitlements.model_validate_json(JSON_OBJECT.dump_json(value))
+        except AuthenticationError:
+            raise
+        except (SynthError, ValueError):
+            return visible_policy_tools(available, None)
+        if policy.tenant_id != principal.organization_id:
+            raise AuthenticationError("Account policy principal changed")
+        return visible_policy_tools(available, policy)
 
     async def invoke(self, tool: ToolSpec, arguments: JsonObject) -> JsonObject:
         principal = self.principal()

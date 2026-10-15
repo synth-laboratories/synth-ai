@@ -2,23 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from synth_ai import AsyncSynthClient
 from synth_ai.contracts.registry import OPERATIONS_BY_ID
 from synth_ai.core.capabilities import require_operation, supports_operation
-from synth_ai.errors import PermissionDeniedError
+from synth_ai.errors import AuthenticationError, PermissionDeniedError, SynthError
 from synth_ai.options import ReadOptions
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.capabilities import Capabilities
 
 from .catalog import TOOLS, ToolSpec
 from .contracts import JsonObject
+from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
 
 
 class Executor(Protocol):
     async def available_tools(self) -> frozenset[str]: ...
     async def invoke(self, tool: ToolSpec, arguments: JsonObject) -> JsonObject: ...
+
+
+@runtime_checkable
+class PolicyDiscoveryExecutor(Protocol):
+    """Optional discovery projection for executors with account-policy support."""
+
+    async def visible_tools(self) -> frozenset[str]: ...
 
 
 class SDKExecutor:
@@ -64,12 +72,12 @@ class SDKExecutor:
             not tool.keyed or context is not None and (scope is None or scope in context.scopes)
         )
 
-    async def available_tools(self) -> frozenset[str]:
+    async def _current_tools(self) -> tuple[frozenset[str], AuthContext | None]:
         receipt = await self._public_client.capabilities(
             request=ReadOptions(timeout_seconds=10, read_retry_count=0)
         )
         context = await self._authorization(receipt)
-        return frozenset(
+        available = frozenset(
             tool.name
             for tool in TOOLS
             if self._permitted(tool, context, tool.scope)
@@ -80,6 +88,33 @@ class SDKExecutor:
                 candidate_manifest_sha256=self._client.candidate_manifest_sha256,
             )
         )
+        return available, context
+
+    async def available_tools(self) -> frozenset[str]:
+        # Invocation still reaches native policy for exact request conditions
+        # and accepted-mutation replay. Discovery is not a second admission gate.
+        available, _ = await self._current_tools()
+        return available
+
+    async def visible_tools(self) -> frozenset[str]:
+        available, context = await self._current_tools()
+        if not available & POLICY_ACTION_TOOLS:
+            return available
+        if "account_entitlements" not in available or context is None:
+            return visible_policy_tools(available, None)
+        try:
+            policy = await self._client.account.entitlements(
+                request=ReadOptions(timeout_seconds=10, read_retry_count=0)
+            )
+        except AuthenticationError:
+            raise
+        except SynthError:
+            # Only new-work discovery is unavailable. Status, cancellation and
+            # recovery retain their independent authorization paths.
+            return visible_policy_tools(available, None)
+        if policy.tenant_id != context.tenant_id:
+            raise AuthenticationError("Account policy principal changed")
+        return visible_policy_tools(available, policy)
 
     async def invoke(self, tool: ToolSpec, arguments: JsonObject) -> JsonObject:
         if tool.name not in self._enabled:

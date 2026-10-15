@@ -42,7 +42,7 @@ from synth_ai.types.identity import MutationIdentity
 
 from .catalog import BY_NAME, TOOLS
 from .contracts import JSON_OBJECT, JsonObject, ToolFailure
-from .runtime import Executor
+from .runtime import Executor, PolicyDiscoveryExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,11 @@ def create_server(
         visible: list[Tool] = []
         try:
             async with asyncio.timeout(timeout_seconds):
-                available = await executor.available_tools()
+                available = await (
+                    executor.visible_tools()
+                    if isinstance(executor, PolicyDiscoveryExecutor)
+                    else executor.available_tools()
+                )
         except (SynthError, TimeoutError) as cause:
             raise McpError(
                 ErrorData(code=INTERNAL_ERROR, message="Current authorization could not be read")
