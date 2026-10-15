@@ -101,6 +101,14 @@ versions are accepted only when their complete filename/hash set matches;
 different bytes refuse instead of being silently skipped. The final registry
 readback and publication receipt are retained as workflow artifacts.
 
+For qualification performed on the release host, retain the complete reviewed
+ZIP as a same-repository release asset, then dispatch
+`retain-qualified-release.yml` at its exact source commit. Supply the asset ID,
+ZIP hash, channel and final version. The producer validates the same source,
+distribution and evidence rules and uploads the unchanged files as an Actions
+artifact. Use that artifact's immutable ID and archive digest in the protected
+publisher. The producer does not run missing checks or build a replacement wheel.
+
 `.github/v023-preserved-candidate.json` records the unchanged SDK1511 candidate
 wheel and original source. That record is provenance, not publication approval
 or a substitute for final native and staging qualification.
