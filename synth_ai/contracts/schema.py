@@ -55,6 +55,7 @@ from synth_ai.sdk.index.types.search import (
     SearchResponse,
     SearchSnapshot,
 )
+from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.capabilities import Capabilities
 from synth_ai.types.identity import MutationIdentity
@@ -70,6 +71,7 @@ from synth_ai.types.usage import UsageOperation, UsageSummary
 from .operations import ALL_OPERATIONS, CONTRACT, PREFIX
 
 MODELS: tuple[type[BaseModel], ...] = (
+    AccountEntitlements,
     Capabilities,
     AuthContext,
     AuthorAnnotations,

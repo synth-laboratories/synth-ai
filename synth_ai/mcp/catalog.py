@@ -34,6 +34,7 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
 from synth_ai.types.receipts import ControlReceipt, MutationResolution
@@ -168,6 +169,12 @@ class ToolDefinition(Generic[RequestT, ResultT]):
 
 async def auth_context(client: AsyncSynthClient, args: EmptyArguments) -> AuthContext:
     return await client.auth_context()
+
+
+async def account_entitlements(
+    client: AsyncSynthClient, args: EmptyArguments
+) -> AccountEntitlements:
+    return await client.account.entitlements()
 
 
 async def public_search(client: AsyncSynthClient, args: PublicSearchArguments) -> SearchResponse:
@@ -404,6 +411,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         EmptyArguments,
         AuthContext,
         auth_context,
+    ),
+    ToolDefinition(
+        "account_entitlements",
+        index_operations.ACCOUNT_ENTITLEMENTS,
+        "Read this organization's product access, conditions and observed limits.",
+        EmptyArguments,
+        AccountEntitlements,
+        account_entitlements,
     ),
     ToolDefinition(
         "index_public_search",

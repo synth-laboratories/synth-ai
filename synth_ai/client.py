@@ -15,6 +15,7 @@ from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
+from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.types.auth import AuthContext
@@ -64,6 +65,7 @@ class SynthClient:
     _transport: HttpTransport
     index: IndexClient
     swarms: SwarmsClient
+    account: AccountClient
 
     def __init__(
         self,
@@ -82,6 +84,7 @@ class SynthClient:
         self._transport = HttpTransport(origin, key, selected, credential_provider=provider)
         self.index = IndexClient(self._transport, True)
         self.swarms = SwarmsClient(self._transport)
+        self.account = AccountClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -99,6 +102,7 @@ class SynthClient:
         client._transport = HttpTransport(resolve_url(base_url), None, selected)
         client.index = IndexClient(client._transport, False)
         client.swarms = SwarmsClient(client._transport)
+        client.account = AccountClient(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -171,6 +175,7 @@ class AsyncSynthClient:
     _transport: AsyncHttpTransport
     index: AsyncIndexClient
     swarms: AsyncSwarmsClient
+    account: AsyncAccountClient
 
     def __init__(
         self,
@@ -185,6 +190,7 @@ class AsyncSynthClient:
         self._transport = AsyncHttpTransport(origin, key, selected, credential_provider=provider)
         self.index = AsyncIndexClient(self._transport, True)
         self.swarms = AsyncSwarmsClient(self._transport)
+        self.account = AsyncAccountClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -198,6 +204,7 @@ class AsyncSynthClient:
         client._transport = AsyncHttpTransport(resolve_url(base_url), None, selected)
         client.index = AsyncIndexClient(client._transport, False)
         client.swarms = AsyncSwarmsClient(client._transport)
+        client.account = AsyncAccountClient(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:

@@ -1,5 +1,639 @@
 {
   "models": {
+    "AccountEntitlements": {
+      "$defs": {
+        "AccountEntitlement": {
+          "additionalProperties": false,
+          "properties": {
+            "access": {
+              "enum": [
+                "allowed",
+                "denied",
+                "conditional",
+                "unavailable"
+              ],
+              "title": "Access",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Code",
+              "type": "string"
+            },
+            "conditions": {
+              "items": {
+                "enum": [
+                  "activation_required",
+                  "own_credential_required",
+                  "byok_forbidden",
+                  "plan_required",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              "maxItems": 5,
+              "title": "Conditions",
+              "type": "array"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expires At"
+            },
+            "grant_revision": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grant Revision"
+            },
+            "kind": {
+              "enum": [
+                "search",
+                "content",
+                "compute",
+                "provider",
+                "monitor"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "limits": {
+              "items": {
+                "$ref": "#/$defs/AccountPolicyLimit"
+              },
+              "maxItems": 8,
+              "title": "Limits",
+              "type": "array"
+            },
+            "product": {
+              "enum": [
+                "index",
+                "swarms",
+                "monitor"
+              ],
+              "title": "Product",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "baseline",
+                "override",
+                "unavailable"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "stage": {
+              "enum": [
+                "available",
+                "planned",
+                "unavailable"
+              ],
+              "title": "Stage",
+              "type": "string"
+            },
+            "subproduct": {
+              "enum": [
+                "index.fast",
+                "index.deep",
+                "index.private",
+                "index.contributions",
+                "swarms.docker",
+                "swarms.daytona",
+                "swarms.openrouter",
+                "swarms.tinker",
+                "swarms.synth",
+                "monitor"
+              ],
+              "title": "Subproduct",
+              "type": "string"
+            },
+            "supply": {
+              "enum": [
+                "platform",
+                "customer",
+                "mixed"
+              ],
+              "title": "Supply",
+              "type": "string"
+            }
+          },
+          "required": [
+            "subproduct",
+            "product",
+            "stage",
+            "kind",
+            "supply",
+            "access",
+            "code",
+            "conditions",
+            "source",
+            "grant_revision",
+            "expires_at",
+            "limits"
+          ],
+          "title": "AccountEntitlement",
+          "type": "object"
+        },
+        "AccountPolicyLimit": {
+          "additionalProperties": false,
+          "properties": {
+            "available_requests": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Available Requests"
+            },
+            "burst_capacity": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Burst Capacity"
+            },
+            "code": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            },
+            "default_value": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Default Value"
+            },
+            "dimension": {
+              "enum": [
+                "requests",
+                "concurrent",
+                "spend_cents"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expires At"
+            },
+            "limit_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Limit Id",
+              "type": "string"
+            },
+            "next_request_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next Request At"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "product": {
+              "enum": [
+                "index",
+                "swarms"
+              ],
+              "title": "Product",
+              "type": "string"
+            },
+            "remaining": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remaining"
+            },
+            "resets_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resets At"
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            },
+            "source": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Source",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "ready",
+                "unavailable"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "used": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Used"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            },
+            "window": {
+              "enum": [
+                "token_bucket",
+                "concurrent",
+                "day",
+                "month"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          },
+          "required": [
+            "limit_id",
+            "product",
+            "value",
+            "default_value",
+            "source",
+            "revision",
+            "expires_at",
+            "dimension",
+            "window",
+            "observed_at",
+            "state",
+            "code",
+            "used",
+            "remaining",
+            "resets_at",
+            "burst_capacity",
+            "available_requests",
+            "next_request_at"
+          ],
+          "title": "AccountPolicyLimit",
+          "type": "object"
+        },
+        "AccountRequestLimits": {
+          "additionalProperties": false,
+          "properties": {
+            "contents_max_bytes": {
+              "minimum": 1,
+              "title": "Contents Max Bytes",
+              "type": "integer"
+            },
+            "max_excerpts_per_result": {
+              "minimum": 1,
+              "title": "Max Excerpts Per Result",
+              "type": "integer"
+            },
+            "max_results": {
+              "minimum": 1,
+              "title": "Max Results",
+              "type": "integer"
+            },
+            "query_max_bytes": {
+              "minimum": 1,
+              "title": "Query Max Bytes",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "max_results",
+            "max_excerpts_per_result",
+            "query_max_bytes",
+            "contents_max_bytes"
+          ],
+          "title": "AccountRequestLimits",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "capability_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Capability Sha256"
+        },
+        "definition_version": {
+          "const": "account-policy.v1",
+          "default": "account-policy.v1",
+          "title": "Definition Version",
+          "type": "string"
+        },
+        "limits_observed_at": {
+          "format": "date-time",
+          "title": "Limits Observed At",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "policy_revision": {
+          "minimum": 0,
+          "title": "Policy Revision",
+          "type": "integer"
+        },
+        "request_limits": {
+          "$ref": "#/$defs/AccountRequestLimits"
+        },
+        "subproducts": {
+          "items": {
+            "$ref": "#/$defs/AccountEntitlement"
+          },
+          "maxItems": 10,
+          "minItems": 10,
+          "title": "Subproducts",
+          "type": "array"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Tenant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "tenant_id",
+        "policy_revision",
+        "capability_sha256",
+        "limits_observed_at",
+        "request_limits",
+        "subproducts"
+      ],
+      "title": "AccountEntitlements",
+      "type": "object"
+    },
     "AttestationReceipt": {
       "$defs": {
         "ClientTiming": {
@@ -11558,6 +12192,16 @@
       "method": "GET",
       "mutation": false,
       "path": "/api/v1/auth/context",
+      "required_scope": null
+    },
+    {
+      "id": "account.entitlements",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/account/entitlements",
       "required_scope": null
     },
     {

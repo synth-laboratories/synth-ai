@@ -22,7 +22,7 @@ from synth_ai.auth.storage import Credentials, CredentialStore, default_store
 from synth_ai.client import SynthClient, resolve_key, resolve_url
 from synth_ai.core.environment import environment_value
 from synth_ai.errors import SynthError
-from synth_ai.options import ClientOptions
+from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.types.auth import AuthContext
 
 
@@ -138,6 +138,40 @@ def verify_principal(token: str, origin: str, args: argparse.Namespace) -> AuthC
 
 
 def run(args: argparse.Namespace, *, store: CredentialStore | None = None) -> int:
+    if args.command == "account":
+        with SynthClient(
+            options=ClientOptions(candidate_manifest_sha256=args.candidate_manifest_sha256)
+        ) as client:
+            value = client.account.entitlements(request=ReadOptions(read_retry_count=0))
+        if args.json:
+            print(value.model_dump_json())
+        else:
+            print("Product\tAccess\tLimit\tCapacity\tUsed\tRemaining\tReset")
+            for product in value.subproducts:
+                if not product.limits:
+                    print(f"{product.subproduct}\t{product.access}\t—\t—\t—\t—\t—")
+                for limit in product.limits:
+                    capacity = (
+                        "Unavailable"
+                        if limit.state == "unavailable"
+                        else "Unlimited"
+                        if limit.value is None
+                        else str(limit.value)
+                    )
+                    print(
+                        "\t".join(
+                            (
+                                product.subproduct,
+                                product.access,
+                                limit.limit_id,
+                                capacity,
+                                str(limit.used) if limit.used is not None else "—",
+                                str(limit.remaining) if limit.remaining is not None else "—",
+                                limit.resets_at.isoformat() if limit.resets_at else "—",
+                            )
+                        )
+                    )
+        return 0
     if (
         args.command == "auth"
         and environment_value("SYNTH_API_KEY", "SYNTH_USER_KEY", "SYNTH_BACKEND_API_KEY")
@@ -265,12 +299,21 @@ def parser() -> argparse.ArgumentParser:
     )
     status.add_argument("--json", action="store_true")
     status.add_argument("--candidate-manifest-sha256")
+    limits = (
+        commands.add_parser("account")
+        .add_subparsers(dest="account_command", required=True)
+        .add_parser("limits")
+    )
+    limits.add_argument("--json", action="store_true")
+    limits.add_argument("--candidate-manifest-sha256")
     return root
 
 
 def main() -> int:
+    args = None
     try:
-        return run(parser().parse_args())
+        args = parser().parse_args()
+        return run(args)
     except AuthRefusalError as error:
         refusal = {
             "code": error.code,
@@ -281,9 +324,11 @@ def main() -> int:
         }
     except SynthError as error:
         refusal = {
-            "code": "authentication_refused",
+            "code": (error.code or "operation_refused")
+            if args is not None and args.command == "account"
+            else "authentication_refused",
             "service": "backend",
-            "route": "auth",
+            "route": "account" if args is not None and args.command == "account" else "auth",
             "status": error.status or 503,
             "cause": type(error).__name__,
         }

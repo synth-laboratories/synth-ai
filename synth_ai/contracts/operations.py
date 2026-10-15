@@ -240,9 +240,14 @@ FINALIZE_UPLOAD = Operation(
     required_scope="index:intake",
 )
 
+ACCOUNT_ENTITLEMENTS = Operation(
+    "account.entitlements", "GET", "/account/entitlements", True, required_scope=None
+)
+
 ALL_OPERATIONS: tuple[Operation, ...] = (
     CAPABILITIES,
     AUTH_CONTEXT,
+    ACCOUNT_ENTITLEMENTS,
     RESOLVE,
     PUBLIC_SEARCH,
     SEARCH,
