@@ -14,6 +14,7 @@ Subproduct = Literal[
     "swarms.docker",
     "swarms.daytona",
     "swarms.openrouter",
+    "swarms.openai",
     "swarms.tinker",
     "swarms.synth",
     "monitor",
@@ -89,10 +90,17 @@ class AccountEntitlements(ResponseModel):
     capability_sha256: Digest | None
     limits_observed_at: AwareDatetime
     request_limits: AccountRequestLimits
-    subproducts: tuple[AccountEntitlement, ...] = Field(min_length=10, max_length=10)
+    subproducts: tuple[AccountEntitlement, ...] = Field(min_length=10, max_length=11)
 
     @model_validator(mode="after")
     def complete(self) -> Self:
-        if {item.subproduct for item in self.subproducts} != set(get_args(Subproduct)):
+        actual = {item.subproduct for item in self.subproducts}
+        current = set(get_args(Subproduct))
+        # During rollout, absence of the new provider row grants nothing.
+        # Preserve complete legacy discovery without inventing an OpenAI row.
+        if len(actual) != len(self.subproducts) or actual not in (
+            current,
+            current - {"swarms.openai"},
+        ):
             raise ValueError("account policy must cover every subproduct exactly once")
         return self

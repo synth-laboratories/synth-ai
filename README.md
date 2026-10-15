@@ -69,3 +69,38 @@ Per-request capacity is available through a caller-owned
 `MutationOptions(response_metadata=capacity)` or `ReadOptions(response_metadata=capacity)`.
 Use one instance per concurrent request. Typed errors and MCP error payloads also
 retain bounded rate-limit values. These fields never change the result body.
+
+## Qualified publication
+
+Source pushes do not publish packages. `.github/workflows/publish-dev.yml`
+keeps the registered Trusted Publisher filename and `pypi` environment, and
+requires a manual release dispatch. Nightlies use an accepted `staging` source
+and an exact `X.Y.Z.devN` version; stable publication uses `main` and `X.Y.Z`.
+The selected source must already be on that branch. The publisher never builds
+or restamps a distribution.
+
+The dispatch selects a same-repository Actions artifact by immutable ID and
+archive SHA256, plus the exact source SHA and version. Its successful producer
+run must name that source and must not be a PR or fork run. The artifact contains:
+
+- `qualification.json` with schema `synth.sdk.qualified-artifact.v1`,
+  `status: "passed"`, `source_sha`, `version`, and `channel`.
+- `distributions`: one wheel and optionally one sdist, each with `filename` and
+  SHA256. These are the final-version bytes that were qualified.
+- `checks`: `sdk-contracts`, `fresh-install`, `native-index-fast`,
+  `native-index-deep`, `native-monitor`, `native-swarms`, and `staging`.
+  Each carries `status: "passed"`, the same `source_sha`, the exact
+  `distributions` filename-to-SHA256 mapping, `evidence_path` under `evidence/`,
+  and that file's `evidence_sha256`.
+
+Qualification must produce this artifact only after the named checks actually
+pass. The verifier binds retained evidence and bytes; it does not infer test
+success from filenames. Review the source, checks and wheel hashes in the
+verification job before authorizing the protected `pypi` job. Existing registry
+versions are accepted only when their complete filename/hash set matches;
+different bytes refuse instead of being silently skipped. The final registry
+readback and publication receipt are retained as workflow artifacts.
+
+`.github/v023-preserved-candidate.json` records the unchanged SDK1511 candidate
+wheel and original source. That record is provenance, not publication approval
+or a substitute for final native and staging qualification.

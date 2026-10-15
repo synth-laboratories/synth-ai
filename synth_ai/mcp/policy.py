@@ -25,6 +25,7 @@ def visible_policy_tools(
         visible |= available & {"index_search", "index_search_create"}
     if allowed & {"swarms.docker", "swarms.daytona"} and allowed & {
         "swarms.openrouter",
+        "swarms.openai",
         "swarms.tinker",
         "swarms.synth",
     }:

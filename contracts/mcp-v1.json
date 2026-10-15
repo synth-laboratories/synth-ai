@@ -752,9 +752,8 @@
           "oauth_client_id": {
             "anyOf": [
               {
-                "maxLength": 128,
+                "maxLength": 2048,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               {
@@ -940,6 +939,7 @@
                   "swarms.docker",
                   "swarms.daytona",
                   "swarms.openrouter",
+                  "swarms.openai",
                   "swarms.tinker",
                   "swarms.synth",
                   "monitor"
@@ -1433,7 +1433,7 @@
             "items": {
               "$ref": "#/$defs/AccountEntitlement"
             },
-            "maxItems": 10,
+            "maxItems": 11,
             "minItems": 10,
             "title": "Subproducts",
             "type": "array"

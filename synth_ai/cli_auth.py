@@ -138,6 +138,13 @@ def verify_principal(token: str, origin: str, args: argparse.Namespace) -> AuthC
 
 
 def run(args: argparse.Namespace, *, store: CredentialStore | None = None) -> int:
+    if args.command == "login" and args.device_auth:
+        raise AuthRefusalError(
+            "device_authorization_unavailable",
+            503,
+            service="synth-ai",
+            cause="Device login is not available in this release; use browser login or --with-token",
+        )
     if args.command == "account":
         with SynthClient(
             options=ClientOptions(candidate_manifest_sha256=args.candidate_manifest_sha256)
@@ -200,25 +207,11 @@ def _run_locked(args: argparse.Namespace, store: CredentialStore | None) -> int:
         else:
             with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as http:
                 client = OAuthClient(oauth_config(origin), http)
-                if args.device_auth:
-                    path: Path | None = None
-
-                    def notify(url: str, code: str) -> None:
-                        nonlocal path
-                        path = private_login_file(url + "\n" + code + "\n")
-                        print(path)
-
-                    try:
-                        credential = client.device(client.metadata(), notify)
-                    finally:
-                        if path is not None:
-                            path.unlink(missing_ok=True)
-                else:
-                    credential = browser_login(
-                        client,
-                        port=args.callback_port,
-                        open_browser=(lambda _: False) if args.no_browser else webbrowser.open,
-                    )
+                credential = browser_login(
+                    client,
+                    port=args.callback_port,
+                    open_browser=(lambda _: False) if args.no_browser else webbrowser.open,
+                )
         principal = verify_principal(credential.access_token, origin, args)
         expected_kind = "api_key" if args.with_token else "oauth"
         if principal.credential_kind != expected_kind:

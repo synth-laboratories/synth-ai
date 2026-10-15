@@ -10,6 +10,8 @@ from typing_extensions import TypeVar
 Identifier = Annotated[
     str, Field(strict=True, min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 ]
+# OAuth clients may use HTTPS metadata URLs; resource identifiers may not.
+OAuthClientIdentifier = Annotated[str, Field(strict=True, min_length=1, max_length=2048)]
 Digest = Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
 Cursor = Annotated[str, Field(strict=True, min_length=1, max_length=2048)]
 NonNegative = Annotated[StrictInt, Field(ge=0)]

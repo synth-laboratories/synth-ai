@@ -36,13 +36,40 @@ from synth_ai.errors import (
     UnsupportedOperationError,
 )
 from synth_ai.types.account import AccountEntitlements
-from synth_ai.types.base import Identifier, Model
+from synth_ai.types.base import Identifier, Model, OAuthClientIdentifier
 from synth_ai.types.capabilities import Capabilities
 
 from .catalog import TOOLS, ToolSpec
 from .contracts import JSON_OBJECT, JsonObject
 from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
 from .server import create_server
+
+# Clerk OAuth consent scopes and per-operation resource grants are different
+# authorities. Advertise the issuer's consent scopes; tool gates stay granular.
+AUTHORIZATION_SCOPES = ("user:org:read", "synth:read")
+
+
+class AuthorizationScopeChallengeMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async def send_challenge(message):
+            if message["type"] == "http.response.start" and message["status"] == 401:
+                message = {
+                    **message,
+                    "headers": [
+                        (name, value + b', scope="user:org:read synth:read"')
+                        if name.lower() == b"www-authenticate"
+                        and value.startswith(b"Bearer ")
+                        and b'scope="' not in value
+                        else (name, value)
+                        for name, value in message.get("headers", [])
+                    ],
+                }
+            await send(message)
+
+        await self.app(scope, receive, send_challenge)
 
 
 class AuthorizationUnavailableError(Exception):
@@ -70,7 +97,7 @@ class VerifiedPrincipal(Model):
 
     subject: Identifier
     organization_id: Identifier
-    client_id: Identifier
+    client_id: OAuthClientIdentifier
     credential_kind: Literal["oauth", "api_key"]
     resource: str = Field(min_length=1, max_length=2048)
     issuer: str = Field(min_length=1, max_length=2048)
@@ -270,11 +297,11 @@ def create_http_app(
         async with manager.run():
             yield
 
-    scopes = sorted(
-        {tool.scope for tool in TOOLS if tool.name in enabled_tools and tool.scope is not None}
-    )
     routes = create_protected_resource_routes(
-        resource, [issuer], scopes_supported=scopes, resource_name="Synth Index and Swarms"
+        resource,
+        [issuer],
+        scopes_supported=list(AUTHORIZATION_SCOPES),
+        resource_name="Synth Index and Swarms",
     )
     routes.append(
         Route(
@@ -293,6 +320,7 @@ def create_http_app(
         # ASGIApp alias; these constructors implement the actual ASGI contract.
         middleware=[
             Middleware(AuthorizationAvailabilityMiddleware),
+            Middleware(AuthorizationScopeChallengeMiddleware),
             Middleware(
                 AuthenticationMiddleware,
                 backend=BearerAuthBackend(
