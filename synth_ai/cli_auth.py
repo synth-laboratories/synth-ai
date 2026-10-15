@@ -116,7 +116,7 @@ def browser_login(
 
 
 def oauth_config(api_origin: str) -> OAuthConfig:
-    client_id = os.environ.get("SYNTH_OAUTH_CLIENT_ID", "")
+    client_id = os.environ.get("SYNTH_OAUTH_CLIENT_ID", "8eXFpQ4ksClzA41I")
     if not client_id:
         raise AuthRefusalError("oauth_client_not_configured", 503)
     return OAuthConfig(
