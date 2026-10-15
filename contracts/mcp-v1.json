@@ -1200,6 +1200,43 @@
             "title": "ContributionReview",
             "type": "object"
           },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
           "Money": {
             "additionalProperties": false,
             "properties": {
@@ -1660,6 +1697,18 @@
                 ],
                 "title": "Financial State",
                 "type": "string"
+              },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
               },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
@@ -2281,6 +2330,43 @@
             "title": "ContributionReview",
             "type": "object"
           },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
           "Money": {
             "additionalProperties": false,
             "properties": {
@@ -2741,6 +2827,18 @@
                 ],
                 "title": "Financial State",
                 "type": "string"
+              },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
               },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
@@ -3770,6 +3868,43 @@
             "title": "ContributionReview",
             "type": "object"
           },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
           "Money": {
             "additionalProperties": false,
             "properties": {
@@ -4230,6 +4365,18 @@
                 ],
                 "title": "Financial State",
                 "type": "string"
+              },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
               },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
@@ -6841,6 +6988,43 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
           "Money": {
             "additionalProperties": false,
             "properties": {
@@ -7231,6 +7415,18 @@
                 "title": "Financial State",
                 "type": "string"
               },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
+              },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
               },
@@ -7362,6 +7558,43 @@
             ],
             "title": "ClientTiming",
             "type": "object"
+          },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
           },
           "Money": {
             "additionalProperties": false,
@@ -7683,6 +7916,18 @@
             "title": "Financial State",
             "type": "string"
           },
+          "funding": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/FundingPart"
+            },
+            "maxItems": 7,
+            "title": "Funding",
+            "type": "array"
+          },
+          "list_price": {
+            "$ref": "#/$defs/MoneyObservation"
+          },
           "metadata": {
             "$ref": "#/$defs/ResponseMetadata"
           },
@@ -7796,6 +8041,43 @@
             ],
             "title": "ClientTiming",
             "type": "object"
+          },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
           },
           "Money": {
             "additionalProperties": false,
@@ -8179,6 +8461,18 @@
                 ],
                 "title": "Financial State",
                 "type": "string"
+              },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
               },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
@@ -11518,6 +11812,43 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
           "Money": {
             "additionalProperties": false,
             "properties": {
@@ -11860,6 +12191,18 @@
                 "title": "Financial State",
                 "type": "string"
               },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
+              },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
               },
@@ -12075,6 +12418,43 @@
             ],
             "title": "ClientTiming",
             "type": "object"
+          },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
           },
           "Money": {
             "additionalProperties": false,
@@ -12465,6 +12845,18 @@
                 ],
                 "title": "Financial State",
                 "type": "string"
+              },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
               },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"
@@ -13034,6 +13426,43 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
           "Money": {
             "additionalProperties": false,
             "properties": {
@@ -13354,6 +13783,18 @@
             "title": "Financial State",
             "type": "string"
           },
+          "funding": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/FundingPart"
+            },
+            "maxItems": 7,
+            "title": "Funding",
+            "type": "array"
+          },
+          "list_price": {
+            "$ref": "#/$defs/MoneyObservation"
+          },
           "metadata": {
             "$ref": "#/$defs/ResponseMetadata"
           },
@@ -13467,6 +13908,43 @@
             ],
             "title": "ClientTiming",
             "type": "object"
+          },
+          "FundingPart": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              }
+            },
+            "required": [
+              "source",
+              "amount"
+            ],
+            "title": "FundingPart",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
           },
           "Money": {
             "additionalProperties": false,
@@ -13850,6 +14328,18 @@
                 ],
                 "title": "Financial State",
                 "type": "string"
+              },
+              "funding": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/FundingPart"
+                },
+                "maxItems": 7,
+                "title": "Funding",
+                "type": "array"
+              },
+              "list_price": {
+                "$ref": "#/$defs/MoneyObservation"
               },
               "metadata": {
                 "$ref": "#/$defs/ResponseMetadata"

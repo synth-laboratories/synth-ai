@@ -2,6 +2,7 @@
 
 from .auth import AuthContext
 from .base import ClientTiming, EventCursor, Page, PageCursor, ResponseMetadata, TimingSpan
+from .funding import FundingPart, FundingSource
 from .identity import MutationIdentity
 from .money import Money, MoneyObservation
 from .receipts import ControlReceipt, CreationResolution, MutationResolution, ResourceReference
@@ -16,6 +17,8 @@ __all__ = [
     "ResponseMetadata",
     "TimingSpan",
     "MutationIdentity",
+    "FundingPart",
+    "FundingSource",
     "Money",
     "MoneyObservation",
     "ControlReceipt",
