@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from types import TracebackType
 
 from synth_ai.contracts.operations import AUTH_CONTEXT, CAPABILITIES
 from synth_ai.contracts.registry import recovery_operation
+from synth_ai.core.environment import environment_value
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.cleanup import handle_cleanup_failure
 from synth_ai.core.http.client import HttpTransport
@@ -25,16 +25,23 @@ DEFAULT_BASE_URL = "https://api.usesynth.ai"
 
 
 def resolve_key(api_key: str | None) -> str:
-    selected = api_key if api_key is not None else os.environ.get("SYNTH_API_KEY")
+    selected = (
+        api_key
+        if api_key is not None
+        else environment_value("SYNTH_API_KEY", "SYNTH_USER_KEY", "SYNTH_BACKEND_API_KEY")
+    )
     if not selected or not selected.strip() or any(character in selected for character in "\r\n"):
         raise AuthenticationError("Provide an API key explicitly or through SYNTH_API_KEY")
     return selected.strip()
 
 
 def resolve_url(base_url: str | None) -> str:
-    return validate_base_url(
-        base_url if base_url is not None else os.environ.get("SYNTH_BACKEND_URL", DEFAULT_BASE_URL)
+    selected = (
+        base_url
+        if base_url is not None
+        else environment_value("SYNTH_API_URL", "SYNTH_BACKEND_URL", "SYNTH_API_BASE_URL")
     )
+    return validate_base_url(DEFAULT_BASE_URL if selected is None else selected)
 
 
 class SynthClient:

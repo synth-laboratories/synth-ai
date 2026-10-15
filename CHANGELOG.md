@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23 development (unpublished)
+
+- SDK and unified MCP use `SYNTH_API_KEY` and `SYNTH_API_URL`. Legacy key and URL
+  names remain accepted with one value-free warning per name per process.
+- Usage receipts carry separate list-price observations and exact funding
+  breakdowns; missing provenance stays explicit.
+
 ## 2026-10-09 (unpublished candidate)
 
 - Prepared `0.22.2.dev20261009` with the matching Tunnel v2 Containers pool dependency.

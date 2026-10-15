@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 
 from synth_ai import AsyncSynthClient
+from synth_ai.client import resolve_url
 from synth_ai.mcp_entrypoint import require_mcp
 from synth_ai.options import ClientOptions
 
@@ -53,12 +53,10 @@ def main() -> None:
     require_mcp()
     parser = argparse.ArgumentParser(description="Synth Index and Swarms MCP")
     parser.add_argument("--profile", choices=("public", "read", "action"), default="read")
-    parser.add_argument(
-        "--base-url", default=os.environ.get("SYNTH_API_BASE_URL", "https://api.usesynth.ai")
-    )
+    parser.add_argument("--base-url", default=None, help="API origin (default: SYNTH_API_URL)")
     parser.add_argument("--candidate-manifest-sha256")
     args = parser.parse_args()
-    asyncio.run(serve(args.profile, args.base_url, args.candidate_manifest_sha256))
+    asyncio.run(serve(args.profile, resolve_url(args.base_url), args.candidate_manifest_sha256))
 
 
 if __name__ == "__main__":

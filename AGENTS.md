@@ -50,7 +50,7 @@ cd ../synth-dev
 ./scripts/ci_dev_gate.sh
 ```
 
-For SDK jobs against local API, set `SYNTH_BACKEND_URL` to the slot’s backend port (for example `http://127.0.0.1:8000` for `slot1`) and use a valid `SYNTH_API_KEY` for that database (see synth-dev README and `synth_ai.core.utils.env`).
+For SDK jobs against local API, set `SYNTH_API_URL` to the slot’s backend port (for example `http://127.0.0.1:8000` for `slot1`) and use a valid `SYNTH_API_KEY` for that database (see synth-dev README and `synth_ai.core.utils.env`).
 
 ## CRITICAL: Auth Basics (Container + SynthTunnel)
 
@@ -60,7 +60,7 @@ When using the local stack with a tunneled container, there are **three differen
 - **Use:** Authenticate calls to the Synth backend (Python + Rust).
 - **Env:** `SYNTH_API_KEY` (SDK default) or `SYNTH_BACKEND_API_KEY` (explicit override in some scripts).
 - **Header:** `Authorization: Bearer <SYNTH_API_KEY>`.
-- **Applies to:** `SYNTH_BACKEND_URL` (for synth-dev `local.sh` stacks, typically `http://127.0.0.1:8000` for `slot1`; see synth-dev README for other slots).
+- **Applies to:** `SYNTH_API_URL` (for synth-dev `local.sh` stacks, typically `http://127.0.0.1:8000` for `slot1`; see synth-dev README for other slots).
 - **Do NOT:** Send a tunnel worker token to the backend. It will 401.
 
 ### 2) Environment API key (container auth)
@@ -76,7 +76,7 @@ When using the local stack with a tunneled container, there are **three differen
 - **Do NOT:** Use this as a backend API key. It is **only** for tunnel relay auth.
 
 ### Local stack recipe (correct auth wiring)
-1) **Backend URL**: `SYNTH_BACKEND_URL=http://127.0.0.1:8000` (synth-dev `slot1`; adjust port per slot)
+1) **Backend URL**: `SYNTH_API_URL=http://127.0.0.1:8000` (synth-dev `slot1`; adjust port per slot)
 2) **Backend auth**: `SYNTH_API_KEY=sk_*` (valid key in local DB)
 3) **Container**: run locally with `ENVIRONMENT_API_KEY` set or auto-minted
 4) **Tunnel**: create a SynthTunnel for the container

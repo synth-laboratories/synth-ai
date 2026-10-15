@@ -1,8 +1,8 @@
 # Unified MCP implementation — 0.23 local candidate
 
-Implemented locally; no hosted deployment, protocol test, live journey or release
-qualification is claimed. The owner requested implementation without running tests.
-Package metadata remains 0.22.2 until the separate release workflow.
+Implemented on the unpublished 0.23 development branch. Installed SDK/MCP and
+local backend evidence is recorded with each release cohort. Hosted deployment,
+native five-lane acceptance and production qualification remain separate gates.
 
 ## Runtime and catalog
 
@@ -13,7 +13,7 @@ The SDK dependency is `mcp>=1.30,<2`; uv.lock pins the local build.
 - `--profile public`: explicit anonymous public Index search; ignores ambient API keys.
 - `--profile read` (default): keyed reads. Requires `SYNTH_API_KEY`.
 - `--profile action`: keyed reads, paid searches, run creation and cancellation.
-- `--base-url` or `SYNTH_API_BASE_URL`: one explicit API origin, no fallback.
+- `--base-url` or `SYNTH_API_URL`: one API origin (default `https://api.usesynth.ai`). Legacy `SYNTH_API_BASE_URL` and `SYNTH_BACKEND_URL` are accepted with a value-free deprecation warning.
 
 Profiles narrow discovery and invocation; they never grant backend permission.
 Do not put credentials in command-line arguments, tool parameters or MCP settings

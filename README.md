@@ -12,6 +12,17 @@ Omitted overrides preserve backend project defaults; resolved metadata is not
 an override allowlist. Hosted MCP requires the backend authorization/service
 adapter; its native OAuth/API-key journeys remain unqualified.
 
+SDK clients and `synth-ai-mcp` use `SYNTH_API_KEY` for authentication and
+`SYNTH_API_URL` for the API origin (default `https://api.usesynth.ai`). Explicit
+`api_key` / `base_url` arguments, or the MCP `--base-url` flag, take precedence.
+Anonymous clients do not read key variables.
+
+During migration, `SYNTH_USER_KEY` and `SYNTH_BACKEND_API_KEY` remain key aliases;
+`SYNTH_BACKEND_URL` and `SYNTH_API_BASE_URL` remain URL aliases. Using an alias
+without the canonical variable emits one warning per name per process, without
+its value. Conflicting legacy values refuse configuration. A present but empty
+canonical variable is invalid and never falls back to another identity.
+
 ```python
 from synth_ai import SynthClient
 from synth_ai.sdk.index import PublicSearchOptions
