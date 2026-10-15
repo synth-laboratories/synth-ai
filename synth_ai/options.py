@@ -27,6 +27,17 @@ class ClientOptions:
     retry_delay_seconds: float = 0.1
     upload_hosts: tuple[str, ...] = ()
     async_http_client: httpx.AsyncClient | None = None
+    # Reviewed Index egress includes Monitor review; other reads stay at 30s.
+    index_result_timeout_seconds: float | None = None
+
+    def request_timeout(self, operation_id: str) -> float:
+        if operation_id != "index.searches.result":
+            return self.timeout_seconds
+        if self.index_result_timeout_seconds is not None:
+            return self.index_result_timeout_seconds
+        # Preserve existing explicit global deadline overrides. Only the
+        # ordinary 30s default gains the reviewed-result allowance.
+        return 75.0 if self.timeout_seconds == 30.0 else self.timeout_seconds
 
     def __post_init__(self) -> None:
         if self.release_manifest_sha256 is not None:
@@ -42,7 +53,7 @@ class ClientOptions:
             for host in self.upload_hosts
         ):
             raise ValueError("upload_hosts must contain at most 32 plain lowercase hostnames")
-        for value in (self.timeout_seconds, self.connect_timeout_seconds):
+        for value in (self.timeout_seconds, self.connect_timeout_seconds, *(() if self.index_result_timeout_seconds is None else (self.index_result_timeout_seconds,))):
             if isinstance(value, bool) or not math.isfinite(value) or not 0 < value <= 86400:
                 raise ValueError("timeouts must be finite and positive")
         if (

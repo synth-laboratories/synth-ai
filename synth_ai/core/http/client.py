@@ -240,7 +240,7 @@ class HttpTransport:
         timeout = (
             options.timeout_seconds
             if options is not None and options.timeout_seconds is not None
-            else self._options.timeout_seconds
+            else self._options.request_timeout(operation.id)
         )
         deadline = started + timeout
         key = (
