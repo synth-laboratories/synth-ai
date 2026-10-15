@@ -1,0 +1,4152 @@
+{
+  "schema_version": "synth.sdk.removal_plan.v1",
+  "status": "legacy_retired_index_sdk_first_implementation_pending_backend",
+  "source_pin": "ea39eb39ee369cb28d75d69e8839258962de0591",
+  "preservation_branch": "legacy/sdk-pre-0230-20261013",
+  "executable_deletion_plan": false,
+  "runtime_deleted_paths": [
+    "openapi/index-v1.json",
+    "openapi/messaging-v1.json",
+    "openapi/research-v1.json",
+    "openapi/synth-api-v1.yaml",
+    "scripts/export_intern_authority_contracts.py",
+    "synth_ai/README.md",
+    "synth_ai/__main__.py",
+    "synth_ai/cli/AGENTS.md",
+    "synth_ai/cli/README.md",
+    "synth_ai/cli/__init__.py",
+    "synth_ai/cli/__main__.py",
+    "synth_ai/cli/index.py",
+    "synth_ai/cli/main.py",
+    "synth_ai/cli/research.py",
+    "synth_ai/cli/research_environments.py",
+    "synth_ai/cli/research_image_releases.py",
+    "synth_ai/cli/research_projects.py",
+    "synth_ai/cli/utils/__init__.py",
+    "synth_ai/cli/utils/research_launch.py",
+    "synth_ai/core/README.md",
+    "synth_ai/core/auth/__init__.py",
+    "synth_ai/core/auth/credentials.py",
+    "synth_ai/core/contracts/__init__.py",
+    "synth_ai/core/contracts/json_value.py",
+    "synth_ai/core/contracts/pagination.py",
+    "synth_ai/core/errors.py",
+    "synth_ai/core/http/async_transport.py",
+    "synth_ai/core/http/retry.py",
+    "synth_ai/core/http/streaming.py",
+    "synth_ai/core/http/transport.py",
+    "synth_ai/core/local_files.py",
+    "synth_ai/core/research/__init__.py",
+    "synth_ai/core/utils/__init__.py",
+    "synth_ai/core/utils/env.py",
+    "synth_ai/core/utils/log_filter.py",
+    "synth_ai/core/utils/paths.py",
+    "synth_ai/core/utils/urls.py",
+    "synth_ai/mcp/research/README.md",
+    "synth_ai/mcp/research/__init__.py",
+    "synth_ai/mcp/research/__main__.py",
+    "synth_ai/mcp/research/objective_tools.py",
+    "synth_ai/mcp/research/registry.py",
+    "synth_ai/mcp/research/request_models.py",
+    "synth_ai/mcp/research/server.py",
+    "synth_ai/mcp/research/tools/__init__.py",
+    "synth_ai/mcp/research/tools/approvals.py",
+    "synth_ai/mcp/research/tools/artifacts.py",
+    "synth_ai/mcp/research/tools/datasets.py",
+    "synth_ai/mcp/research/tools/environments.py",
+    "synth_ai/mcp/research/tools/exports.py",
+    "synth_ai/mcp/research/tools/factories.py",
+    "synth_ai/mcp/research/tools/factory_results.py",
+    "synth_ai/mcp/research/tools/files.py",
+    "synth_ai/mcp/research/tools/image_releases.py",
+    "synth_ai/mcp/research/tools/index.py",
+    "synth_ai/mcp/research/tools/index_qa.py",
+    "synth_ai/mcp/research/tools/integrations.py",
+    "synth_ai/mcp/research/tools/intern_program.py",
+    "synth_ai/mcp/research/tools/launch_schemas.py",
+    "synth_ai/mcp/research/tools/local_files.py",
+    "synth_ai/mcp/research/tools/logs.py",
+    "synth_ai/mcp/research/tools/models.py",
+    "synth_ai/mcp/research/tools/outputs.py",
+    "synth_ai/mcp/research/tools/policy_schemas.py",
+    "synth_ai/mcp/research/tools/progress.py",
+    "synth_ai/mcp/research/tools/project_data.py",
+    "synth_ai/mcp/research/tools/projects.py",
+    "synth_ai/mcp/research/tools/prs.py",
+    "synth_ai/mcp/research/tools/readiness.py",
+    "synth_ai/mcp/research/tools/repos.py",
+    "synth_ai/mcp/research/tools/research_intern.py",
+    "synth_ai/mcp/research/tools/resource_reads.py",
+    "synth_ai/mcp/research/tools/resources.py",
+    "synth_ai/mcp/research/tools/runs.py",
+    "synth_ai/mcp/research/tools/scientific_records.py",
+    "synth_ai/mcp/research/tools/trained_models.py",
+    "synth_ai/mcp/research/tools/usage.py",
+    "synth_ai/mcp/research/tools/visuals.py",
+    "synth_ai/mcp/research/tools/workspace_inputs.py",
+    "synth_ai/pools.py",
+    "synth_ai/sdk/README.md",
+    "synth_ai/sdk/index/AGENT_SETUP_PROMPT.md",
+    "synth_ai/sdk/index/README.md",
+    "synth_ai/sdk/index/agent_policy.py",
+    "synth_ai/sdk/index/artifacts.py",
+    "synth_ai/sdk/index/catalog.py",
+    "synth_ai/sdk/index/catalogue.py",
+    "synth_ai/sdk/index/classification.py",
+    "synth_ai/sdk/index/contracts.py",
+    "synth_ai/sdk/index/errors.py",
+    "synth_ai/sdk/index/forge_notices.py",
+    "synth_ai/sdk/index/intake.py",
+    "synth_ai/sdk/index/lifecycle.py",
+    "synth_ai/sdk/index/local_files.py",
+    "synth_ai/sdk/index/manifest.py",
+    "synth_ai/sdk/index/oauth.py",
+    "synth_ai/sdk/index/package.py",
+    "synth_ai/sdk/index/public.py",
+    "synth_ai/sdk/index/public_corpus.py",
+    "synth_ai/sdk/index/public_search.py",
+    "synth_ai/sdk/index/qa.py",
+    "synth_ai/sdk/index/qa_checks.py",
+    "synth_ai/sdk/index/qa_preflight.py",
+    "synth_ai/sdk/index/qa_reviews.py",
+    "synth_ai/sdk/index/research/__init__.py",
+    "synth_ai/sdk/index/research/build.py",
+    "synth_ai/sdk/index/research/capture.py",
+    "synth_ai/sdk/index/research/contracts.py",
+    "synth_ai/sdk/index/research/files.py",
+    "synth_ai/sdk/index/research/release.py",
+    "synth_ai/sdk/index/research_intake.py",
+    "synth_ai/sdk/index/retry.py",
+    "synth_ai/sdk/index/rights.py",
+    "synth_ai/sdk/index/scientific_provenance.py",
+    "synth_ai/sdk/index/scope_errors.py",
+    "synth_ai/sdk/index/scopes.py",
+    "synth_ai/sdk/index/submission.py",
+    "synth_ai/sdk/index/timeouts.py",
+    "synth_ai/sdk/index/transfer.py",
+    "synth_ai/sdk/index/upload_session.py",
+    "synth_ai/sdk/index/usage_accounting.py",
+    "synth_ai/sdk/index/value.py",
+    "synth_ai/sdk/index/wallet_search.py",
+    "synth_ai/sdk/messaging/README.md",
+    "synth_ai/sdk/messaging/__init__.py",
+    "synth_ai/sdk/messaging/client.py",
+    "synth_ai/sdk/messaging/contracts.py",
+    "synth_ai/sdk/optimizers/__init__.py",
+    "synth_ai/sdk/optimizers/client.py",
+    "synth_ai/sdk/optimizers/contracts.py",
+    "synth_ai/sdk/pagination.py",
+    "synth_ai/sdk/research/__init__.py",
+    "synth_ai/sdk/research/_internal/__init__.py",
+    "synth_ai/sdk/research/_internal/crypto.py",
+    "synth_ai/sdk/research/_internal/env.py",
+    "synth_ai/sdk/research/_internal/urls.py",
+    "synth_ai/sdk/research/account.py",
+    "synth_ai/sdk/research/advanced.py",
+    "synth_ai/sdk/research/advanced_factories.py",
+    "synth_ai/sdk/research/advanced_swarms.py",
+    "synth_ai/sdk/research/artifacts.py",
+    "synth_ai/sdk/research/auth.py",
+    "synth_ai/sdk/research/client.py",
+    "synth_ai/sdk/research/container_pools/__init__.py",
+    "synth_ai/sdk/research/container_pools/api.py",
+    "synth_ai/sdk/research/container_pools/contracts.py",
+    "synth_ai/sdk/research/container_pools/operations.py",
+    "synth_ai/sdk/research/container_pools/packaging.py",
+    "synth_ai/sdk/research/contracts/__init__.py",
+    "synth_ai/sdk/research/contracts/_activity_wire.py",
+    "synth_ai/sdk/research/contracts/_environment_wire.py",
+    "synth_ai/sdk/research/contracts/_transcript_wire.py",
+    "synth_ai/sdk/research/contracts/_wire.py",
+    "synth_ai/sdk/research/contracts/activity.py",
+    "synth_ai/sdk/research/contracts/activity_items.py",
+    "synth_ai/sdk/research/contracts/actor_images.py",
+    "synth_ai/sdk/research/contracts/billing.py",
+    "synth_ai/sdk/research/contracts/canonical_usage.py",
+    "synth_ai/sdk/research/contracts/checkpoints.py",
+    "synth_ai/sdk/research/contracts/cloud_deployment_claims.py",
+    "synth_ai/sdk/research/contracts/cloud_deployments.py",
+    "synth_ai/sdk/research/contracts/common.py",
+    "synth_ai/sdk/research/contracts/dataset_revisions.py",
+    "synth_ai/sdk/research/contracts/deliveries.py",
+    "synth_ai/sdk/research/contracts/dev_environment_evidence.py",
+    "synth_ai/sdk/research/contracts/economics.py",
+    "synth_ai/sdk/research/contracts/environment_manifest.py",
+    "synth_ai/sdk/research/contracts/environments.py",
+    "synth_ai/sdk/research/contracts/evidence.py",
+    "synth_ai/sdk/research/contracts/experiment_evidence.py",
+    "synth_ai/sdk/research/contracts/factories.py",
+    "synth_ai/sdk/research/contracts/factory_evidence.py",
+    "synth_ai/sdk/research/contracts/factory_lenses.py",
+    "synth_ai/sdk/research/contracts/factory_operations.py",
+    "synth_ai/sdk/research/contracts/factory_role_receipts.py",
+    "synth_ai/sdk/research/contracts/failure.py",
+    "synth_ai/sdk/research/contracts/forge/__init__.py",
+    "synth_ai/sdk/research/contracts/forge/contracts.py",
+    "synth_ai/sdk/research/contracts/forge/evaluation.py",
+    "synth_ai/sdk/research/contracts/forge/exports.py",
+    "synth_ai/sdk/research/contracts/forge/operations.py",
+    "synth_ai/sdk/research/contracts/forge/records.py",
+    "synth_ai/sdk/research/contracts/forge/resources.py",
+    "synth_ai/sdk/research/contracts/forge/schema.py",
+    "synth_ai/sdk/research/contracts/forge_citations.py",
+    "synth_ai/sdk/research/contracts/forge_uploads.py",
+    "synth_ai/sdk/research/contracts/image_releases.py",
+    "synth_ai/sdk/research/contracts/intern_authority.py",
+    "synth_ai/sdk/research/contracts/intern_authority_producer.json",
+    "synth_ai/sdk/research/contracts/intern_blockers.py",
+    "synth_ai/sdk/research/contracts/intern_grants.py",
+    "synth_ai/sdk/research/contracts/intern_program.py",
+    "synth_ai/sdk/research/contracts/intern_resources.py",
+    "synth_ai/sdk/research/contracts/intern_usage.py",
+    "synth_ai/sdk/research/contracts/limit_evidence.py",
+    "synth_ai/sdk/research/contracts/local_execution_profile.py",
+    "synth_ai/sdk/research/contracts/native_attachment.py",
+    "synth_ai/sdk/research/contracts/native_result_outcome.py",
+    "synth_ai/sdk/research/contracts/operator_evidence.py",
+    "synth_ai/sdk/research/contracts/project.py",
+    "synth_ai/sdk/research/contracts/project_data.py",
+    "synth_ai/sdk/research/contracts/project_runtime.py",
+    "synth_ai/sdk/research/contracts/project_workspace.py",
+    "synth_ai/sdk/research/contracts/project_workspace_evidence.py",
+    "synth_ai/sdk/research/contracts/projects.py",
+    "synth_ai/sdk/research/contracts/promotions.py",
+    "synth_ai/sdk/research/contracts/research_intern.py",
+    "synth_ai/sdk/research/contracts/resource_reads.py",
+    "synth_ai/sdk/research/contracts/resource_settlement.py",
+    "synth_ai/sdk/research/contracts/run_authority.py",
+    "synth_ai/sdk/research/contracts/run_control.py",
+    "synth_ai/sdk/research/contracts/run_diagnostics.py",
+    "synth_ai/sdk/research/contracts/run_events.py",
+    "synth_ai/sdk/research/contracts/run_execution.py",
+    "synth_ai/sdk/research/contracts/run_launch.py",
+    "synth_ai/sdk/research/contracts/run_observability.py",
+    "synth_ai/sdk/research/contracts/run_state.py",
+    "synth_ai/sdk/research/contracts/run_timeline.py",
+    "synth_ai/sdk/research/contracts/runtime_image.py",
+    "synth_ai/sdk/research/contracts/runtime_intent.py",
+    "synth_ai/sdk/research/contracts/runtime_stream.py",
+    "synth_ai/sdk/research/contracts/runtime_stream_snapshot.py",
+    "synth_ai/sdk/research/contracts/scientific_citations.py",
+    "synth_ai/sdk/research/contracts/scientific_integrity.py",
+    "synth_ai/sdk/research/contracts/smr_actor_models.py",
+    "synth_ai/sdk/research/contracts/smr_actor_policy_data.py",
+    "synth_ai/sdk/research/contracts/smr_agent_harnesses.py",
+    "synth_ai/sdk/research/contracts/smr_agent_kinds.py",
+    "synth_ai/sdk/research/contracts/smr_agent_models.py",
+    "synth_ai/sdk/research/contracts/smr_branching.py",
+    "synth_ai/sdk/research/contracts/smr_credential_providers.py",
+    "synth_ai/sdk/research/contracts/smr_environment_kinds.py",
+    "synth_ai/sdk/research/contracts/smr_evidence_obligations.py",
+    "synth_ai/sdk/research/contracts/smr_funding_sources.py",
+    "synth_ai/sdk/research/contracts/smr_horizons.py",
+    "synth_ai/sdk/research/contracts/smr_host_kinds.py",
+    "synth_ai/sdk/research/contracts/smr_inference_providers.py",
+    "synth_ai/sdk/research/contracts/smr_network_topology.py",
+    "synth_ai/sdk/research/contracts/smr_providers.py",
+    "synth_ai/sdk/research/contracts/smr_resource_kinds.py",
+    "synth_ai/sdk/research/contracts/smr_roles.py",
+    "synth_ai/sdk/research/contracts/smr_run_policy.py",
+    "synth_ai/sdk/research/contracts/smr_runbooks.py",
+    "synth_ai/sdk/research/contracts/smr_runnable_project.py",
+    "synth_ai/sdk/research/contracts/smr_runtime_kinds.py",
+    "synth_ai/sdk/research/contracts/smr_tool_providers.py",
+    "synth_ai/sdk/research/contracts/smr_work_modes.py",
+    "synth_ai/sdk/research/contracts/status.py",
+    "synth_ai/sdk/research/contracts/swarm_controls.py",
+    "synth_ai/sdk/research/contracts/swarm_history.py",
+    "synth_ai/sdk/research/contracts/swarm_rollouts.py",
+    "synth_ai/sdk/research/contracts/swarm_tasks.py",
+    "synth_ai/sdk/research/contracts/swarms.py",
+    "synth_ai/sdk/research/contracts/tag.py",
+    "synth_ai/sdk/research/contracts/traces.py",
+    "synth_ai/sdk/research/contracts/transcript.py",
+    "synth_ai/sdk/research/contracts/types.py",
+    "synth_ai/sdk/research/contracts/usage.py",
+    "synth_ai/sdk/research/contracts/visuals.py",
+    "synth_ai/sdk/research/contracts/wire_models.py",
+    "synth_ai/sdk/research/contracts/wire_models_README.md",
+    "synth_ai/sdk/research/contracts/work_products.py",
+    "synth_ai/sdk/research/contracts/workspaces.py",
+    "synth_ai/sdk/research/economics.py",
+    "synth_ai/sdk/research/efforts.py",
+    "synth_ai/sdk/research/environments.py",
+    "synth_ai/sdk/research/errors.py",
+    "synth_ai/sdk/research/events.py",
+    "synth_ai/sdk/research/experiments.py",
+    "synth_ai/sdk/research/facade.py",
+    "synth_ai/sdk/research/factories.py",
+    "synth_ai/sdk/research/factory_storage.py",
+    "synth_ai/sdk/research/image_releases.py",
+    "synth_ai/sdk/research/intern_authority.py",
+    "synth_ai/sdk/research/intern_blockers.py",
+    "synth_ai/sdk/research/intern_program.py",
+    "synth_ai/sdk/research/knowledge.py",
+    "synth_ai/sdk/research/models.py",
+    "synth_ai/sdk/research/operations.py",
+    "synth_ai/sdk/research/project_data.py",
+    "synth_ai/sdk/research/project_deliveries.py",
+    "synth_ai/sdk/research/project_workspaces.py",
+    "synth_ai/sdk/research/projects.py",
+    "synth_ai/sdk/research/public.py",
+    "synth_ai/sdk/research/readouts.py",
+    "synth_ai/sdk/research/research_intern.py",
+    "synth_ai/sdk/research/resource_reads.py",
+    "synth_ai/sdk/research/scientific_records.py",
+    "synth_ai/sdk/research/secrets.py",
+    "synth_ai/sdk/research/session/README.md",
+    "synth_ai/sdk/research/session/__init__.py",
+    "synth_ai/sdk/research/session/_base.py",
+    "synth_ai/sdk/research/session/_client_helpers.py",
+    "synth_ai/sdk/research/session/_run_authority_mixin.py",
+    "synth_ai/sdk/research/session/approvals.py",
+    "synth_ai/sdk/research/session/billing.py",
+    "synth_ai/sdk/research/session/client.py",
+    "synth_ai/sdk/research/session/cloud_deployments.py",
+    "synth_ai/sdk/research/session/config.py",
+    "synth_ai/sdk/research/session/cost.py",
+    "synth_ai/sdk/research/session/datasets.py",
+    "synth_ai/sdk/research/session/dev_environments.py",
+    "synth_ai/sdk/research/session/directory_inputs.py",
+    "synth_ai/sdk/research/session/environments.py",
+    "synth_ai/sdk/research/session/exports.py",
+    "synth_ai/sdk/research/session/factories.py",
+    "synth_ai/sdk/research/session/factory_evidence.py",
+    "synth_ai/sdk/research/session/files.py",
+    "synth_ai/sdk/research/session/github.py",
+    "synth_ai/sdk/research/session/image_releases.py",
+    "synth_ai/sdk/research/session/images.py",
+    "synth_ai/sdk/research/session/logs.py",
+    "synth_ai/sdk/research/session/models.py",
+    "synth_ai/sdk/research/session/outputs.py",
+    "synth_ai/sdk/research/session/progress.py",
+    "synth_ai/sdk/research/session/project.py",
+    "synth_ai/sdk/research/session/projects.py",
+    "synth_ai/sdk/research/session/prs.py",
+    "synth_ai/sdk/research/session/readiness.py",
+    "synth_ai/sdk/research/session/repositories.py",
+    "synth_ai/sdk/research/session/runs.py",
+    "synth_ai/sdk/research/session/secrets.py",
+    "synth_ai/sdk/research/session/setup.py",
+    "synth_ai/sdk/research/session/tag.py",
+    "synth_ai/sdk/research/session/trained_models.py",
+    "synth_ai/sdk/research/session/transport.py",
+    "synth_ai/sdk/research/session/usage.py",
+    "synth_ai/sdk/research/session/work_products.py",
+    "synth_ai/sdk/research/session/workspace_inputs.py",
+    "synth_ai/sdk/research/surface_parity.py",
+    "synth_ai/sdk/research/swarms.py",
+    "synth_ai/sdk/research/traces.py",
+    "synth_ai/sdk/research/transport/__init__.py",
+    "synth_ai/sdk/research/transport/http.py",
+    "synth_ai/sdk/research/transport/pagination.py",
+    "synth_ai/sdk/research/version.py",
+    "synth_ai/sdk/research/visuals.py",
+    "synth_ai/sdk/research/wiki.py",
+    "tests/conftest.py",
+    "tests/contract/ADDITIONAL_FINDINGS_20261006.md",
+    "tests/contract/LAUNCH_FIX_RECEIPT_20261006.md",
+    "tests/contract/ORCHESTRA_FIX_RECEIPT_20261006.md",
+    "tests/contract/README.md",
+    "tests/contract/STREAMING_PAGINATION_FINDINGS_20261006.md",
+    "tests/contract/TESTS_INDEX.md",
+    "tests/contract/boundary_probe.py",
+    "tests/contract/extension_test_results.json",
+    "tests/contract/extract_sdk_calls.py",
+    "tests/contract/fixtures/backend_all_routes.json",
+    "tests/contract/fixtures/backend_full_openapi.generated.json",
+    "tests/contract/fixtures/native_attachment_page.json",
+    "tests/contract/fixtures/orchestra_provenance.json",
+    "tests/contract/fixtures/provenance.json",
+    "tests/contract/fixtures/public_enums.generated.json",
+    "tests/contract/fixtures/research_openapi.generated.json",
+    "tests/contract/fixtures/run_control_enum.generated.json",
+    "tests/contract/launch_fix_test_results.json",
+    "tests/contract/streaming_boundary_test_results.json",
+    "tests/contract/streaming_probe.py",
+    "tests/contract/test_archived_launch_refusal_contracts.py",
+    "tests/contract/test_boundary_extension_contracts.py",
+    "tests/contract/test_boundary_extension_fixes_contracts.py",
+    "tests/contract/test_discrepancy_contracts.py",
+    "tests/contract/test_discrepancy_fixes_contracts.py",
+    "tests/contract/test_factory_removal_contracts.py",
+    "tests/contract/test_forge_projection_release_contract.py",
+    "tests/contract/test_intern_authority_producer_parity.py",
+    "tests/contract/test_intern_execution_reference_contracts.py",
+    "tests/contract/test_launch_acceptance_contracts.py",
+    "tests/contract/test_launch_retry_contracts.py",
+    "tests/contract/test_native_attachment_read_contracts.py",
+    "tests/contract/test_observability_removal_contracts.py",
+    "tests/contract/test_operation_metadata_dispositions.py",
+    "tests/contract/test_orchestra_control_contracts.py",
+    "tests/contract/test_orchestra_route_contracts.py",
+    "tests/contract/test_result_outcome_law.py",
+    "tests/contract/test_results.json",
+    "tests/contract/test_scientific_discrepancy_fix_contracts.py",
+    "tests/contract/test_scientific_receipt_uncertainty_contracts.py",
+    "tests/contract/test_streaming_extension_contracts.py",
+    "tests/contract/test_streaming_extension_fixes_contracts.py",
+    "tests/contract/test_swarm_spec_launch_contracts.py",
+    "tests/contract/test_syn4041_not_found_contracts.py",
+    "tests/contract/test_syn4047_usage_authority_contracts.py",
+    "tests/contract/test_transport_extension_contracts.py",
+    "tests/contract/test_transport_extension_fixes_contracts.py",
+    "tests/contract/test_visual_logical_contracts.py",
+    "tests/contract/test_writer_refusal_directives.py",
+    "tests/contract/unused_registry_allowlist.json",
+    "tests/fixtures/forge_public_projection/binding.json",
+    "tests/fixtures/index_original_metric_audit/LICENSE",
+    "tests/fixtures/index_original_metric_audit/README.md",
+    "tests/fixtures/index_original_metric_audit/cpu-replay-receipt.json",
+    "tests/fixtures/index_original_metric_audit/environment.json",
+    "tests/fixtures/index_original_metric_audit/experiment.py",
+    "tests/fixtures/index_original_metric_audit/inputs.json",
+    "tests/fixtures/index_original_metric_audit/outputs.json",
+    "tests/fixtures/index_original_metric_audit/report.md",
+    "tests/fixtures/index_original_metric_audit/reproduction.json",
+    "tests/fixtures/index_original_metric_audit/summary.md",
+    "tests/fixtures/intern_authority/slot2_recorded_grants.json",
+    "tests/fixtures/native_usage/settled_usage_summary.json",
+    "tests/mcp/offline_backend.py",
+    "tests/mcp/serialization_cases.json",
+    "tests/mcp/serialization_contract_cases.json",
+    "tests/mcp/test_all_tool_result_boundary_contracts.py",
+    "tests/mcp/test_installed_stdio_scientific_contracts.py",
+    "tests/mcp/test_launch_contracts.py",
+    "tests/mcp/test_launch_schema_contracts.py",
+    "tests/mcp/test_registry_contracts.py",
+    "tests/mcp/test_serialization_contracts.py",
+    "tests/mcp/test_serialization_discrepancy_contracts.py",
+    "tests/test_http_error_detail.py",
+    "tests/test_index_cli_search_route.py",
+    "tests/test_index_deep_create_retry.py",
+    "tests/test_index_forge_public_source_pin.py",
+    "tests/test_index_keyword_filters.py",
+    "tests/test_index_mcp_entrypoint.py",
+    "tests/test_index_public_search.py",
+    "tests/test_index_transport_timeout.py",
+    "tests/test_intern_authority_contracts.py",
+    "tests/test_intern_metaharness_contracts.py",
+    "tests/test_intern_remaining_contracts.py",
+    "tests/test_intern_runtime_route_task_view.py",
+    "tests/test_intern_sync_presence_approvals.py",
+    "tests/test_kickoff_contract_trace_capture.py",
+    "tests/test_mcp_confirm_workspace_push_tool.py",
+    "tests/test_mcp_entrypoint_cli.py",
+    "tests/test_mcp_visual_mutation_tools.py",
+    "tests/test_optimizers_client.py",
+    "tests/test_project_spec_metered_infra.py",
+    "tests/test_run_control_error_properties.py",
+    "tests/test_scientific_record_citations.py",
+    "tests/test_swarm_native_controls.py",
+    "tests/test_swarm_status_pending_questions.py",
+    "tests/test_swarm_typed_run_reads.py",
+    "tests/test_workspace_file_mode.py"
+  ],
+  "rules": [
+    "Owner authorized retirement before replacements on the local 0.23 development branch; no release support claimed.",
+    "Port proven domain behavior without retaining monolithic session forwarding.",
+    "Audit dynamic imports, generated contracts, optional dependencies and external consumers before physical deletion.",
+    "Keep backend internal owners/storage/archival consumers; this inventory scopes the SDK wheel."
+  ],
+  "groups": [
+    {
+      "id": "rewrite_entrypoints",
+      "path_count": 2,
+      "files": [
+        {
+          "path": "synth_ai/__init__.py",
+          "sha256": "4a9981be2675e86c0bd38ea44f4c8d02956c6d25a1a61573714904d22f8461cc",
+          "lines": 310,
+          "static_first_party_imports": [
+            "synth_ai.core.utils.log_filter"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/client.py",
+          "sha256": "1b93a046a959da5d142d920ca00e52c35ac461c51593bcc7d7a1cb16be304b21",
+          "lines": 352,
+          "static_first_party_imports": [
+            "synth_ai.core.auth.credentials",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport",
+            "synth_ai.core.utils.urls",
+            "synth_ai.pools",
+            "synth_ai.sdk.index.client",
+            "synth_ai.sdk.index.timeouts",
+            "synth_ai.sdk.messaging",
+            "synth_ai.sdk.optimizers",
+            "synth_ai.sdk.research",
+            "synth_ai.sdk.research.facade"
+          ],
+          "explicit_any_import_count": 0
+        }
+      ]
+    },
+    {
+      "id": "remove_deferred_products",
+      "path_count": 7,
+      "files": [
+        {
+          "path": "synth_ai/pools.py",
+          "sha256": "8d5c16aafdfed3a0ac4ad2c6be0428b6ffd184af2be2a7238603913cafc13d66",
+          "lines": 24,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/messaging/__init__.py",
+          "sha256": "5a90c1cd5e0d5d813ca66be53576ebcb80c3a2f866ed9143c1b77a01a6fd386a",
+          "lines": 16,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/messaging/client.py",
+          "sha256": "1343ec99e6dd98f91e97c7b7212ca8b71a4e333b9216d440e8dc78fa76af0953",
+          "lines": 406,
+          "static_first_party_imports": [
+            "synth_ai.core.auth.credentials",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport",
+            "synth_ai.core.utils.urls"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/messaging/contracts.py",
+          "sha256": "a9adb863bd8a7fa909b059e0b6e737bb65f6263c99939c350cfdb9f48b3412cc",
+          "lines": 95,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/optimizers/__init__.py",
+          "sha256": "e4704ab7c86d2d949f8db66b3de0cbb30dfba88e2bfb9b23f8a2f7af3ede55a7",
+          "lines": 30,
+          "static_first_party_imports": [
+            "synth_ai.sdk.optimizers.client",
+            "synth_ai.sdk.optimizers.contracts"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/optimizers/client.py",
+          "sha256": "4340a397db04e88693481f9c8e5b5a33e1a3df49b0ff0b4c4870e4aa6e39b2be",
+          "lines": 309,
+          "static_first_party_imports": [
+            "synth_ai.core.auth.credentials",
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport",
+            "synth_ai.core.utils.urls",
+            "synth_ai.sdk.optimizers.contracts"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/optimizers/contracts.py",
+          "sha256": "a6cedf1b90f20cbfbcf37499fdfb017185e5887d2d57c1befdd7000bf9cb0b6f",
+          "lines": 142,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        }
+      ]
+    },
+    {
+      "id": "port_then_retire_research",
+      "path_count": 204,
+      "files": [
+        {
+          "path": "synth_ai/sdk/research/__init__.py",
+          "sha256": "ca4b45eb8028237b1925f000c1fc1af71fe089f838602d502025093b1c96958a",
+          "lines": 26,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.resource_reads",
+            "synth_ai.sdk.research.facade",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/_internal/__init__.py",
+          "sha256": "de36f9fc484c6f75e491de402c72e5e0cdb54607af9b916b40bda77734f42d08",
+          "lines": 12,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research._internal.crypto",
+            "synth_ai.sdk.research._internal.env",
+            "synth_ai.sdk.research._internal.urls"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/_internal/crypto.py",
+          "sha256": "f8ef1b13213920d64326818dcd9f224216801ab485fb5658acdafa5e5da7049c",
+          "lines": 23,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/_internal/env.py",
+          "sha256": "95943f0b2766201af0833f1db72653103d3f989f61f2944646a8a8867a8cfb55",
+          "lines": 53,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/_internal/urls.py",
+          "sha256": "bdf024547e59ad6d880a934571ce8657a4014a85007ed213a6d011b2874403cf",
+          "lines": 23,
+          "static_first_party_imports": [
+            "synth_ai.core.utils.urls"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/account.py",
+          "sha256": "28bfe374aa63d531c891881079faf0ec617d50f4725cfb1fd25481098824c511",
+          "lines": 705,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/advanced.py",
+          "sha256": "c6c645d4197ca18d09a6f9a5fa06d16bc5ee421dc3644851c811ec5144527803",
+          "lines": 107,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.advanced_factories",
+            "synth_ai.sdk.research.advanced_swarms",
+            "synth_ai.sdk.research.artifacts",
+            "synth_ai.sdk.research.economics",
+            "synth_ai.sdk.research.efforts",
+            "synth_ai.sdk.research.secrets",
+            "synth_ai.sdk.research.session.client",
+            "synth_ai.sdk.research.session.images",
+            "synth_ai.sdk.research.session.tag"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/advanced_factories.py",
+          "sha256": "7502bde5c509a5d9d54396f1a53341bdc00ed6ab5b93dbf18d6435a3699358d0",
+          "lines": 337,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factories",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.tag",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/advanced_swarms.py",
+          "sha256": "5accb794ec7edfd51ce558aa65fa1672cb71d8dabf617f5b0779e6bcc5bfa66e",
+          "lines": 626,
+          "static_first_party_imports": [
+            "synth_ai.sdk.pagination",
+            "synth_ai.sdk.research.models",
+            "synth_ai.sdk.research.readouts"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/artifacts.py",
+          "sha256": "9907ff2e8eb1cea235dcc0036a651a71c3e695369bd1974c2a07d8e331d8dff2",
+          "lines": 157,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/auth.py",
+          "sha256": "508dfaa0ba738eb47b4ce89bdde5353e4c205eb769f6b9aaf4abc57f20251d8b",
+          "lines": 12,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research._internal.crypto",
+            "synth_ai.sdk.research._internal.env",
+            "synth_ai.sdk.research._internal.urls"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/client.py",
+          "sha256": "550cab684bfae9cc3c02871e76d764bbec0a5b7f7878c9ccfeb26924d495b218",
+          "lines": 187,
+          "static_first_party_imports": [
+            "synth_ai.core.auth.credentials",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport",
+            "synth_ai.core.utils.urls",
+            "synth_ai.sdk.research.container_pools.api",
+            "synth_ai.sdk.research.economics",
+            "synth_ai.sdk.research.environments",
+            "synth_ai.sdk.research.factories",
+            "synth_ai.sdk.research.image_releases",
+            "synth_ai.sdk.research.projects",
+            "synth_ai.sdk.research.research_intern",
+            "synth_ai.sdk.research.scientific_records",
+            "synth_ai.sdk.research.swarms",
+            "synth_ai.sdk.research.traces",
+            "synth_ai.sdk.research.visuals"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/container_pools/__init__.py",
+          "sha256": "48d0e73f6bea30ffc06adeaffad0862fe23cf40ccfdcfb772744da215919bf5b",
+          "lines": 55,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.container_pools.api",
+            "synth_ai.sdk.research.container_pools.contracts",
+            "synth_ai.sdk.research.container_pools.packaging"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/container_pools/api.py",
+          "sha256": "551bf9b31dc460d18f13bcbacfe6bbcfe407038623c69c78aea0b7a8ecc3da8a",
+          "lines": 538,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.container_pools.contracts",
+            "synth_ai.sdk.research.container_pools.operations",
+            "synth_ai.sdk.research.container_pools.packaging"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/container_pools/contracts.py",
+          "sha256": "97c5222b1fc117b0850125ba2dfa121fe2706073a5a0aa1173f92d36958ec947",
+          "lines": 205,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/container_pools/operations.py",
+          "sha256": "8d12c6cca8afd42dcb7e8dbfe449dc1a64f88945c165482f2dbb3d6269063aae",
+          "lines": 168,
+          "static_first_party_imports": [
+            "synth_ai.core.http.request"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/container_pools/packaging.py",
+          "sha256": "5a049d4e75bfe51407d86dbab8ee07a8df55b08629040da628bae2129f7ceefb",
+          "lines": 430,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/__init__.py",
+          "sha256": "310d53037b8b53fa6f748617da6e8fc4e6b201bf07651df8108d68f61761c17b",
+          "lines": 1185,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.activity",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.dataset_revisions",
+            "synth_ai.sdk.research.contracts.deliveries",
+            "synth_ai.sdk.research.contracts.environment_manifest",
+            "synth_ai.sdk.research.contracts.environments",
+            "synth_ai.sdk.research.contracts.evidence",
+            "synth_ai.sdk.research.contracts.factories",
+            "synth_ai.sdk.research.contracts.factory_lenses",
+            "synth_ai.sdk.research.contracts.factory_role_receipts",
+            "synth_ai.sdk.research.contracts.failure",
+            "synth_ai.sdk.research.contracts.image_releases",
+            "synth_ai.sdk.research.contracts.intern_program",
+            "synth_ai.sdk.research.contracts.project_data",
+            "synth_ai.sdk.research.contracts.project_runtime",
+            "synth_ai.sdk.research.contracts.project_workspace_evidence",
+            "synth_ai.sdk.research.contracts.projects",
+            "synth_ai.sdk.research.contracts.research_intern",
+            "synth_ai.sdk.research.contracts.runtime_stream",
+            "synth_ai.sdk.research.contracts.runtime_stream_snapshot",
+            "synth_ai.sdk.research.contracts.status",
+            "synth_ai.sdk.research.contracts.swarm_controls",
+            "synth_ai.sdk.research.contracts.swarm_history",
+            "synth_ai.sdk.research.contracts.swarm_tasks",
+            "synth_ai.sdk.research.contracts.swarms",
+            "synth_ai.sdk.research.contracts.traces",
+            "synth_ai.sdk.research.contracts.transcript",
+            "synth_ai.sdk.research.contracts.usage",
+            "synth_ai.sdk.research.contracts.visuals",
+            "synth_ai.sdk.research.contracts.workspaces"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/_activity_wire.py",
+          "sha256": "f727da9eabe49df13a5f98f6d2158ce372038e78100f4670de3f72cc89398770",
+          "lines": 63,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/_environment_wire.py",
+          "sha256": "4daaea48e803a6426f2298cf1a44555a775bc70a5f13e8357319cf8291757f60",
+          "lines": 136,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/_transcript_wire.py",
+          "sha256": "b56cf7967de030d2a7bd12978802c9696182490d96064aed8c9e7b7c7dc97946",
+          "lines": 147,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/_wire.py",
+          "sha256": "59eaa14439e1f23b8da1b8fe4a04d3a52d2cad6db893170793fbd14ef722464f",
+          "lines": 78,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/activity.py",
+          "sha256": "7b4910e59986d5ded810a006ee869af76d7e52ec5531eb31c473fa880859f67e",
+          "lines": 369,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._activity_wire",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.activity_items",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.swarms"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/activity_items.py",
+          "sha256": "b9c3f064f781df6a887a4a54006812a01272872fc7bbc4774f5f27815a6c43bc",
+          "lines": 406,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._activity_wire",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.evidence"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/actor_images.py",
+          "sha256": "8a6f632b9e0e044a5a022968d2e94c1eab373365b1b1887aec860f52ba5369fd",
+          "lines": 125,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/billing.py",
+          "sha256": "a8c1587dcdc648d6ccaf8321b64733a04a681ce12e5a255ca2fcff11b0ffe67a",
+          "lines": 1089,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/canonical_usage.py",
+          "sha256": "9b1e932ac50f54314b5a584f96a0d95bd9c12d701555475ea2331b2edc2ee6df",
+          "lines": 867,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/checkpoints.py",
+          "sha256": "71a037f2c446ad1f94ada840eb21c38970f9060f4464960465dbb574b850aba9",
+          "lines": 242,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/cloud_deployment_claims.py",
+          "sha256": "6dc64b90369ac11b61ada26d4ef4aa97666de748b4a6b596dc0b7cbbac98ff46",
+          "lines": 287,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.cloud_deployments"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/cloud_deployments.py",
+          "sha256": "5ead13cd08255ea40308652adc56b25ffecb4ffe91ec52fd25c0c04c737b7efe",
+          "lines": 95,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/common.py",
+          "sha256": "6d34e6bd749e2d451d69d39d5b9e5099dd96f9135278f9a7b93e9e708e35f422",
+          "lines": 149,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/dataset_revisions.py",
+          "sha256": "9c685ed7c7c0f1e54990307451263faba9ce324405eab6716aadd78361fa8d01",
+          "lines": 437,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.traces"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/deliveries.py",
+          "sha256": "5d5c62f7ee19d8eb93ab1fd45fcd639d5196e64732d8be32a17ba1292cfe7a84",
+          "lines": 249,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/dev_environment_evidence.py",
+          "sha256": "cc189e38c1411fbd9ec71893b88d8ed9a1f73ebd7ac1472518f28ad2cd9e4344",
+          "lines": 39,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.billing",
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/economics.py",
+          "sha256": "203a469abd48cc36932912a901d1ba7bb34dfed1aaf10b7bcecae067d5978c68",
+          "lines": 36,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.billing",
+            "synth_ai.sdk.research.contracts.canonical_usage"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/environment_manifest.py",
+          "sha256": "300f0ad64a27c1a6becc3f66329e17469158b84d286e0e33c57e753e81979eed",
+          "lines": 510,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._environment_wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/environments.py",
+          "sha256": "816dc3c9625c9777fc5a0bd2e90a5dad172065523aa57611563fece64a4240ec",
+          "lines": 312,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._environment_wire",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.environment_manifest"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/evidence.py",
+          "sha256": "0cca2e8c768b46c32a8c7f9d4cc809a8d9bc37542a5ba2ef61f12e4cb816f948",
+          "lines": 534,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/experiment_evidence.py",
+          "sha256": "bbb28e4139862fa29e5236c840d9e740bb88128f1b0d26bc7b834bfe69c3727c",
+          "lines": 83,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_state"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/factories.py",
+          "sha256": "9b15c7c7a45428f8bb03ea5b6eda6a03c4932462ebda1b3b984accc615706994",
+          "lines": 1108,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.swarms"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/factory_evidence.py",
+          "sha256": "2d174a72f9b62d3d6b30e147d5baf5a054b2c16496c28c2ebffb60099d5e051a",
+          "lines": 1608,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.operator_evidence",
+            "synth_ai.sdk.research.contracts.project",
+            "synth_ai.sdk.research.contracts.run_authority",
+            "synth_ai.sdk.research.contracts.run_diagnostics",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.contracts.work_products"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/factory_lenses.py",
+          "sha256": "94b04bd247c8a3c82ed4e5dc887536b60a940658dcaf3c66f7280eedce44ed55",
+          "lines": 411,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/factory_operations.py",
+          "sha256": "09ac60d0b054374a27d41f7c4383f157373e1e7687827c6d9c7dd42b06587ed1",
+          "lines": 3160,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.experiment_evidence",
+            "synth_ai.sdk.research.contracts.factories",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.scientific_integrity",
+            "synth_ai.sdk.research.contracts.swarms"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/factory_role_receipts.py",
+          "sha256": "c70ea200b0734b2dd6a166c0062cc063fc19b8448d4737c05a65192fdf1ffbe4",
+          "lines": 83,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/failure.py",
+          "sha256": "70650e7897c831d98d78018116df39604c3dc39177f391383b82adef9b0ea3b1",
+          "lines": 173,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/__init__.py",
+          "sha256": "8ea094309866f7519fe9189b3c91cc140c19ebe154a0d8d7440ad5c1dddececb",
+          "lines": 1,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/contracts.py",
+          "sha256": "139efefb620fa720880d14863f05068c171629334a25fe671de6e2f2f3ceacac",
+          "lines": 108,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/evaluation.py",
+          "sha256": "78b05e33dee9e7a4c62b18292b369e3b3b7c13b86c15fdf23747dd875013f62c",
+          "lines": 55,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/exports.py",
+          "sha256": "a7b120f3f65be5f537ebfa5d0c5d69cec60983a187a29651ae8f672f488f8162",
+          "lines": 103,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/operations.py",
+          "sha256": "18a93be0d73edddd03ff9ac45bdce9e0c0ccf9372f27cb4161e2edd916eb3b98",
+          "lines": 115,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/records.py",
+          "sha256": "2b383e01a59b51147627549243bd5d9cfdb45982773866ab32062c29c605fe3a",
+          "lines": 239,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/resources.py",
+          "sha256": "19ec0b6e1f365488b09e936365fce632afa9894ce10dc28c344086b69ed52ec5",
+          "lines": 83,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge/schema.py",
+          "sha256": "c9999145b1e13bfb09d20f351501b70dfb39225b86cf40ab2c495571dc453129",
+          "lines": 1,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge_citations.py",
+          "sha256": "b04aaa11f72376d218879e4335f8debab178b194556f3b23327ab4ecfdaa5f40",
+          "lines": 29,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.forge.contracts"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/forge_uploads.py",
+          "sha256": "f5b518bf5df816838ed960bf030a9f2b400a0aa1006e6491fca01a45b029e7df",
+          "lines": 84,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.forge.contracts"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/image_releases.py",
+          "sha256": "7a3b69ed73f77e3dc7b09538f626c21647194167b544adf99ffcf43413addf51",
+          "lines": 1315,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._environment_wire",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/intern_authority.py",
+          "sha256": "da14cb281d2e168ff4995032ea64c744c028947b055aadd5a45d2c2cbaeed3da",
+          "lines": 422,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/intern_blockers.py",
+          "sha256": "7acc10b4e917b87094b0ac33125b48a5af5894b7d2aea55c932170531dda360b",
+          "lines": 126,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/intern_grants.py",
+          "sha256": "2ab6e40fc96cec4f775388dfc03553f647762d7190dc36f6b77a07b77b967516",
+          "lines": 355,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/intern_program.py",
+          "sha256": "10ca2b89e507512091e7014e53bd36e7d97f5c765e9bee3400b55cf04dcc57eb",
+          "lines": 769,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/intern_resources.py",
+          "sha256": "95a924225ed0370e4d12722c506cd469523dceac080eb057615178d314425c08",
+          "lines": 149,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/intern_usage.py",
+          "sha256": "7c017074a98c1b028b2bf3810956ac10072441484b5b0ab8e4816abf4b05ce9f",
+          "lines": 177,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/limit_evidence.py",
+          "sha256": "ae71c7daf870e0d4951e414bbf4d62217c7925caa3f759dbfd0f2c2199fb6841",
+          "lines": 396,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts._wire"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/local_execution_profile.py",
+          "sha256": "6b08e6366f85999d3db49cc176a07b166155e408fba3acf1af9c5600b1aa2143",
+          "lines": 504,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/native_attachment.py",
+          "sha256": "fe29fa824ff8be800ce7e43733cb2a261d95b421a357de0fb04217441bc4555b",
+          "lines": 179,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/native_result_outcome.py",
+          "sha256": "d40a1953bbfe2cae4f8f92274aff3d7585c4bbe7cb02892a2f0d3f1266d97b53",
+          "lines": 37,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/operator_evidence.py",
+          "sha256": "7be262c096b4b6d00ca4ed027a7cb079de5a4492fbc33a0ac7ae7671d602a3ce",
+          "lines": 548,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/project.py",
+          "sha256": "136ceb6a62a544a6d6447eba1289157587dd68e05a3b7291d136209710a4f91c",
+          "lines": 146,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_state"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/project_data.py",
+          "sha256": "fd0eac9c599c607315c105f713a175414be61dbfb1ceba016b4dec3fb32e7b33",
+          "lines": 492,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/project_runtime.py",
+          "sha256": "9cb932d6c3a7e936b38a040813e1c888c873c84a630386aa8cdc77a8a4534dc6",
+          "lines": 349,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.traces"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/project_workspace.py",
+          "sha256": "da0c2e8de01b5b716fccbacd9790f63201ccefef5bb171762b5580f3d0d6536b",
+          "lines": 718,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/project_workspace_evidence.py",
+          "sha256": "99661181babfc3190b4e63d632c369ea7f3b3963686d09ea8c6dd0feb1f656d3",
+          "lines": 268,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.traces"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/projects.py",
+          "sha256": "8adf697a8d37998c3563bdb1ebe394a3f0fe4acf6631b76353feb8a43b235a08",
+          "lines": 204,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/promotions.py",
+          "sha256": "ef317b5969271f68f8ecfc00b884f21ca86f264747e1f03e60cceee7c4111ae5",
+          "lines": 451,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/research_intern.py",
+          "sha256": "907050d2e36cecd77ddf910bfa99aee72dc8b47dec55636a0fc93c4adaa0cd46",
+          "lines": 1572,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.dataset_revisions",
+            "synth_ai.sdk.research.contracts.project_runtime",
+            "synth_ai.sdk.research.contracts.project_workspace_evidence"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/resource_reads.py",
+          "sha256": "15dd18d9e5a484dd2e9d907d54fb874f5039b7b4d57e3707ada205eb84ac3f5f",
+          "lines": 87,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.traces",
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/resource_settlement.py",
+          "sha256": "f02ab288be4f6b0704a1d337bbeae98a50162a856532094a566e9450a2df54b0",
+          "lines": 167,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_authority.py",
+          "sha256": "3c5ccc305843c1cb08e22fcb012dbd923582ae786401807cd84e6c8f41f1ff57",
+          "lines": 649,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_control.py",
+          "sha256": "402593a4e189596cf2f4a874cb34c81a3fa02a2689cbc6775e63017b76aee611",
+          "lines": 329,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.errors"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_diagnostics.py",
+          "sha256": "7c4060c1d3faf49ea339a1c93f2a36d8e06421aec7c08968a27f335297dad0f5",
+          "lines": 509,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_events.py",
+          "sha256": "947a467f332a96318228d9937705d990dca0ca9349012ef3f01231411ec4bdb5",
+          "lines": 161,
+          "static_first_party_imports": [
+            "synth_ai.core.http.streaming"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_execution.py",
+          "sha256": "bbe4458297fde29209ad12f18138d347cdfb690a316445026f0831a278719892",
+          "lines": 356,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_launch.py",
+          "sha256": "36f65aee0b5789f453d4702f7d9ca6bc172aa1a51f9087e894f233939411b2e3",
+          "lines": 1450,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.actor_images",
+            "synth_ai.sdk.research.contracts.local_execution_profile",
+            "synth_ai.sdk.research.contracts.run_events",
+            "synth_ai.sdk.research.contracts.run_observability",
+            "synth_ai.sdk.research.contracts.runtime_image",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_evidence_obligations",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_run_policy",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_work_modes",
+            "synth_ai.sdk.research.contracts.swarms",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_observability.py",
+          "sha256": "30f4200c584531ab7c367131b6c44f7e98ebd7932e0efade6afbcb4bcd0f090f",
+          "lines": 1547,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.failure",
+            "synth_ai.sdk.research.contracts.run_state"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_state.py",
+          "sha256": "a5d858d6040e1c9c6709f03ddd76f0e269a3e19a1ba0d60b9479da1c032ac919",
+          "lines": 585,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_network_topology",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_work_modes"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/run_timeline.py",
+          "sha256": "780fbe99abdc00c0753d12199b85bfe004262e3c3034fd7f15e474f26b9988ca",
+          "lines": 442,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_authority",
+            "synth_ai.sdk.research.contracts.smr_branching"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/runtime_image.py",
+          "sha256": "954a658f4b5072d981750af21ac710ef1688cc1ac4290c4e9e61798a7f08a77c",
+          "lines": 549,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/runtime_intent.py",
+          "sha256": "641275fb643fc99a0046857043e5ac380a9ab9e1af5dbeddbfb8b5699f620ff6",
+          "lines": 384,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_state"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/runtime_stream.py",
+          "sha256": "7d56e6a8592699c1a9330d3fc58cbe85bba8a88103ef07177f8adc66be1374f2",
+          "lines": 146,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.streaming",
+            "synth_ai.sdk.research.contracts._transcript_wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.runtime_stream_snapshot",
+            "synth_ai.sdk.research.contracts.transcript"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/runtime_stream_snapshot.py",
+          "sha256": "d93243bb8feb918464cebb2f3e56df54d8743df3426256e826b54b527932e2e4",
+          "lines": 368,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._transcript_wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/scientific_citations.py",
+          "sha256": "ec3c50a8d7fe1d792b772c80f7e50b483a402494310bf365eb79d97010fb317a",
+          "lines": 22,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.forge.contracts"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/scientific_integrity.py",
+          "sha256": "579dceefdbf5a42934c265787277b93634f88643fc303eb93055e2341599e0c5",
+          "lines": 233,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_actor_models.py",
+          "sha256": "a39db7d68161ca66e2f769f118f49a8245cdd13e127061e92676f203c7dac81c",
+          "lines": 282,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_actor_policy_data",
+            "synth_ai.sdk.research.contracts.smr_agent_models"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_actor_policy_data.py",
+          "sha256": "bff46d6d5555b765a2d600bf8ca4f3182d37564c93ad8c284e539e101288c456",
+          "lines": 311,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_agent_harnesses.py",
+          "sha256": "d02947049fe83e25c71b9fe3584b65ed9c626c4cdafcb5bd684bcdec9bea805e",
+          "lines": 17,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_agent_kinds"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_agent_kinds.py",
+          "sha256": "7ae3a30e5c09eb744da2a1464b9a9263ee537c88dc3a8e287c2c89b8b68daf07",
+          "lines": 46,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_agent_models.py",
+          "sha256": "71305e0cb80d1eed6d9b94e3def7943994462d3ecfe51095d0f42a02263209b2",
+          "lines": 69,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_branching.py",
+          "sha256": "34301ca64400c74202bf2a05c781d045ed5b665da1ed0f0a70c6db4f758e73f4",
+          "lines": 82,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_credential_providers.py",
+          "sha256": "ed4ef36f83cdc12528117afe306fe50e8b95d843daa2a22c2f1ae92d135cf389",
+          "lines": 44,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_environment_kinds.py",
+          "sha256": "b2030436e27c23eb2ac867055c1c01e844a0421bf16098c5f98f9958a16b0732",
+          "lines": 41,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_evidence_obligations.py",
+          "sha256": "c7f97c787322b54f74383fa53c899a51d95913e516eb70f53355a7952e1ce83a",
+          "lines": 114,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_funding_sources.py",
+          "sha256": "3ce3e30e29100526a466104f78b15ca733e98893831fd18e7477bae6268fff80",
+          "lines": 41,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_horizons.py",
+          "sha256": "eab166a7e212bd01401ba53a56d0ea140ecfe65796cd1ac007ba0dcaee4d2e85",
+          "lines": 46,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_host_kinds.py",
+          "sha256": "13ceed6519a18e6cc1858f29dd3a57a4a810af71e4adf3a5620978d538d4accf",
+          "lines": 34,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_inference_providers.py",
+          "sha256": "03633dac36a42b4746be923c6459f25cecae2cdae5f76718732fd2bfadbbc233",
+          "lines": 49,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_network_topology.py",
+          "sha256": "919148699aa2cc918835bf8ac2b25b131080bcdddaee55c09014a8b52ab67168",
+          "lines": 42,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_providers.py",
+          "sha256": "28771346e625680c51d700b6601e92b631ae72c939ba62fb218ba6a2f8299e96",
+          "lines": 624,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_resource_kinds.py",
+          "sha256": "2ce6d01ee2c934e029503edd73365fa034236b9ff5f58916bee4399a1528b1f7",
+          "lines": 37,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_roles.py",
+          "sha256": "674055671c336e9c229a85543ac604e44c911aa2f4cdd777fc5087319b7fd8aa",
+          "lines": 340,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_providers"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_run_policy.py",
+          "sha256": "d609b8b5af42a8e722fb345959ed63a49cffe6cb54f89276e347eeb3136d2690",
+          "lines": 214,
+          "static_first_party_imports": [
+            "synth_ai.sdk.index.agent_policy",
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_inference_providers",
+            "synth_ai.sdk.research.contracts.smr_tool_providers"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_runbooks.py",
+          "sha256": "b91613062157ff2d05d287bfe68a15119d0d8d0c0901a0345bef737e52ad9bce",
+          "lines": 229,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_work_modes"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_runnable_project.py",
+          "sha256": "2462b44e79da29e7dc8b7b8c7d8febe18cb563a27688e63d6d2dad4c3ce363ac",
+          "lines": 239,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_environment_kinds",
+            "synth_ai.sdk.research.contracts.smr_runtime_kinds"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_runtime_kinds.py",
+          "sha256": "2c6a73108a9a6f7b186ebe7f2dae2fe28606ebdfd10af368ad19d185e2e8e0cd",
+          "lines": 45,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_tool_providers.py",
+          "sha256": "63c98042d5df148a4b544a308fc4c28abed3d375b5fb67149afeffc1ef62b66a",
+          "lines": 37,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/smr_work_modes.py",
+          "sha256": "afdf6c53dbc2d5c5d08ba948a2ee8e862c04e0fee22ef6af31a6bfed6f647a4a",
+          "lines": 35,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/status.py",
+          "sha256": "b633b67e44ae7cfee470304e1cc70f33c37f587cad97536026d1b02b54c1a002",
+          "lines": 653,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/swarm_controls.py",
+          "sha256": "4b288e5209fd919429cd9855a1e4cd49ee81d8c44e124929776d2fd3079de399",
+          "lines": 55,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/swarm_history.py",
+          "sha256": "80b1463a6ee2ab75ac939ef04e9a62e6c7741f0bead5280a991b9e62ee110fa9",
+          "lines": 167,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/swarm_rollouts.py",
+          "sha256": "4b99da3f11f153df63646e7341cf40f913fd1af18b86c45f9794952df5a01189",
+          "lines": 571,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/swarm_tasks.py",
+          "sha256": "07fded00326982875f6a5b8426132c0ed40724dc571fd1a940eba237bc8f24c8",
+          "lines": 371,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/swarms.py",
+          "sha256": "dac7c45beb6a3eab6f93c68577dbe18c9d22c09282c3a719f57055abb952d28d",
+          "lines": 1857,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.index.agent_policy",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/tag.py",
+          "sha256": "d8c847315a939954b4ce4799482b760fe66db68e259e7e3e8ec8b499d30fcb08",
+          "lines": 587,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/traces.py",
+          "sha256": "867398bcecd430bec18df4f8f6e815cb9cfa79740a933567a9f6034bf20fe9fb",
+          "lines": 427,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/transcript.py",
+          "sha256": "47e9d7d251cc1db6498a530c967f1b8a75780d38d405c62c1cbab3c93a861107",
+          "lines": 550,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._transcript_wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/types.py",
+          "sha256": "4d0e3933e742c1734b0c7b4159ff9b6863783b907afc821a9dbc87747a564b07",
+          "lines": 2329,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_network_topology",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_runnable_project"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/usage.py",
+          "sha256": "a518c9bfa85f2a6bb56b759cfc38a1e6e610fed0bb91974c2ddf584d38626038",
+          "lines": 438,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/visuals.py",
+          "sha256": "92b774c2d810ef004f8b8d98a4fd556f83b23e0315855c35440a078209611a26",
+          "lines": 457,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.contracts.pagination",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/wire_models.py",
+          "sha256": "49af7ae53aa7f422f71d5df5abd853d3f0a1ca56bd9099d4485e3a7067910fa7",
+          "lines": 1087,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.actor_images",
+            "synth_ai.sdk.research.contracts.billing",
+            "synth_ai.sdk.research.contracts.canonical_usage",
+            "synth_ai.sdk.research.contracts.checkpoints",
+            "synth_ai.sdk.research.contracts.cloud_deployment_claims",
+            "synth_ai.sdk.research.contracts.cloud_deployments",
+            "synth_ai.sdk.research.contracts.dev_environment_evidence",
+            "synth_ai.sdk.research.contracts.factory_evidence",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.limit_evidence",
+            "synth_ai.sdk.research.contracts.local_execution_profile",
+            "synth_ai.sdk.research.contracts.operator_evidence",
+            "synth_ai.sdk.research.contracts.project",
+            "synth_ai.sdk.research.contracts.project_workspace",
+            "synth_ai.sdk.research.contracts.promotions",
+            "synth_ai.sdk.research.contracts.run_authority",
+            "synth_ai.sdk.research.contracts.run_control",
+            "synth_ai.sdk.research.contracts.run_diagnostics",
+            "synth_ai.sdk.research.contracts.run_events",
+            "synth_ai.sdk.research.contracts.run_execution",
+            "synth_ai.sdk.research.contracts.run_launch",
+            "synth_ai.sdk.research.contracts.run_observability",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.runtime_image",
+            "synth_ai.sdk.research.contracts.runtime_intent",
+            "synth_ai.sdk.research.contracts.scientific_integrity",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_environment_kinds",
+            "synth_ai.sdk.research.contracts.smr_evidence_obligations",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_network_topology",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_resource_kinds",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_run_policy",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_runtime_kinds",
+            "synth_ai.sdk.research.contracts.smr_tool_providers",
+            "synth_ai.sdk.research.contracts.smr_work_modes",
+            "synth_ai.sdk.research.contracts.tag",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.contracts.work_products"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/work_products.py",
+          "sha256": "981dd28956ea2d87a996ecce87516439d32573134a36eab9d7fb9835dc8bcc72",
+          "lines": 291,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/contracts/workspaces.py",
+          "sha256": "0fcaa9ccd1ce57adfdcccb05d8096d5f9937b2205d48afe6b1932b60e095f5e2",
+          "lines": 983,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/economics.py",
+          "sha256": "6a3c6f2c428422ead743d7ffde94cccdd6c72e1513291d109ad1d13b20748c44",
+          "lines": 163,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.economics",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/efforts.py",
+          "sha256": "eb2bc7337300c3229b70114d8f3654cedcefa2746d0f3208bea6a2d372b0edce",
+          "lines": 165,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/environments.py",
+          "sha256": "1bb3da3999a60704233e703acdbad1a81dadb8b80841c71450d0ac06cddebb4e",
+          "lines": 240,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts._environment_wire",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.environment_manifest",
+            "synth_ai.sdk.research.contracts.environments",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/errors.py",
+          "sha256": "931092023fd85ff04327750e9fddbe4f9bf76232a0eed20db4f601b779f50a0a",
+          "lines": 840,
+          "static_first_party_imports": [
+            "synth_ai.core.errors"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/events.py",
+          "sha256": "a5fc9176215dbc9ba35c4a17417955827c0ddf9fe290e075ed3822ba356607cc",
+          "lines": 28,
+          "static_first_party_imports": [
+            "synth_ai.core.http.streaming",
+            "synth_ai.sdk.research.contracts.runtime_stream"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/experiments.py",
+          "sha256": "501faedfff146aa81740d3637c80ab95dec81ced81125a090746dad90208310f",
+          "lines": 59,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/facade.py",
+          "sha256": "2f3a8a9de115944dfac45a8ce4e96b0b79f59836c6b2fce2029c79ae333da3c2",
+          "lines": 320,
+          "static_first_party_imports": [
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.account",
+            "synth_ai.sdk.research.advanced",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.container_pools.api",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.environments",
+            "synth_ai.sdk.research.experiments",
+            "synth_ai.sdk.research.factories",
+            "synth_ai.sdk.research.image_releases",
+            "synth_ai.sdk.research.knowledge",
+            "synth_ai.sdk.research.projects",
+            "synth_ai.sdk.research.research_intern",
+            "synth_ai.sdk.research.scientific_records",
+            "synth_ai.sdk.research.session.factories",
+            "synth_ai.sdk.research.session.files",
+            "synth_ai.sdk.research.swarms",
+            "synth_ai.sdk.research.traces",
+            "synth_ai.sdk.research.visuals",
+            "synth_ai.sdk.research.wiki"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/factories.py",
+          "sha256": "bd0ad208eb6f26a1b6069dbbf36c95824991b04a918f8c1f347f997c77440bf1",
+          "lines": 1223,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.factories",
+            "synth_ai.sdk.research.contracts.factory_lenses",
+            "synth_ai.sdk.research.factory_storage",
+            "synth_ai.sdk.research.operations",
+            "synth_ai.sdk.research.traces"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/factory_storage.py",
+          "sha256": "8747631045b9752c82d3b3d7dc5aa098493efba2b25c38cd4c15b29d19bb475b",
+          "lines": 57,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.project_runtime",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/image_releases.py",
+          "sha256": "0c0c4ec879add001ada065e6293f1d6a5140e1b5a880c3910467f8500a59d699",
+          "lines": 410,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.image_releases",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/intern_authority.py",
+          "sha256": "777654be787f427b15efef91d549ebc5a3aa207963fd97729d5d5b862436b569",
+          "lines": 664,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.errors",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.intern_authority",
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/intern_blockers.py",
+          "sha256": "f7c209a34e76ebf1f5b8eae12b1fc18fc578dbb412780770bceab20bbd19ff75",
+          "lines": 242,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/intern_program.py",
+          "sha256": "df4afedf5ed5e8913be57921bd52d2c67ebb9062fc897b3176faf3c80a760037",
+          "lines": 854,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.intern_program",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/knowledge.py",
+          "sha256": "d49663a62d0c047dd51d9866a60f072ab162c55557142ff9c12402428923654d",
+          "lines": 102,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/models.py",
+          "sha256": "d28556b0f9dfdd2b7f6aeacb0a3849e833ae2607a4b25c935da4af30648c20bc",
+          "lines": 147,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.economics",
+            "synth_ai.sdk.research.contracts.project",
+            "synth_ai.sdk.research.contracts.run_launch",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_environment_kinds",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_runnable_project",
+            "synth_ai.sdk.research.contracts.smr_runtime_kinds",
+            "synth_ai.sdk.research.contracts.tag",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.contracts.work_products"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/operations.py",
+          "sha256": "099ca80dce1f127a507c2d7c3eec1fec5f6259f5446aa6f910c670a2a00c6ac3",
+          "lines": 1626,
+          "static_first_party_imports": [
+            "synth_ai.core.http.request"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/project_data.py",
+          "sha256": "84d5d0c92da12e315a00160452d9bae16f67da700a3d6d189865333b0667e964",
+          "lines": 307,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.project_data",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/project_deliveries.py",
+          "sha256": "d21f34a52112f6504bb5dbd16bbf027bb54d607328a583d3beb7f9de44c3feb3",
+          "lines": 193,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.deliveries",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/project_workspaces.py",
+          "sha256": "1d96aeadc49ed8d63ca39895a8787c3cd73c70130a121fbc449a6b1aad94b4cc",
+          "lines": 350,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.errors",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.project_workspace_evidence",
+            "synth_ai.sdk.research.contracts.workspaces",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/projects.py",
+          "sha256": "9fb2d42f449b367afd3879e82d3b23fa8e025e4f7f8a44649e34c71df87a8912",
+          "lines": 408,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.pagination",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.projects",
+            "synth_ai.sdk.research.operations",
+            "synth_ai.sdk.research.project_data",
+            "synth_ai.sdk.research.project_deliveries",
+            "synth_ai.sdk.research.project_workspaces",
+            "synth_ai.sdk.research.research_intern",
+            "synth_ai.sdk.research.resource_reads"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/public.py",
+          "sha256": "d417d39fcf7864fbd901dac9c906ae123e6206d792a17914ef912737d7996fbf",
+          "lines": 1128,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts",
+            "synth_ai.sdk.research.contracts.intern_grants",
+            "synth_ai.sdk.research.events",
+            "synth_ai.sdk.research.facade",
+            "synth_ai.sdk.research.factory_storage",
+            "synth_ai.sdk.research.intern_program",
+            "synth_ai.sdk.research.project_deliveries",
+            "synth_ai.sdk.research.project_workspaces",
+            "synth_ai.sdk.research.research_intern",
+            "synth_ai.sdk.research.surface_parity",
+            "synth_ai.sdk.research.swarms",
+            "synth_ai.sdk.research.traces",
+            "synth_ai.sdk.research.visuals"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/readouts.py",
+          "sha256": "a86272b85d56822b36b3845a90893d65ee3ae138912c5d31d8dd764843060972",
+          "lines": 969,
+          "static_first_party_imports": [
+            "synth_ai.sdk.pagination",
+            "synth_ai.sdk.research.models"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/research_intern.py",
+          "sha256": "5d79f37ab87bd54dfb1e4f37dbffe9211bbe89569b3ea2d81d519a2c52377540",
+          "lines": 4216,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.streaming",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts._wire",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.dataset_revisions",
+            "synth_ai.sdk.research.contracts.factory_role_receipts",
+            "synth_ai.sdk.research.contracts.intern_resources",
+            "synth_ai.sdk.research.contracts.intern_usage",
+            "synth_ai.sdk.research.contracts.project_runtime",
+            "synth_ai.sdk.research.contracts.research_intern",
+            "synth_ai.sdk.research.intern_authority",
+            "synth_ai.sdk.research.intern_program",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/resource_reads.py",
+          "sha256": "81a5b8eb0f9eaa3957aa870d2bfa6888b34ea20b384518fb215927ada9bc38e4",
+          "lines": 458,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.dataset_revisions",
+            "synth_ai.sdk.research.contracts.resource_reads",
+            "synth_ai.sdk.research.contracts.traces"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/scientific_records.py",
+          "sha256": "36160fc59aaff7b92e4d4c22c89a3dec6d0919cc41dd88fbb71c05cc4da940c7",
+          "lines": 665,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.sdk.research.contracts.forge.contracts",
+            "synth_ai.sdk.research.contracts.forge.operations",
+            "synth_ai.sdk.research.contracts.forge.records",
+            "synth_ai.sdk.research.contracts.forge_citations",
+            "synth_ai.sdk.research.contracts.forge_uploads",
+            "synth_ai.sdk.research.contracts.native_attachment",
+            "synth_ai.sdk.research.contracts.scientific_citations",
+            "synth_ai.sdk.research.errors"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/secrets.py",
+          "sha256": "6480117db06fe156a21d7fef2467ade63c5a642071ccd3f9bcf36324b707d287",
+          "lines": 84,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/__init__.py",
+          "sha256": "f434b090d2f986b05e38181accd95e5a33f8b197ac88c43b67c5e40b6f1d8c5f",
+          "lines": 787,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.canonical_usage",
+            "synth_ai.sdk.research.contracts.checkpoints",
+            "synth_ai.sdk.research.contracts.factory_evidence",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.limit_evidence",
+            "synth_ai.sdk.research.contracts.local_execution_profile",
+            "synth_ai.sdk.research.contracts.operator_evidence",
+            "synth_ai.sdk.research.contracts.project",
+            "synth_ai.sdk.research.contracts.project_workspace",
+            "synth_ai.sdk.research.contracts.run_authority",
+            "synth_ai.sdk.research.contracts.run_control",
+            "synth_ai.sdk.research.contracts.run_diagnostics",
+            "synth_ai.sdk.research.contracts.run_observability",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.runtime_intent",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_environment_kinds",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_network_topology",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_resource_kinds",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_run_policy",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_runtime_kinds",
+            "synth_ai.sdk.research.contracts.smr_tool_providers",
+            "synth_ai.sdk.research.contracts.smr_work_modes",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.contracts.work_products",
+            "synth_ai.sdk.research.session.approvals",
+            "synth_ai.sdk.research.session.billing",
+            "synth_ai.sdk.research.session.client",
+            "synth_ai.sdk.research.session.cloud_deployments",
+            "synth_ai.sdk.research.session.datasets",
+            "synth_ai.sdk.research.session.dev_environments",
+            "synth_ai.sdk.research.session.environments",
+            "synth_ai.sdk.research.session.exports",
+            "synth_ai.sdk.research.session.factories",
+            "synth_ai.sdk.research.session.factory_evidence",
+            "synth_ai.sdk.research.session.files",
+            "synth_ai.sdk.research.session.github",
+            "synth_ai.sdk.research.session.image_releases",
+            "synth_ai.sdk.research.session.logs",
+            "synth_ai.sdk.research.session.models",
+            "synth_ai.sdk.research.session.outputs",
+            "synth_ai.sdk.research.session.progress",
+            "synth_ai.sdk.research.session.project",
+            "synth_ai.sdk.research.session.projects",
+            "synth_ai.sdk.research.session.prs",
+            "synth_ai.sdk.research.session.readiness",
+            "synth_ai.sdk.research.session.repositories",
+            "synth_ai.sdk.research.session.runs",
+            "synth_ai.sdk.research.session.secrets",
+            "synth_ai.sdk.research.session.setup",
+            "synth_ai.sdk.research.session.usage",
+            "synth_ai.sdk.research.session.work_products",
+            "synth_ai.sdk.research.session.workspace_inputs"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/_base.py",
+          "sha256": "a22cd6cc30c6904f6476a9971c5e7acc8f7be57c541b021f59b4b62b0683badc",
+          "lines": 22,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/_client_helpers.py",
+          "sha256": "c47b25ee4cf52100cdfe3267d18f76405715cd373cfe62444ba849fc979bc089",
+          "lines": 328,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.swarms",
+            "synth_ai.sdk.research.errors"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/_run_authority_mixin.py",
+          "sha256": "73a2c040663208b75b835f5efe08ce18172a5e092f4e96c132441408a5e4338e",
+          "lines": 2012,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.operator_evidence",
+            "synth_ai.sdk.research.contracts.run_authority",
+            "synth_ai.sdk.research.contracts.run_control",
+            "synth_ai.sdk.research.contracts.run_diagnostics",
+            "synth_ai.sdk.research.contracts.run_events",
+            "synth_ai.sdk.research.contracts.run_observability",
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.runtime_intent",
+            "synth_ai.sdk.research.contracts.wire_models",
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.session._client_helpers",
+            "synth_ai.sdk.research.transport.pagination"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/approvals.py",
+          "sha256": "1ee372861c672ff898015bfef66f16464e5d9bd00b8cd1959a8a7aaf2dfcbfa6",
+          "lines": 61,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/billing.py",
+          "sha256": "ca3142e6799291edf0421dc04d5cc3b6c271b2f54118af06dd66afc9f23d0264",
+          "lines": 447,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.billing",
+            "synth_ai.sdk.research.contracts.promotions",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/client.py",
+          "sha256": "b35dd7cd76bea43e871883811d233e41aeb25954990230a96f657902f19a8871",
+          "lines": 6030,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research._internal.crypto",
+            "synth_ai.sdk.research.contracts.actor_images",
+            "synth_ai.sdk.research.contracts.cloud_deployment_claims",
+            "synth_ai.sdk.research.contracts.cloud_deployments",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.local_execution_profile",
+            "synth_ai.sdk.research.contracts.resource_settlement",
+            "synth_ai.sdk.research.contracts.run_execution",
+            "synth_ai.sdk.research.contracts.run_launch",
+            "synth_ai.sdk.research.contracts.run_observability",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_evidence_obligations",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_run_policy",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_work_modes",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.contracts.wire_models",
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.research_intern",
+            "synth_ai.sdk.research.session._client_helpers",
+            "synth_ai.sdk.research.session._run_authority_mixin",
+            "synth_ai.sdk.research.session.approvals",
+            "synth_ai.sdk.research.session.billing",
+            "synth_ai.sdk.research.session.cloud_deployments",
+            "synth_ai.sdk.research.session.config",
+            "synth_ai.sdk.research.session.cost",
+            "synth_ai.sdk.research.session.datasets",
+            "synth_ai.sdk.research.session.dev_environments",
+            "synth_ai.sdk.research.session.directory_inputs",
+            "synth_ai.sdk.research.session.environments",
+            "synth_ai.sdk.research.session.exports",
+            "synth_ai.sdk.research.session.factories",
+            "synth_ai.sdk.research.session.factory_evidence",
+            "synth_ai.sdk.research.session.files",
+            "synth_ai.sdk.research.session.github",
+            "synth_ai.sdk.research.session.image_releases",
+            "synth_ai.sdk.research.session.images",
+            "synth_ai.sdk.research.session.logs",
+            "synth_ai.sdk.research.session.models",
+            "synth_ai.sdk.research.session.outputs",
+            "synth_ai.sdk.research.session.progress",
+            "synth_ai.sdk.research.session.project",
+            "synth_ai.sdk.research.session.projects",
+            "synth_ai.sdk.research.session.prs",
+            "synth_ai.sdk.research.session.readiness",
+            "synth_ai.sdk.research.session.repositories",
+            "synth_ai.sdk.research.session.runs",
+            "synth_ai.sdk.research.session.secrets",
+            "synth_ai.sdk.research.session.setup",
+            "synth_ai.sdk.research.session.tag",
+            "synth_ai.sdk.research.session.trained_models",
+            "synth_ai.sdk.research.session.transport",
+            "synth_ai.sdk.research.session.usage",
+            "synth_ai.sdk.research.session.work_products",
+            "synth_ai.sdk.research.session.workspace_inputs",
+            "synth_ai.sdk.research.transport.http",
+            "synth_ai.sdk.research.transport.pagination"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/cloud_deployments.py",
+          "sha256": "a750cb330b5cc0892ae5311e000163fb8e0eaa5d9f2cc4c0f245ec535a13962d",
+          "lines": 650,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.cloud_deployment_claims",
+            "synth_ai.sdk.research.contracts.cloud_deployments",
+            "synth_ai.sdk.research.session._base",
+            "synth_ai.sdk.research.session.image_releases"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/config.py",
+          "sha256": "a614989be48210d74180e439c8c33cf9f806a04d87084157c9211eb6308df9d7",
+          "lines": 84,
+          "static_first_party_imports": [
+            "synth_ai.core.auth.credentials",
+            "synth_ai.core.utils.urls"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/cost.py",
+          "sha256": "3c8e630fa7a79365673e0b08cebafc8cb37f3a0cac0f656968fc5e1d3b62c4f7",
+          "lines": 20,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/datasets.py",
+          "sha256": "8e2b2b8c9ea90dff64245ea238f9345fb7ee55a05ada068e980d4b4bd6f2b0bd",
+          "lines": 64,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/dev_environments.py",
+          "sha256": "7f3d11c9fee6218af079b8040cb1f70d29038e9487f5af6551f262ffae5122d7",
+          "lines": 1122,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.billing",
+            "synth_ai.sdk.research.contracts.dev_environment_evidence",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/directory_inputs.py",
+          "sha256": "40d3cf756084bd385a2dacde31b8ba33cba8db3871f8222175f7ce4c7e183251",
+          "lines": 243,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/environments.py",
+          "sha256": "7c93aaad4424aa2c3b56cf8cf12f46d69a1b102d91789a900b937577fb40e461",
+          "lines": 27,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/exports.py",
+          "sha256": "2166ccd7e52a140e74dc547b48e6639b8c2889c6dd80ce992fac32f38490c125",
+          "lines": 47,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/factories.py",
+          "sha256": "c1674319eb12236cdfc25d6f2393433fa183f49b3fe59847cd03b8ab8d0d2ce8",
+          "lines": 1546,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factories",
+            "synth_ai.sdk.research.contracts.factory_lenses",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/factory_evidence.py",
+          "sha256": "3e9df51d3ab0f125973e42fd97afe1958488b32d7c6dc9360bebdb7bef61ae29",
+          "lines": 142,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_evidence",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/files.py",
+          "sha256": "969c1e23eb82bf6a9c40337c839204da09e886051739731629bfce203380efbf",
+          "lines": 161,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/github.py",
+          "sha256": "5dfa4c35b8aec5bbc0198aa851e9ff35cc337f49a0cf4b41f22241c17fc550ba",
+          "lines": 33,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/image_releases.py",
+          "sha256": "fef39e2c0108ee0d610abbe878ed97df03ed42a847030cea001204d81351522a",
+          "lines": 547,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/images.py",
+          "sha256": "1634569cc445c3d2dc8d9ed152e1f7d9b6620a92e45e2d813eeea7679162bd79",
+          "lines": 532,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/logs.py",
+          "sha256": "fc4d40a77a1ac10f351e0a86b4bcd60945d79c737d3523f80bdcd763ccab2e41",
+          "lines": 11,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/models.py",
+          "sha256": "a8fde1f8bdc85e26888f85c023fae6898a8d078f5431a01d4180c5a30213d734",
+          "lines": 39,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/outputs.py",
+          "sha256": "7fd3a290c6c70381246122aa77efc06d2b6b8aec02998fb2fcba97de466398a4",
+          "lines": 59,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.run_launch",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/progress.py",
+          "sha256": "0996ccfe3bfd8b03461646d9b0d72f72f471e2f9a8be066fd7cbd392a7c8e801",
+          "lines": 26,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/project.py",
+          "sha256": "c96d828bafb425ea34ac87edc1d3422b0767b7b1c64b0900a8f2a603c7247fe4",
+          "lines": 943,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.canonical_usage",
+            "synth_ai.sdk.research.contracts.project",
+            "synth_ai.sdk.research.contracts.project_workspace",
+            "synth_ai.sdk.research.contracts.run_control",
+            "synth_ai.sdk.research.contracts.run_launch",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.types"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/projects.py",
+          "sha256": "0c04d6d9a68854429bc3e297c85a9a39bae4691a7271040cb7689da6e75c458f",
+          "lines": 402,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.canonical_usage",
+            "synth_ai.sdk.research.contracts.project",
+            "synth_ai.sdk.research.contracts.project_workspace",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base",
+            "synth_ai.sdk.research.session.project"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/prs.py",
+          "sha256": "ead9218befd009ff07917e9f146726daabe121bf6b7c7bb6fd4a96c2d9c0328a",
+          "lines": 18,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/readiness.py",
+          "sha256": "7eef44905685f212f7b2b91ef4f3e3ac31d0607d9664964647df135f1ed31952",
+          "lines": 15,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/repositories.py",
+          "sha256": "8c23bf79eeee027f11084b58f5415e0a38ea1c4a3dcb4047d38e0c22f27d0632",
+          "lines": 83,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/runs.py",
+          "sha256": "90d8a5ba84386c9bdf936c0300dc4834b54ccbed670a4c6cd0cce2a68274f589",
+          "lines": 2730,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.canonical_usage",
+            "synth_ai.sdk.research.contracts.checkpoints",
+            "synth_ai.sdk.research.contracts.limit_evidence",
+            "synth_ai.sdk.research.contracts.operator_evidence",
+            "synth_ai.sdk.research.contracts.run_authority",
+            "synth_ai.sdk.research.contracts.run_control",
+            "synth_ai.sdk.research.contracts.run_diagnostics",
+            "synth_ai.sdk.research.contracts.run_execution",
+            "synth_ai.sdk.research.contracts.run_launch",
+            "synth_ai.sdk.research.contracts.run_observability",
+            "synth_ai.sdk.research.contracts.run_state",
+            "synth_ai.sdk.research.contracts.run_timeline",
+            "synth_ai.sdk.research.contracts.runtime_intent",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_network_topology",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_work_modes",
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.contracts.work_products",
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.session._base",
+            "synth_ai.sdk.research.session.config"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/secrets.py",
+          "sha256": "75c92766d7778a5c52e6bef9f039aa2c87e54cba72cd46fa9cc1fe12c2bd28d4",
+          "lines": 54,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/setup.py",
+          "sha256": "0ba0694f254aa67c4627721afc70a8a27618bf0275cd49dc2f71b0643a10bb0f",
+          "lines": 43,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/tag.py",
+          "sha256": "9a857c4b98bba0b4ed50846df198d55b7cdc41761c9c6580d12a3636511d5c18",
+          "lines": 91,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.tag",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/trained_models.py",
+          "sha256": "1595e06cb07a5eb6a2d2f3731d3936adfcdb8bc53496b4682f9d8ef4e5827f8f",
+          "lines": 164,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.work_products",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/transport.py",
+          "sha256": "feced6499ed3993b19db69290b8e54fe7f811c61c4142c75387f977ecafc1f8a",
+          "lines": 22,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.session.config",
+            "synth_ai.sdk.research.transport.http"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/usage.py",
+          "sha256": "968a4cdc141122fe65f1630e1e9c0c395a0dcc24cdaa388ed511009823197d15",
+          "lines": 320,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.intern_usage",
+            "synth_ai.sdk.research.contracts.resource_settlement",
+            "synth_ai.sdk.research.contracts.wire_models",
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/session/work_products.py",
+          "sha256": "14b7778e382632a98bec604e8112ddcd0cb4a4bb734ffa6a6ad9d8164246e8cd",
+          "lines": 142,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_evidence",
+            "synth_ai.sdk.research.contracts.work_products",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/session/workspace_inputs.py",
+          "sha256": "4567632d403c149ef388c0512cc3eeccfe5122674c4f27ced5383a1c4b21a2f0",
+          "lines": 68,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.types",
+            "synth_ai.sdk.research.session._base"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/surface_parity.py",
+          "sha256": "1eed52bb722d0af5695f8659c8533157c4c553a15d5349f8b2a0782da8351e7e",
+          "lines": 189,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.research_intern"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/swarms.py",
+          "sha256": "406b0296d00df7c0a8811d0164e4c69c1dbbc56606f5d487d869b792c675bd07",
+          "lines": 1549,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.errors",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.pagination",
+            "synth_ai.sdk.research.contracts.activity",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.evidence",
+            "synth_ai.sdk.research.contracts.resource_settlement",
+            "synth_ai.sdk.research.contracts.status",
+            "synth_ai.sdk.research.contracts.swarm_controls",
+            "synth_ai.sdk.research.contracts.swarm_history",
+            "synth_ai.sdk.research.contracts.swarm_rollouts",
+            "synth_ai.sdk.research.contracts.swarm_tasks",
+            "synth_ai.sdk.research.contracts.swarms",
+            "synth_ai.sdk.research.contracts.transcript",
+            "synth_ai.sdk.research.contracts.usage",
+            "synth_ai.sdk.research.events",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/traces.py",
+          "sha256": "b6a47974183d49439aa029aa26c2e1c8bcdca0636fa2ca3979ec2fc90ad7a197",
+          "lines": 800,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.traces",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/transport/__init__.py",
+          "sha256": "2277f393374781e0da49c1a6b823c79b66d8a5290b4af985422bb7a7da0b9a7f",
+          "lines": 6,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/transport/http.py",
+          "sha256": "a5633d4cdea86bcf872da1a7645637f9516802e6068a589bc8c357991a362990",
+          "lines": 429,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.errors",
+            "synth_ai.core.http.streaming",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.errors"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/research/transport/pagination.py",
+          "sha256": "35d07602cb00ee72fe8813b76b78dbe7f25e46205e46ba9a7b44edf91a54de05",
+          "lines": 7,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.pagination"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/version.py",
+          "sha256": "43601c03d4a9048333a8e5b392da66df76d16de1062378cfcf695dd4422064dd",
+          "lines": 43,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/visuals.py",
+          "sha256": "18122eac7c24ca706deded3b2660a17d456e23a67e502312442b32b8f7825754",
+          "lines": 636,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.transport",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.visuals",
+            "synth_ai.sdk.research.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/research/wiki.py",
+          "sha256": "42f74d6bf4c037ff695457d175f05cdb4711b10c627cbb201c67cebdc90a43f2",
+          "lines": 269,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.session.client"
+          ],
+          "explicit_any_import_count": 1
+        }
+      ]
+    },
+    {
+      "id": "replace_mcp_registry",
+      "path_count": 41,
+      "files": [
+        {
+          "path": "synth_ai/mcp/research/__init__.py",
+          "sha256": "a0efd760c3accd1cb33f8d76368f6328afaf114936237fc3042981121c081297",
+          "lines": 5,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.server"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/__main__.py",
+          "sha256": "cbbf69a9a6ab8d25a465504cc9dcb8156bc105d5c7b91d057a921ab9c81cbdb4",
+          "lines": 6,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.server"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/objective_tools.py",
+          "sha256": "006cb3972a6190293e6b4248fe05c4c604830f90d43a39d4faf56304b56862ac",
+          "lines": 34,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/registry.py",
+          "sha256": "f6ef979b1f40b736e4b140c51d63aa791e5503552c4bb11d36c232b13bc79e7a",
+          "lines": 360,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/request_models.py",
+          "sha256": "f5bdca959f80dd3ce59796b4ff7eeca85126ea77769ff9bb21b56e2810615d54",
+          "lines": 730,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_harnesses",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_branching",
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_evidence_obligations",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_roles",
+            "synth_ai.sdk.research.contracts.smr_run_policy",
+            "synth_ai.sdk.research.contracts.smr_runbooks",
+            "synth_ai.sdk.research.contracts.smr_runnable_project",
+            "synth_ai.sdk.research.contracts.smr_work_modes",
+            "synth_ai.sdk.research.contracts.swarms"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/server.py",
+          "sha256": "537f8f22b41afb8e07585ea7fe474ace4dba631996dc9ee86f866c5d45c73ed7",
+          "lines": 3100,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.core.errors",
+            "synth_ai.core.http.transport",
+            "synth_ai.mcp.research.objective_tools",
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.mcp.research.tools.approvals",
+            "synth_ai.mcp.research.tools.artifacts",
+            "synth_ai.mcp.research.tools.datasets",
+            "synth_ai.mcp.research.tools.environments",
+            "synth_ai.mcp.research.tools.exports",
+            "synth_ai.mcp.research.tools.factories",
+            "synth_ai.mcp.research.tools.factory_results",
+            "synth_ai.mcp.research.tools.files",
+            "synth_ai.mcp.research.tools.image_releases",
+            "synth_ai.mcp.research.tools.index",
+            "synth_ai.mcp.research.tools.integrations",
+            "synth_ai.mcp.research.tools.intern_program",
+            "synth_ai.mcp.research.tools.logs",
+            "synth_ai.mcp.research.tools.models",
+            "synth_ai.mcp.research.tools.outputs",
+            "synth_ai.mcp.research.tools.progress",
+            "synth_ai.mcp.research.tools.project_data",
+            "synth_ai.mcp.research.tools.projects",
+            "synth_ai.mcp.research.tools.prs",
+            "synth_ai.mcp.research.tools.readiness",
+            "synth_ai.mcp.research.tools.repos",
+            "synth_ai.mcp.research.tools.research_intern",
+            "synth_ai.mcp.research.tools.resource_reads",
+            "synth_ai.mcp.research.tools.resources",
+            "synth_ai.mcp.research.tools.runs",
+            "synth_ai.mcp.research.tools.scientific_records",
+            "synth_ai.mcp.research.tools.trained_models",
+            "synth_ai.mcp.research.tools.usage",
+            "synth_ai.mcp.research.tools.visuals",
+            "synth_ai.mcp.research.tools.workspace_inputs",
+            "synth_ai.sdk.index.client",
+            "synth_ai.sdk.index.scope_errors",
+            "synth_ai.sdk.index.timeouts",
+            "synth_ai.sdk.research.auth",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.activity",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.factory_operations",
+            "synth_ai.sdk.research.contracts.promotions",
+            "synth_ai.sdk.research.contracts.transcript",
+            "synth_ai.sdk.research.errors",
+            "synth_ai.sdk.research.session.client",
+            "synth_ai.sdk.research.version"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/__init__.py",
+          "sha256": "57f36043b40a83cb46d10e8c4943398573fd3680505b426b92e0f4d282e628c9",
+          "lines": 43,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.tools.datasets",
+            "synth_ai.mcp.research.tools.environments",
+            "synth_ai.mcp.research.tools.exports",
+            "synth_ai.mcp.research.tools.factories",
+            "synth_ai.mcp.research.tools.files",
+            "synth_ai.mcp.research.tools.image_releases",
+            "synth_ai.mcp.research.tools.intern_program",
+            "synth_ai.mcp.research.tools.models",
+            "synth_ai.mcp.research.tools.outputs",
+            "synth_ai.mcp.research.tools.progress",
+            "synth_ai.mcp.research.tools.project_data",
+            "synth_ai.mcp.research.tools.projects",
+            "synth_ai.mcp.research.tools.prs",
+            "synth_ai.mcp.research.tools.readiness",
+            "synth_ai.mcp.research.tools.repos",
+            "synth_ai.mcp.research.tools.research_intern",
+            "synth_ai.mcp.research.tools.runs",
+            "synth_ai.mcp.research.tools.visuals",
+            "synth_ai.mcp.research.tools.workspace_inputs"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/approvals.py",
+          "sha256": "1a933174d9692e15868598bbbbf54aba9aefaedbfff43d8271d7b4d5fd366e0e",
+          "lines": 100,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/artifacts.py",
+          "sha256": "8824a5f7cdc764bcc84a590364740073ed4103171faa4a87b893b8d133d5114a",
+          "lines": 100,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/datasets.py",
+          "sha256": "ad1e884395f363df8dc1be411f41dd56f46980d8c506761241d50a74e36bcccd",
+          "lines": 54,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/environments.py",
+          "sha256": "3cefff03e8b7605217670d68b94968a286a7f93b716e8b92015984ef430151c8",
+          "lines": 205,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.environment_manifest"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/exports.py",
+          "sha256": "088cb5f6e279e763415696d9b3204d2fae5c70b99980fe883c879d03ae376a36",
+          "lines": 38,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/factories.py",
+          "sha256": "165d23364444ca6f7e9ed3d0579741878f909c1a6d91bbd45425b9c788bf72fa",
+          "lines": 1049,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.research.contracts.factory_operations"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/factory_results.py",
+          "sha256": "90fd80e46bd560bd2c439d204a0e98ef0271c5962a4e2bce0eac2fd25106ebff",
+          "lines": 455,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.research.contracts.factory_lenses"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/files.py",
+          "sha256": "28c4fdea7e7126b23f99b410e7f72cf182cb592fefd7321ee13a347a4d57e933",
+          "lines": 59,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/image_releases.py",
+          "sha256": "28f165d136d00b98f9c70942ef03cb6777d9ee4ccba901e58684d6df529b9016",
+          "lines": 131,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.image_releases"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/index.py",
+          "sha256": "6ed126fb9759febc89f8e8c4e805a0ec1f10b41e85fde0f20842c2d7eac47154",
+          "lines": 496,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.tools.index_qa",
+            "synth_ai.sdk.index.catalog",
+            "synth_ai.sdk.index.client",
+            "synth_ai.sdk.index.contracts",
+            "synth_ai.sdk.index.contributions",
+            "synth_ai.sdk.index.local_files",
+            "synth_ai.sdk.index.public_search",
+            "synth_ai.sdk.index.search",
+            "synth_ai.sdk.index.submission",
+            "synth_ai.sdk.index.wallet_search"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/index_qa.py",
+          "sha256": "b91d5581b6838f1ae090f6a0d655acd10258b16b0a055eb856a7432fc4d22605",
+          "lines": 695,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.index.client",
+            "synth_ai.sdk.index.contracts",
+            "synth_ai.sdk.index.contributions",
+            "synth_ai.sdk.index.lifecycle",
+            "synth_ai.sdk.index.qa",
+            "synth_ai.sdk.index.qa_checks",
+            "synth_ai.sdk.index.qa_preflight",
+            "synth_ai.sdk.index.qa_reviews",
+            "synth_ai.sdk.index.rights",
+            "synth_ai.sdk.index.scopes"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/integrations.py",
+          "sha256": "3db17dfd1fd964b2e748d35b0cdec766eb508168168f1a01390e3d3fedf2929c",
+          "lines": 57,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/intern_program.py",
+          "sha256": "c4e46b9d1c0204fbc9f96c91597af56cb702289deac3d630531b9d04fd90459d",
+          "lines": 793,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.intern_program"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/launch_schemas.py",
+          "sha256": "9671c8aa59ba2cd2dd41b20060bdd09e56207ad7e3f11b55d2e3ecdb21b60145",
+          "lines": 65,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/local_files.py",
+          "sha256": "2b29e6da43dbbd9729ed0d8c90d1c581635348ae218231b70f80a9fdf9ca42ba",
+          "lines": 5,
+          "static_first_party_imports": [
+            "synth_ai.core.local_files"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/logs.py",
+          "sha256": "c2e0bf5908a5b88309070234c42993f0222181a0636446e03f684fc60b708e66",
+          "lines": 27,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/models.py",
+          "sha256": "676dc10a680d9b71a690579b62d92fc1d24a3df2982f739c2105a6a331887d3b",
+          "lines": 60,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/outputs.py",
+          "sha256": "2047c9f59b7db5b5a7ddeed298dc7cf57b278e5a05e23eb4f4b1901f984d8945",
+          "lines": 110,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/policy_schemas.py",
+          "sha256": "6c5c0c3e82c858cdc67130d08f0253cd16401e0bf860134655eb05cef91411de",
+          "lines": 69,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_inference_providers",
+            "synth_ai.sdk.research.contracts.smr_tool_providers"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/progress.py",
+          "sha256": "bfea0a8e68e1bbaf1da89531f867fb204bd20c1a3c0b45bb5d88d463994badfa",
+          "lines": 327,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.tools.launch_schemas",
+            "synth_ai.mcp.research.tools.policy_schemas",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_evidence_obligations",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_work_modes"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/project_data.py",
+          "sha256": "25b9f8a5d7861806bad267386eb2b650258f3ce9cbb08ea2e8f6e10c6d2e08b5",
+          "lines": 256,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.project_data"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/projects.py",
+          "sha256": "3ba109377b4cdd9701d5ce78d9be8e8dc3b5da7b31195aa77b1c211b12bb9b53",
+          "lines": 850,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.objective_tools",
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_credential_providers",
+            "synth_ai.sdk.research.contracts.smr_environment_kinds",
+            "synth_ai.sdk.research.contracts.smr_funding_sources",
+            "synth_ai.sdk.research.contracts.smr_runtime_kinds"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/prs.py",
+          "sha256": "736ba5498796bce6ef349e88d5edcf6ae6d28dd640001f4aecf0a2250660623e",
+          "lines": 36,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/readiness.py",
+          "sha256": "b94fe64ec53ff54d1a72d96bf36773191cbf99aa3f7e2f702ddbfae4053513db",
+          "lines": 24,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/repos.py",
+          "sha256": "454966de9f179931ef0feaef6b92136b47e9cee8df9c04148c1ba84073162aef",
+          "lines": 49,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/research_intern.py",
+          "sha256": "fb35fe338e8304a7dbbb662158ec8e56120941b34fd17a4739e95797949390e6",
+          "lines": 1341,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.research_intern"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/resource_reads.py",
+          "sha256": "322a4622c0ca4ba3eb7e9660aef35192dbcb4ff601133d925ab8729b1f506177",
+          "lines": 178,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.resource_reads"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/resources.py",
+          "sha256": "45148fb8b195ac4323ab397fefa3b815ba0503ab1bb53fc19638846c9ed67653",
+          "lines": 238,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/runs.py",
+          "sha256": "ce350cc00115681be81af274ff15af41520dfd4a69e57b764c1c1de6e3ea7db5",
+          "lines": 2002,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.tools.launch_schemas",
+            "synth_ai.mcp.research.tools.policy_schemas",
+            "synth_ai.sdk.research.contracts.run_control",
+            "synth_ai.sdk.research.contracts.runtime_intent",
+            "synth_ai.sdk.research.contracts.smr_actor_models",
+            "synth_ai.sdk.research.contracts.smr_agent_kinds",
+            "synth_ai.sdk.research.contracts.smr_agent_models",
+            "synth_ai.sdk.research.contracts.smr_evidence_obligations",
+            "synth_ai.sdk.research.contracts.smr_horizons",
+            "synth_ai.sdk.research.contracts.smr_host_kinds",
+            "synth_ai.sdk.research.contracts.smr_providers",
+            "synth_ai.sdk.research.contracts.smr_work_modes"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/scientific_records.py",
+          "sha256": "910f5fa8eb207a94e85f111e95616ddbb5ec06107a012b3fc22a7f9a9f3c98dc",
+          "lines": 230,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.sdk.research.contracts.forge.contracts",
+            "synth_ai.sdk.research.contracts.forge.records",
+            "synth_ai.sdk.research.scientific_records"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/trained_models.py",
+          "sha256": "c893528159ebf408de0518316fa2dd4fbc91ef43dbf99b28b74ae25202ccb7b8",
+          "lines": 187,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/usage.py",
+          "sha256": "c7907315261d6c3297e00d56abe0b8fb5d65c2db74a865c8a6006dd113c0f2ad",
+          "lines": 200,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/visuals.py",
+          "sha256": "09b2cea1eff1b24a50887496609f297b24d1113a805f2fc9e2dc229090531c02",
+          "lines": 491,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.visuals"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/mcp/research/tools/workspace_inputs.py",
+          "sha256": "246052ac9365b036c66803b8b71d2f97000c0ba9fa70a43610a1e5bd3dfc71ae",
+          "lines": 262,
+          "static_first_party_imports": [
+            "synth_ai.mcp.research.registry",
+            "synth_ai.mcp.research.request_models",
+            "synth_ai.sdk.research.client",
+            "synth_ai.sdk.research.contracts.common",
+            "synth_ai.sdk.research.contracts.workspaces"
+          ],
+          "explicit_any_import_count": 0
+        }
+      ]
+    },
+    {
+      "id": "replace_cli_catalog",
+      "path_count": 10,
+      "files": [
+        {
+          "path": "synth_ai/cli/__init__.py",
+          "sha256": "cb07fb132c1bf691ef648489ed87bc6dfe50022f7fb769d598c7f3d1969c7021",
+          "lines": 5,
+          "static_first_party_imports": [
+            "synth_ai.cli.main"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/__main__.py",
+          "sha256": "fd7cb6ae0667d7a55837afee444e9f2c9ca2d8a5ac90e824d6a55a7b89788e7b",
+          "lines": 7,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/index.py",
+          "sha256": "5950ba5a8ff1ab257615b2bc819e55c4c0f2f5634581d12921de35a486c35fed",
+          "lines": 1496,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.core.errors",
+            "synth_ai.sdk.index",
+            "synth_ai.sdk.index.classification",
+            "synth_ai.sdk.index.contracts",
+            "synth_ai.sdk.index.contributions",
+            "synth_ai.sdk.index.lifecycle",
+            "synth_ai.sdk.index.local_files",
+            "synth_ai.sdk.index.manifest",
+            "synth_ai.sdk.index.qa",
+            "synth_ai.sdk.index.qa_reviews",
+            "synth_ai.sdk.index.research",
+            "synth_ai.sdk.index.research.build",
+            "synth_ai.sdk.index.research.capture",
+            "synth_ai.sdk.index.research.contracts",
+            "synth_ai.sdk.index.research.files",
+            "synth_ai.sdk.index.research_intake",
+            "synth_ai.sdk.index.rights",
+            "synth_ai.sdk.index.scope_errors",
+            "synth_ai.sdk.index.scopes",
+            "synth_ai.sdk.index.search",
+            "synth_ai.sdk.index.submission"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/main.py",
+          "sha256": "6c4016e0cb9e9d6cd064eaddd91231ca3a8ea73aec0a4276dd4d8a86ea0d2d79",
+          "lines": 28,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.cli.index",
+            "synth_ai.cli.research"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/research.py",
+          "sha256": "a54c13513e09a59b8320849562f3289f2ecf95bfabaf4c4801075d6f8bc0f856",
+          "lines": 412,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.cli.research_environments",
+            "synth_ai.cli.research_image_releases",
+            "synth_ai.cli.research_projects",
+            "synth_ai.cli.utils.research_launch",
+            "synth_ai.core.utils.env",
+            "synth_ai.core.utils.urls",
+            "synth_ai.sdk.research.contracts.tag",
+            "synth_ai.sdk.research.public"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/research_environments.py",
+          "sha256": "1c1bf3f886554e7bb4a9ea479836cf9aac065d63a4ce33da0185e1873446c277",
+          "lines": 143,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.core.utils.env",
+            "synth_ai.core.utils.urls",
+            "synth_ai.sdk.research.public"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/research_image_releases.py",
+          "sha256": "e30e65315bfd6b5e3038348315922ede1e32c87b18ba4f05a0db608c4c9f8d6f",
+          "lines": 149,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.utils.env",
+            "synth_ai.core.utils.urls",
+            "synth_ai.sdk.research.public"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/research_projects.py",
+          "sha256": "1883a627b34710bb9265e80a24032c78e0a7f8d4f8aac0c4f1ee01f0fb011919",
+          "lines": 407,
+          "static_first_party_imports": [
+            "synth_ai",
+            "synth_ai.core.utils.env",
+            "synth_ai.core.utils.urls",
+            "synth_ai.sdk.research.public"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/utils/__init__.py",
+          "sha256": "d7f9c2be8e411de027de77d9c305f3b641e49820044656dfb501d0f2bc217f65",
+          "lines": 1,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/cli/utils/research_launch.py",
+          "sha256": "cd177df37f8baf1860652ae96881ab5c299b9fd607671d303818a5125923a54f",
+          "lines": 165,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.public"
+          ],
+          "explicit_any_import_count": 0
+        }
+      ]
+    },
+    {
+      "id": "consolidate_index",
+      "path_count": 44,
+      "files": [
+        {
+          "path": "synth_ai/sdk/index/__init__.py",
+          "sha256": "77bf512d97144db3f5ed5b616687181f38538d84df9f86593084acc418ba3106",
+          "lines": 358,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/agent_policy.py",
+          "sha256": "5af95bfe3e4ee7637751c98f64c98fc54bc6f941b45e5bb9d8ba74420ce1d4b9",
+          "lines": 36,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/artifacts.py",
+          "sha256": "cd6b26d33bf8637b508c7597dd4ff474e7320459087fc4825c1f1e492b4ced99",
+          "lines": 270,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/catalog.py",
+          "sha256": "536ad6781967cdca987e456b3243aeece773e7662e179d2dab40726c43d4cee8",
+          "lines": 444,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/catalogue.py",
+          "sha256": "20f1914b99a019a6cf10b603cbf0e4b1501d2e560fb68832284580f24b951e33",
+          "lines": 42,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/classification.py",
+          "sha256": "1206c2e467ebae178ef048cf2abded036cdf6156116878dd3a29de183bc87f82",
+          "lines": 78,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/client.py",
+          "sha256": "82e818aff8d063f3ba91002c33f0ad48dfae668306bb0299d697c3c008eba958",
+          "lines": 3357,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/index/contracts.py",
+          "sha256": "f1258f86360fd8393c973d8dbf7f2c548709cdf8935c6d784fd29d1b814cde3c",
+          "lines": 73,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/contributions.py",
+          "sha256": "5c7c5feead0cf98fa2b88942a84098e8b132541f88f0c0b72183ff601ca6dd0c",
+          "lines": 193,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.forge.contracts",
+            "synth_ai.sdk.research.contracts.forge.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/errors.py",
+          "sha256": "0c0100daa455cf1c8fcc84da9353f5af646b52b694d39e102c2dab21c8762c31",
+          "lines": 252,
+          "static_first_party_imports": [
+            "synth_ai.core.errors"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/forge_notices.py",
+          "sha256": "3adf28fc049cc1dc3ef58694ea0275f4c1351c4a4d18d68e28dee9fd3923dc6d",
+          "lines": 65,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.forge.contracts"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/intake.py",
+          "sha256": "3f2cea80f3948a9ae9f6d99cb053ae9462381c83a13de2e58f83568a252b154e",
+          "lines": 77,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/lifecycle.py",
+          "sha256": "88ce2eea2bf3af192eccd8cd59dc78f6b6653cd9a7d1a201acc53415d7ad08da",
+          "lines": 239,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/local_files.py",
+          "sha256": "cc32500015e49c821bbf34142eaac00ef6f57e4fdd4b5cd4487097ec10ff3b8c",
+          "lines": 32,
+          "static_first_party_imports": [
+            "synth_ai.core.local_files"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/manifest.py",
+          "sha256": "dfb53d1328a1641635447d130c65d6ff894a7aaea2757d301301d5707060d25b",
+          "lines": 110,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/oauth.py",
+          "sha256": "b87b2cc269bbdbcf4d8a5a79da11458e5cb87e18095e5f95060608b42b806148",
+          "lines": 82,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/package.py",
+          "sha256": "f712f76fcc6bcb917b3bee922320ed06b2024748a5da41ee5aec895d5b8a3a04",
+          "lines": 245,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/public.py",
+          "sha256": "501334ffeddef50a74d0576b2488ad87f207c85b16c410faf3d2024d8bb9c806",
+          "lines": 80,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.transport",
+            "synth_ai.core.utils.urls"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/public_corpus.py",
+          "sha256": "68d25dc4a62a3b809ce32bb9e305bad65a27ea24fa7c65b67b0e2035544ee4c8",
+          "lines": 103,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/public_search.py",
+          "sha256": "684fdb7c463e4a665dddec8d6218fa4f672821bfed8239d3746383e7ca5ae0f4",
+          "lines": 939,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/index/qa.py",
+          "sha256": "73f7c88d2b7eaabd3036abccd5110360f2b5b2dad482f9ef5364e08e1aaa4f62",
+          "lines": 214,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/qa_checks.py",
+          "sha256": "b8d9f532451efa55b9b5f2a98f1fc19593492cff3e95956d587eb094a3e16b9b",
+          "lines": 255,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/qa_preflight.py",
+          "sha256": "108be5060d65b88074bea24023e554c1bc3111337e24b3482e8851867289d1af",
+          "lines": 70,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/qa_reviews.py",
+          "sha256": "1b7c76dbefd758dd4a4689bb469598433260204b756a6480b4fdc3f74317b338",
+          "lines": 224,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research/__init__.py",
+          "sha256": "d8c0ceb7a5e44ae3e558351a78794783416ac532cba9fbdabfcd58de32ada922",
+          "lines": 59,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research/build.py",
+          "sha256": "4741271684668954b90164c5cdb387f75e381bfd218cbf75eb8ebe11b1ab0fa0",
+          "lines": 342,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research/capture.py",
+          "sha256": "4d40915219f3c0b0e674eeb7fb0e104035fd5f4286df2121b6460f5e63fb8ed7",
+          "lines": 772,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research/contracts.py",
+          "sha256": "c32af36760b4dc0d9ea91447c13e244c5832374eccf01d4495fcdb42cdf09ae9",
+          "lines": 563,
+          "static_first_party_imports": [
+            "synth_ai.sdk.research.contracts.forge.operations"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research/files.py",
+          "sha256": "e1939d18d9278898394fbb9c5dcdc39ffbdf5494ed4de7d7e56d573fbbb46ac6",
+          "lines": 128,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research/release.py",
+          "sha256": "9f3fa4d4f2c8329026e4366b3d982dabba1f16bb0ec0905fa4363bfc35053d5a",
+          "lines": 129,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/research_intake.py",
+          "sha256": "87f31340ef8680d14871158bceba2918c39e357ac84ccf289323603f47f90f2d",
+          "lines": 463,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/retry.py",
+          "sha256": "849c41e5edd87446f1bd2e6581929d1ff74766282247b80c0755842bdf79e75e",
+          "lines": 107,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/rights.py",
+          "sha256": "dbbcaf37891eda105665c6fa677030b4b62b095bfc82d1ae3a0291e30870ad7a",
+          "lines": 65,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/scientific_provenance.py",
+          "sha256": "6e9ca38c68bdb79a4103fae91a62abcb3cd2806e30685136043f88582873afbf",
+          "lines": 49,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/scope_errors.py",
+          "sha256": "2f520a05ecbd62204ef060bf335878d09afefa9ddef8630bcc6fc336a58e492a",
+          "lines": 151,
+          "static_first_party_imports": [
+            "synth_ai.core.errors"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/index/scopes.py",
+          "sha256": "d06f506ae691b12a5008771a1dd47d8f2d92ac4d5c32758b5e8e48a8d85df24a",
+          "lines": 78,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/search.py",
+          "sha256": "c09d3fd21630621b125e44f0333b0b70451da5f9d795f120f3163320485abdb7",
+          "lines": 531,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/submission.py",
+          "sha256": "1e7cd5d1f9156acff089eb2b0f039e86aaaa3fb090c4eb02ba5b59b3f78167ed",
+          "lines": 32,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/timeouts.py",
+          "sha256": "def6712a5844adef198f67160ec907acc9eba5d7324323eaf6d4e3f47b52939d",
+          "lines": 6,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/transfer.py",
+          "sha256": "3d68a83e31f91d4c1570ac20ea32ebb2ab1787e6e942bfbed8fd87f95463d05e",
+          "lines": 330,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/upload_session.py",
+          "sha256": "333740fe5e88ee401cbffaff744e4922e39342eee127531fb08158a11cf112b0",
+          "lines": 250,
+          "static_first_party_imports": [
+            "synth_ai.sdk.index.contributions",
+            "synth_ai.sdk.index.local_files",
+            "synth_ai.sdk.index.transfer"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/sdk/index/usage_accounting.py",
+          "sha256": "934e0be37bde97eeb126b50a788259efcfc9b26a8fc6105cf3feacfceafbfb51",
+          "lines": 201,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/value.py",
+          "sha256": "28f313dfcd577530d1bda0d9df9c8e60c2aa5f87e8e1692d24c214b4f5b440e6",
+          "lines": 236,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/index/wallet_search.py",
+          "sha256": "a835340da5ec502131e8cae7450fb1649e8e7dc3a9c421e2745a42cf477cc985",
+          "lines": 176,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.sdk.index.catalog",
+            "synth_ai.sdk.index.search"
+          ],
+          "explicit_any_import_count": 1
+        }
+      ]
+    },
+    {
+      "id": "audit_retained_core",
+      "path_count": 23,
+      "files": [
+        {
+          "path": "synth_ai/__main__.py",
+          "sha256": "28c4da457cd8efe6e3d5747d42998d5e4adf8abbb618dd2b3d63619166eda0ef",
+          "lines": 7,
+          "static_first_party_imports": [
+            "synth_ai.cli"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/__init__.py",
+          "sha256": "eb83ac5139eb57a1dc42a4b42afec41eb28227a11ad14b3eee2203471ab4d7b3",
+          "lines": 7,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/auth/__init__.py",
+          "sha256": "8451dde962cfbc73268b8f6f0a169b1217fdae3f0ff645dc1fcb215806f74fae",
+          "lines": 4,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/auth/credentials.py",
+          "sha256": "f172afbb9264b93a596b90c2e6b779f8988e07599c85b2f632555ae928614e25",
+          "lines": 42,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.core.utils.env"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/contracts/__init__.py",
+          "sha256": "32b507a52a503bf6e38f05df17ce41b44617cf6fb1955baea3e71abefa12ceab",
+          "lines": 4,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/contracts/json_value.py",
+          "sha256": "2b7eb0a572cd6223004319e665944a33be86ecfd6041dc6a68d20e45e52214d1",
+          "lines": 13,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/contracts/pagination.py",
+          "sha256": "73cc4bca99c0daffbe1b304e75e5500cabd8c92f96588666974a93638cd185cc",
+          "lines": 35,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/errors.py",
+          "sha256": "1e5365d8e88c2304ec0cdbacb39ac6062bed07284773b0a611ecec1acc5e5c7f",
+          "lines": 349,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/core/http/__init__.py",
+          "sha256": "00bc2dbb09d0631ae8d531d6fc7445a27740d00501c3efc2817bfc0f1583aa97",
+          "lines": 19,
+          "static_first_party_imports": [
+            "synth_ai.core.http.async_transport",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.retry",
+            "synth_ai.core.http.streaming",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/http/async_transport.py",
+          "sha256": "9a0c570e202c2b11cccc1dbb41577c3469b354bedecd4ec30fbaf6a5ce71f4ac",
+          "lines": 228,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.retry",
+            "synth_ai.core.http.streaming",
+            "synth_ai.core.http.transport"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/core/http/request.py",
+          "sha256": "0adced62ebefce1cc1f7bed35067c057787cbb61f3cfe7c63d19bbdf7f9f34fd",
+          "lines": 46,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/http/retry.py",
+          "sha256": "d9b497de0db1cb997ad488e977d897cfc4556bb7d5ef1b9ddabb38e20c6e6dc0",
+          "lines": 135,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.core.http.request"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/http/streaming.py",
+          "sha256": "0f9d4b90f0acadaff7fb364260c0d892695a9b0ebba503ad19b2610522c89d2c",
+          "lines": 88,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/http/transport.py",
+          "sha256": "da7ffde8db567348de890625f6cc20c64d77328201caefa2c0d85ebf6dbe51a2",
+          "lines": 608,
+          "static_first_party_imports": [
+            "synth_ai.core.contracts.json_value",
+            "synth_ai.core.errors",
+            "synth_ai.core.http.request",
+            "synth_ai.core.http.retry",
+            "synth_ai.core.http.streaming"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/core/local_files.py",
+          "sha256": "54897a5a0b1be3d0b64d8d0da256ab737466da63d1a74a869cf3bdae88dc0411",
+          "lines": 73,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/research/__init__.py",
+          "sha256": "b644ac9e9dfd7e78d6c6a0ba83d56105d9ac876f443831aa5e36ebb5c79234b2",
+          "lines": 143,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/core/utils/__init__.py",
+          "sha256": "07c0b4c4819e7dda8e470eb272888fe1128daa675f1dd0786cc1b750cde0d0b1",
+          "lines": 6,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/utils/env.py",
+          "sha256": "4a7f90962949c324405fc210833e1774bc8a7b66178ed2456eb8d904e25fd26e",
+          "lines": 75,
+          "static_first_party_imports": [
+            "synth_ai.core.errors",
+            "synth_ai.core.utils.paths"
+          ],
+          "explicit_any_import_count": 1
+        },
+        {
+          "path": "synth_ai/core/utils/log_filter.py",
+          "sha256": "25729f55e44c0ee5ed3f07315e1806190843c8737a5cb21a928d5fe9b65c9fa3",
+          "lines": 71,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/utils/paths.py",
+          "sha256": "78d5413b0f86da0f5106ce94408c04c60e432e4c2560d652e6a0411e1af670a0",
+          "lines": 10,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/core/utils/urls.py",
+          "sha256": "d7ccf379c8e912437af602946d8ef29e2b0e522d2ed60084ebfdf331329598d3",
+          "lines": 166,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/__init__.py",
+          "sha256": "54f5ab6f4947fcc93e471d32dca1348e9e22ba5e90707b7d9b69bda08b289c26",
+          "lines": 8,
+          "static_first_party_imports": [
+            "synth_ai.sdk.pagination"
+          ],
+          "explicit_any_import_count": 0
+        },
+        {
+          "path": "synth_ai/sdk/pagination.py",
+          "sha256": "8b239ff13b3e73071af732a7437f2ed041a040e8067d279b1c1bc9d0ff1ec16c",
+          "lines": 41,
+          "static_first_party_imports": [],
+          "explicit_any_import_count": 0
+        }
+      ]
+    }
+  ],
+  "retained_port_material": [
+    "Index search/content/contribution/rights/accounting implementations",
+    "Index intake/upload/local-file helpers pending typed replacement review",
+    "Shared auth/HTTP/error substrate"
+  ]
+}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-09 (unpublished candidate)
+
+- Prepared `0.22.2.dev20261009` with the matching Tunnel v2 Containers pool dependency.
+- Added purpose-bound origin operation lookup, cancellation and independent management revocation.
+
 ## 0.22.1 — 2026-09-30
 
 ### Fixed
