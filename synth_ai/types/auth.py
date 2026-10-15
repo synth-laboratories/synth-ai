@@ -11,7 +11,7 @@ class AuthContext(ResponseModel):
     tenant_id: Identifier
     subject_id: Identifier
     credential_id: Identifier
-    credential_kind: Literal["api_key", "oauth"]
+    credential_kind: Literal["api_key", "oauth", "session"]
     oauth_client_id: Identifier | None
     subject_kind: Literal["user", "service"]
     scopes: tuple[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.:-]{0,127}$")], ...] = Field(

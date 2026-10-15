@@ -242,3 +242,8 @@ pytest.*.ini
 # Misc temp artifacts
 engine_bench_eval_timing.json
 greptile.json
+
+# Owned auth candidate packaging and isolated CLI environment
+/.build-auth/
+/.uv-auth-cache/
+/.venv-auth/

@@ -16,6 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
+synth-ai = "synth_ai.cli.main:main"
 synth-ai-mcp = "synth_ai.mcp_entrypoint:main"
 
 [project.urls]
@@ -24,6 +25,7 @@ Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 
 [project.optional-dependencies]
+auth = ["keyring>=25,<26"]
 mcp = [
     "mcp>=1.30,<2",
 ]
@@ -55,6 +57,7 @@ include-package-data = true
 [tool.setuptools.package-data]
 "synth_ai" = [
     "py.typed",
+    "contracts/snapshots/*.json",
 ]
 
 [tool.ruff]

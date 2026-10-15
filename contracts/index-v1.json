@@ -400,7 +400,8 @@
         "credential_kind": {
           "enum": [
             "api_key",
-            "oauth"
+            "oauth",
+            "session"
           ],
           "title": "Credential Kind",
           "type": "string"

@@ -64,7 +64,7 @@ class VerifiedPrincipal(Model):
     subject: Identifier
     organization_id: Identifier
     client_id: Identifier
-    credential_kind: Literal["oauth", "api_key"]
+    credential_kind: Literal["oauth", "api_key", "session"]
     resource: str = Field(min_length=1, max_length=2048)
     issuer: str = Field(min_length=1, max_length=2048)
     expires_at: StrictInt = Field(gt=0)
@@ -246,7 +246,7 @@ def create_http_app(
             yield
 
     scopes = sorted(
-        {tool.scope for tool in TOOLS if tool.name in enabled_tools and tool.scope is not None}
+        {"synth:read", "synth:action", "user:org:read"} | {tool.scope for tool in TOOLS if tool.name in enabled_tools and tool.scope is not None}
     )
     routes = create_protected_resource_routes(
         resource, [issuer], scopes_supported=scopes, resource_name="Synth Index and Swarms"

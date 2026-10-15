@@ -24,6 +24,11 @@ DEFAULT_BASE_URL = "https://api.usesynth.ai"
 
 def resolve_key(api_key: str | None) -> str:
     selected = api_key if api_key is not None else os.environ.get("SYNTH_API_KEY")
+    if selected is None:
+        from synth_ai.auth.oauth import stored_access_token
+        from synth_ai.auth.storage import default_store
+
+        selected = stored_access_token(default_store())
     if not selected or not selected.strip() or any(character in selected for character in "\r\n"):
         raise AuthenticationError("Provide an API key explicitly or through SYNTH_API_KEY")
     return selected.strip()
@@ -31,7 +36,7 @@ def resolve_key(api_key: str | None) -> str:
 
 def resolve_url(base_url: str | None) -> str:
     return validate_base_url(
-        base_url if base_url is not None else os.environ.get("SYNTH_BACKEND_URL", DEFAULT_BASE_URL)
+        base_url if base_url is not None else os.environ.get("SYNTH_API_URL", os.environ.get("SYNTH_BACKEND_URL", DEFAULT_BASE_URL))
     )
 
 
