@@ -525,7 +525,9 @@ class HttpTransport:
         except (json.JSONDecodeError, ValueError) as exc:
             self.decode_error_handler(method, path, response, exc, operation_id)
 
-    def execute(self, request: HttpRequest) -> JsonValue:
+    def execute(
+        self, request: HttpRequest, *, response_metadata: ResponseMetadata | None = None
+    ) -> JsonValue:
         attempt_index = 0
         while True:
             try:
@@ -537,6 +539,7 @@ class HttpTransport:
                     headers=request.headers,
                     timeout_seconds=request.timeout_seconds,
                     operation_id=str(request.operation.operation_id),
+                    response_metadata=response_metadata,
                 )
             except Exception as error:
                 if attempt_index + 1 >= self.retry_policy.attempts_max:

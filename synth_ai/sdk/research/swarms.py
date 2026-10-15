@@ -9,6 +9,7 @@ from typing import cast
 from urllib.parse import quote
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.contracts.rate_limits import ResponseMetadata
 from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
@@ -352,12 +353,14 @@ class SwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        response_metadata: ResponseMetadata | None = None,
     ) -> SwarmPreflight:
         """Validate a typed Swarm specification before creation.
 
         Args:
             request: Swarm specification to serialize into the preflight request body.
             project_id: Optional Project that should own the Swarm.
+            response_metadata: Caller-owned capacity metadata from the final response.
 
         Returns:
             The preflight result returned by the backend.
@@ -368,7 +371,10 @@ class SwarmsAPI:
         else:
             operation_id = "preflight_project_run"
             path = f"/smr/projects/{project_id}/launch-preflight"
-        value = self._transport.execute(_request(operation_id, path, body=request.to_wire()))
+        value = self._transport.execute(
+            _request(operation_id, path, body=request.to_wire()),
+            response_metadata=response_metadata,
+        )
         return SwarmPreflight.from_wire(value)
 
     def create(
@@ -376,6 +382,7 @@ class SwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        response_metadata: ResponseMetadata | None = None,
         runtime_binding_context_id: str | None = None,
     ) -> SwarmHandle:
         """Create a Swarm from a typed Swarm specification.
@@ -384,6 +391,7 @@ class SwarmsAPI:
         Args:
             request: Swarm specification to serialize into the create request body.
             project_id: Optional Project that should own the Swarm.
+            response_metadata: Caller-owned capacity metadata from the final response.
             runtime_binding_context_id: Opaque manager-issued placement context
                 redeemed by the backend for this project trigger only.
 
@@ -409,7 +417,8 @@ class SwarmsAPI:
                 raise ValueError("runtime_binding_context_id must be a non-empty header value")
             headers["X-Synth-Runtime-Binding-Context"] = runtime_binding_context_id
         value = self._transport.execute(
-            _request(operation_id, path, body=request.to_wire(), headers=headers)
+            _request(operation_id, path, body=request.to_wire(), headers=headers),
+            response_metadata=response_metadata,
         )
         return SwarmHandle(self, Swarm.from_wire(value))
 
@@ -1087,12 +1096,14 @@ class AsyncSwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        response_metadata: ResponseMetadata | None = None,
     ) -> SwarmPreflight:
         """Validate a typed Swarm specification before creation.
 
         Args:
             request: Swarm specification to serialize into the preflight request body.
             project_id: Optional Project that should own the Swarm.
+            response_metadata: Caller-owned capacity metadata from the final response.
 
         Returns:
             The preflight result returned by the backend.
@@ -1103,7 +1114,10 @@ class AsyncSwarmsAPI:
         else:
             operation_id = "preflight_project_run"
             path = f"/smr/projects/{project_id}/launch-preflight"
-        value = await self._transport.execute(_request(operation_id, path, body=request.to_wire()))
+        value = await self._transport.execute(
+            _request(operation_id, path, body=request.to_wire()),
+            response_metadata=response_metadata,
+        )
         return SwarmPreflight.from_wire(value)
 
     async def create(
@@ -1111,6 +1125,7 @@ class AsyncSwarmsAPI:
         request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
+        response_metadata: ResponseMetadata | None = None,
         runtime_binding_context_id: str | None = None,
     ) -> AsyncSwarmHandle:
         """Create a Swarm from a typed Swarm specification.
@@ -1119,6 +1134,7 @@ class AsyncSwarmsAPI:
         Args:
             request: Swarm specification to serialize into the create request body.
             project_id: Optional Project that should own the Swarm.
+            response_metadata: Caller-owned capacity metadata from the final response.
             runtime_binding_context_id: Opaque manager-issued placement context
                 redeemed by the backend for this project trigger only.
 
@@ -1144,7 +1160,8 @@ class AsyncSwarmsAPI:
                 raise ValueError("runtime_binding_context_id must be a non-empty header value")
             headers["X-Synth-Runtime-Binding-Context"] = runtime_binding_context_id
         value = await self._transport.execute(
-            _request(operation_id, path, body=request.to_wire(), headers=headers)
+            _request(operation_id, path, body=request.to_wire(), headers=headers),
+            response_metadata=response_metadata,
         )
         return AsyncSwarmHandle(self, Swarm.from_wire(value))
 
