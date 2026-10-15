@@ -752,9 +752,8 @@
           "oauth_client_id": {
             "anyOf": [
               {
-                "maxLength": 128,
+                "maxLength": 2048,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               {
