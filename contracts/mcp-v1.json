@@ -9594,8 +9594,8 @@
             "additionalProperties": false,
             "properties": {
               "default": {
-                "const": "gpt-5.6-luna",
-                "default": "gpt-5.6-luna",
+                "const": "gpt-6-luna",
+                "default": "gpt-6-luna",
                 "title": "Default",
                 "type": "string"
               }
@@ -10271,8 +10271,8 @@
             "additionalProperties": false,
             "properties": {
               "default": {
-                "const": "gpt-5.6-luna",
-                "default": "gpt-5.6-luna",
+                "const": "gpt-6-luna",
+                "default": "gpt-6-luna",
                 "title": "Default",
                 "type": "string"
               }
@@ -12708,14 +12708,107 @@
             "title": "RunFailure",
             "type": "object"
           },
+          "TaskExecutionFacts": {
+            "additionalProperties": false,
+            "description": "Independent native execution facts; activity does not assert finality.",
+            "properties": {
+              "activity": {
+                "items": {
+                  "enum": [
+                    "run_held",
+                    "operator_held",
+                    "assignment_held",
+                    "output_publication_pending",
+                    "reviewer_assessment",
+                    "review_approved",
+                    "orchestrator_repair",
+                    "repair_requested",
+                    "repair_dispatch_due",
+                    "allocation_without_session",
+                    "session_without_completion",
+                    "stop_requested"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "title": "Activity",
+                "type": "array"
+              },
+              "closing_recorded": {
+                "title": "Closing Recorded",
+                "type": "boolean"
+              },
+              "finalizer": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "positive",
+                      "negative",
+                      "limit",
+                      "no_launch",
+                      "dispatch_abort",
+                      "limit_dispatch_abort"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Finalizer"
+              },
+              "outcome": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "succeeded",
+                      "failed",
+                      "cancelled"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Outcome"
+              },
+              "physical_completion_count": {
+                "maximum": 4294967295,
+                "minimum": 0,
+                "title": "Physical Completion Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "activity",
+              "physical_completion_count",
+              "finalizer",
+              "outcome",
+              "closing_recorded"
+            ],
+            "title": "TaskExecutionFacts",
+            "type": "object"
+          },
           "TaskOutcome": {
             "additionalProperties": false,
             "properties": {
               "attempts": {
-                "maximum": 100,
+                "maximum": 4294967295,
                 "minimum": 0,
                 "title": "Attempts",
                 "type": "integer"
+              },
+              "execution": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TaskExecutionFacts"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               },
               "failure": {
                 "anyOf": [
@@ -12739,6 +12832,7 @@
               },
               "state": {
                 "enum": [
+                  "pending",
                   "queued",
                   "running",
                   "blocked",

@@ -264,6 +264,8 @@ def create_http_app(
     return Starlette(
         routes=routes,
         lifespan=lifespan,
+        # Starlette's permissive factory protocol is wider than its public
+        # ASGIApp alias; these constructors implement the actual ASGI contract.
         middleware=[
             Middleware(AuthorizationAvailabilityMiddleware),
             Middleware(

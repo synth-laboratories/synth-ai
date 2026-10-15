@@ -14,6 +14,7 @@ from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedPro
 
 RunState = Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
 TaskState = Literal[
+    "pending",
     "queued",
     "running",
     "blocked",
@@ -107,12 +108,72 @@ class SwarmResult(ResponseModel):
             )
 
 
+TaskActivity = Literal[
+    "run_held",
+    "operator_held",
+    "assignment_held",
+    "output_publication_pending",
+    "reviewer_assessment",
+    "review_approved",
+    "orchestrator_repair",
+    "repair_requested",
+    "repair_dispatch_due",
+    "allocation_without_session",
+    "session_without_completion",
+    "stop_requested",
+]
+
+
+class TaskExecutionFacts(Model):
+    """Independent native execution facts; activity does not assert finality."""
+
+    activity: tuple[TaskActivity, ...] = Field(max_length=12)
+    physical_completion_count: StrictInt = Field(ge=0, le=2**32 - 1)
+    finalizer: (
+        Literal[
+            "positive", "negative", "limit", "no_launch", "dispatch_abort", "limit_dispatch_abort"
+        ]
+        | None
+    )
+    outcome: Literal["succeeded", "failed", "cancelled"] | None
+    closing_recorded: bool
+
+    @model_validator(mode="after")
+    def validate_facts(self) -> Self:
+        if len(self.activity) != len(set(self.activity)):
+            raise ValueError("task activity must be unique")
+        if (self.finalizer is None) != (self.outcome is None):
+            raise ValueError("task finalizer and outcome must be present together")
+        if self.closing_recorded and self.finalizer is None:
+            raise ValueError("closing requires reviewed finalization")
+        if self.outcome == "succeeded" and self.finalizer != "positive":
+            raise ValueError("success requires positive finalization")
+        return self
+
+
 class TaskOutcome(ResponseModel):
     run_id: Identifier
     task_id: Identifier
     state: TaskState
-    attempts: StrictInt = Field(ge=0, le=100)
+    attempts: StrictInt = Field(ge=0, le=2**32 - 1)
     failure: RunFailure | None
+    # Null preserves historical responses without fabricating native facts.
+    execution: TaskExecutionFacts | None = None
+
+    @model_validator(mode="after")
+    def validate_execution(self) -> Self:
+        if self.execution is not None:
+            if self.execution.physical_completion_count > self.attempts:
+                raise ValueError("physical completions exceed allocated attempts")
+            expected = {
+                None: "pending",
+                "succeeded": "completed",
+                "failed": "failed",
+                "cancelled": "cancelled",
+            }[self.execution.outcome]
+            if self.state != expected:
+                raise ValueError("native state must follow reviewed finalization")
+        return self
 
 
 class SwarmEvent(Model):

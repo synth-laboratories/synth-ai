@@ -28,6 +28,7 @@ from .runs import (
     RunState,
     SwarmEvent,
     SwarmResult,
+    TaskExecutionFacts,
     TaskOutcome,
     TaskState,
 )
@@ -61,5 +62,6 @@ __all__ = [
     "SwarmEvent",
     "SwarmResult",
     "TaskOutcome",
+    "TaskExecutionFacts",
     "TaskState",
 ]
