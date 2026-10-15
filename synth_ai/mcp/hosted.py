@@ -36,7 +36,7 @@ from synth_ai.errors import (
     UnsupportedOperationError,
 )
 from synth_ai.types.account import AccountEntitlements
-from synth_ai.types.base import Identifier, Model
+from synth_ai.types.base import Identifier, Model, OAuthClientIdentifier
 from synth_ai.types.capabilities import Capabilities
 
 from .catalog import TOOLS, ToolSpec
@@ -97,7 +97,7 @@ class VerifiedPrincipal(Model):
 
     subject: Identifier
     organization_id: Identifier
-    client_id: Identifier
+    client_id: OAuthClientIdentifier
     credential_kind: Literal["oauth", "api_key"]
     resource: str = Field(min_length=1, max_length=2048)
     issuer: str = Field(min_length=1, max_length=2048)
