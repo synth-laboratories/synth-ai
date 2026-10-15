@@ -28,6 +28,7 @@ from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 
 from .blocking import DeadlineTransport
 from .cleanup import handle_cleanup_failure
+from .credentials import CredentialProvider
 from .lifetime import Closeable
 from .request import build_request, encode_body, mutation_identity
 from .response import decode_response, retry_delay, validate_negotiated_response
@@ -36,9 +37,17 @@ T = TypeVar("T", bound=ResponseModel)
 
 
 class HttpTransport:
-    def __init__(self, base_url: str, api_key: str | None, options: ClientOptions) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str | None,
+        options: ClientOptions,
+        *,
+        credential_provider: CredentialProvider | None = None,
+    ) -> None:
         self._base_url = base_url
         self._api_key = api_key
+        self._credential_provider = credential_provider
         self._options = options
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
         self._owned = True
@@ -114,6 +123,11 @@ class HttpTransport:
 
     def _close_resources(self) -> None:
         errors: list[Exception] = []
+        if self._credential_provider is not None:
+            try:
+                self._credential_provider.close()
+            except Exception as error:
+                errors.append(error)
         for stream in tuple(self._streams):
             try:
                 stream.close()
@@ -133,7 +147,7 @@ class HttpTransport:
             raise ExceptionGroup("SDK response cleanup failed", errors)
 
     def _negotiate(self, operation: Operation, deadline: float) -> NegotiatedCapability | None:
-        if operation.keyed and self._api_key is None:
+        if operation.keyed and self._api_key is None and self._credential_provider is None:
             raise AuthenticationError("This operation requires an API key")
         if operation.id == CAPABILITIES.id:
             return None
@@ -168,6 +182,11 @@ class HttpTransport:
         if operation.mutation or operation.method != "GET":
             raise ValueError("byte streams require an observational GET operation")
         deadline = time.monotonic() + remaining_seconds
+        key = (
+            self._credential_provider.resolve(deadline)
+            if operation.keyed and self._credential_provider is not None
+            else self._api_key
+        )
         negotiated = self._negotiate(operation, deadline)
         remaining_seconds = deadline - time.monotonic()
         if remaining_seconds <= 0:
@@ -175,7 +194,7 @@ class HttpTransport:
         request = build_request(
             self.client,
             self._base_url,
-            self._api_key,
+            key,
             operation,
             path,
             b"",
@@ -224,6 +243,11 @@ class HttpTransport:
             else self._options.timeout_seconds
         )
         deadline = started + timeout
+        key = (
+            self._credential_provider.resolve(deadline)
+            if operation.keyed and self._credential_provider is not None
+            else self._api_key
+        )
         negotiated = self._negotiate(operation, deadline)
         retry_count = (
             options.read_retry_count
@@ -238,7 +262,7 @@ class HttpTransport:
             request = build_request(
                 self.client,
                 self._base_url,
-                self._api_key,
+                key,
                 operation,
                 path,
                 payload,

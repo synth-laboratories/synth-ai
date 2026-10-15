@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from types import TracebackType
 
+from synth_ai.auth.provider import StoredCredentialProvider
 from synth_ai.contracts.operations import AUTH_CONTEXT, CAPABILITIES
 from synth_ai.contracts.registry import recovery_operation
 from synth_ai.core.environment import environment_value
@@ -44,6 +45,19 @@ def resolve_url(base_url: str | None) -> str:
     return validate_base_url(DEFAULT_BASE_URL if selected is None else selected)
 
 
+def _credentials(
+    api_key: str | None, origin: str
+) -> tuple[str | None, StoredCredentialProvider | None]:
+    selected = (
+        api_key
+        if api_key is not None
+        else environment_value("SYNTH_API_KEY", "SYNTH_USER_KEY", "SYNTH_BACKEND_API_KEY")
+    )
+    if selected is not None:
+        return resolve_key(selected), None
+    return None, StoredCredentialProvider(origin)
+
+
 class SynthClient:
     """An owned SDK lifetime with cancellable network IO."""
 
@@ -63,7 +77,9 @@ class SynthClient:
             raise ValueError(
                 "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
             )
-        self._transport = HttpTransport(resolve_url(base_url), resolve_key(api_key), selected)
+        origin = resolve_url(base_url)
+        key, provider = _credentials(api_key, origin)
+        self._transport = HttpTransport(origin, key, selected, credential_provider=provider)
         self.index = IndexClient(self._transport, True)
         self.swarms = SwarmsClient(self._transport)
 
@@ -164,7 +180,9 @@ class AsyncSynthClient:
         options: ClientOptions | None = None,
     ) -> None:
         selected = options or ClientOptions()
-        self._transport = AsyncHttpTransport(resolve_url(base_url), resolve_key(api_key), selected)
+        origin = resolve_url(base_url)
+        key, provider = _credentials(api_key, origin)
+        self._transport = AsyncHttpTransport(origin, key, selected, credential_provider=provider)
         self.index = AsyncIndexClient(self._transport, True)
         self.swarms = AsyncSwarmsClient(self._transport)
 

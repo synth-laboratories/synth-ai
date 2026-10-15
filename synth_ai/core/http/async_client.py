@@ -28,6 +28,7 @@ from synth_ai.types.base import ClientTiming, ResponseModel
 from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 
 from .cleanup import handle_cleanup_failure
+from .credentials import CredentialProvider
 from .lifetime import AsyncCloseable, await_cleanup
 from .request import build_request, encode_body, mutation_identity
 from .response import decode_response, retry_delay, validate_negotiated_response
@@ -36,9 +37,18 @@ T = TypeVar("T", bound=ResponseModel)
 
 
 class AsyncHttpTransport:
-    def __init__(self, base_url: str, api_key: str | None, options: ClientOptions) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str | None,
+        options: ClientOptions,
+        *,
+        credential_provider: CredentialProvider | None = None,
+    ) -> None:
         self._base_url = base_url
         self._api_key = api_key
+        self._credential_provider = credential_provider
+        self._credential_tasks: set[asyncio.Task[str]] = set()
         self._options = options
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
         self._owned = options.async_http_client is None
@@ -148,6 +158,13 @@ class AsyncHttpTransport:
 
     async def _close_resources(self) -> None:
         errors: list[Exception] = []
+        credentials = tuple(self._credential_tasks)
+        for task in credentials:
+            task.cancel()
+        if credentials:
+            await asyncio.gather(*credentials, return_exceptions=True)
+        if self._credential_provider is not None:
+            self._credential_provider.close()
         sends = tuple(self._send_tasks)
         for task in sends:
             task.cancel()
@@ -174,7 +191,7 @@ class AsyncHttpTransport:
     async def _negotiate(
         self, operation: Operation, deadline: float
     ) -> NegotiatedCapability | None:
-        if operation.keyed and self._api_key is None:
+        if operation.keyed and self._api_key is None and self._credential_provider is None:
             raise AuthenticationError("This operation requires an API key")
         if operation.id == CAPABILITIES.id:
             return None
@@ -209,6 +226,7 @@ class AsyncHttpTransport:
         if operation.mutation or operation.method != "GET":
             raise ValueError("byte streams require an observational GET operation")
         deadline = time.monotonic() + remaining_seconds
+        key = await self._resolve_credential(operation, deadline)
         negotiated = await self._negotiate(operation, deadline)
         remaining_seconds = deadline - time.monotonic()
         if remaining_seconds <= 0:
@@ -216,7 +234,7 @@ class AsyncHttpTransport:
         request = build_request(
             self.client,
             self._base_url,
-            self._api_key,
+            key,
             operation,
             path,
             b"",
@@ -239,6 +257,16 @@ class AsyncHttpTransport:
                 handle_cleanup_failure(cause, primary, mutation=False, identity=None)
             raise
         return response
+
+    async def _resolve_credential(self, operation: Operation, deadline: float) -> str | None:
+        if not operation.keyed or self._credential_provider is None:
+            return self._api_key
+        task = asyncio.create_task(self._credential_provider.aresolve(deadline))
+        self._credential_tasks.add(task)
+        try:
+            return await task
+        finally:
+            self._credential_tasks.discard(task)
 
     async def request(
         self,
@@ -264,6 +292,7 @@ class AsyncHttpTransport:
             else self._options.timeout_seconds
         )
         deadline = started + timeout
+        key = await self._resolve_credential(operation, deadline)
         negotiated = await self._negotiate(operation, deadline)
         retry_count = (
             options.read_retry_count
@@ -278,7 +307,7 @@ class AsyncHttpTransport:
             request = build_request(
                 self.client,
                 self._base_url,
-                self._api_key,
+                key,
                 operation,
                 path,
                 payload,

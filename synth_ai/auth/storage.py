@@ -57,7 +57,7 @@ class CredentialStore(Protocol):
     def load(self) -> Credentials | None: ...
     def save(self, credentials: Credentials) -> None: ...
     def clear(self) -> None: ...
-    def locked(self) -> ContextManager[None]: ...
+    def locked(self, timeout_seconds: float = 5) -> ContextManager[None]: ...
 
 
 class FileCredentialStore:
@@ -74,7 +74,7 @@ class FileCredentialStore:
             raise PermissionError("Credential directory must be private (0700)")
 
     @contextmanager
-    def locked(self) -> Generator[None]:
+    def locked(self, timeout_seconds: float = 5) -> Generator[None]:
         self._directory(create=True)
         descriptor = os.open(
             self.path.with_suffix(".lock"), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
@@ -88,7 +88,7 @@ class FileCredentialStore:
                 or info.st_nlink != 1
             ):
                 raise PermissionError("Credential lock must be private")
-            deadline = time.monotonic() + 5
+            deadline = time.monotonic() + min(5, max(0, timeout_seconds))
             while True:
                 try:
                     _lock(descriptor)
@@ -186,8 +186,8 @@ class PreferredCredentialStore:
         self.keyring = KeyringCredentialStore(keyring) if keyring is not None else None
         self.errors = (keyring.errors.KeyringError,) if keyring is not None else ()
 
-    def locked(self) -> ContextManager[None]:
-        return self.file.locked()
+    def locked(self, timeout_seconds: float = 5) -> ContextManager[None]:
+        return self.file.locked(timeout_seconds)
 
     def load(self) -> Credentials | None:
         # A fallback write must supersede an older keychain credential.

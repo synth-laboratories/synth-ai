@@ -7,6 +7,7 @@ import hashlib
 import secrets
 import time
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from typing import NotRequired, TypedDict
 from urllib.parse import urlencode, urlsplit
@@ -465,7 +466,9 @@ class OAuthClient:
         )
 
 
-def stored_access_token(store: CredentialStore, *, api_origin: str) -> str | None:
+def stored_access_token(
+    store: CredentialStore, *, api_origin: str, http: httpx.Client | None = None
+) -> str | None:
     credential = store.load()
     if credential is None:
         return None
@@ -482,8 +485,12 @@ def stored_access_token(store: CredentialStore, *, api_origin: str) -> str | Non
         credential.source_scopes or credential.scopes,
         credential.resource_exchange_url,
     )
-    with httpx.Client(timeout=15, follow_redirects=False) as http:
-        updated = OAuthClient(config, http).refresh(credential)
+    with (
+        nullcontext(http)
+        if http is not None
+        else httpx.Client(timeout=15, follow_redirects=False, trust_env=False)
+    ) as connection:
+        updated = OAuthClient(config, connection).refresh(credential)
     updated = replace(updated, api_origin=credential.api_origin)
     store.save(updated)
     return updated.access_token

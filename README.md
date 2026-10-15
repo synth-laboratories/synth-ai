@@ -17,6 +17,11 @@ SDK clients and `synth-ai-mcp` use `SYNTH_API_KEY` for authentication and
 `api_key` / `base_url` arguments, or the MCP `--base-url` flag, take precedence.
 Anonymous clients do not read key variables.
 
+Without an explicit or environment key, authenticated clients and stdio MCP
+use the private credential created by `synth-ai login`. Login discovery is lazy;
+each authenticated operation reloads the origin-bound credential and refreshes
+it if needed. Logout therefore affects the next call in an existing client.
+
 During migration, `SYNTH_USER_KEY` and `SYNTH_BACKEND_API_KEY` remain key aliases;
 `SYNTH_BACKEND_URL` and `SYNTH_API_BASE_URL` remain URL aliases. Using an alias
 without the canonical variable emits one warning per name per process, without

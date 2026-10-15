@@ -130,6 +130,9 @@ clearing them and leaves environment-provided keys alone.
 
 Nonproduction candidate verification requires an explicit
 `--candidate-manifest-sha256` on login/status. A local candidate is never treated
-as a qualified production release. SDK and stdio MCP credential discovery still
-use their existing explicit/environment mechanism; automatic stored-login
-adoption is a remaining integration step, not claimed by this CLI slice.
+as a qualified production release. SDK and stdio MCP use the stored login when
+no explicit key or key environment variable is set. Construction and anonymous
+clients do not read the store. Each authenticated operation reloads under the
+login/logout lock, checks the API origin before provider IO, and refreshes an
+expiring grant within the operation's deadline. Refresh never retries a product
+mutation. Cancellation and client close retain ownership until refresh IO ends.
