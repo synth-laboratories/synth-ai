@@ -66,6 +66,10 @@ def decode_response(
         )
     except SynthError as error:
         error.rate_limits = parse_rate_limits(response.headers)
+        if error.retry_after_seconds is None:
+            delay = retry_delay(response, float("nan"))
+            if math.isfinite(delay):
+                error.retry_after_seconds = delay
         raise
 
 
