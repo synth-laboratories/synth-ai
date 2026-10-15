@@ -164,6 +164,18 @@ class EventStream(Iterator[E]):
                         min(
                             self._options.poll_interval_seconds,
                             max(0, self._deadline - time.monotonic()),
+                            max(
+                                0,
+                                self._options.idle_timeout_seconds
+                                - (
+                                    time.monotonic()
+                                    - (
+                                        self._last_activity
+                                        if self._last_activity is not None
+                                        else now
+                                    )
+                                ),
+                            ),
                         )
                     )
             return self._buffer.popleft()
@@ -336,6 +348,18 @@ class AsyncEventStream(AsyncIterator[E]):
                         min(
                             self._options.poll_interval_seconds,
                             max(0, self._deadline - time.monotonic()),
+                            max(
+                                0,
+                                self._options.idle_timeout_seconds
+                                - (
+                                    time.monotonic()
+                                    - (
+                                        self._last_activity
+                                        if self._last_activity is not None
+                                        else now
+                                    )
+                                ),
+                            ),
                         )
                     )
             return self._buffer.popleft()
