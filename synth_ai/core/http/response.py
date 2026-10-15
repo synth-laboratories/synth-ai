@@ -9,6 +9,7 @@ import httpx
 from pydantic import Field, ValidationError
 
 from synth_ai.errors import (
+    POLICY_ERROR_TYPES,
     AuthenticationError,
     BudgetExceededError,
     ConflictError,
@@ -117,7 +118,9 @@ def _decode_response(
                 retry_after_seconds=error.retry_after_seconds,
             )
         kind: type[SynthError] = SynthError
-        if error.code in {
+        if (response.status_code, error.code) in POLICY_ERROR_TYPES:
+            kind = POLICY_ERROR_TYPES[(response.status_code, error.code)]
+        elif error.code in {
             "operation_unavailable",
             "capabilities_unavailable",
             "schema_mismatch",

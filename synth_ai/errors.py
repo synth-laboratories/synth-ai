@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
+from types import MappingProxyType
 
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
@@ -46,6 +48,30 @@ class PermissionDeniedError(SynthError):
     """Current grants refuse the operation."""
 
 
+class EntitlementDeniedError(PermissionDeniedError):
+    """Organization policy refuses the requested sub-product."""
+
+
+class ActivationRequiredError(EntitlementDeniedError):
+    """The requested sub-product requires activation."""
+
+
+class OwnCredentialRequiredError(EntitlementDeniedError):
+    """The organization must supply its own provider credential."""
+
+
+class ByokForbiddenError(EntitlementDeniedError):
+    """The selected sub-product does not permit a customer provider credential."""
+
+
+class PlanRequiredError(EntitlementDeniedError):
+    """The requested sub-product requires an eligible plan."""
+
+
+class PolicyUnavailableError(SynthError):
+    """Authoritative account policy could not be read; no access is inferred."""
+
+
 class NotFoundError(SynthError):
     """The authorized resource is unavailable."""
 
@@ -76,6 +102,23 @@ class ContractError(SynthError):
 
 class UnsupportedOperationError(SynthError):
     """The selected backend has not enabled a compatible operation surface."""
+
+
+class CapabilityUnavailableError(UnsupportedOperationError):
+    """The requested sub-product has no qualified native capability."""
+
+
+POLICY_ERROR_TYPES: Mapping[tuple[int, str], type[SynthError]] = MappingProxyType(
+    {
+        (403, "entitlement_denied"): EntitlementDeniedError,
+        (403, "activation_required"): ActivationRequiredError,
+        (403, "own_credential_required"): OwnCredentialRequiredError,
+        (403, "byok_forbidden"): ByokForbiddenError,
+        (403, "plan_required"): PlanRequiredError,
+        (503, "policy_unavailable"): PolicyUnavailableError,
+        (503, "capability_unavailable"): CapabilityUnavailableError,
+    }
+)
 
 
 class ResultNotReadyError(SynthError):

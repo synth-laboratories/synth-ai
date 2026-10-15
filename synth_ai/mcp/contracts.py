@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, JsonValue, StrictInt, TypeAdapter, model_validator
 
@@ -151,3 +151,4 @@ class ToolFailure(Model):
     required_scopes: tuple[str, ...] = ()
     idempotency_key: Identifier | None = None
     rate_limits: tuple[RateLimitSnapshot, ...] = ()
+    outcome: Literal["not_accepted", "unknown"] | None = None

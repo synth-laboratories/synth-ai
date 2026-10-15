@@ -22,6 +22,7 @@ from pydantic import AnyUrl, JsonValue, TypeAdapter, ValidationError
 
 from synth_ai import __version__
 from synth_ai.errors import (
+    POLICY_ERROR_TYPES,
     AuthenticationError,
     BudgetExceededError,
     ConflictError,
@@ -63,6 +64,11 @@ def failure(error: ToolFailure, *, scope_challenge: str | None = None) -> CallTo
 
 
 def error_code(error: SynthError) -> str:
+    if (
+        not isinstance(error, OutcomeUncertainError)
+        and (error.status, error.code) in POLICY_ERROR_TYPES
+    ):
+        return str(error.code)
     for kind, name in (
         (UnsupportedOperationError, "operation_unavailable"),
         (AuthenticationError, "authentication_required"),
@@ -226,6 +232,11 @@ def create_server(
                     identity=error.identity or retained_identity(arguments),
                     retry_after_seconds=error.retry_after_seconds,
                     rate_limits=error.rate_limits,
+                    outcome="unknown"
+                    if isinstance(error, OutcomeUncertainError)
+                    else "not_accepted"
+                    if (error.status, error.code) in POLICY_ERROR_TYPES
+                    else None,
                     idempotency_key=retained_key(arguments),
                 ),
                 scope_challenge=effective_scope if error.code == "insufficient_scope" else None,
