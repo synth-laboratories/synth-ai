@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.23.0.dev2026101504"
+version = "0.23.0.dev2026101505"
 description = "Synth Index SDK; local 0.23 Index and Swarms rebuild"
 keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
+synth-ai = "synth_ai.cli_auth:main"
 synth-ai-mcp = "synth_ai.mcp_entrypoint:main"
 
 [project.urls]

@@ -108,3 +108,28 @@ scopes, unknown/disabled tools, schema errors, no secret reflection, idempotent
 replay/conflict/uncertainty, pagination, cancellation and result limits. Follow
 with native local-slot adoption and the live/cached/cloud release profiles.
 The earlier 96-test result predates these changes and is not evidence for them.
+
+## Candidate customer authentication commands
+
+The candidate installs `synth-ai login`, `synth-ai logout`, and `synth-ai auth
+status --json` independently of the retired Research CLI. `login --with-token`
+reads a Synth key from stdin and validates it against `SYNTH_API_URL` before
+saving. Browser login uses the configured Clerk public client, S256 PKCE and a
+loopback callback. Device login refuses before prompting while the issuer lacks
+resource-binding exchange support. Live production OAuth configuration and full
+device acceptance remain release gates.
+
+Credentials use `SYNTH_CONFIG_DIR/credentials.json` (default `~/.synth`) with
+0700 directory and 0600 file permissions, atomic replacement, a bounded process
+lock and an API-origin binding. Keychain is used only when explicitly selected
+with `SYNTH_AUTH_STORAGE=keychain`; it is never probed by default. `auth status`
+refreshes an expired stored OAuth grant under the same lock. `SYNTH_API_KEY`
+overrides stored credentials, including during status; an empty canonical
+variable is a configuration error. Logout revokes stored OAuth grants before
+clearing them and leaves environment-provided keys alone.
+
+Nonproduction candidate verification requires an explicit
+`--candidate-manifest-sha256` on login/status. A local candidate is never treated
+as a qualified production release. SDK and stdio MCP credential discovery still
+use their existing explicit/environment mechanism; automatic stored-login
+adoption is a remaining integration step, not claimed by this CLI slice.

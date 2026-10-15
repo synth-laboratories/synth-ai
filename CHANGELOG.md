@@ -2,6 +2,10 @@
 
 ## 0.23 development (unpublished)
 
+- Candidate customer auth CLI supports verified key login, Clerk browser PKCE,
+  stored status/refresh and logout with private, origin-bound credential files.
+  Device flow remains capability-gated pending issuer resource binding.
+
 - SDK and unified MCP use `SYNTH_API_KEY` and `SYNTH_API_URL`. Legacy key and URL
   names remain accepted with one value-free warning per name per process.
 - Usage receipts carry separate list-price observations and exact funding
