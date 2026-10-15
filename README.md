@@ -1,13 +1,13 @@
 # Synth SDK 0.23 development branch
 
-Local SDK-first Index implementation. Package metadata remains 0.22.2; this
-branch is not a release candidate and must not be published.
+Local SDK-first Index implementation. The pinned 0.23 development wheel is an
+engineering qualification candidate and must not be published as a release.
 
 The new client targets the closed `index.v1` contract on `/api/v1`; it refuses
 legacy responses and does not fall back. Backend adoption and native/cached/live
 acceptance are pending. This worktree also implements the first Swarms core,
 output/file delivery and unified MCP adapter. The initial caller model override
-accepts only `gpt-5.6-luna`, with `openai` as the supported provider override.
+accepts `gpt-6-luna`, with `openai` as the supported provider override.
 Omitted overrides preserve backend project defaults; resolved metadata is not
 an override allowlist. Hosted MCP requires the backend authorization/service
 adapter; its native OAuth/API-key journeys remain unqualified.
@@ -27,6 +27,14 @@ Use typed content refs for current-rights retrieval; citations grant no access.
 Synchronous clients own a cancellable HTTP pool; synchronous client injection is
 not supported. Async clients use native async HTTP and may borrow an AsyncClient.
 Local observer timeouts and close never cancel durable remote work.
+
+For explicit HTTPX use, `synth_ai.transports.DeadlineHTTPTransport` supplies the
+same owned, cancellable network implementation. Set a finite HTTPX read timeout;
+it bounds the whole exchange, including headers and body. Close the HTTPX client
+to release its pool and join its network thread. Arbitrary non-cooperative
+synchronous transports cannot be preempted; synchronous client injection into
+`SynthClient` is deliberately unsupported. Observer total, idle, reconnect and
+event-count bounds remain independent of explicit remote cancellation.
 
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility
 aliases, old CLI or split MCP are shipped.
