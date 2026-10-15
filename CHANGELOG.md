@@ -1,15 +1,44 @@
 # Changelog
 
-## 0.23 development (unpublished)
+## 0.23.0 (unpublished candidate)
 
-- Candidate customer auth CLI supports verified key login, Clerk browser PKCE,
-  stored status/refresh and logout with private, origin-bound credential files.
-  Device flow remains capability-gated pending issuer resource binding.
+### Supported source changes
 
-- SDK and unified MCP use `SYNTH_API_KEY` and `SYNTH_API_URL`. Legacy key and URL
-  names remain accepted with one value-free warning per name per process.
-- Usage receipts carry separate list-price observations and exact funding
-  breakdowns; missing provenance stays explicit.
+- Reduced typed `SynthClient` / `AsyncSynthClient` facade for Index and Swarms,
+  matching sync/async methods and durable operation handles.
+- Explicit request deadlines, bounded lazy streams, integrity-checked downloads,
+  and cleanup of owned client resources without cancelling durable server work.
+- Canonical `SYNTH_API_KEY` and `SYNTH_API_URL`, with value-free warnings for
+  deprecated aliases and refusals for conflicting values.
+- Per-organization entitlement and capability discovery.
+
+### Candidate behavior awaiting final acceptance
+
+- Browser PKCE login and API-key login over stdin, origin-bound private credential
+  storage, verified auth status, refresh, and logout.
+- Unified `synth-ai-mcp` with public/read/action profiles and backend scope checks.
+- Usage quantities, list-price observations, customer charges and exact funding
+  attribution as separate fields. Unknown/pending values remain explicit.
+
+### Breaking changes and migration
+
+- Replace `PublicIndexClient` with `SynthClient.anonymous()` and typed options.
+- Replace `client.research.swarms` / `SwarmSpec` with `client.swarms.create(...)`,
+  an existing project, explicit limits and immutable input references.
+- Use `synth-ai-mcp` instead of the separate Index/Research MCP executables.
+- The broad legacy Research, optimization, container and tunnel namespaces are
+  removed from this package. Use the respective product packages where available.
+- List calls return one page. Pass the returned opaque cursor explicitly.
+- Preserve mutation identity across uncertain outcomes; resolve before retrying.
+  Output availability, execution closure, settlement and cleanup are independent.
+
+### Limits
+
+Device login returns `device_authorization_unavailable` before contacting the
+provider. Factory is not part of the reduced public surface. Hosted MCP, final
+staging acceptance, stable PyPI publication and production docs remain release
+gates. There is no status, legal or support launch claim. No per-operation price
+is implied; current backend entitlements and charge ceilings are authoritative.
 
 ## 2026-10-09 (unpublished candidate)
 
