@@ -42,6 +42,22 @@
         "title": "ActivityDay",
         "type": "object"
       },
+      "AddRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AddRevision",
+        "type": "object"
+      },
       "AdjudicationSpec": {
         "additionalProperties": false,
         "description": "Independent coordinator decision; the only outcome is fresh review.",
@@ -758,6 +774,71 @@
         "title": "Attempt",
         "type": "object"
       },
+      "AuthorAnnotations": {
+        "additionalProperties": false,
+        "properties": {
+          "keywords": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Keywords",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/AuthorMetadata"
+          }
+        },
+        "title": "AuthorAnnotations",
+        "type": "object"
+      },
+      "AuthorMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "research_areas": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "topics": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "title": "AuthorMetadata",
+        "type": "object"
+      },
       "BillingPolicyUpdate": {
         "properties": {
           "concurrency_limit": {
@@ -947,7 +1028,8 @@
                 "contest",
                 "publish",
                 "review",
-                "research_import"
+                "research_import",
+                "testing_corpus_admin"
               ],
               "type": "string"
             },
@@ -983,12 +1065,13 @@
         "type": "object"
       },
       "CapabilityGrantRequest": {
-        "description": "Issue one review/publish grant to a member of ``org_id``.",
+        "description": "Issue a named capability; private research imports always expire.\n\nSee notes/specifications/synth-index/private-research-import-authority.md.",
         "properties": {
           "capability": {
             "enum": [
               "review",
-              "publish"
+              "publish",
+              "research_import"
             ],
             "title": "Capability",
             "type": "string"
@@ -1030,7 +1113,8 @@
           "capability": {
             "enum": [
               "review",
-              "publish"
+              "publish",
+              "research_import"
             ],
             "title": "Capability",
             "type": "string"
@@ -1269,6 +1353,65 @@
           "updated_at"
         ],
         "title": "CaseView",
+        "type": "object"
+      },
+      "CategoricalReview": {
+        "additionalProperties": false,
+        "description": "Explicit independent reviewer assessment; no default scores.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "correctness": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Correctness",
+            "type": "string"
+          },
+          "evidence_references": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "quality": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Quality",
+            "type": "string"
+          },
+          "rubric_version": {
+            "const": "contribution-v1",
+            "default": "contribution-v1",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quality",
+          "confidence",
+          "correctness",
+          "evidence_references"
+        ],
+        "title": "CategoricalReview",
         "type": "object"
       },
       "CheckAttemptView": {
@@ -2566,6 +2709,71 @@
         "title": "ContestView",
         "type": "object"
       },
+      "ContributionAnnotations": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Annotation Version",
+            "type": "string"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "keywords": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Keywords",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ContributionMetadata"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Revision Digest Sha256",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "revision_digest_sha256",
+          "annotation_version",
+          "review"
+        ],
+        "title": "ContributionAnnotations",
+        "type": "object"
+      },
       "ContributionAsset": {
         "additionalProperties": false,
         "properties": {
@@ -2756,6 +2964,49 @@
         "title": "ContributionKind",
         "type": "string"
       },
+      "ContributionMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "research_areas": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "topics": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "title": "ContributionMetadata",
+        "type": "object"
+      },
       "ContributionOrigin": {
         "enum": [
           "user",
@@ -2782,6 +3033,16 @@
             "minItems": 1,
             "title": "Assets",
             "type": "array"
+          },
+          "author_annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "card": {
             "$ref": "#/components/schemas/ResearchCard"
@@ -2825,7 +3086,23 @@
             "title": "Parent Revision Id"
           },
           "provenance": {
-            "$ref": "#/components/schemas/ContributionProvenance"
+            "$ref": "#/components/schemas/ContributionProvenance-Input"
+          },
+          "publication_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private",
+                  "public_api",
+                  "public"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Mode"
           },
           "reproduction": {
             "$ref": "#/components/schemas/Reproduction"
@@ -2847,6 +3124,19 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Revision Id",
             "type": "string"
+          },
+          "revision_note": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Note"
           },
           "rights_attested": {
             "title": "Rights Attested",
@@ -2930,6 +3220,16 @@
             "title": "Assets",
             "type": "array"
           },
+          "author_annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "card": {
             "$ref": "#/components/schemas/ResearchCard"
           },
@@ -2972,7 +3272,23 @@
             "title": "Parent Revision Id"
           },
           "provenance": {
-            "$ref": "#/components/schemas/ContributionProvenance"
+            "$ref": "#/components/schemas/ContributionProvenance-Output"
+          },
+          "publication_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private",
+                  "public_api",
+                  "public"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Mode"
           },
           "reproduction": {
             "$ref": "#/components/schemas/Reproduction"
@@ -2994,6 +3310,19 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
             "title": "Revision Id",
             "type": "string"
+          },
+          "revision_note": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Note"
           },
           "rights_attested": {
             "title": "Rights Attested",
@@ -3059,7 +3388,7 @@
         "title": "ContributionPackage",
         "type": "object"
       },
-      "ContributionProvenance": {
+      "ContributionProvenance-Input": {
         "additionalProperties": false,
         "properties": {
           "contributors": {
@@ -3073,6 +3402,67 @@
           },
           "origin": {
             "$ref": "#/components/schemas/ContributionOrigin"
+          },
+          "relationships": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionRelationship"
+            },
+            "maxItems": 64,
+            "title": "Relationships",
+            "type": "array"
+          },
+          "tools": {
+            "default": [],
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Tools",
+            "type": "array"
+          },
+          "upstream": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionReference"
+            },
+            "maxItems": 64,
+            "title": "Upstream",
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "contributors"
+        ],
+        "title": "ContributionProvenance",
+        "type": "object"
+      },
+      "ContributionProvenance-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditedContributor"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Contributors",
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContributionOrigin"
+          },
+          "relationships": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContributionRelationship"
+            },
+            "maxItems": 64,
+            "title": "Relationships",
+            "type": "array"
           },
           "tools": {
             "default": [],
@@ -3121,6 +3511,156 @@
           "revision_id"
         ],
         "title": "ContributionReference",
+        "type": "object"
+      },
+      "ContributionRelationship": {
+        "additionalProperties": false,
+        "description": "Authored exact upstream relationship; approval covers its stated meaning.\n\nSee notes/specifications/synth-index/public-corpus-lineage.md. This declares\nresearch provenance, never a read grant, causal measurement or reward.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "citation",
+              "reuse",
+              "derivation",
+              "replication",
+              "correction",
+              "contradiction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "kind",
+          "reference"
+        ],
+        "title": "ContributionRelationship",
+        "type": "object"
+      },
+      "ContributionReview": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "const": "synth",
+            "title": "Authority",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "correctness": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Correctness",
+            "type": "string"
+          },
+          "evidence_references": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "quality": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Quality",
+            "type": "string"
+          },
+          "review_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "format": "date-time",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "revision_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Revision Digest Sha256",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "revision_digest_sha256",
+          "review_id",
+          "rubric_version",
+          "reviewed_at",
+          "reviewer_id",
+          "authority",
+          "quality",
+          "confidence",
+          "correctness",
+          "evidence_references"
+        ],
+        "title": "ContributionReview",
         "type": "object"
       },
       "ContributionSubmission": {
@@ -3372,6 +3912,67 @@
         "title": "CreateContributionSpec",
         "type": "object"
       },
+      "CreateCorpus": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+            "title": "Corpus Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "required_tag": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Required Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_key",
+          "required_tag",
+          "reason"
+        ],
+        "title": "CreateCorpus",
+        "type": "object"
+      },
+      "CreatePrivateResearchAdoptionSpec": {
+        "additionalProperties": false,
+        "description": "Exact original input; destination custody comes exclusively from verified auth.",
+        "properties": {
+          "adopted_manifest_base64": {
+            "maxLength": 349528,
+            "minLength": 1,
+            "title": "Adopted Manifest Base64",
+            "type": "string"
+          },
+          "bundle_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Bundle Digest",
+            "type": "string"
+          },
+          "original_manifest_base64": {
+            "maxLength": 349528,
+            "minLength": 1,
+            "title": "Original Manifest Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bundle_digest",
+          "original_manifest_base64",
+          "adopted_manifest_base64"
+        ],
+        "title": "CreatePrivateResearchAdoptionSpec",
+        "type": "object"
+      },
       "CreateResearchContributionSpec": {
         "additionalProperties": false,
         "description": "Reviewed export identity, never caller-selected origin or rights state.",
@@ -3382,7 +3983,29 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/ResearchSource"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchSource"
+              },
+              {
+                "discriminator": {
+                  "mapping": {
+                    "synth.index.forge-source.v1": "#/components/schemas/ForgeResearchSource",
+                    "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource-Input"
+                  },
+                  "propertyName": "schema_version"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ForgeResearchSource"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ForgePublicResearchSource-Input"
+                  }
+                ]
+              }
+            ],
+            "title": "Source"
           }
         },
         "required": [
@@ -3724,6 +4347,22 @@
         "title": "DerivationBinding",
         "type": "object"
       },
+      "DisableCorpus": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DisableCorpus",
+        "type": "object"
+      },
       "EscalationSpec": {
         "additionalProperties": false,
         "description": "Contributor (waiting) or reviewer (queue) escalation to a coordinator.",
@@ -3832,6 +4471,69 @@
           "identifier"
         ],
         "title": "EvidenceSelector",
+        "type": "object"
+      },
+      "ExactReference": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "record_id": {
+                  "pattern": "^intern-exec:"
+                }
+              },
+              "required": [
+                "record_id"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority": {
+                  "const": "mloky"
+                },
+                "kind": {
+                  "const": "mloky_execution"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "authority": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Authority",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority",
+          "kind",
+          "record_id",
+          "revision",
+          "digest_sha256"
+        ],
+        "title": "ExactReference",
         "type": "object"
       },
       "FeatureCapability": {
@@ -4046,6 +4748,511 @@
         "title": "FindingView",
         "type": "object"
       },
+      "ForgeProjectionOutput": {
+        "additionalProperties": false,
+        "description": "An approved release output referenced by scientific provenance, not copied.",
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "projection": {
+            "enum": [
+              "export_asset",
+              "public_provenance"
+            ],
+            "title": "Projection",
+            "type": "string"
+          },
+          "release_asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Asset Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_asset_id",
+          "digest_sha256",
+          "projection"
+        ],
+        "title": "ForgeProjectionOutput",
+        "type": "object"
+      },
+      "ForgeProjectionRecipe-Input": {
+        "additionalProperties": false,
+        "description": "Closed Forge v3 primary-archive projection; current registration is authority.",
+        "properties": {
+          "builder_version": {
+            "const": "forge-export-projection-v1",
+            "default": "forge-export-projection-v1",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/ForgeProjectionOutput"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.forge-projection.v1",
+            "default": "synth.research.forge-projection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scientific_archive_object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Scientific Archive Object Id",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          },
+          "source_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Digest Sha256",
+            "type": "string"
+          },
+          "source_revision_reference": {
+            "$ref": "#/components/schemas/RevisionReference"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "source_digest_sha256",
+          "source_revision_reference",
+          "scientific_archive_object_id",
+          "outputs"
+        ],
+        "title": "ForgeProjectionRecipe",
+        "type": "object"
+      },
+      "ForgeProjectionRecipe-Output": {
+        "additionalProperties": false,
+        "description": "Closed Forge v3 primary-archive projection; current registration is authority.",
+        "properties": {
+          "builder_version": {
+            "const": "forge-export-projection-v1",
+            "default": "forge-export-projection-v1",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/ForgeProjectionOutput"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.forge-projection.v1",
+            "default": "synth.research.forge-projection.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scientific_archive_object_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Scientific Archive Object Id",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          },
+          "source_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Digest Sha256",
+            "type": "string"
+          },
+          "source_revision_reference": {
+            "$ref": "#/components/schemas/RevisionReference"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "source_digest_sha256",
+          "source_revision_reference",
+          "scientific_archive_object_id",
+          "outputs"
+        ],
+        "title": "ForgeProjectionRecipe",
+        "type": "object"
+      },
+      "ForgePublicResearchSource-Input": {
+        "additionalProperties": false,
+        "description": "Public projection of one Forge export, pinned to its provenance reference.\n\n``revision_reference`` (Forge decision 0001, ``forge.revision-reference.v1``)\nbinds the selected export's producer, operation and time, not only its payload;\n``archive_schema_version`` names the private archive version that carries those\nreferences (v3). ``services.contributions.forge_review_policy`` refuses a public\nsource that omits either; they stay optional on the wire so older private\nregistrations still decode.",
+        "properties": {
+          "archive_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Manifest Digest Sha256",
+            "type": "string"
+          },
+          "archive_publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "archive_schema_version": {
+            "anyOf": [
+              {
+                "const": "forge.private-archive.v3",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive Schema Version"
+          },
+          "export": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_provenance": {
+            "$ref": "#/components/schemas/PublicScientificProvenance-Input"
+          },
+          "revision_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevisionReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source.v2",
+            "default": "synth.index.forge-source.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "export",
+          "archive_publication_id",
+          "archive_manifest_digest_sha256",
+          "public_provenance"
+        ],
+        "title": "ForgePublicResearchSource",
+        "type": "object"
+      },
+      "ForgePublicResearchSource-Output": {
+        "additionalProperties": false,
+        "description": "Public projection of one Forge export, pinned to its provenance reference.\n\n``revision_reference`` (Forge decision 0001, ``forge.revision-reference.v1``)\nbinds the selected export's producer, operation and time, not only its payload;\n``archive_schema_version`` names the private archive version that carries those\nreferences (v3). ``services.contributions.forge_review_policy`` refuses a public\nsource that omits either; they stay optional on the wire so older private\nregistrations still decode.",
+        "properties": {
+          "archive_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Manifest Digest Sha256",
+            "type": "string"
+          },
+          "archive_publication_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Archive Publication Id",
+            "type": "string"
+          },
+          "archive_schema_version": {
+            "anyOf": [
+              {
+                "const": "forge.private-archive.v3",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive Schema Version"
+          },
+          "export": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_provenance": {
+            "$ref": "#/components/schemas/PublicScientificProvenance-Output"
+          },
+          "revision_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevisionReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source.v2",
+            "default": "synth.index.forge-source.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "export",
+          "archive_publication_id",
+          "archive_manifest_digest_sha256",
+          "public_provenance"
+        ],
+        "title": "ForgePublicResearchSource",
+        "type": "object"
+      },
+      "ForgeResearchSource": {
+        "additionalProperties": false,
+        "properties": {
+          "export": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "organization_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source.v1",
+            "default": "synth.index.forge-source.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "project_id",
+          "export"
+        ],
+        "title": "ForgeResearchSource",
+        "type": "object"
+      },
+      "ForgeSourceNoticeItem": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 1.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "disposition": {
+            "enum": [
+              "correction",
+              "supersession",
+              "retraction"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "notice": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "operation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "original": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "reason": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "replacement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "cursor",
+          "notice",
+          "operation_id",
+          "recorded_at",
+          "original",
+          "disposition",
+          "reason"
+        ],
+        "title": "ForgeSourceNoticeItem",
+        "type": "object"
+      },
+      "ForgeSourceNoticePage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ForgeSourceNoticeItem"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "minimum": 0.0,
+            "title": "Next Cursor",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "release": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "schema_version": {
+            "const": "synth.index.forge-source-notices.v1",
+            "default": "synth.index.forge-source-notices.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "discriminator": {
+              "mapping": {
+                "synth.index.forge-source.v1": "#/components/schemas/ForgeResearchSource",
+                "synth.index.forge-source.v2": "#/components/schemas/ForgePublicResearchSource-Output"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ForgeResearchSource"
+              },
+              {
+                "$ref": "#/components/schemas/ForgePublicResearchSource-Output"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "source",
+          "reference",
+          "release",
+          "items",
+          "next_cursor"
+        ],
+        "title": "ForgeSourceNoticePage",
+        "type": "object"
+      },
+      "FrozenCopyRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "authored_object_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Authored Object Ids",
+            "type": "array"
+          },
+          "builder_version": {
+            "const": "frozen-copy-v2",
+            "default": "frozen-copy-v2",
+            "title": "Builder Version",
+            "type": "string"
+          },
+          "environment_object_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Environment Object Ids",
+            "type": "array"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/OutputBinding"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "recipe_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.build-recipe.v2",
+            "default": "synth.research.build-recipe.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Digest Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "snapshot_digest_sha256",
+          "authored_object_ids",
+          "outputs"
+        ],
+        "title": "FrozenCopyRecipe",
+        "type": "object"
+      },
       "FrozenObject": {
         "additionalProperties": false,
         "properties": {
@@ -4097,6 +5304,34 @@
           "verified"
         ],
         "title": "GithubIdentity",
+        "type": "object"
+      },
+      "GrantOrg": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "GrantOrg",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -4294,7 +5529,8 @@
                 "contest",
                 "publish",
                 "review",
-                "research_import"
+                "research_import",
+                "testing_corpus_admin"
               ],
               "type": "string"
             },
@@ -4407,6 +5643,37 @@
       "MyContribution": {
         "additionalProperties": false,
         "properties": {
+          "abstract": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract"
+          },
+          "access": {
+            "default": "owned",
+            "enum": [
+              "owned",
+              "public"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "audience": {
             "anyOf": [
               {
@@ -4438,6 +5705,35 @@
             "minimum": 0.0,
             "title": "Generation",
             "type": "integer"
+          },
+          "public_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Revision Id"
+          },
+          "publication_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private",
+                  "public_api",
+                  "public",
+                  "org"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Mode"
           },
           "reference": {
             "$ref": "#/components/schemas/ContributionReference"
@@ -4487,9 +5783,21 @@
             "items": {
               "$ref": "#/components/schemas/MyContribution"
             },
-            "maxItems": 200,
+            "maxItems": 32,
             "title": "Items",
             "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           }
         },
         "required": [
@@ -4543,6 +5851,59 @@
           "entries"
         ],
         "title": "MyRewards",
+        "type": "object"
+      },
+      "NoticeConsentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PublicNoticeField"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_digest",
+          "fields"
+        ],
+        "title": "NoticeConsentRequest",
+        "type": "object"
+      },
+      "NoticeConsentView": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PublicNoticeField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "subject_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Subject Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_digest",
+          "fields",
+          "active"
+        ],
+        "title": "NoticeConsentView",
         "type": "object"
       },
       "OperationUsage": {
@@ -5197,6 +6558,43 @@
         "title": "PromoCreditSummary",
         "type": "object"
       },
+      "PublicCatalogue": {
+        "additionalProperties": false,
+        "description": "One bounded page and the count under exactly the same public filters.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicContributionCard"
+            },
+            "maxItems": 32,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PublicCatalogue",
+        "type": "object"
+      },
       "PublicClout": {
         "additionalProperties": false,
         "properties": {
@@ -5225,6 +6623,487 @@
         ],
         "title": "PublicClout",
         "type": "object"
+      },
+      "PublicContributionCard": {
+        "additionalProperties": false,
+        "description": "Only metadata from the exact current, approved public publication.",
+        "properties": {
+          "abstract": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Abstract",
+            "type": "string"
+          },
+          "author_annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "citation": {
+            "$ref": "#/components/schemas/Citation"
+          },
+          "contributor_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Contributor Ids",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "limitations": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Limitations",
+            "type": "string"
+          },
+          "observed": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Observed",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "reproduction_level": {
+            "enum": [
+              "inspectable",
+              "runnable",
+              "reproduced",
+              "not_applicable"
+            ],
+            "title": "Reproduction Level",
+            "type": "string"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reference",
+          "title",
+          "abstract",
+          "kind",
+          "research_areas",
+          "workflow_stages",
+          "tag_ids",
+          "contributor_ids",
+          "reproduction_level",
+          "observed",
+          "limitations",
+          "citation"
+        ],
+        "title": "PublicContributionCard",
+        "type": "object"
+      },
+      "PublicCorpora": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCorpusSummary"
+            },
+            "maxItems": 32,
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.public-corpora.v1",
+            "default": "synth.index.public-corpora.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PublicCorpora",
+        "type": "object"
+      },
+      "PublicCorpus": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Id",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 256.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCorpusMember"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Members",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.public-corpus.v1",
+            "default": "synth.index.public-corpus.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_receipt_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Receipt Sha256",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_id",
+          "title",
+          "manifest_digest",
+          "source_receipt_sha256",
+          "count",
+          "members"
+        ],
+        "title": "PublicCorpus",
+        "type": "object"
+      },
+      "PublicCorpusMember": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ContributionKind"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "research_areas": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "maxItems": 11,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "tag_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tag Ids",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workflow_stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "maxItems": 6,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "title",
+          "kind",
+          "research_areas",
+          "workflow_stages",
+          "tag_ids"
+        ],
+        "title": "PublicCorpusMember",
+        "type": "object"
+      },
+      "PublicCorpusSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Corpus Id",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 256.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "source_receipt_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Receipt Sha256",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_id",
+          "title",
+          "manifest_digest",
+          "source_receipt_sha256",
+          "count"
+        ],
+        "title": "PublicCorpusSummary",
+        "type": "object"
+      },
+      "PublicLineage": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditedContributor"
+            },
+            "maxItems": 32,
+            "title": "Contributors",
+            "type": "array"
+          },
+          "current_revision_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Current Revision Id",
+            "type": "string"
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/PublicLineageRelationship"
+            },
+            "maxItems": 384,
+            "title": "Relationships",
+            "type": "array"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/PublicLineageRevision"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Revisions",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.index.public-lineage.v1",
+            "default": "synth.index.public-lineage.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "current_revision_id",
+          "revisions",
+          "relationships",
+          "contributors"
+        ],
+        "title": "PublicLineage",
+        "type": "object"
+      },
+      "PublicLineageRelationship": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "upstream",
+              "replication",
+              "supersedes",
+              "citation",
+              "reuse",
+              "derivation",
+              "correction",
+              "contradiction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "kind",
+          "source",
+          "target"
+        ],
+        "title": "PublicLineageRelationship",
+        "type": "object"
+      },
+      "PublicLineageRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "change_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Reason"
+          },
+          "is_current": {
+            "title": "Is Current",
+            "type": "boolean"
+          },
+          "manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest_digest",
+          "title",
+          "is_current"
+        ],
+        "title": "PublicLineageRevision",
+        "type": "object"
+      },
+      "PublicNoticeField": {
+        "description": "The complete allowlist. Nothing outside it can enter public bytes.",
+        "enum": [
+          "disposition",
+          "recorded_at",
+          "reason",
+          "original_digest",
+          "replacement_digest"
+        ],
+        "title": "PublicNoticeField",
+        "type": "string"
       },
       "PublicProfileValue": {
         "additionalProperties": false,
@@ -5255,6 +7134,210 @@
           }
         },
         "title": "PublicProfileValue",
+        "type": "object"
+      },
+      "PublicScientificAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "license": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "digest_sha256",
+          "license"
+        ],
+        "title": "PublicScientificAsset",
+        "type": "object"
+      },
+      "PublicScientificCredit-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "license": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "author",
+              "data",
+              "implementation",
+              "method",
+              "review",
+              "funding"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicUpstreamCredit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "principal_id",
+          "role",
+          "license"
+        ],
+        "title": "PublicScientificCredit",
+        "type": "object"
+      },
+      "PublicScientificCredit-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "license": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "License",
+            "type": "string"
+          },
+          "principal_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "author",
+              "data",
+              "implementation",
+              "method",
+              "review",
+              "funding"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicUpstreamCredit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "principal_id",
+          "role",
+          "license"
+        ],
+        "title": "PublicScientificCredit",
+        "type": "object"
+      },
+      "PublicScientificProvenance-Input": {
+        "additionalProperties": false,
+        "description": "Approved-release candidates with full credit and no private source identity.",
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificCredit-Input"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "provenance_license": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Provenance License",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.scientific-provenance.v1",
+            "default": "synth.index.scientific-provenance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provenance_license",
+          "assets",
+          "credits"
+        ],
+        "title": "PublicScientificProvenance",
+        "type": "object"
+      },
+      "PublicScientificProvenance-Output": {
+        "additionalProperties": false,
+        "description": "Approved-release candidates with full credit and no private source identity.",
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/PublicScientificCredit-Output"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Credits",
+            "type": "array"
+          },
+          "provenance_license": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Provenance License",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.index.scientific-provenance.v1",
+            "default": "synth.index.scientific-provenance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provenance_license",
+          "assets",
+          "credits"
+        ],
+        "title": "PublicScientificProvenance",
         "type": "object"
       },
       "PublicSearchAccepted": {
@@ -5609,6 +7692,25 @@
           "private_processing_minutes"
         ],
         "title": "PublicSearchRetention",
+        "type": "object"
+      },
+      "PublicUpstreamCredit": {
+        "additionalProperties": false,
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          }
+        },
+        "required": [
+          "reference",
+          "digest_sha256"
+        ],
+        "title": "PublicUpstreamCredit",
         "type": "object"
       },
       "PublicUsage": {
@@ -6254,7 +8356,22 @@
         "additionalProperties": false,
         "properties": {
           "disclosure": {
-            "$ref": "#/components/schemas/ReleaseDisclosure"
+            "discriminator": {
+              "mapping": {
+                "synth.contribution.release-disclosure.v1": "#/components/schemas/ReleaseDisclosure",
+                "synth.contribution.release-disclosure.v2": "#/components/schemas/ScientificReleaseDisclosure"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseDisclosure"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+              }
+            ],
+            "title": "Disclosure"
           },
           "disclosure_digest": {
             "pattern": "^[0-9a-f]{64}$",
@@ -6513,7 +8630,22 @@
             "type": "array"
           },
           "binding": {
-            "$ref": "#/components/schemas/DerivationBinding-Output"
+            "discriminator": {
+              "mapping": {
+                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding-Output",
+                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation-Output"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DerivationBinding-Output"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificDerivation-Output"
+              }
+            ],
+            "title": "Binding"
           },
           "schema_version": {
             "const": "synth.index.private-research.v2",
@@ -6561,7 +8693,22 @@
             "type": "string"
           },
           "binding": {
-            "$ref": "#/components/schemas/DerivationBinding-Input"
+            "discriminator": {
+              "mapping": {
+                "synth.research.derivation.v1": "#/components/schemas/DerivationBinding-Input",
+                "synth.research.derivation.v2": "#/components/schemas/ScientificDerivation-Input"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DerivationBinding-Input"
+              },
+              {
+                "$ref": "#/components/schemas/ScientificDerivation-Input"
+              }
+            ],
+            "title": "Binding"
           }
         },
         "required": [
@@ -6921,6 +9068,27 @@
         "title": "ResearchSource",
         "type": "object"
       },
+      "RetainedNoticesView": {
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "minimum": 0.0,
+            "title": "Next Cursor",
+            "type": "integer"
+          },
+          "retained": {
+            "minimum": 0.0,
+            "title": "Retained",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retained",
+          "next_cursor"
+        ],
+        "title": "RetainedNoticesView",
+        "type": "object"
+      },
       "ReuseSummary": {
         "additionalProperties": false,
         "properties": {
@@ -7269,6 +9437,16 @@
                 "type": "null"
               }
             ]
+          },
+          "rubric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoricalReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -7301,6 +9479,32 @@
           "parent_revision_id"
         ],
         "title": "RevisionCreateSpec",
+        "type": "object"
+      },
+      "RevisionReference": {
+        "additionalProperties": false,
+        "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+        "properties": {
+          "document_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Document Digest Sha256",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ExactReference"
+          },
+          "schema_version": {
+            "const": "forge.revision-reference.v1",
+            "default": "forge.revision-reference.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "document_digest_sha256"
+        ],
+        "title": "RevisionReference",
         "type": "object"
       },
       "RevisionStatus": {
@@ -7409,6 +9613,16 @@
         "additionalProperties": false,
         "description": "Withdrawn tombstones carry identity and status only, never content.",
         "properties": {
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "assessments": {
             "default": [],
             "items": {
@@ -7556,6 +9770,22 @@
           "status"
         ],
         "title": "RevisionView",
+        "type": "object"
+      },
+      "RevokeGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RevokeGrant",
         "type": "object"
       },
       "RewardAward": {
@@ -7901,7 +10131,8 @@
         "description": "Who may attest; mirrors ``index_rights_attestations.authority`` (SYN-3437).\n\nSynth-origin work is attested by the queue rights owner. Any other origin is\nattested by an OWNER/ADMIN of the contributing org, who holds the rights.",
         "enum": [
           "queue_rights_owner",
-          "contributing_org_admin"
+          "contributing_org_admin",
+          "superuser"
         ],
         "title": "RightsAuthority",
         "type": "string"
@@ -7933,6 +10164,379 @@
           "expected_version"
         ],
         "title": "RunPreflightSpec",
+        "type": "object"
+      },
+      "ScientificApprovedRepresentation": {
+        "additionalProperties": false,
+        "description": "V2 also admits explicit structured UTF-8 scientific evidence.",
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "utf8_text",
+              "approved_caption",
+              "structured_text"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parser_version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Parser Version",
+            "type": "string"
+          },
+          "representation_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Representation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "representation_id",
+          "asset_id",
+          "digest_sha256",
+          "parser_version",
+          "kind"
+        ],
+        "title": "ScientificApprovedRepresentation",
+        "type": "object"
+      },
+      "ScientificDerivation-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+          },
+          "recipe": {
+            "discriminator": {
+              "mapping": {
+                "synth.research.build-recipe.v2": "#/components/schemas/FrozenCopyRecipe",
+                "synth.research.forge-projection.v1": "#/components/schemas/ForgeProjectionRecipe-Input"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FrozenCopyRecipe"
+              },
+              {
+                "$ref": "#/components/schemas/ForgeProjectionRecipe-Input"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v2",
+            "default": "synth.research.derivation.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ScientificSnapshot-Input"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "ScientificDerivation",
+        "type": "object"
+      },
+      "ScientificDerivation-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "disclosure": {
+            "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+          },
+          "recipe": {
+            "discriminator": {
+              "mapping": {
+                "synth.research.build-recipe.v2": "#/components/schemas/FrozenCopyRecipe",
+                "synth.research.forge-projection.v1": "#/components/schemas/ForgeProjectionRecipe-Output"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FrozenCopyRecipe"
+              },
+              {
+                "$ref": "#/components/schemas/ForgeProjectionRecipe-Output"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "reproduction_receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReproductionReceipt"
+            },
+            "maxItems": 64,
+            "title": "Reproduction Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.research.derivation.v2",
+            "default": "synth.research.derivation.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ScientificSnapshot-Output"
+          }
+        },
+        "required": [
+          "snapshot",
+          "recipe",
+          "disclosure"
+        ],
+        "title": "ScientificDerivation",
+        "type": "object"
+      },
+      "ScientificReleaseDisclosure": {
+        "additionalProperties": false,
+        "description": "Full-credit reviewer exclusions, bound without exposing private source IDs.",
+        "properties": {
+          "audience": {
+            "$ref": "#/components/schemas/ContributionAudience"
+          },
+          "classification_version": {
+            "minimum": 1.0,
+            "title": "Classification Version",
+            "type": "integer"
+          },
+          "credited_principal_ids": {
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Credited Principal Ids",
+            "type": "array"
+          },
+          "deliverable_assets": {
+            "items": {
+              "$ref": "#/components/schemas/DeliverableAsset"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Deliverable Assets",
+            "type": "array"
+          },
+          "disclosure_version": {
+            "minimum": 1.0,
+            "title": "Disclosure Version",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ContributionReference"
+          },
+          "release_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Release Collection Id",
+            "type": "string"
+          },
+          "release_manifest_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Release Manifest Digest Sha256",
+            "type": "string"
+          },
+          "representations": {
+            "items": {
+              "$ref": "#/components/schemas/ScientificApprovedRepresentation"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Representations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "synth.contribution.release-disclosure.v2",
+            "default": "synth.contribution.release-disclosure.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "release_collection_id",
+          "release_manifest_digest_sha256",
+          "audience",
+          "disclosure_version",
+          "classification_version",
+          "deliverable_assets",
+          "representations",
+          "credited_principal_ids"
+        ],
+        "title": "ScientificReleaseDisclosure",
+        "type": "object"
+      },
+      "ScientificSnapshot-Input": {
+        "additionalProperties": false,
+        "description": "Human-capable frozen inventory; never invent execution evidence for a copy.",
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v2",
+            "default": "synth.research.snapshot.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Input"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects"
+        ],
+        "title": "ScientificSnapshot",
+        "type": "object"
+      },
+      "ScientificSnapshot-Output": {
+        "additionalProperties": false,
+        "description": "Human-capable frozen inventory; never invent execution evidence for a copy.",
+        "properties": {
+          "archive_collection_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Archive Collection Id",
+            "type": "string"
+          },
+          "attempts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            },
+            "maxItems": 100000,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenObject"
+            },
+            "maxItems": 4096,
+            "minItems": 1,
+            "title": "Objects",
+            "type": "array"
+          },
+          "parent_snapshot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Snapshot Id"
+          },
+          "schema_version": {
+            "const": "synth.research.snapshot.v2",
+            "default": "synth.research.snapshot.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SessionExport-Output"
+            },
+            "maxItems": 256,
+            "title": "Sessions",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "archive_collection_id",
+          "cutoff_at",
+          "objects"
+        ],
+        "title": "ScientificSnapshot",
         "type": "object"
       },
       "Search": {
@@ -8074,8 +10678,8 @@
             "type": "integer"
           },
           "relative_score_floor": {
-            "default": 0.85,
-            "description": "After ColBERT, drop hits below this fraction of the top MaxSim. Omit for 0.85; 0 fills max_results.",
+            "default": 0.0,
+            "description": "After lexical ranking, drop hits below this fraction of the top BM25 score. Omit for 0; matching hits fill max_results.",
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Relative Score Floor",
@@ -8389,6 +10993,16 @@
             },
             "maxItems": 10,
             "title": "Tags Any",
+            "type": "array"
+          },
+          "tags_none": {
+            "default": [],
+            "items": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tags None",
             "type": "array"
           },
           "workflow_stages": {
@@ -10643,6 +13257,94 @@
         ]
       }
     },
+    "/api/v1/index/contributions/research/private-source-adoptions": {
+      "post": {
+        "description": "Adopt private local custody while retaining original source identity.\n\nSee notes/specifications/synth-index/private-research-source-adoption.md.",
+        "operationId": "index.contributions.research.private_adoption.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Context"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Synth-Acceptance-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Synth-Acceptance-Signature"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePrivateResearchAdoptionSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContributionDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt Private Source",
+        "tags": [
+          "index-contributions"
+        ]
+      }
+    },
     "/api/v1/index/contributions/{contribution_id}": {
       "get": {
         "operationId": "index.contributions.retrieve",
@@ -10655,6 +13357,23 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Contribution Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
             }
           },
           {
@@ -11084,6 +13803,23 @@
             }
           },
           {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
+            }
+          },
+          {
             "in": "header",
             "name": "Synth-Acceptance-Context",
             "required": false,
@@ -11166,6 +13902,23 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Revision Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
             }
           },
           {
@@ -11261,6 +14014,23 @@
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
               "title": "Asset Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
             }
           },
           {
@@ -11633,6 +14403,315 @@
         "summary": "Finalize",
         "tags": [
           "index-contributions"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices": {
+      "get": {
+        "operationId": "index.research.forge_notices.list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifest_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgeSourceNoticePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notices",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices/consents/{subject_digest}": {
+      "delete": {
+        "operationId": "index.research.forge_notices.consent.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Subject Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "index-research"
+        ]
+      },
+      "put": {
+        "operationId": "index.research.forge_notices.consent.grant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Subject Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant",
+        "tags": [
+          "index-research"
+        ]
+      }
+    },
+    "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices/retained": {
+      "post": {
+        "description": "Copy one owner-read private page into write-once retained storage.",
+        "operationId": "index.research.forge_notices.retain",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifest_digest",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetainedNoticesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retain",
+        "tags": [
+          "index-research"
         ]
       }
     },
@@ -12093,7 +15172,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReleaseDisclosure"
+                  "discriminator": {
+                    "mapping": {
+                      "synth.contribution.release-disclosure.v1": "#/components/schemas/ReleaseDisclosure",
+                      "synth.contribution.release-disclosure.v2": "#/components/schemas/ScientificReleaseDisclosure"
+                    },
+                    "propertyName": "schema_version"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseDisclosure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScientificReleaseDisclosure"
+                    }
+                  ],
+                  "title": "Response Index.Research.Binding.Create"
                 }
               }
             },
@@ -12118,7 +15212,7 @@
     },
     "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}/research-registration": {
       "post": {
-        "description": "Bind a resealed export bundle to a research correction child draft.",
+        "description": "Bind a resealed legacy bundle; Forge children retain their export.",
         "operationId": "index.contributions.research.correction_registration",
         "parameters": [
           {
@@ -12789,6 +15883,51 @@
     "/api/v1/index/me/contributions": {
       "get": {
         "operationId": "index.me.contributions.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "owned",
+              "enum": [
+                "owned",
+                "accessible"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -12799,6 +15938,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Mine",
@@ -13878,6 +17027,144 @@
         ]
       }
     },
+    "/api/v1/index/public/contributions": {
+      "get": {
+        "operationId": "index.public.contributions.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContributionKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "research_area",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ResearchArea"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Research Area"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow_stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WorkflowStage"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow Stage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCatalogue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Catalogue",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
     "/api/v1/index/public/contributions/{contribution_id}": {
       "get": {
         "operationId": "index.public.contributions.retrieve",
@@ -13916,6 +17203,49 @@
           }
         },
         "summary": "Contribution",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/contributions/{contribution_id}/lineage": {
+      "get": {
+        "operationId": "index.public.contributions.lineage.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLineage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage",
         "tags": [
           "index-public"
         ]
@@ -14088,6 +17418,55 @@
         ]
       }
     },
+    "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/forge-source-notices": {
+      "get": {
+        "operationId": "index.public.forge_notices.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Notices",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
     "/api/v1/index/public/contributions/{contribution_id}/revisions/{revision_id}/release-research": {
       "get": {
         "operationId": "index.public.research.release.get",
@@ -14144,6 +17523,70 @@
           }
         },
         "summary": "Release Research",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/corpora": {
+      "get": {
+        "operationId": "index.public.corpora.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCorpora"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Corpora",
+        "tags": [
+          "index-public"
+        ]
+      }
+    },
+    "/api/v1/index/public/corpora/{corpus_id}": {
+      "get": {
+        "operationId": "index.public.corpora.retrieve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCorpus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus",
         "tags": [
           "index-public"
         ]
@@ -16302,6 +19745,279 @@
         "summary": "Tags",
         "tags": [
           "index-reads"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora": {
+      "post": {
+        "operationId": "create_api_v1_index_testing_corpora_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCorpus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/grants/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_org_api_v1_index_testing_corpora_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeGrant"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Org",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/{corpus_id}/contributions/{contribution_id}/revisions/{revision_id}": {
+      "post": {
+        "operationId": "add_revision_api_v1_index_testing_corpora__corpus_id__contributions__contribution_id__revisions__revision_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRevision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Revision",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/{corpus_id}/disable": {
+      "post": {
+        "operationId": "disable_api_v1_index_testing_corpora__corpus_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableCorpus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable",
+        "tags": [
+          "index-operator"
+        ]
+      }
+    },
+    "/api/v1/index/testing-corpora/{corpus_id}/organizations/{org_id}/grants": {
+      "post": {
+        "operationId": "grant_org_api_v1_index_testing_corpora__corpus_id__organizations__org_id__grants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantOrg"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant Org",
+        "tags": [
+          "index-operator"
         ]
       }
     }

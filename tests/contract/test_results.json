@@ -1,0 +1,1862 @@
+[
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_contracts.py::test_registry_matches_backend__MX03",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/smr/runs/{run_id}/participants-MX-01]",
+    "status": "red",
+    "reason": "AssertionError: MX-01: SDK calls nonexistent backend route GET /smr/runs/{run_id}/participants\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/smr/runs/{run_id}/artifact-progress-MX-01]",
+    "status": "red",
+    "reason": "AssertionError: MX-01: SDK calls nonexistent backend route GET /smr/runs/{run_id}/artifact-progress\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/smr/runs/{run_id}/actor-logs-MX-01]",
+    "status": "red",
+    "reason": "AssertionError: MX-01: SDK calls nonexistent backend route GET /smr/runs/{run_id}/actor-logs\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/smr/projects/{project_id}/runs/{run_id}/participants-MX-01]",
+    "status": "red",
+    "reason": "AssertionError: MX-01: SDK calls nonexistent backend route GET /smr/projects/{project_id}/runs/{run_id}/participants\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/smr/projects/{project_id}/runs/{run_id}/artifact-progress-MX-01]",
+    "status": "red",
+    "reason": "AssertionError: MX-01: SDK calls nonexistent backend route GET /smr/projects/{project_id}/runs/{run_id}/artifact-progress\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/smr/projects/{project_id}/runs/{run_id}/actor-logs-MX-01]",
+    "status": "red",
+    "reason": "AssertionError: MX-01: SDK calls nonexistent backend route GET /smr/projects/{project_id}/runs/{run_id}/actor-logs\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/api/tag/v1/scopes/{scope_id}/factory-context-MX-02]",
+    "status": "red",
+    "reason": "AssertionError: MX-02: SDK calls nonexistent backend route GET /api/tag/v1/scopes/{scope_id}/factory-context\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_call_resolves_to_backend__MX01_MX02[GET-/api/tag/v1/sessions/{session_id}/factory-context-MX-02]",
+    "status": "red",
+    "reason": "AssertionError: MX-02: SDK calls nonexistent backend route GET /api/tag/v1/sessions/{session_id}/factory-context\nassert (not True or False)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04[AsyncRuntimeEnsureRequest]",
+    "status": "red",
+    "reason": "AssertionError: MX-04: stale vendored AsyncRuntimeEnsureRequest\nassert {'additionalP...Request', ...} == {'additionalP...Request', ...}\n  \n  Omitting 4 identical items, use -vv to show\n  Differing items:\n  {'properties': {'binding': {'$ref': '#/components/schemas/RuntimeBinding'}, 'budget': {'$ref': '#/components/schemas/A...onds', ...}, 'idempotency_key': {'maxLength': 512, 'minLength': 1, 'title': 'Idempotency Key', 'type': 'string'}, ...}} != {'properties': {'binding': {'$ref': '#/components/schemas/RuntimeBinding'}, 'bootstrap_mode': {'default': 'autonomous'...ready_wait_seconds': {'defaul"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04[SmrRunResourceBindingsRequest]",
+    "status": "red",
+    "reason": "AssertionError: MX-04: stale vendored SmrRunResourceBindingsRequest\nassert {'properties'...pe': 'object'} == {'properties'...pe': 'object'}\n  \n  Omitting 2 identical items, use -vv to show\n  Differing items:\n  {'properties': {'credential_ref_ids': {'items': {'type': 'string'}, 'title': 'Credential Ref Ids', 'type': 'array'}, '...rray'}, 'external_repository_ids': {'items': {'type': 'string'}, 'title': 'External Repository Ids', 'type': 'array'}}} != {'properties': {'credential_ref_ids': {'items': {'type': 'string'}, 'title': 'Credential Ref Ids', 'type': 'array'}, '...y Ids', 'type': 'array'},"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04[SmrRunnableProjectCreateRequest]",
+    "status": "red",
+    "reason": "AssertionError: MX-04: stale vendored SmrRunnableProjectCreateRequest\nassert {'properties'...pe': 'object'} == {'properties'...pe': 'object'}\n  \n  Omitting 3 identical items, use -vv to show\n  Differing items:\n  {'properties': {'actor_model_assignments': {'items': {'$ref': '#/components/schemas/SmrActorModelSelectionRequest'}, '...t_worker_profile_id': {'maxLength': 200, 'minLength': 1, 'title': 'Default Worker Profile Id', 'type': 'string'}, ...}} != {'properties': {'actor_model_assignments': {'items': {'$ref': '#/components/schemas/SmrActorModelSelectionRequest'}, '...t_worker_profile_id': {"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04[SmrAgentModel]",
+    "status": "red",
+    "reason": "AssertionError: MX-04: stale vendored SmrAgentModel\nassert {'enum': ['op...pe': 'string'} == {'enum': ['op...pe': 'string'}\n  \n  Omitting 2 identical items, use -vv to show\n  Differing items:\n  {'enum': ['openrouter/openai/gpt-5.6-luna', 'openai-api/gpt-5.6-luna', 'openai-api/gpt-6-luna', 'gpt-5-codex', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', ...]} != {'enum': ['openrouter/openai/gpt-6-luna', 'openrouter/openai/gpt-5.6-luna', 'openai-api/gpt-5.6-luna', 'openai-api/gpt-6-luna', 'gpt-5-codex', 'gpt-5.3-codex', ...]}\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_vendored_schema_matches_generated__MX04[SmrProjectTriggerRequest]",
+    "status": "red",
+    "reason": "AssertionError: MX-04: stale vendored SmrProjectTriggerRequest\nassert {'properties'...pe': 'object'} == {'properties'...pe': 'object'}\n  \n  Omitting 2 identical items, use -vv to show\n  Differing items:\n  {'properties': {'actor_image_overrides': {'additionalProperties': {'$ref': '#/components/schemas/SmrActorImageBindingR...bility alias for agent_harness. Supported public values are 'codex' and 'opencode_sdk'.\", 'title': 'Agent Kind'}, ...}} != {'properties': {'actor_image_overrides': {'additionalProperties': {'$ref': '#/components/schemas/SmrActorImageBindingR...bility alias for agent_harness"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_explicit_empty_resource_inventories_round_trip__PR02",
+    "status": "red",
+    "reason": "AssertionError: PR-02: typed bindings omit model_file_ids\nassert 'model_file_ids' in {'credential_ref_ids', 'external_repositories', 'external_repository_ids'}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_file_page_parses__PR01_MX11",
+    "status": "red",
+    "reason": "Failed: PR-01/MX-11: backend file page rejected: ResearchApiError: Expected list response for list_project_files, received dict"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_file_pagination_cursor_exposed__PR01",
+    "status": "red",
+    "reason": "AssertionError: PR-01: no cursor input to follow next_cursor\nassert 'cursor' in mappingproxy(OrderedDict({'self': <Parameter \"self\">, 'project_id': <Parameter \"project_id: 'str'\">, 'visibility': <Parameter \"visibility: 'str | None' = None\">, 'limit': <Parameter \"limit: 'int | None' = None\">}))\n +  where mappingproxy(OrderedDict({'self': <Parameter \"self\">, 'project_id': <Parameter \"project_id: 'str'\">, 'visibility': <Parameter \"visibility: 'str | None' = None\">, 'limit': <Parameter \"limit: 'int | None' = None\">})) = <Signature (self, project_id: 'str', *, visibility: 'str | None' = None, limit"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_request_body_satisfies_backend__PR18_MX06[workspace_confirm_push-PR-18/MX-07b-WorkspaceConfirmPushRequest-kwargs0]",
+    "status": "red",
+    "reason": "AssertionError: PR-18/MX-07b: missing=['run_id'], forbidden=[]\nassert (not {'run_id'})"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_request_body_satisfies_backend__PR18_MX06[patch_factory_status_compat-MX-06-SmrFactoryPatchRequest-kwargs1]",
+    "status": "red",
+    "reason": "AssertionError: MX-06: missing=[], forbidden=['status']\nassert (not set() and not {'status'})"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_comparison_retains_integrity_status_and_findings__RR02",
+    "status": "red",
+    "reason": "AssertionError: RR-02: integrity_failed status lost\nassert None == 'integrity_failed'\n +  where None = getattr(ExperimentComparison(project_id='p', schema_version='smr_experiment_comparison.v1', experiment_ids=('e1', 'e2'), comparable=False, comparison_dimensions={}, rows=(), not_comparable_reasons=()), 'status', None)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_research_evidence_has_typed_fields__RR03[ExperimentBundle-trials-RR-03]",
+    "status": "red",
+    "reason": "AssertionError: RR-03: ExperimentBundle.trials missing\nassert 'trials' in {'candidate', 'decisions', 'economics', 'evaluations', 'executions', 'experiment', ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_research_evidence_has_typed_fields__RR03[ExperimentBundle-artifact_index-RR-03]",
+    "status": "red",
+    "reason": "AssertionError: RR-03: ExperimentBundle.artifact_index missing\nassert 'artifact_index' in {'candidate', 'decisions', 'economics', 'evaluations', 'executions', 'experiment', ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_research_evidence_has_typed_fields__RR03[ExperimentHistory-raw-RR-03]",
+    "status": "red",
+    "reason": "AssertionError: RR-03: ExperimentHistory.raw missing\nassert 'raw' in {'accepted_cycles', 'bundles', 'incomplete_cycles', 'missing_evidence_alerts', 'project_id', 'schema_version'}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_run_control_refusal_is_typed__RW02[already_terminal-False]",
+    "status": "red",
+    "reason": "Failed: RW-02: backend refusal crashes parser: run control 409 detail.error_code 'already_terminal' is not a known RunLifecycleControlErrorCode"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_run_control_refusal_is_typed__RW02[cleanup_in_progress-True]",
+    "status": "red",
+    "reason": "Failed: RW-02: backend refusal crashes parser: run control 409 detail.error_code 'cleanup_in_progress' is not a known RunLifecycleControlErrorCode"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_run_control_refusal_is_typed__RW02[run_finalizing-True]",
+    "status": "red",
+    "reason": "Failed: RW-02: backend refusal crashes parser: run control 409 detail.error_code 'run_finalizing' is not a known RunLifecycleControlErrorCode"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_scientific_read_has_bounded_response_contract__RR06_RR07[/smr/projects/{project_id}/research/records/{record_id}]",
+    "status": "red",
+    "reason": "AssertionError: RR-06/RR-07: scientific read missing from public contract: /smr/projects/{project_id}/research/records/{record_id}\nassert '/smr/projects/{project_id}/research/records/{record_id}' in {'/api/v1/billing/entitlements': {'get': {'operationId': 'retrieve_billing_entitlements', 'responses': {'200': {'conte...ation/json': {...}}, 'description': 'Validation Error'}}, 'summary': 'Get Factory Effort Billing Drawdown', ...}}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_scientific_read_has_bounded_response_contract__RR06_RR07[/smr/projects/{project_id}/research/records/{record_id}/citations]",
+    "status": "red",
+    "reason": "AssertionError: RR-06/RR-07: scientific read missing from public contract: /smr/projects/{project_id}/research/records/{record_id}/citations\nassert '/smr/projects/{project_id}/research/records/{record_id}/citations' in {'/api/v1/billing/entitlements': {'get': {'operationId': 'retrieve_billing_entitlements', 'responses': {'200': {'conte...ation/json': {...}}, 'description': 'Validation Error'}}, 'summary': 'Get Factory Effort Billing Drawdown', ...}}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_scientific_read_has_bounded_response_contract__RR06_RR07[/smr/projects/{project_id}/experiments/{experiment_id}/bundle]",
+    "status": "red",
+    "reason": "AssertionError: RR-06/RR-07: scientific read missing from public contract: /smr/projects/{project_id}/experiments/{experiment_id}/bundle\nassert '/smr/projects/{project_id}/experiments/{experiment_id}/bundle' in {'/api/v1/billing/entitlements': {'get': {'operationId': 'retrieve_billing_entitlements', 'responses': {'200': {'conte...ation/json': {...}}, 'description': 'Validation Error'}}, 'summary': 'Get Factory Effort Billing Drawdown', ...}}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_scientific_read_has_bounded_response_contract__RR06_RR07[/smr/projects/{project_id}/experiment-bundles]",
+    "status": "red",
+    "reason": "AssertionError: RR-06/RR-07: scientific read missing from public contract: /smr/projects/{project_id}/experiment-bundles\nassert '/smr/projects/{project_id}/experiment-bundles' in {'/api/v1/billing/entitlements': {'get': {'operationId': 'retrieve_billing_entitlements', 'responses': {'200': {'conte...ation/json': {...}}, 'description': 'Validation Error'}}, 'summary': 'Get Factory Effort Billing Drawdown', ...}}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_authority_errors_are_first_class__RW08[scientific_writer_transferred-False]",
+    "status": "red",
+    "reason": "AssertionError: RW-08: scientific_writer_transferred degrades to generic denial\nassert <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> is not <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'>\n +  where <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> = type(ResearchStructuredDenialError('launch refused'))\n +    where ResearchStructuredDenialError('launch refused') = <ExceptionInfo ResearchStructuredDenialError('launch refused') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_authority_errors_are_first_class__RW08[transfer_fence_active-True]",
+    "status": "red",
+    "reason": "AssertionError: RW-08: transfer_fence_active degrades to generic denial\nassert <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> is not <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'>\n +  where <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> = type(ResearchStructuredDenialError('launch refused'))\n +    where ResearchStructuredDenialError('launch refused') = <ExceptionInfo ResearchStructuredDenialError('launch refused') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_authority_errors_are_first_class__RW08[provenance_unbound-False]",
+    "status": "red",
+    "reason": "AssertionError: RW-08: provenance_unbound degrades to generic denial\nassert <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> is not <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'>\n +  where <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> = type(ResearchStructuredDenialError('launch refused'))\n +    where ResearchStructuredDenialError('launch refused') = <ExceptionInfo ResearchStructuredDenialError('launch refused') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_authority_errors_are_first_class__RW08[run_deployment_pins_missing-False]",
+    "status": "red",
+    "reason": "AssertionError: RW-08: run_deployment_pins_missing degrades to generic denial\nassert <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> is not <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'>\n +  where <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> = type(ResearchStructuredDenialError('launch refused'))\n +    where ResearchStructuredDenialError('launch refused') = <ExceptionInfo ResearchStructuredDenialError('launch refused') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_uncertain_write_preserves_operation_identity__RR14",
+    "status": "red",
+    "reason": "AssertionError: RR-14: uncertain committed effect indistinguishable from deterministic denial\nassert <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> is not <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'>\n +  where <class 'synth_ai.sdk.research.errors.ResearchStructuredDenialError'> = type(ResearchStructuredDenialError('receipt lookup required'))\n +    where ResearchStructuredDenialError('receipt lookup required') = <ExceptionInfo ResearchStructuredDenialError('receipt lookup required') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_visual_backend_logical_response_parses__MX08",
+    "status": "red",
+    "reason": "Failed: MX-08: backend logical visual response rejected: hosted_artifact_id must be a non-empty string"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_citations_client_available__RR06",
+    "status": "red",
+    "reason": "AssertionError: RR-06: no SDK method for citation verification\nassert False\n +  where False = callable(None)\n +    where None = getattr(<class 'synth_ai.sdk.research.scientific_records.ScientificRecordsAPI'>, 'citations', None)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_execution_operations_client_available__RR05",
+    "status": "red",
+    "reason": "AssertionError: RR-05: admitted actor writes have no SDK execution-operations client\nassert False\n +  where False = callable(None)\n +    where None = getattr(<class 'synth_ai.sdk.research.scientific_records.ScientificRecordsAPI'>, 'execution_write', None)"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_transport_failure_keeps_original_intent_and_cause__RR14[timeout]",
+    "status": "red",
+    "reason": "AssertionError: RR-14: uncertain write drops original operation identity\nassert None == 'original'\n +  where None = getattr(ResearchApiError('POST /smr/projects/p/research/operations timed out'), 'operation_id', None)\n +    where ResearchApiError('POST /smr/projects/p/research/operations timed out') = <ExceptionInfo ResearchApiError('POST /smr/projects/p/research/operations timed out') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_transport_failure_keeps_original_intent_and_cause__RR14[connection]",
+    "status": "red",
+    "reason": "AssertionError: RR-14: uncertain write drops original operation identity\nassert None == 'original'\n +  where None = getattr(ResearchApiError('POST /smr/projects/p/research/operations failed: network error (ConnectError)'), 'operation_id', None)\n +    where ResearchApiError('POST /smr/projects/p/research/operations failed: network error (ConnectError)') = <ExceptionInfo ResearchApiError('POST /smr/projects/p/research/operations failed: network error (ConnectError)') tblen=2>.value"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_preflight_keeps_typed_readiness__PR08[resource_readiness]",
+    "status": "red",
+    "reason": "AssertionError: PR-08: typed preflight loses resource_readiness\nassert 'resource_readiness' in {'blockers', 'capabilities', 'checked', 'clear_to_trigger', 'compute_pool_payload', 'dev_environment', ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_preflight_keeps_typed_readiness__PR08[runtime_readiness]",
+    "status": "red",
+    "reason": "AssertionError: PR-08: typed preflight loses runtime_readiness\nassert 'runtime_readiness' in {'blockers', 'capabilities', 'checked', 'clear_to_trigger', 'compute_pool_payload', 'dev_environment', ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_preflight_keeps_typed_readiness__PR08[checks]",
+    "status": "red",
+    "reason": "AssertionError: PR-08: typed preflight loses checks\nassert 'checks' in {'blockers', 'capabilities', 'checked', 'clear_to_trigger', 'compute_pool_payload', 'dev_environment', ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_native_result_identity_is_typed__RR04",
+    "status": "red",
+    "reason": "AssertionError: RR-04: experiment_run_id and scorer identity live only in untyped evaluation dictionaries\nassert 'dict[str, object]' not in 'tuple[dict[...bject], ...]'\n  \n  'dict[str, object]' is contained here:\n    tuple[dict[str, object], ...]"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_all_raw_sdk_calls_resolve_to_backend__MX09",
+    "status": "red",
+    "reason": "AssertionError: MX-09/MX-01/MX-02: SDK routes outside bounded registry must resolve:\n  GET /api/tag/v1/scopes/{scope_id_value}/factory-context (synth_ai/sdk/research/session/client.py:1392)\n  GET /api/tag/v1/sessions/{session_id_value}/factory-context (synth_ai/sdk/research/session/client.py:1402)\n  GET /smr/projects/{project_id}/runs/{run_id}/actor-logs (synth_ai/sdk/research/session/_run_authority_mixin.py:1451)\n  GET /smr/projects/{project_id}/runs/{run_id}/artifact-progress (synth_ai/sdk/research/session/_run_authority_mixin.py:1420)\n  GET /smr/projects/{project_id}/runs/{run_id}/participa"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_public_state_vocabulary_matches_backend__RW17[ManagedResearchRunState]",
+    "status": "red",
+    "reason": "AssertionError: RW-17: SDK advertises ManagedResearchRunState values backend does not emit\nassert ['blocked', '...alizing', ...] == ['blocked', '...'paused', ...]\n  \n  At index 3 diff: 'executing' != 'failed'\n  Left contains 5 more items, first extra item: 'reviewer_required'\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_public_state_vocabulary_matches_backend__RW17[ManagedResearchRunTerminalOutcome]",
+    "status": "red",
+    "reason": "AssertionError: RW-17: SDK advertises ManagedResearchRunTerminalOutcome values backend does not emit\nassert ['canceled', ...cceeded', ...] == ['canceled', ..., 'timed_out']\n  \n  At index 1 diff: 'done' != 'failed'\n  Left contains 2 more items, first extra item: 'succeeded'\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_sdk_public_state_vocabulary_matches_backend__RW17[ManagedResearchRunLivenessPhase]",
+    "status": "red",
+    "reason": "AssertionError: RW-17: SDK advertises ManagedResearchRunLivenessPhase values backend does not emit\nassert ['accepted', ...ecuting', ...] == ['accepted', ...unknown', ...]\n  \n  At index 1 diff: 'admitted' != 'bootstrapping'\n  Left contains 15 more items, first extra item: 'participant_requested'\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_discrepancy_law.py::test_full_vendored_snapshot_matches_backend__MX04",
+    "status": "red",
+    "reason": "AssertionError: MX-04: SDK snapshot differs from authoritative generated backend surface\nassert {'components'..., ...}}, ...}} == {'components'..., ...}}, ...}}\n  \n  Omitting 3 identical items, use -vv to show\n  Differing items:\n  {'components': {'schemas': {'ActorRuntimeImageMaterialization': {'additionalProperties': False, 'properties': {'actor_...ing'}, ...}, 'required': ['agent_role', 'harness', 'model', 'reasoning_effort'], 'title': 'AgentConfigV1', ...}, ...}}} != {'components': {'schemas': {'ActorRuntimeImageMaterialization': {'additionalProperties': False, 'properties': {'actor_...ing'"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_trigger_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_trigger_run forbids required deployment_pins\nassert 'deployment_pins' in {'actor_model_overrides': {'description': 'Optional actor-scoped model overrides keyed by actor_type and actor_subtype...codex', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.5', 'gpt-5.6-luna', 'gpt-5.6-sol', ...], 'type': 'string'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_start_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_start_run forbids required deployment_pins\nassert 'deployment_pins' in {'dev_environment_id': {'description': 'Optional live DevEnvironment id to bind this run to.', 'type': 'string'}, 'dir...ription': 'Authenticated API execution host kind for this run.', 'enum': ['docker', 'daytona'], 'type': 'string'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_start_one_off_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_start_one_off_run forbids required deployment_pins\nassert 'deployment_pins' in {'actor_model_overrides': {'description': 'Optional actor-scoped model overrides. Local-only: requires local_execution...codex', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.5', 'gpt-5.6-luna', 'gpt-5.6-sol', ...], 'type': 'string'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_start_run_in_dev_environment]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_start_run_in_dev_environment forbids required deployment_pins\nassert 'deployment_pins' in {'agent_profile': {'description': 'Optional backend-managed agent profile preset.', 'type': 'string'}, 'ai_cache': {'d...ffort_outcome': {'description': 'Optional inline directed-effort-outcome parent for this run.', 'type': 'object'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_trigger_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_trigger_run forbids required provenance_mode\nassert 'provenance_mode' in {'actor_model_overrides': {'description': 'Optional actor-scoped model overrides keyed by actor_type and actor_subtype...codex', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.5', 'gpt-5.6-luna', 'gpt-5.6-sol', ...], 'type': 'string'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_start_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_start_run forbids required provenance_mode\nassert 'provenance_mode' in {'dev_environment_id': {'description': 'Optional live DevEnvironment id to bind this run to.', 'type': 'string'}, 'dir...ription': 'Authenticated API execution host kind for this run.', 'enum': ['docker', 'daytona'], 'type': 'string'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_start_one_off_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_start_one_off_run forbids required provenance_mode\nassert 'provenance_mode' in {'actor_model_overrides': {'description': 'Optional actor-scoped model overrides. Local-only: requires local_execution...codex', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.5', 'gpt-5.6-luna', 'gpt-5.6-sol', ...], 'type': 'string'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_launch_discrepancy_law.py::test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_start_run_in_dev_environment]",
+    "status": "red",
+    "reason": "AssertionError: RW-01/PR-12: research_start_run_in_dev_environment forbids required provenance_mode\nassert 'provenance_mode' in {'agent_profile': {'description': 'Optional backend-managed agent profile preset.', 'type': 'string'}, 'ai_cache': {'d...ffort_outcome': {'description': 'Optional inline directed-effort-outcome parent for this run.', 'type': 'object'}, ...}"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_registry_contracts.py::test_all_tool_definitions_are_json_contracts",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_async_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_async_list_handoffs]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_async_tail]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_effort_board]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_memory_get]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_memory_search]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_sync_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_sync_tail]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_archive_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_archive_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_billing_entitlements]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_limits]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_dataset_content]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_setup]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_research_intern]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_swarm_status]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_swarm_workspace_archive]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_active_runs]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_customer_actor_images]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_environments]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factories]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_efforts]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_project_data_pools]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_project_datasets]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_project_repositories]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_projects]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_records]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_research_intern_acceptance_receipts]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_research_intern_decisions]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_research_intern_factories]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_runs]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_visuals]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_pause_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_prepare_project_setup]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_provision_research_intern]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_record_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_resume_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_start_factory]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_unarchive_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_watch_run_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_meta_messages]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_meta_segments]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_meta_threads]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_milestone_create]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_milestone_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_milestone_transition]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_objective_get]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_objective_link_create]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_objective_link_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_objective_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_progress_claim_create]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_progress_claim_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_task_create]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[intern_task_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_append_project_notes]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_approve_run_approval]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_factory_idea]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_project_changeset]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_project_credential_ref]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_project_external_repository]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_run_checkpoint]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_run_credential_binding]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_create_run_repository_mount]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_curated_knowledge]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_decide_project_changeset]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_delete_trained_model]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_deny_run_approval]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_edit_message]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_evaluate_factory_result]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_explain_work_product_blocker]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_export_run_work_product]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_export_trained_model]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_artifact]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_artifact_content]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_capabilities]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_capacity_lane_preview]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_default_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory_best_results]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory_idea]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory_result]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory_status]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_factory_workspace]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_launch_preflight_in_dev_environment]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_objective_status]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_org_knowledge]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_changeset]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_entitlement]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_git]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_knowledge]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_notes]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_status]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_usage]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_project_workspace]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_provider_key_status]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_raw_trace_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_actor_trace]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_cost_summary]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_progress_toward_resource_limits]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_resource_limits]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_usage]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_work_graph]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_work_product]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_run_work_product_content]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_trained_model]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_get_workspace_download_url]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_graduate_runs_to_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_health_check]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_link_factory_auxiliary_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_link_factory_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_link_factory_workspace_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_actor_outputs]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_evaluation_lenses]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_ideas]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_open_decisions]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_projects]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_result_selection_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_factory_results]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_graduation_proposals]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_messages]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_project_changesets]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_project_credential_refs]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_project_external_repositories]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_actor_traces]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_approvals]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_artifacts]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_checkpoints]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_credential_bindings]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_datasets]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_file_mounts]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_log_archives]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_models]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_objective_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_output_files]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_questions]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_repository_mounts]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_task_events]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_run_work_products]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_runs_by_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_list_trained_models_for_run]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_mark_effort_ready_for_review]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_mark_effort_waiting]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_milestones]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_objectives]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_factory_idea]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_factory_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_project_credential_ref]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_patch_project_external_repository]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_pause_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_pause_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_preview_factory_wake]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_record_adjudicator_brief]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_record_architect_feed_health]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_record_factory_actor_output]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_record_gardener_digest]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_rename_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_request_resource_limit_extension]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_resolve_effort_decision]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_respond_to_run_question]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_restore_factory_result_current_best]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_restore_run_checkpoint]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_results_models_download]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_results_models_export]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_results_models_get]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_results_models_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_results_prs_get]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_results_prs_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_resume_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_resume_project]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_retract_message]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_runtime_message_queue]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_schedule_effort]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_select_factory_result_current_best]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_send_message]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_set_org_knowledge]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_set_project_knowledge]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_set_project_notes]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_setup_exports_create_target]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_setup_exports_list_targets]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_setup_github_disconnect]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_setup_github_list_repos]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_setup_github_start_oauth]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_setup_github_status]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_start_run_in_dev_environment]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_status_readiness]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_update_trained_model]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_work_datasets_download]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_work_datasets_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_work_repos_attach]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_work_repos_detach]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_contracts.py::test_public_call_tool_returns_json[research_work_repos_list]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_project]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_project public result is not JSON serializable: Object of type datetime is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_cancel_task]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_cancel_task public result is not JSON serializable: Object of type datetime is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_compare_experiments]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_compare_experiments public result is not JSON serializable: Object of type ExperimentComparison is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_create_task]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_create_task public result is not JSON serializable: Object of type datetime is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_experiment_history]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_experiment_history public result is not JSON serializable: Object of type ExperimentHistory is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_run_actor_usage]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_run_actor_usage public result is not JSON serializable: Object of type SmrRunActorUsage is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_run_authority_readouts]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_run_authority_readouts public result is not JSON serializable: Object of type SmrAuthorityReadouts is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_run_event_log]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_run_event_log public result is not JSON serializable: Object of type SmrRunEventLog is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_run_execution]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_run_execution public result is not JSON serializable: Object of type RunExecutionProjection is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_run_logical_timeline]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_run_logical_timeline public result is not JSON serializable: Object of type SmrLogicalTimeline is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_get_run_traces]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_get_run_traces public result is not JSON serializable: Object of type SmrRunTraces is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_reassign_task]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_reassign_task public result is not JSON serializable: Object of type datetime is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_update_task]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_update_task public result is not JSON serializable: Object of type datetime is not JSON serializable"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/mcp/test_serialization_discrepancy_law.py::test_public_call_tool_returns_json__MX10_RR12[research_validate_container_eval_package]",
+    "status": "red",
+    "reason": "Failed: MX-10/RR-12: research_validate_container_eval_package public result is not JSON serializable: Object of type ManagedResearchContainerEvalPackage is not JSON serializable"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_trigger_required_fields_match_runtime__PR09_RW13[live]",
+    "status": "red",
+    "reason": "AssertionError: PR-09/RW-13: runtime requires pins/provenance; schema marks optional\nassert {'deployment_...venance_mode'} <= set()\n  \n  Extra items in the left set:\n  'provenance_mode'\n  'deployment_pins'"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_trigger_required_fields_match_runtime__PR09_RW13[dry_run]",
+    "status": "red",
+    "reason": "AssertionError: PR-09/RW-13: runtime requires pins/provenance; schema marks optional\nassert {'deployment_...venance_mode'} <= set()\n  \n  Extra items in the left set:\n  'provenance_mode'\n  'deployment_pins'"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06[fields0]",
+    "status": "red",
+    "reason": "AssertionError: PR-10/RW-06: preflight clears request refused by trigger provenance\nassert not True\n +  where True = SmrLaunchPreflightResponse(project_id='project', project_alias=None, project_kind=None, clear_to_trigger=True, checked...], required_capabilities=[], limit=None, resource_readiness=None, runtime_readiness=None, resolved_actor_profiles=None).clear_to_trigger"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06[fields1]",
+    "status": "red",
+    "reason": "AssertionError: PR-10/RW-06: preflight clears request refused by trigger provenance\nassert not True\n +  where True = SmrLaunchPreflightResponse(project_id='project', project_alias=None, project_kind=None, clear_to_trigger=True, checked...], required_capabilities=[], limit=None, resource_readiness=None, runtime_readiness=None, resolved_actor_profiles=None).clear_to_trigger"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06[fields2]",
+    "status": "red",
+    "reason": "AssertionError: PR-10/RW-06: preflight clears request refused by trigger provenance\nassert not True\n +  where True = SmrLaunchPreflightResponse(project_id='project', project_alias=None, project_kind=None, clear_to_trigger=True, checked...], required_capabilities=[], limit=None, resource_readiness=None, runtime_readiness=None, resolved_actor_profiles=None).clear_to_trigger"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_resource_readiness_keeps_selected_and_missing_files__PR07",
+    "status": "red",
+    "reason": "AssertionError: PR-07: top-level selected file ids dropped\nassert None == ['selected']\n +  where None = <built-in method get of dict object at 0x114d0f080>('selected_model_file_ids')\n +    where <built-in method get of dict object at 0x114d0f080> = {'available_credential_ref_count': 0, 'available_model_file_count': 0, 'available_repository_count': 0, 'available_verifier_file_count': 0, ...}.get"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_native_delivery_limit_has_specific_code__PR06_PR15[ids0]",
+    "status": "red",
+    "reason": "AssertionError: PR-06/PR-15: valid oversized files receive generic malformed_request\nassert 'malformed_request' != 'malformed_request'\n +  where 'malformed_request' = <RefusalCode.MALFORMED_REQUEST: 'malformed_request'>.value\n +    where <RefusalCode.MALFORMED_REQUEST: 'malformed_request'> = Refused(code=<RefusalCode.MALFORMED_REQUEST: 'malformed_request'>, detail='selected resources exceed native context byte budget').code"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_native_delivery_limit_has_specific_code__PR06_PR15[ids1]",
+    "status": "red",
+    "reason": "AssertionError: PR-06/PR-15: valid oversized files receive generic malformed_request\nassert 'malformed_request' != 'malformed_request'\n +  where 'malformed_request' = <RefusalCode.MALFORMED_REQUEST: 'malformed_request'>.value\n +    where <RefusalCode.MALFORMED_REQUEST: 'malformed_request'> = Refused(code=<RefusalCode.MALFORMED_REQUEST: 'malformed_request'>, detail='selected resources exceed native context byte budget').code"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_definitive_forge_write_refusal_is_not_uncertain__RR01_MX12[503-document0-RR-01-scorer_authority_unavailable]",
+    "status": "red",
+    "reason": "AssertionError: RR-01: definitive rejection was converted to outcome_uncertain\nassert 'outcome_uncertain' != 'outcome_uncertain'\n +  where 'outcome_uncertain' = ForgeError('resolve the original operation receipt before another attempt').code\n +    where ForgeError('resolve the original operation receipt before another attempt') = <ExceptionInfo ForgeError('resolve the original operation receipt before another attempt') tblen=6>.value"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_definitive_forge_write_refusal_is_not_uncertain__RR01_MX12[422-document1-MX-12-malformed_request]",
+    "status": "red",
+    "reason": "AssertionError: MX-12: definitive rejection was converted to outcome_uncertain\nassert 'outcome_uncertain' != 'outcome_uncertain'\n +  where 'outcome_uncertain' = ForgeError('resolve the original operation receipt before another attempt').code\n +    where ForgeError('resolve the original operation receipt before another attempt') = <ExceptionInfo ForgeError('resolve the original operation receipt before another attempt') tblen=6>.value"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_forge_page_limit_is_bounded_before_send__MX12[records]",
+    "status": "red",
+    "reason": "AssertionError: MX-12: Forge limit >1000 sent to producer\nassert (not [1001] or 1001 <= 1000)\n +  where 1001 = max([1001])"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_forge_page_limit_is_bounded_before_send__MX12[events]",
+    "status": "red",
+    "reason": "AssertionError: MX-12: Forge limit >1000 sent to producer\nassert (not [1001] or 1001 <= 1000)\n +  where 1001 = max([1001])"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_integrity_damage_is_service_error__RR08",
+    "status": "red",
+    "reason": "AssertionError: RR-08: record integrity damage is misclassified as client conflict 409\nassert 409 == 503\n +  where 409 = HTTPException(status_code=409, detail={'error_code': 'record_integrity_conflict', 'message': 'damaged retained history', 'operation_id': None}).status_code\n +    where HTTPException(status_code=409, detail={'error_code': 'record_integrity_conflict', 'message': 'damaged retained history', 'operation_id': None}) = <ExceptionInfo HTTPException(status_code=409, detail={'error_code': 'record_integrity_conflict', 'message': 'damaged retained history', 'operation_id': None}) tblen="
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_refusal_response_declared__RW07[trigger_project_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-07: trigger_project_run omits runtime 409 refusal contract\nassert '409' in {'200': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/SmrRunResponse'}}}, 'description': ...plication/json': {'schema': {'$ref': '#/components/schemas/HTTPValidationError'}}}, 'description': 'Validation Error'}}"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_refusal_response_declared__RW07[trigger_one_off_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-07: trigger_one_off_run omits runtime 409 refusal contract\nassert '409' in {'200': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/SmrRunResponse'}}}, 'description': ...plication/json': {'schema': {'$ref': '#/components/schemas/HTTPValidationError'}}}, 'description': 'Validation Error'}}"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_refusal_response_declared__RW07[branch_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-07: branch_run omits runtime 409 refusal contract\nassert '409' in {'200': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/SmrRunBranchResponse'}}}, 'descript...plication/json': {'schema': {'$ref': '#/components/schemas/HTTPValidationError'}}}, 'description': 'Validation Error'}}"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_refusal_response_declared__RW07[stop_run]",
+    "status": "red",
+    "reason": "AssertionError: RW-07: stop_run omits runtime 409 refusal contract\nassert '409' in {'200': {'content': {'application/json': {'schema': {'anyOf': [{...}, {...}], 'title': 'Response Stop Run Smr Runs  Ru...plication/json': {'schema': {'$ref': '#/components/schemas/HTTPValidationError'}}}, 'description': 'Validation Error'}}"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_committed_backend_request_schema_matches_source__MX05",
+    "status": "red",
+    "reason": "AssertionError: MX-05: committed create request omits source idempotency_key\nassert {'properties'...pe': 'object'} == {'properties'...pe': 'object'}\n  \n  Omitting 3 identical items, use -vv to show\n  Differing items:\n  {'properties': {'actor_model_assignments': {'items': {'$ref': '#/components/schemas/SmrActorModelSelectionRequest'}, '...t_worker_profile_id': {'maxLength': 200, 'minLength': 1, 'title': 'Default Worker Profile Id', 'type': 'string'}, ...}} != {'properties': {'actor_model_assignments': {'items': {'$ref': '#/components/schemas/SmrActorModelSelectionRequest'}, '...t_worker_profile"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_project_upload_exposes_launch_inventory_identity__PR03",
+    "status": "red",
+    "reason": "AssertionError: PR-03: upload response omits stored identity for model_file_ids\nassert 'stored_file_id' in {'content_bytes': FieldInfo(annotation=int, required=True), 'content_sha256': FieldInfo(annotation=str, required=True)...Info(annotation=Union[str, NoneType], required=True), 'created_at': FieldInfo(annotation=datetime, required=True), ...}\n +  where {'content_bytes': FieldInfo(annotation=int, required=True), 'content_sha256': FieldInfo(annotation=str, required=True)...Info(annotation=Union[str, NoneType], required=True), 'created_at': FieldInfo(annotation=datetime, required=True), ...} ="
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_metadata_patch_preserves_stored_file_identity__PR04",
+    "status": "red",
+    "reason": "AssertionError: PR-04: metadata-only patch deletes and re-mints stored file id\nassert 'replacement-id' == 'original-stored-id'\n  \n  - original-stored-id\n  + replacement-id"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_bundle_truncation_is_explicit__RR11",
+    "status": "red",
+    "reason": "AssertionError: RR-11: 101 trials silently capped to 100; completeness/cost must be qualified\nassert (100 == 101 or None is True or None is True)\n +  where 100 = len([{'created_at': datetime.datetime(2026, 10, 6, 15, 27, 0, 493480, tzinfo=datetime.timezone.utc), 'experiment_id': 'e',...zinfo=datetime.timezone.utc), 'experiment_id': 'e', 'experiment_revision': 1, 'experiment_run_id': 'trial5', ...}, ...])\n +  and   None = <built-in method get of dict object at 0x117e91cc0>('truncated')\n +    where <built-in method get of dict object at 0x117e91cc0> = {'artifact_index': [], 'candidate': {'candid"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_branch_checks_scientific_writer_before_insert__RW03",
+    "status": "red",
+    "reason": "Failed: RW-03: branch inserts child without forge_writer guard"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_agent_result_accepts_null_outcome__RR05",
+    "status": "red",
+    "reason": "Failed: RR-05: null scientific result rejected: 1 validation error for SmrExperimentResultCreateRequest\nvalue\n  Input should be a valid number [type=float_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.12/v/float_type"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_hold_requirement_visible_before_trigger__RW05",
+    "status": "red",
+    "reason": "AssertionError: RW-05: preflight exposes no per-role holds or minimum run ceiling\nassert 'hold_requirements' in {'blockers': {'items': {'$ref': '#/$defs/SmrRunStartBlockerResponse'}, 'title': 'Blockers', 'type': 'array'}, 'capabil...y'}, 'checks': {'items': {'$ref': '#/$defs/SmrLaunchPreflightCheckResponse'}, 'title': 'Checks', 'type': 'array'}, ...}"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_late_retry_does_not_replay_expired_admission__RR09",
+    "status": "red",
+    "reason": "AssertionError: RR-09: retry replays expired admission; needs renewal or typed guidance\nassert 1791000400000 > 1791000400001\n +  where 1791000400000 = AdmissionAdmitted(schema_version='synth.admission.v1', decision='admitted', admission_id='adm_01K6QHMN0000000000000000...1bc67d9910ad892f2daf031b767bd91a37c05c4ffba002bb4dd25bd'), budget=None), execution_binding_ref=None, swarm_launch=None).expires_unix_ms"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_intern_write_uses_execution_provenance__RW09",
+    "status": "red",
+    "reason": "AssertionError: RW-09: Intern scientific write is stamped human\nassert 'human' == 'mloky'\n  \n  - mloky\n  + human"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_verifier_only_project_accepts_explicit_no_model_files__PR13",
+    "status": "red",
+    "reason": "AssertionError: PR-13: verifier-only project refuses an explicit empty model file selection\nassert False\n +  where False = ResourceCatalogReadiness(ready=False, blocked_reason=<ResourceCatalogBlockedReason.MISSING_MODEL_VISIBLE_FILE: 'smr_mi...es=(), missing_repository_ids=(), missing_credential_ref_ids=(), selected_model_file_ids=(), missing_model_file_ids=()).ready"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_backend_environment_sdk_satisfies_declared_pin__RR12",
+    "status": "red",
+    "reason": "AssertionError: RR-12: backend interpreter has synth-ai 0.18.0; requires 0.22.2.dev679\nassert <Version('0.18.0')> >= <Version('0.22.2.dev679')>\n +  where <Version('0.18.0')> = <class 'packaging.version.Version'>('0.18.0')\n +  and   <Version('0.22.2.dev679')> = <class 'packaging.version.Version'>('0.22.2.dev679')"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_preflight_detects_orchestra_budget_refusal__RW05_RW06[budget_ceiling_pico_usd]",
+    "status": "red",
+    "reason": "AssertionError: RW-05/RW-06: preflight clears missing Orchestra budget_ceiling_pico_usd\nassert not True\n +  where True = SmrLaunchPreflightResponse(project_id='project', project_alias=None, project_kind=None, clear_to_trigger=True, checked...], required_capabilities=[], limit=None, resource_readiness=None, runtime_readiness=None, resolved_actor_profiles=None).clear_to_trigger"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_forge_discrepancy_law.py::test_preflight_detects_orchestra_budget_refusal__RW05_RW06[token_ceiling]",
+    "status": "red",
+    "reason": "AssertionError: RW-05/RW-06: preflight clears missing Orchestra token_ceiling\nassert not True\n +  where True = SmrLaunchPreflightResponse(project_id='project', project_alias=None, project_kind=None, clear_to_trigger=True, checked...], required_capabilities=[], limit=None, resource_readiness=None, runtime_readiness=None, resolved_actor_profiles=None).clear_to_trigger"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_discrepancy_contracts.py::test_native_resource_exact_byte_limits_accept[sizes0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "backend",
+    "node": "tests/units/test_discrepancy_contracts.py::test_native_resource_exact_byte_limits_accept[sizes1]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "backend",
+    "node": "tests/integration/test_discrepancy_postgres_law.py::test_preflight_refuses_persisted_forge_writer__RW06",
+    "status": "red",
+    "reason": "AssertionError: RW-06: persisted forge_writer refuses trigger but clears preflight\nassert not True\n +  where True = SmrLaunchPreflightResponse(project_id='97db8354-3aa0-4ac8-a0b6-ae1edfececab', project_alias=None, project_kind=None, c...], required_capabilities=[], limit=None, resource_readiness=None, runtime_readiness=None, resolved_actor_profiles=None).clear_to_trigger"
+  },
+  {
+    "repo": "backend",
+    "node": "tests/integration/test_discrepancy_postgres_law.py::test_branch_refuses_persisted_forge_writer__RW03",
+    "status": "red",
+    "reason": "Failed: RW-03: child Run constructed on persisted forge_writer scope"
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_discrepancy_law.py::test_validation_rejection_has_machine_code__MX12",
+    "status": "red",
+    "reason": "AssertionError: MX-12: definite validation rejection has no machine-stable code\nassert None == 'malformed_request'\n +  where None = <built-in method get of dict object at 0x10aafe2c0>('code')\n +    where <built-in method get of dict object at 0x10aafe2c0> = {'detail': [{'input': {}, 'loc': ['body', 'scope'], 'msg': 'Field required', 'type': 'missing'}, {'input': {}, 'loc': ...ired', 'type': 'missing'}, {'input': {}, 'loc': ['body', 'payload'], 'msg': 'Field required', 'type': 'missing'}, ...]}.get\n +      where {'detail': [{'input': {}, 'loc': ['body', 'scope'], 'msg': 'Field required', 'type'"
+  },
+  {
+    "repo": "Forge",
+    "node": "tests/test_discrepancy_law.py::test_producer_bound_result_is_specific_refusal__RR01",
+    "status": "red",
+    "reason": "AssertionError: RR-01: unimplemented scorer verifier classified as retryable outage\nassert 'authority_unavailable' != 'authority_unavailable'\n +  where 'authority_unavailable' = AuthorityRefusal('no selected scorer-receipt verifier').code\n +    where AuthorityRefusal('no selected scorer-receipt verifier') = <ExceptionInfo AuthorityRefusal('no selected scorer-receipt verifier') tblen=2>.value"
+  },
+  {
+    "repo": "testing",
+    "node": "synth_cloud/integration/forge/test_forge_native_record_readback.py::test_forge_native_record_readback",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "testing",
+    "node": "synth_cloud/integration/forge/test_forge_resource_preflight.py::test_forge_resource_preflight",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "testing",
+    "node": "synth_cloud/integration/forge/test_forge_slot_identity.py::test_forge_slot_identity",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "testing",
+    "node": "synth_cloud/integration/forge/test_forge_stub_worker_journey_law.py::test_forge_stub_worker_journey__RW01_PR02_RR05",
+    "status": "blocked by deployed run-status projection",
+    "reason": "synth_ai.sdk.research.errors.ResearchStructuredDenialError: GET /smr/projects/b8287ae7-1435-4aff-88dc-063759870bce/runs/95fc0664-50d3-4e53-811c-7fb160eaaf79: Run status reads require Redis control-plane authority; control-plane snapshot is required."
+  }
+]

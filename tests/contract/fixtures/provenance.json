@@ -1,0 +1,24 @@
+{
+  "source_commits": {
+    "backend": "39141a839b754013ba8782a4e002e94adf65a3e0",
+    "Forge": "a304b70e8f2fb1bcaec29f5d2923c90f6e9af1b2",
+    "synth-ai": "41566590bcee783359635ce20d10e45c81742726",
+    "backend_all_routes": "d36b3745b9f8af51ff9d6460ee020c880e60fe4e",
+    "sublinear": "77a4437049deb24b60d6a140a1dca399d386d0c6"
+  },
+  "fastapi_version": "0.141.1",
+  "noise_policy": "No schema noise excluded in current producer-equality test. Generator uses backend requirements pins.",
+  "fixture_sha256": {
+    "backend_full_openapi.generated.json": "40eef8b3a47502e3fd5625d9176df55775735117acb59e6b5c08c690ec0559df",
+    "run_control_enum.generated.json": "4b7a7106430dbf14a76172ed078ce8a138d321127c17309de90edcf5dd59452d",
+    "backend_all_routes.json": "2e8526bfd612037ba214c0e248b8c1616c86f9e73f1085de637bd6b4fc6b9a1d",
+    "public_enums.generated.json": "4b68e59876fc135dd966b41f484de399edb8d53589c4fae02c09be67b67e683d",
+    "orchestra_provenance.json": "de32028166f904e218272209c30cd3605790e09f42f71a971ae36025951654d9",
+    "research_openapi.generated.json": "8b752235d7ce6fd0ccaf31f4d3cb3de6ccaa3b0e554f03524af609e05ba0cc07",
+    "sublinear_owner_routes.json": "ac8f28a0a4a07710fb67a01bcd2557e5178ca0a17e220d91cf6063dfee14e1c8"
+  },
+  "generator_source_note": "Current joined backend39141a839b has identical producer body to isolatedaeffe014c; actual12 Intern/Task public routes registered. Final consumer source pinned in joined candidate receipt after commit.",
+  "backend_base_commit": "1c549a063d4fffaf738517516c6ec2837bb3d9fa",
+  "pydantic_version": "2.12.5",
+  "route_dump_note_20261013": "backend_all_routes.json re-dumped from backend dev d36b3745b (app.api.app:app, FastAPI 0.141.1, _IncludedRouter flattened via effective route contexts, hidden routes included); sublinear_owner_routes.json from tests/contract/extract_sublinear_routes.py at sublinear dev 77a44370."
+}

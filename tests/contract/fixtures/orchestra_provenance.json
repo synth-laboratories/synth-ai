@@ -1,0 +1,9 @@
+{
+  "backend_source_sha": "304f00b8690e7da152450833a16630926cfb6c1d",
+  "routes_sha256": "4f9a7145e2060ff3fec5b28a3dfe9d530ebcb6b40a81de545bf264c663028126",
+  "route_count": 1538,
+  "hidden_routes_included": true,
+  "refusal_source": "packages/smr/control/public_api/run_controls.py",
+  "route_generator": "discrepancy-audit-20261006/scripts/dump_all_routes.py",
+  "provider_spend_usd": 0
+}

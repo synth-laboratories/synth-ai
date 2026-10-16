@@ -1,0 +1,56 @@
+{
+ "_source": "artifacts/mloky-project-owner-20261004/finish-20261005/live-20261005/c3-expired-grants-revoked.json (slot2 recorded intern_task_grant_read/revoke documents, 2026-10-05)",
+ "context_bind_grant_revoked": {
+  "catalog_projects": {
+   "include_direct": false,
+   "kind": "selected",
+   "project_ids": [
+    "sublinear-project-6072c124-b40e-4637-a526-1997b8a8a881"
+   ]
+  },
+  "expires_unix_ms": 1791176046201,
+  "generation": 1,
+  "grant_digest": "sha256:f4e25ed3e9360141fd1e442d2865e1dcc647c5a2ee6334e466bb6083446c6567",
+  "grant_id": "grt_e3c53599a3b040e59c64b843b3b29f59",
+  "intern_id": "d44b13c3-41fa-469b-a2b5-0482abe3b014",
+  "organization_id": "00000000-0000-0000-0000-000000000001",
+  "policy_revision": "mloky-native-20261005-c3",
+  "revocation_epoch": 1,
+  "schema": "synth.sublinear-task-grant.v1",
+  "status": "revoked",
+  "subject": "grt_e3c53599a3b040e59c64b843b3b29f59",
+  "task_operations": [
+   "task.command.bind_task_context",
+   "task.context.bind"
+  ]
+ },
+ "task_grant_revoked": {
+  "catalog_projects": {
+   "include_direct": false,
+   "kind": "selected",
+   "project_ids": [
+    "sublinear-project-6072c124-b40e-4637-a526-1997b8a8a881"
+   ]
+  },
+  "expires_unix_ms": 1791176046201,
+  "generation": 1,
+  "grant_digest": "sha256:e9be84fa4b03ed2016b140289413b5bfb46b2649ac1e66f625e988a4a864d14c",
+  "grant_id": "grt_3527d4f7297a45ad97318ad7b6d1afda",
+  "intern_id": "d44b13c3-41fa-469b-a2b5-0482abe3b014",
+  "organization_id": "00000000-0000-0000-0000-000000000001",
+  "policy_revision": "mloky-native-20261005-c3",
+  "revocation_epoch": 1,
+  "schema": "synth.sublinear-task-grant.v1",
+  "status": "revoked",
+  "subject": "grt_3527d4f7297a45ad97318ad7b6d1afda",
+  "task_operations": [
+   "task.catalog.read",
+   "task.command.assign",
+   "task.command.create",
+   "task.command.retain_attempt",
+   "task.command.update_attempt",
+   "task.history.read",
+   "task.receipt.read"
+  ]
+ }
+}

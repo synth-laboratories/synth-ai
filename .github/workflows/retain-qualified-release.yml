@@ -1,0 +1,69 @@
+name: Retain qualified SDK artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact source commit already qualified by the retained bundle
+        required: true
+      channel:
+        type: choice
+        options: [nightly, stable]
+        required: true
+      version:
+        description: Exact final version inside the qualified wheel
+        required: true
+      release_asset_id:
+        description: Same-repository release asset containing the qualification ZIP
+        required: true
+      archive_sha256:
+        description: SHA256 of the reviewed qualification ZIP
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  retain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch the exact retained qualification bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ASSET_ID: ${{ inputs.release_asset_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" == "$GITHUB_SHA" ]]
+          [[ "$ASSET_ID" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" > asset.json
+          jq -e '(.state == "uploaded") and (.size > 0) and (.size <= 268435456)' asset.json >/dev/null
+          gh api -H 'Accept: application/octet-stream' \
+            "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" > qualification.zip
+      - name: Validate source, distributions and all seven retained checks
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          ARCHIVE_SHA: ${{ inputs.archive_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I .github/import_qualified_release.py \
+            --archive qualification.zip --output qualified \
+            --source "$SOURCE_SHA" --version "$VERSION" --channel "$CHANNEL" \
+            --archive-sha "$ARCHIVE_SHA" > producer-receipt.json
+          cat producer-receipt.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qualified-sdk-${{ inputs.version }}-${{ github.sha }}
+          path: qualified/
+          if-no-files-found: error
+          retention-days: 90

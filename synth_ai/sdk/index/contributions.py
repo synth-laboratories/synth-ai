@@ -1,117 +1,550 @@
-"""Backend-owned Contribution draft wire mirror; unreleased.
+"""Owner workflows and public metadata. See SDK index_contract.md."""
 
-See sibling backend/packages/contributions/upload.py and cross-repo schema tests.
-"""
+from __future__ import annotations
 
-import ipaddress
-import re
-from datetime import date, datetime
-from typing import Annotated, Literal
-from urllib.parse import urlsplit
-from uuid import UUID
+from synth_ai.contracts import operations
+from synth_ai.core.http.async_client import AsyncHttpTransport
+from synth_ai.core.http.client import HttpTransport
+from synth_ai.core.parameters import identifier, page_parameters, verified
+from synth_ai.errors import AuthenticationError, ContractError
+from synth_ai.options import MutationOptions, ReadOptions, TransferOptions
+from synth_ai.types.base import Page, PageCursor
+from synth_ai.types.identity import MutationIdentity
+from synth_ai.types.receipts import CreationResolution, MutationResolution
 
-from pydantic import Field, StringConstraints, field_validator, model_validator
-
-from .artifacts import ArtifactPublicationPrepareResponse
-from .contracts import ContributionReference, IndexContract
-from .package import ContributionPackage
-
-NonEmpty = Annotated[str, StringConstraints(min_length=1, max_length=2048)]
-_URL_SECRET_PATTERNS = tuple(
-    re.compile(pattern)
-    for pattern in (
-        r"\bsk-[A-Za-z0-9_-]{20,}",
-        r"\bAKIA[0-9A-Z]{16}\b",
-        r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
-        r"\bghp_[A-Za-z0-9]{30,}",
-        r"\bxox[bpas]-[A-Za-z0-9-]{10,}",
-    )
+from .types.contributions import (
+    AttestationReceipt,
+    Contribution,
+    ContributionDraft,
+    ContributionFilter,
+    ContributionRevision,
+    CorrectionReceipt,
+    ResearchCorrection,
+    RightsAttestation,
+    SubmissionReceipt,
+    SubmissionRequest,
 )
+from .types.uploads import LocalContributionPackage, UploadReceipt
+from .uploads import AsyncUploads, Uploads
 
 
-class ContributionDraft(IndexContract):
-    reference: ContributionReference
-    collection_id: UUID
-    status: Literal["draft"] = "draft"
-    visibility: Literal["private"] = "private"
-    artifact_revision: Literal[1] = 1
-    manifest_schema_version: Literal["synth.contribution.v1"] = "synth.contribution.v1"
+class Contributions:
+    def __init__(self, transport: HttpTransport, keyed: bool) -> None:
+        self._transport = transport
+        self._keyed = keyed
+        self.uploads = Uploads(transport)
+
+    def list(
+        self,
+        *,
+        limit: int,
+        cursor: PageCursor | None = None,
+        filter: ContributionFilter | None = None,
+        request: ReadOptions | None = None,
+    ) -> Page[Contribution]:
+        """Read one bounded authorized page; no implicit all-pages traversal.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        selected = filter or ContributionFilter()
+        if not self._keyed and selected.status not in {None, "published"}:
+            raise AuthenticationError("Anonymous browse is limited to published metadata")
+        query = page_parameters(limit, cursor)
+        query["query"] = selected.query
+        if selected.status is not None:
+            query["status"] = selected.status
+        result = self._transport.request(
+            operations.CONTRIBUTIONS,
+            Page[Contribution],
+            query=query,
+            options=request,
+            validate=lambda received: verified(
+                received,
+                not (
+                    len(received.items) > limit
+                    or (
+                        not self._keyed
+                        and any(item.status != "published" for item in received.items)
+                    )
+                ),
+                "Contribution list violated authority or bounds",
+            ),
+        )
+        return result
+
+    def get(self, contribution_id: str, *, request: ReadOptions | None = None) -> Contribution:
+        """Read or reattach the exact authorized resource with fresh server state.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = self._transport.request(
+            operations.CONTRIBUTION,
+            Contribution,
+            path=f"/index/contributions/{contribution_id}",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                not (
+                    received.contribution_id != contribution_id
+                    or (not self._keyed and received.status != "published")
+                ),
+                "Contribution read violated identity or public visibility",
+            ),
+        )
+        return result
+
+    def get_revision(
+        self,
+        contribution_id: str,
+        revision_id: str,
+        *,
+        request: ReadOptions | None = None,
+    ) -> ContributionRevision:
+        """Read one current public revision under the negotiated contract."""
+        contribution_id = identifier(contribution_id)
+        revision_id = identifier(revision_id)
+        return self._transport.request(
+            operations.CONTRIBUTION_REVISION,
+            ContributionRevision,
+            path=f"/index/contributions/{contribution_id}/revisions/{revision_id}",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id
+                and received.revision_id == revision_id,
+                "Contribution revision read violated identity",
+            ),
+        )
+
+    def get_owner(
+        self, contribution_id: str, *, request: ReadOptions | None = None
+    ) -> Contribution:
+        """Read the current private owner resource without widening public browsing."""
+        contribution_id = identifier(contribution_id)
+        return self._transport.request(
+            operations.OWNED_CONTRIBUTION,
+            Contribution,
+            path=f"/index/contributions/{contribution_id}/owner",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Owner contribution identity mismatch",
+            ),
+        )
+
+    def create(self, *, mutation: MutationOptions | None = None) -> Contribution:
+        """Create one durable owner resource; uncertain responses preserve mutation identity.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        return self._transport.request(
+            operations.CREATE_CONTRIBUTION, Contribution, options=mutation
+        )
+
+    def resolve_creation(
+        self, identity: MutationIdentity, *, request: ReadOptions | None = None
+    ) -> CreationResolution[Contribution]:
+        """Resolve a retained create identity without executing another mutation.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        if identity.operation != operations.CREATE_CONTRIBUTION.id:
+            raise ValueError("Contribution resolver requires a contribution-create identity")
+        resolution = self._transport.request(
+            operations.RESOLVE,
+            MutationResolution,
+            query={
+                "key": identity.key,
+                "operation": identity.operation,
+                "resource_path": identity.resource_path,
+                "payload_sha256": identity.payload_sha256,
+            },
+            options=request,
+            validate=lambda received: verified(
+                received, received.identity == identity, "Resolver identity mismatch"
+            ),
+        )
+        resource: Contribution | None = None
+        if resolution.resource is not None:
+            if resolution.resource.kind != "contribution":
+                raise ContractError("Contribution resolver returned another resource type")
+            resource = self.get_owner(resolution.resource.resource_id, request=request)
+        return CreationResolution(resolution.state, resource, resolution.metadata)
+
+    def update(
+        self,
+        contribution_id: str,
+        *,
+        draft: ContributionDraft,
+        mutation: MutationOptions | None = None,
+    ) -> ContributionRevision:
+        """Create an owner revision using the expected revision to prevent lost updates.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = self._transport.request(
+            operations.UPDATE_CONTRIBUTION,
+            ContributionRevision,
+            path=f"/index/contributions/{contribution_id}",
+            body=draft,
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Contribution receipt identity mismatch",
+            ),
+        )
+        return result
+
+    def attest(
+        self,
+        contribution_id: str,
+        *,
+        attestation: RightsAttestation,
+        mutation: MutationOptions | None = None,
+    ) -> AttestationReceipt:
+        """Attest exact revision rights; this does not publish or grant review authority.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = self._transport.request(
+            operations.ATTEST,
+            AttestationReceipt,
+            path=f"/index/contributions/{contribution_id}/attest",
+            body=attestation,
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Contribution receipt identity mismatch",
+            ),
+        )
+        return result
+
+    def correct(
+        self,
+        contribution_id: str,
+        *,
+        correction: ResearchCorrection,
+        mutation: MutationOptions | None = None,
+    ) -> CorrectionReceipt:
+        """Record an exact source/replacement revision correction with owner authority.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = self._transport.request(
+            operations.CORRECT,
+            CorrectionReceipt,
+            path=f"/index/contributions/{contribution_id}/corrections",
+            body=correction,
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Contribution receipt identity mismatch",
+            ),
+        )
+        return result
+
+    def submit(
+        self, contribution_id: str, *, revision: str, mutation: MutationOptions | None = None
+    ) -> SubmissionReceipt:
+        """Submit the exact owner revision; publication remains backend-owned.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        revision = identifier(revision)
+        result = self._transport.request(
+            operations.SUBMIT,
+            SubmissionReceipt,
+            path=f"/index/contributions/{contribution_id}/submit",
+            body=SubmissionRequest(revision_id=revision),
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                not (
+                    received.contribution_id != contribution_id or received.revision_id != revision
+                ),
+                "Submission receipt identity mismatch",
+            ),
+        )
+        return result
+
+    def upload(
+        self,
+        contribution_id: str,
+        *,
+        package: LocalContributionPackage,
+        transfer: TransferOptions,
+        mutation: MutationOptions | None = None,
+    ) -> UploadReceipt:
+        """Prepare, transfer and finalize a sealed package; never attest or submit implicitly. Restartable flows use explicit prepare/status/finalize identities.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        if mutation is not None and mutation.identity is not None:
+            raise ValueError("Use explicit prepare/finalize identities for restartable uploads")
+        session = self.uploads.prepare(
+            contribution_id, manifest=package.source.manifest, mutation=mutation
+        )
+        session.transfer(package.source, transfer=transfer)
+        return session.finalize(mutation=mutation)
 
 
-class ResearchSource(IndexContract):
-    """Immutable source identity accepted by the private research-draft route."""
+class AsyncContributions:
+    def __init__(self, transport: AsyncHttpTransport, keyed: bool) -> None:
+        self._transport = transport
+        self._keyed = keyed
+        self.uploads = AsyncUploads(transport)
 
-    organization_id: NonEmpty
-    project_id: NonEmpty
-    arc_id: NonEmpty
-    source_repository_url: NonEmpty
-    source_revision: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{40}$")]
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    observed_date: date | None = None
-    session_ids: tuple[NonEmpty, ...] = Field(min_length=1, max_length=256)
-    tools: tuple[NonEmpty, ...] = Field(min_length=1, max_length=64)
-    source_paths: tuple[NonEmpty, ...] = Field(min_length=1, max_length=1024)
+    async def list(
+        self,
+        *,
+        limit: int,
+        cursor: PageCursor | None = None,
+        filter: ContributionFilter | None = None,
+        request: ReadOptions | None = None,
+    ) -> Page[Contribution]:
+        """Read one bounded authorized page; no implicit all-pages traversal.
 
-    @field_validator("source_repository_url")
-    @classmethod
-    def validate_repository_url(cls, value: str) -> str:
-        url = urlsplit(value)
-        hostname = url.hostname
-        if (
-            url.scheme != "https"
-            or not hostname
-            or url.username is not None
-            or url.password is not None
-            or url.query
-            or url.fragment
-            or url.port not in (None, 443)
-            or hostname.lower() in {"localhost", "localhost.localdomain"}
-            or hostname.lower().endswith((".local", ".internal"))
-            or any(pattern.search(value) for pattern in _URL_SECRET_PATTERNS)
-        ):
-            raise ValueError("repository URL must be credential-free public HTTPS")
-        try:
-            address = ipaddress.ip_address(hostname)
-        except ValueError:
-            address = None
-        if address is not None and not address.is_global:
-            raise ValueError("repository URL must be credential-free public HTTPS")
-        return value
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        selected = filter or ContributionFilter()
+        if not self._keyed and selected.status not in {None, "published"}:
+            raise AuthenticationError("Anonymous browse is limited to published metadata")
+        query = page_parameters(limit, cursor)
+        query["query"] = selected.query
+        if selected.status is not None:
+            query["status"] = selected.status
+        result = await self._transport.request(
+            operations.CONTRIBUTIONS,
+            Page[Contribution],
+            query=query,
+            options=request,
+            validate=lambda received: verified(
+                received,
+                not (
+                    len(received.items) > limit
+                    or (
+                        not self._keyed
+                        and any(item.status != "published" for item in received.items)
+                    )
+                ),
+                "Contribution list violated authority or bounds",
+            ),
+        )
+        return result
 
-    @model_validator(mode="after")
-    def validate_span(self):
-        if (self.started_at is None) != (self.finished_at is None):
-            raise ValueError("source needs both timestamps or neither")
-        if self.started_at is None and self.observed_date is None:
-            raise ValueError("source needs timestamps or a day-level observed date")
-        if self.started_at and self.finished_at and self.finished_at < self.started_at:
-            raise ValueError("source time span is reversed")
-        return self
+    async def get(
+        self, contribution_id: str, *, request: ReadOptions | None = None
+    ) -> Contribution:
+        """Read or reattach the exact authorized resource with fresh server state.
 
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = await self._transport.request(
+            operations.CONTRIBUTION,
+            Contribution,
+            path=f"/index/contributions/{contribution_id}",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                not (
+                    received.contribution_id != contribution_id
+                    or (not self._keyed and received.status != "published")
+                ),
+                "Contribution read violated identity or public visibility",
+            ),
+        )
+        return result
 
-class ResearchDraftSpec(IndexContract):
-    """Server allocates identity and SYNTH provenance; caller supplies source proof only."""
+    async def get_revision(
+        self,
+        contribution_id: str,
+        revision_id: str,
+        *,
+        request: ReadOptions | None = None,
+    ) -> ContributionRevision:
+        """Read one current public revision under the negotiated contract."""
+        contribution_id = identifier(contribution_id)
+        revision_id = identifier(revision_id)
+        return await self._transport.request(
+            operations.CONTRIBUTION_REVISION,
+            ContributionRevision,
+            path=f"/index/contributions/{contribution_id}/revisions/{revision_id}",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id
+                and received.revision_id == revision_id,
+                "Contribution revision read violated identity",
+            ),
+        )
 
-    bundle_digest: Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
-    source: ResearchSource
+    async def get_owner(
+        self, contribution_id: str, *, request: ReadOptions | None = None
+    ) -> Contribution:
+        """Read the current private owner resource without widening public browsing."""
+        contribution_id = identifier(contribution_id)
+        return await self._transport.request(
+            operations.OWNED_CONTRIBUTION,
+            Contribution,
+            path=f"/index/contributions/{contribution_id}/owner",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Owner contribution identity mismatch",
+            ),
+        )
 
+    async def create(self, *, mutation: MutationOptions | None = None) -> Contribution:
+        """Create one durable owner resource; uncertain responses preserve mutation identity.
 
-class ContributionUploadSpec(IndexContract):
-    publication_id: UUID
-    package: ContributionPackage
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        return await self._transport.request(
+            operations.CREATE_CONTRIBUTION, Contribution, options=mutation
+        )
 
+    async def resolve_creation(
+        self, identity: MutationIdentity, *, request: ReadOptions | None = None
+    ) -> CreationResolution[Contribution]:
+        """Resolve a retained create identity without executing another mutation.
 
-class ContributionUploadPrepared(IndexContract):
-    """Transient transfer instructions; never store signed URLs in replay receipts."""
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        if identity.operation != operations.CREATE_CONTRIBUTION.id:
+            raise ValueError("Contribution resolver requires a contribution-create identity")
+        resolution = await self._transport.request(
+            operations.RESOLVE,
+            MutationResolution,
+            query={
+                "key": identity.key,
+                "operation": identity.operation,
+                "resource_path": identity.resource_path,
+                "payload_sha256": identity.payload_sha256,
+            },
+            options=request,
+            validate=lambda received: verified(
+                received, received.identity == identity, "Resolver identity mismatch"
+            ),
+        )
+        resource: Contribution | None = None
+        if resolution.resource is not None:
+            if resolution.resource.kind != "contribution":
+                raise ContractError("Contribution resolver returned another resource type")
+            resource = await self.get_owner(resolution.resource.resource_id, request=request)
+        return CreationResolution(resolution.state, resource, resolution.metadata)
 
-    descriptor_json: str = Field(max_length=1_048_576)
-    transfer: ArtifactPublicationPrepareResponse
+    async def update(
+        self,
+        contribution_id: str,
+        *,
+        draft: ContributionDraft,
+        mutation: MutationOptions | None = None,
+    ) -> ContributionRevision:
+        """Create an owner revision using the expected revision to prevent lost updates.
 
-    @model_validator(mode="after")
-    def check_bounds(self):
-        if len(self.descriptor_json.encode("utf-8")) > 1_048_576:
-            raise ValueError("Descriptor exceeds 1 MiB")
-        if len(self.transfer.upload_targets) > 1025:
-            raise ValueError("Contribution transfer exceeds asset bound")
-        return self
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = await self._transport.request(
+            operations.UPDATE_CONTRIBUTION,
+            ContributionRevision,
+            path=f"/index/contributions/{contribution_id}",
+            body=draft,
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Contribution receipt identity mismatch",
+            ),
+        )
+        return result
+
+    async def attest(
+        self,
+        contribution_id: str,
+        *,
+        attestation: RightsAttestation,
+        mutation: MutationOptions | None = None,
+    ) -> AttestationReceipt:
+        """Attest exact revision rights; this does not publish or grant review authority.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = await self._transport.request(
+            operations.ATTEST,
+            AttestationReceipt,
+            path=f"/index/contributions/{contribution_id}/attest",
+            body=attestation,
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Contribution receipt identity mismatch",
+            ),
+        )
+        return result
+
+    async def correct(
+        self,
+        contribution_id: str,
+        *,
+        correction: ResearchCorrection,
+        mutation: MutationOptions | None = None,
+    ) -> CorrectionReceipt:
+        """Record an exact source/replacement revision correction with owner authority.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        result = await self._transport.request(
+            operations.CORRECT,
+            CorrectionReceipt,
+            path=f"/index/contributions/{contribution_id}/corrections",
+            body=correction,
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id,
+                "Contribution receipt identity mismatch",
+            ),
+        )
+        return result
+
+    async def submit(
+        self, contribution_id: str, *, revision: str, mutation: MutationOptions | None = None
+    ) -> SubmissionReceipt:
+        """Submit the exact owner revision; publication remains backend-owned.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        contribution_id = identifier(contribution_id)
+        revision = identifier(revision)
+        result = await self._transport.request(
+            operations.SUBMIT,
+            SubmissionReceipt,
+            path=f"/index/contributions/{contribution_id}/submit",
+            body=SubmissionRequest(revision_id=revision),
+            options=mutation,
+            validate=lambda received: verified(
+                received,
+                not (
+                    received.contribution_id != contribution_id or received.revision_id != revision
+                ),
+                "Submission receipt identity mismatch",
+            ),
+        )
+        return result
+
+    async def upload(
+        self,
+        contribution_id: str,
+        *,
+        package: LocalContributionPackage,
+        transfer: TransferOptions,
+        mutation: MutationOptions | None = None,
+    ) -> UploadReceipt:
+        """Prepare, transfer and finalize a sealed package; never attest or submit implicitly. Restartable flows use explicit prepare/status/finalize identities.
+
+        See: backend/notes/specifications/sdk/index_contract.md."""
+        if mutation is not None and mutation.identity is not None:
+            raise ValueError("Use explicit prepare/finalize identities for restartable uploads")
+        session = await self.uploads.prepare(
+            contribution_id, manifest=package.source.manifest, mutation=mutation
+        )
+        await session.transfer(package.source, transfer=transfer)
+        return await session.finalize(mutation=mutation)

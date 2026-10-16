@@ -1,0 +1,422 @@
+[
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[nonsense-sync]",
+    "status": "red",
+    "reason": "Failed: EX-08: invalid retry field terminates valid event stream: invalid SSE retry value 'nonsense'"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[nonsense-async]",
+    "status": "red",
+    "reason": "Failed: EX-08: invalid retry field terminates valid event stream: invalid SSE retry value 'nonsense'"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[-1-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert -1 is None\n +  where -1 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=-1).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[-1-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert -1 is None\n +  where -1 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=-1).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[+12-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert 12 is None\n +  where 12 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=12).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[+12-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert 12 is None\n +  where 12 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=12).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[1_000-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert 1000 is None\n +  where 1000 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=1000).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[1_000-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert 1000 is None\n +  where 1000 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=1000).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[\\u0661\\u0662-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert 12 is None\n +  where 12 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=12).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_invalid_retry_field_is_ignored__EX08[\\u0661\\u0662-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-08: non-ASCII-digit retry accepted\nassert 12 is None\n +  where 12 = SseEvent(event='message', data='retained', event_id=None, retry_milliseconds=12).retry_milliseconds"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_nul_event_id_preserves_previous_id__EX09[sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-09: NUL-containing id overwrites replay cursor\nassert 'invalid\\x00id' == 'retained'\n  \n  - retained\n  + invalid#x00id"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_nul_event_id_preserves_previous_id__EX09[async]",
+    "status": "red",
+    "reason": "AssertionError: EX-09: NUL-containing id overwrites replay cursor\nassert 'invalid\\x00id' == 'retained'\n  \n  - retained\n  + invalid#x00id"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_empty_event_type_uses_message__EX10[sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-10: empty event type loses default message routing\nassert '' == 'message'\n  \n  - message"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_empty_event_type_uses_message__EX10[async]",
+    "status": "red",
+    "reason": "AssertionError: EX-10: empty event type loses default message routing\nassert '' == 'message'\n  \n  - message"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_eof_does_not_dispatch_unterminated_event__EX11[data: unfinished-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-11: disconnect dispatches event lacking terminating blank line\nassert [SseEvent(eve...seconds=None)] == []\n  \n  Left contains one more item: SseEvent(event='message', data='unfinished', event_id=None, retry_milliseconds=None)\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_eof_does_not_dispatch_unterminated_event__EX11[data: unfinished-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-11: disconnect dispatches event lacking terminating blank line\nassert [SseEvent(eve...seconds=None)] == []\n  \n  Left contains one more item: SseEvent(event='message', data='unfinished', event_id=None, retry_milliseconds=None)\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_eof_does_not_dispatch_unterminated_event__EX11[data: unfinished\\n-sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-11: disconnect dispatches event lacking terminating blank line\nassert [SseEvent(eve...seconds=None)] == []\n  \n  Left contains one more item: SseEvent(event='message', data='unfinished', event_id=None, retry_milliseconds=None)\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_eof_does_not_dispatch_unterminated_event__EX11[data: unfinished\\n-async]",
+    "status": "red",
+    "reason": "AssertionError: EX-11: disconnect dispatches event lacking terminating blank line\nassert [SseEvent(eve...seconds=None)] == []\n  \n  Left contains one more item: SseEvent(event='message', data='unfinished', event_id=None, retry_milliseconds=None)\n  Use -v to get more diff"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_leading_bom_does_not_drop_first_event__EX12[sync]",
+    "status": "red",
+    "reason": "AssertionError: EX-12: leading UTF-8 BOM drops first event\nassert 0 == 1\n +  where 0 = len([])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_leading_bom_does_not_drop_first_event__EX12[async]",
+    "status": "red",
+    "reason": "AssertionError: EX-12: leading UTF-8 BOM drops first event\nassert 0 == 1\n +  where 0 = len([])"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_wrong_stream_media_type_is_typed_failure__EX13[None-sync]",
+    "status": "red",
+    "reason": "Failed: EX-13: non-event-stream response accepted as SSE data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_wrong_stream_media_type_is_typed_failure__EX13[None-async]",
+    "status": "red",
+    "reason": "Failed: EX-13: non-event-stream response accepted as SSE data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_wrong_stream_media_type_is_typed_failure__EX13[application/json-sync]",
+    "status": "red",
+    "reason": "Failed: EX-13: non-event-stream response accepted as SSE data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_wrong_stream_media_type_is_typed_failure__EX13[application/json-async]",
+    "status": "red",
+    "reason": "Failed: EX-13: non-event-stream response accepted as SSE data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_wrong_stream_media_type_is_typed_failure__EX13[text/html-sync]",
+    "status": "red",
+    "reason": "Failed: EX-13: non-event-stream response accepted as SSE data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_law.py::test_wrong_stream_media_type_is_typed_failure__EX13[text/html-async]",
+    "status": "red",
+    "reason": "Failed: EX-13: non-event-stream response accepted as SSE data"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_valid_line_endings_multiline_data_and_cursor_persist[\\n-sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_valid_line_endings_multiline_data_and_cursor_persist[\\n-async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_valid_line_endings_multiline_data_and_cursor_persist[\\r-sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_valid_line_endings_multiline_data_and_cursor_persist[\\r-async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_valid_line_endings_multiline_data_and_cursor_persist[\\r\\n-sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_valid_line_endings_multiline_data_and_cursor_persist[\\r\\n-async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_empty_data_event_and_explicit_cursor_reset[sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_empty_data_event_and_explicit_cursor_reset[async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_comment_only_and_unknown_field_blocks_do_not_emit[sync]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_streaming_extension_contracts.py::test_comment_only_and_unknown_field_blocks_do_not_emit[async]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_closed_mcp_arguments_refuse_before_handler__EX14[registry-arguments0]",
+    "status": "red",
+    "reason": "Failed: EX-14: missing/unknown closed-schema arguments reached handler"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_closed_mcp_arguments_refuse_before_handler__EX14[registry-arguments1]",
+    "status": "red",
+    "reason": "Failed: EX-14: missing/unknown closed-schema arguments reached handler"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_closed_mcp_arguments_refuse_before_handler__EX14[server-arguments0]",
+    "status": "red",
+    "reason": "Failed: EX-14: missing/unknown closed-schema arguments reached handler"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_closed_mcp_arguments_refuse_before_handler__EX14[server-arguments1]",
+    "status": "red",
+    "reason": "Failed: EX-14: missing/unknown closed-schema arguments reached handler"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_ambiguous_idempotency_identity_refuses__EX15[headers0-body0]",
+    "status": "red",
+    "reason": "Failed: EX-15: contradictory header/body idempotency identities silently selected"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_ambiguous_idempotency_identity_refuses__EX15[headers1-body1]",
+    "status": "red",
+    "reason": "Failed: EX-15: contradictory header/body idempotency identities silently selected"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_ambiguous_idempotency_identity_refuses__EX15[headers2-body2]",
+    "status": "red",
+    "reason": "Failed: EX-15: contradictory header/body idempotency identities silently selected"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_invalid_items_do_not_become_empty_page__EX16[payload0]",
+    "status": "red",
+    "reason": "Failed: EX-16: invalid/missing page items silently become empty successful result"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_invalid_items_do_not_become_empty_page__EX16[payload1]",
+    "status": "red",
+    "reason": "Failed: EX-16: invalid/missing page items silently become empty successful result"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_invalid_items_do_not_become_empty_page__EX16[payload2]",
+    "status": "red",
+    "reason": "Failed: EX-16: invalid/missing page items silently become empty successful result"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_invalid_items_do_not_become_empty_page__EX16[payload3]",
+    "status": "red",
+    "reason": "Failed: EX-16: invalid/missing page items silently become empty successful result"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_terminal_null_is_not_previous_cursor__EX17",
+    "status": "red",
+    "reason": "AssertionError: EX-17: terminal next_cursor null overwritten by prior cursor\nassert 'previous' is None"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_full_terminal_page_does_not_invent_continuation__EX17[projects]",
+    "status": "red",
+    "reason": "AssertionError: EX-17: explicit terminal page invents cursor from last item\nassert 'project' is None\n +  where 'project' = SyncPage(items=[Project(project_id='project', organization_id='org', name='project', timezone='UTC', created_at=dateti...ject_alias=None, project_kind=None, active_swarm_id=None, latest_swarm_id=None)], next_cursor='project', has_more=True).next_cursor"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_full_terminal_page_does_not_invent_continuation__EX17[swarms]",
+    "status": "red",
+    "reason": "AssertionError: EX-17: explicit terminal page invents cursor from last item\nassert 'run' is None\n +  where 'run' = SyncPage(items=[Swarm(swarm_id='run', project_id='project', organization_id='org', state=<SwarmState.QUEUED: 'queued'>...tcome=None, work_completed=False, origin_runtime_kind=None, origin_runtime_id=None)], next_cursor='run', has_more=True).next_cursor"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_has_more_is_strict_boolean__EX18[false]",
+    "status": "red",
+    "reason": "Failed: EX-18: non-boolean has_more silently coerced into continuation state"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_has_more_is_strict_boolean__EX18[true]",
+    "status": "red",
+    "reason": "Failed: EX-18: non-boolean has_more silently coerced into continuation state"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_has_more_is_strict_boolean__EX18[0]",
+    "status": "red",
+    "reason": "Failed: EX-18: non-boolean has_more silently coerced into continuation state"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_has_more_is_strict_boolean__EX18[1]",
+    "status": "red",
+    "reason": "Failed: EX-18: non-boolean has_more silently coerced into continuation state"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_has_more_is_strict_boolean__EX18[None]",
+    "status": "red",
+    "reason": "Failed: EX-18: non-boolean has_more silently coerced into continuation state"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_opaque_cursor_is_preserved_exactly__EX19[sdk-page]",
+    "status": "red",
+    "reason": "AssertionError: EX-19: opaque server cursor normalized by stripping whitespace\nassert 'opaque/token==' == '  opaque/token==  '\n  \n  -   opaque/token==  \n  ? --              --\n  + opaque/token=="
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_opaque_cursor_is_preserved_exactly__EX19[core-cursor]",
+    "status": "red",
+    "reason": "AssertionError: EX-19: opaque server cursor normalized by stripping whitespace\nassert 'opaque/token==' == '  opaque/token==  '\n  \n  -   opaque/token==  \n  ? --              --\n  + opaque/token=="
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_nonstring_cursor_is_not_fabricated__EX19[123]",
+    "status": "red",
+    "reason": "Failed: EX-19: non-string cursor fabricated by str() coercion"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_nonstring_cursor_is_not_fabricated__EX19[True]",
+    "status": "red",
+    "reason": "Failed: EX-19: non-string cursor fabricated by str() coercion"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_nonstring_cursor_is_not_fabricated__EX19[cursor2]",
+    "status": "red",
+    "reason": "Failed: EX-19: non-string cursor fabricated by str() coercion"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_contradictory_continuation_refuses__EX20[payload0]",
+    "status": "red",
+    "reason": "Failed: EX-20: contradictory has_more/cursor declaration accepted"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_law.py::test_contradictory_continuation_refuses__EX20[payload1]",
+    "status": "red",
+    "reason": "Failed: EX-20: contradictory has_more/cursor declaration accepted"
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_valid_closed_tool_arguments_reach_handler_once[registry-arguments0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_valid_closed_tool_arguments_reach_handler_once[server-arguments0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_equal_idempotency_identities_remain_valid[headers0-body0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_equal_idempotency_identities_remain_valid[headers1-body1]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_equal_idempotency_identities_remain_valid[headers2-body2]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_valid_pages_preserve_data_and_continuation[payload0-expected0]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_valid_pages_preserve_data_and_continuation[payload1-expected1]",
+    "status": "green",
+    "reason": ""
+  },
+  {
+    "repo": "synth-ai",
+    "node": "tests/contract/test_boundary_extension_contracts.py::test_valid_pages_preserve_data_and_continuation[payload2-expected2]",
+    "status": "green",
+    "reason": ""
+  }
+]

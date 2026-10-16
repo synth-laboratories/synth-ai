@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "run_id": "10a89adb-a686-40cf-b65e-c75164788b5d",
+  "project_id": "7bbc829a-342f-467e-af3a-e30dec8fbf5f",
+  "money": {
+    "nominal_cents": 0,
+    "billed_cents": 0,
+    "internal_cost_cents": 0,
+    "nominal_pico_usd": 1129000000,
+    "billed_pico_usd": 1129000000,
+    "internal_cost_pico_usd": 1129000000
+  },
+  "tokens": {
+    "sessions_seen": 0,
+    "session_snapshots_count": 0,
+    "unattributed_sessions": 0,
+    "totals": {
+      "input_tokens": 0,
+      "cached_input_tokens": 0,
+      "non_cached_input_tokens": 0,
+      "output_tokens": 0,
+      "reasoning_output_tokens": 0,
+      "non_reasoning_output_tokens": 0,
+      "snapshots": 0
+    },
+    "by_model": {}
+  },
+  "actors": [],
+  "freshness": {
+    "source": "admission_settlements",
+    "as_of": "2026-10-07T00:09:23.919952Z",
+    "record_count": 1,
+    "run_is_terminal": true
+  }
+}

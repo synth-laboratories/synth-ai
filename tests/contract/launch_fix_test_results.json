@@ -1,0 +1,464 @@
+[
+  {
+    "repo": "synth-ai",
+    "name": "test_vendored_schema_matches_generated__MX04[AsyncRuntimeEnsureRequest]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_vendored_schema_matches_generated__MX04[SmrRunResourceBindingsRequest]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_vendored_schema_matches_generated__MX04[SmrRunnableProjectCreateRequest]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_vendored_schema_matches_generated__MX04[SmrAgentModel]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_vendored_schema_matches_generated__MX04[SmrProjectTriggerRequest]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_empty_resource_inventories_round_trip__PR02",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_authority_errors_are_first_class__RW08[scientific_writer_transferred-False]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_authority_errors_are_first_class__RW08[transfer_fence_active-True]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_authority_errors_are_first_class__RW08[provenance_unbound-False]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_authority_errors_are_first_class__RW08[run_deployment_pins_missing-False]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_preflight_keeps_typed_readiness__PR08[resource_readiness]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_preflight_keeps_typed_readiness__PR08[runtime_readiness]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_preflight_keeps_typed_readiness__PR08[checks]",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_full_vendored_snapshot_matches_backend__MX04",
+    "class": "tests.contract.test_launch_acceptance_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[GET-409-sync]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[GET-409-async]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[GET-429-sync]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[GET-429-async]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[GET-503-sync]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[GET-503-async]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[POST-409-sync]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[POST-409-async]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[POST-429-sync]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[POST-429-async]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[POST-503-sync]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_explicit_refusal_is_attempted_once__EX01[POST-503-async]",
+    "class": "tests.contract.test_launch_retry_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_trigger_run]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_start_run]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_start_one_off_run]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[deployment_pins-research_start_run_in_dev_environment]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_trigger_run]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_start_run]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_start_one_off_run]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_launch_schema_accepts_provenance__RW01_PR12[provenance_mode-research_start_run_in_dev_environment]",
+    "class": "tests.mcp.test_launch_schema_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_schema_valid_launch_forwards_all_required_inputs[research_trigger_run]",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_schema_valid_launch_forwards_all_required_inputs[research_start_run]",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_schema_valid_launch_forwards_all_required_inputs[research_start_one_off_run]",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_schema_valid_launch_forwards_all_required_inputs[research_start_run_in_dev_environment]",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_bindings_round_trip_model_files_and_empty_inventories",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_typed_preflight_keeps_holds_and_selected_missing_files",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_required_provenance_shape_error_keeps_typed_code[deployment_pins-run_deployment_pins_missing]",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_required_provenance_shape_error_keeps_typed_code[provenance_mode-provenance_unbound]",
+    "class": "tests.mcp.test_launch_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "synth-ai",
+    "name": "test_registry_matches_backend__MX03",
+    "class": "tests.contract.test_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_trigger_required_fields_match_runtime__PR09_RW13[live]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_trigger_required_fields_match_runtime__PR09_RW13[dry_run]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06[fields0]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06[fields1]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_cannot_clear_trigger_provenance_refusal__PR10_RW06[fields2]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_resource_readiness_keeps_selected_and_missing_files__PR07",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_delivery_limit_has_specific_code__PR06_PR15[ids0]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_delivery_limit_has_specific_code__PR06_PR15[ids1]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_hold_requirement_visible_before_trigger__RW05",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_verifier_only_project_accepts_explicit_no_model_files__PR13",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_detects_orchestra_budget_refusal__RW05_RW06[budget_ceiling_pico_usd]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_detects_orchestra_budget_refusal__RW05_RW06[token_ceiling]",
+    "class": "tests.units.test_launch_discrepancy_contracts",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_launch_refuses_unbound_or_insufficient_aggregate_holds[None]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_launch_refuses_unbound_or_insufficient_aggregate_holds[0]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_launch_refuses_unbound_or_insufficient_aggregate_holds[nan]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_launch_refuses_unbound_or_insufficient_aggregate_holds[inf]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_launch_refuses_unbound_or_insufficient_aggregate_holds[0.5]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_native_exact_aggregate_hold_boundary_passes_and_is_exposed",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_and_trigger_delivery_share_typed_limit[sizes0]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_and_trigger_delivery_share_typed_limit[sizes1]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_writer_refusal_names_authority_and_never_evaluates_runtime",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_valid_provenance_and_writer_reaches_ready_result",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_catalog_preflight_blocks_same_delivery_code_and_ids[sizes0]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_catalog_preflight_blocks_same_delivery_code_and_ids[sizes1]",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_selected_native_budget_gate_rejects_half_dollar_and_returns_role_minimum",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_public_preflight_projects_immutable_role_holds",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_public_request_schema_requires_every_launch_inventory",
+    "class": "tests.units.test_launch_contract_fixes",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_enforced_unsupported_route_is_a_typed_launch_blocker",
+    "class": "tests.units.test_inference_admission_launch_preflight",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_shadow_unsupported_route_allows_turn_boundary_enforcement",
+    "class": "tests.units.test_inference_admission_launch_preflight",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_resolves_inference_admission_for_every_actor_role",
+    "class": "tests.units.test_inference_admission_launch_preflight",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_enforced_route_refusal_precedes_capacity_checks",
+    "class": "tests.units.test_inference_admission_launch_preflight",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_orchestra_token_ceiling_reads_the_accepted_tokens_cap",
+    "class": "tests.units.test_inference_admission_launch_preflight",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_orchestra_launch_without_token_cap_is_a_typed_preflight_blocker",
+    "class": "tests.units.test_inference_admission_launch_preflight",
+    "status": "green"
+  },
+  {
+    "repo": "backend",
+    "name": "test_preflight_refuses_persisted_forge_writer__RW06",
+    "class": "tests.integration.test_discrepancy_postgres_law",
+    "status": "green"
+  }
+]

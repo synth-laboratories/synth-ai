@@ -1,0 +1,1262 @@
+[
+  {
+    "tool": "intern_async_events",
+    "args": {}
+  },
+  {
+    "tool": "intern_async_list_handoffs",
+    "args": {}
+  },
+  {
+    "tool": "intern_async_tail",
+    "args": {}
+  },
+  {
+    "tool": "intern_effort_board",
+    "args": {}
+  },
+  {
+    "tool": "intern_memory_get",
+    "args": {
+      "hit_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_memory_search",
+    "args": {
+      "query": "audit"
+    }
+  },
+  {
+    "tool": "intern_sync_events",
+    "args": {
+      "sync_session_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_sync_tail",
+    "args": {
+      "sync_session_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_archive_factory",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_archive_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_create_effort",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "name": "audit"
+    }
+  },
+  {
+    "tool": "research_create_factory",
+    "args": {
+      "name": "audit"
+    }
+  },
+  {
+    "tool": "research_get_billing_entitlements",
+    "args": {}
+  },
+  {
+    "tool": "research_get_effort",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_factory",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_limits",
+    "args": {}
+  },
+  {
+    "tool": "research_get_project_dataset_content",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "dataset_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_setup",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_research_intern",
+    "args": {}
+  },
+  {
+    "tool": "research_get_swarm_status",
+    "args": {
+      "swarm_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_swarm_workspace_archive",
+    "args": {
+      "swarm_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_active_runs",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_customer_actor_images",
+    "args": {}
+  },
+  {
+    "tool": "research_list_environments",
+    "args": {}
+  },
+  {
+    "tool": "research_list_factories",
+    "args": {}
+  },
+  {
+    "tool": "research_list_factory_efforts",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_project_data_pools",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_project_datasets",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_project_repositories",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_projects",
+    "args": {}
+  },
+  {
+    "tool": "research_list_records",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "kind": "audit"
+    }
+  },
+  {
+    "tool": "research_list_research_intern_acceptance_receipts",
+    "args": {}
+  },
+  {
+    "tool": "research_list_research_intern_decisions",
+    "args": {}
+  },
+  {
+    "tool": "research_list_research_intern_factories",
+    "args": {}
+  },
+  {
+    "tool": "research_list_runs",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_visuals",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_effort",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_factory",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "config": {}
+    }
+  },
+  {
+    "tool": "research_pause_factory",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_prepare_project_setup",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_provision_research_intern",
+    "args": {}
+  },
+  {
+    "tool": "research_record_events",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_resume_factory",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_start_factory",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_unarchive_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_watch_run_events",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_meta_messages",
+    "args": {
+      "meta_thread_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_meta_segments",
+    "args": {
+      "meta_thread_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_meta_threads",
+    "args": {}
+  },
+  {
+    "tool": "intern_milestone_create",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001",
+      "parent_kind": "open_ended_question",
+      "parent_id": "00000000-0000-4000-8000-000000000001",
+      "milestone_kind": "subquestion",
+      "title": "audit",
+      "objective": "audit"
+    }
+  },
+  {
+    "tool": "intern_milestone_list",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_milestone_transition",
+    "args": {
+      "milestone_id": "00000000-0000-4000-8000-000000000001",
+      "next_state": "planned"
+    }
+  },
+  {
+    "tool": "intern_objective_get",
+    "args": {
+      "objective_id": "00000000-0000-4000-8000-000000000001",
+      "objective_kind": "open_ended_question"
+    }
+  },
+  {
+    "tool": "intern_objective_link_create",
+    "args": {
+      "objective_id": "00000000-0000-4000-8000-000000000001",
+      "objective_kind": "open_ended_question",
+      "link_kind": "smr_run",
+      "target_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_objective_link_list",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_objective_list",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_progress_claim_create",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001",
+      "objective_kind": "open_ended_question",
+      "objective_id": "00000000-0000-4000-8000-000000000001",
+      "summary": "audit"
+    }
+  },
+  {
+    "tool": "intern_progress_claim_list",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "intern_task_create",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001",
+      "title": "audit"
+    }
+  },
+  {
+    "tool": "intern_task_list",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_append_project_notes",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "notes": "audit"
+    }
+  },
+  {
+    "tool": "research_approve_run_approval",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "approval_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_create_factory_idea",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "title": "audit"
+    }
+  },
+  {
+    "tool": "research_create_project_changeset",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "title": "audit",
+      "items": []
+    }
+  },
+  {
+    "tool": "research_create_project_credential_ref",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "kind": "audit",
+      "label": "audit"
+    }
+  },
+  {
+    "tool": "research_create_project_external_repository",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "name": "audit",
+      "url": "audit"
+    }
+  },
+  {
+    "tool": "research_create_run_checkpoint",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_create_run_credential_binding",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "credential_ref_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_create_run_repository_mount",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "repository_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_curated_knowledge",
+    "args": {
+      "operation": "get",
+      "scope": "org"
+    }
+  },
+  {
+    "tool": "research_decide_project_changeset",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "changeset_id": "00000000-0000-4000-8000-000000000001",
+      "decision": "accepted",
+      "decided_by_ref": "audit"
+    }
+  },
+  {
+    "tool": "research_delete_trained_model",
+    "args": {
+      "model_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_deny_run_approval",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "approval_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_edit_message",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "message_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_evaluate_factory_result",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "result_id": "00000000-0000-4000-8000-000000000001",
+      "evaluation": {}
+    }
+  },
+  {
+    "tool": "research_explain_work_product_blocker",
+    "args": {
+      "work_product_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_export_run_work_product",
+    "args": {
+      "work_product_id": "00000000-0000-4000-8000-000000000001",
+      "destination": {}
+    }
+  },
+  {
+    "tool": "research_export_trained_model",
+    "args": {
+      "model_id": "00000000-0000-4000-8000-000000000001",
+      "destination": {}
+    }
+  },
+  {
+    "tool": "research_get_artifact",
+    "args": {
+      "artifact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_artifact_content",
+    "args": {
+      "artifact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_capabilities",
+    "args": {}
+  },
+  {
+    "tool": "research_get_capacity_lane_preview",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_default_project",
+    "args": {}
+  },
+  {
+    "tool": "research_get_factory_best_results",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_factory_idea",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "idea_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_factory_project",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_factory_result",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "result_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_factory_status",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_factory_workspace",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_launch_preflight_in_dev_environment",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "dev_environment_id": "00000000-0000-4000-8000-000000000001",
+      "intended_horizon_hours": 1
+    }
+  },
+  {
+    "tool": "research_get_objective_status",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "objective_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_org_knowledge",
+    "args": {}
+  },
+  {
+    "tool": "research_get_project_changeset",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "changeset_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_entitlement",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_git",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_knowledge",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_notes",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_status",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_usage",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_project_workspace",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_provider_key_status",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "provider": "deepseek",
+      "funding_source": "synth_managed"
+    }
+  },
+  {
+    "tool": "research_get_raw_trace_events",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "artifact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_actor_trace",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "actor_key": "audit"
+    }
+  },
+  {
+    "tool": "research_get_run_cost_summary",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_progress_toward_resource_limits",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_resource_limits",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_usage",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_work_graph",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_work_product",
+    "args": {
+      "work_product_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_run_work_product_content",
+    "args": {
+      "work_product_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_trained_model",
+    "args": {
+      "model_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_get_workspace_download_url",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_graduate_runs_to_effort",
+    "args": {
+      "run_ids": [],
+      "name": "audit",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_health_check",
+    "args": {}
+  },
+  {
+    "tool": "research_link_factory_auxiliary_project",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_link_factory_project",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_link_factory_workspace_project",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_actor_outputs",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_evaluation_lenses",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_ideas",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_open_decisions",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_projects",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_result_selection_events",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_factory_results",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_graduation_proposals",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_messages",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_project_changesets",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_project_credential_refs",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_project_external_repositories",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_actor_traces",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_approvals",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_artifacts",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_checkpoints",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_credential_bindings",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_datasets",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_file_mounts",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_log_archives",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_models",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_objective_events",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_output_files",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_questions",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_repository_mounts",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_task_events",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_run_work_products",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_runs_by_effort",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_list_trained_models_for_run",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_mark_effort_ready_for_review",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_mark_effort_waiting",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_milestones",
+    "args": {
+      "operation": "list",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_objectives",
+    "args": {
+      "operation": "list",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_factory_idea",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "idea_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_factory_project",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_project_credential_ref",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "credential_ref_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_patch_project_external_repository",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "repository_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_pause_effort",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_pause_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_preview_factory_wake",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_record_adjudicator_brief",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "title": "audit"
+    }
+  },
+  {
+    "tool": "research_record_architect_feed_health",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "title": "audit"
+    }
+  },
+  {
+    "tool": "research_record_factory_actor_output",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "actor_role": "orchestrator",
+      "kind": "adjudicator_brief",
+      "title": "audit"
+    }
+  },
+  {
+    "tool": "research_record_gardener_digest",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "title": "audit"
+    }
+  },
+  {
+    "tool": "research_rename_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "name": "audit"
+    }
+  },
+  {
+    "tool": "research_request_resource_limit_extension",
+    "args": {
+      "scope": "run",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "expected_revision": 1
+    }
+  },
+  {
+    "tool": "research_resolve_effort_decision",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_respond_to_run_question",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "question_id": "00000000-0000-4000-8000-000000000001",
+      "response_text": "audit"
+    }
+  },
+  {
+    "tool": "research_restore_factory_result_current_best",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "result_id": "00000000-0000-4000-8000-000000000001",
+      "reason": "audit"
+    }
+  },
+  {
+    "tool": "research_restore_run_checkpoint",
+    "args": {
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_results_models_download",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "model_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_results_models_export",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "model_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_results_models_get",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "model_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_results_models_list",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_results_prs_get",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "pr_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_results_prs_list",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_resume_effort",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_resume_project",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_retract_message",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "message_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_runtime_message_queue",
+    "args": {
+      "operation": "list",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_schedule_effort",
+    "args": {
+      "effort_id": "00000000-0000-4000-8000-000000000001",
+      "next_wake_at": "audit"
+    }
+  },
+  {
+    "tool": "research_select_factory_result_current_best",
+    "args": {
+      "factory_id": "00000000-0000-4000-8000-000000000001",
+      "result_id": "00000000-0000-4000-8000-000000000001",
+      "reason": "audit"
+    }
+  },
+  {
+    "tool": "research_send_message",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_set_org_knowledge",
+    "args": {
+      "content": "audit"
+    }
+  },
+  {
+    "tool": "research_set_project_knowledge",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "content": "audit"
+    }
+  },
+  {
+    "tool": "research_set_project_notes",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "notes": "audit"
+    }
+  },
+  {
+    "tool": "research_setup_exports_create_target",
+    "args": {
+      "label": "audit",
+      "bucket": "audit",
+      "access_key_id": "00000000-0000-4000-8000-000000000001",
+      "secret_access_key": "audit"
+    }
+  },
+  {
+    "tool": "research_setup_exports_list_targets",
+    "args": {}
+  },
+  {
+    "tool": "research_setup_github_disconnect",
+    "args": {}
+  },
+  {
+    "tool": "research_setup_github_list_repos",
+    "args": {}
+  },
+  {
+    "tool": "research_setup_github_start_oauth",
+    "args": {}
+  },
+  {
+    "tool": "research_setup_github_status",
+    "args": {}
+  },
+  {
+    "tool": "research_start_run_in_dev_environment",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "dev_environment_id": "00000000-0000-4000-8000-000000000001",
+      "objective": "audit",
+      "intended_horizon_hours": 1,
+      "provenance_mode": "live",
+      "deployment_pins": [
+        {
+          "repository": "backend",
+          "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "environment": "slot5",
+          "resolved_at": "2026-10-06T00:00:00Z",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "resource_bindings": {
+        "model_file_ids": [],
+        "external_repository_ids": [],
+        "credential_ref_ids": []
+      }
+    }
+  },
+  {
+    "tool": "research_status_readiness",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_update_trained_model",
+    "args": {
+      "model_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_work_datasets_download",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "dataset_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_work_datasets_list",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "tool": "research_work_repos_attach",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "github_repo": "audit"
+    }
+  },
+  {
+    "tool": "research_work_repos_detach",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "github_repo": "audit"
+    }
+  },
+  {
+    "tool": "research_work_repos_list",
+    "args": {
+      "project_id": "00000000-0000-4000-8000-000000000001"
+    }
+  }
+]

@@ -1,47 +1,34 @@
 [project]
 name = "synth-ai"
-version = "0.22.1"
-description = "Python SDK, CLI and MCP servers for Synth Index search and Swarms"
-keywords = ["synth", "index", "search", "citations", "research", "swarms", "mcp", "sdk"]
+version = "0.23.0"
+description = "Synth SDK for Index, Swarms, account access, and hosted MCP"
+keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "typing-extensions>=4.12,<5",
     # Live SDK runtime
-    "pydantic>=2.0.0",
-    "pynacl>=1.5.0",
-    "click>=8.1.7,<8.2",
-    "httpx>=0.28.1",
+    # Contract generation is qualified against this exact schema serializer.
+    "pydantic==2.12.5",
+    "httpx>=0.28.1,<1",
 ]
 
 [project.scripts]
-synth-ai = "synth_ai.cli:cli"
-synth-ai-research-mcp = "synth_ai.mcp.research.server:main"
-synth-ai-index-mcp = "synth_ai.mcp.research.server:main_index"
-
-[project.optional-dependencies]
-pools = [
-    "synth-containers>=0.4.3.dev2026091126,<0.5",
-]
-dev = [
-    "build>=1.2.2.post1",
-    "twine>=4.0.0",
-    "keyring>=24.0.0",
-    "ruff>=0.1.0",
-    "papermill>=2.6.0",
-    "nest_asyncio>=1.6.0",
-    "mdxify>=0.2.0",
-]
-research = [
-    # Compatibility extra retained so `synth-ai[research]` remains valid.
-]
+synth-ai = "synth_ai.cli_auth:main"
+synth-ai-mcp = "synth_ai.mcp_entrypoint:main"
 
 [project.urls]
 Homepage = "https://github.com/synth-laboratories/synth-ai"
 Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
+
+[project.optional-dependencies]
+mcp = [
+    "mcp>=1.30,<2",
+]
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -116,18 +103,9 @@ ignore = [
 dev = [
     "build>=1.2.2.post1",
     "twine>=4.0.0",
-    "keyring>=24.0.0",
-    "pytest>=8.3.3",
-    "pytest-xdist>=3.6.1",
-    "pytest-timeout>=2.3.1",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.1.0",
-    "ty>=0.0.1a5",
-    "responses>=0.25.7",
-    "httpx>=0.28.1",
-    "papermill>=2.6.0",
-    "nest_asyncio>=1.6.0",
-    "nbstripout>=0.8.2",
-    "ipykernel>=7.1.0",
+    "jsonschema>=4.18,<5",
+    "ruff==0.17.0",
+    "ty==0.0.86",
+    "httpx>=0.28.1,<1",
     "mdxify>=0.2.0",
 ]

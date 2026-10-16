@@ -1,0 +1,1 @@
+"""Typed Index contract vocabulary."""
