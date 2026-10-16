@@ -27,6 +27,7 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.types.base import EventCursor, Page
 
 from .operations import PREFIX
@@ -61,6 +62,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     Page[RunSnapshot],
     Page[SwarmEvent, EventCursor],
     Page[TaskOutcome],
+    ProjectCreateRequest,
 )
 
 
