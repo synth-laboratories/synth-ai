@@ -1,4 +1,8 @@
-"""Clerk public-client PKCE and RFC 8628. See backend auth-023.md."""
+"""Public-client PKCE and token custody. See backend oauth-families.md.
+
+Stored legacy issuer credentials keep their issuer-bound transport; new CLI
+connections use the Synth family issuer with Clerk-authenticated consent.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ class OAuthMetadata(TypedDict):
     revocation_endpoint: str
     device_authorization_endpoint: NotRequired[str]
     grant_types_supported: NotRequired[tuple[str, ...]]
+    authorization_response_iss_parameter_supported: NotRequired[bool]
 
 
 @dataclass(slots=True)
@@ -63,8 +68,6 @@ class OAuthConfig:
     client_id: str
     resource: str
     scopes: tuple[str, ...] = (
-        "openid",
-        "email",
         "offline_access",
         "user:org:read",
         "synth:read",
@@ -181,6 +184,11 @@ class OAuthClient:
             isinstance(grant, str) for grant in value["grant_types_supported"]
         ):
             result["grant_types_supported"] = tuple(value["grant_types_supported"])
+        if "authorization_response_iss_parameter_supported" in value:
+            supported = value["authorization_response_iss_parameter_supported"]
+            if type(supported) is not bool:
+                raise AuthRefusalError("oauth_discovery_malformed", 503)
+            result["authorization_response_iss_parameter_supported"] = supported
         return result
 
     def post(self, endpoint: str, data: dict[str, str]) -> dict[str, object]:

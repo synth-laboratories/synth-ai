@@ -82,7 +82,14 @@ def browser_login(
                 self.end_headers()
                 return
             codes = params.get("code", [])
-            if params.get("error") or len(codes) != 1 or not codes[0]:
+            issuers = params.get("iss", [])
+            issuer_required = metadata.get("authorization_response_iss_parameter_supported", False)
+            if (
+                params.get("error")
+                or len(codes) != 1
+                or not codes[0]
+                or ((issuer_required or issuers) and issuers != [client.config.issuer])
+            ):
                 outcome["error"] = "oauth_callback_refused"
             else:
                 outcome["code"] = codes[0]
@@ -116,14 +123,13 @@ def browser_login(
 
 
 def oauth_config(api_origin: str) -> OAuthConfig:
-    client_id = os.environ.get("SYNTH_OAUTH_CLIENT_ID", "8eXFpQ4ksClzA41I")
+    client_id = os.environ.get("SYNTH_OAUTH_CLIENT_ID", "synth-ai-cli")
     if not client_id:
         raise AuthRefusalError("oauth_client_not_configured", 503)
     return OAuthConfig(
-        os.environ.get("SYNTH_OAUTH_ISSUER", "https://clerk.usesynth.ai"),
+        os.environ.get("SYNTH_OAUTH_ISSUER", api_origin),
         client_id,
-        os.environ.get("SYNTH_OAUTH_RESOURCE", "https://api.usesynth.ai/mcp"),
-        resource_exchange_url=api_origin + "/auth/oauth/resource-token",
+        os.environ.get("SYNTH_OAUTH_RESOURCE", api_origin + "/mcp"),
     )
 
 

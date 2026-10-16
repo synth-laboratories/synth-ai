@@ -132,10 +132,17 @@ class PrincipalToken(AccessToken):
 
 
 class PrincipalVerifier:
-    def __init__(self, backend: AuthorizationBackend, resource: str, issuer: str) -> None:
+    def __init__(
+        self,
+        backend: AuthorizationBackend,
+        resource: str,
+        issuer: str,
+        *,
+        legacy_issuers: tuple[str, ...] = (),
+    ) -> None:
         self._backend = backend
         self._resource = resource
-        self._issuer = issuer
+        self._issuers = frozenset((issuer, *legacy_issuers))
 
     async def verify_token(self, token: str) -> AccessToken | None:
         try:
@@ -149,7 +156,7 @@ class PrincipalVerifier:
             or principal.expires_at <= time.time()
         ):
             return None
-        if principal.credential_kind == "oauth" and principal.issuer != self._issuer:
+        if principal.credential_kind == "oauth" and principal.issuer not in self._issuers:
             return None
         # A connection never stores the incoming bearer token in its execution context.
         return PrincipalToken(
@@ -253,13 +260,14 @@ def create_http_app(
     capability_provider: Callable[[], Capabilities] | None = None,
     candidate_manifest_sha256: str | None = None,
     allowed_origins: tuple[str, ...] = (),
+    legacy_issuer_urls: tuple[str, ...] = (),
 ) -> Starlette:
     """Create one stateless protected MCP endpoint; backend supplies live authorization.
 
     Deployment must pass the qualified tool allowlist explicitly. No socket is
     opened here, and no OAuth authorization server or registration flow is fabricated.
     """
-    for value in (resource_url, issuer_url):
+    for value in (resource_url, issuer_url, *legacy_issuer_urls):
         parsed = urlsplit(value)
         if (
             parsed.scheme != "https"
@@ -324,7 +332,9 @@ def create_http_app(
             Middleware(
                 AuthenticationMiddleware,
                 backend=BearerAuthBackend(
-                    PrincipalVerifier(backend, resource_url, issuer_url),
+                    PrincipalVerifier(
+                        backend, resource_url, issuer_url, legacy_issuers=legacy_issuer_urls
+                    ),
                     resource_server_url=resource,
                 ),
             ),
