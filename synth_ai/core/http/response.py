@@ -18,6 +18,7 @@ from synth_ai.errors import (
     OutcomeUncertainError,
     PermissionDeniedError,
     RateLimitError,
+    RequestTimeoutError,
     ResultNotReadyError,
     SynthError,
     UnsupportedOperationError,
@@ -143,6 +144,8 @@ def _decode_response(
             kind = NotFoundError
         elif response.status_code in {409, 412}:
             kind = ConflictError
+        elif response.status_code == 408:
+            kind = RequestTimeoutError
         elif response.status_code == 429:
             kind = RateLimitError
         elif response.status_code == 402:
