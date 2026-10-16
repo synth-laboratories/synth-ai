@@ -127,7 +127,7 @@ def oauth_config(api_origin: str) -> OAuthConfig:
     if not client_id:
         raise AuthRefusalError("oauth_client_not_configured", 503)
     return OAuthConfig(
-        os.environ.get("SYNTH_OAUTH_ISSUER", api_origin),
+        os.environ.get("SYNTH_OAUTH_ISSUER", api_origin.rstrip("/") + "/"),
         client_id,
         os.environ.get("SYNTH_OAUTH_RESOURCE", api_origin + "/mcp"),
     )
