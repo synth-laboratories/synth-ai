@@ -31,6 +31,10 @@ CHECKS = {
     "native-swarms",
     "staging",
 }
+POLICY_PATH = Path(__file__).with_name("release-policy.json")
+POLICY_SCHEMA = "synth.sdk.release-policy.v1"
+TICKET = re.compile(r"[A-Z][A-Z0-9]*-[0-9]+")
+MAX_REASON = 500
 SHA = re.compile(r"[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+)?")
@@ -57,6 +61,42 @@ def document(raw: bytes) -> dict:
     value = json.loads(raw, object_pairs_hook=unique)
     require(isinstance(value, dict), "expected object")
     return value
+
+
+def deferrable_checks(version: str) -> frozenset[str]:
+    """Checks the versioned release policy lets this version defer; none if undeclared."""
+    if not POLICY_PATH.is_file():
+        return frozenset()
+    policy = document(POLICY_PATH.read_bytes())
+    require(policy.get("schema") == POLICY_SCHEMA, "invalid release policy")
+    releases = policy.get("releases")
+    require(isinstance(releases, dict), "invalid release policy")
+    names = releases.get(version, {}).get("deferrable", [])
+    require(
+        isinstance(names, list) and set(names) <= CHECKS and len(set(names)) == len(names),
+        "invalid release policy",
+    )
+    return frozenset(names)
+
+
+def deferral(check: dict, evidence: bytes, deferrable: frozenset[str]) -> dict:
+    """Validate one deferred check and return its {reason, ticket}."""
+    require(check.get("name") in deferrable, "check is not deferrable by release policy")
+    reason, ticket = check.get("reason"), check.get("ticket")
+    require(
+        isinstance(reason, str) and 0 < len(reason.strip()) <= MAX_REASON,
+        "deferral requires a reason",
+    )
+    require(
+        isinstance(ticket, str) and TICKET.fullmatch(ticket) is not None,
+        "deferral requires a ticket id",
+    )
+    record = document(evidence)
+    require(
+        record == {"check": check["name"], "reason": reason, "ticket": ticket},
+        "deferral record does not match the declared reason and ticket",
+    )
+    return {"reason": reason, "ticket": ticket}
 
 
 def source_gate(source: str, version: str, channel: str, branch: str) -> None:
@@ -203,9 +243,11 @@ def verify_bundle(
             {check.get("name") for check in checks} == CHECKS, "qualification coverage mismatch"
         )
         allowed = {"qualification.json", *files}
+        deferrable = deferrable_checks(version)
+        deferred = {}
         for check in checks:
             require(
-                check.get("status") == "passed" and check.get("source_sha") == source,
+                check.get("status") in {"passed", "deferred"} and check.get("source_sha") == source,
                 "qualification check incomplete",
             )
             require(
@@ -222,6 +264,13 @@ def verify_bundle(
                 digest(zipped.read(evidence)) == check.get("evidence_sha256"),
                 "qualification evidence changed",
             )
+            if check["status"] == "deferred":
+                deferred[check["name"]] = deferral(check, zipped.read(evidence), deferrable)
+            else:
+                require(
+                    "reason" not in check and "ticket" not in check,
+                    "passed check cannot carry a deferral",
+                )
             allowed.add(evidence)
         require(set(names) == allowed, "undeclared artifact file")
         require(not output.exists(), "prepared output already exists")
@@ -238,6 +287,7 @@ def verify_bundle(
         "qualification_sha256": digest(raw_manifest),
         "distributions": files,
         "checks": sorted(CHECKS),
+        "deferred": deferred,
     }
     (output / "publish-receipt.json").write_text(
         json.dumps(receipt, sort_keys=True, indent=2) + "\n"
