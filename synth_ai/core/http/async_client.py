@@ -45,6 +45,12 @@ class AsyncHttpTransport:
         *,
         credential_provider: CredentialProvider | None = None,
     ) -> None:
+        if options.local_development_retention and urlsplit(base_url).hostname not in {
+            "127.0.0.1",
+            "::1",
+        }:
+            raise ValueError("Local development retention requires a loopback API address")
+        self.local_development_retention = options.local_development_retention
         self._base_url = base_url
         self._api_key = api_key
         self._credential_provider = credential_provider
