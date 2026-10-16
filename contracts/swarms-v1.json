@@ -4261,6 +4261,43 @@
       "title": "Project",
       "type": "object"
     },
+    "ProjectCreateRequest": {
+      "$defs": {
+        "ProjectTemplate": {
+          "description": "Closed set of server-authored project templates.",
+          "enum": [
+            "report_native"
+          ],
+          "title": "ProjectTemplate",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "objective": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Objective",
+          "type": "string"
+        },
+        "template": {
+          "$ref": "#/$defs/ProjectTemplate"
+        }
+      },
+      "required": [
+        "name",
+        "template",
+        "objective"
+      ],
+      "title": "ProjectCreateRequest",
+      "type": "object"
+    },
     "Providers": {
       "additionalProperties": false,
       "properties": {
@@ -6923,6 +6960,16 @@
       "method": "POST",
       "mutation": true,
       "path": "/api/v1/swarms/uploads/{upload_id}/finalize",
+      "required_scope": "swarms:write"
+    },
+    {
+      "id": "swarms.projects.create",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/swarms/projects",
       "required_scope": "swarms:write"
     }
   ],
