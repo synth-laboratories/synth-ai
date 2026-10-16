@@ -7,7 +7,9 @@ from .run import AsyncSwarmRun, SwarmRun
 from .types.files import File, FileManifest, FileSource, FileUploadReceipt, FileUploadStatus
 from .types.launch import FileRef, Inputs, Limits, Models, Providers
 from .types.outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
+from .types.problems import EvidenceRef, Problem, ReasonLink
 from .types.runs import (
+    RunFailure,
     LaunchPreflight,
     ResolvedConfiguration,
     RunSnapshot,
@@ -17,6 +19,10 @@ from .types.runs import (
 )
 
 __all__ = [
+    "EvidenceRef",
+    "Problem",
+    "ReasonLink",
+    "RunFailure",
     "SwarmEvent",
     "TaskOutcome",
     "UploadSession",

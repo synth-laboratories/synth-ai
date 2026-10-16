@@ -10,6 +10,7 @@ from synth_ai.errors import OperationFailedError
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
 from synth_ai.types.usage import UsageSummary
 
+from .problems import Problem, ReasonLink
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
 
 RunState = Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
@@ -56,6 +57,15 @@ class LaunchPreflight(ResponseModel):
         return self
 
 
+class RunFailure(Model):
+    code: Identifier
+    retryable: bool
+    # Root-cause explanation (synth.problems.v1). Defaults keep a response from
+    # an older server valid; a new server always fills them.
+    problem_id: Identifier | None = None
+    reason_chain: tuple[ReasonLink, ...] = Field(default=(), max_length=16)
+
+
 class RunSnapshot(ResponseModel):
     run_id: Identifier
     project_id: Identifier
@@ -66,11 +76,14 @@ class RunSnapshot(ResponseModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
-
-
-class RunFailure(Model):
-    code: Identifier
-    retryable: bool
+    # Ranked open problems, root cause first (synth.problems.v1).
+    problems: tuple[Problem, ...] = Field(default=(), max_length=32)
+    # False when Orchestra's problems could not be read (see the
+    # `owner_unavailable` problem) or were not requested (list reads).
+    problems_observed: bool = False
+    # Set for a failed run, and for a run whose cancel was accepted but is not
+    # terminal: the root cause, not a generic code.
+    failure: RunFailure | None = None
 
 
 class SwarmResult(ResponseModel):
@@ -101,8 +114,10 @@ class SwarmResult(ResponseModel):
     def raise_for_failure(self) -> None:
         """Opt into raising without losing the canonical result."""
         if self.status in {"failed", "cancelled"}:
+            root = self.failure.reason_chain[0] if self.failure and self.failure.reason_chain else None
             raise OperationFailedError(
-                "Swarm did not complete successfully",
+                "Swarm did not complete successfully"
+                + (f": root cause {root.service}/{root.code} at {root.stage}" if root else ""),
                 code=self.failure.code if self.failure else "swarm_cancelled",
                 request_id=self.metadata.request_id,
             )
