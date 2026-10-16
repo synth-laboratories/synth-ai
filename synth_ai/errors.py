@@ -121,6 +121,18 @@ class CapabilityUnavailableError(UnsupportedOperationError):
     """The requested sub-product has no qualified native capability."""
 
 
+class SearchHistoryDeletedError(SynthError):
+    """The exact customer archive was deleted; it cannot be delivered again."""
+
+
+class SearchHistoryExpiredError(SynthError):
+    """The original archive lifetime ended; a read never renews it."""
+
+
+class SearchHistoryUnavailableError(SynthError):
+    """The selected archive has no authorized deliverable content."""
+
+
 POLICY_ERROR_TYPES: Mapping[tuple[int, str], type[SynthError]] = MappingProxyType(
     {
         (403, "entitlement_denied"): EntitlementDeniedError,
@@ -130,6 +142,10 @@ POLICY_ERROR_TYPES: Mapping[tuple[int, str], type[SynthError]] = MappingProxyTyp
         (403, "plan_required"): PlanRequiredError,
         (503, "policy_unavailable"): PolicyUnavailableError,
         (503, "capability_unavailable"): CapabilityUnavailableError,
+        (410, "search_history_deleted"): SearchHistoryDeletedError,
+        (410, "search_history_expired"): SearchHistoryExpiredError,
+        (409, "search_history_unavailable"): SearchHistoryUnavailableError,
+        (410, "search_history_unavailable"): SearchHistoryUnavailableError,
     }
 )
 
