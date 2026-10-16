@@ -7,6 +7,7 @@ release evidence; this verifier binds them to source and distribution bytes.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -39,6 +40,8 @@ SHA = re.compile(r"[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+)?")
 MAX_BYTES = 256 * 1024 * 1024
+MAX_ATTESTATION_BYTES = 1024 * 1024
+ATTESTATION_SUFFIX = ".publish.attestation"
 
 
 def digest(value: bytes) -> str:
@@ -303,17 +306,43 @@ def verify_prepared(output: Path, receipt_sha: str) -> dict:
         digest((output / "qualification.json").read_bytes()) == receipt["qualification_sha256"],
         "prepared qualification changed",
     )
+    distributions = receipt["distributions"]
+    present = {p.name for p in (output / "dist").iterdir()}
+    # The PyPI publish action writes one PEP 740 `<file>.publish.attestation` beside each
+    # distribution it uploads. Those files are not qualified bytes: they may exist (after
+    # publication) for a declared distribution only, and each must attest that exact file.
+    allowed_attestations = {name + ATTESTATION_SUFFIX for name in distributions}
     require(
-        {p.name for p in (output / "dist").iterdir()} == set(receipt["distributions"]),
+        set(distributions) <= present and present <= set(distributions) | allowed_attestations,
         "prepared distribution set changed",
     )
-    for name, sha in receipt["distributions"].items():
+    for name, sha in distributions.items():
         path = output / "dist" / name
         require(
             path.is_file() and not path.is_symlink() and digest(path.read_bytes()) == sha,
             "prepared distribution changed",
         )
+        attestation = output / "dist" / (name + ATTESTATION_SUFFIX)
+        if attestation.exists():
+            require(
+                attestation.is_file() and not attestation.is_symlink(),
+                "attestation is not a regular file",
+            )
+            attestation_attests(attestation, name, sha)
     return receipt
+
+
+def attestation_attests(path: Path, filename: str, sha: str) -> None:
+    """Require a bounded PEP 740 attestation whose in-toto subject is exactly this file."""
+    require(path.stat().st_size <= MAX_ATTESTATION_BYTES, "attestation too large")
+    try:
+        statement = json.loads(
+            base64.b64decode(document(path.read_bytes())["envelope"]["statement"], validate=True)
+        )
+        subjects = [(item["name"], item["digest"]["sha256"]) for item in statement["subject"]]
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise ValueError("attestation is not a valid PEP 740 statement") from None
+    require(subjects == [(filename, sha)], "attestation does not attest this distribution")
 
 
 def registry_state(receipt: dict, *, require_published: bool = False) -> bool:
