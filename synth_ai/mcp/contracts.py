@@ -11,6 +11,7 @@ from synth_ai.sdk.index.types.contributions import ContributionFilter
 from synth_ai.sdk.index.types.history import SearchHistoryFilter
 from synth_ai.sdk.index.types.search import KeyedSearchOptions, PublicSearchOptions, Query
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
+from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.types.base import Cursor, Digest, Identifier, Model
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
@@ -107,6 +108,10 @@ class RunList(PageArguments):
 
 
 class RunCreate(LaunchRequest):
+    idempotency_key: Identifier
+
+
+class ProjectCreate(ProjectCreateRequest):
     idempotency_key: Identifier
 
 
