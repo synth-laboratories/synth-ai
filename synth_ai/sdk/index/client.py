@@ -47,7 +47,12 @@ class IndexClient:
             SearchResponse,
             body=body,
             options=mutation,
-            validate=lambda response: validate_search_response(response, options, self._keyed),
+            validate=lambda response: validate_search_response(
+                response,
+                options,
+                self._keyed,
+                local_development_retention=self._transport.local_development_retention,
+            ),
         )
         return result
 
@@ -82,6 +87,11 @@ class AsyncIndexClient:
             SearchResponse,
             body=body,
             options=mutation,
-            validate=lambda response: validate_search_response(response, options, self._keyed),
+            validate=lambda response: validate_search_response(
+                response,
+                options,
+                self._keyed,
+                local_development_retention=self._transport.local_development_retention,
+            ),
         )
         return result
