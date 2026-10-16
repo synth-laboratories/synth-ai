@@ -239,7 +239,7 @@ def create_server(
                     outcome="unknown"
                     if isinstance(error, OutcomeUncertainError)
                     else "not_accepted"
-                    if (error.status, error.code) in POLICY_ERROR_TYPES
+                    if error.retryable is False or (error.status, error.code) in POLICY_ERROR_TYPES
                     else None,
                     idempotency_key=retained_key(arguments),
                 ),
