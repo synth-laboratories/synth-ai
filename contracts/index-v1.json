@@ -12435,6 +12435,16 @@
       "required_scope": null
     },
     {
+      "id": "index.contributions.revisions.get",
+      "idempotent": true,
+      "keyed": false,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/index/contributions/{contribution_id}/revisions/{revision_id}",
+      "required_scope": null
+    },
+    {
       "id": "index.contributions.owner",
       "idempotent": true,
       "keyed": true,
