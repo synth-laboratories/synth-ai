@@ -89,9 +89,14 @@ run must name that source and must not be a PR or fork run. The artifact contain
   SHA256. These are the final-version bytes that were qualified.
 - `checks`: `sdk-contracts`, `fresh-install`, `native-index-fast`,
   `native-index-deep`, `native-monitor`, `native-swarms`, and `staging`.
-  Each carries `status: "passed"`, the same `source_sha`, the exact
+  Each carries `status: "passed"` (see deferral below), the same `source_sha`, the exact
   `distributions` filename-to-SHA256 mapping, `evidence_path` under `evidence/`,
-  and that file's `evidence_sha256`.
+  and that file's `evidence_sha256`. A check named in `.github/release-policy.json`
+  for that exact version may instead carry `status: "deferred"` with a non-empty
+  `reason` and a ticket id (`ticket`); its evidence file is the deferral record
+  `{"check", "reason", "ticket"}` and must match. For 0.23.0 only `native-swarms`
+  is deferrable. Every other check must be `passed`, and the publish receipt
+  lists deferred checks.
 
 Qualification must produce this artifact only after the named checks actually
 pass. The verifier binds retained evidence and bytes; it does not infer test
