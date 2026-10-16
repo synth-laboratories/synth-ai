@@ -1,4 +1,5 @@
 """Typed, policy-bounded deferral of a qualification check (SYN-4373); synthetic archives only."""
+
 from __future__ import annotations
 
 import hashlib
@@ -37,32 +38,34 @@ def build(tmp_path, deferred, *, reason=REASON, ticket=TICKET, record=None):
     for name in sorted(release.CHECKS):
         if name in deferred:
             body = json.dumps(
-                record if record is not None else {"check": name, "reason": reason, "ticket": ticket}
+                record
+                if record is not None
+                else {"check": name, "reason": reason, "ticket": ticket}
             ).encode()
         else:
             body = b'{"fixture": "provenance validator only"}'
         path = f"evidence/{name}.json"
         evidence[path] = body
-        check = dict(
-            name=name,
-            status="deferred" if name in deferred else "passed",
-            source_sha=SOURCE,
-            distributions=files,
-            evidence_path=path,
-            evidence_sha256=hashlib.sha256(body).hexdigest(),
-        )
+        check = {
+            "name": name,
+            "status": "deferred" if name in deferred else "passed",
+            "source_sha": SOURCE,
+            "distributions": files,
+            "evidence_path": path,
+            "evidence_sha256": hashlib.sha256(body).hexdigest(),
+        }
         if name in deferred:
             check.update(reason=reason, ticket=ticket)
         checks.append(check)
-    manifest = dict(
-        schema=release.SCHEMA,
-        status="passed",
-        source_sha=SOURCE,
-        version=VERSION,
-        channel="stable",
-        distributions=[dict(filename=filename, sha256=files[filename])],
-        checks=checks,
-    )
+    manifest = {
+        "schema": release.SCHEMA,
+        "status": "passed",
+        "source_sha": SOURCE,
+        "version": VERSION,
+        "channel": "stable",
+        "distributions": [{"filename": filename, "sha256": files[filename]}],
+        "checks": checks,
+    }
     archive = tmp_path / "artifact.zip"
     with zipfile.ZipFile(archive, "w") as zipped:
         zipped.writestr(filename, raw)
@@ -89,7 +92,9 @@ def test_declared_swarms_deferral_is_accepted_and_recorded(tmp_path):
     assert receipt["checks"] == sorted(release.CHECKS)
 
 
-@pytest.mark.parametrize("name", ["native-monitor", "native-index-deep", "staging", "sdk-contracts"])
+@pytest.mark.parametrize(
+    "name", ["native-monitor", "native-index-deep", "staging", "sdk-contracts"]
+)
 def test_undeclared_deferral_is_refused(tmp_path, name):
     with pytest.raises(ValueError, match="not deferrable"):
         verify(tmp_path, build(tmp_path, {name}))
