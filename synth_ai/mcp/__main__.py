@@ -14,12 +14,20 @@ from .catalog import TOOLS
 from .runtime import SDKExecutor
 
 
-async def serve(profile: str, base_url: str, candidate_manifest_sha256: str | None = None) -> None:
+async def serve(
+    profile: str,
+    base_url: str,
+    candidate_manifest_sha256: str | None = None,
+    *,
+    local_development_retention: bool = False,
+) -> None:
     """Own both clients for this one-principal process and close them on exit."""
     from mcp.server.stdio import stdio_server
 
     from .server import create_server
 
+    if profile == "public" and local_development_retention:
+        raise ValueError("Local development retention requires a keyed MCP profile")
     selected = frozenset(
         tool.name
         for tool in TOOLS
@@ -31,10 +39,19 @@ async def serve(profile: str, base_url: str, candidate_manifest_sha256: str | No
             else True
         )
     )
-    options = ClientOptions(
+    public_options = ClientOptions(
         timeout_seconds=45, read_retry_count=0, candidate_manifest_sha256=candidate_manifest_sha256
     )
-    async with AsyncSynthClient.anonymous(base_url=base_url, options=options) as public_client:
+    # Anonymous tools keep their public retention contract in keyed profiles too.
+    options = ClientOptions(
+        timeout_seconds=45,
+        read_retry_count=0,
+        candidate_manifest_sha256=candidate_manifest_sha256,
+        local_development_retention=local_development_retention,
+    )
+    async with AsyncSynthClient.anonymous(
+        base_url=base_url, options=public_options
+    ) as public_client:
         client = (
             public_client
             if profile == "public"
@@ -55,8 +72,20 @@ def main() -> None:
     parser.add_argument("--profile", choices=("public", "read", "action"), default="read")
     parser.add_argument("--base-url", default=None, help="API origin (default: SYNTH_API_URL)")
     parser.add_argument("--candidate-manifest-sha256")
+    parser.add_argument(
+        "--local-development-retention",
+        action="store_true",
+        help="Accept retained debugging results from a loopback development API",
+    )
     args = parser.parse_args()
-    asyncio.run(serve(args.profile, resolve_url(args.base_url), args.candidate_manifest_sha256))
+    asyncio.run(
+        serve(
+            args.profile,
+            resolve_url(args.base_url),
+            args.candidate_manifest_sha256,
+            local_development_retention=args.local_development_retention,
+        )
+    )
 
 
 if __name__ == "__main__":
