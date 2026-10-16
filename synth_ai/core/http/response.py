@@ -35,7 +35,10 @@ class ErrorDetail(Model):
     code: Identifier
     request_id: Identifier | None
     retry_after_seconds: float | None = Field(default=None, ge=0)
-    outcome: Literal["not_accepted", "unknown"] | None = None
+    # The exported index.v1 schema (and so its fingerprint, which the backend
+    # capability receipt must equal) pins this default. Whether the server sent
+    # the field at all is read from ``model_fields_set``, never from a nullable type.
+    outcome: Literal["not_accepted", "unknown"] = "unknown"
 
 
 class ErrorResponse(Model):
@@ -126,7 +129,8 @@ def _decode_response(
                 "Backend error response does not match the selected contract",
                 status=response.status_code,
             ) from cause
-        definite = is_definite_refusal(response.status_code, error.outcome)
+        sent_outcome = error.outcome if "outcome" in error.model_fields_set else None
+        definite = is_definite_refusal(response.status_code, sent_outcome)
         if mutation and not definite:
             raise OutcomeUncertainError(
                 "Mutation outcome is uncertain",

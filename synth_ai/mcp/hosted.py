@@ -215,6 +215,26 @@ class HostedExecutor:
             and (tool.scope is None or tool.scope in principal.scopes)
         )
 
+    async def unavailable_cause(self, tool: ToolSpec) -> str:
+        """Name the first gate that hides ``tool``; a closed, secret-free vocabulary."""
+        principal = self.principal()
+        if tool.name not in self._enabled:
+            return "tool_not_enabled"
+        try:
+            require_operation(
+                self._capabilities(),
+                OPERATIONS_BY_ID[tool.operation],
+                surface="mcp",
+                candidate_manifest_sha256=self._candidate_manifest_sha256,
+            )
+        except SynthError as error:
+            return f"capability:{error.code or type(error).__name__}"
+        if tool.name not in principal.allowed_tools:
+            return "principal_not_authorized"
+        if tool.scope is not None and tool.scope not in principal.scopes:
+            return f"scope_missing:{tool.scope}"
+        return "unknown"
+
     async def visible_tools(self) -> frozenset[str]:
         available = await self.available_tools()
         if not available & POLICY_ACTION_TOOLS:
