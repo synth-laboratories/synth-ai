@@ -774,6 +774,71 @@
         "title": "Attempt",
         "type": "object"
       },
+      "AuthorAnnotations": {
+        "additionalProperties": false,
+        "properties": {
+          "keywords": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Keywords",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/AuthorMetadata"
+          }
+        },
+        "title": "AuthorAnnotations",
+        "type": "object"
+      },
+      "AuthorMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "research_areas": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "topics": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "title": "AuthorMetadata",
+        "type": "object"
+      },
       "BillingPolicyUpdate": {
         "properties": {
           "concurrency_limit": {
@@ -963,7 +1028,8 @@
                 "contest",
                 "publish",
                 "review",
-                "research_import"
+                "research_import",
+                "testing_corpus_admin"
               ],
               "type": "string"
             },
@@ -1287,6 +1353,65 @@
           "updated_at"
         ],
         "title": "CaseView",
+        "type": "object"
+      },
+      "CategoricalReview": {
+        "additionalProperties": false,
+        "description": "Explicit independent reviewer assessment; no default scores.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "correctness": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Correctness",
+            "type": "string"
+          },
+          "evidence_references": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "quality": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Quality",
+            "type": "string"
+          },
+          "rubric_version": {
+            "const": "contribution-v1",
+            "default": "contribution-v1",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quality",
+          "confidence",
+          "correctness",
+          "evidence_references"
+        ],
+        "title": "CategoricalReview",
         "type": "object"
       },
       "CheckAttemptView": {
@@ -2584,6 +2709,71 @@
         "title": "ContestView",
         "type": "object"
       },
+      "ContributionAnnotations": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Annotation Version",
+            "type": "string"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "keywords": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Keywords",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ContributionMetadata"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Revision Digest Sha256",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "revision_digest_sha256",
+          "annotation_version",
+          "review"
+        ],
+        "title": "ContributionAnnotations",
+        "type": "object"
+      },
       "ContributionAsset": {
         "additionalProperties": false,
         "properties": {
@@ -2774,6 +2964,49 @@
         "title": "ContributionKind",
         "type": "string"
       },
+      "ContributionMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "research_areas": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Research Areas",
+            "type": "array"
+          },
+          "topics": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
+          },
+          "workflow_stages": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Workflow Stages",
+            "type": "array"
+          }
+        },
+        "title": "ContributionMetadata",
+        "type": "object"
+      },
       "ContributionOrigin": {
         "enum": [
           "user",
@@ -2800,6 +3033,16 @@
             "minItems": 1,
             "title": "Assets",
             "type": "array"
+          },
+          "author_annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "card": {
             "$ref": "#/components/schemas/ResearchCard"
@@ -2976,6 +3219,16 @@
             "minItems": 1,
             "title": "Assets",
             "type": "array"
+          },
+          "author_annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "card": {
             "$ref": "#/components/schemas/ResearchCard"
@@ -3298,6 +3551,116 @@
           "reference"
         ],
         "title": "ContributionRelationship",
+        "type": "object"
+      },
+      "ContributionReview": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "const": "synth",
+            "title": "Authority",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "correctness": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Correctness",
+            "type": "string"
+          },
+          "evidence_references": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "quality": {
+            "enum": [
+              "low",
+              "med",
+              "high"
+            ],
+            "title": "Quality",
+            "type": "string"
+          },
+          "review_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "format": "date-time",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "revision_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Revision Digest Sha256",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Rubric Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "revision_digest_sha256",
+          "review_id",
+          "rubric_version",
+          "reviewed_at",
+          "reviewer_id",
+          "authority",
+          "quality",
+          "confidence",
+          "correctness",
+          "evidence_references"
+        ],
+        "title": "ContributionReview",
         "type": "object"
       },
       "ContributionSubmission": {
@@ -5166,7 +5529,8 @@
                 "contest",
                 "publish",
                 "review",
-                "research_import"
+                "research_import",
+                "testing_corpus_admin"
               ],
               "type": "string"
             },
@@ -5299,6 +5663,16 @@
             ],
             "title": "Access",
             "type": "string"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "audience": {
             "anyOf": [
@@ -6259,6 +6633,16 @@
             "minLength": 1,
             "title": "Abstract",
             "type": "string"
+          },
+          "author_annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "citation": {
             "$ref": "#/components/schemas/Citation"
@@ -9053,6 +9437,16 @@
                 "type": "null"
               }
             ]
+          },
+          "rubric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoricalReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -9219,6 +9613,16 @@
         "additionalProperties": false,
         "description": "Withdrawn tombstones carry identity and status only, never content.",
         "properties": {
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributionAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "assessments": {
             "default": [],
             "items": {
@@ -9727,7 +10131,8 @@
         "description": "Who may attest; mirrors ``index_rights_attestations.authority`` (SYN-3437).\n\nSynth-origin work is attested by the queue rights owner. Any other origin is\nattested by an OWNER/ADMIN of the contributing org, who holds the rights.",
         "enum": [
           "queue_rights_owner",
-          "contributing_org_admin"
+          "contributing_org_admin",
+          "superuser"
         ],
         "title": "RightsAuthority",
         "type": "string"
@@ -11903,6 +12308,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
