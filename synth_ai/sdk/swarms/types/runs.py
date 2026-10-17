@@ -10,8 +10,8 @@ from synth_ai.errors import OperationFailedError
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
 from synth_ai.types.usage import UsageSummary
 
-from .problems import Problem, ReasonLink
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
+from .problems import Problem, ReasonLink
 
 RunState = Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
 TaskState = Literal[
@@ -114,7 +114,9 @@ class SwarmResult(ResponseModel):
     def raise_for_failure(self) -> None:
         """Opt into raising without losing the canonical result."""
         if self.status in {"failed", "cancelled"}:
-            root = self.failure.reason_chain[0] if self.failure and self.failure.reason_chain else None
+            root = (
+                self.failure.reason_chain[0] if self.failure and self.failure.reason_chain else None
+            )
             raise OperationFailedError(
                 "Swarm did not complete successfully"
                 + (f": root cause {root.service}/{root.code} at {root.stage}" if root else ""),

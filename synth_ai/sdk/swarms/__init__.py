@@ -9,9 +9,9 @@ from .types.launch import FileRef, Inputs, Limits, Models, Providers
 from .types.outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
 from .types.problems import EvidenceRef, Problem, ReasonLink
 from .types.runs import (
-    RunFailure,
     LaunchPreflight,
     ResolvedConfiguration,
+    RunFailure,
     RunSnapshot,
     SwarmEvent,
     SwarmResult,

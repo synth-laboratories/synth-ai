@@ -10,12 +10,13 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-
 from synth_ai.errors import OperationFailedError
 from synth_ai.sdk.swarms import Problem, ReasonLink, RunSnapshot
 from synth_ai.sdk.swarms.types.runs import RunFailure, SwarmResult
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "orchestra_problems_slot6.json").read_text())
+FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "orchestra_problems_slot6.json").read_text()
+)
 AT = datetime(2026, 10, 16, 15, 0, tzinfo=UTC)
 METADATA = {
     "contract": "swarms.v1",
@@ -66,7 +67,7 @@ def test_status_exposes_problems_and_a_root_cause_failure_chain() -> None:
                 "problem_id": problem["id"],
                 "reason_chain": problem["reason_chain"],
             },
-        )
+        ),
     )
     assert status.problems[0].code == "provider_refused_prompt"
     assert status.problems[0].origin == "provider:openai"
@@ -113,7 +114,7 @@ def test_raise_for_failure_names_the_root_cause_not_just_a_code() -> None:
             "retryable": False,
             "problem_id": problem["id"],
             "reason_chain": problem["reason_chain"],
-        }
+        },
     )
     result = SwarmResult.model_construct(
         metadata=wire(RunSnapshot, snapshot_payload()).metadata,
