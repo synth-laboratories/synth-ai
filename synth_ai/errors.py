@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from datetime import datetime
 from types import MappingProxyType
 
 from synth_ai.types.identity import MutationIdentity
@@ -22,8 +23,16 @@ class SynthError(Exception):
         retry_after_seconds: float | None = None,
         rate_limits: tuple[RateLimitSnapshot, ...] = (),
         retryable: bool | None = None,
+        stage: str | None = None,
+        cause: str | None = None,
+        closure_pending: str | None = None,
+        closure_expected_by: datetime | None = None,
     ) -> None:
         self.retryable = retryable
+        self.stage = stage
+        self.cause = cause
+        self.closure_pending = closure_pending
+        self.closure_expected_by = closure_expected_by
         self.code = code
         self.request_id = request_id
         self.status = status
@@ -33,13 +42,44 @@ class SynthError(Exception):
         super().__init__(message)
 
     def __str__(self) -> str:
+        message = super().__str__()
         capacity = "; ".join(
             f"{item.dimension}: {item.remaining}/{item.limit} remaining"
             for item in self.rate_limits
             if item.remaining is not None and item.limit is not None
         )
-        message = super().__str__()
+        detail = self._detail()
+        if detail:
+            message = detail
         return f"{message} ({capacity})" if capacity else message
+
+    def _detail(self) -> str:
+        """``<Class>: <code> (status n) stage=.. cause=.. request_id=..``; absent parts omitted.
+
+        Only allowlisted, already-validated fields are rendered: never headers or
+        bodies beyond these."""
+        if not any((self.code, self.status, self.stage, self.cause, self.request_id)):
+            return ""
+        message = Exception.__str__(self)
+        head = self.code or message
+        parts = [f"{type(self).__name__}: {head}"]
+        if self.status is not None:
+            parts.append(f"(status {self.status})")
+        if self.stage:
+            parts.append(f"stage={self.stage}")
+        if self.cause:
+            parts.append(f"cause={self.cause}")
+        if self.closure_pending:
+            expected = self.closure_expected_by
+            parts.append(f"closure_pending={self.closure_pending}")
+            if expected is not None:
+                parts.append(f"closure_expected_by={expected.isoformat()}")
+        if self.request_id:
+            parts.append(f"request_id={self.request_id}")
+        text = " ".join(parts)
+        if self.code and message and message != "Operation refused" and message != self.code:
+            text = f"{text} - {message}"
+        return text
 
 
 class AuthenticationError(SynthError):
