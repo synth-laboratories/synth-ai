@@ -15,12 +15,14 @@ Patch release on 0.23.0. No API surface or contract bytes change.
   (SYN-4373) and the SDK contracts shipped in 0.23.0 are reconciled with these fixes
   (SYN-4354). Swarms is still not part of the production release.
 
-## 0.23.0 (unpublished candidate)
+## 0.23.0 (2026-10-16)
 
 ### Supported source changes
 
-- Reduced typed `SynthClient` / `AsyncSynthClient` facade for Index and Swarms,
-  matching sync/async methods and durable operation handles.
+- Reduced typed `SynthClient` / `AsyncSynthClient` facade for Index, matching
+  sync/async methods and durable operation handles. The SDK includes the Swarms
+  client facade; Swarms is not enabled in the v0.23 production release and calls
+  return a typed `operation_unavailable` until it is.
 - Explicit request deadlines, bounded lazy streams, integrity-checked downloads,
   and cleanup of owned client resources without cancelling durable server work.
 - Canonical `SYNTH_API_KEY` and `SYNTH_API_URL`, with value-free warnings for
