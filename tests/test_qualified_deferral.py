@@ -134,3 +134,4 @@ def test_policy_file_declares_only_swarms_for_v023():
     policy = json.loads((ROOT / ".github/release-policy.json").read_text())
     assert policy["schema"] == "synth.sdk.release-policy.v1"
     assert policy["releases"]["0.23.0"]["deferrable"] == ["native-swarms"]
+    assert policy["releases"]["0.23.1"]["deferrable"] == ["native-swarms"]
