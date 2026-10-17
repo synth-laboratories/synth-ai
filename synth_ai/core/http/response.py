@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal, TypeVar
 
 import httpx
@@ -59,6 +62,47 @@ def is_definite_refusal(status: int, outcome: str | None) -> bool:
     return 400 <= status < 500 and status not in UNCERTAIN_CLIENT_STATUSES
 
 
+@dataclass(frozen=True, slots=True)
+class RefusalDetail:
+    """Allowlisted refusal headers (backend SYN-4730 / SYN-4763); nothing else is read."""
+
+    stage: str | None = None
+    cause: str | None = None
+    closure_pending: str | None = None
+    closure_expected_by: datetime | None = None
+
+
+def _token(value: str | None) -> str | None:
+    """Short identifier tokens only, mirroring the backend's own bound."""
+    if value and len(value) <= 64 and value.isascii() and value.isidentifier():
+        return value
+    return None
+
+
+def parse_refusal_detail(headers: Mapping[str, str]) -> RefusalDetail:
+    """Parse the refusal stage/cause and pending-closure headers; malformed values are dropped.
+
+    Closure pending and expected-by are valid together (timezone-aware ISO-8601) or not at all."""
+    pending = _token(headers.get("X-Synth-Closure-Pending"))
+    expected_by: datetime | None = None
+    raw = headers.get("X-Synth-Closure-Expected-By")
+    if pending is not None and raw is not None and len(raw) <= 64:
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            parsed = None
+        if parsed is not None and parsed.tzinfo is not None:
+            expected_by = parsed
+    if expected_by is None:
+        pending = None
+    return RefusalDetail(
+        stage=_token(headers.get("X-Synth-Refusal-Stage")),
+        cause=_token(headers.get("X-Synth-Refusal-Cause")),
+        closure_pending=pending,
+        closure_expected_by=expected_by,
+    )
+
+
 def decode_response(
     response: httpx.Response,
     body: bytes,
@@ -84,6 +128,11 @@ def decode_response(
         )
     except SynthError as error:
         error.rate_limits = parse_rate_limits(response.headers)
+        detail = parse_refusal_detail(response.headers)
+        error.stage = detail.stage
+        error.cause = detail.cause
+        error.closure_pending = detail.closure_pending
+        error.closure_expected_by = detail.closure_expected_by
         if error.retry_after_seconds is None:
             delay = retry_delay(response, float("nan"))
             if math.isfinite(delay):
