@@ -2,7 +2,14 @@
   "schema": "synth.sdk.release-policy.v1",
   "releases": {
     "0.23.0": {
-      "deferrable": ["native-swarms"]
+      "deferrable": [
+        "native-swarms"
+      ]
+    },
+    "0.23.1": {
+      "deferrable": [
+        "native-swarms"
+      ]
     }
   }
 }
