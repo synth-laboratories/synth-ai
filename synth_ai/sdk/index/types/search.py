@@ -43,9 +43,12 @@ class KeyedSearchOptions(PublicSearchOptions):
     maximum_charge: Money
     collection_ids: tuple[Identifier, ...] = Field(default=(), max_length=16)
     retention: RetentionMode = "zdr"
+    deadline_seconds: StrictInt | None = Field(default=None, ge=1, le=300)
 
     @model_validator(mode="after")
     def validate_charge_and_collections(self) -> Self:
+        if self.deadline_seconds is not None and self.mode != "deep":
+            raise ValueError("deadline_seconds is supported only for deep search")
         if self.maximum_charge.coefficient < 0:
             raise ValueError("maximum charge must be nonnegative")
         if len(self.collection_ids) != len(set(self.collection_ids)):
