@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.23.0 (unpublished candidate)
+## 0.23.0 (2026-10-16)
 
 ### Supported source changes
 
