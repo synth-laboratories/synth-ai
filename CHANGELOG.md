@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.23.1
+
+Patch release on 0.23.0. No API surface or contract bytes change.
+
+- Retained-history lifetime errors are the same over hosted MCP as over HTTP. A history
+  entry that was deleted, has expired or is unavailable now raises a typed, public exception
+  (for example `search_history_deleted`) instead of a generic `transport_error`
+  (SYN-4635). Unknown status/code pairs and uncertain mutations keep their behavior.
+- HTTP 408 replies while observing a search or run are classified as `RequestTimeoutError`, so
+  bounded observation recovery retries them, and `Retry-After` hints are carried on the error
+  (SYN-4560).
+- The release verifier now accepts the attestation files that PyPI publication adds
+  (SYN-4373) and the SDK contracts shipped in 0.23.0 are reconciled with these fixes
+  (SYN-4354). Swarms is still not part of the production release.
+
 ## 0.23.0 (unpublished candidate)
 
 ### Supported source changes
