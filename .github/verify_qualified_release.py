@@ -363,6 +363,53 @@ def registry_state(receipt: dict, *, require_published: bool = False) -> bool:
     return True
 
 
+REGISTRY_ATTEMPTS = 10
+REGISTRY_BACKOFF_SECONDS = 15
+REGISTRY_BACKOFF_MAX_SECONDS = 60
+REGISTRY_WINDOW_SECONDS = 300
+
+
+def await_registry(
+    receipt: dict,
+    *,
+    fetch=None,
+    sleep=time.sleep,
+    clock=time.monotonic,
+    attempts: int = REGISTRY_ATTEMPTS,
+    window: float = REGISTRY_WINDOW_SECONDS,
+) -> bool:
+    """Wait for PyPI to serve the just-uploaded version, then check its bytes.
+
+    The JSON API lags the upload (a 404 for 10+ s was observed on 0.23.0 and 0.23.1), so a 404
+    or a transient network error inside the window means "not yet propagated". Retry with
+    backoff (15 s growing to 60 s, at most `attempts` tries inside `window` seconds). A served
+    version whose bytes differ is a real failure and is raised at once. After the window the
+    failure names the version, URL, attempts, elapsed seconds and the last error.
+    """
+    fetch = fetch or (lambda: registry_state(receipt, require_published=True))
+    version = receipt["version"]
+    started = clock()
+    last = "no attempt made"
+    for attempt in range(1, attempts + 1):
+        try:
+            return fetch()
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise
+            last = "HTTP 404 Not Found"
+        except urllib.error.URLError as error:
+            last = f"network error: {error.reason}"
+        elapsed = clock() - started
+        delay = min(REGISTRY_BACKOFF_SECONDS * attempt, REGISTRY_BACKOFF_MAX_SECONDS)
+        if attempt == attempts or elapsed + delay > window:
+            raise ValueError(
+                f"synth-ai {version} was not served by https://pypi.org/pypi/synth-ai/{version}/json "
+                f"after {attempt} attempts in {elapsed:.0f}s (window {window:.0f}s); last: {last}"
+            )
+        sleep(delay)
+    raise AssertionError("unreachable")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -403,14 +450,7 @@ def main() -> None:
     else:
         receipt = verify_prepared(args.output, args.receipt_sha)
     require_published = getattr(args, "require_published", False)
-    for attempt in range(6 if require_published else 1):
-        try:
-            published = registry_state(receipt, require_published=require_published)
-            break
-        except (urllib.error.HTTPError, urllib.error.URLError):
-            if not require_published or attempt == 5:
-                raise
-            time.sleep(2)
+    published = await_registry(receipt) if require_published else registry_state(receipt)
     print(
         json.dumps(
             {
