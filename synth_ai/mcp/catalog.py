@@ -50,6 +50,7 @@ from .contracts import (
     OutputIdentity,
     OutputText,
     PageArguments,
+    ProjectCreate,
     ProjectIdentity,
     ProjectPage,
     PublicContributionsArguments,
@@ -279,6 +280,15 @@ async def recovery(client: AsyncSynthClient, args: Recovery) -> MutationResoluti
 
 async def project(client: AsyncSynthClient, args: ProjectIdentity) -> Project:
     return await client.swarms.projects.get(args.project_id)
+
+
+async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Project:
+    return await client.swarms.projects.create(
+        args.name,
+        objective=args.objective,
+        template=args.template,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
 
 
 async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflight:
@@ -555,6 +565,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         ProjectIdentity,
         Project,
         project,
+    ),
+    ToolDefinition(
+        "swarms_project_create",
+        swarm_operations.CREATE_PROJECT,
+        "Create a launchable project from a server-authored template with a stable idempotency key. Requires an organization admin.",
+        ProjectCreate,
+        Project,
+        create_project,
     ),
     ToolDefinition(
         "swarms_preflight",

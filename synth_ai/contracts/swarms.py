@@ -193,3 +193,13 @@ FINALIZE_FILE_UPLOAD = Operation(
     required_scope="swarms:write",
 )
 ALL_OPERATIONS += (FILES, FILE, PREPARE_FILE_UPLOAD, FILE_UPLOAD, FINALIZE_FILE_UPLOAD)
+CREATE_PROJECT = Operation(
+    "swarms.projects.create",
+    "POST",
+    "/swarms/projects",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:write",
+)
+ALL_OPERATIONS += (CREATE_PROJECT,)
