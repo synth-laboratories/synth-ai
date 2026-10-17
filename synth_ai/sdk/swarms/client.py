@@ -21,6 +21,7 @@ from synth_ai.types.receipts import CreationResolution
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers
+from .types.projects import ProjectCreateRequest, ProjectTemplate
 from .types.runs import LaunchPreflight, RunSnapshot
 
 
@@ -85,6 +86,28 @@ class Projects:
             options=request,
             validate=lambda result: verified(
                 result, result.project_id == project_id, "Project identity mismatch"
+            ),
+        )
+
+    def create(
+        self,
+        name: str,
+        *,
+        objective: str,
+        template: ProjectTemplate = ProjectTemplate.REPORT_NATIVE,
+        mutation: MutationOptions | None = None,
+    ) -> Project:
+        """Create a launchable project from a server-authored template; replay with the same key."""
+        body = ProjectCreateRequest(name=name, template=template, objective=objective)
+        return self._transport.request(
+            operations.CREATE_PROJECT,
+            Project,
+            body=body,
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.name == name and result.launch_enabled,
+                "Created project name mismatch or project not launchable",
             ),
         )
 
@@ -213,6 +236,28 @@ class AsyncProjects:
             options=request,
             validate=lambda result: verified(
                 result, result.project_id == project_id, "Project identity mismatch"
+            ),
+        )
+
+    async def create(
+        self,
+        name: str,
+        *,
+        objective: str,
+        template: ProjectTemplate = ProjectTemplate.REPORT_NATIVE,
+        mutation: MutationOptions | None = None,
+    ) -> Project:
+        """Create a launchable project from a server-authored template; replay with the same key."""
+        body = ProjectCreateRequest(name=name, template=template, objective=objective)
+        return await self._transport.request(
+            operations.CREATE_PROJECT,
+            Project,
+            body=body,
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.name == name and result.launch_enabled,
+                "Created project name mismatch or project not launchable",
             ),
         )
 

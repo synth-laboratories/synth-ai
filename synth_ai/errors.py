@@ -21,7 +21,9 @@ class SynthError(Exception):
         identity: MutationIdentity | None = None,
         retry_after_seconds: float | None = None,
         rate_limits: tuple[RateLimitSnapshot, ...] = (),
+        retryable: bool | None = None,
     ) -> None:
+        self.retryable = retryable
         self.code = code
         self.request_id = request_id
         self.status = status
@@ -86,6 +88,17 @@ class RateLimitError(SynthError):
 
 class BudgetExceededError(SynthError):
     """Customer charge ceiling or allowance refused."""
+
+
+class PaymentRequiredError(BudgetExceededError):
+    """HTTP 402: payment or credit is required; nothing was created or charged."""
+
+
+class RefusedError(SynthError):
+    """Definite typed refusal (4xx with a code): the operation was not accepted.
+
+    ``retryable`` is False; repeating the identical request without changing the
+    refused condition will fail the same way."""
 
 
 class RequestTimeoutError(SynthError):

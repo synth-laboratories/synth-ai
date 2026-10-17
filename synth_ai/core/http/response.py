@@ -11,13 +11,14 @@ from pydantic import Field, ValidationError
 from synth_ai.errors import (
     POLICY_ERROR_TYPES,
     AuthenticationError,
-    BudgetExceededError,
     ConflictError,
     ContractError,
     NotFoundError,
     OutcomeUncertainError,
+    PaymentRequiredError,
     PermissionDeniedError,
     RateLimitError,
+    RefusedError,
     RequestTimeoutError,
     ResultNotReadyError,
     SynthError,
@@ -35,11 +36,27 @@ class ErrorDetail(Model):
     code: Identifier
     request_id: Identifier | None
     retry_after_seconds: float | None = Field(default=None, ge=0)
+    # The exported index.v1 schema (and so its fingerprint, which the backend
+    # capability receipt must equal) pins this default. Whether the server sent
+    # the field at all is read from ``model_fields_set``, never from a nullable type.
     outcome: Literal["not_accepted", "unknown"] = "unknown"
 
 
 class ErrorResponse(Model):
     error: ErrorDetail
+
+
+UNCERTAIN_CLIENT_STATUSES = frozenset({408, 429})
+
+
+def is_definite_refusal(status: int, outcome: str | None) -> bool:
+    """A typed refusal proves nothing was created, unless the server says otherwise.
+
+    An explicit ``outcome`` always wins. Without one, a typed 4xx other than
+    408/429 is definite; 5xx, 408 and 429 stay ambiguous for mutations."""
+    if outcome is not None:
+        return outcome == "not_accepted"
+    return 400 <= status < 500 and status not in UNCERTAIN_CLIENT_STATUSES
 
 
 def decode_response(
@@ -113,7 +130,9 @@ def _decode_response(
                 "Backend error response does not match the selected contract",
                 status=response.status_code,
             ) from cause
-        if mutation and error.outcome == "unknown":
+        sent_outcome = error.outcome if "outcome" in error.model_fields_set else None
+        definite = is_definite_refusal(response.status_code, sent_outcome)
+        if mutation and not definite:
             raise OutcomeUncertainError(
                 "Mutation outcome is uncertain",
                 code=error.code,
@@ -122,7 +141,7 @@ def _decode_response(
                 identity=identity,
                 retry_after_seconds=error.retry_after_seconds,
             )
-        kind: type[SynthError] = SynthError
+        kind: type[SynthError] = RefusedError if definite else SynthError
         if (response.status_code, error.code) in POLICY_ERROR_TYPES:
             kind = POLICY_ERROR_TYPES[(response.status_code, error.code)]
         elif error.code in {
@@ -149,9 +168,10 @@ def _decode_response(
         elif response.status_code == 429:
             kind = RateLimitError
         elif response.status_code == 402:
-            kind = BudgetExceededError
+            kind = PaymentRequiredError
         raise kind(
             "Operation refused",
+            retryable=False if definite else None,
             code=error.code,
             request_id=error.request_id,
             status=response.status_code,
