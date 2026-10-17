@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 
-from mcp.types import CallToolRequest, CallToolRequestParams
-from synth_ai.mcp.catalog import BY_NAME, ToolSpec
-from synth_ai.mcp.server import create_server
+import pytest
+
+pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
+
+from mcp.types import CallToolRequest, CallToolRequestParams  # noqa: E402
+from synth_ai.mcp.catalog import BY_NAME, ToolSpec  # noqa: E402
+from synth_ai.mcp.server import create_server  # noqa: E402
 
 
 class _NoTools:
