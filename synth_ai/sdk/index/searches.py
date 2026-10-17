@@ -35,9 +35,17 @@ class Searches:
             SearchSnapshot,
             body=KeyedSearchRequest(query=query, options=options),
             options=mutation,
-            validate=lambda received: validate_search_admission(received, options),
+            validate=lambda received: validate_search_admission(
+                received,
+                options,
+                local_development_retention=self._transport.local_development_retention,
+            ),
         )
-        return SearchRun(self._transport, snapshot.search_id, expected_retention=options.retention)
+        return SearchRun(
+            self._transport,
+            snapshot.search_id,
+            expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+        )
 
     def get(self, search_id: str, *, request: ReadOptions | None = None) -> SearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
@@ -124,10 +132,16 @@ class AsyncSearches:
             SearchSnapshot,
             body=KeyedSearchRequest(query=query, options=options),
             options=mutation,
-            validate=lambda received: validate_search_admission(received, options),
+            validate=lambda received: validate_search_admission(
+                received,
+                options,
+                local_development_retention=self._transport.local_development_retention,
+            ),
         )
         return AsyncSearchRun(
-            self._transport, snapshot.search_id, expected_retention=options.retention
+            self._transport,
+            snapshot.search_id,
+            expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
         )
 
     async def get(self, search_id: str, *, request: ReadOptions | None = None) -> AsyncSearchRun:
