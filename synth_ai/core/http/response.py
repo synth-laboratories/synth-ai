@@ -25,6 +25,7 @@ from synth_ai.errors import (
     RequestTimeoutError,
     ResultNotReadyError,
     RetentionModeNotAllowed,
+    SearchContentPurged,
     SynthError,
     UnsupportedOperationError,
 )
@@ -81,6 +82,25 @@ class _TolerantErrorResponse(BaseModel):
 
 
 _TOLERANT_REFUSAL_CODES = frozenset({"retention_mode_not_allowed"})
+
+
+RETENTION_ALLOWED_MODES_HEADER = "X-Synth-Retention-Allowed-Modes"
+
+
+def _header_text(headers: Mapping[str, str], name: str) -> str | None:
+    value = headers.get(name)
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _header_modes(headers: Mapping[str, str]) -> tuple[str, ...]:
+    """Comma-separated allowed retention modes from the response header."""
+    raw = _header_text(headers, RETENTION_ALLOWED_MODES_HEADER)
+    if raw is None:
+        return ()
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
 
 
 UNCERTAIN_CLIENT_STATUSES = frozenset({408, 429})
@@ -281,7 +301,11 @@ def _decode_response(
             retry_after_seconds=error.retry_after_seconds,
         )
         if isinstance(refusal, RetentionModeNotAllowed):
-            refusal.allowed_modes = allowed_modes
+            refusal.allowed_modes = allowed_modes or _header_modes(response.headers)
+        if isinstance(refusal, SearchContentPurged):
+            refusal.search_id = _header_text(response.headers, "X-Synth-Search-Id")
+            refusal.purges_at = _header_text(response.headers, "X-Synth-Purges-At")
+            refusal.purged_at = _header_text(response.headers, "X-Synth-Purged-At")
         raise refusal
     validate_negotiated_response(response, negotiated, identity, mutation)
     try:

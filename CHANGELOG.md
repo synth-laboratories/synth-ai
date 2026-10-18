@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.24.0.dev20261018 (unpublished)
+## 0.23.3 (unpublished)
+
+- `RetentionModeNotAllowed.allowed_modes` also reads the `X-Synth-Retention-Allowed-Modes` header when the body omits it; `SearchContentPurged` exposes `search_id`/`purges_at`/`purged_at` from `X-Synth-Search-Id`/`X-Synth-Purges-At`/`X-Synth-Purged-At` when sent.
+- Includes organization retention, bounded DEEP `deadline_seconds`, and the Tunnel v2 control surface from the prior unpublished 0.24.0.dev20261018 tag (index.v1 fingerprint unchanged).
+
+### Tunnel v2 (previously 0.24.0.dev20261018)
+
 
 - Restore typed Tunnel v2 connector, lease custody, capability and checkpoint/session control through the current sync/async SDK transports.
 - Keep canonical UUID recovery and immutable deadlines; mutations are never automatically replayed after uncertain delivery.

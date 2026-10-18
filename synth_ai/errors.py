@@ -183,7 +183,15 @@ class RetentionModeNotAllowed(PermissionDeniedError):  # noqa: N818
 
 
 class SearchContentPurged(SynthError):  # noqa: N818
-    """The search's ZDR content was purged; only metadata remains (HTTP 410)."""
+    """The search's ZDR content was purged; only metadata remains (HTTP 410).
+
+    ``search_id``, ``purges_at`` and ``purged_at`` come from the
+    ``X-Synth-Search-Id`` / ``X-Synth-Purges-At`` / ``X-Synth-Purged-At`` response
+    headers when the backend sends them (``None`` otherwise)."""
+
+    search_id: str | None = None
+    purges_at: str | None = None
+    purged_at: str | None = None
 
 
 class StrictZdrResultUnavailable(ConflictError):  # noqa: N818
