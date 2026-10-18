@@ -38,7 +38,12 @@ def validate_search_retention(
     local_override = (
         local_development_retention and expected == "zdr" and result.retention.mode == "retained"
     )
-    if expected is not None and result.retention.mode != expected and not local_override:
+    if (
+        expected is not None
+        and result.retention.mode is not None
+        and result.retention.mode != expected
+        and not local_override
+    ):
         raise ContractError("Search changed the selected retention mode")
     return result
 
