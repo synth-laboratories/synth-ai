@@ -464,3 +464,55 @@ def test_mcp_server_surfaces_purged_and_strict_errors_with_their_own_codes():
     assert error_code(purged) == "search_content_purged"
     assert error_code(strict) == "result_not_retained_strict_zdr"
     assert error_code(refused) == "retention_mode_not_allowed"
+
+
+def test_allowed_modes_read_from_header_when_body_lacks_them():
+    response = httpx.Response(
+        403,
+        headers={**HEADERS, "X-Synth-Retention-Allowed-Modes": "zdr, zdr_strict"},
+        json=error_body("retention_mode_not_allowed"),
+    )
+    with pytest.raises(RetentionModeNotAllowed) as caught:
+        sync_client(Recorder(response)).searches.create("q", options=options())
+    assert caught.value.allowed_modes == ("zdr", "zdr_strict")
+
+
+def test_body_allowed_modes_win_over_header():
+    response = httpx.Response(
+        403,
+        headers={**HEADERS, "X-Synth-Retention-Allowed-Modes": "zdr"},
+        json=error_body("retention_mode_not_allowed", detail={"allowed_modes": ["standard"]}),
+    )
+    with pytest.raises(RetentionModeNotAllowed) as caught:
+        sync_client(Recorder(response)).searches.create("q", options=options())
+    assert caught.value.allowed_modes == ("standard",)
+
+
+def test_search_content_purged_reads_identity_headers():
+    purged = httpx.Response(
+        410,
+        headers={
+            **HEADERS,
+            "X-Synth-Search-Id": SEARCH,
+            "X-Synth-Purges-At": "2026-10-01T00:00:00Z",
+            "X-Synth-Purged-At": "2026-10-02T00:00:00Z",
+        },
+        json=error_body("search_content_purged"),
+    )
+    recorder = Recorder(reply(200, snapshot_body(retention=LEGACY_ZDR)), purged)
+    run = sync_client(recorder).searches.create("q", options=options())
+    with pytest.raises(SearchContentPurged) as caught:
+        run.result()
+    assert caught.value.search_id == SEARCH
+    assert caught.value.purges_at == "2026-10-01T00:00:00Z"
+    assert caught.value.purged_at == "2026-10-02T00:00:00Z"
+
+
+def test_search_content_purged_headers_absent_are_none():
+    recorder = Recorder(
+        reply(200, snapshot_body(retention=LEGACY_ZDR)), reply(410, error_body("search_content_purged"))
+    )
+    run = sync_client(recorder).searches.create("q", options=options())
+    with pytest.raises(SearchContentPurged) as caught:
+        run.result()
+    assert (caught.value.search_id, caught.value.purges_at, caught.value.purged_at) == (None, None, None)
