@@ -13,7 +13,7 @@ from synth_ai.types.usage import UsageSummary
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
 from .problems import Problem, ReasonLink
 
-RunState = Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
+RunState = Literal["queued", "running", "paused", "completed", "partial", "failed", "cancelled"]
 TaskState = Literal[
     "pending",
     "queued",

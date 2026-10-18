@@ -16,6 +16,7 @@ from synth_ai.types.base import EventCursor, Page, PageCursor
 from synth_ai.types.receipts import ControlReceipt
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
+from .types.programs import ProgramRunView
 from .outputs import AsyncOutputs, Outputs
 from .types.runs import ResolvedConfiguration, RunSnapshot, SwarmEvent, SwarmResult, TaskOutcome
 
@@ -43,6 +44,12 @@ class SwarmRun:
                 result, result.run_id == self.run_id, "Run response identity mismatch"
             ),
         )
+
+    def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
+        """Inspect the admitted program and its projection without changing it."""
+        return self._transport.request(operations.PROGRAM, ProgramRunView,
+            path=f"/swarms/runs/{self.run_id}/program", options=request,
+            validate=lambda result: verified(result, result.run_id == self.run_id, "Program run identity mismatch"))
 
     def configuration(self, *, request: ReadOptions | None = None) -> ResolvedConfiguration:
         """Read current authorized configuration; no implicit control mutation."""
@@ -205,6 +212,12 @@ class AsyncSwarmRun:
                 result, result.run_id == self.run_id, "Run response identity mismatch"
             ),
         )
+
+    async def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
+        """Inspect the admitted program and its projection without changing it."""
+        return await self._transport.request(operations.PROGRAM, ProgramRunView,
+            path=f"/swarms/runs/{self.run_id}/program", options=request,
+            validate=lambda result: verified(result, result.run_id == self.run_id, "Program run identity mismatch"))
 
     async def configuration(self, *, request: ReadOptions | None = None) -> ResolvedConfiguration:
         """Read current authorized configuration; no implicit control mutation."""
