@@ -242,3 +242,6 @@ pytest.*.ini
 # Misc temp artifacts
 engine_bench_eval_timing.json
 greptile.json
+
+# Owned, bounded local modular-program qualification outputs.
+/.orchestra-work/
