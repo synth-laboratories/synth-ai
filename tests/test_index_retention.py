@@ -516,3 +516,11 @@ def test_search_content_purged_headers_absent_are_none():
     with pytest.raises(SearchContentPurged) as caught:
         run.result()
     assert (caught.value.search_id, caught.value.purges_at, caught.value.purged_at) == (None, None, None)
+
+
+def test_search_created_omits_an_absent_inline_result():
+    from synth_ai.mcp.contracts import SearchCreated
+
+    created = SearchCreated(search_id=SEARCH)
+    assert created.model_dump(mode="json") == {"search_id": SEARCH}
+    assert "inline_result" not in created.model_dump_json()

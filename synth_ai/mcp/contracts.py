@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, JsonValue, StrictInt, TypeAdapter, model_validator
+from pydantic import (
+    Field,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    StrictInt,
+    TypeAdapter,
+    model_serializer,
+    model_validator,
+)
 
 from synth_ai.sdk.index.types.contents import ContentOptions, ContentRef
 from synth_ai.sdk.index.types.contributions import ContributionFilter
@@ -148,6 +156,17 @@ class SearchCreated(Model):
     search_id: Identifier
     # FAST zdr_strict: the answer is delivered here and nowhere else.
     inline_result: SearchResponse | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_inline_result(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        # Wire rule: an absent field is omitted, so a backend that never sends it
+        # (its monitored body is {"search_id"}) is not contradicted by ``null``.
+        data: dict[str, object] = handler(self)
+        if data.get("inline_result") is None:
+            data.pop("inline_result", None)
+        return data
 
 
 class RunCreated(Model):
