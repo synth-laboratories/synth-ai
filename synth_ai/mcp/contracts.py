@@ -9,7 +9,12 @@ from pydantic import Field, JsonValue, StrictInt, TypeAdapter, model_validator
 from synth_ai.sdk.index.types.contents import ContentOptions, ContentRef
 from synth_ai.sdk.index.types.contributions import ContributionFilter
 from synth_ai.sdk.index.types.history import SearchHistoryFilter
-from synth_ai.sdk.index.types.search import KeyedSearchOptions, PublicSearchOptions, Query
+from synth_ai.sdk.index.types.search import (
+    KeyedSearchOptions,
+    PublicSearchOptions,
+    Query,
+    SearchResponse,
+)
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.types.base import Cursor, Digest, Identifier, Model
@@ -141,6 +146,8 @@ class Recovery(Model):
 
 class SearchCreated(Model):
     search_id: Identifier
+    # FAST zdr_strict: the answer is delivered here and nowhere else.
+    inline_result: SearchResponse | None = None
 
 
 class RunCreated(Model):
@@ -157,3 +164,5 @@ class ToolFailure(Model):
     idempotency_key: Identifier | None = None
     rate_limits: tuple[RateLimitSnapshot, ...] = ()
     outcome: Literal["not_accepted", "unknown"] | None = None
+    # retention_mode_not_allowed: the modes the organization permits.
+    allowed_modes: tuple[str, ...] = ()

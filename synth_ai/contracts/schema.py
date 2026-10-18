@@ -46,6 +46,7 @@ from synth_ai.sdk.index.types.history import (
     SearchHistoryRequest,
 )
 from synth_ai.sdk.index.types.retention import SearchRetention
+from synth_ai.sdk.index.types.retention_policy import RetentionPolicy, RetentionPolicyUpdate
 from synth_ai.sdk.index.types.search import (
     KeyedSearchOptions,
     KeyedSearchRequest,
@@ -79,6 +80,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     ContributionMetadata,
     ContributionReview,
     SearchRetention,
+    RetentionPolicy,
+    RetentionPolicyUpdate,
     SearchHistoryDeletion,
     SearchHistoryDeletionReceipt,
     SearchHistoryEntry,

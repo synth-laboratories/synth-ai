@@ -173,6 +173,25 @@ class SearchHistoryUnavailableError(SynthError):
     """The selected archive has no authorized deliverable content."""
 
 
+class RetentionModeNotAllowed(PermissionDeniedError):  # noqa: N818
+    """The organization's enforced retention policy refuses the requested mode.
+
+    ``allowed_modes`` lists the modes the organization permits (empty when the
+    backend did not send them). ``retryable`` is False: change the mode."""
+
+    allowed_modes: tuple[str, ...] = ()
+
+
+class SearchContentPurged(SynthError):  # noqa: N818
+    """The search's ZDR content was purged; only metadata remains (HTTP 410)."""
+
+
+class StrictZdrResultUnavailable(ConflictError):  # noqa: N818
+    """A ``zdr_strict`` search never stores its result.
+
+    Use ``run.inline_result`` (FAST create response) or ``run.events()`` (DEEP)."""
+
+
 POLICY_ERROR_TYPES: Mapping[tuple[int, str], type[SynthError]] = MappingProxyType(
     {
         (403, "entitlement_denied"): EntitlementDeniedError,
@@ -182,6 +201,9 @@ POLICY_ERROR_TYPES: Mapping[tuple[int, str], type[SynthError]] = MappingProxyTyp
         (403, "plan_required"): PlanRequiredError,
         (503, "policy_unavailable"): PolicyUnavailableError,
         (503, "capability_unavailable"): CapabilityUnavailableError,
+        (403, "retention_mode_not_allowed"): RetentionModeNotAllowed,
+        (410, "search_content_purged"): SearchContentPurged,
+        (409, "result_not_retained_strict_zdr"): StrictZdrResultUnavailable,
         (410, "search_history_deleted"): SearchHistoryDeletedError,
         (410, "search_history_expired"): SearchHistoryExpiredError,
         (409, "search_history_unavailable"): SearchHistoryUnavailableError,

@@ -11,7 +11,13 @@ from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.observation import AsyncEventStream, EventStream
 from synth_ai.core.parameters import identifier, page_parameters, verified
-from synth_ai.errors import ContractError, OperationFailedError, RequestTimeoutError
+from synth_ai.errors import (
+    ContractError,
+    OperationFailedError,
+    RequestTimeoutError,
+    SearchContentPurged,
+    StrictZdrResultUnavailable,
+)
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
@@ -21,7 +27,6 @@ from .search import validate_search_retention
 from .types.history import SearchHistoryDeletion, SearchHistoryDeletionReceipt
 from .types.retention import RetentionMode
 from .types.search import SearchEvent, SearchResponse, SearchSnapshot
-
 
 _TERMINAL_WITHOUT_RESULT = frozenset({"failed", "cancelled"})
 
@@ -45,6 +50,32 @@ def _raise_terminal(search_id: str, snapshot: SearchSnapshot, result: SearchResp
     )
 
 
+def _raise_unreadable(search_id: str, snapshot: SearchSnapshot) -> None:
+    """Raise a typed definite error when status proves no result will ever be readable.
+
+    Silent for unknown or absent retention so older backends keep today's polling."""
+    retention = snapshot.retention
+    if retention is None or snapshot.result_available:
+        return
+    if retention.content_state == "purged":
+        raise SearchContentPurged(
+            f"Search {search_id} content was purged; only metadata remains",
+            code="search_content_purged",
+            status=410,
+            retryable=False,
+            request_id=snapshot.metadata.request_id,
+        )
+    if retention.mode == "zdr_strict" and snapshot.state not in _TERMINAL_WITHOUT_RESULT:
+        raise StrictZdrResultUnavailable(
+            f"Search {search_id} is zdr_strict and its result is never stored; "
+            "use run.inline_result (FAST) or run.events() (DEEP)",
+            code="result_not_retained_strict_zdr",
+            status=409,
+            retryable=False,
+            request_id=snapshot.metadata.request_id,
+        )
+
+
 class SearchRun:
     """Durable identity; each method reads fresh authorized state."""
 
@@ -54,10 +85,13 @@ class SearchRun:
         search_id: str,
         *,
         expected_retention: RetentionMode | None = None,
+        inline_result: SearchResponse | None = None,
     ) -> None:
         self._transport = transport
         self.search_id = identifier(search_id)
         self._expected_retention = expected_retention
+        # A FAST zdr_strict create response carries the answer; None otherwise.
+        self.inline_result = inline_result
 
     def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
@@ -237,6 +271,7 @@ class SearchRun:
                 read_retry_count=observation.retry_count_max,
             )
             snapshot = self.status(request=request)
+            _raise_unreadable(self.search_id, snapshot)
             if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
                 # A failed/cancelled Search never becomes result_available; fail
                 # now with its typed cause instead of polling to the deadline.
@@ -273,10 +308,13 @@ class AsyncSearchRun:
         search_id: str,
         *,
         expected_retention: RetentionMode | None = None,
+        inline_result: SearchResponse | None = None,
     ) -> None:
         self._transport = transport
         self.search_id = identifier(search_id)
         self._expected_retention = expected_retention
+        # A FAST zdr_strict create response carries the answer; None otherwise.
+        self.inline_result = inline_result
 
     async def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
@@ -458,6 +496,7 @@ class AsyncSearchRun:
                 read_retry_count=observation.retry_count_max,
             )
             snapshot = await self.status(request=request)
+            _raise_unreadable(self.search_id, snapshot)
             if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
                 remaining = deadline - time.monotonic()
                 _raise_terminal(

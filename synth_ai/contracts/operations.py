@@ -14,7 +14,7 @@ PREFIX = "/api/v1"
 @dataclass(frozen=True, slots=True)
 class Operation:
     id: str
-    method: Literal["GET", "POST", "PATCH"]
+    method: Literal["GET", "POST", "PATCH", "PUT"]
     path: str
     keyed: bool
     mutation: bool = False
@@ -149,6 +149,12 @@ USAGE_ITEMS = Operation(
     required_scope="index:read",
 )
 ACCOUNT = Operation("index.account.get", "GET", "/index/account", True, required_scope="index:read")
+GET_RETENTION = Operation(
+    "index.retention.get", "GET", "/index/me/retention", True, required_scope="index:read"
+)
+PUT_RETENTION = Operation(
+    "index.retention.update", "PUT", "/index/me/retention", True, True, required_scope=None
+)
 COLLECTIONS = Operation(
     "index.collections.list", "GET", "/index/collections", True, required_scope="index:read"
 )
@@ -274,6 +280,8 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     USAGE,
     USAGE_ITEMS,
     ACCOUNT,
+    GET_RETENTION,
+    PUT_RETENTION,
     COLLECTIONS,
     COLLECTION,
     CONTRIBUTIONS,
