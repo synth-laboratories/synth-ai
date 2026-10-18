@@ -121,7 +121,10 @@ def build_request(
         request.headers["X-Synth-Schema-SHA256"] = negotiated.schema_sha256
         request.headers["X-Synth-Capabilities-SHA256"] = negotiated.capability_sha256
         request.headers["X-Synth-Release-Manifest-SHA256"] = negotiated.release_manifest_sha256
-    request.headers["X-Synth-Contract"] = operation.contract
+    if operation.contract == "tunnels.v2":
+        request.headers.pop("X-Synth-Contract", None)
+    else:
+        request.headers["X-Synth-Contract"] = operation.contract
     request.headers["Accept-Encoding"] = "identity"
     request.headers["X-Synth-Request-Timeout-Ms"] = str(max(1, int(remaining_seconds * 1000)))
     if body:

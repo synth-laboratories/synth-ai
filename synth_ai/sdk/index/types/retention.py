@@ -74,9 +74,10 @@ def validate_retention_observation(
         return
     if retention.archived_at is not None and retention.archived_at > observed_at:
         raise ValueError("retention cannot advertise future archival")
+    content_expires_at = retention.content_expires_at or retention.expires_at
     if (
         retention.content_state == "available"
-        and (retention.content_expires_at or retention.expires_at) is not None
-        and (retention.content_expires_at or retention.expires_at) <= observed_at
+        and content_expires_at is not None
+        and content_expires_at <= observed_at
     ):
         raise ValueError("retention cannot advertise expired content as available")

@@ -20,6 +20,7 @@ from synth_ai.sdk.swarms.types.launch import (
 )
 from synth_ai.sdk.swarms.types.outputs import Output, OutputRef, TextContent, TransferTiming
 from synth_ai.sdk.swarms.types.programs import ProgramRunView
+from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -28,7 +29,6 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
-from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.types.base import EventCursor, Page
 
 from .operations import PREFIX

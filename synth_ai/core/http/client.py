@@ -23,7 +23,7 @@ from synth_ai.errors import (
     TransportError,
 )
 from synth_ai.options import ClientOptions, ReadOptions
-from synth_ai.types.base import ClientTiming, ResponseModel
+from synth_ai.types.base import ClientTiming
 from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 
 from .blocking import DeadlineTransport
@@ -33,7 +33,7 @@ from .lifetime import Closeable
 from .request import build_request, encode_body, mutation_identity
 from .response import decode_response, retry_delay, validate_negotiated_response
 
-T = TypeVar("T", bound=ResponseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 class HttpTransport:
@@ -155,6 +155,11 @@ class HttpTransport:
     def _negotiate(self, operation: Operation, deadline: float) -> NegotiatedCapability | None:
         if operation.keyed and self._api_key is None and self._credential_provider is None:
             raise AuthenticationError("This operation requires an API key")
+        if operation.contract == "tunnels.v2":
+            from synth_ai.contracts.tunnels import require_control_operation
+
+            require_control_operation(operation, self._options)
+            return None
         if operation.id == CAPABILITIES.id:
             return None
         remaining = deadline - time.monotonic()

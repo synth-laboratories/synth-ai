@@ -1,0 +1,14 @@
+scope = "repo:synth-ai"
+
+[[checks]]
+id = "tunnel_v2_owned_protocol"
+description = "Tunnel v2 uses the bounded owned transport and its closed control operation inventory"
+severity = "error"
+require_paths = ["synth_ai/contracts/tunnels.py", "synth_ai/types/tunnels/session_operations.py"]
+file_contains = [
+  { path = "synth_ai/core/http/client.py", pattern = "require_control_operation(operation, self._options)" },
+  { path = "synth_ai/core/http/async_client.py", pattern = "require_control_operation(operation, self._options)" },
+  { path = "synth_ai/contracts/tunnels.py", pattern = "operation not in CONTROL_OPERATIONS" },
+  { path = "synth_ai/contracts/tunnels.py", pattern = "tunnel_release_not_qualified" },
+]
+remedy = "Restore bounded owned Tunnel control dispatch; preserve separate Index/Swarms release qualification and canonical UUID recovery."

@@ -18,7 +18,7 @@ class Operation:
     path: str
     keyed: bool
     mutation: bool = False
-    contract: Literal["index.v1", "swarms.v1"] = "index.v1"
+    contract: Literal["index.v1", "swarms.v1", "tunnels.v2"] = "index.v1"
     required_scope: str | None = None
     may_charge: bool = False
 

@@ -33,7 +33,7 @@ from synth_ai.types.capabilities import NegotiatedCapability
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import parse_rate_limits
 
-T = TypeVar("T", bound=ResponseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 class ErrorDetail(Model):
@@ -186,6 +186,10 @@ def _decode_response(
     negotiated: NegotiatedCapability | None = None,
 ) -> T:
     """Validate negotiated version before accepting a body; never display raw bodies."""
+    if contract == "tunnels.v2":
+        from .tunnel_control import decode_control_response
+
+        return decode_control_response(response, body, model, identity, mutation)
     if response.headers.get("X-Synth-Contract") != contract:
         if mutation:
             raise OutcomeUncertainError(
@@ -292,6 +296,8 @@ def _decode_response(
         raise ContractError(
             "Backend response does not match the typed contract", status=200
         ) from cause
+    if not isinstance(result, ResponseModel):
+        raise ContractError("Customer API responses require metadata")
     if result.metadata.contract != contract:
         raise ContractError("Response metadata contract does not match negotiated contract")
     return result.model_copy(

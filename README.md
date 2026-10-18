@@ -117,3 +117,25 @@ publisher. The producer does not run missing checks or build a replacement wheel
 `.github/v023-preserved-candidate.json` records the unchanged SDK1511 candidate
 wheel and original source. That record is provenance, not publication approval
 or a substitute for final native and staging qualification.
+
+
+### Tunnel v2 control (development candidate)
+
+`SynthClient(...).tunnels` and `AsyncSynthClient(...).tunnels` expose the canonical
+`/api/v1/synthtunnel/v2` connector, route, lease and session APIs. Typed requests
+are available from `synth_ai.sdk.tunnels`; checkpoint commands are in
+`synth_ai.sdk.tunnels.session_operations`. The client owns only HTTP resources;
+borrowed lease handles never shut down the shared connector.
+
+This catalog protocol retains backend UUID/deadline authority and dedicated
+command/session lookup. An uncertain mutation is observed through those lookup
+methods before another effect is considered. Closing a client or cancelling
+observation does not prove origin cancellation. Tokens remain distinct from
+backend API credentials and are redacted outside explicit wire serialization.
+
+The existing Index/Swarms capability envelopes and schema fingerprints are
+unchanged. Their release/candidate manifest pins cannot qualify Tunnel catalog
+v2; such pinned clients refuse control dispatch. Use a separate control client
+with its explicit backend origin and API credential. No credential-bearing
+redirect or alternate origin is followed. Installed-package protocol tests do
+not establish deployed backend/Rivet acceptance or package publication.

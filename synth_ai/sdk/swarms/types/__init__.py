@@ -71,4 +71,4 @@ __all__ = [
     "TaskState",
 ]
 
-from .programs import ProgramRunView
+from .programs import ProgramRunView as ProgramRunView

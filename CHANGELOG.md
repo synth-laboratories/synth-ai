@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.0.dev20261018 (unpublished)
+
+- Restore typed Tunnel v2 connector, lease custody, capability and checkpoint/session control through the current sync/async SDK transports.
+- Keep canonical UUID recovery and immutable deadlines; mutations are never automatically replayed after uncertain delivery.
+- Preserve the existing Index/Swarms schema fingerprints. Tunnel catalog v2 uses its separate versioned backend protocol and does not claim Index/Swarms release qualification.
+
 ## 0.23.0 (unpublished candidate)
 
 ### Supported source changes

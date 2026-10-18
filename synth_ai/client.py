@@ -18,6 +18,7 @@ from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
+from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.capabilities import Capabilities
 from synth_ai.types.identity import MutationIdentity
@@ -66,6 +67,7 @@ class SynthClient:
     index: IndexClient
     swarms: SwarmsClient
     account: AccountClient
+    tunnels: TunnelsClient
 
     def __init__(
         self,
@@ -85,6 +87,7 @@ class SynthClient:
         self.index = IndexClient(self._transport, True)
         self.swarms = SwarmsClient(self._transport)
         self.account = AccountClient(self._transport)
+        self.tunnels = TunnelsClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -103,6 +106,7 @@ class SynthClient:
         client.index = IndexClient(client._transport, False)
         client.swarms = SwarmsClient(client._transport)
         client.account = AccountClient(client._transport)
+        client.tunnels = TunnelsClient(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -176,6 +180,7 @@ class AsyncSynthClient:
     index: AsyncIndexClient
     swarms: AsyncSwarmsClient
     account: AsyncAccountClient
+    tunnels: AsyncTunnelsClient
 
     def __init__(
         self,
@@ -191,6 +196,7 @@ class AsyncSynthClient:
         self.index = AsyncIndexClient(self._transport, True)
         self.swarms = AsyncSwarmsClient(self._transport)
         self.account = AsyncAccountClient(self._transport)
+        self.tunnels = AsyncTunnelsClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -205,6 +211,7 @@ class AsyncSynthClient:
         client.index = AsyncIndexClient(client._transport, False)
         client.swarms = AsyncSwarmsClient(client._transport)
         client.account = AsyncAccountClient(client._transport)
+        client.tunnels = AsyncTunnelsClient(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
