@@ -4385,6 +4385,20 @@
           "title": "Collection Ids",
           "type": "array"
         },
+        "deadline_seconds": {
+          "anyOf": [
+            {
+              "maximum": 600,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline Seconds"
+        },
         "filters": {
           "$ref": "#/$defs/SearchFilters"
         },
@@ -4447,6 +4461,20 @@
               "maxItems": 16,
               "title": "Collection Ids",
               "type": "array"
+            },
+            "deadline_seconds": {
+              "anyOf": [
+                {
+                  "maximum": 600,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Deadline Seconds"
             },
             "filters": {
               "$ref": "#/$defs/SearchFilters"

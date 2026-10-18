@@ -51,16 +51,21 @@ class KeyedSearchOptions(PublicSearchOptions):
     collection_ids: tuple[Identifier, ...] = Field(default=(), max_length=16)
     # None omits the field: the organization's default mode applies server-side.
     retention: RetentionMode | None = None
+    deadline_seconds: StrictInt | None = Field(default=None, ge=1, le=600)
 
     @model_serializer(mode="wrap")
     def omit_absent_retention(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         data: dict[str, object] = handler(self)
         if data.get("retention") is None:
             data.pop("retention", None)
+        if data.get("deadline_seconds") is None:
+            data.pop("deadline_seconds", None)
         return data
 
     @model_validator(mode="after")
     def validate_charge_and_collections(self) -> Self:
+        if self.deadline_seconds is not None and self.mode != "deep":
+            raise ValueError("deadline_seconds is supported only for deep search")
         if self.maximum_charge.coefficient < 0:
             raise ValueError("maximum charge must be nonnegative")
         if len(self.collection_ids) != len(set(self.collection_ids)):
