@@ -20,6 +20,7 @@ from .launch import (
     ResolvedProviders,
 )
 from .outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
+from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
 from .runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -34,6 +35,10 @@ from .runs import (
 )
 
 __all__ = [
+    "PROBLEMS_SCHEMA",
+    "EvidenceRef",
+    "Problem",
+    "ReasonLink",
     "File",
     "FileManifest",
     "FileMediaType",
@@ -65,3 +70,5 @@ __all__ = [
     "TaskExecutionFacts",
     "TaskState",
 ]
+
+from .programs import ProgramRunView

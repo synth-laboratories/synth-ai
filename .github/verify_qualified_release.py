@@ -7,6 +7,7 @@ release evidence; this verifier binds them to source and distribution bytes.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -31,10 +32,16 @@ CHECKS = {
     "native-swarms",
     "staging",
 }
+POLICY_PATH = Path(__file__).with_name("release-policy.json")
+POLICY_SCHEMA = "synth.sdk.release-policy.v1"
+TICKET = re.compile(r"[A-Z][A-Z0-9]*-[0-9]+")
+MAX_REASON = 500
 SHA = re.compile(r"[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+)?")
 MAX_BYTES = 256 * 1024 * 1024
+MAX_ATTESTATION_BYTES = 1024 * 1024
+ATTESTATION_SUFFIX = ".publish.attestation"
 
 
 def digest(value: bytes) -> str:
@@ -57,6 +64,42 @@ def document(raw: bytes) -> dict:
     value = json.loads(raw, object_pairs_hook=unique)
     require(isinstance(value, dict), "expected object")
     return value
+
+
+def deferrable_checks(version: str) -> frozenset[str]:
+    """Checks the versioned release policy lets this version defer; none if undeclared."""
+    if not POLICY_PATH.is_file():
+        return frozenset()
+    policy = document(POLICY_PATH.read_bytes())
+    require(policy.get("schema") == POLICY_SCHEMA, "invalid release policy")
+    releases = policy.get("releases")
+    require(isinstance(releases, dict), "invalid release policy")
+    names = releases.get(version, {}).get("deferrable", [])
+    require(
+        isinstance(names, list) and set(names) <= CHECKS and len(set(names)) == len(names),
+        "invalid release policy",
+    )
+    return frozenset(names)
+
+
+def deferral(check: dict, evidence: bytes, deferrable: frozenset[str]) -> dict:
+    """Validate one deferred check and return its {reason, ticket}."""
+    require(check.get("name") in deferrable, "check is not deferrable by release policy")
+    reason, ticket = check.get("reason"), check.get("ticket")
+    require(
+        isinstance(reason, str) and 0 < len(reason.strip()) <= MAX_REASON,
+        "deferral requires a reason",
+    )
+    require(
+        isinstance(ticket, str) and TICKET.fullmatch(ticket) is not None,
+        "deferral requires a ticket id",
+    )
+    record = document(evidence)
+    require(
+        record == {"check": check["name"], "reason": reason, "ticket": ticket},
+        "deferral record does not match the declared reason and ticket",
+    )
+    return {"reason": reason, "ticket": ticket}
 
 
 def source_gate(source: str, version: str, channel: str, branch: str) -> None:
@@ -203,9 +246,11 @@ def verify_bundle(
             {check.get("name") for check in checks} == CHECKS, "qualification coverage mismatch"
         )
         allowed = {"qualification.json", *files}
+        deferrable = deferrable_checks(version)
+        deferred = {}
         for check in checks:
             require(
-                check.get("status") == "passed" and check.get("source_sha") == source,
+                check.get("status") in {"passed", "deferred"} and check.get("source_sha") == source,
                 "qualification check incomplete",
             )
             require(
@@ -222,6 +267,13 @@ def verify_bundle(
                 digest(zipped.read(evidence)) == check.get("evidence_sha256"),
                 "qualification evidence changed",
             )
+            if check["status"] == "deferred":
+                deferred[check["name"]] = deferral(check, zipped.read(evidence), deferrable)
+            else:
+                require(
+                    "reason" not in check and "ticket" not in check,
+                    "passed check cannot carry a deferral",
+                )
             allowed.add(evidence)
         require(set(names) == allowed, "undeclared artifact file")
         require(not output.exists(), "prepared output already exists")
@@ -238,6 +290,7 @@ def verify_bundle(
         "qualification_sha256": digest(raw_manifest),
         "distributions": files,
         "checks": sorted(CHECKS),
+        "deferred": deferred,
     }
     (output / "publish-receipt.json").write_text(
         json.dumps(receipt, sort_keys=True, indent=2) + "\n"
@@ -253,17 +306,43 @@ def verify_prepared(output: Path, receipt_sha: str) -> dict:
         digest((output / "qualification.json").read_bytes()) == receipt["qualification_sha256"],
         "prepared qualification changed",
     )
+    distributions = receipt["distributions"]
+    present = {p.name for p in (output / "dist").iterdir()}
+    # The PyPI publish action writes one PEP 740 `<file>.publish.attestation` beside each
+    # distribution it uploads. Those files are not qualified bytes: they may exist (after
+    # publication) for a declared distribution only, and each must attest that exact file.
+    allowed_attestations = {name + ATTESTATION_SUFFIX for name in distributions}
     require(
-        {p.name for p in (output / "dist").iterdir()} == set(receipt["distributions"]),
+        set(distributions) <= present and present <= set(distributions) | allowed_attestations,
         "prepared distribution set changed",
     )
-    for name, sha in receipt["distributions"].items():
+    for name, sha in distributions.items():
         path = output / "dist" / name
         require(
             path.is_file() and not path.is_symlink() and digest(path.read_bytes()) == sha,
             "prepared distribution changed",
         )
+        attestation = output / "dist" / (name + ATTESTATION_SUFFIX)
+        if attestation.exists():
+            require(
+                attestation.is_file() and not attestation.is_symlink(),
+                "attestation is not a regular file",
+            )
+            attestation_attests(attestation, name, sha)
     return receipt
+
+
+def attestation_attests(path: Path, filename: str, sha: str) -> None:
+    """Require a bounded PEP 740 attestation whose in-toto subject is exactly this file."""
+    require(path.stat().st_size <= MAX_ATTESTATION_BYTES, "attestation too large")
+    try:
+        statement = json.loads(
+            base64.b64decode(document(path.read_bytes())["envelope"]["statement"], validate=True)
+        )
+        subjects = [(item["name"], item["digest"]["sha256"]) for item in statement["subject"]]
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise ValueError("attestation is not a valid PEP 740 statement") from None
+    require(subjects == [(filename, sha)], "attestation does not attest this distribution")
 
 
 def registry_state(receipt: dict, *, require_published: bool = False) -> bool:

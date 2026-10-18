@@ -2,17 +2,15 @@
 
 import json
 
-from synth_ai.mcp.research.server import ResearchMcpServer
+from synth_ai.mcp.catalog import TOOLS
 
 
 def test_all_tool_definitions_are_json_contracts():
-    server = ResearchMcpServer(
-        api_key="offline-dummy", backend_base="http://offline.invalid", include_advanced_tools=True
-    )
-    definitions = server.tool_definitions()
-    names = [definition.name for definition in definitions]
+    names = [tool.name for tool in TOOLS]
     assert len(set(names)) == len(names), "Duplicate MCP tool names"
-    assert definitions, "Missing MCP registry"
-    for definition in definitions:
-        assert definition.input_schema.get("type") == "object", definition.name
-        json.dumps(definition.input_schema)
+    assert names, "Missing MCP registry"
+    for tool in TOOLS:
+        schema = tool.input_schema()
+        assert schema.get("type") == "object", tool.name
+        json.dumps(schema)
+        json.dumps(tool.output_schema())

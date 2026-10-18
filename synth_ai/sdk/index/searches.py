@@ -45,6 +45,7 @@ class Searches:
             self._transport,
             snapshot.search_id,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+            inline_result=snapshot.inline_result,
         )
 
     def get(self, search_id: str, *, request: ReadOptions | None = None) -> SearchRun:
@@ -142,6 +143,7 @@ class AsyncSearches:
             self._transport,
             snapshot.search_id,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+            inline_result=snapshot.inline_result,
         )
 
     async def get(self, search_id: str, *, request: ReadOptions | None = None) -> AsyncSearchRun:

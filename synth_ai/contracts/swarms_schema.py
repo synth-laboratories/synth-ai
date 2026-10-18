@@ -19,6 +19,7 @@ from synth_ai.sdk.swarms.types.launch import (
     ResolvedProviders,
 )
 from synth_ai.sdk.swarms.types.outputs import Output, OutputRef, TextContent, TransferTiming
+from synth_ai.sdk.swarms.types.programs import ProgramRunView
 from synth_ai.sdk.swarms.types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -34,6 +35,7 @@ from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
 
 MODELS: tuple[type[BaseModel], ...] = (
+    ProgramRunView,
     FileRef,
     File,
     FileManifest,

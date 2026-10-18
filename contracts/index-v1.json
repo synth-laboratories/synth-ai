@@ -4385,6 +4385,20 @@
           "title": "Collection Ids",
           "type": "array"
         },
+        "deadline_seconds": {
+          "anyOf": [
+            {
+              "maximum": 600,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline Seconds"
+        },
         "filters": {
           "$ref": "#/$defs/SearchFilters"
         },
@@ -4408,13 +4422,21 @@
           "type": "string"
         },
         "retention": {
-          "default": "zdr",
-          "enum": [
-            "zdr",
-            "retained"
+          "anyOf": [
+            {
+              "enum": [
+                "zdr",
+                "zdr_strict",
+                "retained"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Retention",
-          "type": "string"
+          "default": null,
+          "title": "Retention"
         }
       },
       "required": [
@@ -4440,6 +4462,20 @@
               "title": "Collection Ids",
               "type": "array"
             },
+            "deadline_seconds": {
+              "anyOf": [
+                {
+                  "maximum": 600,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Deadline Seconds"
+            },
             "filters": {
               "$ref": "#/$defs/SearchFilters"
             },
@@ -4463,13 +4499,21 @@
               "type": "string"
             },
             "retention": {
-              "default": "zdr",
-              "enum": [
-                "zdr",
-                "retained"
+              "anyOf": [
+                {
+                  "enum": [
+                    "zdr",
+                    "zdr_strict",
+                    "retained"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Retention",
-              "type": "string"
+              "default": null,
+              "title": "Retention"
             }
           },
           "required": [
@@ -6462,6 +6506,386 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ContentRef": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "asset_id",
+            "digest_sha256"
+          ],
+          "title": "ContentRef",
+          "type": "object"
+        },
+        "ContributionAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "annotation_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Annotation Version",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            },
+            "review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionReview"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "annotation_version",
+            "review"
+          ],
+          "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        },
+        "ContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "const": "synth",
+              "title": "Authority",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "correctness": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Correctness",
+              "type": "string"
+            },
+            "evidence_references": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Evidence References",
+              "type": "array"
+            },
+            "quality": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "review_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Review Id",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "format": "date-time",
+              "title": "Reviewed At",
+              "type": "string"
+            },
+            "reviewer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Reviewer Id",
+              "type": "string"
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "rubric_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Rubric Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "review_id",
+            "rubric_version",
+            "reviewed_at",
+            "reviewer_id",
+            "authority",
+            "quality",
+            "confidence",
+            "correctness",
+            "evidence_references"
+          ],
+          "title": "ContributionReview",
+          "type": "object"
+        },
+        "FundingPart": {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/FundingSource"
+            }
+          },
+          "required": [
+            "source",
+            "amount"
+          ],
+          "title": "FundingPart",
+          "type": "object"
+        },
+        "FundingSource": {
+          "enum": [
+            "not_billed",
+            "included_in_operation",
+            "plan_allowance",
+            "promotion",
+            "credits",
+            "unattributed",
+            "unsettled"
+          ],
+          "title": "FundingSource",
+          "type": "string"
+        },
+        "Money": {
+          "additionalProperties": false,
+          "properties": {
+            "coefficient": {
+              "maximum": 1000000000000000000000000000000,
+              "minimum": -1000000000000000000000000000000,
+              "title": "Coefficient",
+              "type": "integer"
+            },
+            "currency": {
+              "const": "USD",
+              "default": "USD",
+              "title": "Currency",
+              "type": "string"
+            },
+            "scale": {
+              "maximum": 12,
+              "minimum": 0,
+              "title": "Scale",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "coefficient",
+            "scale"
+          ],
+          "title": "Money",
+          "type": "object"
+        },
+        "MoneyObservation": {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rate_version": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Rate Version"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "pending",
+                "unknown"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "amount"
+          ],
+          "title": "MoneyObservation",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -6529,8 +6953,194 @@
           "title": "ResponseMetadata",
           "type": "object"
         },
+        "SearchCitation": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionAnnotations"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "label": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Label",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ContentRef"
+            }
+          },
+          "required": [
+            "reference",
+            "label"
+          ],
+          "title": "SearchCitation",
+          "type": "object"
+        },
+        "SearchFailure": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Code",
+              "type": "string"
+            },
+            "retryable": {
+              "title": "Retryable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "retryable"
+          ],
+          "title": "SearchFailure",
+          "type": "object"
+        },
+        "SearchResponse": {
+          "additionalProperties": false,
+          "properties": {
+            "accounting_final": {
+              "title": "Accounting Final",
+              "type": "boolean"
+            },
+            "citations": {
+              "items": {
+                "$ref": "#/$defs/SearchCitation"
+              },
+              "maxItems": 10,
+              "title": "Citations",
+              "type": "array"
+            },
+            "cleanup_complete": {
+              "title": "Cleanup Complete",
+              "type": "boolean"
+            },
+            "completeness": {
+              "enum": [
+                "complete",
+                "partial",
+                "unknown"
+              ],
+              "title": "Completeness",
+              "type": "string"
+            },
+            "failure": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SearchFailure"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "mode": {
+              "enum": [
+                "fast",
+                "deep"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "output_ready": {
+              "title": "Output Ready",
+              "type": "boolean"
+            },
+            "response": {
+              "anyOf": [
+                {
+                  "maxLength": 16384,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Response"
+            },
+            "retention": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SearchRetention"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "search_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
+            },
+            "status": {
+              "enum": [
+                "completed",
+                "partial",
+                "failed",
+                "cancelled"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "usage": {
+              "$ref": "#/$defs/UsageSummary"
+            },
+            "warnings": {
+              "items": {
+                "maxLength": 512,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "title": "Warnings",
+              "type": "array"
+            }
+          },
+          "required": [
+            "metadata",
+            "search_id",
+            "mode",
+            "status",
+            "response",
+            "citations",
+            "warnings",
+            "completeness",
+            "failure",
+            "usage",
+            "output_ready",
+            "accounting_final",
+            "cleanup_complete"
+          ],
+          "title": "SearchResponse",
+          "type": "object"
+        },
         "SearchRetention": {
           "additionalProperties": false,
+          "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
               "anyOf": [
@@ -6542,6 +7152,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Archived At"
             },
             "content_expires_at": {
@@ -6554,42 +7165,98 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Content Expires At"
             },
             "content_state": {
-              "enum": [
-                "processing",
-                "available",
-                "expired",
-                "deleted",
-                "unavailable"
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Content State",
-              "type": "string"
+              "default": null,
+              "title": "Content State"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expires At"
             },
             "history_available": {
+              "default": false,
               "title": "History Available",
               "type": "boolean"
             },
             "mode": {
-              "enum": [
-                "zdr",
-                "retained"
+              "anyOf": [
+                {
+                  "enum": [
+                    "zdr",
+                    "zdr_strict",
+                    "retained"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Mode",
-              "type": "string"
+              "default": null,
+              "title": "Mode"
             },
             "policy_version": {
-              "maxLength": 128,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
-              "title": "Policy Version",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Policy Version"
+            },
+            "purges_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purges At"
             },
             "purpose": {
-              "const": "customer_only",
-              "title": "Purpose",
-              "type": "string"
+              "anyOf": [
+                {
+                  "const": "customer_only",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
             },
             "retention_days": {
               "anyOf": [
@@ -6601,19 +7268,10 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Retention Days"
             }
           },
-          "required": [
-            "mode",
-            "policy_version",
-            "purpose",
-            "content_state",
-            "archived_at",
-            "content_expires_at",
-            "retention_days",
-            "history_available"
-          ],
           "title": "SearchRetention",
           "type": "object"
         },
@@ -6635,6 +7293,17 @@
             "execution_closed": {
               "title": "Execution Closed",
               "type": "boolean"
+            },
+            "inline_result": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SearchResponse"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "metadata": {
               "$ref": "#/$defs/ResponseMetadata"
@@ -6762,6 +7431,148 @@
             "uncertainty_ms"
           ],
           "title": "TimingSpan",
+          "type": "object"
+        },
+        "UsageMetric": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            },
+            "quantity": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quantity"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "pending",
+                "unknown"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "unit": {
+              "enum": [
+                "tokens",
+                "requests",
+                "bytes",
+                "seconds",
+                "searches",
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
+              ],
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "unit",
+            "quantity",
+            "state",
+            "source"
+          ],
+          "title": "UsageMetric",
+          "type": "object"
+        },
+        "UsageSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "cost": {
+              "$ref": "#/$defs/MoneyObservation"
+            },
+            "customer_charge": {
+              "$ref": "#/$defs/MoneyObservation"
+            },
+            "execution_source": {
+              "enum": [
+                "live",
+                "replay",
+                "unknown"
+              ],
+              "title": "Execution Source",
+              "type": "string"
+            },
+            "financial_state": {
+              "enum": [
+                "pending",
+                "final",
+                "unknown"
+              ],
+              "title": "Financial State",
+              "type": "string"
+            },
+            "funding": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FundingPart"
+              },
+              "maxItems": 7,
+              "title": "Funding",
+              "type": "array"
+            },
+            "list_price": {
+              "$ref": "#/$defs/MoneyObservation"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "operation_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "physical": {
+              "items": {
+                "$ref": "#/$defs/UsageMetric"
+              },
+              "maxItems": 128,
+              "title": "Physical",
+              "type": "array"
+            }
+          },
+          "required": [
+            "metadata",
+            "operation_id",
+            "physical",
+            "cost",
+            "customer_charge",
+            "financial_state",
+            "execution_source"
+          ],
+          "title": "UsageSummary",
           "type": "object"
         }
       },
@@ -7584,6 +8395,286 @@
       "title": "ResearchCorrection",
       "type": "object"
     },
+    "RetentionPolicy": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "description": "The organization's default and permitted Index retention modes.",
+      "properties": {
+        "allowed_modes": {
+          "items": {
+            "enum": [
+              "zdr",
+              "zdr_strict",
+              "retained"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Allowed Modes",
+          "type": "array"
+        },
+        "default_mode": {
+          "enum": [
+            "zdr",
+            "zdr_strict",
+            "retained"
+          ],
+          "title": "Default Mode",
+          "type": "string"
+        },
+        "enforced": {
+          "title": "Enforced",
+          "type": "boolean"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "revision": {
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "metadata",
+        "default_mode",
+        "allowed_modes",
+        "enforced",
+        "revision"
+      ],
+      "title": "RetentionPolicy",
+      "type": "object"
+    },
+    "RetentionPolicyUpdate": {
+      "additionalProperties": false,
+      "description": "Org-admin intent; absent optional fields are omitted from the wire.",
+      "properties": {
+        "allowed_modes": {
+          "items": {
+            "enum": [
+              "zdr",
+              "zdr_strict",
+              "retained"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Allowed Modes",
+          "type": "array"
+        },
+        "default_mode": {
+          "enum": [
+            "zdr",
+            "zdr_strict",
+            "retained"
+          ],
+          "title": "Default Mode",
+          "type": "string"
+        },
+        "enforced": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enforced"
+        },
+        "expected_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Revision"
+        }
+      },
+      "required": [
+        "default_mode",
+        "allowed_modes"
+      ],
+      "title": "RetentionPolicyUpdate",
+      "type": "object"
+    },
     "RightsAttestation": {
       "additionalProperties": false,
       "properties": {
@@ -8377,6 +9468,7 @@
       "$defs": {
         "SearchRetention": {
           "additionalProperties": false,
+          "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
               "anyOf": [
@@ -8388,6 +9480,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Archived At"
             },
             "content_expires_at": {
@@ -8400,42 +9493,98 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Content Expires At"
             },
             "content_state": {
-              "enum": [
-                "processing",
-                "available",
-                "expired",
-                "deleted",
-                "unavailable"
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Content State",
-              "type": "string"
+              "default": null,
+              "title": "Content State"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expires At"
             },
             "history_available": {
+              "default": false,
               "title": "History Available",
               "type": "boolean"
             },
             "mode": {
-              "enum": [
-                "zdr",
-                "retained"
+              "anyOf": [
+                {
+                  "enum": [
+                    "zdr",
+                    "zdr_strict",
+                    "retained"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Mode",
-              "type": "string"
+              "default": null,
+              "title": "Mode"
             },
             "policy_version": {
-              "maxLength": 128,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
-              "title": "Policy Version",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Policy Version"
+            },
+            "purges_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purges At"
             },
             "purpose": {
-              "const": "customer_only",
-              "title": "Purpose",
-              "type": "string"
+              "anyOf": [
+                {
+                  "const": "customer_only",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
             },
             "retention_days": {
               "anyOf": [
@@ -8447,19 +9596,10 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Retention Days"
             }
           },
-          "required": [
-            "mode",
-            "policy_version",
-            "purpose",
-            "content_state",
-            "archived_at",
-            "content_expires_at",
-            "retention_days",
-            "history_available"
-          ],
           "title": "SearchRetention",
           "type": "object"
         }
@@ -8743,6 +9883,7 @@
         },
         "SearchRetention": {
           "additionalProperties": false,
+          "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
               "anyOf": [
@@ -8754,6 +9895,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Archived At"
             },
             "content_expires_at": {
@@ -8766,42 +9908,98 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Content Expires At"
             },
             "content_state": {
-              "enum": [
-                "processing",
-                "available",
-                "expired",
-                "deleted",
-                "unavailable"
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Content State",
-              "type": "string"
+              "default": null,
+              "title": "Content State"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expires At"
             },
             "history_available": {
+              "default": false,
               "title": "History Available",
               "type": "boolean"
             },
             "mode": {
-              "enum": [
-                "zdr",
-                "retained"
+              "anyOf": [
+                {
+                  "enum": [
+                    "zdr",
+                    "zdr_strict",
+                    "retained"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Mode",
-              "type": "string"
+              "default": null,
+              "title": "Mode"
             },
             "policy_version": {
-              "maxLength": 128,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
-              "title": "Policy Version",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Policy Version"
+            },
+            "purges_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purges At"
             },
             "purpose": {
-              "const": "customer_only",
-              "title": "Purpose",
-              "type": "string"
+              "anyOf": [
+                {
+                  "const": "customer_only",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
             },
             "retention_days": {
               "anyOf": [
@@ -8813,19 +10011,10 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Retention Days"
             }
           },
-          "required": [
-            "mode",
-            "policy_version",
-            "purpose",
-            "content_state",
-            "archived_at",
-            "content_expires_at",
-            "retention_days",
-            "history_available"
-          ],
           "title": "SearchRetention",
           "type": "object"
         },
@@ -9551,6 +10740,7 @@
         },
         "SearchRetention": {
           "additionalProperties": false,
+          "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
               "anyOf": [
@@ -9562,6 +10752,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Archived At"
             },
             "content_expires_at": {
@@ -9574,42 +10765,98 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Content Expires At"
             },
             "content_state": {
-              "enum": [
-                "processing",
-                "available",
-                "expired",
-                "deleted",
-                "unavailable"
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Content State",
-              "type": "string"
+              "default": null,
+              "title": "Content State"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expires At"
             },
             "history_available": {
+              "default": false,
               "title": "History Available",
               "type": "boolean"
             },
             "mode": {
-              "enum": [
-                "zdr",
-                "retained"
+              "anyOf": [
+                {
+                  "enum": [
+                    "zdr",
+                    "zdr_strict",
+                    "retained"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Mode",
-              "type": "string"
+              "default": null,
+              "title": "Mode"
             },
             "policy_version": {
-              "maxLength": 128,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
-              "title": "Policy Version",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Policy Version"
+            },
+            "purges_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purges At"
             },
             "purpose": {
-              "const": "customer_only",
-              "title": "Purpose",
-              "type": "string"
+              "anyOf": [
+                {
+                  "const": "customer_only",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
             },
             "retention_days": {
               "anyOf": [
@@ -9621,19 +10868,10 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Retention Days"
             }
           },
-          "required": [
-            "mode",
-            "policy_version",
-            "purpose",
-            "content_state",
-            "archived_at",
-            "content_expires_at",
-            "retention_days",
-            "history_available"
-          ],
           "title": "SearchRetention",
           "type": "object"
         },
@@ -9981,6 +11219,7 @@
     },
     "SearchRetention": {
       "additionalProperties": false,
+      "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
       "properties": {
         "archived_at": {
           "anyOf": [
@@ -9992,6 +11231,7 @@
               "type": "null"
             }
           ],
+          "default": null,
           "title": "Archived At"
         },
         "content_expires_at": {
@@ -10004,42 +11244,98 @@
               "type": "null"
             }
           ],
+          "default": null,
           "title": "Content Expires At"
         },
         "content_state": {
-          "enum": [
-            "processing",
-            "available",
-            "expired",
-            "deleted",
-            "unavailable"
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Content State",
-          "type": "string"
+          "default": null,
+          "title": "Content State"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
         },
         "history_available": {
+          "default": false,
           "title": "History Available",
           "type": "boolean"
         },
         "mode": {
-          "enum": [
-            "zdr",
-            "retained"
+          "anyOf": [
+            {
+              "enum": [
+                "zdr",
+                "zdr_strict",
+                "retained"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Mode",
-          "type": "string"
+          "default": null,
+          "title": "Mode"
         },
         "policy_version": {
-          "maxLength": 128,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
-          "title": "Policy Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Version"
+        },
+        "purges_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purges At"
         },
         "purpose": {
-          "const": "customer_only",
-          "title": "Purpose",
-          "type": "string"
+          "anyOf": [
+            {
+              "const": "customer_only",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
         },
         "retention_days": {
           "anyOf": [
@@ -10051,19 +11347,10 @@
               "type": "null"
             }
           ],
+          "default": null,
           "title": "Retention Days"
         }
       },
-      "required": [
-        "mode",
-        "policy_version",
-        "purpose",
-        "content_state",
-        "archived_at",
-        "content_expires_at",
-        "retention_days",
-        "history_available"
-      ],
       "title": "SearchRetention",
       "type": "object"
     },
@@ -10100,6 +11387,386 @@
             "attempts"
           ],
           "title": "ClientTiming",
+          "type": "object"
+        },
+        "ContentRef": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "asset_id",
+            "digest_sha256"
+          ],
+          "title": "ContentRef",
+          "type": "object"
+        },
+        "ContributionAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "annotation_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Annotation Version",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ContributionMetadata"
+            },
+            "review": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionReview"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "annotation_version",
+            "review"
+          ],
+          "title": "ContributionAnnotations",
+          "type": "object"
+        },
+        "ContributionMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "ContributionMetadata",
+          "type": "object"
+        },
+        "ContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "const": "synth",
+              "title": "Authority",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "correctness": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Correctness",
+              "type": "string"
+            },
+            "evidence_references": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Evidence References",
+              "type": "array"
+            },
+            "quality": {
+              "enum": [
+                "low",
+                "med",
+                "high"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "review_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Review Id",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "format": "date-time",
+              "title": "Reviewed At",
+              "type": "string"
+            },
+            "reviewer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Reviewer Id",
+              "type": "string"
+            },
+            "revision_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Revision Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "rubric_version": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Rubric Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "revision_digest_sha256",
+            "review_id",
+            "rubric_version",
+            "reviewed_at",
+            "reviewer_id",
+            "authority",
+            "quality",
+            "confidence",
+            "correctness",
+            "evidence_references"
+          ],
+          "title": "ContributionReview",
+          "type": "object"
+        },
+        "FundingPart": {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/FundingSource"
+            }
+          },
+          "required": [
+            "source",
+            "amount"
+          ],
+          "title": "FundingPart",
+          "type": "object"
+        },
+        "FundingSource": {
+          "enum": [
+            "not_billed",
+            "included_in_operation",
+            "plan_allowance",
+            "promotion",
+            "credits",
+            "unattributed",
+            "unsettled"
+          ],
+          "title": "FundingSource",
+          "type": "string"
+        },
+        "Money": {
+          "additionalProperties": false,
+          "properties": {
+            "coefficient": {
+              "maximum": 1000000000000000000000000000000,
+              "minimum": -1000000000000000000000000000000,
+              "title": "Coefficient",
+              "type": "integer"
+            },
+            "currency": {
+              "const": "USD",
+              "default": "USD",
+              "title": "Currency",
+              "type": "string"
+            },
+            "scale": {
+              "maximum": 12,
+              "minimum": 0,
+              "title": "Scale",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "coefficient",
+            "scale"
+          ],
+          "title": "Money",
+          "type": "object"
+        },
+        "MoneyObservation": {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rate_version": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Rate Version"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "pending",
+                "unknown"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "amount"
+          ],
+          "title": "MoneyObservation",
           "type": "object"
         },
         "ResponseMetadata": {
@@ -10169,8 +11836,194 @@
           "title": "ResponseMetadata",
           "type": "object"
         },
+        "SearchCitation": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ContributionAnnotations"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "label": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Label",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ContentRef"
+            }
+          },
+          "required": [
+            "reference",
+            "label"
+          ],
+          "title": "SearchCitation",
+          "type": "object"
+        },
+        "SearchFailure": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Code",
+              "type": "string"
+            },
+            "retryable": {
+              "title": "Retryable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "retryable"
+          ],
+          "title": "SearchFailure",
+          "type": "object"
+        },
+        "SearchResponse": {
+          "additionalProperties": false,
+          "properties": {
+            "accounting_final": {
+              "title": "Accounting Final",
+              "type": "boolean"
+            },
+            "citations": {
+              "items": {
+                "$ref": "#/$defs/SearchCitation"
+              },
+              "maxItems": 10,
+              "title": "Citations",
+              "type": "array"
+            },
+            "cleanup_complete": {
+              "title": "Cleanup Complete",
+              "type": "boolean"
+            },
+            "completeness": {
+              "enum": [
+                "complete",
+                "partial",
+                "unknown"
+              ],
+              "title": "Completeness",
+              "type": "string"
+            },
+            "failure": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SearchFailure"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "mode": {
+              "enum": [
+                "fast",
+                "deep"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "output_ready": {
+              "title": "Output Ready",
+              "type": "boolean"
+            },
+            "response": {
+              "anyOf": [
+                {
+                  "maxLength": 16384,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Response"
+            },
+            "retention": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SearchRetention"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "search_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search Id"
+            },
+            "status": {
+              "enum": [
+                "completed",
+                "partial",
+                "failed",
+                "cancelled"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "usage": {
+              "$ref": "#/$defs/UsageSummary"
+            },
+            "warnings": {
+              "items": {
+                "maxLength": 512,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "title": "Warnings",
+              "type": "array"
+            }
+          },
+          "required": [
+            "metadata",
+            "search_id",
+            "mode",
+            "status",
+            "response",
+            "citations",
+            "warnings",
+            "completeness",
+            "failure",
+            "usage",
+            "output_ready",
+            "accounting_final",
+            "cleanup_complete"
+          ],
+          "title": "SearchResponse",
+          "type": "object"
+        },
         "SearchRetention": {
           "additionalProperties": false,
+          "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
               "anyOf": [
@@ -10182,6 +12035,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Archived At"
             },
             "content_expires_at": {
@@ -10194,42 +12048,98 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Content Expires At"
             },
             "content_state": {
-              "enum": [
-                "processing",
-                "available",
-                "expired",
-                "deleted",
-                "unavailable"
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Content State",
-              "type": "string"
+              "default": null,
+              "title": "Content State"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expires At"
             },
             "history_available": {
+              "default": false,
               "title": "History Available",
               "type": "boolean"
             },
             "mode": {
-              "enum": [
-                "zdr",
-                "retained"
+              "anyOf": [
+                {
+                  "enum": [
+                    "zdr",
+                    "zdr_strict",
+                    "retained"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Mode",
-              "type": "string"
+              "default": null,
+              "title": "Mode"
             },
             "policy_version": {
-              "maxLength": 128,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
-              "title": "Policy Version",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Policy Version"
+            },
+            "purges_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purges At"
             },
             "purpose": {
-              "const": "customer_only",
-              "title": "Purpose",
-              "type": "string"
+              "anyOf": [
+                {
+                  "const": "customer_only",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
             },
             "retention_days": {
               "anyOf": [
@@ -10241,19 +12151,10 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Retention Days"
             }
           },
-          "required": [
-            "mode",
-            "policy_version",
-            "purpose",
-            "content_state",
-            "archived_at",
-            "content_expires_at",
-            "retention_days",
-            "history_available"
-          ],
           "title": "SearchRetention",
           "type": "object"
         },
@@ -10324,6 +12225,148 @@
           ],
           "title": "TimingSpan",
           "type": "object"
+        },
+        "UsageMetric": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            },
+            "quantity": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quantity"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "pending",
+                "unknown"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "unit": {
+              "enum": [
+                "tokens",
+                "requests",
+                "bytes",
+                "seconds",
+                "searches",
+                "reads",
+                "millicpu_seconds",
+                "byte_seconds"
+              ],
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "unit",
+            "quantity",
+            "state",
+            "source"
+          ],
+          "title": "UsageMetric",
+          "type": "object"
+        },
+        "UsageSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "cost": {
+              "$ref": "#/$defs/MoneyObservation"
+            },
+            "customer_charge": {
+              "$ref": "#/$defs/MoneyObservation"
+            },
+            "execution_source": {
+              "enum": [
+                "live",
+                "replay",
+                "unknown"
+              ],
+              "title": "Execution Source",
+              "type": "string"
+            },
+            "financial_state": {
+              "enum": [
+                "pending",
+                "final",
+                "unknown"
+              ],
+              "title": "Financial State",
+              "type": "string"
+            },
+            "funding": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FundingPart"
+              },
+              "maxItems": 7,
+              "title": "Funding",
+              "type": "array"
+            },
+            "list_price": {
+              "$ref": "#/$defs/MoneyObservation"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "operation_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "physical": {
+              "items": {
+                "$ref": "#/$defs/UsageMetric"
+              },
+              "maxItems": 128,
+              "title": "Physical",
+              "type": "array"
+            }
+          },
+          "required": [
+            "metadata",
+            "operation_id",
+            "physical",
+            "cost",
+            "customer_charge",
+            "financial_state",
+            "execution_source"
+          ],
+          "title": "UsageSummary",
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -10343,6 +12386,17 @@
         "execution_closed": {
           "title": "Execution Closed",
           "type": "boolean"
+        },
+        "inline_result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
@@ -12393,6 +14447,26 @@
       "mutation": false,
       "path": "/api/v1/index/account",
       "required_scope": "index:read"
+    },
+    {
+      "id": "index.retention.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/index/me/retention",
+      "required_scope": "index:read"
+    },
+    {
+      "id": "index.retention.update",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "PUT",
+      "mutation": true,
+      "path": "/api/v1/index/me/retention",
+      "required_scope": null
     },
     {
       "id": "index.collections.list",

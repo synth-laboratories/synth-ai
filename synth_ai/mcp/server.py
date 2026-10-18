@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import uuid
 
 from mcp.server.lowlevel import Server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
@@ -33,6 +34,7 @@ from synth_ai.errors import (
     RateLimitError,
     RequestTimeoutError,
     ResultNotReadyError,
+    RetentionModeNotAllowed,
     SynthError,
     TransportError,
     UnsupportedOperationError,
@@ -191,8 +193,25 @@ def create_server(
         try:
             async with asyncio.timeout(timeout_seconds):
                 if spec.name not in await executor.available_tools():
-                    raise PermissionDeniedError(
-                        "Tool is unavailable for this connection", code="tool_unavailable"
+                    # A typed, attributable refusal: the cause names the gate and
+                    # the id lets an operator find the server-side log line.
+                    describe = getattr(executor, "unavailable_cause", None)
+                    cause = await describe(spec) if describe is not None else "unknown"
+                    refusal_id = uuid.uuid4().hex
+                    logger.warning(
+                        "MCP tool unavailable: tool=%s cause=%s request_id=%s",
+                        spec.name,
+                        cause,
+                        refusal_id,
+                    )
+                    return failure(
+                        ToolFailure(
+                            code="tool_unavailable",
+                            message=f"Tool is unavailable for this connection: {cause}"[:512],
+                            request_id=refusal_id,
+                            outcome="not_accepted",
+                            idempotency_key=retained_key(arguments),
+                        )
                     )
                 parsed = spec.validate_arguments(arguments)
                 effective_scope = spec.scope_for(parsed)
@@ -239,9 +258,12 @@ def create_server(
                     outcome="unknown"
                     if isinstance(error, OutcomeUncertainError)
                     else "not_accepted"
-                    if (error.status, error.code) in POLICY_ERROR_TYPES
+                    if error.retryable is False or (error.status, error.code) in POLICY_ERROR_TYPES
                     else None,
                     idempotency_key=retained_key(arguments),
+                    allowed_modes=error.allowed_modes
+                    if isinstance(error, RetentionModeNotAllowed)
+                    else (),
                 ),
                 scope_challenge=effective_scope if error.code == "insufficient_scope" else None,
             )

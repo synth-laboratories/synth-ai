@@ -196,7 +196,7 @@ async def create_search(client: AsyncSynthClient, args: SearchCreate) -> SearchC
         options=args.options,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
-    return SearchCreated(search_id=run.search_id)
+    return SearchCreated(search_id=run.search_id, inline_result=run.inline_result)
 
 
 async def search_status(client: AsyncSynthClient, args: SearchIdentity) -> SearchSnapshot:

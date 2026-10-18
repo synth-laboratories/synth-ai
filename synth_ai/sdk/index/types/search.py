@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, StrictInt, field_validator, model_validator
+from pydantic import (
+    Field,
+    SerializerFunctionWrapHandler,
+    StrictInt,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from synth_ai.errors import OperationFailedError
 from synth_ai.types.base import Identifier, Model, ResponseModel
@@ -42,8 +49,18 @@ class PublicSearchOptions(Model):
 class KeyedSearchOptions(PublicSearchOptions):
     maximum_charge: Money
     collection_ids: tuple[Identifier, ...] = Field(default=(), max_length=16)
-    retention: RetentionMode = "zdr"
+    # None omits the field: the organization's default mode applies server-side.
+    retention: RetentionMode | None = None
     deadline_seconds: StrictInt | None = Field(default=None, ge=1, le=600)
+
+    @model_serializer(mode="wrap")
+    def omit_absent_retention(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        data: dict[str, object] = handler(self)
+        if data.get("retention") is None:
+            data.pop("retention", None)
+        if data.get("deadline_seconds") is None:
+            data.pop("deadline_seconds", None)
+        return data
 
     @model_validator(mode="after")
     def validate_charge_and_collections(self) -> Self:
@@ -118,9 +135,9 @@ class SearchResponse(ResponseModel):
     def validate_outcome(self) -> Self:
         validate_retention_observation(self.retention, self.metadata.observed_at)
         if self.retention is not None and (self.response is not None or self.citations):
-            if self.retention.content_state != "available":
+            if self.retention.content_unreadable:
                 raise ValueError("unavailable retained content cannot be disclosed")
-            expiry = self.retention.content_expires_at
+            expiry = self.retention.content_expires_at or self.retention.expires_at
             if expiry is not None and expiry <= self.metadata.observed_at:
                 raise ValueError("expired content cannot be disclosed")
         if self.status == "failed" and self.failure is None:
@@ -158,6 +175,8 @@ class SearchSnapshot(ResponseModel):
     accounting_final: bool
     cleanup_complete: bool
     retention: SearchRetention | None = None
+    # Present only when the create response carries a FAST zdr_strict result.
+    inline_result: SearchResponse | None = None
 
     @model_validator(mode="after")
     def validate_retention(self) -> Self:
@@ -165,7 +184,7 @@ class SearchSnapshot(ResponseModel):
         if (
             self.result_available
             and self.retention is not None
-            and self.retention.content_state != "available"
+            and self.retention.content_unreadable
         ):
             raise ValueError("unavailable content cannot advertise a readable result")
         return self
