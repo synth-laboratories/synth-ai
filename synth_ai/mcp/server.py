@@ -34,6 +34,7 @@ from synth_ai.errors import (
     RateLimitError,
     RequestTimeoutError,
     ResultNotReadyError,
+    RetentionModeNotAllowed,
     SynthError,
     TransportError,
     UnsupportedOperationError,
@@ -260,6 +261,9 @@ def create_server(
                     if error.retryable is False or (error.status, error.code) in POLICY_ERROR_TYPES
                     else None,
                     idempotency_key=retained_key(arguments),
+                    allowed_modes=error.allowed_modes
+                    if isinstance(error, RetentionModeNotAllowed)
+                    else (),
                 ),
                 scope_challenge=effective_scope if error.code == "insufficient_scope" else None,
             )

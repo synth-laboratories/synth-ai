@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Literal, TypeVar
 
 import httpx
-from pydantic import Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from synth_ai.errors import (
     POLICY_ERROR_TYPES,
@@ -24,6 +24,7 @@ from synth_ai.errors import (
     RefusedError,
     RequestTimeoutError,
     ResultNotReadyError,
+    RetentionModeNotAllowed,
     SynthError,
     UnsupportedOperationError,
 )
@@ -47,6 +48,39 @@ class ErrorDetail(Model):
 
 class ErrorResponse(Model):
     error: ErrorDetail
+
+
+class _TolerantErrorDetail(BaseModel):
+    """Read-only view of a refusal that carries extra typed detail.
+
+    ``ErrorDetail`` stays closed (its schema is fingerprinted). A refusal such as
+    ``retention_mode_not_allowed`` may add ``detail.allowed_modes``; this view is
+    consulted only when the closed model rejects the body, and only for the codes
+    in ``_TOLERANT_REFUSAL_CODES``."""
+
+    model_config = ConfigDict(extra="ignore")
+    code: Identifier
+    request_id: Identifier | None = None
+    retry_after_seconds: float | None = Field(default=None, ge=0)
+    outcome: Literal["not_accepted", "unknown"] = "unknown"
+    detail: dict[str, object] | None = None
+    allowed_modes: tuple[str, ...] | None = None
+
+    def modes(self) -> tuple[str, ...]:
+        candidate: object = self.allowed_modes
+        if candidate is None and self.detail is not None:
+            candidate = self.detail.get("allowed_modes")
+        if isinstance(candidate, (list, tuple)) and all(isinstance(m, str) for m in candidate):
+            return tuple(candidate)
+        return ()
+
+
+class _TolerantErrorResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    error: _TolerantErrorDetail
+
+
+_TOLERANT_REFUSAL_CODES = frozenset({"retention_mode_not_allowed"})
 
 
 UNCERTAIN_CLIENT_STATUSES = frozenset({408, 429})
@@ -168,18 +202,33 @@ def _decode_response(
     ):
         raise ContractError("Contract responses must be application/json")
     if response.status_code != 200:
+        allowed_modes: tuple[str, ...] = ()
         try:
             error = ErrorResponse.model_validate_json(body).error
+            sent_outcome = error.outcome if "outcome" in error.model_fields_set else None
         except ValidationError as cause:
-            if mutation and response.status_code >= 500:
-                raise OutcomeUncertainError(
-                    "Mutation outcome is uncertain", identity=identity, status=response.status_code
+            try:
+                tolerant = _TolerantErrorResponse.model_validate_json(body).error
+            except ValidationError:
+                tolerant = None
+            if tolerant is None or tolerant.code not in _TOLERANT_REFUSAL_CODES:
+                if mutation and response.status_code >= 500:
+                    raise OutcomeUncertainError(
+                        "Mutation outcome is uncertain",
+                        identity=identity,
+                        status=response.status_code,
+                    ) from cause
+                raise ContractError(
+                    "Backend error response does not match the selected contract",
+                    status=response.status_code,
                 ) from cause
-            raise ContractError(
-                "Backend error response does not match the selected contract",
-                status=response.status_code,
-            ) from cause
-        sent_outcome = error.outcome if "outcome" in error.model_fields_set else None
+            allowed_modes = tolerant.modes()
+            sent_outcome = tolerant.outcome if "outcome" in tolerant.model_fields_set else None
+            error = ErrorDetail(
+                code=tolerant.code,
+                request_id=tolerant.request_id,
+                retry_after_seconds=tolerant.retry_after_seconds,
+            )
         definite = is_definite_refusal(response.status_code, sent_outcome)
         if mutation and not definite:
             raise OutcomeUncertainError(
@@ -218,7 +267,7 @@ def _decode_response(
             kind = RateLimitError
         elif response.status_code == 402:
             kind = PaymentRequiredError
-        raise kind(
+        refusal = kind(
             "Operation refused",
             retryable=False if definite else None,
             code=error.code,
@@ -227,6 +276,9 @@ def _decode_response(
             identity=identity,
             retry_after_seconds=error.retry_after_seconds,
         )
+        if isinstance(refusal, RetentionModeNotAllowed):
+            refusal.allowed_modes = allowed_modes
+        raise refusal
     validate_negotiated_response(response, negotiated, identity, mutation)
     try:
         result = model.model_validate_json(body)
