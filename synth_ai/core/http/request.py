@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import platform
+from functools import lru_cache
 from hashlib import sha256
 from typing import Mapping
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import httpx
 from pydantic import BaseModel
@@ -27,6 +30,13 @@ CREDENTIAL_HEADERS = frozenset(
         "proxy-authorization",
     }
 )
+
+
+@lru_cache(maxsize=1)
+def user_agent() -> str:
+    from synth_ai import __version__
+
+    return f"synth-ai-python/{__version__} python/{platform.python_version()}"
 
 
 def validate_base_url(value: str) -> str:
@@ -96,6 +106,7 @@ def build_request(
     remaining_seconds: float,
     connect_seconds: float,
     negotiated: NegotiatedCapability | None = None,
+    attempt: int = 1,
 ) -> httpx.Request:
     if operation.keyed and api_key is None:
         raise AuthenticationError("This operation requires an API key")
@@ -109,6 +120,10 @@ def build_request(
         content=body if body else None,
         timeout=httpx.Timeout(remaining_seconds, connect=min(remaining_seconds, connect_seconds)),
     )
+    # HTTPX installs a default agent even when the caller did not provide one.
+    agent = client.headers.get("User-Agent")
+    if agent is None or agent == f"python-httpx/{httpx.__version__}":
+        request.headers["User-Agent"] = user_agent()
     for header in CREDENTIAL_HEADERS:
         request.headers.pop(header, None)
     for header in (
@@ -131,8 +146,12 @@ def build_request(
         request.headers["Content-Type"] = "application/json"
     if api_key is not None and operation.id != "capabilities.get":
         request.headers["Authorization"] = "Bearer " + api_key
-    if options is not None and options.request_id is not None:
-        request.headers["X-Request-Id"] = options.request_id
+    request.headers["X-Request-Id"] = (
+        options.request_id
+        if options is not None and options.request_id is not None
+        else uuid4().hex
+    )
+    request.headers["X-Synth-Attempt"] = str(attempt)
     if identity is not None:
         request.headers["Idempotency-Key"] = identity.key
         request.headers["X-Synth-Intent-SHA256"] = identity.payload_sha256

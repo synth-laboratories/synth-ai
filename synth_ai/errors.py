@@ -19,6 +19,8 @@ class SynthError(Exception):
         *,
         code: str | None = None,
         request_id: str | None = None,
+        operation: str | None = None,
+        client_request_id: str | None = None,
         status: int | None = None,
         identity: MutationIdentity | None = None,
         retry_after_seconds: float | None = None,
@@ -45,6 +47,8 @@ class SynthError(Exception):
         self.closure_expected_by = closure_expected_by
         self.code = code
         self.request_id = request_id
+        self.operation = operation
+        self.client_request_id = client_request_id
         self.status = status
         self.identity = identity
         self.retry_after_seconds = retry_after_seconds
@@ -64,32 +68,32 @@ class SynthError(Exception):
         return f"{message} ({capacity})" if capacity else message
 
     def _detail(self) -> str:
-        """``<Class>: <code> (status n) stage=.. cause=.. request_id=..``; absent parts omitted.
+        """Render safe identity/refusal facts; never include bodies or headers."""
+        fields = (
+            ("code", self.code),
+            ("status", self.status),
+            ("request_id", self.request_id),
+            ("operation", self.operation),
+            ("stage", self.stage),
+            ("cause", self.cause),
+            ("closure_pending", self.closure_pending),
+            (
+                "closure_expected_by",
+                self.closure_expected_by.isoformat()
+                if self.closure_expected_by is not None
+                else None,
+            ),
+        )
+        parts = [f"{name}={value}" for name, value in fields if value is not None]
+        return f"{Exception.__str__(self)} [{' '.join(parts)}]" if parts else ""
 
-        Only allowlisted, already-validated fields are rendered: never headers or
-        bodies beyond these."""
-        if not any((self.code, self.status, self.stage, self.cause, self.request_id)):
-            return ""
-        message = Exception.__str__(self)
-        head = self.code or message
-        parts = [f"{type(self).__name__}: {head}"]
-        if self.status is not None:
-            parts.append(f"(status {self.status})")
-        if self.stage:
-            parts.append(f"stage={self.stage}")
-        if self.cause:
-            parts.append(f"cause={self.cause}")
-        if self.closure_pending:
-            expected = self.closure_expected_by
-            parts.append(f"closure_pending={self.closure_pending}")
-            if expected is not None:
-                parts.append(f"closure_expected_by={expected.isoformat()}")
-        if self.request_id:
-            parts.append(f"request_id={self.request_id}")
-        text = " ".join(parts)
-        if self.code and message and message != "Operation refused" and message != self.code:
-            text = f"{text} - {message}"
-        return text
+    def __repr__(self) -> str:
+        parts = [repr(Exception.__str__(self))]
+        for name in ("code", "status", "request_id", "operation", "stage", "cause"):
+            value = getattr(self, name)
+            if value is not None:
+                parts.append(f"{name}={value!r}")
+        return f"{type(self).__name__}({', '.join(parts)})"
 
 
 class AuthenticationError(SynthError):

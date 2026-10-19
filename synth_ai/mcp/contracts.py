@@ -189,7 +189,11 @@ class RunCreated(Model):
 
 class ToolFailure(Model):
     code: Annotated[str, Field(max_length=128)]
+    category: Annotated[str, Field(max_length=128)] | None = None
     message: Annotated[str, Field(max_length=512)]
+    status: Annotated[StrictInt, Field(ge=100, le=599)] | None = None
+    retryable: bool | None = None
+    operation: Identifier | None = None
     request_id: Identifier | None = None
     identity: MutationIdentity | None = None
     retry_after_seconds: float | None = None

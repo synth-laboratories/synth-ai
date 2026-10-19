@@ -170,6 +170,7 @@ def decode_response(
     contract: str,
     *,
     negotiated: NegotiatedCapability | None = None,
+    operation: str | None = None,
 ) -> T:
     """Preserve bounded response capacity on every typed decoder refusal."""
     try:
@@ -182,6 +183,7 @@ def decode_response(
             mutation,
             contract,
             negotiated=negotiated,
+            operation=operation,
         )
     except SynthError as error:
         annotate_response_error(response, error)
@@ -213,6 +215,7 @@ def _decode_response(
     contract: str,
     *,
     negotiated: NegotiatedCapability | None = None,
+    operation: str | None = None,
 ) -> T:
     """Validate negotiated version before accepting a body; never display raw bodies."""
     if contract == "tunnels.v2":
@@ -302,7 +305,7 @@ def _decode_response(
         elif response.status_code == 402:
             kind = PaymentRequiredError
         refusal = kind(
-            "Operation refused",
+            f"{operation or contract} refused: {error.code}",
             retryable=False if definite else None,
             code=error.code,
             request_id=error.request_id,

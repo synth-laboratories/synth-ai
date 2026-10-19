@@ -49,8 +49,9 @@ def test_408_with_stage_and_cause_renders_both():
     assert isinstance(error, RequestTimeoutError)
     assert (error.stage, error.cause) == ("runtime_binding_place", "deadline")
     assert str(error) == (
-        "RequestTimeoutError: request_deadline_exceeded (status 408) "
-        "stage=runtime_binding_place cause=deadline request_id=" + REQUEST_ID
+        "swarms.v1 refused: request_deadline_exceeded "
+        f"[code=request_deadline_exceeded status=408 request_id={REQUEST_ID} "
+        "stage=runtime_binding_place cause=deadline]"
     )
 
 
@@ -78,7 +79,8 @@ def test_absent_headers_leave_fields_empty_and_message_minimal():
         None,
     )
     assert str(error) == (
-        f"RequestTimeoutError: request_deadline_exceeded (status 408) request_id={REQUEST_ID}"
+        "swarms.v1 refused: request_deadline_exceeded "
+        f"[code=request_deadline_exceeded status=408 request_id={REQUEST_ID}]"
     )
 
 
