@@ -70,6 +70,48 @@ Per-request capacity is available through a caller-owned
 Use one instance per concurrent request. Typed errors and MCP error payloads also
 retain bounded rate-limit values. These fields never change the result body.
 
+## Index retention policy
+
+`options.retention` accepts `zdr`, `retained`, or `zdr_strict`. Omit it to use
+the organization's default. An enforced organization policy can refuse an
+explicit choice with `RetentionModeNotAllowed`, including `allowed_modes`.
+Policy updates require a user-principal key belonging to a live org admin.
+
+```python
+from synth_ai import SynthClient
+from synth_ai.options import MutationOptions
+
+with SynthClient() as client:
+    policy = client.index.retention.get()
+    updated = client.index.retention.update(
+        default_mode="zdr",
+        allowed_modes=("zdr", "zdr_strict"),
+        enforced=True,
+        expected_revision=policy.revision,
+        mutation=MutationOptions(idempotency_key="org-retention-change-1"),
+    )
+```
+
+Use a new key for each new intent. If a write's outcome is unknown, retain and
+retry its exact key, body and revision. A stale revision refuses rather than
+overwriting another admin's change. Disabling enforcement requires all three
+modes in `allowed_modes`; the default must always be allowed.
+
+MCP exposes the same resources as `index_retention_get` and
+`index_retention_update`. The update tool requires `expected_revision` and
+`idempotency_key`. Both are keyed tools, neither incurs search charges, and
+the backend checks current organization membership. The read profile excludes
+the update tool; anonymous profiles expose neither. Hosted discovery still
+requires the corresponding backend operation to be admitted.
+
+ZDR results are available for polling within the encrypted processing window:
+the earlier of admission plus 60 minutes or first terminal delivery plus ten
+minutes. After purge, reads raise non-retryable `SearchContentPurged` (410).
+Retained mode adds private history with a fixed 30-day expiry.
+Strict ZDR execution remains gated on the current backend: admission refuses
+`retention_mode_unsupported` rather than silently persisting a strict request.
+The presence of `zdr_strict` in a policy is not proof of delivery support.
+
 ## Qualified publication
 
 Source pushes do not publish packages. `.github/workflows/publish-dev.yml`

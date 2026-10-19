@@ -17,6 +17,7 @@ from pydantic import (
 from synth_ai.sdk.index.types.contents import ContentOptions, ContentRef
 from synth_ai.sdk.index.types.contributions import ContributionFilter
 from synth_ai.sdk.index.types.history import SearchHistoryFilter
+from synth_ai.sdk.index.types.retention_policy import RetentionPolicyUpdate
 from synth_ai.sdk.index.types.search import (
     KeyedSearchOptions,
     PublicSearchOptions,
@@ -89,6 +90,13 @@ class SearchMutation(SearchIdentity):
 
 class SearchHistoryMutation(SearchMutation):
     expected_archive_digest_sha256: Digest
+
+
+class RetentionPolicyMutation(RetentionPolicyUpdate):
+    """One policy replacement bound to the revision the caller read."""
+
+    expected_revision: StrictInt = Field(ge=0)
+    idempotency_key: Identifier
 
 
 class SearchCreate(SearchArguments):
