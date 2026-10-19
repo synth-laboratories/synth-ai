@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    ConfigDict,
     Field,
     SerializerFunctionWrapHandler,
     StrictInt,
@@ -14,8 +15,9 @@ from pydantic import (
 )
 
 from synth_ai.errors import OperationFailedError
-from synth_ai.types.base import Identifier, Model, ResponseModel
+from synth_ai.types.base import Identifier, Model, ResponseBase, ResponseIdentifier, ResponseModel
 from synth_ai.types.money import Money
+from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import UsageSummary
 
 from .annotations import ContributionAnnotations
@@ -96,7 +98,7 @@ class KeyedSearchRequest(PublicSearchRequest):
     options: KeyedSearchOptions
 
 
-class SearchCitation(Model):
+class SearchCitation(ResponseBase):
     reference: ContentRef
     label: str = Field(min_length=1, max_length=256)
     annotations: ContributionAnnotations | None = None
@@ -111,13 +113,13 @@ class SearchCitation(Model):
         return self
 
 
-class SearchFailure(Model):
-    code: Identifier
+class SearchFailure(ResponseBase):
+    code: ResponseIdentifier
     retryable: bool
 
 
 class SearchResponse(ResponseModel):
-    search_id: Identifier | None
+    search_id: ResponseIdentifier | None
     mode: Mode
     status: Literal["completed", "partial", "failed", "cancelled"]
     response: str | None = Field(min_length=1, max_length=16384)
@@ -166,9 +168,11 @@ class SearchResponse(ResponseModel):
 
 
 class SearchSnapshot(ResponseModel):
-    search_id: Identifier
+    search_id: ResponseIdentifier
     mode: Mode
-    state: Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
+    state: (
+        Literal["queued", "running", "completed", "partial", "failed", "cancelled"] | UnknownValue
+    )
     result_available: bool
     cancellation_requested: bool
     execution_closed: bool
@@ -190,20 +194,23 @@ class SearchSnapshot(ResponseModel):
         return self
 
 
-class SearchEvent(Model):
-    event_id: Identifier
-    search_id: Identifier
+class SearchEvent(ResponseBase):
+    event_id: ResponseIdentifier
+    search_id: ResponseIdentifier
     sequence: StrictInt = Field(ge=1)
-    kind: Literal[
-        "created",
-        "running",
-        "completed",
-        "partial",
-        "failed",
-        "cancelled",
-        "usage_updated",
-        "unknown",
-    ]
+    kind: (
+        Literal[
+            "created",
+            "running",
+            "completed",
+            "partial",
+            "failed",
+            "cancelled",
+            "usage_updated",
+            "unknown",
+        ]
+        | UnknownValue
+    )
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
     # Disclosed only by the active strict DEEP POST event request. Retained
@@ -232,11 +239,33 @@ class SearchEvent(Model):
         return self
 
 
-class StrictSearchProgress(Model):
+_PROGRESS_CONTENT_FIELDS = (
+    "query",
+    "response",
+    "result",
+    "citations",
+    "documents",
+    "snippets",
+    "prompt",
+    "messages",
+    "content",
+    "input",
+    "output",
+)
+
+
+class StrictSearchProgress(ResponseBase):
     """Content-free observations from a committed native DEEP checkpoint."""
 
-    search_id: Identifier
-    event_id: Identifier
+    model_config = ConfigDict(
+        extra="allow",
+        json_schema_extra={
+            "not": {"anyOf": [{"required": [key]} for key in _PROGRESS_CONTENT_FIELDS]}
+        },
+    )
+
+    search_id: ResponseIdentifier
+    event_id: ResponseIdentifier
     sequence: StrictInt = Field(ge=1)
     kind: Literal["progress"] = "progress"
     stage: Literal["working", "draining"]
@@ -247,6 +276,12 @@ class StrictSearchProgress(Model):
 
     @model_validator(mode="after")
     def validate_progress_identity(self) -> Self:
+        if self.model_extra:
+            if any(key in self.model_extra for key in _PROGRESS_CONTENT_FIELDS):
+                raise ValueError("Strict progress cannot carry content fields")
+            # Future metadata extensions are tolerated but never forwarded as
+            # unvalidated content through the MCP progress channel.
+            object.__setattr__(self, "__pydantic_extra__", {})
         if self.event_id != f"{self.search_id}.{self.sequence}":
             raise ValueError("progress requires its native checkpoint identity")
         return self

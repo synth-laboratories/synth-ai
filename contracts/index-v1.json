@@ -3,7 +3,7 @@
     "AccountEntitlements": {
       "$defs": {
         "AccountEntitlement": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "access": {
               "enum": [
@@ -16,9 +16,8 @@
               "type": "string"
             },
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -152,7 +151,7 @@
           "type": "object"
         },
         "AccountPolicyLimit": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "available_requests": {
               "anyOf": [
@@ -181,9 +180,8 @@
             "code": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -226,9 +224,8 @@
               "title": "Expires At"
             },
             "limit_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Limit Id",
               "type": "string"
             },
@@ -284,9 +281,8 @@
             "revision": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -296,9 +292,8 @@
               "title": "Revision"
             },
             "source": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Source",
               "type": "string"
             },
@@ -369,7 +364,7 @@
           "type": "object"
         },
         "AccountRequestLimits": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "contents_max_bytes": {
               "minimum": 1,
@@ -402,7 +397,7 @@
           "type": "object"
         },
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -435,7 +430,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -464,9 +459,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -476,9 +470,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -502,7 +495,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -570,7 +563,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "capability_sha256": {
           "anyOf": [
@@ -616,9 +609,8 @@
           "type": "array"
         },
         "tenant_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Tenant Id",
           "type": "string"
         }
@@ -638,7 +630,7 @@
     "AttestationReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -671,7 +663,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -700,9 +692,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -712,9 +703,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -738,7 +728,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -806,16 +796,15 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accepted": {
           "title": "Accepted",
           "type": "boolean"
         },
         "contribution_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Contribution Id",
           "type": "string"
         },
@@ -835,9 +824,8 @@
           "title": "Reason"
         },
         "revision_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
         },
@@ -864,7 +852,7 @@
     "AuthContext": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -897,7 +885,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -926,9 +914,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -938,9 +925,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -964,7 +950,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -1032,12 +1018,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "credential_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Credential Id",
           "type": "string"
         },
@@ -1075,9 +1060,8 @@
           "type": "array"
         },
         "subject_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Subject Id",
           "type": "string"
         },
@@ -1090,9 +1074,8 @@
           "type": "string"
         },
         "tenant_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Tenant Id",
           "type": "string"
         }
@@ -1180,7 +1163,7 @@
     "Capabilities": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -1213,7 +1196,7 @@
           "type": "object"
         },
         "ComponentIdentity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "artifact_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -1221,9 +1204,8 @@
               "type": "string"
             },
             "component_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Component Id",
               "type": "string"
             },
@@ -1255,7 +1237,7 @@
           "type": "object"
         },
         "ContractIdentity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "contract": {
               "enum": [
@@ -1265,6 +1247,20 @@
               ],
               "title": "Contract",
               "type": "string"
+            },
+            "min_sdk_version": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "pattern": "^[0-9][0-9A-Za-z._+-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Min Sdk Version"
             },
             "schema_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -1280,7 +1276,7 @@
           "type": "object"
         },
         "OperationCapability": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "contract": {
               "enum": [
@@ -1292,9 +1288,8 @@
               "type": "string"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -1347,12 +1342,11 @@
           "type": "object"
         },
         "ReleaseIdentity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "candidate_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Candidate Id",
               "type": "string"
             },
@@ -1398,7 +1392,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -1427,9 +1421,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -1439,9 +1432,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -1465,7 +1457,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -1533,7 +1525,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "admission": {
           "anyOf": [
@@ -1605,7 +1597,7 @@
     "Collection": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -1638,7 +1630,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -1667,9 +1659,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -1679,9 +1670,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -1705,7 +1695,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -1773,12 +1763,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "collection_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Collection Id",
           "type": "string"
         },
@@ -1954,7 +1943,7 @@
     "ContentResponse": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -1987,19 +1976,17 @@
           "type": "object"
         },
         "ContentRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "asset_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Asset Id",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -2009,9 +1996,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -2026,7 +2012,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -2055,9 +2041,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -2067,9 +2052,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -2093,7 +2077,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -2161,7 +2145,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "asset_byte_size": {
           "anyOf": [
@@ -2264,7 +2248,7 @@
     "Contribution": {
       "$defs": {
         "AuthorAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "keywords": {
               "default": [],
@@ -2286,7 +2270,7 @@
           "type": "object"
         },
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -2319,19 +2303,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -2366,9 +2348,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -2384,7 +2365,7 @@
           "type": "object"
         },
         "ContributionDraft": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "$ref": "#/$defs/AuthorAnnotations"
@@ -2392,9 +2373,8 @@
             "expected_revision_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -2425,14 +2405,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -2442,9 +2421,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -2454,9 +2432,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -2468,7 +2445,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -2485,9 +2462,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -2502,9 +2478,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -2522,9 +2497,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -2534,9 +2508,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -2546,16 +2519,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -2578,7 +2549,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -2607,9 +2578,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -2619,9 +2589,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -2645,7 +2614,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -2713,7 +2682,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "annotations": {
           "anyOf": [
@@ -2731,9 +2700,8 @@
           "type": "boolean"
         },
         "contribution_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Contribution Id",
           "type": "string"
         },
@@ -2754,9 +2722,8 @@
         "revision_id": {
           "anyOf": [
             {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "type": "string"
             },
             {
@@ -3316,7 +3283,7 @@
     "ContributionRevision": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -3349,7 +3316,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -3378,9 +3345,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -3390,9 +3356,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -3416,7 +3381,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -3484,12 +3449,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "contribution_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Contribution Id",
           "type": "string"
         },
@@ -3511,9 +3475,8 @@
         "parent_revision_id": {
           "anyOf": [
             {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "type": "string"
             },
             {
@@ -3524,9 +3487,8 @@
           "title": "Parent Revision Id"
         },
         "revision_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
         }
@@ -3574,7 +3536,7 @@
     "ControlReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -3607,7 +3569,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -3636,9 +3598,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -3648,9 +3609,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -3674,7 +3634,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -3742,7 +3702,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accounting_final": {
           "title": "Accounting Final",
@@ -3777,9 +3737,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "operation_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Operation Id",
           "type": "string"
         },
@@ -3795,9 +3754,8 @@
           "title": "Reason"
         },
         "resource_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Resource Id",
           "type": "string"
         },
@@ -3828,7 +3786,7 @@
     "CorrectionReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -3861,7 +3819,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -3890,9 +3848,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -3902,9 +3859,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -3928,7 +3884,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -3996,12 +3952,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "contribution_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Contribution Id",
           "type": "string"
         },
@@ -4021,9 +3976,8 @@
           "title": "Reason"
         },
         "revision_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
         },
@@ -4049,12 +4003,11 @@
     "ErrorResponse": {
       "$defs": {
         "ErrorDetail": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -4070,9 +4023,8 @@
             "request_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -4103,7 +4055,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "error": {
           "$ref": "#/$defs/ErrorDetail"
@@ -4118,7 +4070,7 @@
     "IndexAccount": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -4151,7 +4103,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -4180,9 +4132,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -4192,9 +4143,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -4218,7 +4168,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -4286,7 +4236,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "contribution_write_enabled": {
           "title": "Contribution Write Enabled",
@@ -4300,9 +4250,8 @@
           "type": "boolean"
         },
         "tenant_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Tenant Id",
           "type": "string"
         }
@@ -4793,7 +4742,7 @@
     "MutationResolution": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -4826,19 +4775,17 @@
           "type": "object"
         },
         "MutationIdentity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "key": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Key",
               "type": "string"
             },
             "operation": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation",
               "type": "string"
             },
@@ -4865,7 +4812,7 @@
           "type": "object"
         },
         "ResourceReference": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "enum": [
@@ -4880,9 +4827,8 @@
               "type": "string"
             },
             "resource_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Resource Id",
               "type": "string"
             }
@@ -4895,7 +4841,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -4924,9 +4870,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -4936,9 +4881,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -4962,7 +4906,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -5030,7 +4974,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "identity": {
           "$ref": "#/$defs/MutationIdentity"
@@ -5123,7 +5067,7 @@
     "Page[Collection, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -5156,12 +5100,11 @@
           "type": "object"
         },
         "Collection": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "collection_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Collection Id",
               "type": "string"
             },
@@ -5194,7 +5137,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -5223,9 +5166,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -5235,9 +5177,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -5261,7 +5202,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -5329,7 +5270,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -5339,7 +5280,7 @@
           "items": {
             "$ref": "#/$defs/Collection"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -5370,7 +5311,7 @@
     "Page[Contribution, NewType]": {
       "$defs": {
         "AuthorAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "keywords": {
               "default": [],
@@ -5392,7 +5333,7 @@
           "type": "object"
         },
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -5425,7 +5366,7 @@
           "type": "object"
         },
         "Contribution": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "anyOf": [
@@ -5443,9 +5384,8 @@
               "type": "boolean"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -5466,9 +5406,8 @@
             "revision_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -5515,19 +5454,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -5562,9 +5499,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -5580,7 +5516,7 @@
           "type": "object"
         },
         "ContributionDraft": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "$ref": "#/$defs/AuthorAnnotations"
@@ -5588,9 +5524,8 @@
             "expected_revision_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -5621,14 +5556,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -5638,9 +5572,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -5650,9 +5583,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -5664,7 +5596,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -5681,9 +5613,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -5698,9 +5629,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -5718,9 +5648,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -5730,9 +5659,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -5742,16 +5670,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -5774,7 +5700,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -5803,9 +5729,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -5815,9 +5740,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -5841,7 +5765,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -5909,7 +5833,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -5919,7 +5843,7 @@
           "items": {
             "$ref": "#/$defs/Contribution"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -5950,7 +5874,7 @@
     "Page[SearchEvent, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -5983,19 +5907,17 @@
           "type": "object"
         },
         "ContentRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "asset_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Asset Id",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -6005,9 +5927,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -6022,19 +5943,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -6069,9 +5988,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -6087,14 +6005,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -6104,9 +6021,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -6116,9 +6032,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -6130,7 +6045,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -6147,9 +6062,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -6164,9 +6078,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -6184,9 +6097,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -6196,9 +6108,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -6208,16 +6119,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -6240,7 +6149,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -6277,7 +6186,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -6306,7 +6215,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -6363,7 +6272,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -6392,9 +6301,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -6404,9 +6312,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -6430,7 +6337,7 @@
           "type": "object"
         },
         "SearchCitation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "anyOf": [
@@ -6461,28 +6368,36 @@
           "type": "object"
         },
         "SearchEvent": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "event_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Event Id",
               "type": "string"
             },
             "kind": {
-              "enum": [
-                "created",
-                "running",
-                "completed",
-                "partial",
-                "failed",
-                "cancelled",
-                "usage_updated",
-                "unknown"
+              "anyOf": [
+                {
+                  "enum": [
+                    "created",
+                    "running",
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled",
+                    "usage_updated",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "Kind",
-              "type": "string"
+              "title": "Kind"
             },
             "original_kind": {
               "anyOf": [
@@ -6509,9 +6424,8 @@
               "default": null
             },
             "search_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Search Id",
               "type": "string"
             },
@@ -6542,12 +6456,11 @@
           "type": "object"
         },
         "SearchFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -6564,7 +6477,7 @@
           "type": "object"
         },
         "SearchResponse": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "accounting_final": {
               "title": "Accounting Final",
@@ -6643,9 +6556,8 @@
             "search_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -6696,7 +6608,7 @@
           "type": "object"
         },
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -6777,9 +6689,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -6833,7 +6744,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -6901,7 +6812,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -6973,7 +6884,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -7015,9 +6926,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -7043,7 +6953,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -7053,7 +6963,7 @@
           "items": {
             "$ref": "#/$defs/SearchEvent"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -7084,7 +6994,7 @@
     "Page[SearchSnapshot, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -7117,19 +7027,17 @@
           "type": "object"
         },
         "ContentRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "asset_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Asset Id",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -7139,9 +7047,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -7156,19 +7063,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -7203,9 +7108,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -7221,14 +7125,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -7238,9 +7141,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -7250,9 +7152,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -7264,7 +7165,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -7281,9 +7182,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -7298,9 +7198,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -7318,9 +7217,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -7330,9 +7228,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -7342,16 +7239,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -7374,7 +7269,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -7411,7 +7306,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -7440,7 +7335,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -7497,7 +7392,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -7526,9 +7421,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7538,9 +7432,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -7564,7 +7457,7 @@
           "type": "object"
         },
         "SearchCitation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "anyOf": [
@@ -7595,12 +7488,11 @@
           "type": "object"
         },
         "SearchFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -7617,7 +7509,7 @@
           "type": "object"
         },
         "SearchResponse": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "accounting_final": {
               "title": "Accounting Final",
@@ -7696,9 +7588,8 @@
             "search_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7749,7 +7640,7 @@
           "type": "object"
         },
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -7830,9 +7721,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7886,7 +7776,7 @@
           "type": "object"
         },
         "SearchSnapshot": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "accounting_final": {
               "title": "Accounting Final",
@@ -7942,23 +7832,31 @@
               "default": null
             },
             "search_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Search Id",
               "type": "string"
             },
             "state": {
-              "enum": [
-                "queued",
-                "running",
-                "completed",
-                "partial",
-                "failed",
-                "cancelled"
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "State",
-              "type": "string"
+              "title": "State"
             }
           },
           "required": [
@@ -7976,7 +7874,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -8044,7 +7942,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -8116,7 +8014,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -8158,9 +8056,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -8186,7 +8083,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -8196,7 +8093,7 @@
           "items": {
             "$ref": "#/$defs/SearchSnapshot"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -8227,7 +8124,7 @@
     "Page[UsageOperation, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -8260,7 +8157,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -8297,7 +8194,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -8326,7 +8223,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -8383,7 +8280,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -8412,9 +8309,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -8424,9 +8320,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -8450,7 +8345,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -8518,7 +8413,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -8590,12 +8485,11 @@
           "type": "object"
         },
         "UsageOperation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempt_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Attempt Id",
               "type": "string"
             },
@@ -8606,9 +8500,8 @@
               "type": "string"
             },
             "event_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Event Id",
               "type": "string"
             },
@@ -8616,18 +8509,16 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
             "parent_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -8653,7 +8544,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -8695,9 +8586,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -8723,7 +8613,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -8733,7 +8623,7 @@
           "items": {
             "$ref": "#/$defs/UsageOperation"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -9008,7 +8898,7 @@
     "RetentionPolicy": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -9041,7 +8931,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -9070,9 +8960,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -9082,9 +8971,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -9108,7 +8996,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -9176,7 +9064,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "The organization's default and permitted Index retention modes.",
       "properties": {
         "allowed_modes": {
@@ -9340,7 +9228,7 @@
     "SearchEvent": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -9373,19 +9261,17 @@
           "type": "object"
         },
         "ContentRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "asset_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Asset Id",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -9395,9 +9281,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -9412,19 +9297,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -9459,9 +9342,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -9477,14 +9359,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -9494,9 +9375,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -9506,9 +9386,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -9520,7 +9399,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -9537,9 +9416,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -9554,9 +9432,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -9574,9 +9451,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -9586,9 +9462,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -9598,16 +9473,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -9630,7 +9503,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -9667,7 +9540,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -9696,7 +9569,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -9753,7 +9626,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -9782,9 +9655,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -9794,9 +9666,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -9820,7 +9691,7 @@
           "type": "object"
         },
         "SearchCitation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "anyOf": [
@@ -9851,12 +9722,11 @@
           "type": "object"
         },
         "SearchFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -9873,7 +9743,7 @@
           "type": "object"
         },
         "SearchResponse": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "accounting_final": {
               "title": "Accounting Final",
@@ -9952,9 +9822,8 @@
             "search_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -10005,7 +9874,7 @@
           "type": "object"
         },
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -10086,9 +9955,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -10142,7 +10010,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -10210,7 +10078,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -10282,7 +10150,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -10324,9 +10192,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -10352,28 +10219,36 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "event_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Event Id",
           "type": "string"
         },
         "kind": {
-          "enum": [
-            "created",
-            "running",
-            "completed",
-            "partial",
-            "failed",
-            "cancelled",
-            "usage_updated",
-            "unknown"
+          "anyOf": [
+            {
+              "enum": [
+                "created",
+                "running",
+                "completed",
+                "partial",
+                "failed",
+                "cancelled",
+                "usage_updated",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
           ],
-          "title": "Kind",
-          "type": "string"
+          "title": "Kind"
         },
         "original_kind": {
           "anyOf": [
@@ -10400,9 +10275,8 @@
           "default": null
         },
         "search_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Search Id",
           "type": "string"
         },
@@ -10450,7 +10324,7 @@
     "SearchHistoryDeletionReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -10483,7 +10357,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -10512,9 +10386,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -10524,9 +10397,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -10550,7 +10422,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -10618,7 +10490,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "archive_digest_sha256": {
           "pattern": "^[0-9a-f]{64}$",
@@ -10638,9 +10510,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "search_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Search Id",
           "type": "string"
         },
@@ -10667,7 +10538,7 @@
     "SearchHistoryEntry": {
       "$defs": {
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -10748,9 +10619,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -10804,7 +10674,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "archive_digest_sha256": {
           "pattern": "^[0-9a-f]{64}$",
@@ -10834,9 +10704,8 @@
           "$ref": "#/$defs/SearchRetention"
         },
         "search_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Search Id",
           "type": "string"
         }
@@ -10894,7 +10763,7 @@
     "SearchHistoryPage": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -10927,7 +10796,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -10956,9 +10825,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -10968,9 +10836,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -10994,7 +10861,7 @@
           "type": "object"
         },
         "SearchHistoryEntry": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "archive_digest_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -11024,9 +10891,8 @@
               "$ref": "#/$defs/SearchRetention"
             },
             "search_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Search Id",
               "type": "string"
             }
@@ -11043,7 +10909,7 @@
           "type": "object"
         },
         "SearchHistoryFilter": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "created_after": {
               "anyOf": [
@@ -11082,7 +10948,7 @@
           "type": "object"
         },
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -11163,9 +11029,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -11219,7 +11084,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -11287,7 +11152,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -11300,7 +11165,7 @@
           "items": {
             "$ref": "#/$defs/SearchHistoryEntry"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -11406,7 +11271,7 @@
     "SearchResponse": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -11439,19 +11304,17 @@
           "type": "object"
         },
         "ContentRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "asset_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Asset Id",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -11461,9 +11324,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -11478,19 +11340,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -11525,9 +11385,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -11543,14 +11402,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -11560,9 +11418,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -11572,9 +11429,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -11586,7 +11442,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -11603,9 +11459,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -11620,9 +11475,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -11640,9 +11494,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -11652,9 +11505,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -11664,16 +11516,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -11696,7 +11546,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -11733,7 +11583,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -11762,7 +11612,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -11819,7 +11669,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -11848,9 +11698,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -11860,9 +11709,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -11886,7 +11734,7 @@
           "type": "object"
         },
         "SearchCitation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "anyOf": [
@@ -11917,12 +11765,11 @@
           "type": "object"
         },
         "SearchFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -11939,7 +11786,7 @@
           "type": "object"
         },
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -12020,9 +11867,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -12076,7 +11922,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -12144,7 +11990,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -12216,7 +12062,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -12258,9 +12104,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -12286,7 +12131,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accounting_final": {
           "title": "Accounting Final",
@@ -12365,9 +12210,8 @@
         "search_id": {
           "anyOf": [
             {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "type": "string"
             },
             {
@@ -12418,7 +12262,7 @@
       "type": "object"
     },
     "SearchRetention": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
       "properties": {
         "archived_at": {
@@ -12499,9 +12343,8 @@
         "policy_version": {
           "anyOf": [
             {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "type": "string"
             },
             {
@@ -12557,7 +12400,7 @@
     "SearchSnapshot": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -12590,19 +12433,17 @@
           "type": "object"
         },
         "ContentRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "asset_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Asset Id",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -12612,9 +12453,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -12629,19 +12469,17 @@
           "type": "object"
         },
         "ContributionAnnotations": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotation_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Annotation Version",
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -12676,9 +12514,8 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -12694,14 +12531,13 @@
           "type": "object"
         },
         "ContributionMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "research_areas": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -12711,9 +12547,8 @@
             "topics": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -12723,9 +12558,8 @@
             "workflow_stages": {
               "default": [],
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -12737,7 +12571,7 @@
           "type": "object"
         },
         "ContributionReview": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "authority": {
               "const": "synth",
@@ -12754,9 +12588,8 @@
               "type": "string"
             },
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -12771,9 +12604,8 @@
             },
             "evidence_references": {
               "items": {
-                "maxLength": 128,
+                "maxLength": 512,
                 "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                 "type": "string"
               },
               "maxItems": 20,
@@ -12791,9 +12623,8 @@
               "type": "string"
             },
             "review_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Review Id",
               "type": "string"
             },
@@ -12803,9 +12634,8 @@
               "type": "string"
             },
             "reviewer_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Reviewer Id",
               "type": "string"
             },
@@ -12815,16 +12645,14 @@
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "rubric_version": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Rubric Version",
               "type": "string"
             }
@@ -12847,7 +12675,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -12884,7 +12712,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -12913,7 +12741,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -12970,7 +12798,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -12999,9 +12827,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -13011,9 +12838,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -13037,7 +12863,7 @@
           "type": "object"
         },
         "SearchCitation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "annotations": {
               "anyOf": [
@@ -13068,12 +12894,11 @@
           "type": "object"
         },
         "SearchFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
@@ -13090,7 +12915,7 @@
           "type": "object"
         },
         "SearchResponse": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "accounting_final": {
               "title": "Accounting Final",
@@ -13169,9 +12994,8 @@
             "search_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -13222,7 +13046,7 @@
           "type": "object"
         },
         "SearchRetention": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Tolerant retention observation: every field is optional.\n\nOlder backends send ``policy_version``/``purpose``/``archived_at``/\n``content_expires_at``/``retention_days``/``history_available``; newer ones add\n``purges_at`` (zdr) and ``expires_at`` (retained). Absent fields are ``None``.",
           "properties": {
             "archived_at": {
@@ -13303,9 +13127,8 @@
             "policy_version": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -13359,7 +13182,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -13427,7 +13250,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -13499,7 +13322,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -13541,9 +13364,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -13569,7 +13391,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accounting_final": {
           "title": "Accounting Final",
@@ -13625,23 +13447,31 @@
           "default": null
         },
         "search_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Search Id",
           "type": "string"
         },
         "state": {
-          "enum": [
-            "queued",
-            "running",
-            "completed",
-            "partial",
-            "failed",
-            "cancelled"
+          "anyOf": [
+            {
+              "enum": [
+                "queued",
+                "running",
+                "completed",
+                "partial",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
           ],
-          "title": "State",
-          "type": "string"
+          "title": "State"
         }
       },
       "required": [
@@ -13849,13 +13679,71 @@
       "type": "object"
     },
     "StrictSearchProgress": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "Content-free observations from a committed native DEEP checkpoint.",
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "response"
+            ]
+          },
+          {
+            "required": [
+              "result"
+            ]
+          },
+          {
+            "required": [
+              "citations"
+            ]
+          },
+          {
+            "required": [
+              "documents"
+            ]
+          },
+          {
+            "required": [
+              "snippets"
+            ]
+          },
+          {
+            "required": [
+              "prompt"
+            ]
+          },
+          {
+            "required": [
+              "messages"
+            ]
+          },
+          {
+            "required": [
+              "content"
+            ]
+          },
+          {
+            "required": [
+              "input"
+            ]
+          },
+          {
+            "required": [
+              "output"
+            ]
+          }
+        ]
+      },
       "properties": {
         "event_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Event Id",
           "type": "string"
         },
@@ -13886,9 +13774,8 @@
           "type": "integer"
         },
         "search_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Search Id",
           "type": "string"
         },
@@ -13922,7 +13809,7 @@
     "SubmissionReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -13955,7 +13842,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -13984,9 +13871,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -13996,9 +13882,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -14022,7 +13907,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -14090,12 +13975,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "contribution_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Contribution Id",
           "type": "string"
         },
@@ -14115,9 +13999,8 @@
           "title": "Reason"
         },
         "revision_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Revision Id",
           "type": "string"
         },
@@ -14194,7 +14077,7 @@
       "type": "object"
     },
     "TransferReceipt": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "byte_size": {
           "title": "Byte Size",
@@ -14218,9 +14101,8 @@
           "title": "Etag"
         },
         "upload_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Upload Id",
           "type": "string"
         }
@@ -14237,7 +14119,7 @@
     "UploadReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -14270,12 +14152,11 @@
           "type": "object"
         },
         "ContributionPackageRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "contribution_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Contribution Id",
               "type": "string"
             },
@@ -14285,16 +14166,14 @@
               "type": "string"
             },
             "package_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Package Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -14309,7 +14188,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -14338,9 +14217,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -14350,9 +14228,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -14376,7 +14253,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -14444,7 +14321,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
@@ -14458,9 +14335,8 @@
           "type": "string"
         },
         "upload_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Upload Id",
           "type": "string"
         }
@@ -14477,7 +14353,7 @@
     "UploadStatus": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -14510,7 +14386,7 @@
           "type": "object"
         },
         "ContributionUploadManifest": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 33554432,
@@ -14541,7 +14417,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -14570,9 +14446,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -14582,9 +14457,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -14608,7 +14482,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -14676,12 +14550,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "contribution_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Contribution Id",
           "type": "string"
         },
@@ -14735,9 +14608,8 @@
           "title": "Transfer Url"
         },
         "upload_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Upload Id",
           "type": "string"
         }
@@ -14757,7 +14629,7 @@
     "UsageOperation": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -14790,7 +14662,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -14827,7 +14699,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -14856,7 +14728,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -14913,7 +14785,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -14942,9 +14814,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -14954,9 +14825,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -14980,7 +14850,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -15048,7 +14918,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -15120,7 +14990,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -15162,9 +15032,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -15190,12 +15059,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "attempt_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Attempt Id",
           "type": "string"
         },
@@ -15206,9 +15074,8 @@
           "type": "string"
         },
         "event_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Event Id",
           "type": "string"
         },
@@ -15216,18 +15083,16 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "operation_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Operation Id",
           "type": "string"
         },
         "parent_id": {
           "anyOf": [
             {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "type": "string"
             },
             {
@@ -15255,7 +15120,7 @@
     "UsageSummary": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -15288,7 +15153,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -15325,7 +15190,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -15354,7 +15219,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -15411,7 +15276,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -15440,9 +15305,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -15452,9 +15316,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -15478,7 +15341,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -15546,7 +15409,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -15618,7 +15481,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "cost": {
           "$ref": "#/$defs/MoneyObservation"
@@ -15660,9 +15523,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "operation_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Operation Id",
           "type": "string"
         },

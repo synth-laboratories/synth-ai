@@ -6,7 +6,14 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, StrictInt, model_validator
 
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.base import (
+    Digest,
+    Identifier,
+    Model,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 from synth_ai.types.money import Money
 
 
@@ -54,16 +61,16 @@ class Models(Model):
 ResolvedModelId = Annotated[str, Field(strict=True, min_length=1, max_length=256)]
 
 
-class ResolvedModels(Model):
+class ResolvedModels(ResponseBase):
     """Read-only backend selection; not a caller override allowlist."""
 
     default: ResolvedModelId
 
 
-class ResolvedProviders(Model):
+class ResolvedProviders(ResponseBase):
     """Read-only backend routing; changing it requires an admitted override."""
 
-    default: Identifier
+    default: ResponseIdentifier
 
 
 class LaunchRequest(Model):
@@ -90,6 +97,6 @@ class LaunchRequest(Model):
 
 
 class Project(ResponseModel):
-    project_id: Identifier
+    project_id: ResponseIdentifier
     name: str = Field(min_length=1, max_length=256)
     launch_enabled: bool

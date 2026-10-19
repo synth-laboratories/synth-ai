@@ -2,9 +2,8 @@
 
 One `Problem` per root cause with the reason chain root first. Orchestra emits
 the owner wire (`since_unix_ms`); the customer wire renders RFC 3339 `since` and
-`last_seen`. See backend/.. fixes/problems-bubbling-design.md. The code set is
-closed: a value outside it is refused at parse, so adding a code is a schema
-version decision, never a silent string.
+`last_seen`. Known codes retain typed literals; a future response code is
+exposed as UnknownValue and never interpreted as a successful outcome.
 """
 
 from __future__ import annotations
@@ -13,11 +12,12 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AwareDatetime, Field, JsonValue, StrictInt, model_validator
 
-from synth_ai.types.base import Identifier, Model
+from synth_ai.types.base import ResponseBase, ResponseIdentifier
+from synth_ai.types.unknown import UnknownValue
 
 PROBLEMS_SCHEMA = "synth.problems.v1"
 
-ProblemCode = Literal[
+KnownProblemCode = Literal[
     "provider_refused_prompt",
     "provider_rate_limited",
     "provider_unavailable",
@@ -41,6 +41,7 @@ ProblemCode = Literal[
     "run_wall_clock_exceeded",
     "unclassified_fault",
 ]
+ProblemCode = KnownProblemCode | UnknownValue
 ProblemSeverity = Literal["info", "warning", "error", "critical"]
 ProblemState = Literal["open", "resolved"]
 # `provider:<name>`, a closed service name, or `unknown` (which carries
@@ -59,13 +60,13 @@ Origin = Annotated[
 Text = Annotated[str, Field(strict=True, min_length=1, max_length=1024)]
 
 
-class EvidenceRef(Model):
+class EvidenceRef(ResponseBase):
     service: Annotated[str, Field(strict=True, min_length=1, max_length=96)]
     kind: Annotated[str, Field(strict=True, min_length=1, max_length=64)]
     ref: Annotated[str, Field(strict=True, min_length=1, max_length=256)]
 
 
-class ReasonLink(Model):
+class ReasonLink(ResponseBase):
     service: Origin
     code: Annotated[str, Field(strict=True, min_length=1, max_length=160)]
     stage: Annotated[str, Field(strict=True, min_length=1, max_length=96)]
@@ -73,8 +74,8 @@ class ReasonLink(Model):
     cause: dict[str, JsonValue]
 
 
-class Problem(Model):
-    id: Identifier
+class Problem(ResponseBase):
+    id: ResponseIdentifier
     code: ProblemCode
     severity: ProblemSeverity
     origin: Origin

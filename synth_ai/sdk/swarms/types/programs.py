@@ -4,12 +4,12 @@ from typing import Any
 
 from pydantic import Field
 
-from synth_ai.types.base import Identifier, ResponseModel
+from synth_ai.types.base import ResponseIdentifier, ResponseModel
 
 
 class ProgramRunView(ResponseModel):
-    run_id: Identifier
-    project_id: Identifier
+    run_id: ResponseIdentifier
+    project_id: ResponseIdentifier
     program: dict[str, Any]
     usage: dict[str, int] = Field(default_factory=dict)
     resources: dict[str, Any] | None = None

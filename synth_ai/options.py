@@ -30,6 +30,7 @@ def _warn_retry_delay_alias() -> None:
 class ClientOptions:
     release_manifest_sha256: str | None = None
     candidate_manifest_sha256: str | None = None
+    strict_contract: bool = False
     timeout_seconds: float = 30.0
     connect_timeout_seconds: float = 10.0
     maximum_response_bytes: int = 1024 * 1024
@@ -56,6 +57,10 @@ class ClientOptions:
         return 75.0 if self.timeout_seconds == 30.0 else self.timeout_seconds
 
     def __post_init__(self) -> None:
+        if type(self.strict_contract) is not bool:
+            raise ValueError("strict_contract must be a boolean")
+        if self.release_manifest_sha256 is not None or self.candidate_manifest_sha256 is not None:
+            object.__setattr__(self, "strict_contract", True)
         if self.http_client is not None and not isinstance(self.http_client, httpx.Client):
             raise ValueError("http_client must be an httpx.Client")
         if self.async_http_client is not None and not isinstance(

@@ -3,7 +3,7 @@
     "ControlReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -36,7 +36,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -65,9 +65,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -77,9 +76,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -103,7 +101,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -171,7 +169,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accounting_final": {
           "title": "Accounting Final",
@@ -206,9 +204,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "operation_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Operation Id",
           "type": "string"
         },
@@ -224,9 +221,8 @@
           "title": "Reason"
         },
         "resource_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Resource Id",
           "type": "string"
         },
@@ -257,7 +253,7 @@
     "File": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -290,7 +286,7 @@
           "type": "object"
         },
         "FileManifest": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 33554432,
@@ -333,7 +329,7 @@
           "type": "object"
         },
         "FileRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "digest_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -341,23 +337,20 @@
               "type": "string"
             },
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -372,7 +365,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -401,9 +394,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -413,9 +405,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -439,7 +430,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -507,12 +498,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "file_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "File Id",
           "type": "string"
         },
@@ -523,9 +513,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "project_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Project Id",
           "type": "string"
         },
@@ -646,7 +635,7 @@
     "FileUploadReceipt": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -679,12 +668,11 @@
           "type": "object"
         },
         "File": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
@@ -695,9 +683,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
@@ -734,7 +721,7 @@
           "type": "object"
         },
         "FileManifest": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 33554432,
@@ -777,7 +764,7 @@
           "type": "object"
         },
         "FileRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "digest_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -785,23 +772,20 @@
               "type": "string"
             },
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -816,7 +800,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -845,9 +829,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -857,9 +840,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -883,7 +865,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -951,7 +933,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "file": {
           "$ref": "#/$defs/File"
@@ -965,9 +947,8 @@
           "type": "string"
         },
         "upload_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Upload Id",
           "type": "string"
         }
@@ -984,7 +965,7 @@
     "FileUploadStatus": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -1017,7 +998,7 @@
           "type": "object"
         },
         "FileManifest": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 33554432,
@@ -1060,7 +1041,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -1089,9 +1070,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -1101,9 +1081,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -1127,7 +1106,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -1195,7 +1174,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "expires_at": {
           "anyOf": [
@@ -1216,9 +1195,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "project_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Project Id",
           "type": "string"
         },
@@ -1254,9 +1232,8 @@
           "title": "Transfer Url"
         },
         "upload_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Upload Id",
           "type": "string"
         }
@@ -1333,7 +1310,7 @@
     "LaunchPreflight": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -1366,7 +1343,7 @@
           "type": "object"
         },
         "FileRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "digest_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -1374,23 +1351,20 @@
               "type": "string"
             },
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -1405,7 +1379,7 @@
           "type": "object"
         },
         "Inputs": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "files": {
               "default": [],
@@ -1421,7 +1395,7 @@
           "type": "object"
         },
         "Limits": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "maximum_charge": {
               "$ref": "#/$defs/Money"
@@ -1455,7 +1429,7 @@
           "type": "object"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -1484,12 +1458,11 @@
           "type": "object"
         },
         "ResolvedConfiguration": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "configuration_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Configuration Id",
               "type": "string"
             },
@@ -1511,16 +1484,14 @@
               "$ref": "#/$defs/ResolvedModels"
             },
             "profile_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Profile Id",
               "type": "string"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
@@ -1530,9 +1501,8 @@
             "run_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -1564,7 +1534,7 @@
           "type": "object"
         },
         "ResolvedModels": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Read-only backend selection; not a caller override allowlist.",
           "properties": {
             "default": {
@@ -1581,13 +1551,12 @@
           "type": "object"
         },
         "ResolvedProviders": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Read-only backend routing; changing it requires an admitted override.",
           "properties": {
             "default": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Default",
               "type": "string"
             }
@@ -1599,7 +1568,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -1628,9 +1597,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -1640,9 +1608,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -1666,7 +1633,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -1734,7 +1701,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "blockers": {
           "items": {
@@ -2078,7 +2045,7 @@
     "Output": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -2111,7 +2078,7 @@
           "type": "object"
         },
         "OutputRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 9223372036854775807,
@@ -2132,23 +2099,20 @@
               "type": "string"
             },
             "output_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Output Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             }
@@ -2165,7 +2129,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -2194,9 +2158,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -2206,9 +2169,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -2232,7 +2194,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -2300,7 +2262,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "filename": {
           "anyOf": [
@@ -2320,9 +2282,8 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "output_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Output Id",
           "type": "string"
         },
@@ -2337,9 +2298,8 @@
           ]
         },
         "run_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Run Id",
           "type": "string"
         },
@@ -2422,7 +2382,7 @@
     "Page[File, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -2455,12 +2415,11 @@
           "type": "object"
         },
         "File": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
@@ -2471,9 +2430,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
@@ -2510,7 +2468,7 @@
           "type": "object"
         },
         "FileManifest": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 33554432,
@@ -2553,7 +2511,7 @@
           "type": "object"
         },
         "FileRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "digest_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -2561,23 +2519,20 @@
               "type": "string"
             },
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -2592,7 +2547,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -2621,9 +2576,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -2633,9 +2587,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -2659,7 +2612,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -2727,7 +2680,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -2737,7 +2690,7 @@
           "items": {
             "$ref": "#/$defs/File"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -2768,7 +2721,7 @@
     "Page[Output, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -2801,7 +2754,7 @@
           "type": "object"
         },
         "Output": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "filename": {
               "anyOf": [
@@ -2821,9 +2774,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "output_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Output Id",
               "type": "string"
             },
@@ -2838,9 +2790,8 @@
               ]
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             },
@@ -2867,7 +2818,7 @@
           "type": "object"
         },
         "OutputRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 9223372036854775807,
@@ -2888,23 +2839,20 @@
               "type": "string"
             },
             "output_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Output Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             }
@@ -2921,7 +2869,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -2950,9 +2898,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -2962,9 +2909,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -2988,7 +2934,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -3056,7 +3002,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -3066,7 +3012,7 @@
           "items": {
             "$ref": "#/$defs/Output"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -3097,7 +3043,7 @@
     "Page[RunSnapshot, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -3130,7 +3076,7 @@
           "type": "object"
         },
         "EvidenceRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "maxLength": 64,
@@ -3161,35 +3107,44 @@
         },
         "JsonValue": {},
         "Problem": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "enum": [
-                "provider_refused_prompt",
-                "provider_rate_limited",
-                "provider_unavailable",
-                "provider_stream_truncated",
-                "sandbox_exec_result_lost",
-                "sandbox_unreachable",
-                "sandbox_teardown_unverified",
-                "actor_attempt_failed",
-                "actor_silent",
-                "task_stalled",
-                "lease_expired_no_live_attempt",
-                "scope_dormant",
-                "cancel_not_terminal",
-                "review_absent_auto_finalized",
-                "dispatch_withheld_by_limits",
-                "settlement_exhausted",
-                "accounting_disagreement",
-                "head_input_refused_repeatedly",
-                "scope_quarantined",
-                "owner_unavailable",
-                "run_wall_clock_exceeded",
-                "unclassified_fault"
+              "anyOf": [
+                {
+                  "enum": [
+                    "provider_refused_prompt",
+                    "provider_rate_limited",
+                    "provider_unavailable",
+                    "provider_stream_truncated",
+                    "sandbox_exec_result_lost",
+                    "sandbox_unreachable",
+                    "sandbox_teardown_unverified",
+                    "actor_attempt_failed",
+                    "actor_silent",
+                    "task_stalled",
+                    "lease_expired_no_live_attempt",
+                    "scope_dormant",
+                    "cancel_not_terminal",
+                    "review_absent_auto_finalized",
+                    "dispatch_withheld_by_limits",
+                    "settlement_exhausted",
+                    "accounting_disagreement",
+                    "head_input_refused_repeatedly",
+                    "scope_quarantined",
+                    "owner_unavailable",
+                    "run_wall_clock_exceeded",
+                    "unclassified_fault"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "Code",
-              "type": "string"
+              "title": "Code"
             },
             "count": {
               "minimum": 1,
@@ -3211,9 +3166,8 @@
               "type": "string"
             },
             "id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Id",
               "type": "string"
             },
@@ -3302,7 +3256,7 @@
           "type": "object"
         },
         "ReasonLink": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cause": {
               "additionalProperties": {
@@ -3340,7 +3294,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -3369,9 +3323,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -3381,9 +3334,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -3407,7 +3359,7 @@
           "type": "object"
         },
         "RunControlSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "command": {
               "enum": [
@@ -3419,9 +3371,8 @@
               "type": "string"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -3445,21 +3396,19 @@
           "type": "object"
         },
         "RunFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
             "problem_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -3491,7 +3440,7 @@
           "type": "object"
         },
         "RunSnapshot": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "accounting_final": {
               "title": "Accounting Final",
@@ -3591,16 +3540,14 @@
               "type": "boolean"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
             "provider": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Provider",
               "type": "string"
             },
@@ -3622,26 +3569,34 @@
               "title": "Resume By"
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             },
             "state": {
-              "enum": [
-                "queued",
-                "running",
-                "pausing",
-                "paused",
-                "cancelling",
-                "completed",
-                "partial",
-                "failed",
-                "cancelled"
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "pausing",
+                    "paused",
+                    "cancelling",
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "State",
-              "type": "string"
+              "title": "State"
             }
           },
           "required": [
@@ -3660,7 +3615,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -3728,7 +3683,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -3738,7 +3693,7 @@
           "items": {
             "$ref": "#/$defs/RunSnapshot"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -3769,7 +3724,7 @@
     "Page[SwarmEvent, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -3802,7 +3757,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -3839,7 +3794,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -3868,7 +3823,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -3925,7 +3880,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -3954,9 +3909,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -3966,9 +3920,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -3992,31 +3945,39 @@
           "type": "object"
         },
         "SwarmEvent": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "event_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Event Id",
               "type": "string"
             },
             "kind": {
-              "enum": [
-                "created",
-                "running",
-                "completed",
-                "partial",
-                "failed",
-                "cancelled",
-                "paused",
-                "resumed",
-                "cancel_requested",
-                "usage_updated",
-                "unknown"
+              "anyOf": [
+                {
+                  "enum": [
+                    "created",
+                    "running",
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled",
+                    "paused",
+                    "resumed",
+                    "cancel_requested",
+                    "usage_updated",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "Kind",
-              "type": "string"
+              "title": "Kind"
             },
             "original_kind": {
               "anyOf": [
@@ -4032,9 +3993,8 @@
               "title": "Original Kind"
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             },
@@ -4065,7 +4025,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -4133,7 +4093,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -4205,7 +4165,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -4247,9 +4207,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -4275,7 +4234,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -4285,7 +4244,7 @@
           "items": {
             "$ref": "#/$defs/SwarmEvent"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -4316,7 +4275,7 @@
     "Page[TaskOutcome, NewType]": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -4350,7 +4309,7 @@
         },
         "JsonValue": {},
         "ReasonLink": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cause": {
               "additionalProperties": {
@@ -4388,7 +4347,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -4417,9 +4376,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -4429,9 +4387,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -4455,21 +4412,19 @@
           "type": "object"
         },
         "RunFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
             "problem_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -4501,7 +4456,7 @@
           "type": "object"
         },
         "TaskExecutionFacts": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Independent native execution facts; activity does not assert finality.",
           "properties": {
             "activity": {
@@ -4583,7 +4538,7 @@
           "type": "object"
         },
         "TaskOutcome": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "maximum": 4294967295,
@@ -4616,32 +4571,39 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             },
             "state": {
-              "enum": [
-                "pending",
-                "queued",
-                "running",
-                "blocked",
-                "review_required",
-                "repair_required",
-                "completed",
-                "partial",
-                "failed",
-                "cancelled"
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "queued",
+                    "running",
+                    "blocked",
+                    "review_required",
+                    "repair_required",
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "State",
-              "type": "string"
+              "title": "State"
             },
             "task_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Task Id",
               "type": "string"
             }
@@ -4658,7 +4620,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -4726,7 +4688,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "title": "Complete",
@@ -4736,7 +4698,7 @@
           "items": {
             "$ref": "#/$defs/TaskOutcome"
           },
-          "maxItems": 200,
+          "maxItems": 1000,
           "title": "Items",
           "type": "array"
         },
@@ -4767,7 +4729,7 @@
     "ProgramRunView": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -4800,7 +4762,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -4829,9 +4791,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -4841,9 +4802,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -4867,7 +4827,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -4935,7 +4895,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "close_holds": {
           "default": [],
@@ -4971,9 +4931,8 @@
           "type": "object"
         },
         "project_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Project Id",
           "type": "string"
         },
@@ -5001,9 +4960,8 @@
           "title": "Resources"
         },
         "run_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Run Id",
           "type": "string"
         },
@@ -5065,7 +5023,7 @@
     "Project": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -5098,7 +5056,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -5127,9 +5085,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -5139,9 +5096,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -5165,7 +5121,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -5233,7 +5189,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "launch_enabled": {
           "title": "Launch Enabled",
@@ -5249,9 +5205,8 @@
           "type": "string"
         },
         "project_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Project Id",
           "type": "string"
         }
@@ -5318,7 +5273,7 @@
     "ResolvedConfiguration": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -5351,7 +5306,7 @@
           "type": "object"
         },
         "FileRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "digest_sha256": {
               "pattern": "^[0-9a-f]{64}$",
@@ -5359,23 +5314,20 @@
               "type": "string"
             },
             "file_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "File Id",
               "type": "string"
             },
             "project_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Project Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             }
@@ -5390,7 +5342,7 @@
           "type": "object"
         },
         "Inputs": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "files": {
               "default": [],
@@ -5406,7 +5358,7 @@
           "type": "object"
         },
         "Limits": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "maximum_charge": {
               "$ref": "#/$defs/Money"
@@ -5440,7 +5392,7 @@
           "type": "object"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -5469,7 +5421,7 @@
           "type": "object"
         },
         "ResolvedModels": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Read-only backend selection; not a caller override allowlist.",
           "properties": {
             "default": {
@@ -5486,13 +5438,12 @@
           "type": "object"
         },
         "ResolvedProviders": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Read-only backend routing; changing it requires an admitted override.",
           "properties": {
             "default": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Default",
               "type": "string"
             }
@@ -5504,7 +5455,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -5533,9 +5484,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -5545,9 +5495,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -5571,7 +5520,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -5639,12 +5588,11 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "configuration_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Configuration Id",
           "type": "string"
         },
@@ -5666,16 +5614,14 @@
           "$ref": "#/$defs/ResolvedModels"
         },
         "profile_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Profile Id",
           "type": "string"
         },
         "project_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Project Id",
           "type": "string"
         },
@@ -5685,9 +5631,8 @@
         "run_id": {
           "anyOf": [
             {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "type": "string"
             },
             {
@@ -5719,7 +5664,7 @@
       "type": "object"
     },
     "ResolvedModels": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "Read-only backend selection; not a caller override allowlist.",
       "properties": {
         "default": {
@@ -5736,13 +5681,12 @@
       "type": "object"
     },
     "ResolvedProviders": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "Read-only backend routing; changing it requires an admitted override.",
       "properties": {
         "default": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Default",
           "type": "string"
         }
@@ -5756,7 +5700,7 @@
     "RunSnapshot": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -5789,7 +5733,7 @@
           "type": "object"
         },
         "EvidenceRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "maxLength": 64,
@@ -5820,35 +5764,44 @@
         },
         "JsonValue": {},
         "Problem": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "enum": [
-                "provider_refused_prompt",
-                "provider_rate_limited",
-                "provider_unavailable",
-                "provider_stream_truncated",
-                "sandbox_exec_result_lost",
-                "sandbox_unreachable",
-                "sandbox_teardown_unverified",
-                "actor_attempt_failed",
-                "actor_silent",
-                "task_stalled",
-                "lease_expired_no_live_attempt",
-                "scope_dormant",
-                "cancel_not_terminal",
-                "review_absent_auto_finalized",
-                "dispatch_withheld_by_limits",
-                "settlement_exhausted",
-                "accounting_disagreement",
-                "head_input_refused_repeatedly",
-                "scope_quarantined",
-                "owner_unavailable",
-                "run_wall_clock_exceeded",
-                "unclassified_fault"
+              "anyOf": [
+                {
+                  "enum": [
+                    "provider_refused_prompt",
+                    "provider_rate_limited",
+                    "provider_unavailable",
+                    "provider_stream_truncated",
+                    "sandbox_exec_result_lost",
+                    "sandbox_unreachable",
+                    "sandbox_teardown_unverified",
+                    "actor_attempt_failed",
+                    "actor_silent",
+                    "task_stalled",
+                    "lease_expired_no_live_attempt",
+                    "scope_dormant",
+                    "cancel_not_terminal",
+                    "review_absent_auto_finalized",
+                    "dispatch_withheld_by_limits",
+                    "settlement_exhausted",
+                    "accounting_disagreement",
+                    "head_input_refused_repeatedly",
+                    "scope_quarantined",
+                    "owner_unavailable",
+                    "run_wall_clock_exceeded",
+                    "unclassified_fault"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
               ],
-              "title": "Code",
-              "type": "string"
+              "title": "Code"
             },
             "count": {
               "minimum": 1,
@@ -5870,9 +5823,8 @@
               "type": "string"
             },
             "id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Id",
               "type": "string"
             },
@@ -5961,7 +5913,7 @@
           "type": "object"
         },
         "ReasonLink": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cause": {
               "additionalProperties": {
@@ -5999,7 +5951,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -6028,9 +5980,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -6040,9 +5991,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -6066,7 +6016,7 @@
           "type": "object"
         },
         "RunControlSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "command": {
               "enum": [
@@ -6078,9 +6028,8 @@
               "type": "string"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -6104,21 +6053,19 @@
           "type": "object"
         },
         "RunFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
             "problem_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -6150,7 +6097,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -6218,7 +6165,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accounting_final": {
           "title": "Accounting Final",
@@ -6318,16 +6265,14 @@
           "type": "boolean"
         },
         "project_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Project Id",
           "type": "string"
         },
         "provider": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Provider",
           "type": "string"
         },
@@ -6349,26 +6294,34 @@
           "title": "Resume By"
         },
         "run_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Run Id",
           "type": "string"
         },
         "state": {
-          "enum": [
-            "queued",
-            "running",
-            "pausing",
-            "paused",
-            "cancelling",
-            "completed",
-            "partial",
-            "failed",
-            "cancelled"
+          "anyOf": [
+            {
+              "enum": [
+                "queued",
+                "running",
+                "pausing",
+                "paused",
+                "cancelling",
+                "completed",
+                "partial",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
           ],
-          "title": "State",
-          "type": "string"
+          "title": "State"
         }
       },
       "required": [
@@ -6389,7 +6342,7 @@
     "SwarmEvent": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -6422,7 +6375,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -6459,7 +6412,7 @@
           "type": "string"
         },
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -6488,7 +6441,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -6545,7 +6498,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -6574,9 +6527,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -6586,9 +6538,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -6612,7 +6563,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -6680,7 +6631,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -6752,7 +6703,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -6794,9 +6745,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -6822,31 +6772,39 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "event_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Event Id",
           "type": "string"
         },
         "kind": {
-          "enum": [
-            "created",
-            "running",
-            "completed",
-            "partial",
-            "failed",
-            "cancelled",
-            "paused",
-            "resumed",
-            "cancel_requested",
-            "usage_updated",
-            "unknown"
+          "anyOf": [
+            {
+              "enum": [
+                "created",
+                "running",
+                "completed",
+                "partial",
+                "failed",
+                "cancelled",
+                "paused",
+                "resumed",
+                "cancel_requested",
+                "usage_updated",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
           ],
-          "title": "Kind",
-          "type": "string"
+          "title": "Kind"
         },
         "original_kind": {
           "anyOf": [
@@ -6862,9 +6820,8 @@
           "title": "Original Kind"
         },
         "run_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Run Id",
           "type": "string"
         },
@@ -6897,7 +6854,7 @@
     "SwarmResult": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -6930,7 +6887,7 @@
           "type": "object"
         },
         "FundingPart": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -6968,7 +6925,7 @@
         },
         "JsonValue": {},
         "Money": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "coefficient": {
               "maximum": 1000000000000000000000000000000,
@@ -6997,7 +6954,7 @@
           "type": "object"
         },
         "MoneyObservation": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "amount": {
               "anyOf": [
@@ -7054,7 +7011,7 @@
           "type": "object"
         },
         "ReasonLink": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cause": {
               "additionalProperties": {
@@ -7092,7 +7049,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -7121,9 +7078,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7133,9 +7089,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -7159,21 +7114,19 @@
           "type": "object"
         },
         "RunFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
             "problem_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7205,7 +7158,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -7273,7 +7226,7 @@
           "type": "object"
         },
         "UsageMetric": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "name": {
               "maxLength": 128,
@@ -7345,7 +7298,7 @@
           "type": "object"
         },
         "UsageSummary": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cost": {
               "$ref": "#/$defs/MoneyObservation"
@@ -7387,9 +7340,8 @@
               "$ref": "#/$defs/ResponseMetadata"
             },
             "operation_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Operation Id",
               "type": "string"
             },
@@ -7415,7 +7367,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "accounting_final": {
           "title": "Accounting Final",
@@ -7445,9 +7397,8 @@
         },
         "output_ids": {
           "items": {
-            "maxLength": 128,
+            "maxLength": 512,
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
             "type": "string"
           },
           "maxItems": 256,
@@ -7459,9 +7410,8 @@
           "type": "boolean"
         },
         "run_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Run Id",
           "type": "string"
         },
@@ -7519,7 +7469,7 @@
     "TaskOutcome": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -7553,7 +7503,7 @@
         },
         "JsonValue": {},
         "ReasonLink": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "cause": {
               "additionalProperties": {
@@ -7591,7 +7541,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -7620,9 +7570,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7632,9 +7581,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -7658,21 +7606,19 @@
           "type": "object"
         },
         "RunFailure": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "code": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
             },
             "problem_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -7704,7 +7650,7 @@
           "type": "object"
         },
         "TaskExecutionFacts": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Independent native execution facts; activity does not assert finality.",
           "properties": {
             "activity": {
@@ -7786,7 +7732,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -7854,7 +7800,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "attempts": {
           "maximum": 4294967295,
@@ -7887,32 +7833,39 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "run_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Run Id",
           "type": "string"
         },
         "state": {
-          "enum": [
-            "pending",
-            "queued",
-            "running",
-            "blocked",
-            "review_required",
-            "repair_required",
-            "completed",
-            "partial",
-            "failed",
-            "cancelled"
+          "anyOf": [
+            {
+              "enum": [
+                "pending",
+                "queued",
+                "running",
+                "blocked",
+                "review_required",
+                "repair_required",
+                "completed",
+                "partial",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
           ],
-          "title": "State",
-          "type": "string"
+          "title": "State"
         },
         "task_id": {
-          "maxLength": 128,
+          "maxLength": 512,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "title": "Task Id",
           "type": "string"
         }
@@ -7931,7 +7884,7 @@
     "TextContent": {
       "$defs": {
         "ClientTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "attempts": {
               "minimum": 1,
@@ -7964,7 +7917,7 @@
           "type": "object"
         },
         "OutputRef": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "byte_size": {
               "maximum": 9223372036854775807,
@@ -7985,23 +7938,20 @@
               "type": "string"
             },
             "output_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Output Id",
               "type": "string"
             },
             "revision_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Revision Id",
               "type": "string"
             },
             "run_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Run Id",
               "type": "string"
             }
@@ -8018,7 +7968,7 @@
           "type": "object"
         },
         "ResponseMetadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "client_timing": {
               "anyOf": [
@@ -8047,9 +7997,8 @@
             "operation_id": {
               "anyOf": [
                 {
-                  "maxLength": 128,
+                  "maxLength": 512,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
                   "type": "string"
                 },
                 {
@@ -8059,9 +8008,8 @@
               "title": "Operation Id"
             },
             "request_id": {
-              "maxLength": 128,
+              "maxLength": 512,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Request Id",
               "type": "string"
             },
@@ -8085,7 +8033,7 @@
           "type": "object"
         },
         "TimingSpan": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "clock": {
               "enum": [
@@ -8153,7 +8101,7 @@
           "type": "object"
         },
         "TransferTiming": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "first_byte_ms": {
               "anyOf": [
@@ -8190,7 +8138,7 @@
           "type": "object"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "complete": {
           "const": true,
@@ -8223,7 +8171,7 @@
       "type": "object"
     },
     "TransferTiming": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "first_byte_ms": {
           "anyOf": [

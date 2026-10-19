@@ -2,10 +2,33 @@
 
 from __future__ import annotations
 
+import logging
+import threading
+
 from synth_ai.contracts.fingerprint import schema_sha256
 from synth_ai.contracts.operations import Operation
 from synth_ai.errors import ContractError, UnsupportedOperationError
 from synth_ai.types.capabilities import Capabilities, NegotiatedCapability, Surface
+
+from .version_skew import schema_error
+
+logger = logging.getLogger(__name__)
+_SCHEMA_WARNINGS: set[tuple[str, str]] = set()
+_WARNING_LOCK = threading.Lock()
+
+
+def _warn_schema_skew(contract: str, backend_schema: str, sdk_schema: str) -> None:
+    key = (contract, backend_schema)
+    with _WARNING_LOCK:
+        if key in _SCHEMA_WARNINGS:
+            return
+        _SCHEMA_WARNINGS.add(key)
+    logger.warning(
+        "Backend %s schema %s differs from the shipped SDK schema %s; continuing with tolerant response decoding",
+        contract,
+        backend_schema[:12],
+        sdk_schema[:12],
+    )
 
 
 def validate_release(
@@ -37,12 +60,18 @@ def require_operation(
     surface: Surface,
     expected_manifest_sha256: str | None = None,
     candidate_manifest_sha256: str | None = None,
+    strict_contract: bool = False,
 ) -> NegotiatedCapability:
-    """Require actual qualified surface and schema identity before dispatch.
+    """Require a qualified surface; schema skew is advisory unless explicitly pinned.
 
     See: the public contract snapshots in contracts/ This receipt is not
     authorization, health proof or independent verification of service pins."""
     validate_release(receipt, expected_manifest_sha256, candidate_manifest_sha256)
+    strict_contract = (
+        strict_contract
+        or expected_manifest_sha256 is not None
+        or candidate_manifest_sha256 is not None
+    )
     if receipt.admission == "candidate" and candidate_manifest_sha256 is None:
         raise UnsupportedOperationError(
             "Candidate operations require an explicit nonproduction manifest pin",
@@ -58,7 +87,7 @@ def require_operation(
     )
     if selected is None or selected.state != "enabled" or surface not in selected.surfaces:
         raise UnsupportedOperationError(
-            "Operation is unavailable on the selected backend",
+            f"{operation.id} is unavailable on the selected backend; check organization admission and capabilities",
             code="operation_unavailable",
             status=503,
         )
@@ -80,19 +109,32 @@ def require_operation(
         )
     expected_schema = schema_sha256(operation.contract)
     if contract.schema_sha256 != expected_schema:
-        raise ContractError(
-            "Backend protocol schema is incompatible",
-            code="schema_mismatch",
-            stage="capability_negotiation",
-            cause=f"contract={operation.contract} operation={operation.id} "
-            f"sdk_schema_sha256={expected_schema} backend_schema_sha256={contract.schema_sha256}",
-        )
+        if strict_contract:
+            error = schema_error(
+                contract=operation.contract,
+                sdk_schema=expected_schema,
+                backend_schema=contract.schema_sha256,
+                backend_release=receipt.release.release_train
+                if receipt.release is not None
+                else None,
+                minimum_sdk_version=contract.min_sdk_version,
+                stage="capability_negotiation",
+            )
+            error.operation = operation.id
+            error.cause = f"operation={operation.id} {error.cause}"
+            raise error
+        _warn_schema_skew(operation.contract, contract.schema_sha256, expected_schema)
     if receipt.release is None:
         raise ContractError("Backend did not identify a release", code="release_mismatch")
     return NegotiatedCapability(
         schema_sha256=contract.schema_sha256,
         capability_sha256=receipt.capability_sha256,
         release_manifest_sha256=receipt.release.manifest_sha256,
+        strict_contract=strict_contract,
+        backend_release=receipt.release.release_train,
+        minimum_sdk_version=contract.min_sdk_version,
+        sdk_schema_sha256=expected_schema,
+        contract=operation.contract,
     )
 
 
@@ -102,13 +144,18 @@ def supports_operation(
     *,
     surface: Surface,
     candidate_manifest_sha256: str | None = None,
+    strict_contract: bool = False,
 ) -> bool:
     """Hide unsupported/incompatible tools; transport/auth failures still propagate.
 
     See: the public contract snapshots in contracts/"""
     try:
         require_operation(
-            receipt, operation, surface=surface, candidate_manifest_sha256=candidate_manifest_sha256
+            receipt,
+            operation,
+            surface=surface,
+            candidate_manifest_sha256=candidate_manifest_sha256,
+            strict_contract=strict_contract,
         )
     except (UnsupportedOperationError, ContractError):
         return False

@@ -5,6 +5,7 @@ owner-wire fixtures (tests/fixtures/orchestra_problems_owner_wire.json).
 """
 
 import json
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,7 +30,7 @@ METADATA = {
 
 
 def customer_problem(run: str) -> dict:
-    wire = dict(FIXTURE[run]["problems"][0])
+    wire = deepcopy(FIXTURE[run]["problems"][0])
     wire["since"] = datetime.fromtimestamp(wire.pop("since_unix_ms") / 1000, UTC)
     wire["last_seen"] = datetime.fromtimestamp(wire.pop("last_seen_unix_ms") / 1000, UTC)
     return wire
@@ -93,18 +94,26 @@ def test_a_response_from_an_older_server_still_validates() -> None:
 @pytest.mark.parametrize(
     "mutate",
     [
-        lambda p: p.update(code="made_up_code"),
         lambda p: p["reason_chain"][0].update(cause=None),
         lambda p: p.update(reason_chain=[]),
         lambda p: p.update(origin="somewhere"),
-        lambda p: p.update(unexpected_field=1),
     ],
 )
-def test_a_problem_outside_the_closed_schema_is_refused(mutate) -> None:
+def test_malformed_known_problem_values_are_refused(mutate) -> None:
     problem = customer_problem("f40b6a07-c2c9-4221-b24c-ed763cb81d00")
     mutate(problem)
     with pytest.raises(ValidationError):
         wire(RunSnapshot, snapshot_payload(problems=[problem]))
+
+
+def test_future_problem_code_and_fields_are_observed_without_interpreting_them():
+    from synth_ai.types.unknown import UnknownValue
+
+    problem = customer_problem("f40b6a07-c2c9-4221-b24c-ed763cb81d00")
+    problem.update(code="future_problem_code", future_evidence=True)
+    result = wire(RunSnapshot, snapshot_payload(problems=[problem]))
+    assert isinstance(result.problems[0].code, UnknownValue)
+    assert result.problems[0].code == "future_problem_code"
 
 
 def test_raise_for_failure_names_the_root_cause_not_just_a_code() -> None:

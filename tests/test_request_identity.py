@@ -178,7 +178,7 @@ async def test_stream_exchange_error_has_operation_and_request_id(async_mode):
             AsyncSynthClient(
                 api_key="fixture",
                 base_url="https://backend.test",
-                options=ClientOptions(async_http_client=network),
+                options=ClientOptions(async_http_client=network, strict_contract=True),
             ) as client,
         ):
             with pytest.raises(ContractError) as caught:
@@ -195,7 +195,7 @@ async def test_stream_exchange_error_has_operation_and_request_id(async_mode):
             SynthClient(
                 api_key="fixture",
                 base_url="https://backend.test",
-                options=ClientOptions(http_client=network),
+                options=ClientOptions(http_client=network, strict_contract=True),
             ) as client,
             pytest.raises(ContractError) as caught,
         ):

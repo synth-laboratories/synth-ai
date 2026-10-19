@@ -61,6 +61,7 @@ class AsyncHttpTransport:
         }:
             raise ValueError("Local development retention requires a loopback API address")
         self.local_development_retention = options.local_development_retention
+        self.strict_contract = options.strict_contract
         self._base_url = base_url
         self._api_key = api_key
         self._credential_provider = credential_provider
@@ -232,6 +233,7 @@ class AsyncHttpTransport:
             surface="http",
             expected_manifest_sha256=self._options.release_manifest_sha256,
             candidate_manifest_sha256=self._options.candidate_manifest_sha256,
+            strict_contract=self.strict_contract,
         )
 
     async def _open_stream(

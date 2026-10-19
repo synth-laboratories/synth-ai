@@ -63,6 +63,7 @@ from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.capabilities import Capabilities
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import ControlReceipt, MutationResolution
+from synth_ai.types.response_values import response_schema
 from synth_ai.types.uploads import (
     ContributionUploadManifest,
     TransferReceipt,
@@ -158,7 +159,7 @@ def export_contract() -> str:
                 "schema_version": CONTRACT,
                 "status": "sdk_first_pending_backend",
                 "operations": operations,
-                "models": {model.__name__: model.model_json_schema() for model in MODELS},
+                "models": {model.__name__: response_schema(model) for model in MODELS},
             },
             indent=2,
             sort_keys=True,

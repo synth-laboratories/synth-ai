@@ -7,6 +7,7 @@ from .identity import MutationIdentity
 from .money import Money, MoneyObservation
 from .receipts import ControlReceipt, CreationResolution, MutationResolution, ResourceReference
 from .refs import Link, Producer, Ref, Relation
+from .unknown import UnknownValue
 from .usage import UsageMetric, UsageOperation, UsageSummary
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "CreationResolution",
     "MutationResolution",
     "ResourceReference",
+    "UnknownValue",
     "UsageMetric",
     "UsageOperation",
     "UsageSummary",

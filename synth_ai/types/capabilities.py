@@ -6,9 +6,16 @@ import hashlib
 import json
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, JsonValue, TypeAdapter, model_validator
+from pydantic import (
+    Field,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    TypeAdapter,
+    model_serializer,
+    model_validator,
+)
 
-from .base import Digest, Identifier, Model, ResponseModel
+from .base import Digest, Model, ResponseBase, ResponseIdentifier, ResponseModel
 
 ContractName = Literal["index.v1", "swarms.v1", "core.v1"]
 Surface = Literal["http", "mcp"]
@@ -18,18 +25,18 @@ SourceCommit = Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{40}$")]
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 
 
-class ComponentIdentity(Model):
-    component_id: Identifier
+class ComponentIdentity(ResponseBase):
+    component_id: ResponseIdentifier
     version: Version
     source_commit: SourceCommit
     artifact_sha256: Digest
     configuration_sha256: Digest
 
 
-class ReleaseIdentity(Model):
+class ReleaseIdentity(ResponseBase):
     environment: TrustEnvironment
     release_train: Annotated[str, Field(strict=True, max_length=32, pattern=r"^0\.[0-9]+\.[0-9]+$")]
-    candidate_id: Identifier
+    candidate_id: ResponseIdentifier
     manifest_sha256: Digest
     components: tuple[ComponentIdentity, ...] = Field(min_length=1, max_length=32)
 
@@ -41,13 +48,21 @@ class ReleaseIdentity(Model):
         return self
 
 
-class ContractIdentity(Model):
+class ContractIdentity(ResponseBase):
     contract: ContractName
     schema_sha256: Digest
+    min_sdk_version: Version | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_minimum(self, handler: SerializerFunctionWrapHandler):
+        value = handler(self)
+        if self.min_sdk_version is None:
+            value.pop("min_sdk_version", None)
+        return value
 
 
-class OperationCapability(Model):
-    operation_id: Identifier
+class OperationCapability(ResponseBase):
+    operation_id: ResponseIdentifier
     contract: ContractName
     state: Literal["enabled", "unavailable"]
     surfaces: tuple[Surface, ...] = Field(max_length=2)
@@ -65,7 +80,7 @@ class OperationCapability(Model):
         return self
 
 
-class CapabilitySnapshot(Model):
+class CapabilitySnapshot(ResponseBase):
     schema_version: Literal["synth.capabilities.v1"] = "synth.capabilities.v1"
     release: ReleaseIdentity | None
     admission: Literal["candidate", "qualified"] | None
@@ -126,3 +141,8 @@ class NegotiatedCapability(Model):
     schema_sha256: Digest
     capability_sha256: Digest
     release_manifest_sha256: Digest
+    strict_contract: bool = True
+    backend_release: Version | None = None
+    minimum_sdk_version: Version | None = None
+    sdk_schema_sha256: Digest | None = None
+    contract: ContractName | None = None

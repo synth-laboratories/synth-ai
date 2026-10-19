@@ -277,12 +277,13 @@ def test_mode_not_allowed_without_detail_has_no_allowed_modes():
     assert caught.value.allowed_modes == ()
 
 
-def test_unrelated_error_with_unknown_detail_is_still_a_contract_error():
-    from synth_ai.errors import ContractError
+def test_unknown_error_detail_preserves_the_typed_refusal():
+    from synth_ai.errors import PermissionDeniedError
 
     recorder = Recorder(reply(403, error_body("something_else", detail={"x": 1})))
-    with pytest.raises(ContractError):
+    with pytest.raises(PermissionDeniedError) as caught:
         sync_client(recorder).searches.get(SEARCH)
+    assert caught.value.code == "something_else" and caught.value.status == 403
 
 
 @pytest.mark.parametrize(

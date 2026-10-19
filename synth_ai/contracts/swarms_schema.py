@@ -31,6 +31,7 @@ from synth_ai.sdk.swarms.types.runs import (
 )
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
+from synth_ai.types.response_values import response_schema
 
 from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
@@ -76,7 +77,7 @@ def export_contract() -> str:
             {
                 "schema_version": "swarms.v1",
                 "status": "sdk_first_pending_backend",
-                "models": {model.__name__: model.model_json_schema() for model in MODELS},
+                "models": {model.__name__: response_schema(model) for model in MODELS},
                 "operations": [
                     {
                         "id": op.id,

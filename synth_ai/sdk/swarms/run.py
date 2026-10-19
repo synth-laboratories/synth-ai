@@ -27,6 +27,7 @@ from synth_ai.types.usage import UsageOperation, UsageSummary
 from .outputs import AsyncOutputs, Outputs
 from .types.programs import ProgramRunView
 from .types.runs import (
+    KnownRunState,
     ResolvedConfiguration,
     RunSnapshot,
     RunState,
@@ -56,7 +57,7 @@ def _target_states(value: RunState | tuple[RunState, ...]) -> frozenset[RunState
     if (
         not isinstance(values, tuple)
         or not values
-        or any(item not in get_args(RunState) for item in values)
+        or any(item not in get_args(KnownRunState) for item in values)
     ):
         raise ValueError("At least one supported run state is required")
     return frozenset(values)

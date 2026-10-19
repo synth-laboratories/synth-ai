@@ -6,7 +6,7 @@ from typing import Literal, Self
 
 from pydantic import Field, StrictInt, model_validator
 
-from .base import Model
+from .base import Model, ResponseBase
 
 
 class Money(Model):
@@ -15,7 +15,7 @@ class Money(Model):
     currency: Literal["USD"] = "USD"
 
 
-class MoneyObservation(Model):
+class MoneyObservation(ResponseBase):
     state: Literal["measured", "estimated", "pending", "unknown"]
     amount: Money | None
     source: str | None = Field(default=None, max_length=128)
