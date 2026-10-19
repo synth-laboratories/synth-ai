@@ -5,6 +5,7 @@ unknown and incomplete observations are data, never coerced into zero.
 """
 
 from datetime import date
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, Field, model_validator
@@ -148,9 +149,11 @@ class AccountBalance(Model):
 
 class UsageSourceState(Model):
     product: Product
-    state: Literal["available", "unavailable"]
+    state: Literal["available", "partial", "unavailable"]
     code: str | None = None
     coverage_start: AwareDatetime | None = None
+    watermark: str | None = None
+    projected_at: AwareDatetime | None = None
 
 
 class FundingTotal(Model):
@@ -160,7 +163,17 @@ class FundingTotal(Model):
     unknown_amount_item_count: int = Field(ge=0)
 
 
+class UsageMetricTotals(Model):
+    name: str
+    unit: str
+    state: Literal["measured", "estimated", "pending", "unknown"]
+    quantity: Decimal | None
+    item_count: int = Field(ge=0)
+    unknown_quantity_item_count: int = Field(ge=0)
+
+
 class UsageTotals(Model):
+    metrics: tuple[UsageMetricTotals, ...] = ()
     item_count: int = Field(ge=0)
     measured_charge: Money
     measured_charge_item_count: int = Field(ge=0)

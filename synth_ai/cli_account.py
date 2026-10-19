@@ -133,7 +133,7 @@ def run_account(args: argparse.Namespace) -> int:
         by_product = {item.product: item.totals for item in value.products}
         for source in value.sources:
             total = by_product.get(source.product)
-            if source.state != "available" or total is None:
+            if source.state == "unavailable" or total is None:
                 print(f"{source.product}\tUnavailable\tUnknown\tUnknown\tUnknown\tUnknown")
                 continue
             charge = _money(total.measured_charge)
@@ -146,8 +146,12 @@ def run_account(args: argparse.Namespace) -> int:
                 total.pending_charge_item_count or total.unknown_charge_item_count
             ):
                 charge = "Pending" if total.pending_charge_item_count else "Unknown"
+            product_label = source.product + (" (partial)" if source.state == "partial" else "")
+            count = str(total.item_count)
+            if source.state == "partial" and total.item_count == 0:
+                count, charge = "Pending", "Updating"
             print(
-                f"{source.product}\t{total.item_count}\t{charge}\t{estimate}\t{total.pending_charge_item_count}\t{total.unknown_charge_item_count}"
+                f"{product_label}\t{count}\t{charge}\t{estimate}\t{total.pending_charge_item_count}\t{total.unknown_charge_item_count}"
             )
         print(f"Period\t{value.period_start.isoformat()} to {value.period_end.isoformat()}")
     else:
@@ -170,6 +174,19 @@ def run_account(args: argparse.Namespace) -> int:
             )
         if value.next_cursor:
             print(f"Next cursor\t{_text(value.next_cursor)}")
+    if isinstance(value, AccountUsageSummary):
+        for source in value.sources:
+            print(
+                f"{source.product} coverage\t{source.state}\t{source.projected_at.isoformat() if source.projected_at else 'Unknown'}\t{source.watermark or 'Unknown'}"
+            )
+            total = next(
+                (part.totals for part in value.products if part.product == source.product), None
+            )
+            if total is not None:
+                for metric in total.metrics:
+                    print(
+                        f"{source.product} {_text(metric.name)}\t{metric.quantity if metric.quantity is not None else metric.state} {_text(metric.unit)}"
+                    )
     print(f"As of (UTC)\t{value.observed_at.isoformat()}")
     return 0
 
