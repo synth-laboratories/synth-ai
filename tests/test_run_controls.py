@@ -146,10 +146,12 @@ def test_control_events_are_named_without_changing_usage_semantics(kind):
 
 
 def test_ops_tools_and_shipped_contract_preserve_control_scopes():
-    from synth_ai.contracts.swarms_schema import export_contract
+    from synth_ai.contracts.fingerprint import digest_exported_contract, schema_sha256
 
     contract = json.loads((Path(__file__).parents[1] / "contracts/swarms-v1.json").read_text())
-    assert contract == json.loads(export_contract())
+    # Runtime compatibility is against shipped bytes. The live-export oracle
+    # runs separately under the pinned qualification serializer.
+    assert digest_exported_contract(json.dumps(contract)) == schema_sha256("swarms.v1")
     for command in ("pause", "resume"):
         op = getattr(operations, command.upper())
         assert op.id == f"swarms.{command}" and op.keyed and op.mutation and not op.may_charge

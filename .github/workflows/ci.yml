@@ -37,6 +37,38 @@ jobs:
       - run: uv run --no-sync ruff check synth_ai tests
       - run: uv run --no-sync ruff format --check synth_ai tests
       - run: uv run --no-sync ty check --python .venv synth_ai
+  compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+        pydantic: [floor, latest]
+        surface: [core, mcp]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install uv==0.11.33
+      - name: Install test dependencies
+        shell: bash
+        run: |
+          if [ '${{ matrix.surface }}' = mcp ]; then
+            uv sync --locked --group dev --extra mcp
+          else
+            uv sync --locked --group dev
+          fi
+      - name: Select runtime serializer
+        shell: bash
+        run: |
+          if [ '${{ matrix.pydantic }}' = latest ]; then
+            uv pip install --python .venv/bin/python --upgrade 'pydantic<3'
+          else
+            uv pip install --python .venv/bin/python 'pydantic==2.11.0'
+          fi
+      - run: uv run --no-sync pytest -q
+        timeout-minutes: 2
   package:
     runs-on: ubuntu-latest
     steps:

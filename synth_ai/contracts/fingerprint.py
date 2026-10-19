@@ -5,11 +5,18 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Callable
+from functools import lru_cache
 from hashlib import sha256
+from importlib.resources import files
+from pathlib import Path
+from typing import get_args
 
 from pydantic import JsonValue, TypeAdapter
 
+from synth_ai.types.base import Digest
 from synth_ai.types.capabilities import ContractName
+
+QUALIFICATION_PYDANTIC_VERSION = "2.12.5"
 
 
 def export_contract_json(contract: ContractName) -> str:
@@ -56,8 +63,45 @@ class SchemaFingerprints:
 _FINGERPRINTS = SchemaFingerprints()
 
 
-def schema_sha256(contract: ContractName) -> str:
-    """Hash the exported schema and operation inventory, not the release status.
+def schema_sha256_live(contract: ContractName) -> str:
+    """Generate a fingerprint with the qualified serializer, for release tooling.
 
     See: the public contract snapshots in contracts/"""
     return _FINGERPRINTS.digest(contract)
+
+
+@lru_cache(maxsize=1)
+def _shipped_fingerprints() -> dict[ContractName, str]:
+    value = TypeAdapter(dict[ContractName, Digest]).validate_json(
+        files("synth_ai.contracts").joinpath("fingerprints.json").read_bytes()
+    )
+    if set(value) != set(get_args(ContractName)):
+        raise ValueError("Shipped fingerprints must identify every supported contract")
+    return value
+
+
+def schema_sha256(contract: ContractName) -> str:
+    """Read the shipped identity; never export pydantic schemas during a call."""
+    return _shipped_fingerprints()[contract]
+
+
+def main() -> None:
+    import argparse
+
+    import pydantic
+
+    parser = argparse.ArgumentParser(description="Generate qualified SDK contract fingerprints")
+    parser.add_argument("--write", action="store_true", help="Update the source fingerprint table")
+    arguments = parser.parse_args()
+    if pydantic.__version__ != QUALIFICATION_PYDANTIC_VERSION:
+        parser.error(f"Generation requires pydantic=={QUALIFICATION_PYDANTIC_VERSION}")
+    value = {contract: schema_sha256_live(contract) for contract in get_args(ContractName)}
+    encoded = json.dumps(value, indent=2, sort_keys=True) + "\n"
+    if arguments.write:
+        Path(__file__).with_name("fingerprints.json").write_text(encoded)
+    else:
+        print(encoded, end="")
+
+
+if __name__ == "__main__":
+    main()

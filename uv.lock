@@ -1152,6 +1152,7 @@ dev = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "mdxify" },
+    { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -1163,7 +1164,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1,<1" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.30,<2" },
-    { name = "pydantic", specifier = "==2.12.5" },
+    { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "typing-extensions", specifier = ">=4.12,<5" },
 ]
 provides-extras = ["mcp"]
@@ -1174,6 +1175,7 @@ dev = [
     { name = "httpx", specifier = ">=0.28.1,<1" },
     { name = "jsonschema", specifier = ">=4.18,<5" },
     { name = "mdxify", specifier = ">=0.2.0" },
+    { name = "pydantic", specifier = "==2.12.5" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-asyncio", specifier = "==1.4.0" },
     { name = "ruff", specifier = "==0.17.0" },
