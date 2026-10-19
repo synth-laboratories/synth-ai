@@ -1,4 +1,5 @@
 include README.md
+include RELEASING.md
 include LICENSE
 include contracts/index-v1.json
 include contracts/swarms-v1.json
@@ -14,6 +15,7 @@ recursive-exclude synth_ai **/tests/*
 
 # Remove large data files from package
 recursive-exclude synth_ai *.json
+include synth_ai/contracts/fingerprints.json
 recursive-exclude synth_ai *.db
 recursive-exclude synth_ai *.duckdb
 recursive-exclude synth_ai *.sqlite

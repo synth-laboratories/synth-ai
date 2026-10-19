@@ -10,9 +10,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "typing-extensions>=4.12,<5",
-    # Live SDK runtime
-    # Contract generation is qualified against this exact schema serializer.
-    "pydantic==2.12.5",
+    # Page's default generic cursor requires pydantic 2.11 (2.9/2.10 cannot import it).
+    "pydantic>=2.11,<3",
     "httpx>=0.28.1,<1",
 ]
 
@@ -58,6 +57,7 @@ include-package-data = true
 "synth_ai" = [
     "py.typed",
 ]
+"synth_ai.contracts" = ["fingerprints.json"]
 
 [tool.ruff]
 # Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
@@ -100,6 +100,8 @@ ignore = [
 
 [dependency-groups]
 dev = [
+    # The release schema generator uses this serializer; runtime reads shipped hashes.
+    "pydantic==2.12.5",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "build>=1.2.2.post1",

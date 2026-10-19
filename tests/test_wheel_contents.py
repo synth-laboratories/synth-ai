@@ -24,5 +24,6 @@ def test_wheel_has_only_sdk_and_distribution_metadata():
         )
         assert all(not name.endswith(".pyc") for name in names)
         assert "synth_ai/py.typed" in names
+        assert "synth_ai/contracts/fingerprints.json" in names
         for contract in ("index-v1.json", "swarms-v1.json", "core-v1.json", "mcp-v1.json"):
             assert f"synth_ai/contracts/{contract}" in names
