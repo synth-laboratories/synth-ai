@@ -16,6 +16,8 @@ from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
+from synth_ai.sdk.core.links import AsyncLinks, Links
+from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
@@ -68,6 +70,8 @@ class SynthClient:
     swarms: SwarmsClient
     account: AccountClient
     tunnels: TunnelsClient
+    repos: Repositories
+    links: Links
 
     def __init__(
         self,
@@ -88,6 +92,8 @@ class SynthClient:
         self.swarms = SwarmsClient(self._transport)
         self.account = AccountClient(self._transport)
         self.tunnels = TunnelsClient(self._transport)
+        self.repos = Repositories(self._transport)
+        self.links = Links(self._transport)
 
     @classmethod
     def anonymous(
@@ -107,6 +113,8 @@ class SynthClient:
         client.swarms = SwarmsClient(client._transport)
         client.account = AccountClient(client._transport)
         client.tunnels = TunnelsClient(client._transport)
+        client.repos = Repositories(client._transport)
+        client.links = Links(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -181,6 +189,8 @@ class AsyncSynthClient:
     swarms: AsyncSwarmsClient
     account: AsyncAccountClient
     tunnels: AsyncTunnelsClient
+    repos: AsyncRepositories
+    links: AsyncLinks
 
     def __init__(
         self,
@@ -197,6 +207,8 @@ class AsyncSynthClient:
         self.swarms = AsyncSwarmsClient(self._transport)
         self.account = AsyncAccountClient(self._transport)
         self.tunnels = AsyncTunnelsClient(self._transport)
+        self.repos = AsyncRepositories(self._transport)
+        self.links = AsyncLinks(self._transport)
 
     @classmethod
     def anonymous(
@@ -212,6 +224,8 @@ class AsyncSynthClient:
         client.swarms = AsyncSwarmsClient(client._transport)
         client.account = AsyncAccountClient(client._transport)
         client.tunnels = AsyncTunnelsClient(client._transport)
+        client.repos = AsyncRepositories(client._transport)
+        client.links = AsyncLinks(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:

@@ -12,7 +12,15 @@ from .identity import MutationIdentity
 
 
 class ResourceReference(ResponseBase):
-    kind: Literal["search", "contribution", "upload", "control", "search_response", "swarm"]
+    kind: Literal[
+        "search",
+        "contribution",
+        "upload",
+        "control",
+        "search_response",
+        "swarm",
+        "repo_clone_token",
+    ]
     resource_id: ResponseIdentifier
 
 

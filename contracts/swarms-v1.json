@@ -52,7 +52,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -381,7 +382,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -816,7 +818,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1057,7 +1060,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1584,7 +1588,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2145,7 +2150,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2563,7 +2569,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2885,7 +2892,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3105,6 +3113,45 @@
           "title": "EvidenceRef",
           "type": "object"
         },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
         "JsonValue": {},
         "Problem": {
           "additionalProperties": true,
@@ -3310,7 +3357,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3550,6 +3598,17 @@
               "minLength": 1,
               "title": "Provider",
               "type": "string"
+            },
+            "ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "result_available": {
               "title": "Result Available",
@@ -3896,7 +3955,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4363,7 +4423,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4778,7 +4839,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5072,7 +5134,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5471,7 +5534,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5762,6 +5826,45 @@
           "title": "EvidenceRef",
           "type": "object"
         },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
         "JsonValue": {},
         "Problem": {
           "additionalProperties": true,
@@ -5967,7 +6070,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -6276,6 +6380,17 @@
           "title": "Provider",
           "type": "string"
         },
+        "ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "result_available": {
           "title": "Result Available",
           "type": "boolean"
@@ -6514,7 +6629,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -7065,7 +7181,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -7557,7 +7674,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -7984,7 +8102,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"

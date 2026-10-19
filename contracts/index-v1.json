@@ -446,7 +446,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -679,7 +680,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -901,7 +903,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1408,7 +1411,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1646,7 +1650,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2028,7 +2033,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2565,7 +2571,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3332,7 +3339,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3585,7 +3593,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3835,7 +3844,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4119,7 +4129,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4821,7 +4832,8 @@
                 "upload",
                 "control",
                 "search_response",
-                "swarm"
+                "swarm",
+                "repo_clone_token"
               ],
               "title": "Kind",
               "type": "string"
@@ -4857,7 +4869,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5153,7 +5166,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5716,7 +5730,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -6288,7 +6303,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -7408,7 +7424,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -8296,7 +8313,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -8947,7 +8965,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -9642,7 +9661,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -10373,7 +10393,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -10812,7 +10833,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -11685,7 +11707,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -12814,7 +12837,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -13858,7 +13882,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -14204,7 +14229,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -14433,7 +14459,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -14801,7 +14828,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -15292,7 +15320,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"

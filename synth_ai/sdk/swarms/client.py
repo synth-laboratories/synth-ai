@@ -165,12 +165,12 @@ class SwarmsClient:
                 "Admitted project or requested override mismatch",
             ),
         )
-        return SwarmRun(self._transport, result.run_id)
+        return SwarmRun(self._transport, result.run_id, snapshot=result)
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
         """Reattach to an authorized durable run without restarting it."""
         run_id = identifier(run_id)
-        self._transport.request(
+        snapshot = self._transport.request(
             operations.GET,
             RunSnapshot,
             path=f"/swarms/runs/{run_id}",
@@ -179,7 +179,7 @@ class SwarmsClient:
                 result, result.run_id == run_id, "Run identity mismatch"
             ),
         )
-        return SwarmRun(self._transport, run_id)
+        return SwarmRun(self._transport, run_id, snapshot=snapshot)
 
     def list(
         self,
@@ -315,12 +315,12 @@ class AsyncSwarmsClient:
                 "Admitted project or requested override mismatch",
             ),
         )
-        return AsyncSwarmRun(self._transport, result.run_id)
+        return AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
         """Reattach to an authorized durable run without restarting it."""
         run_id = identifier(run_id)
-        await self._transport.request(
+        snapshot = await self._transport.request(
             operations.GET,
             RunSnapshot,
             path=f"/swarms/runs/{run_id}",
@@ -329,7 +329,7 @@ class AsyncSwarmsClient:
                 result, result.run_id == run_id, "Run identity mismatch"
             ),
         )
-        return AsyncSwarmRun(self._transport, run_id)
+        return AsyncSwarmRun(self._transport, run_id, snapshot=snapshot)
 
     async def list(
         self,

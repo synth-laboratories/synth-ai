@@ -14,7 +14,8 @@ pytestmark = pytest.mark.contract
 # this candidate before qualification; this source pin is not deployed evidence.
 # SYN-4868 adds the optional control command and distinct physical quiescence state.
 # SYN-4888 makes response schemas tolerant while request construction stays strict.
-INDEX_V1_SCHEMA_SHA256 = "34a01bdcc7a35ca6f69ae154f390965cfc787fe4eb7502d0945e2831ecd222b8"
+# SYN-4885 adds core response metadata and clone-token recovery resources.
+INDEX_V1_SCHEMA_SHA256 = "bd9a6454ccb3a13549192df97fdf7ff694b8eaa9bc23ba7229ad8a0d962fd087"
 
 
 def test_index_v1_fingerprint_matches_the_candidate_export():

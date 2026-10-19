@@ -117,7 +117,6 @@ def response_schema(model: type[BaseModel]) -> dict[str, Any]:
         return schema
     identifier_patterns = {
         IDENTIFIER_PATTERN,
-        "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
     }
 
     def relax(value):

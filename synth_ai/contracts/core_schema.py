@@ -4,10 +4,59 @@ from __future__ import annotations
 
 import json
 
+from synth_ai.sdk.core.types import (
+    CloneToken,
+    CloneTokenRequest,
+    RepositoryCommit,
+    RepositoryDiff,
+    RepositoryRef,
+    RepositorySnapshot,
+)
+from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
+from synth_ai.types.response_values import response_schema
 
 from .core import ALL_OPERATIONS
 from .operations import PREFIX
+
+MODELS = (
+    Ref,
+    Producer,
+    Link,
+    RepositorySnapshot,
+    RepositoryRef,
+    RepositoryCommit,
+    RepositoryDiff,
+    CloneTokenRequest,
+    CloneToken,
+    Page[RepositoryRef],
+    Page[Link],
+)
+
+ARCHIVE_PROTOCOL = {
+    "format": "synth.git-raw-tar.v1",
+    "media_type": "application/x-tar",
+    "content_encoding": "identity",
+    "request": {
+        "commit": "full lowercase SHA-1",
+        "digest_sha256": "exact canonical commit manifest digest",
+    },
+    "required_headers": {
+        "X-Synth-Contract": "core.v1",
+        "X-Synth-Archive-Format": "synth.git-raw-tar.v1",
+        "X-Synth-Repo-Id": "selected public repo_id",
+        "X-Synth-Commit-SHA": "selected commit SHA-1",
+        "X-Synth-Commit-Manifest-SHA256": "selected Ref.digest_sha256",
+        "X-Synth-Content-SHA256": "SHA-256 of complete uncompressed tar bytes",
+        "X-Synth-Archive-Entries": "canonical tree entry count",
+        "X-Synth-Archive-Bytes": "complete uncompressed tar byte count",
+    },
+    "maximum_bytes": 512 * 1024 * 1024,
+    "maximum_entries": 100_000,
+    "maximum_seconds": 900,
+    "gitlinks": "empty directory with local PAX SYNTH.gitlink=<40 lowercase hex>",
+    "publication": "exclusive directory rename only after EOF, byte hash and actual tree digest verification",
+}
 
 
 def export_contract() -> str:
@@ -16,10 +65,9 @@ def export_contract() -> str:
             {
                 "schema_version": "core.v1",
                 "status": "sdk_first_pending_backend",
-                "models": {
-                    name: model.model_json_schema()
-                    for name, model in (("Ref", Ref), ("Producer", Producer), ("Link", Link))
-                },
+                "models": {model.__name__: response_schema(model) for model in MODELS},
+                "archive_protocol": ARCHIVE_PROTOCOL,
+                "repository_identity": "repo_ plus SHA-256 of the UTF-8 internal immutable repo identity; internal registry IDs are not public Ref IDs",
                 "operations": [
                     {
                         "id": op.id,
