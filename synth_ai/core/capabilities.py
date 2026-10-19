@@ -69,8 +69,24 @@ def require_operation(
     contract = next(
         (item for item in receipt.contracts if item.contract == operation.contract), None
     )
-    if contract is None or contract.schema_sha256 != schema_sha256(operation.contract):
-        raise ContractError("Backend protocol schema is incompatible", code="schema_mismatch")
+    if contract is None:
+        raise ContractError(
+            "Backend protocol schema is incompatible",
+            code="schema_mismatch",
+            stage="capability_negotiation",
+            cause=f"contract={operation.contract} operation={operation.id} "
+            f"backend_receipt=absent contracts_in_receipt="
+            f"{','.join(item.contract for item in receipt.contracts) or 'none'}",
+        )
+    expected_schema = schema_sha256(operation.contract)
+    if contract.schema_sha256 != expected_schema:
+        raise ContractError(
+            "Backend protocol schema is incompatible",
+            code="schema_mismatch",
+            stage="capability_negotiation",
+            cause=f"contract={operation.contract} operation={operation.id} "
+            f"sdk_schema_sha256={expected_schema} backend_schema_sha256={contract.schema_sha256}",
+        )
     if receipt.release is None:
         raise ContractError("Backend did not identify a release", code="release_mismatch")
     return NegotiatedCapability(
