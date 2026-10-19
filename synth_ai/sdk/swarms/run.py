@@ -4,21 +4,62 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import get_args
 
 from synth_ai.contracts import swarms as operations
+from synth_ai.contracts.operations import Operation
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.observation import AsyncEventStream, EventStream
 from synth_ai.core.parameters import identifier, page_parameters, verified
-from synth_ai.errors import RequestTimeoutError
+from synth_ai.errors import (
+    ContractError,
+    OutcomeUncertainError,
+    RequestTimeoutError,
+    ResultNotReadyError,
+    SynthError,
+)
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.types.base import EventCursor, Page, PageCursor
-from synth_ai.types.receipts import ControlReceipt
+from synth_ai.types.receipts import ControlCommand, ControlReceipt, MutationResolution
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from .outputs import AsyncOutputs, Outputs
 from .types.programs import ProgramRunView
-from .types.runs import ResolvedConfiguration, RunSnapshot, SwarmEvent, SwarmResult, TaskOutcome
+from .types.runs import (
+    ResolvedConfiguration,
+    RunSnapshot,
+    RunState,
+    SwarmEvent,
+    SwarmResult,
+    TaskOutcome,
+)
+
+
+def _control_receipt(value: ControlReceipt, run_id: str, command: ControlCommand) -> ControlReceipt:
+    return verified(
+        value,
+        value.resource_id == run_id and value.command in (None, command),
+        "Control identity or command mismatch",
+    )
+
+
+def _recovery_read(deadline: float, error: OutcomeUncertainError) -> ReadOptions:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise error
+    return ReadOptions(timeout_seconds=remaining, read_retry_count=0)
+
+
+def _target_states(value: RunState | tuple[RunState, ...]) -> frozenset[RunState]:
+    values = (value,) if isinstance(value, str) else value
+    if (
+        not isinstance(values, tuple)
+        or not values
+        or any(item not in get_args(RunState) for item in values)
+    ):
+        raise ValueError("At least one supported run state is required")
+    return frozenset(values)
 
 
 class SwarmRun:
@@ -142,46 +183,76 @@ class SwarmRun:
         )
 
     def cancel(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
-        """Request cancellation; acceptance does not imply settlement or cleanup."""
-        return self._transport.request(
-            operations.CANCEL,
-            ControlReceipt,
-            path=f"/swarms/runs/{self.run_id}/cancel",
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.resource_id == self.run_id and result.command in (None, "cancel"),
-                "Cancel identity or command mismatch",
-            ),
-        )
+        """Request cancel; receipt progress is independent of accounting and cleanup."""
+        return self._send_control(operations.CANCEL, "cancel", mutation)
 
     def pause(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
-        """Request pause; the original deadline continues during a pause."""
-        return self._transport.request(
-            operations.PAUSE,
-            ControlReceipt,
-            path=f"/swarms/runs/{self.run_id}/pause",
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.resource_id == self.run_id and result.command in (None, "pause"),
-                "Control identity or command mismatch",
-            ),
-        )
+        """Request pause; receipt progress is independent of accounting and cleanup."""
+        return self._send_control(operations.PAUSE, "pause", mutation)
 
     def resume(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
-        """Request resume; the original deadline continues during a pause."""
-        return self._transport.request(
-            operations.RESUME,
-            ControlReceipt,
-            path=f"/swarms/runs/{self.run_id}/resume",
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.resource_id == self.run_id and result.command in (None, "resume"),
-                "Control identity or command mismatch",
-            ),
-        )
+        """Request resume; receipt progress is independent of accounting and cleanup."""
+        return self._send_control(operations.RESUME, "resume", mutation)
+
+    def _send_control(
+        self, operation: Operation, command: ControlCommand, mutation: MutationOptions | None
+    ) -> ControlReceipt:
+        # One absolute local deadline includes the POST and at most two reads.
+        timeout = mutation.timeout_seconds if mutation is not None else None
+        deadline = time.monotonic() + (timeout or self._transport.request_timeout_seconds)
+        try:
+            return self._transport.request(
+                operation,
+                ControlReceipt,
+                path=f"/swarms/runs/{self.run_id}/{command}",
+                options=mutation,
+                validate=lambda value: _control_receipt(value, self.run_id, command),
+            )
+        except OutcomeUncertainError as error:
+            identity = error.identity
+            if identity is None:
+                raise
+            if (
+                identity.operation != operation.id
+                or identity.resource_path != f"/api/v1/swarms/runs/{self.run_id}/{command}"
+            ):
+                raise ContractError(
+                    "Uncertain control returned a different identity", identity=identity
+                ) from error
+            try:
+                resolution = self._transport.request(
+                    operations.RESOLVE,
+                    MutationResolution,
+                    query={
+                        "key": identity.key,
+                        "operation": identity.operation,
+                        "resource_path": identity.resource_path,
+                        "payload_sha256": identity.payload_sha256,
+                    },
+                    options=_recovery_read(deadline, error),
+                    validate=lambda value: verified(
+                        value, value.identity == identity, "Resolver identity mismatch"
+                    ),
+                )
+                if (
+                    resolution.state not in {"accepted", "pending", "not_accepted"}
+                    or resolution.metadata.operation_id is None
+                ):
+                    raise error
+                if resolution.resource is not None and resolution.resource.kind != "control":
+                    raise ContractError(
+                        "Resolver returned a different resource kind", identity=identity
+                    )
+                # The resolver metadata names public custody; resource_id may
+                # instead name the underlying owner input. Never repeat POST.
+                result = self.control(
+                    resolution.metadata.operation_id, request=_recovery_read(deadline, error)
+                )
+                return _control_receipt(result, self.run_id, command)
+            except SynthError as recovery_error:
+                if recovery_error is error:
+                    raise
+                raise error from recovery_error
 
     def control(self, operation_id: str, *, request: ReadOptions | None = None) -> ControlReceipt:
         """Read a control receipt without issuing another control."""
@@ -198,6 +269,38 @@ class SwarmRun:
             ),
         )
 
+    def wait_for_state(
+        self, state: RunState | tuple[RunState, ...], *, observation: ObservationOptions
+    ) -> RunSnapshot:
+        """Observe target states within the deadline and maximum_events status reads."""
+        targets = _target_states(state)
+        deadline = time.monotonic() + observation.timeout_seconds
+        for _ in range(observation.maximum_events):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            snapshot = self.status(
+                request=ReadOptions(
+                    timeout_seconds=min(remaining, observation.idle_timeout_seconds),
+                    read_retry_count=observation.retry_count_max,
+                )
+            )
+            if time.monotonic() >= deadline:
+                break
+            if snapshot.state in targets:
+                return snapshot
+            if snapshot.execution_closed:
+                raise ResultNotReadyError(
+                    f"Run {self.run_id} ended in state {snapshot.state} before the requested state",
+                    code="run_state_unreachable",
+                    request_id=snapshot.metadata.request_id,
+                    retryable=False,
+                )
+            time.sleep(min(observation.poll_interval_seconds, max(0, deadline - time.monotonic())))
+        raise RequestTimeoutError(
+            "Swarm state observation expired; remote work continues", code="run_observation_expired"
+        )
+
     def wait(self, *, observation: ObservationOptions) -> SwarmResult:
         """Wait for canonical output within a local deadline; never cancel remote work."""
         deadline = time.monotonic() + observation.timeout_seconds
@@ -212,6 +315,13 @@ class SwarmRun:
                     read_retry_count=observation.retry_count_max,
                 )
             )
+            if snapshot.state == "paused":
+                raise ResultNotReadyError(
+                    f"Run {self.run_id} is paused; its original deadline continues",
+                    code="run_paused",
+                    request_id=snapshot.metadata.request_id,
+                    retryable=False,
+                )
             if snapshot.result_available:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -346,46 +456,76 @@ class AsyncSwarmRun:
         )
 
     async def cancel(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
-        """Request cancellation; acceptance does not imply settlement or cleanup."""
-        return await self._transport.request(
-            operations.CANCEL,
-            ControlReceipt,
-            path=f"/swarms/runs/{self.run_id}/cancel",
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.resource_id == self.run_id and result.command in (None, "cancel"),
-                "Cancel identity or command mismatch",
-            ),
-        )
+        """Request cancel; receipt progress is independent of accounting and cleanup."""
+        return await self._send_control(operations.CANCEL, "cancel", mutation)
 
     async def pause(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
-        """Request pause; the original deadline continues during a pause."""
-        return await self._transport.request(
-            operations.PAUSE,
-            ControlReceipt,
-            path=f"/swarms/runs/{self.run_id}/pause",
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.resource_id == self.run_id and result.command in (None, "pause"),
-                "Control identity or command mismatch",
-            ),
-        )
+        """Request pause; receipt progress is independent of accounting and cleanup."""
+        return await self._send_control(operations.PAUSE, "pause", mutation)
 
     async def resume(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
-        """Request resume; the original deadline continues during a pause."""
-        return await self._transport.request(
-            operations.RESUME,
-            ControlReceipt,
-            path=f"/swarms/runs/{self.run_id}/resume",
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.resource_id == self.run_id and result.command in (None, "resume"),
-                "Control identity or command mismatch",
-            ),
-        )
+        """Request resume; receipt progress is independent of accounting and cleanup."""
+        return await self._send_control(operations.RESUME, "resume", mutation)
+
+    async def _send_control(
+        self, operation: Operation, command: ControlCommand, mutation: MutationOptions | None
+    ) -> ControlReceipt:
+        # One absolute local deadline includes the POST and at most two reads.
+        timeout = mutation.timeout_seconds if mutation is not None else None
+        deadline = time.monotonic() + (timeout or self._transport.request_timeout_seconds)
+        try:
+            return await self._transport.request(
+                operation,
+                ControlReceipt,
+                path=f"/swarms/runs/{self.run_id}/{command}",
+                options=mutation,
+                validate=lambda value: _control_receipt(value, self.run_id, command),
+            )
+        except OutcomeUncertainError as error:
+            identity = error.identity
+            if identity is None:
+                raise
+            if (
+                identity.operation != operation.id
+                or identity.resource_path != f"/api/v1/swarms/runs/{self.run_id}/{command}"
+            ):
+                raise ContractError(
+                    "Uncertain control returned a different identity", identity=identity
+                ) from error
+            try:
+                resolution = await self._transport.request(
+                    operations.RESOLVE,
+                    MutationResolution,
+                    query={
+                        "key": identity.key,
+                        "operation": identity.operation,
+                        "resource_path": identity.resource_path,
+                        "payload_sha256": identity.payload_sha256,
+                    },
+                    options=_recovery_read(deadline, error),
+                    validate=lambda value: verified(
+                        value, value.identity == identity, "Resolver identity mismatch"
+                    ),
+                )
+                if (
+                    resolution.state not in {"accepted", "pending", "not_accepted"}
+                    or resolution.metadata.operation_id is None
+                ):
+                    raise error
+                if resolution.resource is not None and resolution.resource.kind != "control":
+                    raise ContractError(
+                        "Resolver returned a different resource kind", identity=identity
+                    )
+                # The resolver metadata names public custody; resource_id may
+                # instead name the underlying owner input. Never repeat POST.
+                result = await self.control(
+                    resolution.metadata.operation_id, request=_recovery_read(deadline, error)
+                )
+                return _control_receipt(result, self.run_id, command)
+            except SynthError as recovery_error:
+                if recovery_error is error:
+                    raise
+                raise error from recovery_error
 
     async def control(
         self, operation_id: str, *, request: ReadOptions | None = None
@@ -404,6 +544,40 @@ class AsyncSwarmRun:
             ),
         )
 
+    async def wait_for_state(
+        self, state: RunState | tuple[RunState, ...], *, observation: ObservationOptions
+    ) -> RunSnapshot:
+        """Observe target states within the deadline and maximum_events status reads."""
+        targets = _target_states(state)
+        deadline = time.monotonic() + observation.timeout_seconds
+        for _ in range(observation.maximum_events):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            snapshot = await self.status(
+                request=ReadOptions(
+                    timeout_seconds=min(remaining, observation.idle_timeout_seconds),
+                    read_retry_count=observation.retry_count_max,
+                )
+            )
+            if time.monotonic() >= deadline:
+                break
+            if snapshot.state in targets:
+                return snapshot
+            if snapshot.execution_closed:
+                raise ResultNotReadyError(
+                    f"Run {self.run_id} ended in state {snapshot.state} before the requested state",
+                    code="run_state_unreachable",
+                    request_id=snapshot.metadata.request_id,
+                    retryable=False,
+                )
+            await asyncio.sleep(
+                min(observation.poll_interval_seconds, max(0, deadline - time.monotonic()))
+            )
+        raise RequestTimeoutError(
+            "Swarm state observation expired; remote work continues", code="run_observation_expired"
+        )
+
     async def wait(self, *, observation: ObservationOptions) -> SwarmResult:
         """Wait for canonical output within a local deadline; never cancel remote work."""
         deadline = time.monotonic() + observation.timeout_seconds
@@ -418,6 +592,13 @@ class AsyncSwarmRun:
                     read_retry_count=observation.retry_count_max,
                 )
             )
+            if snapshot.state == "paused":
+                raise ResultNotReadyError(
+                    f"Run {self.run_id} is paused; its original deadline continues",
+                    code="run_paused",
+                    request_id=snapshot.metadata.request_id,
+                    retryable=False,
+                )
             if snapshot.result_available:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
