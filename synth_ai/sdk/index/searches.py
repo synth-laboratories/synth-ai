@@ -5,6 +5,7 @@ from __future__ import annotations
 from synth_ai.contracts import operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
+from synth_ai.core.http.request import encode_body, mutation_identity
 from synth_ai.core.parameters import identifier, page_parameters, verified
 from synth_ai.core.recovery import async_resolve_creation as recover_creation_async
 from synth_ai.core.recovery import resolve_creation as recover_creation
@@ -30,11 +31,16 @@ class Searches:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
         See: the public contract snapshots in contracts/"""
+        body = KeyedSearchRequest(query=query, options=options)
+        identity = mutation_identity(operations.CREATE_SEARCH, None, encode_body(body), mutation)
+        selected = (mutation or MutationOptions()).model_copy(
+            update={"identity": identity, "idempotency_key": None}
+        )
         snapshot = self._transport.request(
             operations.CREATE_SEARCH,
             SearchSnapshot,
-            body=KeyedSearchRequest(query=query, options=options),
-            options=mutation,
+            body=body,
+            options=selected,
             validate=lambda received: validate_search_admission(
                 received,
                 options,
@@ -44,8 +50,15 @@ class Searches:
         return SearchRun(
             self._transport,
             snapshot.search_id,
+            requested_mode=snapshot.mode,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
             inline_result=snapshot.inline_result,
+            strict_request=body
+            if snapshot.retention is not None
+            and snapshot.retention.mode == "zdr_strict"
+            and options.mode == "deep"
+            else None,
+            strict_creation_key=identity.key if identity is not None else None,
         )
 
     def get(self, search_id: str, *, request: ReadOptions | None = None) -> SearchRun:
@@ -67,6 +80,7 @@ class Searches:
         return SearchRun(
             self._transport,
             search_id,
+            requested_mode=snapshot.mode,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
         )
 
@@ -128,11 +142,16 @@ class AsyncSearches:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
         See: the public contract snapshots in contracts/"""
+        body = KeyedSearchRequest(query=query, options=options)
+        identity = mutation_identity(operations.CREATE_SEARCH, None, encode_body(body), mutation)
+        selected = (mutation or MutationOptions()).model_copy(
+            update={"identity": identity, "idempotency_key": None}
+        )
         snapshot = await self._transport.request(
             operations.CREATE_SEARCH,
             SearchSnapshot,
-            body=KeyedSearchRequest(query=query, options=options),
-            options=mutation,
+            body=body,
+            options=selected,
             validate=lambda received: validate_search_admission(
                 received,
                 options,
@@ -142,8 +161,15 @@ class AsyncSearches:
         return AsyncSearchRun(
             self._transport,
             snapshot.search_id,
+            requested_mode=snapshot.mode,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
             inline_result=snapshot.inline_result,
+            strict_request=body
+            if snapshot.retention is not None
+            and snapshot.retention.mode == "zdr_strict"
+            and options.mode == "deep"
+            else None,
+            strict_creation_key=identity.key if identity is not None else None,
         )
 
     async def get(self, search_id: str, *, request: ReadOptions | None = None) -> AsyncSearchRun:
@@ -165,6 +191,7 @@ class AsyncSearches:
         return AsyncSearchRun(
             self._transport,
             search_id,
+            requested_mode=snapshot.mode,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
         )
 

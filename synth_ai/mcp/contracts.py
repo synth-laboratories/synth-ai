@@ -23,6 +23,7 @@ from synth_ai.sdk.index.types.search import (
     PublicSearchOptions,
     Query,
     SearchResponse,
+    StrictSearchEventRequest,
 )
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
@@ -101,6 +102,11 @@ class RetentionPolicyMutation(RetentionPolicyUpdate):
 
 class SearchCreate(SearchArguments):
     pass
+
+
+class StrictSearchDelivery(StrictSearchEventRequest):
+    search_id: Identifier
+    idempotency_key: Identifier
 
 
 class ContentArguments(Model):

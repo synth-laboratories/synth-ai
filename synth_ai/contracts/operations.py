@@ -102,6 +102,15 @@ SEARCH_EVENTS = Operation(
     True,
     required_scope="index:read",
 )
+DELIVER_SEARCH_EVENTS = Operation(
+    "index.searches.events.deliver",
+    "POST",
+    "/index/searches/{search_id}/events",
+    True,
+    True,
+    required_scope="index:search",
+    may_charge=True,
+)
 SEARCH_RESULT = Operation(
     "index.searches.result",
     "GET",
@@ -272,6 +281,7 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     SEARCH_HISTORY,
     DELETE_SEARCH_HISTORY,
     SEARCH_EVENTS,
+    DELIVER_SEARCH_EVENTS,
     SEARCH_RESULT,
     CANCEL_SEARCH,
     CONTROL,

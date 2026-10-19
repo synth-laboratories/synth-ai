@@ -206,6 +206,9 @@ class SearchEvent(Model):
     ]
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
+    # Disclosed only by the active strict DEEP POST event request. Retained
+    # GET event pages never contain this request-owned result.
+    result: SearchResponse | None = None
 
     @model_validator(mode="after")
     def validate_event(self) -> Self:
@@ -213,4 +216,51 @@ class SearchEvent(Model):
             raise ValueError("unknown event requires its original discriminant")
         if (self.kind == "usage_updated") != (self.usage is not None):
             raise ValueError("only usage_updated carries usage")
+        if self.result is not None:
+            result = self.result
+            if (
+                self.kind not in {"completed", "partial"}
+                or result.status != self.kind
+                or result.search_id != self.search_id
+                or result.mode != "deep"
+                or result.retention is None
+                or result.retention.mode != "zdr_strict"
+                or result.retention.content_state != "available"
+                or self.event_id != f"{self.search_id}.{self.sequence}"
+            ):
+                raise ValueError("event result requires a bound strict DEEP terminal")
+        return self
+
+
+class StrictSearchProgress(Model):
+    """Content-free observations from a committed native DEEP checkpoint."""
+
+    search_id: Identifier
+    event_id: Identifier
+    sequence: StrictInt = Field(ge=1)
+    kind: Literal["progress"] = "progress"
+    stage: Literal["working", "draining"]
+    search_calls: StrictInt = Field(ge=0)
+    read_calls: StrictInt = Field(ge=0)
+    input_tokens: StrictInt = Field(ge=0)
+    output_tokens: StrictInt = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_progress_identity(self) -> Self:
+        if self.event_id != f"{self.search_id}.{self.sequence}":
+            raise ValueError("progress requires its native checkpoint identity")
+        return self
+
+
+class StrictSearchEventRequest(Model):
+    creation_key: Identifier
+    request: KeyedSearchRequest
+
+    @model_validator(mode="after")
+    def validate_strict_intent(self) -> Self:
+        if self.request.options.mode != "deep" or self.request.options.retention not in {
+            None,
+            "zdr_strict",
+        }:
+            raise ValueError("strict event delivery requires the original DEEP intent")
         return self

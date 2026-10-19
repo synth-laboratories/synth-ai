@@ -112,6 +112,22 @@ Strict ZDR execution remains gated on the current backend: admission refuses
 `retention_mode_unsupported` rather than silently persisting a strict request.
 The presence of `zdr_strict` in a policy is not proof of delivery support.
 
+The strict delivery implementation uses `run.inline_result` for FAST. DEEP
+creation returns metadata without starting a background execution. On the
+newly created handle, `run.events(observation=...)` owns one active request
+that yields `StrictSearchProgress` (stages and counters) and a terminal
+`SearchEvent` carrying `result`. Use its managed context so leaving the stream
+closes the active owner. Sync and async clients have the same behavior.
+
+A reattached client must resupply its original `KeyedSearchRequest` and creation
+key with `run.deliver_events(original_request=..., creation_key=...,
+mutation=...)`. The delivery has its own mutation identity. It never reconnects
+or reruns lost work; errors retain that identity for metadata recovery. Strict
+result reads remain unavailable. MCP uses `index_search_deliver_events` with a
+standard progress token to receive progress notifications and the terminal
+result in one RPC. These methods require a jointly qualified backend, Agents,
+Monitor, SDK wheel and admission; source availability does not open that gate.
+
 ## Qualified publication
 
 Source pushes do not publish packages. `.github/workflows/publish-dev.yml`

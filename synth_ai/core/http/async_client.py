@@ -269,6 +269,11 @@ class AsyncHttpTransport:
             raise
         return response
 
+    def mutation_events(self, operation: Operation, *, path: str, body: BaseModel, options=None):
+        from .stream import AsyncMutationEventStream
+
+        return AsyncMutationEventStream(self, operation, path=path, body=body, options=options)
+
     async def _resolve_credential(self, operation: Operation, deadline: float) -> str | None:
         if not operation.keyed or self._credential_provider is None:
             return self._api_key

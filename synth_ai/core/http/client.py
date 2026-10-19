@@ -230,6 +230,11 @@ class HttpTransport:
             raise
         return response
 
+    def mutation_events(self, operation: Operation, *, path: str, body: BaseModel, options=None):
+        from .stream import MutationEventStream
+
+        return MutationEventStream(self, operation, path=path, body=body, options=options)
+
     def request(
         self,
         operation: Operation,
