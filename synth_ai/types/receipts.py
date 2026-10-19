@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, Literal, Self, TypeVar
+from typing import Any, Generic, Literal, Self, TypeVar
 
-from pydantic import model_validator
+from pydantic import SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from .base import Identifier, Model, ResponseMetadata, ResponseModel
 from .identity import MutationIdentity
@@ -44,6 +44,13 @@ class ControlReceipt(ResponseModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+
+    @model_serializer(mode="wrap")
+    def omit_absent_command(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = handler(self)
+        if self.command is None:
+            value.pop("command", None)
+        return value
 
 
 T = TypeVar("T")

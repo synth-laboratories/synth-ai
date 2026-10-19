@@ -97,6 +97,15 @@ def test_async_controls_use_the_same_command_contract(command):
 
 def test_old_control_receipts_and_new_pause_projection_are_both_readable():
     assert ControlReceipt.model_validate_json(json.dumps(receipt())).command is None
+    assert "command" not in ControlReceipt.model_validate_json(json.dumps(receipt())).model_dump(
+        mode="json"
+    )
+    assert (
+        ControlReceipt.model_validate_json(json.dumps(receipt("pause"))).model_dump(mode="json")[
+            "command"
+        ]
+        == "pause"
+    )
     body = {
         "metadata": METADATA,
         "run_id": "run-1",
@@ -119,6 +128,8 @@ def test_old_control_receipts_and_new_pause_projection_are_both_readable():
     for key in ("control", "paused_at", "resume_by", "deadline_at"):
         body.pop(key)
     assert RunSnapshot.model_validate_json(json.dumps(body)).control is None
+    historical = RunSnapshot.model_validate_json(json.dumps(body)).model_dump(mode="json")
+    assert not {"control", "paused_at", "resume_by", "deadline_at"}.intersection(historical)
 
 
 @pytest.mark.parametrize("kind", ["paused", "resumed", "cancel_requested"])
