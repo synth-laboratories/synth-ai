@@ -3,6 +3,7 @@ include LICENSE
 include contracts/index-v1.json
 include contracts/swarms-v1.json
 include contracts/mcp-v1.json
+include contracts/core-v1.json
 recursive-include synth_ai *.py
 recursive-include synth_ai *.md
 # Prune heavy example/demo/test/data trees from the sdist (keep code)

@@ -95,7 +95,7 @@ class SynthClient:
     ) -> SynthClient:
         """Construct a public client without reading ambient credentials or doing network IO.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
             raise ValueError(
@@ -112,7 +112,7 @@ class SynthClient:
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
         """Read nonsecret deployment facts; these do not grant resource access.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return self._transport.request(CAPABILITIES, Capabilities, options=request)
 
     @property
@@ -128,7 +128,7 @@ class SynthClient:
     def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
         """Read verified identity and current grants without secrets or tenant overrides.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
 
     def resolve_mutation(
@@ -136,7 +136,7 @@ class SynthClient:
     ) -> MutationResolution:
         """Reconcile known scoped mutation identity; unavailable is not proof of nonacceptance.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             recovery_operation(identity),
             MutationResolution,
@@ -155,7 +155,7 @@ class SynthClient:
     def close(self) -> None:
         """Close owned network resources without cancelling durable remote work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         self._transport.close()
 
     def __enter__(self) -> SynthClient:
@@ -204,7 +204,7 @@ class AsyncSynthClient:
     ) -> AsyncSynthClient:
         """Construct a public client without reading ambient credentials or doing network IO.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = options or ClientOptions()
         client = cls.__new__(cls)
         client._transport = AsyncHttpTransport(resolve_url(base_url), None, selected)
@@ -217,7 +217,7 @@ class AsyncSynthClient:
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
         """Read nonsecret deployment facts; these do not grant resource access.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return await self._transport.request(CAPABILITIES, Capabilities, options=request)
 
     @property
@@ -233,7 +233,7 @@ class AsyncSynthClient:
     async def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
         """Read verified identity and current grants without secrets or tenant overrides.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return await self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
 
     async def resolve_mutation(
@@ -241,7 +241,7 @@ class AsyncSynthClient:
     ) -> MutationResolution:
         """Reconcile known scoped mutation identity; unavailable is not proof of nonacceptance.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             recovery_operation(identity),
             MutationResolution,
@@ -260,7 +260,7 @@ class AsyncSynthClient:
     async def aclose(self) -> None:
         """End async local ownership without cancelling durable work or closing borrowed clients.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         await self._transport.aclose()
 
     async def __aenter__(self) -> AsyncSynthClient:

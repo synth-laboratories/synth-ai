@@ -875,8 +875,8 @@ Prerelease. Install with `pip install --pre synth-ai` or pin
   and admission metadata. The SDK does not describe that POST as a read-only
   capability.
 - **Product CloudDeployments are provider-neutral** — creation requires an
-  explicit product `host_kind` and no longer exposes internal `slot1-cloud` /
-  `slot2-cloud` identities, claim fencing, or cdev artifact operations. Internal
+  explicit product `host_kind` and no longer exposes internal `local qualification environment-cloud` /
+  `local qualification environment-cloud` identities, claim fencing, or cdev artifact operations. Internal
   CloudDevSlot tooling belongs to `synth-dev`.
 
 ## 0.15.0 — 2026-07-13

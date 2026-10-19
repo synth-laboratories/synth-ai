@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -11,6 +11,8 @@ from synth_ai.core.http.response import decode_response
 from synth_ai.errors import ConflictError, RequestTimeoutError, SynthError
 from synth_ai.types.base import ClientTiming, ResponseModel
 
+pytestmark = pytest.mark.unit
+
 CONTRACT = CREATE_PROJECT.contract
 REQUEST_ID = "455b3858ede542e894a4dfdeb3107119"
 
@@ -18,7 +20,11 @@ REQUEST_ID = "455b3858ede542e894a4dfdeb3107119"
 def _error(status: int, code: str, headers: dict[str, str] | None = None) -> SynthError:
     response = httpx.Response(
         status,
-        headers={"X-Synth-Contract": CONTRACT, "Content-Type": "application/json", **(headers or {})},
+        headers={
+            "X-Synth-Contract": CONTRACT,
+            "Content-Type": "application/json",
+            **(headers or {}),
+        },
         json={"error": {"code": code, "request_id": REQUEST_ID}},
     )
     with pytest.raises(SynthError) as caught:
@@ -59,7 +65,7 @@ def test_409_closure_headers_set_typed_fields():
     )
     assert isinstance(error, ConflictError)
     assert error.closure_pending == "deadline"
-    assert error.closure_expected_by == datetime(2026, 10, 17, 12, tzinfo=timezone.utc)
+    assert error.closure_expected_by == datetime(2026, 10, 17, 12, tzinfo=UTC)
     assert "closure_pending=deadline closure_expected_by=2026-10-17T12:00:00+00:00" in str(error)
 
 

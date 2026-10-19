@@ -6,6 +6,8 @@ import asyncio
 
 import pytest
 
+pytestmark = pytest.mark.mcp
+
 pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
 from mcp.types import CallToolRequest, CallToolRequestParams  # noqa: E402

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-
 from synth_ai.errors import ContractError
 from synth_ai.sdk.core.commit_digest import (
     CommitDigestMismatch,
@@ -15,6 +14,8 @@ from synth_ai.sdk.core.commit_digest import (
 )
 from synth_ai.types import Link, Producer, Ref, Relation
 from synth_ai.types.refs import LinkInvalid, RefInvalid
+
+pytestmark = pytest.mark.contract
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

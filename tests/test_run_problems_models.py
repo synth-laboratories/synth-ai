@@ -1,7 +1,7 @@
 """`run.status().problems` and `run.status().failure.reason_chain` (synth.problems.v1).
 
-The payloads are the customer wire the backend renders from the real slot6
-owner-wire fixtures (tests/fixtures/orchestra_problems_slot6.json).
+The payloads are the customer wire the backend renders from the recorded
+owner-wire fixtures (tests/fixtures/orchestra_problems_owner_wire.json).
 """
 
 import json
@@ -14,8 +14,10 @@ from synth_ai.errors import OperationFailedError
 from synth_ai.sdk.swarms import Problem, ReasonLink, RunSnapshot
 from synth_ai.sdk.swarms.types.runs import RunFailure, SwarmResult
 
+pytestmark = pytest.mark.unit
+
 FIXTURE = json.loads(
-    (Path(__file__).parent / "fixtures" / "orchestra_problems_slot6.json").read_text()
+    (Path(__file__).parent / "fixtures" / "orchestra_problems_owner_wire.json").read_text()
 )
 AT = datetime(2026, 10, 16, 15, 0, tzinfo=UTC)
 METADATA = {

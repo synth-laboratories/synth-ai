@@ -1,6 +1,6 @@
 """Exact provenance identities retained by Index; references never grant access.
 
-See: backend/notes/specifications/sdk/surface.md. Moved from the preserved
+See: the public contract snapshots in contracts/ Moved from the preserved
 Research Forge contracts without changing their wire constraints.
 """
 

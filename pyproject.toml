@@ -72,7 +72,6 @@ extend-exclude = [
     "dev",
     "docs",
     "scripts",
-    "tests",
     "private_tests",
     "old",
     "tauri",
@@ -101,6 +100,7 @@ ignore = [
 
 [dependency-groups]
 dev = [
+    "pytest==9.1.1",
     "build>=1.2.2.post1",
     "twine>=4.0.0",
     "jsonschema>=4.18,<5",
@@ -108,4 +108,14 @@ dev = [
     "ty==0.0.86",
     "httpx>=0.28.1,<1",
     "mdxify>=0.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -p no:cacheprovider"
+markers = [
+    "unit: pure model and decoder tests",
+    "contract: contract fingerprints and wire fixtures",
+    "mcp: hosted MCP tool contracts (requires the mcp extra)",
+    "release: packaging and release attestation checks",
 ]

@@ -1,4 +1,4 @@
-"""Shared paid-from evidence. See notes/specifications/sdk/index_contract.md."""
+"""Shared paid-from evidence. See the public contract snapshots in contracts/"""
 
 from __future__ import annotations
 

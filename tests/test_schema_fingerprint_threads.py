@@ -6,17 +6,18 @@ import threading
 import time
 
 import pytest
-
 from synth_ai.contracts.fingerprint import SchemaFingerprints, schema_sha256
+from synth_ai.contracts.operations import ALL_OPERATIONS
 from synth_ai.core.capabilities import require_operation
 from synth_ai.errors import ContractError
-from synth_ai.contracts.operations import ALL_OPERATIONS
 from synth_ai.types.capabilities import (
     Capabilities,
     ContractIdentity,
     ContractName,
     OperationCapability,
 )
+
+pytestmark = pytest.mark.contract
 
 
 class RacyExporter:

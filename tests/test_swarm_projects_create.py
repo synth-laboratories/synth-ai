@@ -12,6 +12,8 @@ from synth_ai.mcp.contracts import ProjectCreate
 from synth_ai.sdk.swarms.client import AsyncProjects, Projects
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest, ProjectTemplate
 
+pytestmark = pytest.mark.unit
+
 CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
 
 
@@ -26,10 +28,10 @@ def test_request_is_closed_and_bounded():
     ok = ProjectCreateRequest(name="n", template=ProjectTemplate.REPORT_NATIVE, objective="o")
     assert ok.template.value == "report_native"
     for bad in (
-        dict(name="", template=ProjectTemplate.REPORT_NATIVE, objective="o"),
-        dict(name="n", template=ProjectTemplate.REPORT_NATIVE, objective="  "),
-        dict(name="n", template=ProjectTemplate.REPORT_NATIVE, objective="x" * 8193),
-        dict(name="n", template=ProjectTemplate.REPORT_NATIVE, objective="o", extra=1),
+        {"name": "", "template": ProjectTemplate.REPORT_NATIVE, "objective": "o"},
+        {"name": "n", "template": ProjectTemplate.REPORT_NATIVE, "objective": "  "},
+        {"name": "n", "template": ProjectTemplate.REPORT_NATIVE, "objective": "x" * 8193},
+        {"name": "n", "template": ProjectTemplate.REPORT_NATIVE, "objective": "o", "extra": 1},
     ):
         with pytest.raises(ValidationError):
             ProjectCreateRequest(**bad)

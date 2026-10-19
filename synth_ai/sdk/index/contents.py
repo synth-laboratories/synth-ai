@@ -31,7 +31,7 @@ class Contents:
     ) -> ContentResponse:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             self._operation,
             ContentResponse,
@@ -51,7 +51,7 @@ class AsyncContents:
     ) -> ContentResponse:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             self._operation,
             ContentResponse,

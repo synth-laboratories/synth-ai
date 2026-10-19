@@ -189,7 +189,7 @@ class EventStream(Iterator[E]):
     def close(self) -> None:
         """End local observation without cancelling durable remote work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         with self._read_lock:
             own_reader = self._reader_thread == threading.get_ident()
             closing = not self._closed
@@ -380,7 +380,7 @@ class AsyncEventStream(AsyncIterator[E]):
     async def aclose(self) -> None:
         """End async local ownership without cancelling durable work or closing borrowed clients.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         if self._closing_task is not None and asyncio.current_task() is self._reading_task:
             return
         if self._closing_task is None:

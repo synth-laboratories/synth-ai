@@ -19,7 +19,7 @@ class Collections:
     def get(self, collection_id: str, *, request: ReadOptions | None = None) -> Collection:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         collection_id = identifier(collection_id)
         result = self._transport.request(
             operations.COLLECTION,
@@ -39,7 +39,7 @@ class Collections:
     ) -> Page[Collection]:
         """Read one bounded authorized page; no implicit all-pages traversal.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.COLLECTIONS,
             Page[Collection],
@@ -62,7 +62,7 @@ class AsyncCollections:
     async def get(self, collection_id: str, *, request: ReadOptions | None = None) -> Collection:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         collection_id = identifier(collection_id)
         result = await self._transport.request(
             operations.COLLECTION,
@@ -82,7 +82,7 @@ class AsyncCollections:
     ) -> Page[Collection]:
         """Read one bounded authorized page; no implicit all-pages traversal.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.COLLECTIONS,
             Page[Collection],

@@ -2,7 +2,10 @@
 
 import json
 
+import pytest
 from synth_ai.mcp.catalog import TOOLS
+
+pytestmark = pytest.mark.mcp
 
 
 def test_all_tool_definitions_are_json_contracts():

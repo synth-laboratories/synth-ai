@@ -1,4 +1,4 @@
-"""Closed customer contracts. See backend/notes/specifications/sdk/index_contract.md."""
+"""Closed customer contracts. See the public contract snapshots in contracts/"""
 
 from __future__ import annotations
 

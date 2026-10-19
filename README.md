@@ -55,12 +55,12 @@ event-count bounds remain independent of explicit remote cancellation.
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility
 aliases, old CLI or split MCP are shipped.
 
-- [Implementation and contract choices](SDK_0230_IMPLEMENTATION.md)
-- [Backend delta map](SDK_0230_DESIGN.md)
-- [Testing expectations](SDK_0230_TESTING.md)
-- [Unified MCP implementation and auth integration](SDK_0230_MCP.md)
+- [Public documentation](https://docs.usesynth.ai)
+- [Public documentation](https://docs.usesynth.ai)
+- [Public documentation](https://docs.usesynth.ai)
+- [Public documentation](https://docs.usesynth.ai)
 
-Tests live in the dedicated testing repository and install the selected wheel
+Offline tests are included in this repository and install the selected wheel
 in an owned isolated environment. SDK unit/contract passes are not backend or
 end-to-end qualification. No backend services/data/deployment are changed here.
 

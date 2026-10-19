@@ -69,7 +69,7 @@ def validate_retention_observation(
 ) -> None:
     """Check archive lifetime against the server observation, never the client clock.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     if retention is None:
         return
     if retention.archived_at is not None and retention.archived_at > observed_at:

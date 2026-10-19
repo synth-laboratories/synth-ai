@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from synth_ai.contracts.fingerprint import schema_sha256
 
+pytestmark = pytest.mark.contract
 # SYN-4612 added KeyedSearchOptions.deadline_seconds (DEEP, 1..600); the prior value
 # was 96d2a1d7... SYN-4571 changed the index.v1 export (retention modes, retention routes, tolerant
 # retention block); the previous value was 4b39082e... The backend must regenerate

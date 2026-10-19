@@ -348,7 +348,7 @@ def validate_negotiated_response(
 ) -> None:
     """Require a successful response from the same schema/capability/release.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     if negotiated is None or response.status_code not in {200, 206}:
         return
     pairs = (

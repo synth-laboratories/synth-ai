@@ -1,0 +1,63 @@
+name: SDK checks
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install uv
+        run: python -m pip install uv==0.11.33
+      - run: uv sync --locked --group dev --extra mcp
+      - run: uv run --no-sync pytest -q
+        timeout-minutes: 2
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv==0.11.33
+      - run: uv sync --locked --group dev --extra mcp
+      - run: uv run --no-sync ruff check synth_ai tests
+      - run: uv run --no-sync ruff format --check synth_ai tests
+      - run: uv run --no-sync ty check --python .venv synth_ai
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv==0.11.33
+      - run: uv sync --locked --group dev --extra mcp
+      - run: uv run --no-sync python -m build
+      - run: uv run --no-sync twine check dist/*
+      - name: Verify wheel and source distribution installs
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv venv wheel-check --python 3.12
+          uv pip install --python wheel-check/bin/python dist/*.whl
+          wheel-check/bin/python -I -c 'import synth_ai; print(synth_ai.__version__)'
+          uv venv source-check --python 3.12
+          uv pip install --python source-check/bin/python dist/*.tar.gz
+          source-check/bin/python -I -c 'import synth_ai; print(synth_ai.__version__)'
+      - name: Verify wheel package boundaries
+        run: uv run --no-sync pytest -q tests/test_wheel_contents.py
+        timeout-minutes: 2

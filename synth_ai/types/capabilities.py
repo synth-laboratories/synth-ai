@@ -98,7 +98,7 @@ class CapabilitySnapshot(Model):
 def snapshot_sha256(snapshot: CapabilitySnapshot) -> str:
     """Fingerprint canonical nonsecret capability facts, excluding request timing.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     value = JSON_OBJECT.validate_json(snapshot.model_dump_json())
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
