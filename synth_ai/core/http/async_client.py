@@ -72,7 +72,9 @@ class AsyncHttpTransport:
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
         self._owned = options.async_http_client is None
         self.client = options.async_http_client or httpx.AsyncClient(
-            trust_env=False, limits=httpx.Limits(max_connections=options.maximum_connections)
+            trust_env=True,
+            auth=None,
+            limits=httpx.Limits(max_connections=options.maximum_connections),
         )
         self._closed = False
         self._streams: set[AsyncCloseable] = set()

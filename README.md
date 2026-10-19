@@ -44,11 +44,17 @@ Synchronous clients own a cancellable HTTP pool by default. Set
 `ClientOptions(http_client=...)` to borrow an `httpx.Client`, or
 `ClientOptions(async_http_client=...)` to borrow an `httpx.AsyncClient`.
 Closing the SDK leaves a borrowed client open.
+Owned network pools honor HTTP(S)/ALL_PROXY, NO_PROXY and SSL_CERT_FILE/DIR.
+SDK requests disable HTTPX client authentication and never load netrc credentials.
+File-based CLI login requires POSIX ownership and file permissions; API-key
+clients remain available on other platforms.
 Local observer timeouts and close never cancel durable remote work.
 
 For explicit HTTPX use, `synth_ai.transports.DeadlineHTTPTransport` supplies the
 same owned, cancellable network implementation. Set a finite HTTPX read timeout;
-it bounds the whole exchange, including headers and body. Close the HTTPX client
+it bounds the whole exchange, including headers and body. Set `trust_env=False`
+on the outer HTTPX client; the transport's pool handles proxies and CA settings.
+Close the HTTPX client
 to release its pool and join its network thread. Arbitrary non-cooperative
 synchronous transports cannot be preempted; injected clients retain their own
 transport and timeout behavior. Observer total, idle, reconnect and

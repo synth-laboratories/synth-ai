@@ -496,7 +496,7 @@ def stored_access_token(
     with (
         nullcontext(http)
         if http is not None
-        else httpx.Client(timeout=15, follow_redirects=False, trust_env=False)
+        else httpx.Client(timeout=15, follow_redirects=False, trust_env=True, auth=None)
     ) as connection:
         updated = OAuthClient(config, connection).refresh(credential)
     updated = replace(updated, api_origin=credential.api_origin)

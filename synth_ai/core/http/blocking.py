@@ -247,7 +247,8 @@ class DeadlineTransport(httpx.BaseTransport):
 
     def _create_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
-            trust_env=False,
+            trust_env=True,
+            auth=None,
             limits=httpx.Limits(max_connections=self._maximum_connections),
         )
 
