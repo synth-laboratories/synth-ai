@@ -87,11 +87,22 @@ class Exchanges:
         return self.responses[min(len(self.requests) - 1, len(self.responses) - 1)]
 
 
-async def invoke(async_mode, handler, *, mutation=False, client_options=None, configure=None):
+async def invoke(
+    async_mode,
+    handler,
+    *,
+    mutation=False,
+    client_options=None,
+    configure=None,
+    read_options=None,
+    network_headers=None,
+):
     """Exercise the public facade and verify borrowed network-client lifetime."""
     selected = {"read_retry_count": 2, "retry_base_delay_seconds": 0, **(client_options or {})}
     if async_mode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as network:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), headers=network_headers
+        ) as network:
             client = AsyncSynthClient(
                 api_key="fixture",
                 base_url="https://backend.test",
@@ -104,11 +115,11 @@ async def invoke(async_mode, handler, *, mutation=False, client_options=None, co
                     return await client.index.search(
                         "query", options=options(), mutation=MutationOptions(idempotency_key="key")
                     )
-                return await client.index.searches.list(limit=1)
+                return await client.index.searches.list(limit=1, request=read_options)
             finally:
                 await client.aclose()
                 assert not network.is_closed
-    with httpx.Client(transport=httpx.MockTransport(handler)) as network:
+    with httpx.Client(transport=httpx.MockTransport(handler), headers=network_headers) as network:
         client = SynthClient(
             api_key="fixture",
             base_url="https://backend.test",
@@ -121,7 +132,7 @@ async def invoke(async_mode, handler, *, mutation=False, client_options=None, co
                 return client.index.search(
                     "query", options=options(), mutation=MutationOptions(idempotency_key="key")
                 )
-            return client.index.searches.list(limit=1)
+            return client.index.searches.list(limit=1, request=read_options)
         finally:
             client.close()
             assert not network.is_closed

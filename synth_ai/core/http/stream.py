@@ -13,11 +13,12 @@ from dataclasses import dataclass
 import httpx
 from pydantic import BaseModel
 
-from synth_ai.errors import ContractError, MutationCancelledError, OutcomeUncertainError
+from synth_ai.errors import ContractError, MutationCancelledError, OutcomeUncertainError, SynthError
 from synth_ai.options import MutationOptions
 from synth_ai.types.base import ClientTiming
 
 from .cleanup import handle_cleanup_failure
+from .identity import annotate_request_error, request_options
 from .request import build_request, encode_body, mutation_identity
 from .response import (
     annotate_response_error,
@@ -82,7 +83,7 @@ class FrameDecoder:
 def _prepare(owner, operation, path, body, options):
     if not operation.keyed or not operation.mutation or operation.method != "POST":
         raise ValueError("Event delivery requires an authenticated POST mutation")
-    options = options or MutationOptions()
+    options = request_options(operation, options or MutationOptions())
     payload = encode_body(body)
     identity = mutation_identity(operation, path, payload, options)
     timeout = options.timeout_seconds or owner._options.request_timeout(operation.id)
@@ -147,6 +148,7 @@ def _definite_error(response, content, identity, operation, negotiated):
         True,
         operation.contract,
         negotiated=negotiated,
+        operation=operation.id,
     )
     raise OutcomeUncertainError("Event mutation outcome is unknown", identity=identity)
 
@@ -243,9 +245,12 @@ class MutationEventStream:
             primary = OutcomeUncertainError(
                 "Strict event transport failed; recover metadata only", identity=self.identity
             )
+            annotate_request_error(primary, self.operation, self.options)
             raise primary from error
         except BaseException as error:
             primary = error
+            if isinstance(error, SynthError):
+                annotate_request_error(error, self.operation, self.options)
             raise
         finally:
             try:
@@ -368,9 +373,12 @@ class AsyncMutationEventStream:
             primary = OutcomeUncertainError(
                 "Strict event transport failed; recover metadata only", identity=self.identity
             )
+            annotate_request_error(primary, self.operation, self.options)
             raise primary from error
         except BaseException as error:
             primary = error
+            if isinstance(error, SynthError):
+                annotate_request_error(error, self.operation, self.options)
             raise
         finally:
             try:

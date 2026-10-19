@@ -66,11 +66,19 @@ def failure(error: ToolFailure, *, scope_challenge: str | None = None) -> CallTo
 
 
 def error_code(error: SynthError) -> str:
-    if (
-        not isinstance(error, OutcomeUncertainError)
-        and (error.status, error.code) in POLICY_ERROR_TYPES
-    ):
-        return str(error.code)
+    # Uncertainty is a custody disposition, including when the upstream attached
+    # a policy code. Preserve that existing consumer signal.
+    if isinstance(error, OutcomeUncertainError):
+        return "outcome_uncertain"
+    if error.code is not None:
+        try:
+            return TypeAdapter(Identifier).validate_python(error.code)
+        except ValidationError:
+            pass  # An untrusted code cannot replace the coarse typed category.
+    return error_category(error)
+
+
+def error_category(error: SynthError) -> str:
     for kind, name in (
         (UnsupportedOperationError, "operation_unavailable"),
         (AuthenticationError, "authentication_required"),
@@ -276,7 +284,11 @@ def create_server(
                     code="outcome_uncertain"
                     if dispatched and spec.mutates and isinstance(error, ContractError)
                     else error_code(error),
-                    message="Operation did not complete; inspect the typed code before retrying",
+                    category=error_category(error),
+                    message=str(error)[:512],
+                    status=error.status,
+                    retryable=error.retryable,
+                    operation=error.operation,
                     request_id=error.request_id,
                     identity=error.identity or retained_identity(arguments),
                     retry_after_seconds=error.retry_after_seconds,

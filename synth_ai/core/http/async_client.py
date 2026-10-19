@@ -31,6 +31,7 @@ from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 from .backoff import delay_seconds, retry_after_seconds, retry_failure
 from .cleanup import handle_cleanup_failure
 from .credentials import CredentialProvider
+from .identity import annotate_request_error, request_options
 from .lifetime import AsyncCloseable, await_cleanup
 from .request import build_request, encode_body, mutation_identity
 from .response import (
@@ -153,9 +154,9 @@ class AsyncHttpTransport:
 
     def _register_stream(self, stream: AsyncCloseable) -> None:
         if self._closed:
-            raise RuntimeError("SDK client is closed")
+            raise ContractError("SDK client is closed", code="client_closed")
         if len(self._streams) >= self._options.maximum_connections:
-            raise RuntimeError("SDK active stream limit reached")
+            raise ContractError("SDK active stream limit reached", code="stream_limit")
         self._streams.add(stream)
 
     def _unregister_stream(self, stream: AsyncCloseable) -> None:
@@ -242,9 +243,48 @@ class AsyncHttpTransport:
         remaining_seconds: float,
         digest: str,
     ) -> httpx.Response:
+        selected = request_options(
+            operation,
+            ReadOptions(
+                timeout_seconds=remaining_seconds,
+                read_retry_count=0,
+            ),
+        )
+        try:
+            return await self._open_stream_request(
+                operation,
+                path=path,
+                query=query,
+                remaining_seconds=remaining_seconds,
+                digest=digest,
+                options=selected,
+            )
+        except SynthError as error:
+            annotate_request_error(error, operation, selected)
+            raise
+        except (httpx.TransportError, TimeoutError) as cause:
+            kind = (
+                RequestTimeoutError
+                if isinstance(cause, (httpx.TimeoutException, TimeoutError))
+                else TransportError
+            )
+            error = kind("Byte-stream exchange failed")
+            annotate_request_error(error, operation, selected)
+            raise error from cause
+
+    async def _open_stream_request(
+        self,
+        operation: Operation,
+        *,
+        path: str,
+        query: Mapping[str, str | int],
+        remaining_seconds: float,
+        digest: str,
+        options: ReadOptions,
+    ) -> httpx.Response:
         """Open one SDK-owned read response, without retries or redirects."""
         if self._closed:
-            raise RuntimeError("SDK client is closed")
+            raise ContractError("SDK client is closed", code="client_closed")
         if operation.mutation or operation.method != "GET":
             raise ValueError("byte streams require an observational GET operation")
         deadline = time.monotonic() + remaining_seconds
@@ -261,7 +301,7 @@ class AsyncHttpTransport:
             path,
             b"",
             query,
-            ReadOptions(timeout_seconds=remaining_seconds, read_retry_count=0),
+            options,
             None,
             remaining_seconds,
             self._options.connect_timeout_seconds,
@@ -306,8 +346,34 @@ class AsyncHttpTransport:
         options: ReadOptions | None = None,
         validate: Callable[[T], T] | None = None,
     ) -> T:
+        selected = request_options(operation, options)
+        try:
+            return await self._request(
+                operation,
+                model,
+                body=body,
+                path=path,
+                query=query,
+                options=selected,
+                validate=validate,
+            )
+        except SynthError as error:
+            annotate_request_error(error, operation, selected)
+            raise
+
+    async def _request(
+        self,
+        operation: Operation,
+        model: type[T],
+        *,
+        body: BaseModel | None = None,
+        path: str | None = None,
+        query: Mapping[str, str | int] | None = None,
+        options: ReadOptions | None = None,
+        validate: Callable[[T], T] | None = None,
+    ) -> T:
         if self._closed:
-            raise RuntimeError("SDK client is closed")
+            raise ContractError("SDK client is closed", code="client_closed")
         if options is not None and options.response_metadata is not None:
             options.response_metadata.rate_limits = ()
         payload = encode_body(body)
@@ -344,6 +410,7 @@ class AsyncHttpTransport:
                 remaining,
                 self._options.connect_timeout_seconds,
                 negotiated=negotiated,
+                attempt=attempt,
             )
             response: httpx.Response | None = None
             try:
@@ -429,6 +496,7 @@ class AsyncHttpTransport:
                     operation.mutation,
                     operation.contract,
                     negotiated=negotiated,
+                    operation=operation.id,
                 )
                 if operation.id == CAPABILITIES.id and isinstance(decoded, Capabilities):
                     validate_release(

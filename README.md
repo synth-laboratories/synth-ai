@@ -63,6 +63,13 @@ Hints above one day are returned to the caller without sleeping. The deprecated
 `retry_delay_seconds` alias remains accepted for one release. Mutations are
 never automatically retried.
 
+Every call sends a generated `X-Request-Id`, reused across read retries, and an
+`X-Synth-Attempt` counter. Set `ReadOptions.request_id` to supply your own ID.
+Typed errors expose `operation`, `request_id` (the server ID when present), and
+`client_request_id`; `str(error)` and `repr(error)` include safe diagnostic
+fields. The default user agent identifies the SDK and Python versions; an
+explicit user agent on a borrowed HTTPX client takes precedence.
+
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility
 aliases, old CLI or split MCP are shipped.
 
