@@ -27,6 +27,7 @@ from synth_ai.errors import (
     RetentionModeNotAllowed,
     SearchContentPurged,
     SynthError,
+    TransportError,
     UnsupportedOperationError,
 )
 from synth_ai.types.base import ClientTiming, Identifier, Model, ResponseModel
@@ -181,17 +182,23 @@ def decode_response(
             negotiated=negotiated,
         )
     except SynthError as error:
-        error.rate_limits = parse_rate_limits(response.headers)
-        detail = parse_refusal_detail(response.headers)
-        error.stage = detail.stage
-        error.cause = detail.cause
-        error.closure_pending = detail.closure_pending
-        error.closure_expected_by = detail.closure_expected_by
-        if error.retry_after_seconds is None:
-            delay = retry_delay(response, float("nan"))
-            if math.isfinite(delay):
-                error.retry_after_seconds = delay
+        annotate_response_error(response, error)
         raise
+
+
+def annotate_response_error(response: httpx.Response, error: SynthError) -> SynthError:
+    """Attach only bounded, allowlisted capacity and refusal metadata."""
+    error.rate_limits = parse_rate_limits(response.headers)
+    detail = parse_refusal_detail(response.headers)
+    error.stage = detail.stage or error.stage
+    error.cause = detail.cause or error.cause
+    error.closure_pending = detail.closure_pending
+    error.closure_expected_by = detail.closure_expected_by
+    if error.retry_after_seconds is None:
+        delay = retry_delay(response, float("nan"))
+        if math.isfinite(delay):
+            error.retry_after_seconds = delay
+    return error
 
 
 def _decode_response(
@@ -210,16 +217,17 @@ def _decode_response(
         from .tunnel_control import decode_control_response
 
         return decode_control_response(response, body, model, identity, mutation)
-    if response.headers.get("X-Synth-Contract") != contract:
-        if mutation:
-            raise OutcomeUncertainError(
-                "Mutation response has an incompatible contract; reconcile its identity",
-                identity=identity,
-                status=response.status_code,
-            )
-        raise ContractError(
-            "Backend did not negotiate the selected contract", status=response.status_code
-        )
+    exchange = classify_exchange(
+        response,
+        body,
+        contract=contract,
+        mutation=mutation,
+        identity=identity,
+        attempt=1,
+        attempts=1,
+    )
+    if exchange.error is not None:
+        raise exchange.error
     if (
         response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         != "application/json"
@@ -327,6 +335,104 @@ def _decode_response(
     return result.model_copy(
         update={"metadata": result.metadata.model_copy(update={"client_timing": timing})}
     )
+
+
+@dataclass(frozen=True, slots=True)
+class Exchange:
+    kind: Literal["decode", "retry", "fail"]
+    delay: float = 0.0
+    error: SynthError | None = None
+
+
+TRANSIENT_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+
+
+def classify_exchange(
+    response: httpx.Response,
+    body: bytes | None,
+    *,
+    contract: str,
+    mutation: bool,
+    identity: MutationIdentity | None,
+    attempt: int,
+    attempts: int,
+    operation: str | None = None,
+    fallback_delay: float = 0.1,
+) -> Exchange:
+    """Classify infrastructure before contract skew; never retry a mutation.
+
+    A headerless 500 is transient for reads; a negotiated, typed 500 keeps its
+    existing final decoder behavior. Matching typed 408/429/502/503/504 reads
+    retain bounded retry. A missing header on 2xx remains contract skew.
+    ``body=None`` permits rejecting infrastructure without reading untrusted
+    compressed content; a matching identity response needs its bounded body.
+    Tunnel control keeps its separately versioned decoder.
+    """
+    if contract == "tunnels.v2":
+        return Exchange("decode")
+    negotiated = response.headers.get("X-Synth-Contract") == contract
+    if response.status_code in TRANSIENT_STATUSES:
+        typed = False
+        bounded_encoding = (
+            response.headers.get("Content-Encoding", "identity").lower() == "identity"
+        )
+        if negotiated and bounded_encoding and body is None:
+            return Exchange("decode")
+        if (
+            negotiated
+            and bounded_encoding
+            and response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            == "application/json"
+        ):
+            try:
+                ErrorResponse.model_validate_json(body or b"")
+                typed = True
+            except ValidationError:
+                pass  # The infrastructure disposition below retains this failure.
+        if not typed:
+            if mutation:
+                return Exchange(
+                    "fail",
+                    error=OutcomeUncertainError(
+                        "Upstream infrastructure response; reconcile the mutation identity",
+                        reason="infrastructure_status",
+                        identity=identity,
+                        status=response.status_code,
+                        stage="infrastructure",
+                    ),
+                )
+            if attempt < attempts:
+                return Exchange("retry", retry_delay(response, fallback_delay))
+            return Exchange(
+                "fail",
+                error=TransportError(
+                    f"{operation or contract}: upstream returned HTTP {response.status_code} without a valid Synth contract (proxy, CDN or deploy in progress)",
+                    status=response.status_code,
+                    retryable=True,
+                    stage="infrastructure",
+                ),
+            )
+        if not mutation and response.status_code != 500 and attempt < attempts:
+            return Exchange("retry", retry_delay(response, fallback_delay))
+    if not negotiated:
+        if mutation:
+            return Exchange(
+                "fail",
+                error=OutcomeUncertainError(
+                    "Mutation response has an incompatible contract; reconcile its identity",
+                    reason="contract_header_missing",
+                    identity=identity,
+                    status=response.status_code,
+                ),
+            )
+        return Exchange(
+            "fail",
+            error=ContractError(
+                "Backend did not negotiate the selected contract; upgrade synth-ai if this persists",
+                status=response.status_code,
+            ),
+        )
+    return Exchange("decode")
 
 
 def retry_delay(response: httpx.Response, fallback: float) -> float:

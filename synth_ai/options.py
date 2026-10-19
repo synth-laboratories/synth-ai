@@ -26,6 +26,7 @@ class ClientOptions:
     read_retry_count: int = 2
     retry_delay_seconds: float = 0.1
     upload_hosts: tuple[str, ...] = ()
+    http_client: httpx.Client | None = None
     async_http_client: httpx.AsyncClient | None = None
     # Reviewed Index egress includes Monitor review; other reads stay at 30s.
     index_result_timeout_seconds: float | None = None
@@ -42,6 +43,12 @@ class ClientOptions:
         return 75.0 if self.timeout_seconds == 30.0 else self.timeout_seconds
 
     def __post_init__(self) -> None:
+        if self.http_client is not None and not isinstance(self.http_client, httpx.Client):
+            raise ValueError("http_client must be an httpx.Client")
+        if self.async_http_client is not None and not isinstance(
+            self.async_http_client, httpx.AsyncClient
+        ):
+            raise ValueError("async_http_client must be an httpx.AsyncClient")
         if type(self.local_development_retention) is not bool:
             raise ValueError("local_development_retention must be a boolean")
         if self.release_manifest_sha256 is not None:

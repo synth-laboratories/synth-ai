@@ -5,7 +5,6 @@ import json
 
 import httpx
 import pytest
-
 from synth_ai.contracts.operations import DELIVER_SEARCH_EVENTS
 from synth_ai.core.http.stream import FrameDecoder
 from synth_ai.errors import ContractError, OutcomeUncertainError, PermissionDeniedError
@@ -33,23 +32,27 @@ def intent():
 
 
 def wire(*, terminal=True, defect=None):
-    progress = dict(
-        search_id=SEARCH,
-        event_id=SEARCH + ".2",
-        sequence=2,
-        kind="progress",
-        stage="working",
-        search_calls=1,
-        read_calls=0,
-        input_tokens=5,
-        output_tokens=2,
-    )
+    progress = {
+        "search_id": SEARCH,
+        "event_id": SEARCH + ".2",
+        "sequence": 2,
+        "kind": "progress",
+        "stage": "working",
+        "search_calls": 1,
+        "read_calls": 0,
+        "input_tokens": 5,
+        "output_tokens": 2,
+    }
     result = result_body(dict(LEGACY_ZDR, mode="zdr_strict"))
     result["mode"] = "deep"
-    event = dict(
-        event_id=SEARCH + ".5", search_id=SEARCH, sequence=5, kind="completed", result=result
-    )
-    page = dict(metadata=METADATA, items=[event], complete=True, next_cursor=None)
+    event = {
+        "event_id": SEARCH + ".5",
+        "search_id": SEARCH,
+        "sequence": 5,
+        "kind": "completed",
+        "result": result,
+    }
+    page = {"metadata": METADATA, "items": [event], "complete": True, "next_cursor": None}
     if defect == "search":
         event["search_id"] = "foreign"
     if defect == "sequence":
@@ -126,13 +129,15 @@ def test_lost_or_malformed_stream_never_reconnects_or_regenerates(defect):
     from synth_ai.sdk.index.search_run import SearchRun
 
     run = SearchRun(client._transport, SEARCH, expected_retention="zdr_strict")
-    with pytest.raises((OutcomeUncertainError, ContractError)) as error:
-        with run.deliver_events(
+    with (
+        pytest.raises((OutcomeUncertainError, ContractError)) as error,
+        run.deliver_events(
             original_request=intent().request,
             creation_key="original",
             mutation=MutationOptions(idempotency_key="delivery"),
-        ) as events:
-            list(events)
+        ) as events,
+    ):
+        list(events)
     assert error.value.identity.key == "delivery"
     assert len(recorder.requests) == 1
     assert not client._transport._responses and not client._transport._streams
@@ -148,11 +153,13 @@ def test_definite_pre_stream_refusal_preserves_typed_error():
         )
     )
     client = sync_client(recorder)
-    with pytest.raises(PermissionDeniedError):
-        with client._transport.mutation_events(
+    with (
+        pytest.raises(PermissionDeniedError),
+        client._transport.mutation_events(
             DELIVER_SEARCH_EVENTS, path=f"/index/searches/{SEARCH}/events", body=intent()
-        ) as events:
-            list(events)
+        ) as events,
+    ):
+        list(events)
     assert len(recorder.requests) == 1
     client._transport.close()
 
@@ -178,14 +185,16 @@ def test_deployment_pin_change_keeps_exact_delivery_identity_and_no_retry():
         schema_sha256="a" * 64, capability_sha256="b" * 64, release_manifest_sha256="c" * 64
     )
     client._transport._negotiate = lambda *args: pins
-    with pytest.raises(OutcomeUncertainError) as error:
-        with client._transport.mutation_events(
+    with (
+        pytest.raises(OutcomeUncertainError) as error,
+        client._transport.mutation_events(
             DELIVER_SEARCH_EVENTS,
             path=f"/index/searches/{SEARCH}/events",
             body=intent(),
             options=MutationOptions(idempotency_key="delivery"),
-        ) as events:
-            list(events)
+        ) as events,
+    ):
+        list(events)
     assert error.value.identity.key == "delivery" and len(recorder.requests) == 1
     assert not client._transport._responses
     client._transport.close()
@@ -207,14 +216,16 @@ def test_cleanup_failure_preserves_primary_typed_refusal_and_recovery_identity()
         raise OSError("fixture cleanup failure")
 
     client._transport._release_response = release
-    with pytest.raises(PermissionDeniedError) as error:
-        with client._transport.mutation_events(
+    with (
+        pytest.raises(PermissionDeniedError) as error,
+        client._transport.mutation_events(
             DELIVER_SEARCH_EVENTS,
             path=f"/index/searches/{SEARCH}/events",
             body=intent(),
             options=MutationOptions(idempotency_key="delivery"),
-        ) as events:
-            list(events)
+        ) as events,
+    ):
+        list(events)
     assert "HTTP response cleanup also failed" in error.value.__notes__
     assert not client._transport._responses
     client._transport.close()

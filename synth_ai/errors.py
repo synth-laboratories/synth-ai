@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Mapping
 from datetime import datetime
 from types import MappingProxyType
+from typing import Literal
 
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
@@ -27,7 +28,16 @@ class SynthError(Exception):
         cause: str | None = None,
         closure_pending: str | None = None,
         closure_expected_by: datetime | None = None,
+        reason: Literal[
+            "request_not_sent",
+            "response_lost",
+            "response_invalid",
+            "infrastructure_status",
+            "contract_header_missing",
+        ]
+        | None = None,
     ) -> None:
+        self.reason = reason
         self.retryable = retryable
         self.stage = stage
         self.cause = cause

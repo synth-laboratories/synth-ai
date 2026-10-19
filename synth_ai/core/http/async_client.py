@@ -31,7 +31,12 @@ from .cleanup import handle_cleanup_failure
 from .credentials import CredentialProvider
 from .lifetime import AsyncCloseable, await_cleanup
 from .request import build_request, encode_body, mutation_identity
-from .response import decode_response, retry_delay, validate_negotiated_response
+from .response import (
+    annotate_response_error,
+    classify_exchange,
+    decode_response,
+    validate_negotiated_response,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -340,29 +345,53 @@ class AsyncHttpTransport:
                     response = await self._send_response(request)
                     if options is not None and options.response_metadata is not None:
                         options.response_metadata.capture(response.headers)
-                    if response.headers.get("Content-Encoding", "identity").lower() != "identity":
-                        raise ContractError(
-                            "Compressed responses are outside the bounded wire contract"
-                        )
+                    exchange = classify_exchange(
+                        response,
+                        None,
+                        contract=operation.contract,
+                        mutation=operation.mutation,
+                        identity=identity,
+                        attempt=attempt,
+                        attempts=attempts,
+                        operation=operation.id,
+                        fallback_delay=self._options.retry_delay_seconds,
+                    )
                     content = bytearray()
                     first_byte: float | None = None
-                    async for chunk in response.aiter_bytes():
-                        if self._closed:
-                            raise ContractError("SDK client closed during response")
-                        if first_byte is None:
-                            first_byte = time.monotonic()
-                        if len(content) + len(chunk) > self._options.maximum_response_bytes:
-                            raise ContractError("Response exceeded the configured byte bound")
-                        content.extend(chunk)
+                    if exchange.kind == "decode":
+                        if (
+                            response.headers.get("Content-Encoding", "identity").lower()
+                            != "identity"
+                        ):
+                            raise ContractError(
+                                "Compressed responses are outside the bounded wire contract"
+                            )
+                        async for chunk in response.aiter_bytes():
+                            if self._closed:
+                                raise ContractError("SDK client closed during response")
+                            if first_byte is None:
+                                first_byte = time.monotonic()
+                            if len(content) + len(chunk) > self._options.maximum_response_bytes:
+                                raise ContractError("Response exceeded the configured byte bound")
+                            content.extend(chunk)
+                        exchange = classify_exchange(
+                            response,
+                            bytes(content),
+                            contract=operation.contract,
+                            mutation=operation.mutation,
+                            identity=identity,
+                            attempt=attempt,
+                            attempts=attempts,
+                            operation=operation.id,
+                            fallback_delay=self._options.retry_delay_seconds,
+                        )
                 finished = time.monotonic()
-                if (
-                    not operation.mutation
-                    and response.headers.get("X-Synth-Contract") == operation.contract
-                    and response.status_code in {429, 502, 503, 504}
-                    and attempt < attempts
-                ):
-                    delay = retry_delay(response, self._options.retry_delay_seconds)
+                if exchange.error is not None:
+                    raise annotate_response_error(response, exchange.error)
+                if exchange.kind == "retry":
+                    delay = exchange.delay
                     await self._release_response(response)
+                    response = None
                     if delay >= deadline - time.monotonic():
                         raise RequestTimeoutError("Retry would exceed the request deadline")
                     await asyncio.sleep(delay)
@@ -393,15 +422,21 @@ class AsyncHttpTransport:
                 if operation.mutation:
                     raise MutationCancelledError(identity) from cause
                 raise
-            except (
-                httpx.TransportError,
-                TimeoutError,
-                RequestTimeoutError,
-                ContractError,
-            ) as cause:
+            except ContractError as cause:
                 if operation.mutation:
                     raise OutcomeUncertainError(
-                        "Mutation delivery is uncertain; retain its identity", identity=identity
+                        "Mutation response is invalid; reconcile its identity",
+                        identity=identity,
+                        reason="response_invalid",
+                        status=response.status_code if response is not None else None,
+                    ) from cause
+                raise
+            except (httpx.TransportError, TimeoutError, RequestTimeoutError) as cause:
+                if operation.mutation:
+                    raise OutcomeUncertainError(
+                        "Mutation delivery is uncertain; retain its identity",
+                        identity=identity,
+                        reason="response_lost",
                     ) from cause
                 if isinstance(cause, httpx.TransportError) and attempt < attempts:
                     delay = self._options.retry_delay_seconds

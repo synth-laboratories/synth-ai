@@ -17,8 +17,8 @@ from .types.search import (
     SearchFilters,
     SearchResponse,
     SearchSnapshot,
-    StrictSearchProgress,
     StrictSearchEventRequest,
+    StrictSearchProgress,
 )
 from .types.uploads import ContributionUploadManifest, LocalContributionPackage, UploadSource
 from .uploads import AsyncUploadSession, UploadSession
