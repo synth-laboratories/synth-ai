@@ -128,6 +128,18 @@ standard progress token to receive progress notifications and the terminal
 result in one RPC. These methods require a jointly qualified backend, Agents,
 Monitor, SDK wheel and admission; source availability does not open that gate.
 
+
+OpenAI Responses uses separate `store` and `background` controls. Its current
+[background-mode documentation](https://developers.openai.com/api/docs/guides/background)
+explains that `background=true` temporarily retains response data for polling
+for roughly ten minutes, including with `store=false`. Index `zdr` has its own
+bounded encrypted processing window; strict DEEP instead depends on the active
+connection and provides no stored-result or reconnect path. `retained` adds the
+explicit 30-day customer history. Provider data controls and model/tool
+eligibility are separate from these Index storage modes; see OpenAI's
+[data controls](https://developers.openai.com/api/docs/guides/your-data#v1responses).
+Comparison checked October 19, 2026.
+
 ## Qualified publication
 
 Source pushes do not publish packages. `.github/workflows/publish-dev.yml`
