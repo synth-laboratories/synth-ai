@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
-from pydantic import AwareDatetime, Field, StrictInt, model_validator
+from pydantic import (
+    AwareDatetime,
+    Field,
+    SerializerFunctionWrapHandler,
+    StrictInt,
+    model_serializer,
+    model_validator,
+)
 
 from synth_ai.errors import OperationFailedError
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
@@ -105,6 +112,14 @@ class RunSnapshot(ResponseModel):
     # Set for a failed run, and for a run whose cancel was accepted but is not
     # terminal: the root cause, not a generic code.
     failure: RunFailure | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = handler(self)
+        for name in ("control", "paused_at", "resume_by", "deadline_at"):
+            if getattr(self, name) is None:
+                value.pop(name, None)
+        return value
 
 
 class SwarmResult(ResponseModel):
