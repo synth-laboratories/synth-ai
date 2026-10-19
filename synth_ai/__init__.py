@@ -1,4 +1,4 @@
-"""Reduced SDK entry point; the 0.23 replacement surface is under construction."""
+"""Synth Python SDK: typed clients for Index, Swarms and hosted MCP."""
 
 import re as _re
 from importlib.metadata import PackageNotFoundError as _PackageNotFoundError

@@ -27,6 +27,8 @@ from synth_ai.sdk.index.types.retention import SearchRetention
 from synth_ai.sdk.index.types.search import KeyedSearchOptions, SearchSnapshot
 from synth_ai.types.money import Money
 
+pytestmark = pytest.mark.unit
+
 SEARCH = "40ea7f75-8530-45f8-b05f-f9f0f9cca93a"
 NOW = datetime(2026, 10, 18, tzinfo=UTC)
 METADATA = {
@@ -510,12 +512,17 @@ def test_search_content_purged_reads_identity_headers():
 
 def test_search_content_purged_headers_absent_are_none():
     recorder = Recorder(
-        reply(200, snapshot_body(retention=LEGACY_ZDR)), reply(410, error_body("search_content_purged"))
+        reply(200, snapshot_body(retention=LEGACY_ZDR)),
+        reply(410, error_body("search_content_purged")),
     )
     run = sync_client(recorder).searches.create("q", options=options())
     with pytest.raises(SearchContentPurged) as caught:
         run.result()
-    assert (caught.value.search_id, caught.value.purges_at, caught.value.purged_at) == (None, None, None)
+    assert (caught.value.search_id, caught.value.purges_at, caught.value.purged_at) == (
+        None,
+        None,
+        None,
+    )
 
 
 def test_search_created_omits_an_absent_inline_result():

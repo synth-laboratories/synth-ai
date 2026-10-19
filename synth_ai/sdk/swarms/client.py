@@ -1,6 +1,6 @@
 """First Swarms implementation slice: one model, explicit finite launch and durable identity.
 
-See backend/notes/specifications/sdk/swarms_overrides.md. Provider credentials,
+See the public contract snapshots in contracts/ Provider credentials,
 harness and profile selection remain backend-owned; no client fallback routing.
 """
 

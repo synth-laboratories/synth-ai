@@ -7,6 +7,8 @@ from pydantic import ValidationError
 from synth_ai.sdk.index.types.search import KeyedSearchOptions
 from synth_ai.types.money import Money
 
+pytestmark = pytest.mark.unit
+
 CHARGE = Money(coefficient=1000, scale=2, currency="USD")
 
 
@@ -19,7 +21,10 @@ def test_absent_deadline_is_omitted_from_the_wire() -> None:
 
 
 def test_deep_deadline_up_to_600_serializes() -> None:
-    assert _options(mode="deep", deadline_seconds=600).model_dump(mode="json")["deadline_seconds"] == 600
+    assert (
+        _options(mode="deep", deadline_seconds=600).model_dump(mode="json")["deadline_seconds"]
+        == 600
+    )
 
 
 @pytest.mark.parametrize("seconds", [0, 601])

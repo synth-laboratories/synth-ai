@@ -96,7 +96,7 @@ class SearchRun:
     def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.GET_SEARCH,
             SearchSnapshot,
@@ -114,7 +114,7 @@ class SearchRun:
     def result(self, *, request: ReadOptions | None = None) -> SearchResponse:
         """Read the saved canonical outcome, including partial/failure/cancellation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_RESULT,
             SearchResponse,
@@ -140,7 +140,7 @@ class SearchRun:
     ) -> SearchHistoryDeletionReceipt:
         """Delete the exact archived payload without cancelling or rerunning the search.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         body = SearchHistoryDeletion(expected_archive_digest_sha256=expected_archive_digest_sha256)
         return self._transport.request(
             operations.DELETE_SEARCH_HISTORY,
@@ -161,7 +161,7 @@ class SearchRun:
     ) -> Page[SearchEvent, EventCursor]:
         """Read a bounded cursor page tied to this search and current grants.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_EVENTS,
             Page[SearchEvent, EventCursor],
@@ -182,7 +182,7 @@ class SearchRun:
     def usage(self, *, request: ReadOptions | None = None) -> UsageSummary:
         """Read authoritative usage, cost and customer charge with independent finality.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_USAGE,
             UsageSummary,
@@ -196,7 +196,7 @@ class SearchRun:
     ) -> Page[UsageOperation]:
         """Read one bounded page of attributable operation/attempt observations.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_USAGE_ITEMS,
             Page[UsageOperation],
@@ -214,7 +214,7 @@ class SearchRun:
     def cancel(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
         """Request explicit remote cancellation and return an accepted/applied/refused receipt.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.CANCEL_SEARCH,
             ControlReceipt,
@@ -231,7 +231,7 @@ class SearchRun:
     def control(self, operation_id: str, *, request: ReadOptions | None = None) -> ControlReceipt:
         """Read the current control receipt without reissuing the control operation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = self._transport.request(
             operations.CONTROL,
@@ -253,13 +253,13 @@ class SearchRun:
     ) -> EventStream[SearchEvent]:
         """Create a lazy managed observer; local close never cancels remote work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return EventStream(self.event_page, cursor, observation, owner=self._transport)
 
     def wait(self, *, observation: ObservationOptions) -> SearchResponse:
         """Observe canonical result availability within a local deadline; never cancel or resubmit.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         deadline = time.monotonic() + observation.timeout_seconds
         polls = min(10000, int(observation.timeout_seconds / observation.poll_interval_seconds) + 2)
         for _ in range(polls):
@@ -319,7 +319,7 @@ class AsyncSearchRun:
     async def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.GET_SEARCH,
             SearchSnapshot,
@@ -337,7 +337,7 @@ class AsyncSearchRun:
     async def result(self, *, request: ReadOptions | None = None) -> SearchResponse:
         """Read the saved canonical outcome, including partial/failure/cancellation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_RESULT,
             SearchResponse,
@@ -363,7 +363,7 @@ class AsyncSearchRun:
     ) -> SearchHistoryDeletionReceipt:
         """Delete the exact archived payload without cancelling or rerunning the search.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         body = SearchHistoryDeletion(expected_archive_digest_sha256=expected_archive_digest_sha256)
         return await self._transport.request(
             operations.DELETE_SEARCH_HISTORY,
@@ -384,7 +384,7 @@ class AsyncSearchRun:
     ) -> Page[SearchEvent, EventCursor]:
         """Read a bounded cursor page tied to this search and current grants.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_EVENTS,
             Page[SearchEvent, EventCursor],
@@ -405,7 +405,7 @@ class AsyncSearchRun:
     async def usage(self, *, request: ReadOptions | None = None) -> UsageSummary:
         """Read authoritative usage, cost and customer charge with independent finality.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_USAGE,
             UsageSummary,
@@ -419,7 +419,7 @@ class AsyncSearchRun:
     ) -> Page[UsageOperation]:
         """Read one bounded page of attributable operation/attempt observations.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_USAGE_ITEMS,
             Page[UsageOperation],
@@ -437,7 +437,7 @@ class AsyncSearchRun:
     async def cancel(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
         """Request explicit remote cancellation and return an accepted/applied/refused receipt.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.CANCEL_SEARCH,
             ControlReceipt,
@@ -456,7 +456,7 @@ class AsyncSearchRun:
     ) -> ControlReceipt:
         """Read the current control receipt without reissuing the control operation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = await self._transport.request(
             operations.CONTROL,
@@ -478,13 +478,13 @@ class AsyncSearchRun:
     ) -> AsyncEventStream[SearchEvent]:
         """Create a lazy managed observer; local close never cancels remote work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return AsyncEventStream(self.event_page, cursor, observation, owner=self._transport)
 
     async def wait(self, *, observation: ObservationOptions) -> SearchResponse:
         """Observe canonical result availability within a local deadline; never cancel or resubmit.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         deadline = time.monotonic() + observation.timeout_seconds
         polls = min(10000, int(observation.timeout_seconds / observation.poll_interval_seconds) + 2)
         for _ in range(polls):

@@ -1,4 +1,4 @@
-"""Per-response rate capacity; see testing/specifications/sdk/rate_limits.md.
+"""Per-response rate capacity; see testing/the public contract snapshots in contracts/
 
 Only recognized, bounded numeric/ISO fields are retained. Response cookies,
 authorization, and unrelated headers never enter logs or exception metadata.

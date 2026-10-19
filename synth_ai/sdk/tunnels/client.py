@@ -1,6 +1,6 @@
 """Thin tunnel control facade; business authority remains in the backend.
 
-# See: backend/notes/specifications/tanha/current/systems/tunnels/v2_catalog.md
+# See: the public contract snapshots in contracts/
 """
 
 from __future__ import annotations

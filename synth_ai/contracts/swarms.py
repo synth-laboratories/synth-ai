@@ -204,6 +204,12 @@ CREATE_PROJECT = Operation(
 )
 ALL_OPERATIONS += (CREATE_PROJECT,)
 
-PROGRAM = Operation("swarms.program", "GET", "/swarms/runs/{run_id}/program", True,
-    contract="swarms.v1", required_scope="swarms:read")
+PROGRAM = Operation(
+    "swarms.program",
+    "GET",
+    "/swarms/runs/{run_id}/program",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
 ALL_OPERATIONS += (PROGRAM,)

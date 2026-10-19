@@ -18,7 +18,7 @@ class Usage:
     def get(self, operation_id: str, *, request: ReadOptions | None = None) -> UsageSummary:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = self._transport.request(
             operations.USAGE,
@@ -43,7 +43,7 @@ class Usage:
     ) -> Page[UsageOperation]:
         """Read bounded usage items; clients do not reconstruct authoritative totals.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = self._transport.request(
             operations.USAGE_ITEMS,
@@ -67,7 +67,7 @@ class AsyncUsage:
     async def get(self, operation_id: str, *, request: ReadOptions | None = None) -> UsageSummary:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = await self._transport.request(
             operations.USAGE,
@@ -92,7 +92,7 @@ class AsyncUsage:
     ) -> Page[UsageOperation]:
         """Read bounded usage items; clients do not reconstruct authoritative totals.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = await self._transport.request(
             operations.USAGE_ITEMS,

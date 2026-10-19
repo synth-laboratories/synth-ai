@@ -30,7 +30,7 @@ def validate_search_retention(
 ) -> SearchObservation:
     """Require native policy acknowledgment for every customer search observation.
 
-    See: backend/notes/specifications/sdk/customer_api_adoption.md. Default ZDR
+    See: the public contract snapshots in contracts/ Default ZDR
     is an enforceable contract, including reattachment and MCP delivery.
     """
     if result.retention is None:
@@ -114,7 +114,7 @@ def validate_search_admission(
 ) -> SearchSnapshot:
     """Preserve selected intent; every search needs a native policy receipt.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     if result.mode != options.mode:
         raise ContractError("Search admission changed the requested mode")
     validate_search_retention(

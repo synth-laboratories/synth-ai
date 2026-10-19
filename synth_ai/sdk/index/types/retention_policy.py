@@ -1,4 +1,4 @@
-"""Organization retention policy. See backend notes/specifications/sdk/index_retention.md."""
+"""Organization retention policy. See backend the public contract snapshots in contracts/"""
 
 from __future__ import annotations
 

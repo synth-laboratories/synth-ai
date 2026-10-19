@@ -59,5 +59,5 @@ _FINGERPRINTS = SchemaFingerprints()
 def schema_sha256(contract: ContractName) -> str:
     """Hash the exported schema and operation inventory, not the release status.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     return _FINGERPRINTS.digest(contract)

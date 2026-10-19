@@ -245,3 +245,11 @@ greptile.json
 
 # Owned, bounded local modular-program qualification outputs.
 /.orchestra-work/
+
+# Internal workspace coordination and contributor documents.
+.pressure/
+.agents/
+HANDOFF_*
+SDK_0230_*
+!CONTRIBUTING.md
+!RELEASING.md

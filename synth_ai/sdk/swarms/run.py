@@ -47,9 +47,15 @@ class SwarmRun:
 
     def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""
-        return self._transport.request(operations.PROGRAM, ProgramRunView,
-            path=f"/swarms/runs/{self.run_id}/program", options=request,
-            validate=lambda result: verified(result, result.run_id == self.run_id, "Program run identity mismatch"))
+        return self._transport.request(
+            operations.PROGRAM,
+            ProgramRunView,
+            path=f"/swarms/runs/{self.run_id}/program",
+            options=request,
+            validate=lambda result: verified(
+                result, result.run_id == self.run_id, "Program run identity mismatch"
+            ),
+        )
 
     def configuration(self, *, request: ReadOptions | None = None) -> ResolvedConfiguration:
         """Read current authorized configuration; no implicit control mutation."""
@@ -215,9 +221,15 @@ class AsyncSwarmRun:
 
     async def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""
-        return await self._transport.request(operations.PROGRAM, ProgramRunView,
-            path=f"/swarms/runs/{self.run_id}/program", options=request,
-            validate=lambda result: verified(result, result.run_id == self.run_id, "Program run identity mismatch"))
+        return await self._transport.request(
+            operations.PROGRAM,
+            ProgramRunView,
+            path=f"/swarms/runs/{self.run_id}/program",
+            options=request,
+            validate=lambda result: verified(
+                result, result.run_id == self.run_id, "Program run identity mismatch"
+            ),
+        )
 
     async def configuration(self, *, request: ReadOptions | None = None) -> ResolvedConfiguration:
         """Read current authorized configuration; no implicit control mutation."""

@@ -40,7 +40,7 @@ def require_operation(
 ) -> NegotiatedCapability:
     """Require actual qualified surface and schema identity before dispatch.
 
-    See: backend/notes/specifications/sdk/index_contract.md. This receipt is not
+    See: the public contract snapshots in contracts/ This receipt is not
     authorization, health proof or independent verification of service pins."""
     validate_release(receipt, expected_manifest_sha256, candidate_manifest_sha256)
     if receipt.admission == "candidate" and candidate_manifest_sha256 is None:
@@ -105,7 +105,7 @@ def supports_operation(
 ) -> bool:
     """Hide unsupported/incompatible tools; transport/auth failures still propagate.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     try:
         require_operation(
             receipt, operation, surface=surface, candidate_manifest_sha256=candidate_manifest_sha256

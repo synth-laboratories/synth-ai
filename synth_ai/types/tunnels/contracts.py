@@ -1,6 +1,6 @@
 """Backend-owned tunnel v2 contracts.
 
-# See: backend/notes/specifications/tanha/current/systems/tunnels/v2_catalog.md
+# See: the public contract snapshots in contracts/
 """
 
 from __future__ import annotations

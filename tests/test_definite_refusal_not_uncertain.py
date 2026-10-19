@@ -20,6 +20,8 @@ from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest, ProjectTemp
 from synth_ai.types.base import ClientTiming, ResponseModel
 from synth_ai.types.identity import MutationIdentity
 
+pytestmark = pytest.mark.unit
+
 CONTRACT = CREATE_PROJECT.contract
 
 

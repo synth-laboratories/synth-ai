@@ -1,6 +1,6 @@
 """Deadline-bound HTTP transport for explicit HTTPX use.
 
-See backend/notes/specifications/sdk/index_contract.md. The transport owns its
+See the public contract snapshots in contracts/ The transport owns its
 network loop and pool. Arbitrary non-cooperative synchronous transports cannot
 be preempted; SynthClient uses this implementation internally and does not
 accept synchronous client injection. An HTTPX caller must close its client.

@@ -1,6 +1,6 @@
 """Borrowed job handles never own connector or registration shutdown.
 
-# See: backend/notes/specifications/tanha/current/systems/tunnels/v2_catalog.md
+# See: the public contract snapshots in contracts/
 """
 
 from __future__ import annotations
@@ -206,7 +206,7 @@ class AsyncBorrowedLeaseHandle:
 class LeaseObserver:
     """A local view of externally owned job authority; close releases only this view.
 
-    # See: backend/notes/specifications/tanha/current/systems/tunnels/v2_catalog.md
+    # See: the public contract snapshots in contracts/
     """
 
     connector: UUID

@@ -1,4 +1,4 @@
-"""Bounded request policy. See backend/notes/specifications/sdk/index_contract.md."""
+"""Bounded request policy. See the public contract snapshots in contracts/"""
 
 from __future__ import annotations
 

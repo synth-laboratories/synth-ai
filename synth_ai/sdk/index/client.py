@@ -1,4 +1,4 @@
-"""Small typed Index facade. See backend/notes/specifications/sdk/index_contract.md."""
+"""Small typed Index facade. See the public contract snapshots in contracts/"""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ class IndexClient:
     ) -> SearchResponse:
         """Return a terminal answer under explicit public/keyed authority and charge bounds.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         body = search_request(query, options, self._keyed)
         result = self._transport.request(
             SEARCH if self._keyed else PUBLIC_SEARCH,
@@ -85,7 +85,7 @@ class AsyncIndexClient:
     ) -> SearchResponse:
         """Return a terminal answer under explicit public/keyed authority and charge bounds.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         body = search_request(query, options, self._keyed)
         result = await self._transport.request(
             SEARCH if self._keyed else PUBLIC_SEARCH,

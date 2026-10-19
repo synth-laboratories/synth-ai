@@ -17,7 +17,7 @@ class Account:
     def get(self, *, request: ReadOptions | None = None) -> IndexAccount:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.ACCOUNT, IndexAccount, path="/index/account", options=request
         )
@@ -31,7 +31,7 @@ class AsyncAccount:
     async def get(self, *, request: ReadOptions | None = None) -> IndexAccount:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.ACCOUNT, IndexAccount, path="/index/account", options=request
         )

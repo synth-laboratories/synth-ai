@@ -1,6 +1,6 @@
 """Immutable authorized output metadata and local delivery receipts.
 
-See backend/notes/specifications/sdk/swarms_outputs.md. Availability is independent
+See the public contract snapshots in contracts/ Availability is independent
 of run completion; metadata is not permission to deliver bytes later.
 """
 

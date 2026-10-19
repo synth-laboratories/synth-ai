@@ -1,4 +1,4 @@
-"""Typed Index vocabulary. See backend/notes/specifications/sdk/index_contract.md."""
+"""Typed Index vocabulary. See the public contract snapshots in contracts/"""
 
 from .client import AsyncIndexClient, IndexClient
 from .search_run import AsyncSearchRun, SearchRun

@@ -29,7 +29,7 @@ class Searches:
     ) -> SearchRun:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         snapshot = self._transport.request(
             operations.CREATE_SEARCH,
             SearchSnapshot,
@@ -51,7 +51,7 @@ class Searches:
     def get(self, search_id: str, *, request: ReadOptions | None = None) -> SearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         search_id = identifier(search_id)
         snapshot = self._transport.request(
             operations.GET_SEARCH,
@@ -75,7 +75,7 @@ class Searches:
     ) -> Page[SearchSnapshot]:
         """Read one bounded authorized page; no implicit all-pages traversal.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.LIST_SEARCHES,
             Page[SearchSnapshot],
@@ -95,7 +95,7 @@ class Searches:
     ) -> SearchHistoryPage:
         """Read one private retained-history page; no query execution or expiry extension.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = filter or SearchHistoryFilter()
         return self._transport.request(
             operations.SEARCH_HISTORY,
@@ -127,7 +127,7 @@ class AsyncSearches:
     ) -> AsyncSearchRun:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         snapshot = await self._transport.request(
             operations.CREATE_SEARCH,
             SearchSnapshot,
@@ -149,7 +149,7 @@ class AsyncSearches:
     async def get(self, search_id: str, *, request: ReadOptions | None = None) -> AsyncSearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         search_id = identifier(search_id)
         snapshot = await self._transport.request(
             operations.GET_SEARCH,
@@ -173,7 +173,7 @@ class AsyncSearches:
     ) -> Page[SearchSnapshot]:
         """Read one bounded authorized page; no implicit all-pages traversal.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.LIST_SEARCHES,
             Page[SearchSnapshot],
@@ -193,7 +193,7 @@ class AsyncSearches:
     ) -> SearchHistoryPage:
         """Read one private retained-history page; no query execution or expiry extension.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = filter or SearchHistoryFilter()
         return await self._transport.request(
             operations.SEARCH_HISTORY,
