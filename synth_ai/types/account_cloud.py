@@ -101,6 +101,11 @@ class AccountContext(Model):
 
 
 class CurrentPlan(Model):
+    provider_observed_at: AwareDatetime | None = None
+    projected_at: AwareDatetime | None = None
+    wallet_observed_at: AwareDatetime | None = None
+    observation_revision: str | None = None
+    renews_at: AwareDatetime | None = None
     state: Literal["ready", "migration_required", "disabled", "unavailable"]
     observed_at: AwareDatetime
     code: str | None = None

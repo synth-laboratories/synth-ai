@@ -114,6 +114,14 @@ def run_account(args: argparse.Namespace) -> int:
             print(
                 f"Monthly fee\t{_money(value.monthly_price)}\nIncluded / 7 days\t{_money(value.weekly_included)}\nRemaining included\t{_money(value.remaining_this_week)}\nResets (UTC)\t{value.resets_at.isoformat() if value.resets_at else 'Unknown'}"
             )
+        if value.provider_observed_at:
+            print(f"Plan checked (UTC)\t{value.provider_observed_at.isoformat()}")
+        if value.wallet_observed_at:
+            print(f"Balance updated (UTC)\t{value.wallet_observed_at.isoformat()}")
+        if value.renews_at:
+            print(f"Renews (UTC)\t{value.renews_at.isoformat()}")
+        if value.cancels_at:
+            print(f"Ends (UTC)\t{value.cancels_at.isoformat()}")
     elif isinstance(value, AccountBalance):
         print(
             f"Available\t{_money(value.total.available)}\nReserved\t{_money(value.total.reserved)}"
