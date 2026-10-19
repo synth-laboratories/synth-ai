@@ -35,6 +35,8 @@ from synth_ai.types.capabilities import NegotiatedCapability
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import parse_rate_limits
 
+from .backoff import retry_after_seconds
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -357,7 +359,6 @@ def classify_exchange(
     attempt: int,
     attempts: int,
     operation: str | None = None,
-    fallback_delay: float = 0.1,
 ) -> Exchange:
     """Classify infrastructure before contract skew; never retry a mutation.
 
@@ -402,7 +403,7 @@ def classify_exchange(
                     ),
                 )
             if attempt < attempts:
-                return Exchange("retry", retry_delay(response, fallback_delay))
+                return Exchange("retry", retry_delay(response, 0.0))
             return Exchange(
                 "fail",
                 error=TransportError(
@@ -413,7 +414,7 @@ def classify_exchange(
                 ),
             )
         if not mutation and response.status_code != 500 and attempt < attempts:
-            return Exchange("retry", retry_delay(response, fallback_delay))
+            return Exchange("retry", retry_delay(response, 0.0))
     if not negotiated:
         if mutation:
             return Exchange(
@@ -436,14 +437,8 @@ def classify_exchange(
 
 
 def retry_delay(response: httpx.Response, fallback: float) -> float:
-    value = response.headers.get("Retry-After")
-    if value is None:
-        return fallback
-    try:
-        seconds = float(value)
-    except ValueError:
-        return fallback
-    return seconds if math.isfinite(seconds) and seconds >= 0 else fallback
+    seconds = retry_after_seconds(response.headers.get("Retry-After"))
+    return fallback if seconds is None else seconds
 
 
 def validate_negotiated_response(
