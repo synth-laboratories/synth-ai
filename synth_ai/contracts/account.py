@@ -56,7 +56,15 @@ LIMITS = Operation(
     contract="account.v1",
     required_scope="account:read",
 )
-ACCOUNT_READ_OPERATIONS = (CONTEXT, PLAN, BALANCE, USAGE, EVENTS, LIMITS)
+ALERTS = Operation(
+    "account.alerts",
+    "GET",
+    "/account/billing/alerts",
+    True,
+    contract="account.v1",
+    required_scope="account:billing:read",
+)
+ACCOUNT_READ_OPERATIONS = (CONTEXT, PLAN, BALANCE, USAGE, EVENTS, LIMITS, ALERTS)
 
 
 def require_account_read(operation: Operation, options: ClientOptions) -> None:

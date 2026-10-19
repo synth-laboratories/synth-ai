@@ -275,3 +275,13 @@ class AccountUsageEventPage(Model):
     items: tuple[AccountUsageEvent, ...] = Field(max_length=200)
     next_cursor: str | None
     complete: bool
+
+
+class CreditAlertState(Model):
+    enabled: bool
+    threshold_dollars: Annotated[int, Field(ge=1, le=10000)]
+    recipient: str | None
+    state: Literal["disabled", "armed", "low", "pending", "sent", "unknown", "unavailable"]
+    checked_at: AwareDatetime | None
+    last_sent_at: AwareDatetime | None
+    observed_at: AwareDatetime

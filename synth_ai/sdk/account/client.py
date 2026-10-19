@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from synth_ai.contracts.account import BALANCE, CONTEXT, EVENTS, LIMITS, PLAN, USAGE
+from synth_ai.contracts.account import ALERTS, BALANCE, CONTEXT, EVENTS, LIMITS, PLAN, USAGE
 from synth_ai.contracts.operations import ACCOUNT_ENTITLEMENTS
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
@@ -14,6 +14,7 @@ from synth_ai.types.account_cloud import (
     AccountLimits,
     AccountUsageEventPage,
     AccountUsageSummary,
+    CreditAlertState,
     CurrentPlan,
     Product,
 )
@@ -68,6 +69,9 @@ class AccountClient:
 
     def balance(self, *, request: ReadOptions | None = None) -> AccountBalance:
         return self._transport.request(BALANCE, AccountBalance, options=request)
+
+    def alerts(self, *, request: ReadOptions | None = None) -> CreditAlertState:
+        return self._transport.request(ALERTS, CreditAlertState, options=request)
 
     def limits(self, *, request: ReadOptions | None = None) -> AccountLimits:
         return self._transport.request(LIMITS, AccountLimits, options=request)
@@ -125,6 +129,9 @@ class AsyncAccountClient:
 
     async def balance(self, *, request: ReadOptions | None = None) -> AccountBalance:
         return await self._transport.request(BALANCE, AccountBalance, options=request)
+
+    async def alerts(self, *, request: ReadOptions | None = None) -> CreditAlertState:
+        return await self._transport.request(ALERTS, CreditAlertState, options=request)
 
     async def limits(self, *, request: ReadOptions | None = None) -> AccountLimits:
         return await self._transport.request(LIMITS, AccountLimits, options=request)

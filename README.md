@@ -15,6 +15,7 @@ synth-ai auth status --json
 synth-ai account context --json
 synth-ai account plan
 synth-ai account balance
+synth-ai account alerts
 synth-ai account usage --days 7 --json
 synth-ai account logs --days 7 --limit 50 --json
 synth-ai account billing
@@ -33,13 +34,13 @@ The new account reads require a backend serving `account.v1` and explicit
 account scopes for financial data. Self-identity/context inspection is available
 to every valid customer credential, without workload capability discovery.
 `account:read` permits limits together with billing-read; `account:billing:read` permits
-plan/balance, and usage/logs require both usage-read and billing-read. Existing
+plan/balance/alert settings, and usage/logs require both usage-read and billing-read. Existing
 credentials do not gain these grants automatically. Fresh OAuth consent names
 the account permissions. The existing `account limits` discovery command keeps
 its negotiated product-policy contract.
 
 SDK sync/async clients expose `account.context()`, `plan()`, `balance()`,
-`limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
+`alerts()`, `limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
 bounded page and an explicit cursor. Dates must be timezone-aware; windows are
 bounded to 366 days. The CLI also accepts matching `--from` / `--to` timestamps
 and an optional `--product` filter for usage/logs.

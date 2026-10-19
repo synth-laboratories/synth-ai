@@ -19,6 +19,7 @@ from synth_ai.types.account_cloud import (
     AccountContext,
     AccountUsageEventPage,
     AccountUsageSummary,
+    CreditAlertState,
     CurrentPlan,
 )
 from synth_ai.types.money import Money
@@ -79,7 +80,12 @@ def run_account(args: argparse.Namespace) -> int:
         )
         return 0
     value: (
-        AccountContext | CurrentPlan | AccountBalance | AccountUsageSummary | AccountUsageEventPage
+        CreditAlertState
+        | AccountContext
+        | CurrentPlan
+        | AccountBalance
+        | AccountUsageSummary
+        | AccountUsageEventPage
     )
     read = ReadOptions(read_retry_count=0)
     with SynthClient() as client:
@@ -87,6 +93,8 @@ def run_account(args: argparse.Namespace) -> int:
             value = client.account.context(request=read)
         elif command == "plan":
             value = client.account.plan(request=read)
+        elif command == "alerts":
+            value = client.account.alerts(request=read)
         elif command == "balance":
             value = client.account.balance(request=read)
         elif command == "usage":
@@ -122,6 +130,12 @@ def run_account(args: argparse.Namespace) -> int:
             print(f"Renews (UTC)\t{value.renews_at.isoformat()}")
         if value.cancels_at:
             print(f"Ends (UTC)\t{value.cancels_at.isoformat()}")
+    elif isinstance(value, CreditAlertState):
+        print(
+            f"Low-credit alerts\t{value.state}\nThreshold\t${value.threshold_dollars}\nRecipient\t{_text(value.recipient or 'None')}"
+        )
+        if value.last_sent_at:
+            print(f"Last sent (UTC)\t{value.last_sent_at.isoformat()}")
     elif isinstance(value, AccountBalance):
         print(
             f"Available\t{_money(value.total.available)}\nReserved\t{_money(value.total.reserved)}"
@@ -198,6 +212,7 @@ def add_account_commands(commands) -> None:
         "context",
         "plan",
         "balance",
+        "alerts",
         "usage",
         "logs",
         "billing",
