@@ -216,6 +216,23 @@
             "title": "Cleanup Complete",
             "type": "boolean"
           },
+          "command": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
@@ -252,6 +269,7 @@
             "enum": [
               "accepted",
               "applied",
+              "quiesced",
               "refused"
             ],
             "title": "State",
@@ -487,6 +505,23 @@
             "title": "Cleanup Complete",
             "type": "boolean"
           },
+          "command": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
@@ -523,6 +558,7 @@
             "enum": [
               "accepted",
               "applied",
+              "quiesced",
               "refused"
             ],
             "title": "State",
@@ -12736,6 +12772,23 @@
             "title": "Cleanup Complete",
             "type": "boolean"
           },
+          "command": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
@@ -12772,6 +12825,7 @@
             "enum": [
               "accepted",
               "applied",
+              "quiesced",
               "refused"
             ],
             "title": "State",
@@ -15306,6 +15360,44 @@
             "title": "ResponseMetadata",
             "type": "object"
           },
+          "RunControlSummary": {
+            "additionalProperties": false,
+            "properties": {
+              "command": {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "title": "Command",
+                "type": "string"
+              },
+              "operation_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "title": "Operation Id",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "accepted",
+                  "applied",
+                  "quiesced",
+                  "refused"
+                ],
+                "title": "State",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation_id",
+              "command",
+              "state"
+            ],
+            "title": "RunControlSummary",
+            "type": "object"
+          },
           "RunFailure": {
             "additionalProperties": false,
             "properties": {
@@ -15363,6 +15455,30 @@
                 "title": "Cleanup Complete",
                 "type": "boolean"
               },
+              "control": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RunControlSummary"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "deadline_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Deadline At"
+              },
               "execution_closed": {
                 "title": "Execution Closed",
                 "type": "boolean"
@@ -15386,6 +15502,19 @@
                 "minLength": 1,
                 "title": "Model",
                 "type": "string"
+              },
+              "paused_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Paused At"
               },
               "problems": {
                 "default": [],
@@ -15419,6 +15548,19 @@
                 "title": "Result Available",
                 "type": "boolean"
               },
+              "resume_by": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resume By"
+              },
               "run_id": {
                 "maxLength": 128,
                 "minLength": 1,
@@ -15430,7 +15572,9 @@
                 "enum": [
                   "queued",
                   "running",
+                  "pausing",
                   "paused",
+                  "cancelling",
                   "completed",
                   "partial",
                   "failed",
@@ -15901,6 +16045,44 @@
             "title": "ResponseMetadata",
             "type": "object"
           },
+          "RunControlSummary": {
+            "additionalProperties": false,
+            "properties": {
+              "command": {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "title": "Command",
+                "type": "string"
+              },
+              "operation_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "title": "Operation Id",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "accepted",
+                  "applied",
+                  "quiesced",
+                  "refused"
+                ],
+                "title": "State",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation_id",
+              "command",
+              "state"
+            ],
+            "title": "RunControlSummary",
+            "type": "object"
+          },
           "RunFailure": {
             "additionalProperties": false,
             "properties": {
@@ -16026,6 +16208,30 @@
             "title": "Cleanup Complete",
             "type": "boolean"
           },
+          "control": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RunControlSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "deadline_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deadline At"
+          },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
@@ -16049,6 +16255,19 @@
             "minLength": 1,
             "title": "Model",
             "type": "string"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Paused At"
           },
           "problems": {
             "default": [],
@@ -16082,6 +16301,19 @@
             "title": "Result Available",
             "type": "boolean"
           },
+          "resume_by": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume By"
+          },
           "run_id": {
             "maxLength": 128,
             "minLength": 1,
@@ -16093,7 +16325,9 @@
             "enum": [
               "queued",
               "running",
+              "pausing",
               "paused",
+              "cancelling",
               "completed",
               "partial",
               "failed",
@@ -17488,6 +17722,9 @@
                   "partial",
                   "failed",
                   "cancelled",
+                  "paused",
+                  "resumed",
+                  "cancel_requested",
                   "usage_updated",
                   "unknown"
                 ],
@@ -19338,6 +19575,584 @@
       "required_scope": "swarms:read"
     },
     {
+      "description": "Request pause with a stable idempotency key; the original run deadline continues.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "idempotency_key"
+        ],
+        "title": "RunMutation",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "swarms_pause",
+      "operation": "swarms.pause",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": false,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": false,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": false,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "accounting_final": {
+            "title": "Accounting Final",
+            "type": "boolean"
+          },
+          "cleanup_complete": {
+            "title": "Cleanup Complete",
+            "type": "boolean"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
+          "execution_closed": {
+            "title": "Execution Closed",
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "resource_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "accepted",
+              "applied",
+              "quiesced",
+              "refused"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "operation_id",
+          "resource_id",
+          "state",
+          "reason",
+          "execution_closed",
+          "accounting_final",
+          "cleanup_complete"
+        ],
+        "title": "ControlReceipt",
+        "type": "object"
+      },
+      "required_scope": "swarms:control"
+    },
+    {
+      "description": "Request resume with a stable idempotency key; the original run deadline continues.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "idempotency_key"
+        ],
+        "title": "RunMutation",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "swarms_resume",
+      "operation": "swarms.resume",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": false,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": false,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": false,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "accounting_final": {
+            "title": "Accounting Final",
+            "type": "boolean"
+          },
+          "cleanup_complete": {
+            "title": "Cleanup Complete",
+            "type": "boolean"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
+          "execution_closed": {
+            "title": "Execution Closed",
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "resource_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "accepted",
+              "applied",
+              "quiesced",
+              "refused"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "operation_id",
+          "resource_id",
+          "state",
+          "reason",
+          "execution_closed",
+          "accounting_final",
+          "cleanup_complete"
+        ],
+        "title": "ControlReceipt",
+        "type": "object"
+      },
+      "required_scope": "swarms:control"
+    },
+    {
       "description": "Explicitly request cancellation using an stable idempotency key; settlement and cleanup can follow later.",
       "idempotent": true,
       "input_schema": {
@@ -19551,6 +20366,23 @@
             "title": "Cleanup Complete",
             "type": "boolean"
           },
+          "command": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancel",
+                  "pause",
+                  "resume"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
@@ -19587,6 +20419,7 @@
             "enum": [
               "accepted",
               "applied",
+              "quiesced",
               "refused"
             ],
             "title": "State",

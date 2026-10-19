@@ -24,6 +24,7 @@ from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
 from .runs import (
     LaunchPreflight,
     ResolvedConfiguration,
+    RunControlSummary,
     RunFailure,
     RunSnapshot,
     RunState,
@@ -62,6 +63,7 @@ __all__ = [
     "LaunchPreflight",
     "ResolvedConfiguration",
     "RunFailure",
+    "RunControlSummary",
     "RunSnapshot",
     "RunState",
     "SwarmEvent",

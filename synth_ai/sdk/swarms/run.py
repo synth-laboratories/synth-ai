@@ -149,12 +149,42 @@ class SwarmRun:
             path=f"/swarms/runs/{self.run_id}/cancel",
             options=mutation,
             validate=lambda result: verified(
-                result, result.resource_id == self.run_id, "Cancel identity mismatch"
+                result,
+                result.resource_id == self.run_id and result.command in (None, "cancel"),
+                "Cancel identity or command mismatch",
+            ),
+        )
+
+    def pause(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
+        """Request pause; the original deadline continues during a pause."""
+        return self._transport.request(
+            operations.PAUSE,
+            ControlReceipt,
+            path=f"/swarms/runs/{self.run_id}/pause",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.resource_id == self.run_id and result.command in (None, "pause"),
+                "Control identity or command mismatch",
+            ),
+        )
+
+    def resume(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
+        """Request resume; the original deadline continues during a pause."""
+        return self._transport.request(
+            operations.RESUME,
+            ControlReceipt,
+            path=f"/swarms/runs/{self.run_id}/resume",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.resource_id == self.run_id and result.command in (None, "resume"),
+                "Control identity or command mismatch",
             ),
         )
 
     def control(self, operation_id: str, *, request: ReadOptions | None = None) -> ControlReceipt:
-        """Read a control receipt without issuing another cancellation."""
+        """Read a control receipt without issuing another control."""
         operation_id = identifier(operation_id)
         return self._transport.request(
             operations.CONTROL,
@@ -323,14 +353,44 @@ class AsyncSwarmRun:
             path=f"/swarms/runs/{self.run_id}/cancel",
             options=mutation,
             validate=lambda result: verified(
-                result, result.resource_id == self.run_id, "Cancel identity mismatch"
+                result,
+                result.resource_id == self.run_id and result.command in (None, "cancel"),
+                "Cancel identity or command mismatch",
+            ),
+        )
+
+    async def pause(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
+        """Request pause; the original deadline continues during a pause."""
+        return await self._transport.request(
+            operations.PAUSE,
+            ControlReceipt,
+            path=f"/swarms/runs/{self.run_id}/pause",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.resource_id == self.run_id and result.command in (None, "pause"),
+                "Control identity or command mismatch",
+            ),
+        )
+
+    async def resume(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
+        """Request resume; the original deadline continues during a pause."""
+        return await self._transport.request(
+            operations.RESUME,
+            ControlReceipt,
+            path=f"/swarms/runs/{self.run_id}/resume",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.resource_id == self.run_id and result.command in (None, "resume"),
+                "Control identity or command mismatch",
             ),
         )
 
     async def control(
         self, operation_id: str, *, request: ReadOptions | None = None
     ) -> ControlReceipt:
-        """Read a control receipt without issuing another cancellation."""
+        """Read a control receipt without issuing another control."""
         operation_id = identifier(operation_id)
         return await self._transport.request(
             operations.CONTROL,

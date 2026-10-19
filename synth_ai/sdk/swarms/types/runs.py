@@ -8,12 +8,23 @@ from pydantic import AwareDatetime, Field, StrictInt, model_validator
 
 from synth_ai.errors import OperationFailedError
 from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.receipts import ControlCommand, ControlState
 from synth_ai.types.usage import UsageSummary
 
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
 from .problems import Problem, ReasonLink
 
-RunState = Literal["queued", "running", "paused", "completed", "partial", "failed", "cancelled"]
+RunState = Literal[
+    "queued",
+    "running",
+    "pausing",
+    "paused",
+    "cancelling",
+    "completed",
+    "partial",
+    "failed",
+    "cancelled",
+]
 TaskState = Literal[
     "pending",
     "queued",
@@ -66,6 +77,12 @@ class RunFailure(Model):
     reason_chain: tuple[ReasonLink, ...] = Field(default=(), max_length=16)
 
 
+class RunControlSummary(Model):
+    operation_id: Identifier
+    command: ControlCommand
+    state: ControlState
+
+
 class RunSnapshot(ResponseModel):
     run_id: Identifier
     project_id: Identifier
@@ -76,6 +93,10 @@ class RunSnapshot(ResponseModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+    control: RunControlSummary | None = None
+    paused_at: AwareDatetime | None = None
+    resume_by: AwareDatetime | None = None
+    deadline_at: AwareDatetime | None = None
     # Ranked open problems, root cause first (synth.problems.v1).
     problems: tuple[Problem, ...] = Field(default=(), max_length=32)
     # False when Orchestra's problems could not be read (see the
@@ -204,6 +225,9 @@ class SwarmEvent(Model):
         "partial",
         "failed",
         "cancelled",
+        "paused",
+        "resumed",
+        "cancel_requested",
         "usage_updated",
         "unknown",
     ]

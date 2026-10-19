@@ -381,6 +381,18 @@ async def run_cancel(client: AsyncSynthClient, args: RunMutation) -> ControlRece
     )
 
 
+async def run_pause(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
+    return await (await client.swarms.get(args.run_id)).pause(
+        mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
+async def run_resume(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
+    return await (await client.swarms.get(args.run_id)).resume(
+        mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
 async def outputs(client: AsyncSynthClient, args: RunPage) -> Page[Output]:
     return await (await client.swarms.get(args.run_id)).outputs.list(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
@@ -687,6 +699,22 @@ TOOLS: tuple[ToolSpec, ...] = (
         RunPage,
         Page[UsageOperation],
         run_usage_items,
+    ),
+    ToolDefinition(
+        "swarms_pause",
+        swarm_operations.PAUSE,
+        "Request pause with a stable idempotency key; the original run deadline continues.",
+        RunMutation,
+        ControlReceipt,
+        run_pause,
+    ),
+    ToolDefinition(
+        "swarms_resume",
+        swarm_operations.RESUME,
+        "Request resume with a stable idempotency key; the original run deadline continues.",
+        RunMutation,
+        ControlReceipt,
+        run_resume,
     ),
     ToolDefinition(
         "swarms_cancel",
