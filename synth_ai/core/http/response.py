@@ -231,6 +231,12 @@ def _decode_response(
         from .tunnel_control import decode_control_response
 
         return decode_control_response(response, body, model, identity, mutation)
+    if contract == "account.v1":
+        from .account import decode_account_read
+
+        if mutation:
+            raise ContractError("Account companion supports reads only")
+        return decode_account_read(response, body, model)
     exchange = classify_exchange(
         response,
         body,
@@ -383,7 +389,7 @@ def classify_exchange(
     compressed content; a matching identity response needs its bounded body.
     Tunnel control keeps its separately versioned decoder.
     """
-    if contract == "tunnels.v2":
+    if contract in {"tunnels.v2", "account.v1"}:
         return Exchange("decode")
     negotiated = response.headers.get("X-Synth-Contract") == contract
     if response.status_code in TRANSIENT_STATUSES:
