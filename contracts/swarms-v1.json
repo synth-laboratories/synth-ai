@@ -3549,6 +3549,20 @@
               "title": "Model",
               "type": "string"
             },
+            "pause_count": {
+              "anyOf": [
+                {
+                  "maximum": 4294967295,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Pause Count"
+            },
             "paused_at": {
               "anyOf": [
                 {
@@ -6261,6 +6275,20 @@
           "minLength": 1,
           "title": "Model",
           "type": "string"
+        },
+        "pause_count": {
+          "anyOf": [
+            {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pause Count"
         },
         "paused_at": {
           "anyOf": [

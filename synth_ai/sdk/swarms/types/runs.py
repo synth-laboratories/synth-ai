@@ -104,6 +104,7 @@ class RunSnapshot(ResponseModel):
     paused_at: AwareDatetime | None = None
     resume_by: AwareDatetime | None = None
     deadline_at: AwareDatetime | None = None
+    pause_count: StrictInt | None = Field(default=None, ge=0, le=2**32 - 1)
     # Ranked open problems, root cause first (synth.problems.v1).
     problems: tuple[Problem, ...] = Field(default=(), max_length=32)
     # False when Orchestra's problems could not be read (see the
@@ -116,7 +117,7 @@ class RunSnapshot(ResponseModel):
     @model_serializer(mode="wrap")
     def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         value = handler(self)
-        for name in ("control", "paused_at", "resume_by", "deadline_at"):
+        for name in ("control", "paused_at", "resume_by", "deadline_at", "pause_count"):
             if getattr(self, name) is None:
                 value.pop(name, None)
         return value

@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts import swarms as operations
+from synth_ai.errors import RefusedError
 from synth_ai.mcp.catalog import BY_NAME
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.swarms.run import AsyncSwarmRun, SwarmRun
@@ -121,15 +122,19 @@ def test_old_control_receipts_and_new_pause_projection_are_both_readable():
         "paused_at": "2026-10-19T20:00:00Z",
         "deadline_at": "2026-10-19T20:05:00Z",
         "resume_by": "2026-10-19T20:05:00Z",
+        "pause_count": 1,
     }
     snapshot = RunSnapshot.model_validate_json(json.dumps(body))
     assert snapshot.state == "pausing" and snapshot.control.command == "pause"
     assert snapshot.resume_by == snapshot.deadline_at
-    for key in ("control", "paused_at", "resume_by", "deadline_at"):
+    assert snapshot.pause_count == 1
+    for key in ("control", "paused_at", "resume_by", "deadline_at", "pause_count"):
         body.pop(key)
     assert RunSnapshot.model_validate_json(json.dumps(body)).control is None
     historical = RunSnapshot.model_validate_json(json.dumps(body)).model_dump(mode="json")
-    assert not {"control", "paused_at", "resume_by", "deadline_at"}.intersection(historical)
+    assert not {"control", "paused_at", "resume_by", "deadline_at", "pause_count"}.intersection(
+        historical
+    )
 
 
 @pytest.mark.parametrize("kind", ["paused", "resumed", "cancel_requested"])
@@ -141,7 +146,10 @@ def test_control_events_are_named_without_changing_usage_semantics(kind):
 
 
 def test_ops_tools_and_shipped_contract_preserve_control_scopes():
+    from synth_ai.contracts.swarms_schema import export_contract
+
     contract = json.loads((Path(__file__).parents[1] / "contracts/swarms-v1.json").read_text())
+    assert contract == json.loads(export_contract())
     for command in ("pause", "resume"):
         op = getattr(operations, command.upper())
         assert op.id == f"swarms.{command}" and op.keyed and op.mutation and not op.may_charge
@@ -151,3 +159,75 @@ def test_ops_tools_and_shipped_contract_preserve_control_scopes():
     assert "ControlReceipt" in contract["models"]
     with pytest.raises(ValidationError):
         ControlReceipt.model_validate_json(json.dumps(receipt("rerun")))
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+@pytest.mark.parametrize(
+    "code",
+    [
+        "run_not_started",
+        "run_already_paused",
+        "run_not_paused",
+        "run_closing_or_terminal",
+        "control_in_flight",
+        "run_deadline_elapsed",
+        "pause_expired",
+        "run_cancelled",
+    ],
+)
+def test_definite_control_refusals_keep_code_identity_and_do_not_reconcile_or_repeat(
+    async_mode, code
+):
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(
+            422,
+            headers={"X-Synth-Contract": "swarms.v1"},
+            json={
+                "error": {
+                    "code": code,
+                    "request_id": "refusal-1",
+                    "outcome": "not_accepted",
+                    "retry_after_seconds": None,
+                }
+            },
+        )
+
+    if async_mode:
+
+        async def run():
+            async with AsyncSynthClient(
+                api_key="fixture-key", base_url="https://backend.test"
+            ) as client:
+                await client._transport.client.aclose()
+                client._transport.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+
+                async def negotiated(*_):
+                    return None
+
+                client._transport._negotiate = negotiated
+                await AsyncSwarmRun(client._transport, "run-1").pause(
+                    mutation=MutationOptions(idempotency_key="one")
+                )
+
+        def invoke():
+            return asyncio.run(run())
+    else:
+
+        def invoke():
+            with SynthClient(api_key="fixture-key", base_url="https://backend.test") as client:
+                client._transport.client.close()
+                client._transport.client = httpx.Client(transport=httpx.MockTransport(respond))
+                client._transport._negotiate = lambda *_: None
+                SwarmRun(client._transport, "run-1").pause(
+                    mutation=MutationOptions(idempotency_key="one")
+                )
+
+    with pytest.raises(RefusedError) as caught:
+        invoke()
+    error = caught.value
+    assert error.code == code and error.status == 422 and error.request_id == "refusal-1"
+    assert error.identity.operation == "swarms.pause" and error.identity.key == "one"
+    assert len(calls) == 1 and calls[0].method == "POST"
