@@ -1260,7 +1260,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1284,7 +1285,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1557,7 +1559,7 @@
           "items": {
             "$ref": "#/$defs/ContractIdentity"
           },
-          "maxItems": 2,
+          "maxItems": 3,
           "title": "Contracts",
           "type": "array"
         },

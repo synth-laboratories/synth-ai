@@ -2875,6 +2875,216 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "EvidenceRef": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Kind",
+              "type": "string"
+            },
+            "ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Ref",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Service",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "kind",
+            "ref"
+          ],
+          "title": "EvidenceRef",
+          "type": "object"
+        },
+        "JsonValue": {},
+        "Problem": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "enum": [
+                "provider_refused_prompt",
+                "provider_rate_limited",
+                "provider_unavailable",
+                "provider_stream_truncated",
+                "sandbox_exec_result_lost",
+                "sandbox_unreachable",
+                "sandbox_teardown_unverified",
+                "actor_attempt_failed",
+                "actor_silent",
+                "task_stalled",
+                "lease_expired_no_live_attempt",
+                "scope_dormant",
+                "cancel_not_terminal",
+                "review_absent_auto_finalized",
+                "dispatch_withheld_by_limits",
+                "settlement_exhausted",
+                "accounting_disagreement",
+                "head_input_refused_repeatedly",
+                "scope_quarantined",
+                "owner_unavailable",
+                "run_wall_clock_exceeded",
+                "unclassified_fault"
+              ],
+              "title": "Code",
+              "type": "string"
+            },
+            "count": {
+              "minimum": 1,
+              "title": "Count",
+              "type": "integer"
+            },
+            "evidence_refs": {
+              "items": {
+                "$ref": "#/$defs/EvidenceRef"
+              },
+              "maxItems": 16,
+              "title": "Evidence Refs",
+              "type": "array"
+            },
+            "headline": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Headline",
+              "type": "string"
+            },
+            "id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Id",
+              "type": "string"
+            },
+            "in_doubt": {
+              "title": "In Doubt",
+              "type": "boolean"
+            },
+            "last_seen": {
+              "format": "date-time",
+              "title": "Last Seen",
+              "type": "string"
+            },
+            "next": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Next",
+              "type": "string"
+            },
+            "origin": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Origin",
+              "type": "string"
+            },
+            "owner_hint": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Owner Hint",
+              "type": "string"
+            },
+            "reason_chain": {
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "minItems": 1,
+              "title": "Reason Chain",
+              "type": "array"
+            },
+            "retryable": {
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "severity": {
+              "enum": [
+                "info",
+                "warning",
+                "error",
+                "critical"
+              ],
+              "title": "Severity",
+              "type": "string"
+            },
+            "since": {
+              "format": "date-time",
+              "title": "Since",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "open",
+                "resolved"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "code",
+            "severity",
+            "origin",
+            "headline",
+            "reason_chain",
+            "since",
+            "last_seen",
+            "count",
+            "evidence_refs",
+            "retryable",
+            "in_doubt",
+            "next",
+            "owner_hint",
+            "state"
+          ],
+          "title": "Problem",
+          "type": "object"
+        },
+        "ReasonLink": {
+          "additionalProperties": false,
+          "properties": {
+            "cause": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Cause",
+              "type": "object"
+            },
+            "code": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Service",
+              "type": "string"
+            },
+            "stage": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "code",
+            "stage",
+            "cause"
+          ],
+          "title": "ReasonLink",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -2942,6 +3152,52 @@
           "title": "ResponseMetadata",
           "type": "object"
         },
+        "RunFailure": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Code",
+              "type": "string"
+            },
+            "problem_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Problem Id"
+            },
+            "reason_chain": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "title": "Reason Chain",
+              "type": "array"
+            },
+            "retryable": {
+              "title": "Retryable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "retryable"
+          ],
+          "title": "RunFailure",
+          "type": "object"
+        },
         "RunSnapshot": {
           "additionalProperties": false,
           "properties": {
@@ -2957,6 +3213,17 @@
               "title": "Execution Closed",
               "type": "boolean"
             },
+            "failure": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RunFailure"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "metadata": {
               "$ref": "#/$defs/ResponseMetadata"
             },
@@ -2965,6 +3232,20 @@
               "minLength": 1,
               "title": "Model",
               "type": "string"
+            },
+            "problems": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Problem"
+              },
+              "maxItems": 32,
+              "title": "Problems",
+              "type": "array"
+            },
+            "problems_observed": {
+              "default": false,
+              "title": "Problems Observed",
+              "type": "boolean"
             },
             "project_id": {
               "maxLength": 128,
@@ -2995,6 +3276,7 @@
               "enum": [
                 "queued",
                 "running",
+                "paused",
                 "completed",
                 "partial",
                 "failed",
@@ -3705,6 +3987,45 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "JsonValue": {},
+        "ReasonLink": {
+          "additionalProperties": false,
+          "properties": {
+            "cause": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Cause",
+              "type": "object"
+            },
+            "code": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Service",
+              "type": "string"
+            },
+            "stage": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "code",
+            "stage",
+            "cause"
+          ],
+          "title": "ReasonLink",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -3781,6 +4102,30 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
+            },
+            "problem_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Problem Id"
+            },
+            "reason_chain": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "title": "Reason Chain",
+              "type": "array"
             },
             "retryable": {
               "title": "Retryable",
@@ -4056,6 +4401,304 @@
         "complete"
       ],
       "title": "Page[TaskOutcome, NewType]",
+      "type": "object"
+    },
+    "ProgramRunView": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "close_holds": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Close Holds",
+          "type": "array"
+        },
+        "last_refusal": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Refusal"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "open": {
+          "title": "Open",
+          "type": "boolean"
+        },
+        "program": {
+          "additionalProperties": true,
+          "title": "Program",
+          "type": "object"
+        },
+        "project_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "projection": {
+          "additionalProperties": true,
+          "title": "Projection",
+          "type": "object"
+        },
+        "resource_extension_ready": {
+          "default": false,
+          "title": "Resource Extension Ready",
+          "type": "boolean"
+        },
+        "resources": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resources"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "state_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "State Digest"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "terminal": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Terminal"
+        },
+        "usage": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Usage",
+          "type": "object"
+        }
+      },
+      "required": [
+        "metadata",
+        "run_id",
+        "project_id",
+        "program",
+        "sequence",
+        "state_digest",
+        "open",
+        "status",
+        "terminal",
+        "projection"
+      ],
+      "title": "ProgramRunView",
       "type": "object"
     },
     "Project": {
@@ -4784,6 +5427,216 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "EvidenceRef": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Kind",
+              "type": "string"
+            },
+            "ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Ref",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Service",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "kind",
+            "ref"
+          ],
+          "title": "EvidenceRef",
+          "type": "object"
+        },
+        "JsonValue": {},
+        "Problem": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "enum": [
+                "provider_refused_prompt",
+                "provider_rate_limited",
+                "provider_unavailable",
+                "provider_stream_truncated",
+                "sandbox_exec_result_lost",
+                "sandbox_unreachable",
+                "sandbox_teardown_unverified",
+                "actor_attempt_failed",
+                "actor_silent",
+                "task_stalled",
+                "lease_expired_no_live_attempt",
+                "scope_dormant",
+                "cancel_not_terminal",
+                "review_absent_auto_finalized",
+                "dispatch_withheld_by_limits",
+                "settlement_exhausted",
+                "accounting_disagreement",
+                "head_input_refused_repeatedly",
+                "scope_quarantined",
+                "owner_unavailable",
+                "run_wall_clock_exceeded",
+                "unclassified_fault"
+              ],
+              "title": "Code",
+              "type": "string"
+            },
+            "count": {
+              "minimum": 1,
+              "title": "Count",
+              "type": "integer"
+            },
+            "evidence_refs": {
+              "items": {
+                "$ref": "#/$defs/EvidenceRef"
+              },
+              "maxItems": 16,
+              "title": "Evidence Refs",
+              "type": "array"
+            },
+            "headline": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Headline",
+              "type": "string"
+            },
+            "id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Id",
+              "type": "string"
+            },
+            "in_doubt": {
+              "title": "In Doubt",
+              "type": "boolean"
+            },
+            "last_seen": {
+              "format": "date-time",
+              "title": "Last Seen",
+              "type": "string"
+            },
+            "next": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Next",
+              "type": "string"
+            },
+            "origin": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Origin",
+              "type": "string"
+            },
+            "owner_hint": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Owner Hint",
+              "type": "string"
+            },
+            "reason_chain": {
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "minItems": 1,
+              "title": "Reason Chain",
+              "type": "array"
+            },
+            "retryable": {
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "severity": {
+              "enum": [
+                "info",
+                "warning",
+                "error",
+                "critical"
+              ],
+              "title": "Severity",
+              "type": "string"
+            },
+            "since": {
+              "format": "date-time",
+              "title": "Since",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "open",
+                "resolved"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "code",
+            "severity",
+            "origin",
+            "headline",
+            "reason_chain",
+            "since",
+            "last_seen",
+            "count",
+            "evidence_refs",
+            "retryable",
+            "in_doubt",
+            "next",
+            "owner_hint",
+            "state"
+          ],
+          "title": "Problem",
+          "type": "object"
+        },
+        "ReasonLink": {
+          "additionalProperties": false,
+          "properties": {
+            "cause": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Cause",
+              "type": "object"
+            },
+            "code": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Service",
+              "type": "string"
+            },
+            "stage": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "code",
+            "stage",
+            "cause"
+          ],
+          "title": "ReasonLink",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -4849,6 +5702,52 @@
             "observed_at"
           ],
           "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "RunFailure": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Code",
+              "type": "string"
+            },
+            "problem_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Problem Id"
+            },
+            "reason_chain": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "title": "Reason Chain",
+              "type": "array"
+            },
+            "retryable": {
+              "title": "Retryable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "retryable"
+          ],
+          "title": "RunFailure",
           "type": "object"
         },
         "TimingSpan": {
@@ -4934,6 +5833,17 @@
           "title": "Execution Closed",
           "type": "boolean"
         },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RunFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
         },
@@ -4942,6 +5852,20 @@
           "minLength": 1,
           "title": "Model",
           "type": "string"
+        },
+        "problems": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Problem"
+          },
+          "maxItems": 32,
+          "title": "Problems",
+          "type": "array"
+        },
+        "problems_observed": {
+          "default": false,
+          "title": "Problems Observed",
+          "type": "boolean"
         },
         "project_id": {
           "maxLength": 128,
@@ -4972,6 +5896,7 @@
           "enum": [
             "queued",
             "running",
+            "paused",
             "completed",
             "partial",
             "failed",
@@ -5573,6 +6498,7 @@
           "title": "FundingSource",
           "type": "string"
         },
+        "JsonValue": {},
         "Money": {
           "additionalProperties": false,
           "properties": {
@@ -5659,6 +6585,44 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ReasonLink": {
+          "additionalProperties": false,
+          "properties": {
+            "cause": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Cause",
+              "type": "object"
+            },
+            "code": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Service",
+              "type": "string"
+            },
+            "stage": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "code",
+            "stage",
+            "cause"
+          ],
+          "title": "ReasonLink",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -5735,6 +6699,30 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
+            },
+            "problem_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Problem Id"
+            },
+            "reason_chain": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "title": "Reason Chain",
+              "type": "array"
             },
             "retryable": {
               "title": "Retryable",
@@ -6095,6 +7083,45 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "JsonValue": {},
+        "ReasonLink": {
+          "additionalProperties": false,
+          "properties": {
+            "cause": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Cause",
+              "type": "object"
+            },
+            "code": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "service": {
+              "maxLength": 96,
+              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
+              "title": "Service",
+              "type": "string"
+            },
+            "stage": {
+              "maxLength": 96,
+              "minLength": 1,
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service",
+            "code",
+            "stage",
+            "cause"
+          ],
+          "title": "ReasonLink",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": false,
           "properties": {
@@ -6171,6 +7198,30 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
               "title": "Code",
               "type": "string"
+            },
+            "problem_id": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Problem Id"
+            },
+            "reason_chain": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReasonLink"
+              },
+              "maxItems": 16,
+              "title": "Reason Chain",
+              "type": "array"
             },
             "retryable": {
               "title": "Retryable",
@@ -6971,6 +8022,16 @@
       "mutation": true,
       "path": "/api/v1/swarms/projects",
       "required_scope": "swarms:write"
+    },
+    {
+      "id": "swarms.program",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/swarms/runs/{run_id}/program",
+      "required_scope": "swarms:read"
     }
   ],
   "schema_version": "swarms.v1",

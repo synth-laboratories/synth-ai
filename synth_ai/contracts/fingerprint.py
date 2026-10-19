@@ -15,8 +15,12 @@ from synth_ai.types.capabilities import ContractName
 def export_contract_json(contract: ContractName) -> str:
     if contract == "index.v1":
         from .schema import export_contract
-    else:
+    elif contract == "swarms.v1":
         from .swarms_schema import export_contract
+    elif contract == "core.v1":
+        from .core_schema import export_contract
+    else:
+        raise ValueError(f"Unknown contract: {contract}")
     return export_contract()
 
 
