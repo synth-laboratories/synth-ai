@@ -31,10 +31,15 @@ class MutationResolution(ResponseModel):
         return self
 
 
+ControlCommand = Literal["cancel", "pause", "resume"]
+ControlState = Literal["accepted", "applied", "quiesced", "refused"]
+
+
 class ControlReceipt(ResponseModel):
     operation_id: Identifier
     resource_id: Identifier
-    state: Literal["accepted", "applied", "refused"]
+    state: ControlState
+    command: ControlCommand | None = None
     reason: str | None
     execution_closed: bool
     accounting_final: bool

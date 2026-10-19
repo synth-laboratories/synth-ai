@@ -12,7 +12,8 @@ pytestmark = pytest.mark.contract
 # its contract to this value before it vendors a wheel built from this source.
 # SYN-4884 adds core.v1 to capability observations. Regenerate backend from
 # this candidate before qualification; this source pin is not deployed evidence.
-INDEX_V1_SCHEMA_SHA256 = "377a20b976f50dda11aed332f80a02d6a451e92b4a924ddd5cefe58dabf71911"
+# SYN-4868 adds the optional control command and distinct physical quiescence state.
+INDEX_V1_SCHEMA_SHA256 = "1868354712f5f9375675cbe1f3954ed9434d6a9e888a39539e9ced33769d2b04"
 
 
 def test_index_v1_fingerprint_matches_the_candidate_export():

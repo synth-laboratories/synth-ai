@@ -30,11 +30,13 @@ from synth_ai.sdk.swarms.types.runs import (
     TaskOutcome,
 )
 from synth_ai.types.base import EventCursor, Page
+from synth_ai.types.receipts import ControlReceipt
 
 from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
 
 MODELS: tuple[type[BaseModel], ...] = (
+    ControlReceipt,
     ProgramRunView,
     FileRef,
     File,

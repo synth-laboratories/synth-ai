@@ -3752,6 +3752,23 @@
           "title": "Cleanup Complete",
           "type": "boolean"
         },
+        "command": {
+          "anyOf": [
+            {
+              "enum": [
+                "cancel",
+                "pause",
+                "resume"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
         "execution_closed": {
           "title": "Execution Closed",
           "type": "boolean"
@@ -3788,6 +3805,7 @@
           "enum": [
             "accepted",
             "applied",
+            "quiesced",
             "refused"
           ],
           "title": "State",
