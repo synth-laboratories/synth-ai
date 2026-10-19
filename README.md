@@ -54,6 +54,15 @@ synchronous transports cannot be preempted; injected clients retain their own
 transport and timeout behavior. Observer total, idle, reconnect and
 event-count bounds remain independent of explicit remote cancellation.
 
+Read retries use full jitter with `ClientOptions.retry_base_delay_seconds`
+(default 0.2 seconds) and `retry_max_delay_seconds` (default 10 seconds).
+`Retry-After` seconds and HTTP dates are a minimum delay. If that delay cannot
+fit the request deadline, a 429 raises `RateLimitError` with
+`retry_after_seconds`; other statuses raise `RequestTimeoutError` with the hint.
+Hints above one day are returned to the caller without sleeping. The deprecated
+`retry_delay_seconds` alias remains accepted for one release. Mutations are
+never automatically retried.
+
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility
 aliases, old CLI or split MCP are shipped.
 

@@ -87,9 +87,9 @@ class Exchanges:
         return self.responses[min(len(self.requests) - 1, len(self.responses) - 1)]
 
 
-async def invoke(async_mode, handler, *, mutation=False, client_options=None):
+async def invoke(async_mode, handler, *, mutation=False, client_options=None, configure=None):
     """Exercise the public facade and verify borrowed network-client lifetime."""
-    selected = {"read_retry_count": 2, "retry_delay_seconds": 0, **(client_options or {})}
+    selected = {"read_retry_count": 2, "retry_base_delay_seconds": 0, **(client_options or {})}
     if async_mode:
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as network:
             client = AsyncSynthClient(
@@ -97,6 +97,8 @@ async def invoke(async_mode, handler, *, mutation=False, client_options=None):
                 base_url="https://backend.test",
                 options=ClientOptions(async_http_client=network, **selected),
             )
+            if configure is not None:
+                configure(client._transport)
             try:
                 if mutation:
                     return await client.index.search(
@@ -112,6 +114,8 @@ async def invoke(async_mode, handler, *, mutation=False, client_options=None):
             base_url="https://backend.test",
             options=ClientOptions(http_client=network, **selected),
         )
+        if configure is not None:
+            configure(client._transport)
         try:
             if mutation:
                 return client.index.search(

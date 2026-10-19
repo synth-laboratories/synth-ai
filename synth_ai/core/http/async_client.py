@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import sys
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import TypeVar
 from urllib.parse import urlsplit
 
@@ -27,6 +28,7 @@ from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.types.base import ClientTiming
 from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 
+from .backoff import delay_seconds, retry_after_seconds, retry_failure
 from .cleanup import handle_cleanup_failure
 from .credentials import CredentialProvider
 from .lifetime import AsyncCloseable, await_cleanup
@@ -49,6 +51,8 @@ class AsyncHttpTransport:
         options: ClientOptions,
         *,
         credential_provider: CredentialProvider | None = None,
+        _sleep: Callable[[float], Awaitable[None]] | None = None,
+        _random: random.Random | None = None,
     ) -> None:
         if options.local_development_retention and urlsplit(base_url).hostname not in {
             "127.0.0.1",
@@ -61,6 +65,8 @@ class AsyncHttpTransport:
         self._credential_provider = credential_provider
         self._credential_tasks: set[asyncio.Task[str]] = set()
         self._options = options
+        self._sleep = _sleep or asyncio.sleep
+        self._random = _random or random.Random()
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
         self._owned = options.async_http_client is None
         self.client = options.async_http_client or httpx.AsyncClient(
@@ -354,7 +360,6 @@ class AsyncHttpTransport:
                         attempt=attempt,
                         attempts=attempts,
                         operation=operation.id,
-                        fallback_delay=self._options.retry_delay_seconds,
                     )
                     content = bytearray()
                     first_byte: float | None = None
@@ -383,18 +388,32 @@ class AsyncHttpTransport:
                             attempt=attempt,
                             attempts=attempts,
                             operation=operation.id,
-                            fallback_delay=self._options.retry_delay_seconds,
                         )
                 finished = time.monotonic()
                 if exchange.error is not None:
                     raise annotate_response_error(response, exchange.error)
                 if exchange.kind == "retry":
-                    delay = exchange.delay
+                    hint = retry_after_seconds(response.headers.get("Retry-After"))
+                    delay = delay_seconds(
+                        attempt,
+                        self._options.retry_base_delay_seconds,
+                        self._options.retry_max_delay_seconds,
+                        hint,
+                        rng=self._random,
+                    )
+                    failure = retry_failure(
+                        status=response.status_code,
+                        delay=delay,
+                        remaining=deadline - time.monotonic(),
+                        retry_after=hint,
+                    )
+                    if failure is not None:
+                        annotate_response_error(response, failure)
                     await self._release_response(response)
                     response = None
-                    if delay >= deadline - time.monotonic():
-                        raise RequestTimeoutError("Retry would exceed the request deadline")
-                    await asyncio.sleep(delay)
+                    if failure is not None:
+                        raise failure
+                    await self._sleep(delay)
                     continue
                 timing = ClientTiming(
                     total_ms=(finished - started) * 1000,
@@ -439,12 +458,25 @@ class AsyncHttpTransport:
                         reason="response_lost",
                     ) from cause
                 if isinstance(cause, httpx.TransportError) and attempt < attempts:
-                    delay = self._options.retry_delay_seconds
-                    if delay >= deadline - time.monotonic():
-                        raise RequestTimeoutError(
-                            "Retry would exceed the request deadline"
-                        ) from cause
-                    await asyncio.sleep(delay)
+                    delay = delay_seconds(
+                        attempt,
+                        self._options.retry_base_delay_seconds,
+                        self._options.retry_max_delay_seconds,
+                        None,
+                        rng=self._random,
+                    )
+                    failure = retry_failure(
+                        status=None,
+                        delay=delay,
+                        remaining=deadline - time.monotonic(),
+                        retry_after=None,
+                    )
+                    if response is not None:
+                        await self._release_response(response)
+                        response = None
+                    if failure is not None:
+                        raise failure from cause
+                    await self._sleep(delay)
                     continue
                 if isinstance(cause, (httpx.TimeoutException, TimeoutError)):
                     raise RequestTimeoutError("HTTP request timed out") from cause
