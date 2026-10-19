@@ -40,16 +40,18 @@ with SynthClient.anonymous() as client:
 This requires an index.v1 backend. Keyed calls require KeyedSearchOptions with
 an exact Money charge ceiling. Durable search and mutation recovery are keyed.
 Use typed content refs for current-rights retrieval; citations grant no access.
-Synchronous clients own a cancellable HTTP pool; synchronous client injection is
-not supported. Async clients use native async HTTP and may borrow an AsyncClient.
+Synchronous clients own a cancellable HTTP pool by default. Set
+`ClientOptions(http_client=...)` to borrow an `httpx.Client`, or
+`ClientOptions(async_http_client=...)` to borrow an `httpx.AsyncClient`.
+Closing the SDK leaves a borrowed client open.
 Local observer timeouts and close never cancel durable remote work.
 
 For explicit HTTPX use, `synth_ai.transports.DeadlineHTTPTransport` supplies the
 same owned, cancellable network implementation. Set a finite HTTPX read timeout;
 it bounds the whole exchange, including headers and body. Close the HTTPX client
 to release its pool and join its network thread. Arbitrary non-cooperative
-synchronous transports cannot be preempted; synchronous client injection into
-`SynthClient` is deliberately unsupported. Observer total, idle, reconnect and
+synchronous transports cannot be preempted; injected clients retain their own
+transport and timeout behavior. Observer total, idle, reconnect and
 event-count bounds remain independent of explicit remote cancellation.
 
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility

@@ -19,7 +19,12 @@ from synth_ai.types.base import ClientTiming
 
 from .cleanup import handle_cleanup_failure
 from .request import build_request, encode_body, mutation_identity
-from .response import decode_response, validate_negotiated_response
+from .response import (
+    annotate_response_error,
+    classify_exchange,
+    decode_response,
+    validate_negotiated_response,
+)
 
 
 @dataclass(frozen=True)
@@ -107,9 +112,18 @@ def _request(owner, operation, path, payload, options, identity, deadline, key, 
 
 
 def _check_headers(response, negotiated, identity, contract):
+    exchange = classify_exchange(
+        response,
+        None,
+        contract=contract,
+        mutation=True,
+        identity=identity,
+        attempt=1,
+        attempts=1,
+    )
+    if exchange.error is not None:
+        raise annotate_response_error(response, exchange.error)
     validate_negotiated_response(response, negotiated, identity, True)
-    if response.is_success and response.headers.get("X-Synth-Contract") != contract:
-        raise OutcomeUncertainError("Event response contract changed", identity=identity)
     if response.headers.get("Content-Encoding", "identity").lower() != "identity":
         raise ContractError(
             "Compressed event responses are outside the bounded contract", identity=identity
@@ -273,7 +287,10 @@ class AsyncMutationEventStream:
             self.owner._unregister_stream(self)
 
     async def _chunks(self):
-        iterator = self.response.aiter_bytes()
+        response = self.response
+        if response is None:
+            raise ContractError("Event response is unavailable before stream entry")
+        iterator = response.aiter_bytes()
         while True:
 
             async def read():

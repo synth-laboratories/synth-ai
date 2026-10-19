@@ -28,10 +28,10 @@ from .types.history import SearchHistoryDeletion, SearchHistoryDeletionReceipt
 from .types.retention import RetentionMode
 from .types.search import (
     KeyedSearchRequest,
-    StrictSearchEventRequest,
     SearchEvent,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
 )
 
 _TERMINAL_WITHOUT_RESULT = frozenset({"failed", "cancelled"})

@@ -79,7 +79,7 @@ class SynthClient:
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
             raise ValueError(
-                "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
+                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
             )
         origin = resolve_url(base_url)
         key, provider = _credentials(api_key, origin)
@@ -99,7 +99,7 @@ class SynthClient:
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
             raise ValueError(
-                "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
+                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
             )
         client = cls.__new__(cls)
         client._transport = HttpTransport(resolve_url(base_url), None, selected)

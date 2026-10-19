@@ -234,7 +234,7 @@ def create_server(
                             token,
                             float(value.sequence),
                             message=value.model_dump_json(),
-                            related_request_id=context.request_id,
+                            related_request_id=str(context.request_id),
                         )
 
                     dispatched = True

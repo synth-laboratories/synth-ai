@@ -40,8 +40,8 @@ from .search import (
     SearchFilters,
     SearchResponse,
     SearchSnapshot,
-    StrictSearchProgress,
     StrictSearchEventRequest,
+    StrictSearchProgress,
 )
 from .uploads import (
     ContributionPackageRef,

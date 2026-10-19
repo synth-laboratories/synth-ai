@@ -31,7 +31,12 @@ from .cleanup import handle_cleanup_failure
 from .credentials import CredentialProvider
 from .lifetime import Closeable
 from .request import build_request, encode_body, mutation_identity
-from .response import decode_response, retry_delay, validate_negotiated_response
+from .response import (
+    annotate_response_error,
+    classify_exchange,
+    decode_response,
+    validate_negotiated_response,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -56,8 +61,8 @@ class HttpTransport:
         self._credential_provider = credential_provider
         self._options = options
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
-        self._owned = True
-        self.client = httpx.Client(
+        self._owned = options.http_client is None
+        self.client = options.http_client or httpx.Client(
             trust_env=False, transport=DeadlineTransport(options.maximum_connections)
         )
         self._closed = False
@@ -295,34 +300,55 @@ class HttpTransport:
                 self._adopt_response(response)
                 if options is not None and options.response_metadata is not None:
                     options.response_metadata.capture(response.headers)
-                if response.headers.get("Content-Encoding", "identity").lower() != "identity":
-                    raise ContractError(
-                        "Compressed responses are outside the bounded wire contract"
-                    )
+                exchange = classify_exchange(
+                    response,
+                    None,
+                    contract=operation.contract,
+                    mutation=operation.mutation,
+                    identity=identity,
+                    attempt=attempt,
+                    attempts=attempts,
+                    operation=operation.id,
+                    fallback_delay=self._options.retry_delay_seconds,
+                )
                 content = bytearray()
                 first_byte: float | None = None
-                for chunk in response.iter_bytes():
-                    if self._closed:
-                        raise ContractError("SDK client closed during response")
-                    now = time.monotonic()
-                    if first_byte is None:
-                        first_byte = now
-                    if len(content) + len(chunk) > self._options.maximum_response_bytes:
-                        raise ContractError("Response exceeded the configured byte bound")
-                    content.extend(chunk)
-                    if now >= deadline:
-                        raise RequestTimeoutError("Response deadline expired")
+                if exchange.kind == "decode":
+                    if response.headers.get("Content-Encoding", "identity").lower() != "identity":
+                        raise ContractError(
+                            "Compressed responses are outside the bounded wire contract"
+                        )
+                    for chunk in response.iter_bytes():
+                        if self._closed:
+                            raise ContractError("SDK client closed during response")
+                        now = time.monotonic()
+                        if first_byte is None:
+                            first_byte = now
+                        if len(content) + len(chunk) > self._options.maximum_response_bytes:
+                            raise ContractError("Response exceeded the configured byte bound")
+                        content.extend(chunk)
+                        if now >= deadline:
+                            raise RequestTimeoutError("Response deadline expired")
+                    exchange = classify_exchange(
+                        response,
+                        bytes(content),
+                        contract=operation.contract,
+                        mutation=operation.mutation,
+                        identity=identity,
+                        attempt=attempt,
+                        attempts=attempts,
+                        operation=operation.id,
+                        fallback_delay=self._options.retry_delay_seconds,
+                    )
                 finished = time.monotonic()
                 if finished >= deadline:
                     raise RequestTimeoutError("Response deadline expired")
-                if (
-                    not operation.mutation
-                    and response.headers.get("X-Synth-Contract") == operation.contract
-                    and response.status_code in {429, 502, 503, 504}
-                    and attempt < attempts
-                ):
-                    delay = retry_delay(response, self._options.retry_delay_seconds)
+                if exchange.error is not None:
+                    raise annotate_response_error(response, exchange.error)
+                if exchange.kind == "retry":
+                    delay = exchange.delay
                     self._release_response(response)
+                    response = None
                     if delay >= deadline - time.monotonic():
                         raise RequestTimeoutError("Retry would exceed the request deadline")
                     time.sleep(delay)
@@ -349,10 +375,21 @@ class HttpTransport:
                         self._options.candidate_manifest_sha256,
                     )
                 return validate(decoded) if validate is not None else decoded
-            except (httpx.TransportError, RequestTimeoutError, ContractError) as cause:
+            except ContractError as cause:
                 if operation.mutation:
                     raise OutcomeUncertainError(
-                        "Mutation delivery is uncertain; retain its identity", identity=identity
+                        "Mutation response is invalid; reconcile its identity",
+                        identity=identity,
+                        reason="response_invalid",
+                        status=response.status_code if response is not None else None,
+                    ) from cause
+                raise
+            except (httpx.TransportError, RequestTimeoutError) as cause:
+                if operation.mutation:
+                    raise OutcomeUncertainError(
+                        "Mutation delivery is uncertain; retain its identity",
+                        identity=identity,
+                        reason="response_lost",
                     ) from cause
                 if isinstance(cause, httpx.TransportError) and attempt < attempts:
                     delay = self._options.retry_delay_seconds

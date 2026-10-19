@@ -431,9 +431,10 @@ async def run_control(client: AsyncSynthClient, args: RunControl) -> ControlRece
 async def deliver_search_events(
     client: AsyncSynthClient, args: StrictSearchDelivery
 ) -> Page[SearchEvent, EventCursor]:
-    from .progress import publish_progress
     from synth_ai.sdk.index.search_run import AsyncSearchRun
     from synth_ai.sdk.index.types.search import StrictSearchProgress
+
+    from .progress import publish_progress
 
     run = AsyncSearchRun(client.index._transport, args.search_id, expected_retention="zdr_strict")
     async with run.deliver_events(
