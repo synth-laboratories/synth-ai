@@ -10,7 +10,7 @@ from pydantic import Field, JsonValue, TypeAdapter, model_validator
 
 from .base import Digest, Identifier, Model, ResponseModel
 
-ContractName = Literal["index.v1", "swarms.v1"]
+ContractName = Literal["index.v1", "swarms.v1", "core.v1"]
 Surface = Literal["http", "mcp"]
 TrustEnvironment = Literal["local", "development", "staging", "production"]
 Version = Annotated[str, Field(strict=True, max_length=64, pattern=r"^[0-9][0-9A-Za-z._+-]*$")]
@@ -69,7 +69,7 @@ class CapabilitySnapshot(Model):
     schema_version: Literal["synth.capabilities.v1"] = "synth.capabilities.v1"
     release: ReleaseIdentity | None
     admission: Literal["candidate", "qualified"] | None
-    contracts: tuple[ContractIdentity, ...] = Field(max_length=2)
+    contracts: tuple[ContractIdentity, ...] = Field(max_length=3)
     operations: tuple[OperationCapability, ...] = Field(max_length=128)
 
     @model_validator(mode="after")

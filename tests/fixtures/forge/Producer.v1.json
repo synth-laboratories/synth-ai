@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "ExactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Authority",
+          "type": "string"
+        },
+        "digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "record_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Record Id",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "kind",
+        "record_id",
+        "revision",
+        "digest_sha256"
+      ],
+      "title": "ExactReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+  "properties": {
+    "admission": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "authority": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+      "title": "Authority",
+      "type": "string"
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "execution": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "grant": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExactReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "subject_id": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+      "title": "Subject Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "authority",
+    "subject_id"
+  ],
+  "title": "Producer",
+  "type": "object"
+}

@@ -11,7 +11,7 @@ from pathlib import Path
 from setuptools import setup
 from setuptools.command.build_py import build_py
 
-SCHEMAS = ("index-v1.json", "swarms-v1.json", "mcp-v1.json")
+SCHEMAS = ("index-v1.json", "swarms-v1.json", "mcp-v1.json", "core-v1.json")
 
 
 class BuildWithContracts(build_py):
