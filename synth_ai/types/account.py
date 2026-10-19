@@ -4,7 +4,7 @@ from typing import Annotated, Literal, Self, get_args
 
 from pydantic import AwareDatetime, Field, model_validator
 
-from .base import Digest, Identifier, Model, ResponseModel
+from .base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
 
 Subproduct = Literal[
     "index.fast",
@@ -28,19 +28,19 @@ Condition = Literal[
 ]
 
 
-class AccountPolicyLimit(Model):
-    limit_id: Identifier
+class AccountPolicyLimit(ResponseBase):
+    limit_id: ResponseIdentifier
     product: Literal["index", "swarms"]
     value: Annotated[int, Field(ge=0)] | None
     default_value: Annotated[int, Field(ge=0)] | None
-    source: Identifier
-    revision: Identifier | None
+    source: ResponseIdentifier
+    revision: ResponseIdentifier | None
     expires_at: AwareDatetime | None
     dimension: Literal["requests", "concurrent", "spend_cents"]
     window: Literal["token_bucket", "concurrent", "day", "month"]
     observed_at: AwareDatetime
     state: Literal["ready", "unavailable"]
-    code: Identifier | None
+    code: ResponseIdentifier | None
     used: Annotated[int, Field(ge=0)] | None
     remaining: Annotated[int, Field(ge=0)] | None
     resets_at: AwareDatetime | None
@@ -49,14 +49,14 @@ class AccountPolicyLimit(Model):
     next_request_at: AwareDatetime | None
 
 
-class AccountEntitlement(Model):
+class AccountEntitlement(ResponseBase):
     subproduct: Subproduct
     product: Literal["index", "swarms", "monitor"]
     stage: Literal["available", "planned", "unavailable"]
     kind: Literal["search", "content", "compute", "provider", "monitor"]
     supply: Literal["platform", "customer", "mixed"]
     access: Literal["allowed", "denied", "conditional", "unavailable"]
-    code: Identifier
+    code: ResponseIdentifier
     conditions: tuple[Condition, ...] = Field(max_length=5)
     source: Literal["baseline", "override", "unavailable"]
     grant_revision: Annotated[int, Field(ge=1)] | None
@@ -76,7 +76,7 @@ class AccountEntitlement(Model):
         return self
 
 
-class AccountRequestLimits(Model):
+class AccountRequestLimits(ResponseBase):
     max_results: Annotated[int, Field(ge=1)]
     max_excerpts_per_result: Annotated[int, Field(ge=1)]
     query_max_bytes: Annotated[int, Field(ge=1)]
@@ -84,7 +84,7 @@ class AccountRequestLimits(Model):
 
 
 class AccountEntitlements(ResponseModel):
-    tenant_id: Identifier
+    tenant_id: ResponseIdentifier
     policy_revision: Annotated[int, Field(ge=0)]
     definition_version: Literal["account-policy.v1"] = "account-policy.v1"
     capability_sha256: Digest | None

@@ -177,11 +177,11 @@ def test_decoder_accepts_split_frames_and_rejects_oversize_and_extra_fields():
 
 
 def test_deployment_pin_change_keeps_exact_delivery_identity_and_no_retry():
-    from types import SimpleNamespace
+    from synth_ai.types.capabilities import NegotiatedCapability
 
     recorder = Recorder(reply(wire()))
     client = sync_client(recorder)
-    pins = SimpleNamespace(
+    pins = NegotiatedCapability(
         schema_sha256="a" * 64, capability_sha256="b" * 64, release_manifest_sha256="c" * 64
     )
     client._transport._negotiate = lambda *args: pins

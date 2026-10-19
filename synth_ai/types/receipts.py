@@ -7,13 +7,13 @@ from typing import Any, Generic, Literal, Self, TypeVar
 
 from pydantic import SerializerFunctionWrapHandler, model_serializer, model_validator
 
-from .base import Identifier, Model, ResponseMetadata, ResponseModel
+from .base import ResponseBase, ResponseIdentifier, ResponseMetadata, ResponseModel
 from .identity import MutationIdentity
 
 
-class ResourceReference(Model):
+class ResourceReference(ResponseBase):
     kind: Literal["search", "contribution", "upload", "control", "search_response", "swarm"]
-    resource_id: Identifier
+    resource_id: ResponseIdentifier
 
 
 ResolutionState = Literal["accepted", "pending", "not_accepted", "unavailable", "conflict"]
@@ -36,8 +36,8 @@ ControlState = Literal["accepted", "applied", "quiesced", "refused"]
 
 
 class ControlReceipt(ResponseModel):
-    operation_id: Identifier
-    resource_id: Identifier
+    operation_id: ResponseIdentifier
+    resource_id: ResponseIdentifier
     state: ControlState
     command: ControlCommand | None = None
     reason: str | None

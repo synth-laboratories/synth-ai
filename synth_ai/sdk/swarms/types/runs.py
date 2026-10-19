@@ -14,14 +14,15 @@ from pydantic import (
 )
 
 from synth_ai.errors import OperationFailedError
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
 from synth_ai.types.receipts import ControlCommand, ControlState
+from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import UsageSummary
 
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
 from .problems import Problem, ReasonLink
 
-RunState = Literal[
+KnownRunState = Literal[
     "queued",
     "running",
     "pausing",
@@ -32,7 +33,9 @@ RunState = Literal[
     "failed",
     "cancelled",
 ]
-TaskState = Literal[
+RunState = KnownRunState | UnknownValue
+
+KnownTaskState = Literal[
     "pending",
     "queued",
     "running",
@@ -45,13 +48,15 @@ TaskState = Literal[
     "cancelled",
 ]
 
+TaskState = KnownTaskState | UnknownValue
+
 
 class ResolvedConfiguration(ResponseModel):
-    run_id: Identifier | None
-    project_id: Identifier
-    configuration_id: Identifier
+    run_id: ResponseIdentifier | None
+    project_id: ResponseIdentifier
+    configuration_id: ResponseIdentifier
     digest_sha256: Digest
-    profile_id: Identifier
+    profile_id: ResponseIdentifier
     runtime_image_digest: Digest
     limits: Limits
     inputs: Inputs
@@ -75,27 +80,27 @@ class LaunchPreflight(ResponseModel):
         return self
 
 
-class RunFailure(Model):
-    code: Identifier
+class RunFailure(ResponseBase):
+    code: ResponseIdentifier
     retryable: bool
     # Root-cause explanation (synth.problems.v1). Defaults keep a response from
     # an older server valid; a new server always fills them.
-    problem_id: Identifier | None = None
+    problem_id: ResponseIdentifier | None = None
     reason_chain: tuple[ReasonLink, ...] = Field(default=(), max_length=16)
 
 
-class RunControlSummary(Model):
-    operation_id: Identifier
+class RunControlSummary(ResponseBase):
+    operation_id: ResponseIdentifier
     command: ControlCommand
     state: ControlState
 
 
 class RunSnapshot(ResponseModel):
-    run_id: Identifier
-    project_id: Identifier
+    run_id: ResponseIdentifier
+    project_id: ResponseIdentifier
     state: RunState
     model: ResolvedModelId
-    provider: Identifier
+    provider: ResponseIdentifier
     result_available: bool
     execution_closed: bool
     accounting_final: bool
@@ -124,10 +129,10 @@ class RunSnapshot(ResponseModel):
 
 
 class SwarmResult(ResponseModel):
-    run_id: Identifier
+    run_id: ResponseIdentifier
     status: Literal["completed", "partial", "failed", "cancelled"]
     text: str | None = Field(default=None, max_length=65536)
-    output_ids: tuple[Identifier, ...] = Field(max_length=256)
+    output_ids: tuple[ResponseIdentifier, ...] = Field(max_length=256)
     output_count: StrictInt = Field(ge=0)
     output_ready: bool
     warnings: tuple[str, ...] = Field(max_length=32)
@@ -178,7 +183,7 @@ TaskActivity = Literal[
 ]
 
 
-class TaskExecutionFacts(Model):
+class TaskExecutionFacts(ResponseBase):
     """Independent native execution facts; activity does not assert finality."""
 
     activity: tuple[TaskActivity, ...] = Field(max_length=12)
@@ -206,8 +211,8 @@ class TaskExecutionFacts(Model):
 
 
 class TaskOutcome(ResponseModel):
-    run_id: Identifier
-    task_id: Identifier
+    run_id: ResponseIdentifier
+    task_id: ResponseIdentifier
     state: TaskState
     attempts: StrictInt = Field(ge=0, le=2**32 - 1)
     failure: RunFailure | None
@@ -230,23 +235,26 @@ class TaskOutcome(ResponseModel):
         return self
 
 
-class SwarmEvent(Model):
-    event_id: Identifier
-    run_id: Identifier
+class SwarmEvent(ResponseBase):
+    event_id: ResponseIdentifier
+    run_id: ResponseIdentifier
     sequence: StrictInt = Field(ge=1)
-    kind: Literal[
-        "created",
-        "running",
-        "completed",
-        "partial",
-        "failed",
-        "cancelled",
-        "paused",
-        "resumed",
-        "cancel_requested",
-        "usage_updated",
-        "unknown",
-    ]
+    kind: (
+        Literal[
+            "created",
+            "running",
+            "completed",
+            "partial",
+            "failed",
+            "cancelled",
+            "paused",
+            "resumed",
+            "cancel_requested",
+            "usage_updated",
+            "unknown",
+        ]
+        | UnknownValue
+    )
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
 

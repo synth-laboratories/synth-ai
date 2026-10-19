@@ -7,12 +7,12 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from .base import Identifier, Model, ResponseModel
+from .base import ResponseBase, ResponseIdentifier, ResponseModel
 from .funding import FundingPart, funding_fallback, validate_funding
 from .money import MoneyObservation
 
 
-class UsageMetric(Model):
+class UsageMetric(ResponseBase):
     name: str = Field(min_length=1, max_length=128)
     unit: Literal[
         "tokens",
@@ -40,7 +40,7 @@ class UsageMetric(Model):
 
 
 class UsageSummary(ResponseModel):
-    operation_id: Identifier
+    operation_id: ResponseIdentifier
     physical: tuple[UsageMetric, ...] = Field(max_length=128)
     cost: MoneyObservation
     customer_charge: MoneyObservation
@@ -66,9 +66,9 @@ class UsageSummary(ResponseModel):
 
 
 class UsageOperation(ResponseModel):
-    operation_id: Identifier
-    parent_id: Identifier | None
-    attempt_id: Identifier
-    event_id: Identifier
+    operation_id: ResponseIdentifier
+    parent_id: ResponseIdentifier | None
+    attempt_id: ResponseIdentifier
+    event_id: ResponseIdentifier
     component: str = Field(min_length=1, max_length=128)
     usage: UsageSummary

@@ -39,6 +39,7 @@ from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
 from synth_ai.types.receipts import ControlReceipt, MutationResolution
+from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from .contracts import (
@@ -149,7 +150,7 @@ class ToolDefinition(Generic[RequestT, ResultT]):
         return JSON_OBJECT.validate_python(self.request.model_json_schema())
 
     def output_schema(self) -> JsonObject:
-        return JSON_OBJECT.validate_python(self.result.model_json_schema())
+        return JSON_OBJECT.validate_python(response_schema(self.result))
 
     def validate_arguments(self, arguments: JsonObject) -> JsonObject:
         parsed = self.request.model_validate_json(JSON_OBJECT.dump_json(arguments))

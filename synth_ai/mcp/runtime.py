@@ -59,6 +59,7 @@ class SDKExecutor:
                 OPERATIONS_BY_ID[tool.operation],
                 surface="http",
                 candidate_manifest_sha256=self._client.candidate_manifest_sha256,
+                strict_contract=self._client._transport.strict_contract,
             )
             for tool in TOOLS
         ):
@@ -86,6 +87,7 @@ class SDKExecutor:
                 OPERATIONS_BY_ID[tool.operation],
                 surface="http",
                 candidate_manifest_sha256=self._client.candidate_manifest_sha256,
+                strict_contract=self._client._transport.strict_contract,
             )
         )
         return available, context
@@ -129,6 +131,7 @@ class SDKExecutor:
             OPERATIONS_BY_ID[tool.operation],
             surface="http",
             candidate_manifest_sha256=self._client.candidate_manifest_sha256,
+            strict_contract=self._client._transport.strict_contract,
         )
         context = await self._authorization(receipt)
         if not self._permitted(tool, context, tool.scope_for(arguments)):

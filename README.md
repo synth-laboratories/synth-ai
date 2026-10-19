@@ -70,6 +70,15 @@ Typed errors expose `operation`, `request_id` (the server ID when present), and
 fields. The default user agent identifies the SDK and Python versions; an
 explicit user agent on a borrowed HTTPX client takes precedence.
 
+Responses accept additive fields and expose future run, search, event and
+problem values as `UnknownValue` strings. Known values, money, digests and
+request constructors keep their validation. Schema-hash differences emit one
+warning per contract/backend hash. Set `ClientOptions(strict_contract=True)`
+to require exact schema and deployment-response hashes; release and candidate
+manifest pins also enable strict mode. Contract errors include SDK/backend
+versions and an upgrade command. Strict DEEP progress remains content-free:
+content fields are refused and unknown metadata is never forwarded.
+
 The retired source remains on `legacy/sdk-pre-0230-20261013`; no broad compatibility
 aliases, old CLI or split MCP are shipped.
 

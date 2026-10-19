@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
-
+from .base import ResponseBase
 from .money import Money, MoneyObservation
 
 
@@ -19,9 +18,7 @@ class FundingSource(StrEnum):
     UNSETTLED = "unsettled"
 
 
-class FundingPart(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
+class FundingPart(ResponseBase):
     source: FundingSource
     amount: Money | None
 

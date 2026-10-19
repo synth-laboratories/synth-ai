@@ -94,7 +94,7 @@ def test_schema_mismatch_error_names_contract_and_both_hashes():
         ),
     )
     with pytest.raises(ContractError) as raised:
-        require_operation(receipt, operation, surface="http")
+        require_operation(receipt, operation, surface="http", strict_contract=True)
     error = raised.value
     assert error.code == "schema_mismatch"
     assert error.cause is not None

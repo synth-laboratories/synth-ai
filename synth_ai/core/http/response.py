@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +12,8 @@ from typing import Literal, TypeVar
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from synth_ai.contracts.fingerprint import schema_sha256
+from synth_ai.core.version_skew import schema_error
 from synth_ai.errors import (
     POLICY_ERROR_TYPES,
     AuthenticationError,
@@ -30,7 +33,13 @@ from synth_ai.errors import (
     TransportError,
     UnsupportedOperationError,
 )
-from synth_ai.types.base import ClientTiming, Identifier, Model, ResponseModel
+from synth_ai.types.base import (
+    ClientTiming,
+    Identifier,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 from synth_ai.types.capabilities import NegotiatedCapability
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import parse_rate_limits
@@ -40,9 +49,9 @@ from .backoff import retry_after_seconds
 T = TypeVar("T", bound=BaseModel)
 
 
-class ErrorDetail(Model):
-    code: Identifier
-    request_id: Identifier | None
+class ErrorDetail(ResponseBase):
+    code: ResponseIdentifier
+    request_id: ResponseIdentifier | None
     retry_after_seconds: float | None = Field(default=None, ge=0)
     # The exported index.v1 schema (and so its fingerprint, which the backend
     # capability receipt must equal) pins this default. Whether the server sent
@@ -50,7 +59,7 @@ class ErrorDetail(Model):
     outcome: Literal["not_accepted", "unknown"] = "unknown"
 
 
-class ErrorResponse(Model):
+class ErrorResponse(ResponseBase):
     error: ErrorDetail
 
 
@@ -243,6 +252,8 @@ def _decode_response(
         try:
             error = ErrorResponse.model_validate_json(body).error
             sent_outcome = error.outcome if "outcome" in error.model_fields_set else None
+            if error.code in _TOLERANT_REFUSAL_CODES:
+                allowed_modes = _TolerantErrorResponse.model_validate_json(body).error.modes()
         except ValidationError as cause:
             try:
                 tolerant = _TolerantErrorResponse.model_validate_json(body).error
@@ -324,15 +335,15 @@ def _decode_response(
     try:
         result = model.model_validate_json(body)
     except ValidationError as cause:
+        skew = _response_schema_error(response, contract, negotiated)
         if mutation:
             raise OutcomeUncertainError(
-                "Mutation response is invalid; reconcile its identity",
+                "Mutation response is invalid; reconcile its identity. " + str(skew),
                 identity=identity,
+                reason="response_invalid",
                 status=200,
             ) from cause
-        raise ContractError(
-            "Backend response does not match the typed contract", status=200
-        ) from cause
+        raise skew from cause
     if not isinstance(result, ResponseModel):
         raise ContractError("Customer API responses require metadata")
     if result.metadata.contract != contract:
@@ -453,7 +464,11 @@ def validate_negotiated_response(
     """Require a successful response from the same schema/capability/release.
 
     See: the public contract snapshots in contracts/"""
-    if negotiated is None or response.status_code not in {200, 206}:
+    if (
+        negotiated is None
+        or not negotiated.strict_contract
+        or response.status_code not in {200, 206}
+    ):
         return
     pairs = (
         ("X-Synth-Schema-SHA256", negotiated.schema_sha256),
@@ -461,10 +476,42 @@ def validate_negotiated_response(
         ("X-Synth-Release-Manifest-SHA256", negotiated.release_manifest_sha256),
     )
     if any(response.headers.get(name) != value for name, value in pairs):
+        skew = _response_schema_error(
+            response, negotiated.contract or "selected contract", negotiated
+        )
         if mutation:
             raise OutcomeUncertainError(
                 "Mutation response changed deployment identity; reconcile its identity",
                 identity=identity,
+                reason="response_invalid",
                 status=response.status_code,
-            )
-        raise ContractError("Response deployment identity does not match negotiation")
+            ) from skew
+        raise skew
+
+
+def _response_schema_error(
+    response: httpx.Response, contract: str, negotiated: NegotiatedCapability | None
+) -> ContractError:
+    sdk_schema = negotiated.sdk_schema_sha256 if negotiated is not None else None
+    if sdk_schema is None:
+        sdk_schema = (
+            schema_sha256(contract)
+            if contract in {"index.v1", "swarms.v1", "core.v1"}
+            else "unknown"
+        )
+    raw = response.headers.get("X-Synth-Schema-SHA256", "")
+    backend_schema = (
+        raw
+        if re.fullmatch(r"[0-9a-f]{64}", raw)
+        else (negotiated.schema_sha256 if negotiated is not None else None)
+    )
+    error = schema_error(
+        contract=contract,
+        sdk_schema=sdk_schema,
+        backend_schema=backend_schema,
+        backend_release=negotiated.backend_release if negotiated is not None else None,
+        minimum_sdk_version=negotiated.minimum_sdk_version if negotiated is not None else None,
+        stage="response_decode",
+    )
+    error.status = response.status_code
+    return error

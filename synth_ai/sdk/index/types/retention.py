@@ -7,7 +7,7 @@ from typing import Literal, Self
 
 from pydantic import AwareDatetime, Field, model_validator
 
-from synth_ai.types.base import Identifier, Model
+from synth_ai.types.base import ResponseBase, ResponseIdentifier
 
 RetentionMode = Literal["zdr", "zdr_strict", "retained"]
 # Content states this SDK knows. The backend may add more; unknown values are
@@ -18,7 +18,7 @@ KNOWN_CONTENT_STATES = frozenset(
 UNREADABLE_CONTENT_STATES = frozenset({"processing", "purged", "expired", "deleted", "unavailable"})
 
 
-class SearchRetention(Model):
+class SearchRetention(ResponseBase):
     """Tolerant retention observation: every field is optional.
 
     Older backends send ``policy_version``/``purpose``/``archived_at``/
@@ -27,7 +27,7 @@ class SearchRetention(Model):
     """
 
     mode: RetentionMode | None = None
-    policy_version: Identifier | None = None
+    policy_version: ResponseIdentifier | None = None
     purpose: Literal["customer_only"] | None = None
     content_state: str | None = Field(default=None, min_length=1, max_length=64)
     archived_at: AwareDatetime | None = None
