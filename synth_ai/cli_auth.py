@@ -373,6 +373,11 @@ def main() -> int:
             "status": error.status or (401 if isinstance(error, AuthenticationError) else 503),
             "cause": type(error).__name__,
         }
+        if args is not None and args.command == "account":
+            if error.retry_after_seconds is not None:
+                refusal["retry_after_seconds"] = error.retry_after_seconds
+            if error.request_id:
+                refusal["request_id"] = error.request_id
     except ValueError as error:
         if args is not None and args.command == "account":
             print(
