@@ -9,7 +9,13 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Self
 
-from pydantic import AwareDatetime, Field, ValidationError
+from pydantic import (
+    AwareDatetime,
+    Field,
+    SerializerFunctionWrapHandler,
+    ValidationError,
+    model_serializer,
+)
 
 from .base import Model
 
@@ -87,6 +93,10 @@ class Producer(Model):
     context: Ref | None = None
     execution: Ref | None = None
     grant: Ref | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        return {key: value for key, value in handler(self).items() if value is not None}
 
 
 class Relation(StrEnum):

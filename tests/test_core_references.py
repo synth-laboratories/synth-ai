@@ -97,3 +97,10 @@ def test_extracted_tree_verification_and_tampering(tmp_path):
 def test_invalid_manifest_paths_fail_closed(path):
     with pytest.raises(ContractError):
         commit_manifest_digest([{"path": path, "mode": "100644", "sha256": "a" * 64}])
+
+
+def test_absent_producer_references_are_omitted_on_wire():
+    assert Producer(authority="backend", subject_id="swarms-runs").model_dump(mode="json") == {
+        "authority": "backend",
+        "subject_id": "swarms-runs",
+    }
