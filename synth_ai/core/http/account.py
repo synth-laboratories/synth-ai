@@ -16,6 +16,7 @@ from synth_ai.errors import (
     RateLimitError,
     RefusedError,
 )
+from .backoff import retry_after_seconds
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -69,4 +70,5 @@ def decode_account_read(response: httpx.Response, body: bytes, model: type[T]) -
         status=response.status_code,
         request_id=request_id,
         retryable=response.status_code in {429, 502, 503, 504},
+        retry_after_seconds=retry_after_seconds(response.headers.get("Retry-After")),
     )
