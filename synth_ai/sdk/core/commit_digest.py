@@ -42,7 +42,13 @@ def commit_manifest(entries: Iterable[Mapping[str, str]]) -> bytes:
     ordered = []
     seen: set[str] = set()
     for entry in entries:
-        if len(ordered) >= MAX_ENTRIES or set(entry) != {"path", "mode", "sha256"}:
+        if len(ordered) >= MAX_ENTRIES:
+            raise ContractError(
+                f"Commit manifest exceeds entry limit {MAX_ENTRIES}",
+                code="commit_manifest_too_large",
+                stage="commit_manifest",
+            )
+        if set(entry) != {"path", "mode", "sha256"}:
             raise ContractError(
                 "Commit manifest exceeds entry bounds or has unknown fields",
                 code="commit_manifest_invalid",
@@ -61,9 +67,14 @@ def commit_manifest(entries: Iterable[Mapping[str, str]]) -> bytes:
             raise ContractError(
                 "Commit path is not UTF-8", code="commit_path_invalid", stage="commit_manifest"
             ) from error
+        if len(raw_path) > MAX_PATH_BYTES:
+            raise ContractError(
+                f"Commit path exceeds byte limit {MAX_PATH_BYTES}",
+                code="commit_manifest_too_large",
+                stage="commit_manifest",
+            )
         if (
             not raw_path
-            or len(raw_path) > MAX_PATH_BYTES
             or path.startswith("/")
             or any(part in {"", ".", "..", ".git"} for part in path.split("/"))
             or "\x00" in path
