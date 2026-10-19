@@ -15,6 +15,19 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import ContextManager, Protocol, cast
 
+from synth_ai.errors import AuthenticationError
+
+
+def require_private_file_support() -> None:
+    """Private credential files require POSIX ownership and no-follow semantics."""
+    if os.name != "posix":
+        raise AuthenticationError(
+            "File-based login requires POSIX; supply an explicit API key on this platform",
+            code="credential_storage_unsupported",
+            stage="credential_storage",
+            cause=f"expected=posix actual={os.name} hint=pass api_key explicitly",
+        )
+
 
 def _lock(descriptor: int, *, release: bool = False) -> None:
     if os.name == "nt":
@@ -62,6 +75,7 @@ class CredentialStore(Protocol):
 
 class FileCredentialStore:
     def __init__(self, path: Path):
+        require_private_file_support()
         self.path = path
 
     def _directory(self, *, create: bool = False) -> None:

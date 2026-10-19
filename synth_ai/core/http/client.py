@@ -70,8 +70,10 @@ class HttpTransport:
         self._random = _random or random.Random()
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
         self._owned = options.http_client is None
+        # The inner pool handles environment proxies/CA so every network route
+        # stays on the cancellable loop; outer proxy mounts would bypass it.
         self.client = options.http_client or httpx.Client(
-            trust_env=False, transport=DeadlineTransport(options.maximum_connections)
+            trust_env=False, auth=None, transport=DeadlineTransport(options.maximum_connections)
         )
         self._closed = False
         self._streams: set[Closeable] = set()

@@ -18,7 +18,12 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 
 from synth_ai.auth.oauth import AuthRefusalError, OAuthClient, OAuthConfig, stored_access_token
-from synth_ai.auth.storage import Credentials, CredentialStore, default_store
+from synth_ai.auth.storage import (
+    Credentials,
+    CredentialStore,
+    default_store,
+    require_private_file_support,
+)
 from synth_ai.client import SynthClient, resolve_key, resolve_url
 from synth_ai.core.environment import environment_value
 from synth_ai.errors import SynthError
@@ -28,6 +33,7 @@ from synth_ai.types.auth import AuthContext
 
 def private_login_file(text: str) -> Path:
     """Keep one-time authorization URLs out of terminal history and shared logs."""
+    require_private_file_support()
     root = Path(os.environ.get("SYNTH_CONFIG_DIR", str(Path.home() / ".synth")))
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     if root.is_symlink() or root.stat().st_mode & 0o077 or root.stat().st_uid != os.getuid():
@@ -211,7 +217,9 @@ def _run_locked(args: argparse.Namespace, store: CredentialStore | None) -> int:
                 raise AuthRefusalError("synth_key_required")
             credential = Credentials(value)
         else:
-            with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as http:
+            with httpx.Client(
+                timeout=15, follow_redirects=False, trust_env=True, auth=None
+            ) as http:
                 client = OAuthClient(oauth_config(origin), http)
                 credential = browser_login(
                     client,
@@ -229,7 +237,9 @@ def _run_locked(args: argparse.Namespace, store: CredentialStore | None) -> int:
             raise ValueError("Credential store is required")
         credential = store.load()
         if credential and credential.issuer and credential.client_id:
-            with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as http:
+            with httpx.Client(
+                timeout=15, follow_redirects=False, trust_env=True, auth=None
+            ) as http:
                 client = OAuthClient(
                     OAuthConfig(
                         credential.issuer,

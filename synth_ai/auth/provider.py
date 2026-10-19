@@ -70,7 +70,9 @@ class StoredCredentialProvider:
                     invocation.scope.activate(),
                     httpx.Client(
                         transport=DeadlineTransport(1),
+                        # Proxies and CA selection belong to the inner pool.
                         trust_env=False,
+                        auth=None,
                         follow_redirects=False,
                         event_hooks={"request": [bound]},
                     ) as http,
