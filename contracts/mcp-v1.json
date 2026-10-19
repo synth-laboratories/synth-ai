@@ -10099,6 +10099,533 @@
       "required_scope": "index:read"
     },
     {
+      "description": "Read this organization's default and allowed Index retention modes.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyArguments",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "index_retention_get",
+      "operation": "index.retention.get",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": false,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": false,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": false,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "The organization's default and permitted Index retention modes.",
+        "properties": {
+          "allowed_modes": {
+            "items": {
+              "enum": [
+                "zdr",
+                "zdr_strict",
+                "retained"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Allowed Modes",
+            "type": "array"
+          },
+          "default_mode": {
+            "enum": [
+              "zdr",
+              "zdr_strict",
+              "retained"
+            ],
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "enforced": {
+            "title": "Enforced",
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "metadata",
+          "default_mode",
+          "allowed_modes",
+          "enforced",
+          "revision"
+        ],
+        "title": "RetentionPolicy",
+        "type": "object"
+      },
+      "required_scope": "index:read"
+    },
+    {
+      "description": "Replace org retention policy at the observed revision with a stable key. Org admins only.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "One policy replacement bound to the revision the caller read.",
+        "properties": {
+          "allowed_modes": {
+            "items": {
+              "enum": [
+                "zdr",
+                "zdr_strict",
+                "retained"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Allowed Modes",
+            "type": "array"
+          },
+          "default_mode": {
+            "enum": [
+              "zdr",
+              "zdr_strict",
+              "retained"
+            ],
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "enforced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Enforced"
+          },
+          "expected_revision": {
+            "minimum": 0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "default_mode",
+          "allowed_modes",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "title": "RetentionPolicyMutation",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_retention_update",
+      "operation": "index.retention.update",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": false,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": false,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": false,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "The organization's default and permitted Index retention modes.",
+        "properties": {
+          "allowed_modes": {
+            "items": {
+              "enum": [
+                "zdr",
+                "zdr_strict",
+                "retained"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Allowed Modes",
+            "type": "array"
+          },
+          "default_mode": {
+            "enum": [
+              "zdr",
+              "zdr_strict",
+              "retained"
+            ],
+            "title": "Default Mode",
+            "type": "string"
+          },
+          "enforced": {
+            "title": "Enforced",
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "metadata",
+          "default_mode",
+          "allowed_modes",
+          "enforced",
+          "revision"
+        ],
+        "title": "RetentionPolicy",
+        "type": "object"
+      },
+      "required_scope": null
+    },
+    {
       "description": "Delete the exact archived payload with a stable key. Does not cancel or rerun the search.",
       "idempotent": true,
       "input_schema": {

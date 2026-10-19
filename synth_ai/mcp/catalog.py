@@ -22,6 +22,7 @@ from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
 from synth_ai.sdk.index.types.contributions import Contribution
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
+from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
@@ -56,6 +57,7 @@ from .contracts import (
     PublicContributionsArguments,
     PublicSearchArguments,
     Recovery,
+    RetentionPolicyMutation,
     RunControl,
     RunCreate,
     RunCreated,
@@ -176,6 +178,22 @@ async def account_entitlements(
     client: AsyncSynthClient, args: EmptyArguments
 ) -> AccountEntitlements:
     return await client.account.entitlements()
+
+
+async def retention_get(client: AsyncSynthClient, args: EmptyArguments) -> RetentionPolicy:
+    return await client.index.retention.get()
+
+
+async def retention_update(
+    client: AsyncSynthClient, args: RetentionPolicyMutation
+) -> RetentionPolicy:
+    return await client.index.retention.update(
+        default_mode=args.default_mode,
+        allowed_modes=args.allowed_modes,
+        enforced=args.enforced,
+        expected_revision=args.expected_revision,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
 
 
 async def public_search(client: AsyncSynthClient, args: PublicSearchArguments) -> SearchResponse:
@@ -501,6 +519,22 @@ TOOLS: tuple[ToolSpec, ...] = (
         SearchHistoryArguments,
         SearchHistoryPage,
         search_history,
+    ),
+    ToolDefinition(
+        "index_retention_get",
+        index_operations.GET_RETENTION,
+        "Read this organization's default and allowed Index retention modes.",
+        EmptyArguments,
+        RetentionPolicy,
+        retention_get,
+    ),
+    ToolDefinition(
+        "index_retention_update",
+        index_operations.PUT_RETENTION,
+        "Replace org retention policy at the observed revision with a stable key. Org admins only.",
+        RetentionPolicyMutation,
+        RetentionPolicy,
+        retention_update,
     ),
     ToolDefinition(
         "index_search_history_delete",
