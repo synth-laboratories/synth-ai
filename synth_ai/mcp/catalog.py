@@ -74,6 +74,7 @@ from .contracts import (
     SearchIdentity,
     SearchMutation,
     SearchPage,
+    StrictSearchDelivery,
 )
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
@@ -427,7 +428,43 @@ async def run_control(client: AsyncSynthClient, args: RunControl) -> ControlRece
     return await (await client.swarms.get(args.run_id)).control(args.operation_id)
 
 
+async def deliver_search_events(
+    client: AsyncSynthClient, args: StrictSearchDelivery
+) -> Page[SearchEvent, EventCursor]:
+    from .progress import publish_progress
+    from synth_ai.sdk.index.search_run import AsyncSearchRun
+    from synth_ai.sdk.index.types.search import StrictSearchProgress
+
+    run = AsyncSearchRun(client.index._transport, args.search_id, expected_retention="zdr_strict")
+    async with run.deliver_events(
+        original_request=args.request,
+        creation_key=args.creation_key,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key, timeout_seconds=690),
+    ) as events:
+        terminal = None
+        async for event in events:
+            if isinstance(event, StrictSearchProgress):
+                await publish_progress(event)
+            else:
+                terminal = event
+        if terminal is None:
+            from synth_ai.errors import OutcomeUncertainError
+
+            raise OutcomeUncertainError("Strict event terminal was not delivered")
+        return Page[SearchEvent, EventCursor](
+            metadata=terminal.result.metadata, items=(terminal,), complete=True, next_cursor=None
+        )
+
+
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "index_search_deliver_events",
+        index_operations.DELIVER_SEARCH_EVENTS,
+        "Deliver live strict DEEP progress and the terminal result using original intent and creation key. Requires a progress token; content cannot be replayed.",
+        StrictSearchDelivery,
+        Page[SearchEvent, EventCursor],
+        deliver_search_events,
+    ),
     ToolDefinition(
         "index_search_control",
         index_operations.CONTROL,

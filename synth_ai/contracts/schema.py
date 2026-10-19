@@ -55,6 +55,8 @@ from synth_ai.sdk.index.types.search import (
     SearchEvent,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
+    StrictSearchProgress,
 )
 from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.base import EventCursor, Page
@@ -111,6 +113,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     SearchEvent,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
+    StrictSearchProgress,
     MutationIdentity,
     MutationResolution,
     ControlReceipt,

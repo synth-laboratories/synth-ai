@@ -26,7 +26,13 @@ from synth_ai.types.usage import UsageOperation, UsageSummary
 from .search import validate_search_retention
 from .types.history import SearchHistoryDeletion, SearchHistoryDeletionReceipt
 from .types.retention import RetentionMode
-from .types.search import SearchEvent, SearchResponse, SearchSnapshot
+from .types.search import (
+    KeyedSearchRequest,
+    StrictSearchEventRequest,
+    SearchEvent,
+    SearchResponse,
+    SearchSnapshot,
+)
 
 _TERMINAL_WITHOUT_RESULT = frozenset({"failed", "cancelled"})
 
@@ -86,12 +92,18 @@ class SearchRun:
         *,
         expected_retention: RetentionMode | None = None,
         inline_result: SearchResponse | None = None,
+        strict_request: KeyedSearchRequest | None = None,
+        strict_creation_key: str | None = None,
+        requested_mode: str | None = None,
     ) -> None:
         self._transport = transport
         self.search_id = identifier(search_id)
         self._expected_retention = expected_retention
         # A FAST zdr_strict create response carries the answer; None otherwise.
         self.inline_result = inline_result
+        self._strict_request = strict_request
+        self._strict_creation_key = strict_creation_key
+        self._requested_mode = requested_mode
 
     def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
@@ -248,12 +260,49 @@ class SearchRun:
         )
         return result
 
+    def deliver_events(
+        self,
+        *,
+        original_request: KeyedSearchRequest,
+        creation_key: str,
+        mutation: MutationOptions | None = None,
+    ):
+        """Stream live strict DEEP progress and its terminal result in this request.
+
+        Lost content cannot be replayed. Closing disconnects the active owner.
+        """
+        from .strict_events import StrictSearchEvents
+
+        body = StrictSearchEventRequest(creation_key=creation_key, request=original_request)
+        self._strict_request = None
+        self._strict_creation_key = None
+        return StrictSearchEvents(self._transport, self.search_id, body, mutation)
+
     def events(
         self, *, observation: ObservationOptions, cursor: EventCursor | None = None
     ) -> EventStream[SearchEvent]:
-        """Create a lazy managed observer; local close never cancels remote work.
+        """Observe metadata pages, or own one live strict DEEP stream.
+
+        Closing strict delivery disconnects its owner; content cannot be replayed.
 
         See: the public contract snapshots in contracts/"""
+        if self._expected_retention == "zdr_strict" and self._requested_mode == "deep":
+            if (
+                cursor is not None
+                or self._strict_request is None
+                or self._strict_creation_key is None
+            ):
+                raise StrictZdrResultUnavailable(
+                    "Strict DEEP requires original client intent and no reconnect cursor",
+                    code="strict_event_intent_required",
+                    status=409,
+                    retryable=False,
+                )
+            return self.deliver_events(
+                original_request=self._strict_request,
+                creation_key=self._strict_creation_key,
+                mutation=MutationOptions(timeout_seconds=observation.timeout_seconds),
+            )
         return EventStream(self.event_page, cursor, observation, owner=self._transport)
 
     def wait(self, *, observation: ObservationOptions) -> SearchResponse:
@@ -309,12 +358,18 @@ class AsyncSearchRun:
         *,
         expected_retention: RetentionMode | None = None,
         inline_result: SearchResponse | None = None,
+        strict_request: KeyedSearchRequest | None = None,
+        strict_creation_key: str | None = None,
+        requested_mode: str | None = None,
     ) -> None:
         self._transport = transport
         self.search_id = identifier(search_id)
         self._expected_retention = expected_retention
         # A FAST zdr_strict create response carries the answer; None otherwise.
         self.inline_result = inline_result
+        self._strict_request = strict_request
+        self._strict_creation_key = strict_creation_key
+        self._requested_mode = requested_mode
 
     async def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
@@ -473,12 +528,49 @@ class AsyncSearchRun:
         )
         return result
 
+    def deliver_events(
+        self,
+        *,
+        original_request: KeyedSearchRequest,
+        creation_key: str,
+        mutation: MutationOptions | None = None,
+    ):
+        """Stream live strict DEEP progress and its terminal result in this request.
+
+        Lost content cannot be replayed. Closing disconnects the active owner.
+        """
+        from .strict_events import AsyncStrictSearchEvents
+
+        body = StrictSearchEventRequest(creation_key=creation_key, request=original_request)
+        self._strict_request = None
+        self._strict_creation_key = None
+        return AsyncStrictSearchEvents(self._transport, self.search_id, body, mutation)
+
     def events(
         self, *, observation: ObservationOptions, cursor: EventCursor | None = None
     ) -> AsyncEventStream[SearchEvent]:
-        """Create a lazy managed observer; local close never cancels remote work.
+        """Observe metadata pages, or own one live strict DEEP stream.
+
+        Closing strict delivery disconnects its owner; content cannot be replayed.
 
         See: the public contract snapshots in contracts/"""
+        if self._expected_retention == "zdr_strict" and self._requested_mode == "deep":
+            if (
+                cursor is not None
+                or self._strict_request is None
+                or self._strict_creation_key is None
+            ):
+                raise StrictZdrResultUnavailable(
+                    "Strict DEEP requires original client intent and no reconnect cursor",
+                    code="strict_event_intent_required",
+                    status=409,
+                    retryable=False,
+                )
+            return self.deliver_events(
+                original_request=self._strict_request,
+                creation_key=self._strict_creation_key,
+                mutation=MutationOptions(timeout_seconds=observation.timeout_seconds),
+            )
         return AsyncEventStream(self.event_page, cursor, observation, owner=self._transport)
 
     async def wait(self, *, observation: ObservationOptions) -> SearchResponse:

@@ -191,7 +191,9 @@ def create_server(
         dispatched = False
         effective_scope = spec.scope
         try:
-            async with asyncio.timeout(timeout_seconds):
+            async with asyncio.timeout(
+                690 if name == "index_search_deliver_events" else timeout_seconds
+            ):
                 if spec.name not in await executor.available_tools():
                     # A typed, attributable refusal: the cause names the gate and
                     # the id lets an operator find the server-side log line.
@@ -215,8 +217,32 @@ def create_server(
                     )
                 parsed = spec.validate_arguments(arguments)
                 effective_scope = spec.scope_for(parsed)
-                dispatched = True
-                result = spec.validate_result(await executor.invoke(spec, parsed))
+                if name == "index_search_deliver_events":
+                    from .progress import progress_scope
+
+                    context = server.request_context
+                    token = context.meta.progressToken if context.meta is not None else None
+                    if token is None:
+                        raise ContractError(
+                            "Strict DEEP requires a progress token", code="progress_token_required"
+                        )
+
+                    async def progress(value):
+                        if value.search_id != parsed["search_id"]:
+                            raise ContractError("Progress resource identity changed")
+                        await context.session.send_progress_notification(
+                            token,
+                            float(value.sequence),
+                            message=value.model_dump_json(),
+                            related_request_id=context.request_id,
+                        )
+
+                    dispatched = True
+                    with progress_scope(progress):
+                        result = spec.validate_result(await executor.invoke(spec, parsed))
+                else:
+                    dispatched = True
+                    result = spec.validate_result(await executor.invoke(spec, parsed))
                 encoded = JSON_OBJECT.dump_json(result)
                 if len(encoded) > maximum_result_bytes:
                     return failure(

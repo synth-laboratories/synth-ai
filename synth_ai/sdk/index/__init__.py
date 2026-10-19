@@ -17,6 +17,8 @@ from .types.search import (
     SearchFilters,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchProgress,
+    StrictSearchEventRequest,
 )
 from .types.uploads import ContributionUploadManifest, LocalContributionPackage, UploadSource
 from .uploads import AsyncUploadSession, UploadSession
@@ -27,6 +29,8 @@ __all__ = [
     "SearchCitation",
     "SearchEvent",
     "SearchSnapshot",
+    "StrictSearchProgress",
+    "StrictSearchEventRequest",
     "AsyncIndexClient",
     "IndexClient",
     "AsyncSearchRun",
