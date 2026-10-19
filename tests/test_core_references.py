@@ -104,3 +104,27 @@ def test_absent_producer_references_are_omitted_on_wire():
         "authority": "backend",
         "subject_id": "swarms-runs",
     }
+
+
+def test_manifest_bounds_are_byte_based_and_never_return_partial_digest(monkeypatch):
+    import synth_ai.sdk.core.commit_digest as module
+
+    with pytest.raises(ContractError) as error:
+        module.commit_manifest_digest([{"path": "é" * 2049, "mode": "100644", "sha256": "a" * 64}])
+    assert error.value.code == "commit_manifest_too_large"
+    monkeypatch.setattr(module, "MAX_ENTRIES", 1)
+    with pytest.raises(ContractError) as error:
+        module.commit_manifest_digest(
+            [{"path": p, "mode": "100644", "sha256": "a" * 64} for p in ["a", "b"]]
+        )
+    assert error.value.code == "commit_manifest_too_large"
+
+
+def test_tree_blob_limit_includes_symlink_target_bytes(tmp_path, monkeypatch):
+    import synth_ai.sdk.core.commit_digest as module
+
+    monkeypatch.setattr(module, "MAX_BLOB_BYTES", 1)
+    (tmp_path / "link").symlink_to("outside")
+    with pytest.raises(ContractError) as error:
+        module.verify_tree(tmp_path, "a" * 64)
+    assert error.value.code == "commit_manifest_too_large"
