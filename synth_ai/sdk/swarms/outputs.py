@@ -6,6 +6,8 @@ published without overwriting only after full identity and digest verification.
 
 from __future__ import annotations
 
+from .deprecated import artifact_alias
+
 import os
 import tempfile
 from pathlib import Path
@@ -63,6 +65,7 @@ class Outputs:
         self._transport = transport
         self.run_id = identifier(run_id)
 
+    @artifact_alias
     def list(
         self, *, limit: int, cursor: PageCursor | None = None, request: ReadOptions | None = None
     ) -> Page[Output]:
@@ -81,6 +84,7 @@ class Outputs:
             ),
         )
 
+    @artifact_alias
     def get(self, output_id: str, *, request: ReadOptions | None = None) -> Output:
         """Read metadata; a descriptor does not grant future content access."""
         output_id = identifier(output_id)
@@ -96,10 +100,12 @@ class Outputs:
             ),
         )
 
+    @artifact_alias
     def stream(self, output_id: str, *, transfer: TransferOptions) -> OutputStream:
         """Construct a lazy single-pass stream; chunks are provisional until EOF."""
         return OutputStream(self._transport, self.run_id, identifier(output_id), transfer)
 
+    @artifact_alias
     def read_text(
         self, output_id: str, *, maximum_bytes: int, request: ReadOptions | None = None
     ) -> TextContent:
@@ -114,6 +120,7 @@ class Outputs:
                 transfer_timing=stream.timing,
             )
 
+    @artifact_alias
     def download(
         self, output_id: str, destination: Path, *, transfer: TransferOptions
     ) -> DownloadReceipt:
@@ -147,6 +154,7 @@ class AsyncOutputs:
         self._transport = transport
         self.run_id = identifier(run_id)
 
+    @artifact_alias
     async def list(
         self, *, limit: int, cursor: PageCursor | None = None, request: ReadOptions | None = None
     ) -> Page[Output]:
@@ -165,6 +173,7 @@ class AsyncOutputs:
             ),
         )
 
+    @artifact_alias
     async def get(self, output_id: str, *, request: ReadOptions | None = None) -> Output:
         """Read metadata; a descriptor does not grant future content access."""
         output_id = identifier(output_id)
@@ -180,10 +189,12 @@ class AsyncOutputs:
             ),
         )
 
+    @artifact_alias
     def stream(self, output_id: str, *, transfer: TransferOptions) -> AsyncOutputStream:
         """Construct a lazy single-pass stream; chunks are provisional until EOF."""
         return AsyncOutputStream(self._transport, self.run_id, identifier(output_id), transfer)
 
+    @artifact_alias
     async def read_text(
         self, output_id: str, *, maximum_bytes: int, request: ReadOptions | None = None
     ) -> TextContent:
@@ -198,6 +209,7 @@ class AsyncOutputs:
                 transfer_timing=stream.timing,
             )
 
+    @artifact_alias
     async def download(
         self, output_id: str, destination: Path, *, transfer: TransferOptions
     ) -> DownloadReceipt:

@@ -6,6 +6,8 @@ harness and profile selection remain backend-owned; no client fallback routing.
 
 from __future__ import annotations
 
+import warnings
+
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
@@ -26,20 +28,28 @@ from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers
 from .types.projects import ProjectCreateRequest, ProjectTemplate
 from .types.runs import LaunchPreflight, RunSnapshot
+from .types.objectives import Guidance
 
 
 def launch_request(
-    objective: str,
+    objective: str | None,
     project_id: str,
     limits: Limits,
     inputs: Inputs | list[Ref] | tuple[Ref, ...] | None,
     providers: Providers | None,
     models: Models | None,
     labels: Labels | None = None,
+    message: str | None = None,
+    guidance: tuple[Guidance, ...] = (),
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative."""
+    if (objective is None) == (message is None):
+        raise ValueError("Supply message, or the deprecated objective alias")
+    if objective is not None:
+        warnings.warn("objective is deprecated; use message", DeprecationWarning, stacklevel=3)
     return LaunchRequest(
-        objective=objective,
+        message=message if message is not None else objective,
+        guidance=guidance,
         project_id=project_id,
         limits=limits,
         inputs=Inputs(artifacts=tuple(inputs)) if isinstance(inputs, (list, tuple)) else inputs,
@@ -125,8 +135,10 @@ class SwarmsClient:
 
     def preflight(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -136,7 +148,9 @@ class SwarmsClient:
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
+        body = launch_request(
+            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+        )
         return self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
@@ -147,8 +161,10 @@ class SwarmsClient:
 
     def create(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -158,7 +174,9 @@ class SwarmsClient:
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
+        body = launch_request(
+            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+        )
         result = self._transport.request(
             operations.CREATE,
             RunSnapshot,
@@ -278,8 +296,10 @@ class AsyncSwarmsClient:
 
     async def preflight(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -289,7 +309,9 @@ class AsyncSwarmsClient:
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
+        body = launch_request(
+            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+        )
         return await self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
@@ -300,8 +322,10 @@ class AsyncSwarmsClient:
 
     async def create(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -311,7 +335,9 @@ class AsyncSwarmsClient:
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
+        body = launch_request(
+            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+        )
         result = await self._transport.request(
             operations.CREATE,
             RunSnapshot,

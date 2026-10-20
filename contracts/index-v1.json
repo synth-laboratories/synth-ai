@@ -4833,7 +4833,9 @@
                 "control",
                 "search_response",
                 "swarm",
-                "repo_clone_token"
+                "repo_clone_token",
+                "artifact_upload",
+                "artifact"
               ],
               "title": "Kind",
               "type": "string"

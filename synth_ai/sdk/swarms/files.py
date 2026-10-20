@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .deprecated import artifact_alias
+
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
@@ -18,6 +20,7 @@ class Files:
         self._transport = transport
         self.uploads = Uploads(transport)
 
+    @artifact_alias
     def list(
         self,
         project_id: str,
@@ -42,6 +45,7 @@ class Files:
             ),
         )
 
+    @artifact_alias
     def get(self, project_id: str, file_id: str, *, request: ReadOptions | None = None) -> File:
         """Read the exact file; only a ready immutable reference is a launch input."""
         project_id, file_id = identifier(project_id), identifier(file_id)
@@ -63,6 +67,7 @@ class AsyncFiles:
         self._transport = transport
         self.uploads = AsyncUploads(transport)
 
+    @artifact_alias
     async def list(
         self,
         project_id: str,
@@ -87,6 +92,7 @@ class AsyncFiles:
             ),
         )
 
+    @artifact_alias
     async def get(
         self, project_id: str, file_id: str, *, request: ReadOptions | None = None
     ) -> File:

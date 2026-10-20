@@ -17,6 +17,7 @@ from synth_ai.types.base import (
 from synth_ai.types.money import Money
 from synth_ai.types.refs import Ref
 from synth_ai.sdk.core.artifact_types import Labels
+from .objectives import Guidance
 
 
 class Limits(Model):
@@ -95,23 +96,40 @@ class ResolvedProviders(ResponseBase):
 
 
 class LaunchRequest(Model):
-    objective: str = Field(min_length=1, max_length=8192)
+    message: str | None = Field(default=None, min_length=1, max_length=8192)
+    legacy_objective: str | None = Field(
+        default=None, alias="objective", min_length=1, max_length=8192
+    )
     project_id: Identifier
     limits: Limits
     inputs: Inputs | None = None
     providers: Providers | None = None
     models: Models | None = None
     labels: Labels | None = None
+    guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
+
+    @property
+    def objective(self) -> str:
+        return self.message if self.message is not None else self.legacy_objective or ""
 
     @model_serializer(mode="wrap")
     def omit_absent_labels(self, handler):
         result = handler(self)
         if self.labels is None:
             result.pop("labels", None)
-        return result
+        if not self.guidance:
+            result.pop("guidance", None)
+        result.pop("message", None)
+        result.pop("legacy_objective", None)
+        result.pop("objective", None)
+        return {("message" if self.message is not None else "objective"): self.objective, **result}
 
     @model_validator(mode="after")
     def validate_intent(self) -> Self:
+        if (self.message is None) == (self.legacy_objective is None):
+            raise ValueError("Select message or the deprecated objective alias")
+        if len({item.id for item in self.guidance}) != len(self.guidance):
+            raise ValueError("Guidance ids must be unique")
         if (
             not self.objective.strip()
             or "\x00" in self.objective

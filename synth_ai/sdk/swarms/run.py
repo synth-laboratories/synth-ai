@@ -127,6 +127,9 @@ class SwarmRun(RunIdentity):
         if snapshot is not None:
             self._observe_snapshot(snapshot)
 
+    def objectives(self, *, request=None):
+        return self.status(request=request).objectives
+
     def download(self, destination, *, options=None):
         from .bundle import download
 
@@ -442,6 +445,9 @@ class AsyncSwarmRun(RunIdentity):
         self.outputs = AsyncOutputs(transport, self.run_id)
         if snapshot is not None:
             self._observe_snapshot(snapshot)
+
+    async def objectives(self, *, request=None):
+        return (await self.status(request=request)).objectives
 
     async def download(self, destination, *, options=None):
         from .bundle import download_async

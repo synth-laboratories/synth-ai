@@ -53,3 +53,24 @@ __all__ = [
     "ResolvedConfiguration",
     "LaunchPreflight",
 ]
+
+from .bundle import RunDownloadOptions, RunDownloadReceipt
+from .labels import RunLabels, AsyncRunLabels
+
+__all__ += ["RunDownloadOptions", "RunDownloadReceipt", "RunLabels", "AsyncRunLabels"]
+
+from .types.objectives import (
+    Guidance,
+    ObjectiveResult,
+    ObjectiveVerdict,
+    ObjectiveAnswer,
+    GuidanceCoverage,
+)
+
+__all__ += [
+    "Guidance",
+    "ObjectiveResult",
+    "ObjectiveVerdict",
+    "ObjectiveAnswer",
+    "GuidanceCoverage",
+]

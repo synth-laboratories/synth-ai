@@ -37,7 +37,20 @@ from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
 from synth_ai.sdk.core.artifact_types import ArtifactLabelsUpdate
 
+from synth_ai.sdk.swarms.types.objectives import (
+    Guidance,
+    ObjectiveResult,
+    ObjectiveVerdict,
+    ObjectiveAnswer,
+    GuidanceCoverage,
+)
+
 MODELS: tuple[type[BaseModel], ...] = (
+    Guidance,
+    ObjectiveResult,
+    ObjectiveVerdict,
+    ObjectiveAnswer,
+    GuidanceCoverage,
     ArtifactLabelsUpdate,
     ControlReceipt,
     ProgramRunView,

@@ -20,7 +20,7 @@ from synth_ai.sdk.core.artifact_download import ArtifactDownloadOptions
 from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
 from synth_ai.sdk.core.atomic import publish_directory
 from synth_ai.sdk.core.repo_archive import archive_destination, remove_owned_tree
-from synth_ai.sdk.core.repos import Repos, AsyncRepos
+from synth_ai.sdk.core.repos import Repositories, AsyncRepositories
 from synth_ai.sdk.core.types import RepositoryArchiveOptions
 from synth_ai.types.base import Model
 from synth_ai.types.refs import Ref
@@ -86,9 +86,39 @@ class BundleState:
         self.scratch = Path(tempfile.mkdtemp(prefix=".synth-run-", dir=self.destination.parent))
         return self.scratch
 
-    def publish(self, run, commit, artifacts, links):
+    def publish(self, run, commit, artifacts, links, snapshot):
         import hashlib
 
+        from synth_ai.sdk.core.archive_decode import safe_path
+
+        objectives = {
+            "objectives": [item.model_dump(mode="json") for item in snapshot.objectives],
+            "guidance_coverage": [
+                item.model_dump(mode="json") for item in snapshot.guidance_coverage
+            ],
+        }
+        objective_bytes = (
+            json.dumps(objectives, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
+        ).encode()
+        with (self.scratch / "objectives.json").open("xb") as output:
+            output.write(objective_bytes)
+            output.flush()
+            os.fsync(output.fileno())
+        for objective in snapshot.objectives:
+            if objective.answer is None:
+                continue
+            parts = safe_path(objective.id + ".md")
+            if len(parts) != 1:
+                raise ContractError(
+                    "Objective answer filename is not a single component",
+                    code="objective_path_invalid",
+                )
+            target = self.scratch / "answers" / parts[0]
+            target.parent.mkdir(exist_ok=True)
+            with target.open("xb") as output:
+                output.write(objective.answer.text.encode())
+                output.flush()
+                os.fsync(output.fileno())
         document = {
             "schema_version": "synth.run-bundle.v1",
             "run": run.model_dump(mode="json"),
@@ -228,14 +258,14 @@ def download(run, destination, options=None):
                 if cursor is None:
                     break
             artifacts = selected_artifacts(links, state.options)
-            repos = Repos(transport)
+            repos = None
             commit = None
             if any(
                 link.object.authority == "git" and link.object.kind == "commit" for link in links
             ):
+                repos = Repositories(transport).get(snapshot.project_id, request=state.read())
                 commit = select_commit(
                     repos.refs(
-                        snapshot.project_id,
                         prefix="refs/heads/worker/run-" + run.run_id,
                         limit=1,
                         request=state.read(),
@@ -246,7 +276,6 @@ def download(run, destination, options=None):
             root = state.prepare()
             if commit is not None:
                 receipt = repos.archive(
-                    snapshot.project_id,
                     commit,
                     root / "code",
                     options=RepositoryArchiveOptions(
@@ -263,7 +292,9 @@ def download(run, destination, options=None):
                 target.mkdir(parents=True)
                 descriptor = client.get(snapshot.project_id, ref, request=state.read())
                 item = descriptor.manifest.objects[0]
-                path = target / item.logical_path
+                from synth_ai.sdk.core.archive_decode import safe_path
+
+                path = target.joinpath(*safe_path(item.logical_path))
                 path.parent.mkdir(parents=True, exist_ok=True)
                 receipt = client.download(
                     snapshot.project_id,
@@ -278,7 +309,6 @@ def download(run, destination, options=None):
             if commit is not None:
                 current = select_commit(
                     repos.refs(
-                        snapshot.project_id,
                         prefix="refs/heads/worker/run-" + run.run_id,
                         limit=1,
                         request=state.read(),
@@ -290,8 +320,8 @@ def download(run, destination, options=None):
                     raise ContractError(
                         "Run branch changed during download", code="run_commit_changed"
                     )
-            run.status(request=state.read())
-            return state.publish(run.ref, commit, artifacts, links)
+            final_snapshot = run.status(request=state.read())
+            return state.publish(run.ref, commit, artifacts, links, final_snapshot)
     finally:
         try:
             state.cleanup()
@@ -318,12 +348,14 @@ async def download_async(run, destination, options=None):
             if cursor is None:
                 break
         artifacts = selected_artifacts(links, state.options)
-        repos = AsyncRepos(transport)
+        repos = None
         commit = None
         if any(link.object.authority == "git" and link.object.kind == "commit" for link in links):
+            repos = await AsyncRepositories(transport).get(
+                snapshot.project_id, request=state.read()
+            )
             commit = select_commit(
                 await repos.refs(
-                    snapshot.project_id,
                     prefix="refs/heads/worker/run-" + run.run_id,
                     limit=1,
                     request=state.read(),
@@ -334,7 +366,6 @@ async def download_async(run, destination, options=None):
         root = state.prepare()
         if commit is not None:
             receipt = await repos.archive(
-                snapshot.project_id,
                 commit,
                 root / "code",
                 options=RepositoryArchiveOptions(
@@ -349,7 +380,9 @@ async def download_async(run, destination, options=None):
             target.mkdir(parents=True)
             descriptor = await client.get(snapshot.project_id, ref, request=state.read())
             item = descriptor.manifest.objects[0]
-            path = target / item.logical_path
+            from synth_ai.sdk.core.archive_decode import safe_path
+
+            path = target.joinpath(*safe_path(item.logical_path))
             path.parent.mkdir(parents=True, exist_ok=True)
             receipt = await client.download(
                 snapshot.project_id,
@@ -364,7 +397,6 @@ async def download_async(run, destination, options=None):
         if commit is not None:
             current = select_commit(
                 await repos.refs(
-                    snapshot.project_id,
                     prefix="refs/heads/worker/run-" + run.run_id,
                     limit=1,
                     request=state.read(),
@@ -374,8 +406,8 @@ async def download_async(run, destination, options=None):
             )
             if current != commit:
                 raise ContractError("Run branch changed during download", code="run_commit_changed")
-        await run.status(request=state.read())
-        return state.publish(run.ref, commit, artifacts, links)
+        final_snapshot = await run.status(request=state.read())
+        return state.publish(run.ref, commit, artifacts, links, final_snapshot)
     finally:
         try:
             state.cleanup()

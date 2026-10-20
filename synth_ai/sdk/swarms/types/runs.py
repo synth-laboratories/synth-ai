@@ -99,12 +99,17 @@ class RunControlSummary(ResponseBase):
 from synth_ai.sdk.core.artifact_types import Labels
 
 
+from .objectives import ObjectiveResult, GuidanceCoverage
+
+
 class RunSnapshot(ResponseModel):
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
     ref: Ref | None = None
     labels: Labels = Field(default_factory=dict)
     labels_revision: StrictInt = Field(default=1, ge=1)
+    objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
+    guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
     state: RunState
     model: ResolvedModelId
     provider: ResponseIdentifier
@@ -147,6 +152,8 @@ class RunSnapshot(ResponseModel):
 
 
 class SwarmResult(ResponseModel):
+    objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
+    guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
     run_id: ResponseIdentifier
     status: Literal["completed", "partial", "failed", "cancelled"]
     text: str | None = Field(default=None, max_length=65536)
@@ -260,6 +267,15 @@ class SwarmEvent(ResponseBase):
     kind: (
         Literal[
             "created",
+            "objective.created",
+            "objective.revised",
+            "objective.not_applicable",
+            "objective.claimed",
+            "objective.answered",
+            "objective.verified",
+            "objective.rejected",
+            "objective.partial",
+            "objective.revision_approved",
             "running",
             "completed",
             "partial",
@@ -275,6 +291,14 @@ class SwarmEvent(ResponseBase):
     )
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
+    observed_at: AwareDatetime | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_event_time(self, handler):
+        value = handler(self)
+        if self.observed_at is None:
+            value.pop("observed_at", None)
+        return value
 
     @model_validator(mode="after")
     def validate_event(self) -> Self:
