@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.23.4
 
+Patch release on 0.23.1 (contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 22eb54d2).
+Swarms is not part of the production release; `native-swarms` is the only deferrable
+retained check (SYN-4887).
+
+- Versioned account-only credential and cloud companion (#495).
 - Exact Refs, provenance links, bounded repository archives and artifact uploads/downloads.
 - Atomic run bundles, revisioned labels, artifact inputs, message/guidance and objective results.
 - Pause/resume controls and typed resource grants with itemized agent/workload/tool usage.
