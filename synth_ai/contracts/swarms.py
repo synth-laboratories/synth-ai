@@ -233,3 +233,14 @@ PROGRAM = Operation(
     required_scope="swarms:read",
 )
 ALL_OPERATIONS += (PROGRAM,)
+
+LABELS = Operation(
+    "swarms.labels.update",
+    "PATCH",
+    "/swarms/runs/{run_id}/labels",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:write",
+)
+ALL_OPERATIONS += (LABELS,)

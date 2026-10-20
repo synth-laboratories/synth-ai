@@ -12,7 +12,7 @@ import json
 import os
 import re
 import stat
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 from synth_ai.errors import ContractError
@@ -102,12 +102,19 @@ def commit_manifest_digest(entries: Iterable[Mapping[str, str]]) -> str:
     return hashlib.sha256(commit_manifest(entries)).hexdigest()
 
 
-def verify_tree(path: str | Path, expected_digest: str) -> str:
+def verify_tree(
+    path: str | Path,
+    expected_digest: str,
+    *,
+    gitlinks: Mapping[str, str] | None = None,
+    _check: Callable[[], None] | None = None,
+) -> str:
     """Verify an extracted tree without following symlinks or reading Git metadata.
 
-    A gitlink requires the authority's manifest to resolve its commit; archives
-    omitting that entry fail the final digest comparison rather than succeeding
-    with an incomplete tree. No partial digest is returned on a limit overrun.
+    Gitlink identities require authority-bound metadata and an empty directory.
+    Omitted, missing or changed entries fail the final comparison. No partial
+    digest is returned on a limit overrun. Delivery owners may check their own
+    deadline before filesystem reads.
     """
     root = Path(path)
     if not root.is_dir() or root.is_symlink():
@@ -118,15 +125,37 @@ def verify_tree(path: str | Path, expected_digest: str) -> str:
         )
     entries: list[dict[str, str]] = []
     total = 0
+    gitlinks = dict(gitlinks or {})
+    remaining_gitlinks = set(gitlinks)
+    directories = [root]
+    for name, sha in gitlinks.items():
+        if not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{40}", sha) is None:
+            raise ContractError(
+                "Gitlink lacks its exact commit identity",
+                code="gitlink_invalid",
+                stage="commit_verification",
+            )
+        commit_manifest(
+            [
+                {
+                    "path": name,
+                    "mode": "160000",
+                    "sha256": hashlib.sha256(f"gitlink:{sha}".encode()).hexdigest(),
+                }
+            ]
+        )
 
     def visit(directory: Path) -> None:
         nonlocal total
         for entry in directory.iterdir():
+            if _check is not None:
+                _check()
             if entry.name == ".git":
                 continue
             info = entry.lstat()
-            if stat.S_ISDIR(info.st_mode):
-                visit(entry)
+            relative = entry.relative_to(root).as_posix()
+            if stat.S_ISDIR(info.st_mode) and relative not in gitlinks:
+                directories.append(entry)
                 continue
             if len(entries) >= MAX_ENTRIES:
                 raise ContractError(
@@ -135,14 +164,26 @@ def verify_tree(path: str | Path, expected_digest: str) -> str:
                     stage="commit_verification",
                 )
             digest = hashlib.sha256()
-            if stat.S_ISLNK(info.st_mode):
+            if relative in gitlinks:
+                if not stat.S_ISDIR(info.st_mode) or any(entry.iterdir()):
+                    raise ContractError(
+                        "Gitlink materialization changed type or contains files",
+                        code="gitlink_invalid",
+                        stage="commit_verification",
+                    )
+                content = f"gitlink:{gitlinks[relative]}".encode("ascii")
+                total += len(content)
+                digest.update(content)
+                mode = "160000"
+                remaining_gitlinks.remove(relative)
+            elif stat.S_ISLNK(info.st_mode):
                 content = os.fsencode(os.readlink(entry))
                 total += len(content)
                 digest.update(content)
                 mode = "120000"
             elif stat.S_ISREG(info.st_mode):
                 # O_NOFOLLOW closes a symlink substitution between lstat and open.
-                descriptor = os.open(entry, os.O_RDONLY | os.O_NOFOLLOW)
+                descriptor = os.open(entry, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
                 with os.fdopen(descriptor, "rb") as stream:
                     if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                         raise ContractError(
@@ -150,7 +191,12 @@ def verify_tree(path: str | Path, expected_digest: str) -> str:
                             code="commit_tree_invalid",
                             stage="commit_verification",
                         )
-                    while chunk := stream.read(1024 * 1024):
+                    while True:
+                        if _check is not None:
+                            _check()
+                        chunk = stream.read(1024 * 1024)
+                        if not chunk:
+                            break
                         total += len(chunk)
                         if total > MAX_BLOB_BYTES:
                             raise ContractError(
@@ -174,13 +220,22 @@ def verify_tree(path: str | Path, expected_digest: str) -> str:
                 )
             entries.append(
                 {
-                    "path": entry.relative_to(root).as_posix(),
+                    "path": relative,
                     "mode": mode,
                     "sha256": digest.hexdigest(),
                 }
             )
 
-    visit(root)
+    while directories:
+        if _check is not None:
+            _check()
+        visit(directories.pop())
+    if remaining_gitlinks:
+        raise ContractError(
+            "Declared Gitlink is missing from the materialized tree",
+            code="gitlink_invalid",
+            stage="commit_verification",
+        )
     actual = commit_manifest_digest(entries)
     if actual != expected_digest:
         raise CommitDigestMismatch(expected_digest, actual, str(root))

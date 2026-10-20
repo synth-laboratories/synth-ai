@@ -15,10 +15,12 @@ from .launch import (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModelId,
     ResolvedModels,
     ResolvedProviders,
 )
+from .objectives import ObjectiveClaim
 from .outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
 from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
 from .runs import (
@@ -48,6 +50,7 @@ __all__ = [
     "FileUploadStatus",
     "FileRef",
     "Inputs",
+    "RepoSelector",
     "Limits",
     "Models",
     "Project",
@@ -60,6 +63,7 @@ __all__ = [
     "OutputRef",
     "TextContent",
     "TransferTiming",
+    "ObjectiveClaim",
     "LaunchPreflight",
     "ResolvedConfiguration",
     "RunFailure",

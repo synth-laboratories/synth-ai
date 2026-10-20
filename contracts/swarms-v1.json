@@ -1,5 +1,47 @@
 {
   "models": {
+    "ArtifactLabelsUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "remove": {
+          "default": [],
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9_.-]+$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Remove",
+          "type": "array"
+        },
+        "set": {
+          "maxProperties": 32,
+          "patternProperties": {
+            "^[a-z0-9_.-]+$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "title": "Set",
+          "type": "object"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "ArtifactLabelsUpdate",
+      "type": "object"
+    },
     "ControlReceipt": {
       "$defs": {
         "ClientTiming": {
@@ -52,7 +94,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -381,7 +424,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -816,7 +860,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1057,7 +1102,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1250,8 +1296,165 @@
       "title": "FileUploadStatus",
       "type": "object"
     },
+    "Guidance": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acceptance"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence"
+        },
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "default": "any",
+          "enum": [
+            "question",
+            "outcome",
+            "any"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "priority": {
+          "default": "should",
+          "enum": [
+            "must",
+            "should",
+            "nice"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Guidance",
+      "type": "object"
+    },
+    "GuidanceCoverage": {
+      "additionalProperties": true,
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "guidance_id": {
+          "title": "Guidance Id",
+          "type": "string"
+        },
+        "objectives": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Objectives",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "state": {
+          "enum": [
+            "covered",
+            "declined"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "guidance_id",
+        "state",
+        "by"
+      ],
+      "title": "GuidanceCoverage",
+      "type": "object"
+    },
     "Inputs": {
       "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
         "FileRef": {
           "additionalProperties": false,
           "properties": {
@@ -1294,6 +1497,26 @@
       },
       "additionalProperties": false,
       "properties": {
+        "artifacts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExactReference"
+          },
+          "maxItems": 32,
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "derived_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "files": {
           "default": [],
           "items": {
@@ -1342,6 +1565,45 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
         "FileRef": {
           "additionalProperties": true,
           "properties": {
@@ -1381,6 +1643,26 @@
         "Inputs": {
           "additionalProperties": true,
           "properties": {
+            "artifacts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 32,
+              "title": "Artifacts",
+              "type": "array"
+            },
+            "derived_from": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "files": {
               "default": [],
               "items": {
@@ -1457,6 +1739,27 @@
           "title": "Money",
           "type": "object"
         },
+        "RepoSelector": {
+          "additionalProperties": true,
+          "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "repo_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Repo Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repo_id",
+            "base"
+          ],
+          "title": "RepoSelector",
+          "type": "object"
+        },
         "ResolvedConfiguration": {
           "additionalProperties": true,
           "properties": {
@@ -1497,6 +1800,17 @@
             },
             "providers": {
               "$ref": "#/$defs/ResolvedProviders"
+            },
+            "repo": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RepoSelector"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "run_id": {
               "anyOf": [
@@ -1584,7 +1898,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1759,6 +2074,45 @@
     },
     "LaunchRequest": {
       "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
         "FileRef": {
           "additionalProperties": false,
           "properties": {
@@ -1798,9 +2152,99 @@
           "title": "FileRef",
           "type": "object"
         },
+        "Guidance": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptance": {
+              "anyOf": [
+                {
+                  "maxLength": 8192,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Acceptance"
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "maxLength": 8192,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Evidence"
+            },
+            "id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "default": "any",
+              "enum": [
+                "question",
+                "outcome",
+                "any"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "priority": {
+              "default": "should",
+              "enum": [
+                "must",
+                "should",
+                "nice"
+              ],
+              "title": "Priority",
+              "type": "string"
+            },
+            "text": {
+              "maxLength": 8192,
+              "minLength": 1,
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "text"
+          ],
+          "title": "Guidance",
+          "type": "object"
+        },
         "Inputs": {
           "additionalProperties": false,
           "properties": {
+            "artifacts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 32,
+              "title": "Artifacts",
+              "type": "array"
+            },
+            "derived_from": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "files": {
               "default": [],
               "items": {
@@ -1902,10 +2346,166 @@
           },
           "title": "Providers",
           "type": "object"
+        },
+        "RepoSelector": {
+          "additionalProperties": false,
+          "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "repo_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Repo Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repo_id",
+            "base"
+          ],
+          "title": "RepoSelector",
+          "type": "object"
+        },
+        "ResourceRequest": {
+          "additionalProperties": false,
+          "properties": {
+            "collections": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 16,
+              "title": "Collections",
+              "type": "array"
+            },
+            "credential_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "limits": {
+              "additionalProperties": {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxProperties": 7,
+              "minProperties": 1,
+              "propertyNames": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ]
+              },
+              "title": "Limits",
+              "type": "object"
+            },
+            "models": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 16,
+              "title": "Models",
+              "type": "array"
+            },
+            "plugin": {
+              "enum": [
+                "openrouter.inference",
+                "index.search"
+              ],
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role_limits": {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "spend_micros",
+                    "tokens",
+                    "tokens_in",
+                    "tokens_out",
+                    "calls",
+                    "index_searches",
+                    "wall_ms"
+                  ]
+                },
+                "type": "object"
+              },
+              "maxProperties": 4,
+              "propertyNames": {
+                "enum": [
+                  "planner",
+                  "worker",
+                  "reviewer",
+                  "run_assessor"
+                ]
+              },
+              "title": "Role Limits",
+              "type": "object"
+            },
+            "roles": {
+              "items": {
+                "enum": [
+                  "planner",
+                  "worker",
+                  "reviewer",
+                  "run_assessor"
+                ],
+                "type": "string"
+              },
+              "maxItems": 4,
+              "minItems": 1,
+              "title": "Roles",
+              "type": "array"
+            },
+            "version": {
+              "default": 1,
+              "maximum": 1,
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "plugin",
+            "roles",
+            "limits"
+          ],
+          "title": "ResourceRequest",
+          "type": "object"
         }
       },
       "additionalProperties": false,
       "properties": {
+        "guidance": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Guidance"
+          },
+          "maxItems": 32,
+          "title": "Guidance",
+          "type": "array"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -1917,8 +2517,45 @@
           ],
           "default": null
         },
+        "labels": {
+          "anyOf": [
+            {
+              "maxProperties": 32,
+              "patternProperties": {
+                "^[a-z0-9_.-]+$": {
+                  "maxLength": 256,
+                  "type": "string"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 64,
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Labels"
+        },
         "limits": {
           "$ref": "#/$defs/Limits"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
         },
         "models": {
           "anyOf": [
@@ -1932,10 +2569,18 @@
           "default": null
         },
         "objective": {
-          "maxLength": 8192,
-          "minLength": 1,
-          "title": "Objective",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Objective"
         },
         "project_id": {
           "maxLength": 128,
@@ -1954,10 +2599,29 @@
             }
           ],
           "default": null
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RepoSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "resources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResourceRequest"
+          },
+          "maxItems": 2,
+          "title": "Resources",
+          "type": "array"
         }
       },
       "required": [
-        "objective",
         "project_id",
         "limits"
       ],
@@ -2040,6 +2704,493 @@
         }
       },
       "title": "Models",
+      "type": "object"
+    },
+    "ObjectiveAnswer": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/ExactReference"
+          },
+          "maxItems": 64,
+          "title": "Sources",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "text",
+        "sources",
+        "by"
+      ],
+      "title": "ObjectiveAnswer",
+      "type": "object"
+    },
+    "ObjectiveResult": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ObjectiveAnswer": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "revision": {
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Sources",
+              "type": "array"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "revision",
+            "text",
+            "sources",
+            "by"
+          ],
+          "title": "ObjectiveAnswer",
+          "type": "object"
+        },
+        "ObjectiveClaim": {
+          "additionalProperties": true,
+          "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "progress",
+                "achievement"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "percent_complete": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent Complete",
+              "type": "integer"
+            },
+            "summary": {
+              "title": "Summary",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "summary",
+            "percent_complete",
+            "evidence",
+            "by"
+          ],
+          "title": "ObjectiveClaim",
+          "type": "object"
+        },
+        "ObjectiveVerdict": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "claim_ids": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Claim Ids",
+              "type": "array"
+            },
+            "decision": {
+              "enum": [
+                "verified",
+                "rejected",
+                "partial"
+              ],
+              "title": "Decision",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "role": {
+              "const": "reviewer",
+              "title": "Role",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Score"
+            }
+          },
+          "required": [
+            "id",
+            "decision",
+            "reason",
+            "evidence",
+            "by",
+            "role"
+          ],
+          "title": "ObjectiveVerdict",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectiveAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "claims": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ObjectiveClaim"
+          },
+          "maxItems": 1024,
+          "title": "Claims",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "definition_revision": {
+          "minimum": 1,
+          "title": "Definition Revision",
+          "type": "integer"
+        },
+        "derived_from": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Derived From",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "oeq",
+            "deo"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "open",
+            "claimed",
+            "verified",
+            "rejected",
+            "partial",
+            "not_applicable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectiveVerdict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "statement",
+        "required",
+        "criteria",
+        "definition_revision",
+        "state"
+      ],
+      "title": "ObjectiveResult",
+      "type": "object"
+    },
+    "ObjectiveVerdict": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "claim_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "decision": {
+          "enum": [
+            "verified",
+            "rejected",
+            "partial"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ExactReference"
+          },
+          "maxItems": 64,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "role": {
+          "const": "reviewer",
+          "title": "Role",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        }
+      },
+      "required": [
+        "id",
+        "decision",
+        "reason",
+        "evidence",
+        "by",
+        "role"
+      ],
+      "title": "ObjectiveVerdict",
       "type": "object"
     },
     "Output": {
@@ -2145,7 +3296,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2563,7 +3715,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2885,7 +4038,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3105,7 +4259,353 @@
           "title": "EvidenceRef",
           "type": "object"
         },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "GuidanceCoverage": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "guidance_id": {
+              "title": "Guidance Id",
+              "type": "string"
+            },
+            "objectives": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Objectives",
+              "type": "array"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "state": {
+              "enum": [
+                "covered",
+                "declined"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "guidance_id",
+            "state",
+            "by"
+          ],
+          "title": "GuidanceCoverage",
+          "type": "object"
+        },
         "JsonValue": {},
+        "ObjectiveAnswer": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "revision": {
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Sources",
+              "type": "array"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "revision",
+            "text",
+            "sources",
+            "by"
+          ],
+          "title": "ObjectiveAnswer",
+          "type": "object"
+        },
+        "ObjectiveClaim": {
+          "additionalProperties": true,
+          "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "progress",
+                "achievement"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "percent_complete": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent Complete",
+              "type": "integer"
+            },
+            "summary": {
+              "title": "Summary",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "summary",
+            "percent_complete",
+            "evidence",
+            "by"
+          ],
+          "title": "ObjectiveClaim",
+          "type": "object"
+        },
+        "ObjectiveResult": {
+          "additionalProperties": true,
+          "properties": {
+            "answer": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ObjectiveAnswer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "claims": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ObjectiveClaim"
+              },
+              "maxItems": 1024,
+              "title": "Claims",
+              "type": "array"
+            },
+            "criteria": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Criteria",
+              "type": "array"
+            },
+            "definition_revision": {
+              "minimum": 1,
+              "title": "Definition Revision",
+              "type": "integer"
+            },
+            "derived_from": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Derived From",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "oeq",
+                "deo"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": {
+              "title": "Required",
+              "type": "boolean"
+            },
+            "state": {
+              "enum": [
+                "open",
+                "claimed",
+                "verified",
+                "rejected",
+                "partial",
+                "not_applicable"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "statement": {
+              "title": "Statement",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "verdict": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ObjectiveVerdict"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "title",
+            "statement",
+            "required",
+            "criteria",
+            "definition_revision",
+            "state"
+          ],
+          "title": "ObjectiveResult",
+          "type": "object"
+        },
+        "ObjectiveVerdict": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "claim_ids": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Claim Ids",
+              "type": "array"
+            },
+            "decision": {
+              "enum": [
+                "verified",
+                "rejected",
+                "partial"
+              ],
+              "title": "Decision",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "role": {
+              "const": "reviewer",
+              "title": "Role",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Score"
+            }
+          },
+          "required": [
+            "id",
+            "decision",
+            "reason",
+            "evidence",
+            "by",
+            "role"
+          ],
+          "title": "ObjectiveVerdict",
+          "type": "object"
+        },
         "Problem": {
           "additionalProperties": true,
           "properties": {
@@ -3310,7 +4810,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3489,6 +4990,32 @@
               ],
               "default": null
             },
+            "guidance_coverage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/GuidanceCoverage"
+              },
+              "maxItems": 32,
+              "title": "Guidance Coverage",
+              "type": "array"
+            },
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "maxLength": 512,
+                "minLength": 1
+              },
+              "title": "Labels",
+              "type": "object"
+            },
+            "labels_revision": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Labels Revision",
+              "type": "integer"
+            },
             "metadata": {
               "$ref": "#/$defs/ResponseMetadata"
             },
@@ -3497,6 +5024,15 @@
               "minLength": 1,
               "title": "Model",
               "type": "string"
+            },
+            "objectives": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ObjectiveResult"
+              },
+              "maxItems": 64,
+              "title": "Objectives",
+              "type": "array"
             },
             "pause_count": {
               "anyOf": [
@@ -3550,6 +5086,17 @@
               "minLength": 1,
               "title": "Provider",
               "type": "string"
+            },
+            "ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "result_available": {
               "title": "Result Available",
@@ -3879,6 +5426,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -3896,7 +5522,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3958,6 +5585,15 @@
                 {
                   "enum": [
                     "created",
+                    "objective.created",
+                    "objective.revised",
+                    "objective.not_applicable",
+                    "objective.claimed",
+                    "objective.answered",
+                    "objective.verified",
+                    "objective.rejected",
+                    "objective.partial",
+                    "objective.revision_approved",
                     "running",
                     "completed",
                     "partial",
@@ -3978,6 +5614,19 @@
                 }
               ],
               "title": "Kind"
+            },
+            "observed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Observed At"
             },
             "original_kind": {
               "anyOf": [
@@ -4219,6 +5868,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -4363,7 +6021,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4778,7 +6437,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5072,7 +6732,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5270,6 +6931,69 @@
       "title": "Providers",
       "type": "object"
     },
+    "RepoSelector": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "repo_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Repo Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_id",
+        "base"
+      ],
+      "title": "RepoSelector",
+      "type": "object"
+    },
     "ResolvedConfiguration": {
       "$defs": {
         "ClientTiming": {
@@ -5303,6 +7027,45 @@
             "attempts"
           ],
           "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
           "type": "object"
         },
         "FileRef": {
@@ -5344,6 +7107,26 @@
         "Inputs": {
           "additionalProperties": true,
           "properties": {
+            "artifacts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 32,
+              "title": "Artifacts",
+              "type": "array"
+            },
+            "derived_from": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "files": {
               "default": [],
               "items": {
@@ -5420,6 +7203,27 @@
           "title": "Money",
           "type": "object"
         },
+        "RepoSelector": {
+          "additionalProperties": true,
+          "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "repo_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Repo Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repo_id",
+            "base"
+          ],
+          "title": "RepoSelector",
+          "type": "object"
+        },
         "ResolvedModels": {
           "additionalProperties": true,
           "description": "Read-only backend selection; not a caller override allowlist.",
@@ -5471,7 +7275,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5628,6 +7433,17 @@
         "providers": {
           "$ref": "#/$defs/ResolvedProviders"
         },
+        "repo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RepoSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "run_id": {
           "anyOf": [
             {
@@ -5762,7 +7578,353 @@
           "title": "EvidenceRef",
           "type": "object"
         },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "GuidanceCoverage": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "guidance_id": {
+              "title": "Guidance Id",
+              "type": "string"
+            },
+            "objectives": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Objectives",
+              "type": "array"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "state": {
+              "enum": [
+                "covered",
+                "declined"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "guidance_id",
+            "state",
+            "by"
+          ],
+          "title": "GuidanceCoverage",
+          "type": "object"
+        },
         "JsonValue": {},
+        "ObjectiveAnswer": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "revision": {
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Sources",
+              "type": "array"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "revision",
+            "text",
+            "sources",
+            "by"
+          ],
+          "title": "ObjectiveAnswer",
+          "type": "object"
+        },
+        "ObjectiveClaim": {
+          "additionalProperties": true,
+          "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "progress",
+                "achievement"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "percent_complete": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent Complete",
+              "type": "integer"
+            },
+            "summary": {
+              "title": "Summary",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "summary",
+            "percent_complete",
+            "evidence",
+            "by"
+          ],
+          "title": "ObjectiveClaim",
+          "type": "object"
+        },
+        "ObjectiveResult": {
+          "additionalProperties": true,
+          "properties": {
+            "answer": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ObjectiveAnswer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "claims": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ObjectiveClaim"
+              },
+              "maxItems": 1024,
+              "title": "Claims",
+              "type": "array"
+            },
+            "criteria": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Criteria",
+              "type": "array"
+            },
+            "definition_revision": {
+              "minimum": 1,
+              "title": "Definition Revision",
+              "type": "integer"
+            },
+            "derived_from": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Derived From",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "oeq",
+                "deo"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": {
+              "title": "Required",
+              "type": "boolean"
+            },
+            "state": {
+              "enum": [
+                "open",
+                "claimed",
+                "verified",
+                "rejected",
+                "partial",
+                "not_applicable"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "statement": {
+              "title": "Statement",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "verdict": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ObjectiveVerdict"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "title",
+            "statement",
+            "required",
+            "criteria",
+            "definition_revision",
+            "state"
+          ],
+          "title": "ObjectiveResult",
+          "type": "object"
+        },
+        "ObjectiveVerdict": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "claim_ids": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Claim Ids",
+              "type": "array"
+            },
+            "decision": {
+              "enum": [
+                "verified",
+                "rejected",
+                "partial"
+              ],
+              "title": "Decision",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "role": {
+              "const": "reviewer",
+              "title": "Role",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Score"
+            }
+          },
+          "required": [
+            "id",
+            "decision",
+            "reason",
+            "evidence",
+            "by",
+            "role"
+          ],
+          "title": "ObjectiveVerdict",
+          "type": "object"
+        },
         "Problem": {
           "additionalProperties": true,
           "properties": {
@@ -5967,7 +8129,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -6214,6 +8377,32 @@
           ],
           "default": null
         },
+        "guidance_coverage": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GuidanceCoverage"
+          },
+          "maxItems": 32,
+          "title": "Guidance Coverage",
+          "type": "array"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "labels_revision": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Labels Revision",
+          "type": "integer"
+        },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
         },
@@ -6222,6 +8411,15 @@
           "minLength": 1,
           "title": "Model",
           "type": "string"
+        },
+        "objectives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ObjectiveResult"
+          },
+          "maxItems": 64,
+          "title": "Objectives",
+          "type": "array"
         },
         "pause_count": {
           "anyOf": [
@@ -6275,6 +8473,17 @@
           "minLength": 1,
           "title": "Provider",
           "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "result_available": {
           "title": "Result Available",
@@ -6497,6 +8706,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -6514,7 +8802,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -6757,6 +9046,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -6785,6 +9083,15 @@
             {
               "enum": [
                 "created",
+                "objective.created",
+                "objective.revised",
+                "objective.not_applicable",
+                "objective.claimed",
+                "objective.answered",
+                "objective.verified",
+                "objective.rejected",
+                "objective.partial",
+                "objective.revision_approved",
                 "running",
                 "completed",
                 "partial",
@@ -6805,6 +9112,19 @@
             }
           ],
           "title": "Kind"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
         },
         "original_kind": {
           "anyOf": [
@@ -6886,6 +9206,45 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
         "FundingPart": {
           "additionalProperties": true,
           "properties": {
@@ -6922,6 +9281,54 @@
           ],
           "title": "FundingSource",
           "type": "string"
+        },
+        "GuidanceCoverage": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "guidance_id": {
+              "title": "Guidance Id",
+              "type": "string"
+            },
+            "objectives": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Objectives",
+              "type": "array"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "state": {
+              "enum": [
+                "covered",
+                "declined"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "guidance_id",
+            "state",
+            "by"
+          ],
+          "title": "GuidanceCoverage",
+          "type": "object"
         },
         "JsonValue": {},
         "Money": {
@@ -7010,6 +9417,265 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ObjectiveAnswer": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "revision": {
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Sources",
+              "type": "array"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "revision",
+            "text",
+            "sources",
+            "by"
+          ],
+          "title": "ObjectiveAnswer",
+          "type": "object"
+        },
+        "ObjectiveClaim": {
+          "additionalProperties": true,
+          "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "progress",
+                "achievement"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "percent_complete": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent Complete",
+              "type": "integer"
+            },
+            "summary": {
+              "title": "Summary",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "summary",
+            "percent_complete",
+            "evidence",
+            "by"
+          ],
+          "title": "ObjectiveClaim",
+          "type": "object"
+        },
+        "ObjectiveResult": {
+          "additionalProperties": true,
+          "properties": {
+            "answer": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ObjectiveAnswer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "claims": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ObjectiveClaim"
+              },
+              "maxItems": 1024,
+              "title": "Claims",
+              "type": "array"
+            },
+            "criteria": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Criteria",
+              "type": "array"
+            },
+            "definition_revision": {
+              "minimum": 1,
+              "title": "Definition Revision",
+              "type": "integer"
+            },
+            "derived_from": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Derived From",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "oeq",
+                "deo"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "required": {
+              "title": "Required",
+              "type": "boolean"
+            },
+            "state": {
+              "enum": [
+                "open",
+                "claimed",
+                "verified",
+                "rejected",
+                "partial",
+                "not_applicable"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "statement": {
+              "title": "Statement",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "verdict": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ObjectiveVerdict"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "title",
+            "statement",
+            "required",
+            "criteria",
+            "definition_revision",
+            "state"
+          ],
+          "title": "ObjectiveResult",
+          "type": "object"
+        },
+        "ObjectiveVerdict": {
+          "additionalProperties": true,
+          "properties": {
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "claim_ids": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Claim Ids",
+              "type": "array"
+            },
+            "decision": {
+              "enum": [
+                "verified",
+                "rejected",
+                "partial"
+              ],
+              "title": "Decision",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 64,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "role": {
+              "const": "reviewer",
+              "title": "Role",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Score"
+            }
+          },
+          "required": [
+            "id",
+            "decision",
+            "reason",
+            "evidence",
+            "by",
+            "role"
+          ],
+          "title": "ObjectiveVerdict",
+          "type": "object"
+        },
         "ReasonLink": {
           "additionalProperties": true,
           "properties": {
@@ -7048,6 +9714,85 @@
           "title": "ReasonLink",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -7065,7 +9810,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -7352,6 +10098,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -7387,8 +10142,26 @@
             }
           ]
         },
+        "guidance_coverage": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GuidanceCoverage"
+          },
+          "maxItems": 32,
+          "title": "Guidance Coverage",
+          "type": "array"
+        },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
+        },
+        "objectives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ObjectiveResult"
+          },
+          "maxItems": 64,
+          "title": "Objectives",
+          "type": "array"
         },
         "output_count": {
           "minimum": 0,
@@ -7557,7 +10330,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -7984,7 +10758,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -8468,6 +11243,16 @@
       "mutation": false,
       "path": "/api/v1/swarms/runs/{run_id}/program",
       "required_scope": "swarms:read"
+    },
+    {
+      "id": "swarms.labels.update",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "PATCH",
+      "mutation": true,
+      "path": "/api/v1/swarms/runs/{run_id}/labels",
+      "required_scope": "swarms:write"
     }
   ],
   "schema_version": "swarms.v1",

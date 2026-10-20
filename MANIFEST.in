@@ -31,3 +31,6 @@ recursive-exclude synth_ai *.tar
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .DS_Store
+
+include CHANGELOG.md
+include docs/swarms.md

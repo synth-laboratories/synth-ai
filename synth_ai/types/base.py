@@ -119,7 +119,7 @@ class ClientTiming(ResponseBase):
 
 
 class ResponseMetadata(ResponseBase):
-    contract: Literal["index.v1", "swarms.v1"]
+    contract: Literal["index.v1", "swarms.v1", "core.v1"]
     request_id: ResponseIdentifier
     operation_id: ResponseIdentifier | None
     observed_at: AwareDatetime

@@ -203,9 +203,10 @@ class HttpTransport:
         operation: Operation,
         *,
         path: str,
-        query: Mapping[str, str | int],
+        query: Mapping[str, str | int | tuple[str, ...]],
         remaining_seconds: float,
-        digest: str,
+        digest: str | None,
+        accept: str = "application/octet-stream",
     ) -> httpx.Response:
         selected = request_options(
             operation,
@@ -222,6 +223,7 @@ class HttpTransport:
                 remaining_seconds=remaining_seconds,
                 digest=digest,
                 options=selected,
+                accept=accept,
             )
         except SynthError as error:
             annotate_request_error(error, operation, selected)
@@ -241,10 +243,11 @@ class HttpTransport:
         operation: Operation,
         *,
         path: str,
-        query: Mapping[str, str | int],
+        query: Mapping[str, str | int | tuple[str, ...]],
         remaining_seconds: float,
-        digest: str,
+        digest: str | None,
         options: ReadOptions,
+        accept: str = "application/octet-stream",
     ) -> httpx.Response:
         """Open one SDK-owned read response, without retries or redirects."""
         if self._closed:
@@ -275,8 +278,10 @@ class HttpTransport:
             self._options.connect_timeout_seconds,
             negotiated=negotiated,
         )
-        request.headers["Accept"] = "application/octet-stream"
-        request.headers["If-Match"] = '"' + digest + '"'
+        request.headers["Accept"] = accept
+        request.headers.pop("If-Match", None)
+        if digest is not None:
+            request.headers["If-Match"] = '"' + digest + '"'
         response = self.client.send(request, stream=True, auth=None, follow_redirects=False)
         response = self._adopt_response(response)
         try:
@@ -301,7 +306,7 @@ class HttpTransport:
         *,
         body: BaseModel | None = None,
         path: str | None = None,
-        query: Mapping[str, str | int] | None = None,
+        query: Mapping[str, str | int | tuple[str, ...]] | None = None,
         options: ReadOptions | None = None,
         validate: Callable[[T], T] | None = None,
     ) -> T:
@@ -327,7 +332,7 @@ class HttpTransport:
         *,
         body: BaseModel | None = None,
         path: str | None = None,
-        query: Mapping[str, str | int] | None = None,
+        query: Mapping[str, str | int | tuple[str, ...]] | None = None,
         options: ReadOptions | None = None,
         validate: Callable[[T], T] | None = None,
     ) -> T:

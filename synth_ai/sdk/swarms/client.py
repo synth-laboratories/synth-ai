@@ -6,41 +6,69 @@ harness and profile selection remain backend-owned; no client fallback routing.
 
 from __future__ import annotations
 
+import builtins
+import warnings
+
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
-from synth_ai.core.parameters import identifier, page_parameters, verified
+from synth_ai.core.parameters import identifier, verified
 from synth_ai.core.recovery import async_resolve_creation as recover_creation_async
 from synth_ai.core.recovery import resolve_creation as recover_creation
 from synth_ai.errors import ContractError
 from synth_ai.options import MutationOptions, ReadOptions
+from synth_ai.sdk.core.artifact_types import Labels
+from synth_ai.sdk.core.artifacts import list_query
 from synth_ai.types.base import Page, PageCursor
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
+from synth_ai.types.refs import Ref
 
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
-from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers
+from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
+from .types.objectives import Guidance
 from .types.projects import ProjectCreateRequest, ProjectTemplate
+from .types.resources import ResourceRequest
 from .types.runs import LaunchPreflight, RunSnapshot
 
 
 def launch_request(
-    objective: str,
+    objective: str | None,
     project_id: str,
     limits: Limits,
-    inputs: Inputs | None,
+    inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None,
     providers: Providers | None,
     models: Models | None,
+    labels: Labels | None = None,
+    message: str | None = None,
+    guidance: tuple[Guidance, ...] = (),
+    resources: tuple[ResourceRequest, ...] = (),
+    repo: RepoSelector | None = None,
 ) -> LaunchRequest:
-    """Preserve omitted overrides; backend project/profile defaults remain authoritative."""
+    """Preserve omitted overrides; backend project/profile defaults remain authoritative.
+
+    Wire decision (SYN-4885, verified against the backend's LaunchRequest at 8912a839):
+    the backend request model accepts both `message` and the legacy `objective`
+    (one of the two, never both). The deprecated `objective=` argument is therefore
+    sent as `message`: callers get the new field without a second code path, and
+    `LaunchRequest.objective` still reads back the same text. Passing both is an error.
+    """
+    if (objective is None) == (message is None):
+        raise ValueError("Supply message, or the deprecated objective alias")
+    if objective is not None:
+        warnings.warn("objective is deprecated; use message", DeprecationWarning, stacklevel=3)
     return LaunchRequest(
-        objective=objective,
+        message=message if message is not None else objective,
+        guidance=guidance,
+        resources=resources,
         project_id=project_id,
         limits=limits,
-        inputs=inputs,
+        inputs=Inputs(artifacts=tuple(inputs)) if isinstance(inputs, (list, tuple)) else inputs,
         providers=providers,
         models=models,
+        labels=labels,
+        repo=repo,
     )
 
 
@@ -63,6 +91,7 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
             and configuration.providers.default != request.providers.default
         )
         or (not same_inputs)
+        or (request.repo is not None and configuration.repo != request.repo)
         or (not within_budget)
         or (resolved.wall_time_seconds > requested.wall_time_seconds)
         or (resolved.maximum_tasks > requested.maximum_tasks)
@@ -120,17 +149,34 @@ class SwarmsClient:
 
     def preflight(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
+            repo,
+        )
         return self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
@@ -141,17 +187,34 @@ class SwarmsClient:
 
     def create(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
+            repo,
+        )
         result = self._transport.request(
             operations.CREATE,
             RunSnapshot,
@@ -165,12 +228,12 @@ class SwarmsClient:
                 "Admitted project or requested override mismatch",
             ),
         )
-        return SwarmRun(self._transport, result.run_id)
+        return SwarmRun(self._transport, result.run_id, snapshot=result)
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
         """Reattach to an authorized durable run without restarting it."""
         run_id = identifier(run_id)
-        self._transport.request(
+        snapshot = self._transport.request(
             operations.GET,
             RunSnapshot,
             path=f"/swarms/runs/{run_id}",
@@ -179,7 +242,7 @@ class SwarmsClient:
                 result, result.run_id == run_id, "Run identity mismatch"
             ),
         )
-        return SwarmRun(self._transport, run_id)
+        return SwarmRun(self._transport, run_id, snapshot=snapshot)
 
     def list(
         self,
@@ -187,10 +250,11 @@ class SwarmsClient:
         limit: int,
         cursor: PageCursor | None = None,
         project_id: str | None = None,
+        label: Labels | None = None,
         request: ReadOptions | None = None,
     ) -> Page[RunSnapshot]:
         """Read one current authorized page, optionally scoped to a project."""
-        query = page_parameters(limit, cursor)
+        query = list_query(limit, cursor, None, label, None)
         if project_id is not None:
             query["project_id"] = identifier(project_id)
         return self._transport.request(
@@ -270,17 +334,34 @@ class AsyncSwarmsClient:
 
     async def preflight(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
+            repo,
+        )
         return await self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
@@ -291,17 +372,34 @@ class AsyncSwarmsClient:
 
     async def create(
         self,
-        objective: str,
+        objective: str | None = None,
         *,
+        message: str | None = None,
+        guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
+            repo,
+        )
         result = await self._transport.request(
             operations.CREATE,
             RunSnapshot,
@@ -315,12 +413,12 @@ class AsyncSwarmsClient:
                 "Admitted project or requested override mismatch",
             ),
         )
-        return AsyncSwarmRun(self._transport, result.run_id)
+        return AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
         """Reattach to an authorized durable run without restarting it."""
         run_id = identifier(run_id)
-        await self._transport.request(
+        snapshot = await self._transport.request(
             operations.GET,
             RunSnapshot,
             path=f"/swarms/runs/{run_id}",
@@ -329,7 +427,7 @@ class AsyncSwarmsClient:
                 result, result.run_id == run_id, "Run identity mismatch"
             ),
         )
-        return AsyncSwarmRun(self._transport, run_id)
+        return AsyncSwarmRun(self._transport, run_id, snapshot=snapshot)
 
     async def list(
         self,
@@ -337,10 +435,11 @@ class AsyncSwarmsClient:
         limit: int,
         cursor: PageCursor | None = None,
         project_id: str | None = None,
+        label: Labels | None = None,
         request: ReadOptions | None = None,
     ) -> Page[RunSnapshot]:
         """Read one current authorized page, optionally scoped to a project."""
-        query = page_parameters(limit, cursor)
+        query = list_query(limit, cursor, None, label, None)
         if project_id is not None:
             query["project_id"] = identifier(project_id)
         return await self._transport.request(

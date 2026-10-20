@@ -6,6 +6,7 @@ import json
 
 from pydantic import BaseModel
 
+from synth_ai.sdk.core.artifact_types import ArtifactLabelsUpdate
 from synth_ai.sdk.swarms.types.files import File, FileManifest, FileUploadReceipt, FileUploadStatus
 from synth_ai.sdk.swarms.types.launch import (
     FileRef,
@@ -15,8 +16,16 @@ from synth_ai.sdk.swarms.types.launch import (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModels,
     ResolvedProviders,
+)
+from synth_ai.sdk.swarms.types.objectives import (
+    Guidance,
+    GuidanceCoverage,
+    ObjectiveAnswer,
+    ObjectiveResult,
+    ObjectiveVerdict,
 )
 from synth_ai.sdk.swarms.types.outputs import Output, OutputRef, TextContent, TransferTiming
 from synth_ai.sdk.swarms.types.programs import ProgramRunView
@@ -37,6 +46,12 @@ from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
 
 MODELS: tuple[type[BaseModel], ...] = (
+    Guidance,
+    ObjectiveResult,
+    ObjectiveVerdict,
+    ObjectiveAnswer,
+    GuidanceCoverage,
+    ArtifactLabelsUpdate,
     ControlReceipt,
     ProgramRunView,
     FileRef,
@@ -56,6 +71,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModels,
     ResolvedProviders,
     LaunchPreflight,

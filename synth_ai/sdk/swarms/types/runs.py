@@ -14,12 +14,22 @@ from pydantic import (
 )
 
 from synth_ai.errors import OperationFailedError
+from synth_ai.sdk.core.artifact_types import ResponseLabels
 from synth_ai.types.base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
 from synth_ai.types.receipts import ControlCommand, ControlState
+from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import UsageSummary
 
-from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
+from .launch import (
+    Inputs,
+    Limits,
+    RepoSelector,
+    ResolvedModelId,
+    ResolvedModels,
+    ResolvedProviders,
+)
+from .objectives import GuidanceCoverage, ObjectiveResult
 from .problems import Problem, ReasonLink
 
 KnownRunState = Literal[
@@ -62,6 +72,7 @@ class ResolvedConfiguration(ResponseModel):
     inputs: Inputs
     providers: ResolvedProviders
     models: ResolvedModels
+    repo: RepoSelector | None = None
 
 
 class LaunchPreflight(ResponseModel):
@@ -98,6 +109,11 @@ class RunControlSummary(ResponseBase):
 class RunSnapshot(ResponseModel):
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
+    ref: Ref | None = None
+    labels: ResponseLabels = Field(default_factory=dict)
+    labels_revision: StrictInt = Field(default=1, ge=1)
+    objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
+    guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
     state: RunState
     model: ResolvedModelId
     provider: ResponseIdentifier
@@ -122,13 +138,26 @@ class RunSnapshot(ResponseModel):
     @model_serializer(mode="wrap")
     def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         value = handler(self)
-        for name in ("control", "paused_at", "resume_by", "deadline_at", "pause_count"):
+        for name in ("ref", "control", "paused_at", "resume_by", "deadline_at", "pause_count"):
             if getattr(self, name) is None:
                 value.pop(name, None)
         return value
 
+    @model_validator(mode="after")
+    def validate_reference(self) -> Self:
+        if self.ref is not None and (
+            self.ref.authority != "swarms"
+            or self.ref.kind != "run"
+            or self.ref.record_id != self.run_id
+            or self.ref.revision != "1"
+        ):
+            raise ValueError("Run reference must identify this exact frozen launch request")
+        return self
+
 
 class SwarmResult(ResponseModel):
+    objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
+    guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
     run_id: ResponseIdentifier
     status: Literal["completed", "partial", "failed", "cancelled"]
     text: str | None = Field(default=None, max_length=65536)
@@ -242,6 +271,15 @@ class SwarmEvent(ResponseBase):
     kind: (
         Literal[
             "created",
+            "objective.created",
+            "objective.revised",
+            "objective.not_applicable",
+            "objective.claimed",
+            "objective.answered",
+            "objective.verified",
+            "objective.rejected",
+            "objective.partial",
+            "objective.revision_approved",
             "running",
             "completed",
             "partial",
@@ -257,6 +295,14 @@ class SwarmEvent(ResponseBase):
     )
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
+    observed_at: AwareDatetime | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_event_time(self, handler):
+        value = handler(self)
+        if self.observed_at is None:
+            value.pop("observed_at", None)
+        return value
 
     @model_validator(mode="after")
     def validate_event(self) -> Self:
