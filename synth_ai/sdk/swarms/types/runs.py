@@ -21,7 +21,14 @@ from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import UsageSummary
 
-from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
+from .launch import (
+    Inputs,
+    Limits,
+    RepoSelector,
+    ResolvedModelId,
+    ResolvedModels,
+    ResolvedProviders,
+)
 from .objectives import GuidanceCoverage, ObjectiveResult
 from .problems import Problem, ReasonLink
 
@@ -65,6 +72,7 @@ class ResolvedConfiguration(ResponseModel):
     inputs: Inputs
     providers: ResolvedProviders
     models: ResolvedModels
+    repo: RepoSelector | None = None
 
 
 class LaunchPreflight(ResponseModel):

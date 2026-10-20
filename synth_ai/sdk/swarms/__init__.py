@@ -7,7 +7,7 @@ from .labels import AsyncRunLabels, RunLabels
 from .output_stream import AsyncOutputStream, OutputStream
 from .run import AsyncSwarmRun, SwarmRun
 from .types.files import File, FileManifest, FileSource, FileUploadReceipt, FileUploadStatus
-from .types.launch import FileRef, Inputs, Limits, Models, Providers
+from .types.launch import FileRef, Inputs, Limits, Models, Providers, RepoSelector
 from .types.objectives import (
     Guidance,
     GuidanceCoverage,
@@ -56,6 +56,7 @@ __all__ = [
     "AsyncSwarmRun",
     "Limits",
     "Inputs",
+    "RepoSelector",
     "Providers",
     "Models",
     "FileRef",

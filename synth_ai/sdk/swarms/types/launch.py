@@ -79,6 +79,29 @@ class Inputs(Model):
         return self
 
 
+class RepoSelector(Model):
+    """Launch on a project repository at an exact base commit (SYN-4885).
+
+    ``base`` is the git-server commit Ref (core.v1: authority ``git``, kind
+    ``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =
+    git-server commit manifest digest). The backend verifies the repository
+    belongs to the launch project and the commit exists with that digest, then
+    freezes it into the run configuration and seeds the workspace from it.
+    """
+
+    repo_id: Identifier
+    base: Ref
+
+    @model_validator(mode="after")
+    def validate_base(self) -> Self:
+        if self.base.authority != "git" or self.base.kind != "commit":
+            raise ValueError("repo.base must be an exact git commit Ref")
+        if self.base.record_id != self.repo_id:
+            raise ValueError("repo.base must belong to repo.repo_id")
+        Ref.commit(self.base.record_id, self.base.revision, self.base.digest_sha256)
+        return self
+
+
 class Providers(Model):
     default: Literal["openai"] = "openai"
 
@@ -113,6 +136,7 @@ class LaunchRequest(Model):
     providers: Providers | None = None
     models: Models | None = None
     labels: Labels | None = None
+    repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
     resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=2)
 
@@ -123,7 +147,7 @@ class LaunchRequest(Model):
     @model_serializer(mode="wrap")
     def omit_absent_labels(self, handler):
         result = handler(self)
-        for name in ("labels", "inputs", "providers", "models"):
+        for name in ("labels", "inputs", "providers", "models", "repo"):
             if getattr(self, name) is None:
                 result.pop(name, None)
         if not self.guidance:
