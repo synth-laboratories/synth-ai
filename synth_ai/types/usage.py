@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal, Self
 
-from pydantic import Field, model_validator, model_serializer
+from pydantic import Field, model_serializer, model_validator
 
 from .base import ResponseBase, ResponseIdentifier, ResponseModel
 from .funding import FundingPart, funding_fallback, validate_funding

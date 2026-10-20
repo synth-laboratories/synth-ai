@@ -16,8 +16,8 @@ from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
-from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
+from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient

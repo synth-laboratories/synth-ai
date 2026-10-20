@@ -15,8 +15,9 @@ with SynthClient() as synth:
     produced = run.produced()
     repo = synth.repos.get("project-id")
     commit = repo.commit("0123456789012345678901234567890123456789")
-    receipt = repo.archive(commit.ref, Path("checkout"),
-        options=RepositoryArchiveOptions(timeout_seconds=300))
+    receipt = repo.archive(
+        commit.ref, Path("checkout"), options=RepositoryArchiveOptions(timeout_seconds=300)
+    )
 ```
 
 `AsyncSynthClient` has the same operations, awaited. `run.ref` comes from the

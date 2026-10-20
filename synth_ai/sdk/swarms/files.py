@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from .deprecated import artifact_alias
-
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
@@ -11,6 +9,7 @@ from synth_ai.core.parameters import identifier, page_parameters, verified
 from synth_ai.options import ReadOptions
 from synth_ai.types.base import Page, PageCursor
 
+from .deprecated import artifact_alias
 from .file_uploads import AsyncUploads, Uploads
 from .types.files import File
 

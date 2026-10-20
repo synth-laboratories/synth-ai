@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from .deprecated import artifact_alias
-
 import time
 
 from synth_ai.contracts import swarms as operations
@@ -20,6 +18,7 @@ from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
 from synth_ai.types.uploads import TransferReceipt
 
+from .deprecated import artifact_alias
 from .types.files import (
     FileManifest,
     FileSource,

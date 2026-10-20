@@ -6,8 +6,6 @@ published without overwriting only after full identity and digest verification.
 
 from __future__ import annotations
 
-from .deprecated import artifact_alias
-
 import os
 import tempfile
 from pathlib import Path
@@ -20,6 +18,7 @@ from synth_ai.errors import OutputIntegrityError
 from synth_ai.options import ReadOptions, TransferOptions
 from synth_ai.types.base import Page, PageCursor
 
+from .deprecated import artifact_alias
 from .output_stream import AsyncOutputStream, OutputStream
 from .types.outputs import DownloadReceipt, Output, TextContent
 

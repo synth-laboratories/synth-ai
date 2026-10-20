@@ -383,7 +383,7 @@ def test_repository_metadata_diff_clone_mutation_and_exact_links(async_mode):
 
     async def run():
         if async_mode:
-            async with httpx.AsyncClient(transport=httpx.MockTransport(server)) as network:
+            async with httpx.AsyncClient(transport=httpx.MockTransport(server)) as network:  # noqa: SIM117
                 async with AsyncSynthClient(
                     api_key="fixture",
                     base_url="https://backend.test",
@@ -399,7 +399,7 @@ def test_repository_metadata_diff_clone_mutation_and_exact_links(async_mode):
                         "project-test", subject=Ref.run("run-1", "d" * 64), relation="produced"
                     )
         else:
-            with httpx.Client(transport=httpx.MockTransport(server)) as network:
+            with httpx.Client(transport=httpx.MockTransport(server)) as network:  # noqa: SIM117
                 with SynthClient(
                     api_key="fixture",
                     base_url="https://backend.test",
@@ -428,21 +428,23 @@ def test_repository_metadata_diff_clone_mutation_and_exact_links(async_mode):
 
 def test_links_refuses_digest_substitution_and_bounded_queries_before_network():
     server = Server("link_changed")
-    with httpx.Client(transport=httpx.MockTransport(server)) as network:
-        with SynthClient(
+    with (
+        httpx.Client(transport=httpx.MockTransport(server)) as network,
+        SynthClient(
             api_key="fixture",
             base_url="https://backend.test",
             options=ClientOptions(http_client=network),
-        ) as client:
-            with pytest.raises(ContractError):
-                client.links.list(
-                    "project-test", subject=Ref.run("run-1", "d" * 64), relation="produced"
-                )
-            count = len(server.requests)
-            for options in ({}, {"subject": REF, "object": REF}, {"subject": REF, "limit": 201}):
-                with pytest.raises(ValueError):
-                    client.links.list("project-test", **options)
-            assert len(server.requests) == count
+        ) as client,
+    ):
+        with pytest.raises(ContractError):
+            client.links.list(
+                "project-test", subject=Ref.run("run-1", "d" * 64), relation="produced"
+            )
+        count = len(server.requests)
+        for options in ({}, {"subject": REF, "object": REF}, {"subject": REF, "limit": 201}):
+            with pytest.raises(ValueError):
+                client.links.list("project-test", **options)
+        assert len(server.requests) == count
 
 
 def test_sync_client_close_waits_for_extraction_before_returning(tmp_path, monkeypatch):
@@ -490,7 +492,7 @@ def test_run_get_retains_exact_launch_ref_and_provenance_refuses_identity_change
 
     async def run():
         if async_mode:
-            async with httpx.AsyncClient(transport=httpx.MockTransport(server)) as network:
+            async with httpx.AsyncClient(transport=httpx.MockTransport(server)) as network:  # noqa: SIM117
                 async with AsyncSynthClient(
                     api_key="fixture",
                     base_url="https://backend.test",
@@ -503,7 +505,7 @@ def test_run_get_retains_exact_launch_ref_and_provenance_refuses_identity_change
                     with pytest.raises(ContractError):
                         await handle.status()
         else:
-            with httpx.Client(transport=httpx.MockTransport(server)) as network:
+            with httpx.Client(transport=httpx.MockTransport(server)) as network:  # noqa: SIM117
                 with SynthClient(
                     api_key="fixture",
                     base_url="https://backend.test",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 from synth_ai.sdk.core.artifact_types import (
     Artifact,
     ArtifactAlias,
@@ -11,11 +12,10 @@ from synth_ai.sdk.core.artifact_types import (
     ArtifactManifest,
     ArtifactObject,
     ArtifactUploadManifest,
+    ArtifactUploadReceipt,
     ArtifactUploadRequest,
     ArtifactUploadStatus,
-    ArtifactUploadReceipt,
 )
-
 from synth_ai.sdk.core.types import (
     CloneToken,
     CloneTokenRequest,
