@@ -18,6 +18,7 @@ from synth_ai.types.money import Money
 from synth_ai.types.refs import Ref
 from synth_ai.sdk.core.artifact_types import Labels
 from .objectives import Guidance
+from .resources import ResourceRequest
 
 
 class Limits(Model):
@@ -45,12 +46,15 @@ class FileRef(Model):
 class Inputs(Model):
     files: tuple[FileRef, ...] = Field(default=(), max_length=32)
     artifacts: tuple[Ref, ...] = Field(default=(), max_length=32)
+    derived_from: Ref | None = None
 
     @model_serializer(mode="wrap")
     def omit_empty_artifacts(self, handler):
         result = handler(self)
         if not self.artifacts:
             result.pop("artifacts", None)
+        if self.derived_from is None:
+            result.pop("derived_from", None)
         return result
 
     @model_validator(mode="after")
@@ -67,6 +71,8 @@ class Inputs(Model):
             if key in selected:
                 raise ValueError("Duplicate artifact input")
             selected.add(key)
+        if self.derived_from is not None and self.derived_from not in self.artifacts:
+            raise ValueError("Derived input must be one of the exact admitted artifact inputs")
         if len(self.files) + len(self.artifacts) > 32:
             raise ValueError("Inputs exceed the total selection bound")
         return self
@@ -107,6 +113,7 @@ class LaunchRequest(Model):
     models: Models | None = None
     labels: Labels | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
+    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=2)
 
     @property
     def objective(self) -> str:
@@ -119,6 +126,8 @@ class LaunchRequest(Model):
             result.pop("labels", None)
         if not self.guidance:
             result.pop("guidance", None)
+        if not self.resources:
+            result.pop("resources", None)
         result.pop("message", None)
         result.pop("legacy_objective", None)
         result.pop("objective", None)
@@ -128,6 +137,8 @@ class LaunchRequest(Model):
     def validate_intent(self) -> Self:
         if (self.message is None) == (self.legacy_objective is None):
             raise ValueError("Select message or the deprecated objective alias")
+        if len({item.plugin for item in self.resources}) != len(self.resources):
+            raise ValueError("Resource plugins may be granted once")
         if len({item.id for item in self.guidance}) != len(self.guidance):
             raise ValueError("Guidance ids must be unique")
         if (

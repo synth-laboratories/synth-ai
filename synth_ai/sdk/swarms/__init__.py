@@ -74,3 +74,7 @@ __all__ += [
     "ObjectiveAnswer",
     "GuidanceCoverage",
 ]
+
+from .types.resources import ResourceRequest, ResourceGrant, ResourceGrantSet, ResourceUsage
+
+__all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage"]

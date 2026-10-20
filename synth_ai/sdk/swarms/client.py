@@ -29,6 +29,7 @@ from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Provid
 from .types.projects import ProjectCreateRequest, ProjectTemplate
 from .types.runs import LaunchPreflight, RunSnapshot
 from .types.objectives import Guidance
+from .types.resources import ResourceRequest
 
 
 def launch_request(
@@ -41,6 +42,7 @@ def launch_request(
     labels: Labels | None = None,
     message: str | None = None,
     guidance: tuple[Guidance, ...] = (),
+    resources: tuple[ResourceRequest, ...] = (),
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative."""
     if (objective is None) == (message is None):
@@ -50,6 +52,7 @@ def launch_request(
     return LaunchRequest(
         message=message if message is not None else objective,
         guidance=guidance,
+        resources=resources,
         project_id=project_id,
         limits=limits,
         inputs=Inputs(artifacts=tuple(inputs)) if isinstance(inputs, (list, tuple)) else inputs,
@@ -139,6 +142,7 @@ class SwarmsClient:
         *,
         message: str | None = None,
         guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -149,7 +153,16 @@ class SwarmsClient:
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
         body = launch_request(
-            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
         )
         return self._transport.request(
             operations.PREFLIGHT,
@@ -165,6 +178,7 @@ class SwarmsClient:
         *,
         message: str | None = None,
         guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -175,7 +189,16 @@ class SwarmsClient:
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
         body = launch_request(
-            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
         )
         result = self._transport.request(
             operations.CREATE,
@@ -300,6 +323,7 @@ class AsyncSwarmsClient:
         *,
         message: str | None = None,
         guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -310,7 +334,16 @@ class AsyncSwarmsClient:
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
         body = launch_request(
-            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
         )
         return await self._transport.request(
             operations.PREFLIGHT,
@@ -326,6 +359,7 @@ class AsyncSwarmsClient:
         *,
         message: str | None = None,
         guidance: tuple[Guidance, ...] = (),
+        resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
         inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
@@ -336,7 +370,16 @@ class AsyncSwarmsClient:
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
         body = launch_request(
-            objective, project_id, limits, inputs, providers, models, labels, message, guidance
+            objective,
+            project_id,
+            limits,
+            inputs,
+            providers,
+            models,
+            labels,
+            message,
+            guidance,
+            resources,
         )
         result = await self._transport.request(
             operations.CREATE,

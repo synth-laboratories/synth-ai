@@ -616,6 +616,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -1283,6 +1362,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -3314,6 +3402,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -3762,6 +3929,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -4495,6 +4671,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -4943,6 +5198,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -5676,6 +5940,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -6255,6 +6598,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -6724,6 +7076,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -7303,6 +7734,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -7843,6 +8283,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -8291,6 +8810,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -8873,6 +9401,85 @@
               "amount"
             ],
             "title": "MoneyObservation",
+            "type": "object"
+          },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
             "type": "object"
           },
           "ResponseMetadata": {
@@ -9552,6 +10159,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -12541,6 +13157,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -13209,6 +13904,15 @@
                 "maxItems": 128,
                 "title": "Physical",
                 "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
+                "type": "array"
               }
             },
             "required": [
@@ -13445,6 +14149,85 @@
               "amount"
             ],
             "title": "MoneyObservation",
+            "type": "object"
+          },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
             "type": "object"
           },
           "ResponseMetadata": {
@@ -13708,6 +14491,15 @@
             "maxItems": 128,
             "title": "Physical",
             "type": "array"
+          },
+          "resource_usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ResourceUsage"
+            },
+            "maxItems": 16384,
+            "title": "Resource Usage",
+            "type": "array"
           }
         },
         "required": [
@@ -13926,6 +14718,85 @@
               "amount"
             ],
             "title": "MoneyObservation",
+            "type": "object"
+          },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
             "type": "object"
           },
           "ResponseMetadata": {
@@ -14247,6 +15118,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -15976,6 +16856,17 @@
                 "title": "Artifacts",
                 "type": "array"
               },
+              "derived_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "files": {
                 "default": [],
                 "items": {
@@ -16076,6 +16967,131 @@
               }
             },
             "title": "Providers",
+            "type": "object"
+          },
+          "ResourceRequest": {
+            "additionalProperties": false,
+            "properties": {
+              "collections": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "title": "Collections",
+                "type": "array"
+              },
+              "credential_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "limits": {
+                "additionalProperties": {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "maxProperties": 7,
+                "minProperties": 1,
+                "propertyNames": {
+                  "enum": [
+                    "spend_micros",
+                    "tokens",
+                    "tokens_in",
+                    "tokens_out",
+                    "calls",
+                    "index_searches",
+                    "wall_ms"
+                  ]
+                },
+                "title": "Limits",
+                "type": "object"
+              },
+              "models": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "title": "Models",
+                "type": "array"
+              },
+              "plugin": {
+                "enum": [
+                  "openrouter.inference",
+                  "index.search"
+                ],
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role_limits": {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "propertyNames": {
+                    "enum": [
+                      "spend_micros",
+                      "tokens",
+                      "tokens_in",
+                      "tokens_out",
+                      "calls",
+                      "index_searches",
+                      "wall_ms"
+                    ]
+                  },
+                  "type": "object"
+                },
+                "maxProperties": 4,
+                "propertyNames": {
+                  "enum": [
+                    "planner",
+                    "worker",
+                    "reviewer",
+                    "run_assessor"
+                  ]
+                },
+                "title": "Role Limits",
+                "type": "object"
+              },
+              "roles": {
+                "items": {
+                  "enum": [
+                    "planner",
+                    "worker",
+                    "reviewer",
+                    "run_assessor"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "title": "Roles",
+                "type": "array"
+              },
+              "version": {
+                "default": 1,
+                "maximum": 1,
+                "minimum": 1,
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "plugin",
+              "roles",
+              "limits"
+            ],
+            "title": "ResourceRequest",
             "type": "object"
           }
         },
@@ -16183,6 +17199,15 @@
               }
             ],
             "default": null
+          },
+          "resources": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ResourceRequest"
+            },
+            "maxItems": 2,
+            "title": "Resources",
+            "type": "array"
           }
         },
         "required": [
@@ -16318,6 +17343,17 @@
                 "maxItems": 32,
                 "title": "Artifacts",
                 "type": "array"
+              },
+              "derived_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               },
               "files": {
                 "default": [],
@@ -16863,6 +17899,17 @@
                 "title": "Artifacts",
                 "type": "array"
               },
+              "derived_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "files": {
                 "default": [],
                 "items": {
@@ -16963,6 +18010,131 @@
               }
             },
             "title": "Providers",
+            "type": "object"
+          },
+          "ResourceRequest": {
+            "additionalProperties": false,
+            "properties": {
+              "collections": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "title": "Collections",
+                "type": "array"
+              },
+              "credential_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "limits": {
+                "additionalProperties": {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "maxProperties": 7,
+                "minProperties": 1,
+                "propertyNames": {
+                  "enum": [
+                    "spend_micros",
+                    "tokens",
+                    "tokens_in",
+                    "tokens_out",
+                    "calls",
+                    "index_searches",
+                    "wall_ms"
+                  ]
+                },
+                "title": "Limits",
+                "type": "object"
+              },
+              "models": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "title": "Models",
+                "type": "array"
+              },
+              "plugin": {
+                "enum": [
+                  "openrouter.inference",
+                  "index.search"
+                ],
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role_limits": {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "propertyNames": {
+                    "enum": [
+                      "spend_micros",
+                      "tokens",
+                      "tokens_in",
+                      "tokens_out",
+                      "calls",
+                      "index_searches",
+                      "wall_ms"
+                    ]
+                  },
+                  "type": "object"
+                },
+                "maxProperties": 4,
+                "propertyNames": {
+                  "enum": [
+                    "planner",
+                    "worker",
+                    "reviewer",
+                    "run_assessor"
+                  ]
+                },
+                "title": "Role Limits",
+                "type": "object"
+              },
+              "roles": {
+                "items": {
+                  "enum": [
+                    "planner",
+                    "worker",
+                    "reviewer",
+                    "run_assessor"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "title": "Roles",
+                "type": "array"
+              },
+              "version": {
+                "default": 1,
+                "maximum": 1,
+                "minimum": 1,
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "plugin",
+              "roles",
+              "limits"
+            ],
+            "title": "ResourceRequest",
             "type": "object"
           }
         },
@@ -17077,6 +18249,15 @@
               }
             ],
             "default": null
+          },
+          "resources": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ResourceRequest"
+            },
+            "maxItems": 2,
+            "title": "Resources",
+            "type": "array"
           }
         },
         "required": [
@@ -19356,6 +20537,17 @@
                 "title": "Artifacts",
                 "type": "array"
               },
+              "derived_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "files": {
                 "default": [],
                 "items": {
@@ -20197,6 +21389,85 @@
             "title": "ReasonLink",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -20501,6 +21772,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -20838,6 +22118,85 @@
               "amount"
             ],
             "title": "MoneyObservation",
+            "type": "object"
+          },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
             "type": "object"
           },
           "ResponseMetadata": {
@@ -21202,6 +22561,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },
@@ -21944,6 +23312,85 @@
             "title": "MoneyObservation",
             "type": "object"
           },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
+            "type": "object"
+          },
           "ResponseMetadata": {
             "additionalProperties": true,
             "properties": {
@@ -22205,6 +23652,15 @@
             "maxItems": 128,
             "title": "Physical",
             "type": "array"
+          },
+          "resource_usage": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ResourceUsage"
+            },
+            "maxItems": 16384,
+            "title": "Resource Usage",
+            "type": "array"
           }
         },
         "required": [
@@ -22423,6 +23879,85 @@
               "amount"
             ],
             "title": "MoneyObservation",
+            "type": "object"
+          },
+          "ResourceUsage": {
+            "additionalProperties": true,
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "maximum": 9223372036854775807,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Amount"
+              },
+              "charge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MoneyObservation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "dimension": {
+                "enum": [
+                  "spend_micros",
+                  "tokens",
+                  "tokens_in",
+                  "tokens_out",
+                  "calls",
+                  "index_searches",
+                  "wall_ms"
+                ],
+                "title": "Dimension",
+                "type": "string"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown",
+                  "pending"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "usage_class": {
+                "enum": [
+                  "agent",
+                  "workload",
+                  "tool"
+                ],
+                "title": "Usage Class",
+                "type": "string"
+              }
+            },
+            "required": [
+              "plugin",
+              "dimension",
+              "usage_class",
+              "role",
+              "state"
+            ],
+            "title": "ResourceUsage",
             "type": "object"
           },
           "ResponseMetadata": {
@@ -22744,6 +24279,15 @@
                 },
                 "maxItems": 128,
                 "title": "Physical",
+                "type": "array"
+              },
+              "resource_usage": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ResourceUsage"
+                },
+                "maxItems": 16384,
+                "title": "Resource Usage",
                 "type": "array"
               }
             },

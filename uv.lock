@@ -1133,7 +1133,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.23.3"
+version = "0.23.4"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
@@ -1155,6 +1155,7 @@ dev = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "readme-renderer" },
     { name = "ruff" },
     { name = "twine" },
     { name = "ty" },
@@ -1178,6 +1179,7 @@ dev = [
     { name = "pydantic", specifier = "==2.12.5" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-asyncio", specifier = "==1.4.0" },
+    { name = "readme-renderer", specifier = ">=44,<45" },
     { name = "ruff", specifier = "==0.17.0" },
     { name = "twine", specifier = ">=4.0.0" },
     { name = "ty", specifier = "==0.0.86" },

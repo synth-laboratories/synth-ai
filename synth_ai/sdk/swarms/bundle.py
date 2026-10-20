@@ -81,6 +81,16 @@ class BundleState:
             )
         return remaining
 
+    def consume(self, size):
+        self.remaining()
+        if size < 0 or self.used + size > self.options.maximum_bytes:
+            raise ContractError(
+                "Run download exceeded its total byte bound",
+                code="run_download_bound",
+                stage="run_download",
+            )
+        self.used += size
+
     def prepare(self):
         self.remaining()
         self.scratch = Path(tempfile.mkdtemp(prefix=".synth-run-", dir=self.destination.parent))
@@ -100,6 +110,7 @@ class BundleState:
         objective_bytes = (
             json.dumps(objectives, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
         ).encode()
+        self.consume(len(objective_bytes))
         with (self.scratch / "objectives.json").open("xb") as output:
             output.write(objective_bytes)
             output.flush()
@@ -115,8 +126,10 @@ class BundleState:
                 )
             target = self.scratch / "answers" / parts[0]
             target.parent.mkdir(exist_ok=True)
+            answer_bytes = objective.answer.text.encode()
+            self.consume(len(answer_bytes))
             with target.open("xb") as output:
-                output.write(objective.answer.text.encode())
+                output.write(answer_bytes)
                 output.flush()
                 os.fsync(output.fileno())
         document = {
@@ -128,6 +141,7 @@ class BundleState:
         if commit is not None:
             document["final_commit"] = commit.model_dump(mode="json")
         raw = (json.dumps(document, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode()
+        self.consume(len(raw))
         with (self.scratch / "MANIFEST.json").open("xb") as output:
             output.write(raw)
             output.flush()
