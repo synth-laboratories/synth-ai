@@ -77,4 +77,7 @@ __all__ += [
     "GuidanceCoverage",
 ]
 
+from .create_retry import LaunchRetryExhausted  # noqa: E402
+
+__all__ += ["LaunchRetryExhausted"]
 __all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage"]
