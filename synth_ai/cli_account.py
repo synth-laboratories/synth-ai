@@ -17,6 +17,7 @@ from synth_ai.options import ReadOptions
 from synth_ai.types.account_cloud import (
     AccountBalance,
     AccountContext,
+    AccountLimits,
     AccountUsageEventPage,
     AccountUsageSummary,
     CreditAlertState,
@@ -64,6 +65,8 @@ def _dashboard_path(path: str) -> str:
 
 def run_account(args: argparse.Namespace) -> int:
     command = args.account_command
+    if command == "limits" and args.candidate_manifest_sha256 is not None:
+        raise AuthRefusalError("account_candidate_manifest_unsupported", 400, service="synth-ai")
     if command in {"billing", "keys", "apps"}:
         url = _dashboard_path(
             {"billing": "/billing", "keys": "/keys", "apps": "/settings/connected-apps"}[command]
@@ -81,6 +84,7 @@ def run_account(args: argparse.Namespace) -> int:
         return 0
     value: (
         CreditAlertState
+        | AccountLimits
         | AccountContext
         | CurrentPlan
         | AccountBalance
@@ -91,6 +95,8 @@ def run_account(args: argparse.Namespace) -> int:
     with SynthClient() as client:
         if command == "context":
             value = client.account.context(request=read)
+        elif command == "limits":
+            value = client.account.limits(request=read)
         elif command == "plan":
             value = client.account.plan(request=read)
         elif command == "alerts":
@@ -130,6 +136,35 @@ def run_account(args: argparse.Namespace) -> int:
             print(f"Renews (UTC)\t{value.renews_at.isoformat()}")
         if value.cancels_at:
             print(f"Ends (UTC)\t{value.cancels_at.isoformat()}")
+    elif isinstance(value, AccountLimits):
+        print("Product\tLimit\tCapacity\tUsed\tRemaining\tReset")
+        for limit in value.limits:
+            capacity = (
+                "Unavailable"
+                if limit.state == "unavailable"
+                else "Unlimited"
+                if limit.value is None
+                else str(limit.value)
+            )
+            print(
+                "\t".join(
+                    (
+                        limit.product,
+                        limit.limit_id,
+                        capacity,
+                        str(limit.used) if limit.used is not None else "Unknown",
+                        str(limit.remaining) if limit.remaining is not None else "Unknown",
+                        limit.resets_at.isoformat() if limit.resets_at else "Unknown",
+                    )
+                )
+            )
+        for name in (
+            "max_results",
+            "max_excerpts_per_result",
+            "query_max_bytes",
+            "contents_max_bytes",
+        ):
+            print(f"Request {name}\t{getattr(value.request_limits, name)}")
     elif isinstance(value, CreditAlertState):
         print(
             f"Low-credit alerts\t{value.state}\nThreshold\t${value.threshold_dollars}\nRecipient\t{_text(value.recipient or 'None')}"
