@@ -28,6 +28,7 @@ from .types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from .watch import AsyncRunWatch, RunWatch
 
 __all__ = [
     "EvidenceRef",
@@ -67,6 +68,7 @@ __all__ = [
 ]
 
 __all__ += ["RunDownloadOptions", "RunDownloadReceipt", "RunLabels", "AsyncRunLabels"]
+__all__ += ["RunWatch", "AsyncRunWatch"]
 
 __all__ += [
     "Guidance",

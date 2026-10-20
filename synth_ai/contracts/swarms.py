@@ -244,3 +244,13 @@ LABELS = Operation(
     required_scope="swarms:write",
 )
 ALL_OPERATIONS += (LABELS,)
+
+STREAM = Operation(
+    "swarms.stream",
+    "GET",
+    "/swarms/runs/{run_id}/stream",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
+ALL_OPERATIONS += (STREAM,)
