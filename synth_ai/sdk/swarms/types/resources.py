@@ -1,10 +1,15 @@
 """Frozen resource grants; credential references never contain secret values."""
 
 from typing import Annotated, Literal, Self
-from pydantic import Field, StrictInt, model_validator, model_serializer
+
+from pydantic import Field, StrictInt, model_serializer, model_validator
+
 from synth_ai.types.base import Model, ResponseBase
 from synth_ai.types.refs import Ref
-from synth_ai.types.money import MoneyObservation
+from synth_ai.types.unknown import UnknownValue
+from synth_ai.types.usage import ResourceUsage
+
+__all__ = ["ResourceGrant", "ResourceGrantSet", "ResourceRequest", "ResourceUsage"]
 
 ResourcePluginId = Literal["openrouter.inference", "index.search"]
 ResourceRole = Literal["planner", "worker", "reviewer", "run_assessor"]
@@ -54,22 +59,26 @@ class ResourceRequest(Model):
         return value
 
 
-class ResourceGrant(ResourceRequest):
-    funding_lane: Literal["platform", "user_connected"]
-    credential_refs: tuple[Ref, ...] = Field(default=(), max_length=8)
+class ResourceGrant(ResponseBase):
+    """A frozen grant as observed. Tolerant: unknown fields and future plugins decode.
+
+    Requests (ResourceRequest) stay strict; this observation never constructs one.
+    """
+
+    plugin: ResourcePluginId | UnknownValue
+    version: StrictInt = Field(default=1, ge=1)
+    roles: tuple[ResourceRole | UnknownValue, ...] = Field(default=(), max_length=16)
+    limits: dict[str, ResourceAmount] = Field(default_factory=dict)
+    role_limits: dict[str, dict[str, ResourceAmount]] = Field(default_factory=dict)
+    models: tuple[str, ...] = Field(default=())
+    collections: tuple[str, ...] = Field(default=())
+    credential_ref: Ref | None = None
+    funding_lane: Literal["platform", "user_connected"] | UnknownValue
+    credential_refs: tuple[Ref, ...] = Field(default=())
     registry_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    grant_id: str = Field(min_length=1, max_length=128)
+    grant_id: str = Field(min_length=1, max_length=512)
 
 
-class ResourceGrantSet(Model):
-    schema_version: Literal["orchestra.resource-grants.v1"] = "orchestra.resource-grants.v1"
-    grants: tuple[ResourceGrant, ...] = Field(default=(), max_length=2)
-
-    @model_validator(mode="after")
-    def distinct(self) -> Self:
-        if len({item.plugin for item in self.grants}) != len(self.grants):
-            raise ValueError("Resource plugins may be granted once per run")
-        return self
-
-
-from synth_ai.types.usage import ResourceUsage
+class ResourceGrantSet(ResponseBase):
+    schema_version: str = "orchestra.resource-grants.v1"
+    grants: tuple[ResourceGrant, ...] = Field(default=())

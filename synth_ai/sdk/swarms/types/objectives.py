@@ -1,7 +1,9 @@
 """Guidance inspires planner-authored objectives; only independent verdicts verify them."""
 
 from typing import Literal
+
 from pydantic import Field, StrictInt, model_serializer
+
 from synth_ai.types.base import Identifier, Model, ResponseBase
 from synth_ai.types.refs import Ref
 

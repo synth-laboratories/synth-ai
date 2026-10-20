@@ -23,7 +23,6 @@ from synth_ai.types.base import (
     Digest,
     Identifier,
     Model,
-    ResponseBase,
     ResponseIdentifier,
     ResponseModel,
 )
@@ -53,9 +52,15 @@ LabelKey = Annotated[
 ]
 LabelValue = Annotated[str, Field(strict=True, max_length=256)]
 Labels = Annotated[dict[LabelKey, LabelValue], Field(max_length=32)]
+# Observations decode what the server stored: a newer server may carry keys or
+# values a request constructor would refuse. Requests keep the strict Labels.
+ResponseLabels = dict[
+    Annotated[str, Field(strict=True, min_length=1, max_length=512)],
+    Annotated[str, Field(strict=True)],
+]
 
 
-class ArtifactDigestMismatch(ContractError):
+class ArtifactDigestMismatch(ContractError):  # noqa: N818 - public name since 0.23.3
     service = "sdk"
 
     def __init__(self, expected, actual):
@@ -93,6 +98,10 @@ class ArtifactObject(Model):
 
 
 class ArtifactManifest(Model):
+    # Deliberately strict (extra="forbid"), unlike its tolerant Artifact envelope:
+    # manifest_digest covers every manifest field, so an ignored unknown field
+    # would silently make the canonical digest unverifiable. An unknown manifest
+    # field must fail closed rather than be dropped.
     schema_version: Literal["synth.artifact-platform.v1"] = "synth.artifact-platform.v1"
     manifest_schema_version: str = Field(min_length=1, max_length=255)
     publication_id: ReferenceIdentifier
@@ -116,7 +125,7 @@ class Artifact(ResponseModel):
     artifact_id: ResponseIdentifier
     project_id: ResponseIdentifier
     kind: ArtifactKind | UnknownValue
-    labels: Labels
+    labels: ResponseLabels
     labels_revision: StrictInt = Field(ge=1)
     ref: Ref
     manifest: ArtifactManifest

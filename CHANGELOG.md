@@ -5,12 +5,21 @@
 - Exact Refs, provenance links, bounded repository archives and artifact uploads/downloads.
 - Atomic run bundles, revisioned labels, artifact inputs, message/guidance and objective results.
 - Pause/resume controls and typed resource grants with itemized agent/workload/tool usage.
+- Response models decode tolerantly: `Artifact.labels`, `RunSnapshot.labels` and
+  `ResourceGrant`/`ResourceGrantSet` accept what a newer server stores; request types stay
+  strict. `ArtifactManifest` stays strict because its digest covers every field.
+- `run.download()` requires a final run (`execution_closed`, `cleanup_complete`,
+  `accounting_final`) and selects the exact run branch across ref pages; uploads in a
+  refused or expired state raise a typed error before finalize.
 - Consistent transport errors, request identifiers, jittered read retries, injected HTTPX clients,
   and shipped contract fingerprints across supported Pydantic versions.
 
 ### Breaking
 
-The legacy `objective` launch argument emits a deprecation warning; use `message`.
+The legacy `objective` launch argument emits a deprecation warning; use `message`. The
+alias is sent on the wire as `message` (the backend accepts either field, never both).
+Absent `inputs`, `providers`, `models`, `labels`, `guidance` and `resources` are omitted
+from launch requests rather than sent as `null`.
 The legacy file/output facades remain readable with deprecation warnings.
 
 ### 0.22 to 0.23 migration

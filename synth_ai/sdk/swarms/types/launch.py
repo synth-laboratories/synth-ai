@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, StrictInt, model_validator, model_serializer
+from pydantic import Field, StrictInt, model_serializer, model_validator
 
+from synth_ai.sdk.core.artifact_types import Labels
 from synth_ai.types.base import (
     Digest,
     Identifier,
@@ -16,7 +17,7 @@ from synth_ai.types.base import (
 )
 from synth_ai.types.money import Money
 from synth_ai.types.refs import Ref
-from synth_ai.sdk.core.artifact_types import Labels
+
 from .objectives import Guidance
 from .resources import ResourceRequest
 
@@ -122,8 +123,9 @@ class LaunchRequest(Model):
     @model_serializer(mode="wrap")
     def omit_absent_labels(self, handler):
         result = handler(self)
-        if self.labels is None:
-            result.pop("labels", None)
+        for name in ("labels", "inputs", "providers", "models"):
+            if getattr(self, name) is None:
+                result.pop(name, None)
         if not self.guidance:
             result.pop("guidance", None)
         if not self.resources:

@@ -378,15 +378,11 @@
           "title": "Kind"
         },
         "labels": {
-          "maxProperties": 32,
-          "patternProperties": {
-            "^[a-z0-9_.-]+$": {
-              "maxLength": 256,
-              "type": "string"
-            }
+          "additionalProperties": {
+            "type": "string"
           },
           "propertyNames": {
-            "maxLength": 64,
+            "maxLength": 512,
             "minLength": 1
           },
           "title": "Labels",
@@ -1015,15 +1011,11 @@
               "title": "Kind"
             },
             "labels": {
-              "maxProperties": 32,
-              "patternProperties": {
-                "^[a-z0-9_.-]+$": {
-                  "maxLength": 256,
-                  "type": "string"
-                }
+              "additionalProperties": {
+                "type": "string"
               },
               "propertyNames": {
-                "maxLength": 64,
+                "maxLength": 512,
                 "minLength": 1
               },
               "title": "Labels",
@@ -2342,15 +2334,11 @@
               "title": "Kind"
             },
             "labels": {
-              "maxProperties": 32,
-              "patternProperties": {
-                "^[a-z0-9_.-]+$": {
-                  "maxLength": 256,
-                  "type": "string"
-                }
+              "additionalProperties": {
+                "type": "string"
               },
               "propertyNames": {
-                "maxLength": 64,
+                "maxLength": 512,
                 "minLength": 1
               },
               "title": "Labels",

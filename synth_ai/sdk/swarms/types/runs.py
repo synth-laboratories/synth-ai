@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 from synth_ai.errors import OperationFailedError
+from synth_ai.sdk.core.artifact_types import ResponseLabels
 from synth_ai.types.base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
 from synth_ai.types.receipts import ControlCommand, ControlState
 from synth_ai.types.refs import Ref
@@ -21,6 +22,7 @@ from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import UsageSummary
 
 from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
+from .objectives import GuidanceCoverage, ObjectiveResult
 from .problems import Problem, ReasonLink
 
 KnownRunState = Literal[
@@ -96,17 +98,11 @@ class RunControlSummary(ResponseBase):
     state: ControlState
 
 
-from synth_ai.sdk.core.artifact_types import Labels
-
-
-from .objectives import ObjectiveResult, GuidanceCoverage
-
-
 class RunSnapshot(ResponseModel):
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
     ref: Ref | None = None
-    labels: Labels = Field(default_factory=dict)
+    labels: ResponseLabels = Field(default_factory=dict)
     labels_revision: StrictInt = Field(default=1, ge=1)
     objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
     guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
