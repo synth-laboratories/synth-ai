@@ -25,11 +25,14 @@ from synth_ai.sdk.core import ArtifactSource
 from synth_ai.sdk.swarms import Guidance, Inputs
 
 source = ArtifactSource.from_path(Path("context.txt"), media_type="text/plain")
-artifact = client.artifacts.upload(project_id, source, labels={"role": "input"})
+artifact = client.artifacts.upload(project_id, source, labels={"purpose": "input"})
 inputs = Inputs(artifacts=(artifact.ref,))
 guidance = (Guidance(id="comparison", kind="outcome", text="Compare both methods",
                      priority="must", evidence="Cite reproducible measurements"),)
 ```
+
+The server reserves the label keys `role`, `task_id`, `logical_output_id` and any
+`legacy_*` key (`artifact_reserved_labels`, HTTP 422); choose other keys.
 
 Pass `inputs` and `guidance` to `client.swarms.create(...)` together with the
 project, message and limits. Input artifacts are immutable exact revisions;
