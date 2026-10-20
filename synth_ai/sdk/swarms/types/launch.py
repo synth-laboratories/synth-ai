@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, StrictInt, model_validator
+from pydantic import Field, StrictInt, model_serializer, model_validator
 
+from synth_ai.sdk.core.artifact_types import Labels
 from synth_ai.types.base import (
     Digest,
     Identifier,
@@ -15,6 +16,10 @@ from synth_ai.types.base import (
     ResponseModel,
 )
 from synth_ai.types.money import Money
+from synth_ai.types.refs import Ref
+
+from .objectives import Guidance
+from .resources import ResourceRequest
 
 
 class Limits(Model):
@@ -41,12 +46,36 @@ class FileRef(Model):
 
 class Inputs(Model):
     files: tuple[FileRef, ...] = Field(default=(), max_length=32)
+    artifacts: tuple[Ref, ...] = Field(default=(), max_length=32)
+    derived_from: Ref | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_empty_artifacts(self, handler):
+        result = handler(self)
+        if not self.artifacts:
+            result.pop("artifacts", None)
+        if self.derived_from is None:
+            result.pop("derived_from", None)
+        return result
 
     @model_validator(mode="after")
     def validate_files(self) -> Self:
         identities = [(file.file_id, file.revision_id) for file in self.files]
         if len(identities) != len(set(identities)):
             raise ValueError("duplicate file revision selection")
+        selected = set()
+        for ref in self.artifacts:
+            if ref.authority != "artifacts" or ref.kind != "artifact":
+                raise ValueError("Inputs must select exact artifact revisions")
+            Ref.artifact(ref.record_id, ref.revision, ref.digest_sha256)
+            key = (ref.record_id, ref.revision)
+            if key in selected:
+                raise ValueError("Duplicate artifact input")
+            selected.add(key)
+        if self.derived_from is not None and self.derived_from not in self.artifacts:
+            raise ValueError("Derived input must be one of the exact admitted artifact inputs")
+        if len(self.files) + len(self.artifacts) > 32:
+            raise ValueError("Inputs exceed the total selection bound")
         return self
 
 
@@ -74,15 +103,46 @@ class ResolvedProviders(ResponseBase):
 
 
 class LaunchRequest(Model):
-    objective: str = Field(min_length=1, max_length=8192)
+    message: str | None = Field(default=None, min_length=1, max_length=8192)
+    legacy_objective: str | None = Field(
+        default=None, alias="objective", min_length=1, max_length=8192
+    )
     project_id: Identifier
     limits: Limits
     inputs: Inputs | None = None
     providers: Providers | None = None
     models: Models | None = None
+    labels: Labels | None = None
+    guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
+    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=2)
+
+    @property
+    def objective(self) -> str:
+        return self.message if self.message is not None else self.legacy_objective or ""
+
+    @model_serializer(mode="wrap")
+    def omit_absent_labels(self, handler):
+        result = handler(self)
+        for name in ("labels", "inputs", "providers", "models"):
+            if getattr(self, name) is None:
+                result.pop(name, None)
+        if not self.guidance:
+            result.pop("guidance", None)
+        if not self.resources:
+            result.pop("resources", None)
+        result.pop("message", None)
+        result.pop("legacy_objective", None)
+        result.pop("objective", None)
+        return {("message" if self.message is not None else "objective"): self.objective, **result}
 
     @model_validator(mode="after")
     def validate_intent(self) -> Self:
+        if (self.message is None) == (self.legacy_objective is None):
+            raise ValueError("Select message or the deprecated objective alias")
+        if len({item.plugin for item in self.resources}) != len(self.resources):
+            raise ValueError("Resource plugins may be granted once")
+        if len({item.id for item in self.guidance}) != len(self.guidance):
+            raise ValueError("Guidance ids must be unique")
         if (
             not self.objective.strip()
             or "\x00" in self.objective

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from typing import get_args
 
@@ -20,8 +21,10 @@ from synth_ai.errors import (
     SynthError,
 )
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
+from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.types.base import EventCursor, Page, PageCursor
 from synth_ai.types.receipts import ControlCommand, ControlReceipt, MutationResolution
+from synth_ai.types.refs import Link, Ref, Relation
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from .outputs import AsyncOutputs, Outputs
@@ -63,17 +66,107 @@ def _target_states(value: RunState | tuple[RunState, ...]) -> frozenset[RunState
     return frozenset(values)
 
 
-class SwarmRun:
+class RunIdentity:
+    run_id: str
+    _reference: Ref | None = None
+    _project_id: str | None = None
+    _identity_lock: threading.Lock
+
+    @property
+    def ref(self) -> Ref:
+        """Exact frozen launch identity, retained from an authoritative snapshot."""
+        if self._reference is None:
+            raise ContractError(
+                "Read run status from a backend providing exact run references",
+                code="run_ref_unavailable",
+                stage="run_reference",
+            )
+        return self._reference
+
+    def _observe_snapshot(self, snapshot: RunSnapshot) -> RunSnapshot:
+        with self._identity_lock:
+            return self._observe_locked(snapshot)
+
+    def _observe_locked(self, snapshot: RunSnapshot) -> RunSnapshot:
+        verified(
+            snapshot,
+            snapshot.run_id == self.run_id
+            and (self._project_id is None or snapshot.project_id == self._project_id)
+            and (self._reference is None or snapshot.ref in (None, self._reference)),
+            "Run response changed its immutable launch identity",
+        )
+        self._project_id = snapshot.project_id
+        if snapshot.ref is not None:
+            self._reference = snapshot.ref
+        return snapshot
+
+    def _link_project(self) -> str:
+        if self._project_id is None or self._reference is None:
+            raise ContractError(
+                "Read run status before listing provenance", code="run_ref_unavailable"
+            )
+        return self._project_id
+
+
+class SwarmRun(RunIdentity):
     def events(
         self, *, observation: ObservationOptions, cursor: EventCursor | None = None
     ) -> EventStream[SwarmEvent]:
         """Create a lazy bounded observer; close never cancels remote work."""
         return EventStream(self.event_page, cursor, observation, owner=self._transport)
 
-    def __init__(self, transport: HttpTransport, run_id: str) -> None:
+    def __init__(
+        self, transport: HttpTransport, run_id: str, *, snapshot: RunSnapshot | None = None
+    ) -> None:
         self._transport = transport
         self.run_id = identifier(run_id)
+        self._identity_lock = threading.Lock()
+        from .labels import RunLabels
+
+        self.labels = RunLabels(self)
         self.outputs = Outputs(transport, self.run_id)
+        if snapshot is not None:
+            self._observe_snapshot(snapshot)
+
+    def objectives(self, *, request=None):
+        return self.status(request=request).objectives
+
+    def download(self, destination, *, options=None):
+        from .bundle import download
+
+        return download(self, destination, options)
+
+    def produced(
+        self,
+        *,
+        limit: int = 200,
+        cursor: PageCursor | None = None,
+        request: ReadOptions | None = None,
+    ) -> Page[Link]:
+        return Links(self._transport).list(
+            self._link_project(),
+            subject=self.ref,
+            relation=Relation.PRODUCED,
+            limit=limit,
+            cursor=cursor,
+            request=request,
+        )
+
+    def consumed(
+        self,
+        *,
+        limit: int = 200,
+        cursor: PageCursor | None = None,
+        request: ReadOptions | None = None,
+    ) -> Page[Link]:
+        return Links(self._transport).list(
+            self._link_project(),
+            subject=self.ref,
+            relation=Relation.CONSUMED,
+            limit=limit,
+            cursor=cursor,
+            request=request,
+        )
 
     def status(self, *, request: ReadOptions | None = None) -> RunSnapshot:
         """Read current authorized status; no implicit control mutation."""
@@ -82,9 +175,7 @@ class SwarmRun:
             RunSnapshot,
             path=f"/swarms/runs/{self.run_id}",
             options=request,
-            validate=lambda result: verified(
-                result, result.run_id == self.run_id, "Run response identity mismatch"
-            ),
+            validate=self._observe_snapshot,
         )
 
     def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
@@ -336,17 +427,65 @@ class SwarmRun:
         raise RequestTimeoutError("Swarm observation expired; remote work continues")
 
 
-class AsyncSwarmRun:
+class AsyncSwarmRun(RunIdentity):
     def events(
         self, *, observation: ObservationOptions, cursor: EventCursor | None = None
     ) -> AsyncEventStream[SwarmEvent]:
         """Create a lazy native-async observer without starting a background task."""
         return AsyncEventStream(self.event_page, cursor, observation, owner=self._transport)
 
-    def __init__(self, transport: AsyncHttpTransport, run_id: str) -> None:
+    def __init__(
+        self, transport: AsyncHttpTransport, run_id: str, *, snapshot: RunSnapshot | None = None
+    ) -> None:
         self._transport = transport
         self.run_id = identifier(run_id)
+        self._identity_lock = threading.Lock()
+        from .labels import AsyncRunLabels
+
+        self.labels = AsyncRunLabels(self)
         self.outputs = AsyncOutputs(transport, self.run_id)
+        if snapshot is not None:
+            self._observe_snapshot(snapshot)
+
+    async def objectives(self, *, request=None):
+        return (await self.status(request=request)).objectives
+
+    async def download(self, destination, *, options=None):
+        from .bundle import download_async
+
+        return await download_async(self, destination, options)
+
+    async def produced(
+        self,
+        *,
+        limit: int = 200,
+        cursor: PageCursor | None = None,
+        request: ReadOptions | None = None,
+    ) -> Page[Link]:
+        return await AsyncLinks(self._transport).list(
+            self._link_project(),
+            subject=self.ref,
+            relation=Relation.PRODUCED,
+            limit=limit,
+            cursor=cursor,
+            request=request,
+        )
+
+    async def consumed(
+        self,
+        *,
+        limit: int = 200,
+        cursor: PageCursor | None = None,
+        request: ReadOptions | None = None,
+    ) -> Page[Link]:
+        return await AsyncLinks(self._transport).list(
+            self._link_project(),
+            subject=self.ref,
+            relation=Relation.CONSUMED,
+            limit=limit,
+            cursor=cursor,
+            request=request,
+        )
 
     async def status(self, *, request: ReadOptions | None = None) -> RunSnapshot:
         """Read current authorized status; no implicit control mutation."""
@@ -355,9 +494,7 @@ class AsyncSwarmRun:
             RunSnapshot,
             path=f"/swarms/runs/{self.run_id}",
             options=request,
-            validate=lambda result: verified(
-                result, result.run_id == self.run_id, "Run response identity mismatch"
-            ),
+            validate=self._observe_snapshot,
         )
 
     async def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:

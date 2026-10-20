@@ -446,7 +446,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -679,7 +680,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -901,7 +903,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1408,7 +1411,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -1646,7 +1650,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2028,7 +2033,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -2565,7 +2571,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3332,7 +3339,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3585,7 +3593,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -3835,7 +3844,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4119,7 +4129,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -4821,7 +4832,10 @@
                 "upload",
                 "control",
                 "search_response",
-                "swarm"
+                "swarm",
+                "repo_clone_token",
+                "artifact_upload",
+                "artifact"
               ],
               "title": "Kind",
               "type": "string"
@@ -4857,7 +4871,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5153,7 +5168,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -5716,7 +5732,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -6271,6 +6288,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -6288,7 +6384,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -6938,6 +7035,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -7391,6 +7497,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -7408,7 +7593,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -8068,6 +8254,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -8279,6 +8474,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -8296,7 +8570,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -8597,6 +8872,15 @@
               },
               "maxItems": 128,
               "title": "Physical",
+              "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
               "type": "array"
             }
           },
@@ -8947,7 +9231,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -9625,6 +9910,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -9642,7 +10006,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -10204,6 +10569,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -10373,7 +10747,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -10812,7 +11187,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -11668,6 +12044,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -11685,7 +12140,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -12115,6 +12571,15 @@
               },
               "maxItems": 128,
               "title": "Physical",
+              "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
               "type": "array"
             }
           },
@@ -12797,6 +13262,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -12814,7 +13358,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -13376,6 +13921,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -13858,7 +14412,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -14204,7 +14759,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -14433,7 +14989,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -14784,6 +15341,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -14801,7 +15437,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -15044,6 +15681,15 @@
               "maxItems": 128,
               "title": "Physical",
               "type": "array"
+            },
+            "resource_usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ResourceUsage"
+              },
+              "maxItems": 16384,
+              "title": "Resource Usage",
+              "type": "array"
             }
           },
           "required": [
@@ -15275,6 +15921,85 @@
           "title": "MoneyObservation",
           "type": "object"
         },
+        "ResourceUsage": {
+          "additionalProperties": true,
+          "properties": {
+            "amount": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "charge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MoneyObservation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dimension": {
+              "enum": [
+                "spend_micros",
+                "tokens",
+                "tokens_in",
+                "tokens_out",
+                "calls",
+                "index_searches",
+                "wall_ms"
+              ],
+              "title": "Dimension",
+              "type": "string"
+            },
+            "plugin": {
+              "title": "Plugin",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "measured",
+                "estimated",
+                "unknown",
+                "pending"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "usage_class": {
+              "enum": [
+                "agent",
+                "workload",
+                "tool"
+              ],
+              "title": "Usage Class",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plugin",
+            "dimension",
+            "usage_class",
+            "role",
+            "state"
+          ],
+          "title": "ResourceUsage",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -15292,7 +16017,8 @@
             "contract": {
               "enum": [
                 "index.v1",
-                "swarms.v1"
+                "swarms.v1",
+                "core.v1"
               ],
               "title": "Contract",
               "type": "string"
@@ -15534,6 +16260,15 @@
           },
           "maxItems": 128,
           "title": "Physical",
+          "type": "array"
+        },
+        "resource_usage": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResourceUsage"
+          },
+          "maxItems": 16384,
+          "title": "Resource Usage",
           "type": "array"
         }
       },

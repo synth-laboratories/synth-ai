@@ -32,7 +32,7 @@ def environment_value(canonical: str, *legacy: str, default: str | None = None) 
             _WARNED_NAMES.add(name)
         if first_use:
             warnings.warn(
-                f"{name} is deprecated; use {canonical}.",
+                f"{name} is deprecated and will be removed in 0.25.0; use {canonical}.",
                 LegacyEnvironmentWarning,
                 stacklevel=3,
             )

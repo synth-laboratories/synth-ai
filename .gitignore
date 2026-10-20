@@ -253,3 +253,9 @@ HANDOFF_*
 SDK_0230_*
 !CONTRIBUTING.md
 !RELEASING.md
+
+# Public v0.23 guide; internal documentation remains excluded.
+!docs/
+docs/*
+!docs/swarms.md
+!CHANGELOG-ARCHIVE.md

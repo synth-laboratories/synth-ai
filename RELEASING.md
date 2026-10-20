@@ -26,3 +26,18 @@ Build the wheel and source distribution with `python -m build`, run
 artifacts and their qualification receipts. Publication uses the existing
 qualified artifact workflow after branch promotion; source merges alone do not
 authorize publication.
+
+
+Public API changes use minor versions; fixes without API changes use patch
+versions. During 0.x, explicitly documented breaking changes may ship in a
+minor release. Retire public names only after a release with a deprecation
+warning. Environment aliases are removed in 0.25.0.
+
+Use tags vX.Y.Z for releases and vX.Y.Z.devN for sequential development
+candidates, for example v0.23.4.dev1. Qualification evidence belongs under
+refs/qualification/ and is not a public release tag. Retain both wheel and
+sdist digests in the release attestation. Do not rewrite published tags.
+
+The next source candidate is 0.23.4. Its generated contract files are source
+artifacts; they do not attest an installed wheel, service cohort, or runtime
+qualification. Publish only after the release owner accepts those receipts.
