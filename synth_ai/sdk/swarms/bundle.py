@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import tempfile
@@ -12,7 +13,7 @@ from pathlib import Path
 
 from pydantic import Field, StrictInt
 
-from synth_ai.core.http.blocking import CancellationScope, CLEANUP_SECONDS
+from synth_ai.core.http.blocking import CLEANUP_SECONDS, CancellationScope
 from synth_ai.core.http.lifetime import await_cleanup
 from synth_ai.errors import ContractError, RequestTimeoutError, ResultNotReadyError, TransportError
 from synth_ai.options import ReadOptions
@@ -20,12 +21,35 @@ from synth_ai.sdk.core.artifact_download import ArtifactDownloadOptions
 from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
 from synth_ai.sdk.core.atomic import publish_directory
 from synth_ai.sdk.core.repo_archive import archive_destination, remove_owned_tree
-from synth_ai.sdk.core.repos import Repositories, AsyncRepositories
+from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.core.types import RepositoryArchiveOptions
 from synth_ai.types.base import Model
 from synth_ai.types.refs import Ref
 
-TERMINAL = frozenset({"succeeded", "completed", "failed", "cancelled", "partial"})
+# RunState outcomes. "succeeded" is a task outcome, never a run state.
+TERMINAL = frozenset({"completed", "failed", "cancelled", "partial"})
+
+
+def require_final(snapshot):
+    """A bundle needs the run's real finality, not just a terminal-looking state.
+
+    execution_closed: no further produced links or commits; cleanup_complete:
+    sandboxes are gone; accounting_final: usage in the manifest cannot change.
+    """
+    pending = [
+        name
+        for name in ("execution_closed", "cleanup_complete", "accounting_final")
+        if not getattr(snapshot, name)
+    ]
+    if snapshot.state not in TERMINAL or pending:
+        raise ResultNotReadyError(
+            f"Run download requires a final run (state {snapshot.state}"
+            + (f", not yet {', '.join(pending)}" if pending else "")
+            + ")",
+            code="run_not_terminal",
+            request_id=snapshot.metadata.request_id,
+            retryable=True,
+        )
 
 
 class RunDownloadOptions(Model):
@@ -52,7 +76,7 @@ class BundleState:
         self.stop = threading.Event()
         self.finished = threading.Event()
         self.lock = threading.Lock()
-        self.scratch = None
+        self.scratch: Path | None = None
         self.used = 0
 
     def remaining(self):
@@ -111,10 +135,23 @@ class BundleState:
             json.dumps(objectives, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
         ).encode()
         self.consume(len(objective_bytes))
-        with (self.scratch / "objectives.json").open("xb") as output:
+        scratch = self.scratch
+        assert scratch is not None
+        with (scratch / "objectives.json").open("xb") as output:
             output.write(objective_bytes)
             output.flush()
             os.fsync(output.fileno())
+        seen_ids = {}
+        for objective in snapshot.objectives:
+            folded = objective.id.casefold()
+            if folded in seen_ids:
+                raise ContractError(
+                    "Objective ids collide as answer filenames "
+                    f"({seen_ids[folded]!r} and {objective.id!r}, case-insensitively)",
+                    code="objective_id_collision",
+                    stage="run_download",
+                )
+            seen_ids[folded] = objective.id
         for objective in snapshot.objectives:
             if objective.answer is None:
                 continue
@@ -124,7 +161,7 @@ class BundleState:
                     "Objective answer filename is not a single component",
                     code="objective_path_invalid",
                 )
-            target = self.scratch / "answers" / parts[0]
+            target = scratch / "answers" / parts[0]
             target.parent.mkdir(exist_ok=True)
             answer_bytes = objective.answer.text.encode()
             self.consume(len(answer_bytes))
@@ -142,7 +179,7 @@ class BundleState:
             document["final_commit"] = commit.model_dump(mode="json")
         raw = (json.dumps(document, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode()
         self.consume(len(raw))
-        with (self.scratch / "MANIFEST.json").open("xb") as output:
+        with (scratch / "MANIFEST.json").open("xb") as output:
             output.write(raw)
             output.flush()
             os.fsync(output.fileno())
@@ -156,7 +193,7 @@ class BundleState:
         )
         with self.lock:
             self.remaining()
-            publish_directory(self.scratch, self.destination)
+            publish_directory(scratch, self.destination)
             self.scratch = None
         return receipt
 
@@ -197,11 +234,11 @@ class AsyncBundle(BundleState):
         ):
             self.owner.cancel()
 
+            owner = self.owner
+
             async def joined():
-                try:
-                    await self.owner
-                except asyncio.CancelledError:
-                    pass
+                with contextlib.suppress(asyncio.CancelledError):
+                    await owner
 
             await await_cleanup(asyncio.create_task(joined()))
 
@@ -237,9 +274,46 @@ def selected_artifacts(links, options):
     return tuple(selected[key] for key in sorted(selected))
 
 
-def select_commit(page, run, links):
-    name = "refs/heads/worker/run-" + run.run_id
-    tips = [item.ref for item in page.items if item.name == name]
+def branch_name(run):
+    return "refs/heads/worker/run-" + run.run_id
+
+
+def _next_refs_cursor(page, seen):
+    if page.complete:
+        return None
+    cursor = page.next_cursor
+    if cursor is None or cursor in seen:
+        raise ContractError(
+            "Run branch listing cursor did not advance", code="run_refs_cursor_invalid"
+        )
+    seen.add(cursor)
+    return cursor
+
+
+def run_branch_tips(repos, run, read):
+    """Exact-name tips across every page; a prefix also matches run ids sharing it
+    (run-ab vs run-abc), and server sort order is not part of the contract."""
+    tips, seen, cursor = [], set(), None
+    while True:
+        page = repos.refs(prefix=branch_name(run), limit=50, cursor=cursor, request=read())
+        tips.extend(item for item in page.items if item.name == branch_name(run))
+        cursor = _next_refs_cursor(page, seen)
+        if cursor is None:
+            return tips
+
+
+async def run_branch_tips_async(repos, run, read):
+    tips, seen, cursor = [], set(), None
+    while True:
+        page = await repos.refs(prefix=branch_name(run), limit=50, cursor=cursor, request=read())
+        tips.extend(item for item in page.items if item.name == branch_name(run))
+        cursor = _next_refs_cursor(page, seen)
+        if cursor is None:
+            return tips
+
+
+def select_commit(tips, run, links):
+    tips = [item.ref for item in tips]
     if len(tips) != 1:
         raise ResultNotReadyError(
             "Final run branch is not available", code="run_final_commit_unavailable"
@@ -260,10 +334,7 @@ def download(run, destination, options=None):
     try:
         with state.scope.activate():
             snapshot = run.status(request=state.read())
-            if snapshot.state not in TERMINAL:
-                raise ResultNotReadyError(
-                    "Run download requires a terminal run", code="run_not_terminal"
-                )
+            require_final(snapshot)
             links, seen, cursor = [], set(), None
             while True:
                 cursor = collect(
@@ -278,17 +349,10 @@ def download(run, destination, options=None):
                 link.object.authority == "git" and link.object.kind == "commit" for link in links
             ):
                 repos = Repositories(transport).get(snapshot.project_id, request=state.read())
-                commit = select_commit(
-                    repos.refs(
-                        prefix="refs/heads/worker/run-" + run.run_id,
-                        limit=1,
-                        request=state.read(),
-                    ),
-                    run,
-                    links,
-                )
+                commit = select_commit(run_branch_tips(repos, run, state.read), run, links)
             root = state.prepare()
             if commit is not None:
+                assert repos is not None
                 receipt = repos.archive(
                     commit,
                     root / "code",
@@ -321,15 +385,7 @@ def download(run, destination, options=None):
                 )
                 state.used += receipt.byte_size
             if commit is not None:
-                current = select_commit(
-                    repos.refs(
-                        prefix="refs/heads/worker/run-" + run.run_id,
-                        limit=1,
-                        request=state.read(),
-                    ),
-                    run,
-                    links,
-                )
+                current = select_commit(run_branch_tips(repos, run, state.read), run, links)
                 if current != commit:
                     raise ContractError(
                         "Run branch changed during download", code="run_commit_changed"
@@ -350,10 +406,7 @@ async def download_async(run, destination, options=None):
     transport._register_stream(state)
     try:
         snapshot = await run.status(request=state.read())
-        if snapshot.state not in TERMINAL:
-            raise ResultNotReadyError(
-                "Run download requires a terminal run", code="run_not_terminal"
-            )
+        require_final(snapshot)
         links, seen, cursor = [], set(), None
         while True:
             cursor = collect(
@@ -368,17 +421,10 @@ async def download_async(run, destination, options=None):
             repos = await AsyncRepositories(transport).get(
                 snapshot.project_id, request=state.read()
             )
-            commit = select_commit(
-                await repos.refs(
-                    prefix="refs/heads/worker/run-" + run.run_id,
-                    limit=1,
-                    request=state.read(),
-                ),
-                run,
-                links,
-            )
+            commit = select_commit(await run_branch_tips_async(repos, run, state.read), run, links)
         root = state.prepare()
         if commit is not None:
+            assert repos is not None
             receipt = await repos.archive(
                 commit,
                 root / "code",
@@ -409,15 +455,7 @@ async def download_async(run, destination, options=None):
             )
             state.used += receipt.byte_size
         if commit is not None:
-            current = select_commit(
-                await repos.refs(
-                    prefix="refs/heads/worker/run-" + run.run_id,
-                    limit=1,
-                    request=state.read(),
-                ),
-                run,
-                links,
-            )
+            current = select_commit(await run_branch_tips_async(repos, run, state.read), run, links)
             if current != commit:
                 raise ContractError("Run branch changed during download", code="run_commit_changed")
         final_snapshot = await run.status(request=state.read())

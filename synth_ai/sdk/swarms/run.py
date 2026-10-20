@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import time
 import threading
+import time
 from typing import get_args
 
 from synth_ai.contracts import swarms as operations
@@ -70,6 +70,7 @@ class RunIdentity:
     run_id: str
     _reference: Ref | None = None
     _project_id: str | None = None
+    _identity_lock: threading.Lock
 
     @property
     def ref(self) -> Ref:

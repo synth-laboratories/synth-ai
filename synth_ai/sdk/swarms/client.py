@@ -6,37 +6,38 @@ harness and profile selection remain backend-owned; no client fallback routing.
 
 from __future__ import annotations
 
+import builtins
 import warnings
 
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
-from synth_ai.core.parameters import identifier, page_parameters, verified
+from synth_ai.core.parameters import identifier, verified
 from synth_ai.core.recovery import async_resolve_creation as recover_creation_async
 from synth_ai.core.recovery import resolve_creation as recover_creation
 from synth_ai.errors import ContractError
 from synth_ai.options import MutationOptions, ReadOptions
+from synth_ai.sdk.core.artifact_types import Labels
+from synth_ai.sdk.core.artifacts import list_query
 from synth_ai.types.base import Page, PageCursor
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
 from synth_ai.types.refs import Ref
-from synth_ai.sdk.core.artifact_types import Labels
-from synth_ai.sdk.core.artifacts import list_query
 
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers
-from .types.projects import ProjectCreateRequest, ProjectTemplate
-from .types.runs import LaunchPreflight, RunSnapshot
 from .types.objectives import Guidance
+from .types.projects import ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
+from .types.runs import LaunchPreflight, RunSnapshot
 
 
 def launch_request(
     objective: str | None,
     project_id: str,
     limits: Limits,
-    inputs: Inputs | list[Ref] | tuple[Ref, ...] | None,
+    inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None,
     providers: Providers | None,
     models: Models | None,
     labels: Labels | None = None,
@@ -44,7 +45,14 @@ def launch_request(
     guidance: tuple[Guidance, ...] = (),
     resources: tuple[ResourceRequest, ...] = (),
 ) -> LaunchRequest:
-    """Preserve omitted overrides; backend project/profile defaults remain authoritative."""
+    """Preserve omitted overrides; backend project/profile defaults remain authoritative.
+
+    Wire decision (SYN-4885, verified against the backend's LaunchRequest at 8912a839):
+    the backend request model accepts both `message` and the legacy `objective`
+    (one of the two, never both). The deprecated `objective=` argument is therefore
+    sent as `message`: callers get the new field without a second code path, and
+    `LaunchRequest.objective` still reads back the same text. Passing both is an error.
+    """
     if (objective is None) == (message is None):
         raise ValueError("Supply message, or the deprecated objective alias")
     if objective is not None:
@@ -145,7 +153,7 @@ class SwarmsClient:
         resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
@@ -181,7 +189,7 @@ class SwarmsClient:
         resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
@@ -326,7 +334,7 @@ class AsyncSwarmsClient:
         resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
@@ -362,7 +370,7 @@ class AsyncSwarmsClient:
         resources: tuple[ResourceRequest, ...] = (),
         project_id: str,
         limits: Limits,
-        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        inputs: Inputs | builtins.list[Ref] | tuple[Ref, ...] | None = None,
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,

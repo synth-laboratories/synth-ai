@@ -15,16 +15,16 @@ from synth_ai.options import TransferOptions
 from synth_ai.types.base import Model
 
 from .artifact_types import (
-    Artifact,
-    ArtifactObject,
-    ArtifactDownloadReceipt,
-    ArtifactDigestMismatch,
     MAX_ARTIFACT_BYTES,
+    Artifact,
+    ArtifactDigestMismatch,
+    ArtifactDownloadReceipt,
+    ArtifactObject,
 )
 from .repo_archive import (
     ArchiveTransfer,
-    SyncArchive,
     AsyncArchive,
+    SyncArchive,
     _download_owned,
     _download_owned_async,
     archive_destination,
@@ -117,11 +117,11 @@ class BlobPlan(ArchiveTransfer):
         if self.hasher.hexdigest() != self.digest:
             raise ArtifactDigestMismatch(self.digest, self.hasher.hexdigest())
 
-    def extract(self, path):
+    def extract(self, archive):
         self.remaining()
-        return path
+        return archive
 
-    def publish(self, path) -> ArtifactDownloadReceipt:
+    def publish(self, tree) -> ArtifactDownloadReceipt:
         with self.publication_lock:
             self.remaining()
             receipt = ArtifactDownloadReceipt(
@@ -131,7 +131,7 @@ class BlobPlan(ArchiveTransfer):
                 byte_size=self.received,
                 digest_sha256=self.digest,
             )
-            os.link(path, self.destination)
+            os.link(tree, self.destination)
             return receipt
 
 

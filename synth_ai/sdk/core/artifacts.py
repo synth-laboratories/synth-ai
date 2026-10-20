@@ -4,36 +4,38 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import Any
 
 from pydantic import TypeAdapter
 
 from synth_ai.contracts import core as operations
 from synth_ai.core.parameters import identifier, page_parameters, verified
-from synth_ai.core.transfer import transfer as transfer_bytes, async_transfer
-from synth_ai.options import ReadOptions, MutationOptions
-from synth_ai.errors import RequestTimeoutError
+from synth_ai.core.transfer import async_transfer
+from synth_ai.core.transfer import transfer as transfer_bytes
+from synth_ai.errors import ContractError, RequestTimeoutError
+from synth_ai.options import MutationOptions, ReadOptions
 from synth_ai.types.base import Page, PageCursor
-from synth_ai.types.refs import Ref, Relation, ReferenceIdentifier
+from synth_ai.types.refs import Ref, ReferenceIdentifier, Relation
 
-from .artifact_types import (
-    Artifact,
-    ArtifactAlias,
-    ArtifactAliasSet,
-    ArtifactLabelsUpdate,
-    ArtifactSource,
-    ArtifactUploadManifest,
-    ArtifactUploadRequest,
-    ArtifactUploadStatus,
-    ArtifactUploadReceipt,
-    ArtifactDownloadReceipt,
-    ArtifactKind,
-    Labels,
-)
 from .artifact_download import (
     ArtifactDownloadOptions,
     ArtifactTransferOptions,
     download_object,
     download_object_async,
+)
+from .artifact_types import (
+    Artifact,
+    ArtifactAlias,
+    ArtifactAliasSet,
+    ArtifactDownloadReceipt,
+    ArtifactKind,
+    ArtifactLabelsUpdate,
+    ArtifactSource,
+    ArtifactUploadManifest,
+    ArtifactUploadReceipt,
+    ArtifactUploadRequest,
+    ArtifactUploadStatus,
+    Labels,
 )
 
 
@@ -73,7 +75,7 @@ def checked_artifact(value, project_id, artifact_id, reference=None, revision="l
 
 
 def list_query(limit, cursor, kind, label, linked):
-    query = page_parameters(limit, cursor)
+    query: dict[str, Any] = page_parameters(limit, cursor)
     if kind is not None:
         TypeAdapter(ArtifactKind).validate_python(kind)
         query["kind"] = kind
@@ -108,6 +110,16 @@ def checked_upload(value, previous):
     )
 
 
+def refuse_unusable_upload(snapshot):
+    """An expired or refused upload can never finalize; fail typed before any transfer."""
+    if snapshot.state in {"expired", "refused"}:
+        raise ContractError(
+            f"Artifact upload {snapshot.upload_id} is {snapshot.state}; prepare a new upload",
+            code=f"artifact_upload_{snapshot.state}",
+            stage="artifact_upload",
+        )
+
+
 class ArtifactUpload:
     def __init__(self, transport, snapshot):
         self._transport, self.snapshot = transport, snapshot
@@ -138,6 +150,7 @@ class ArtifactUpload:
         )
 
     def finalize(self, *, mutation: MutationOptions | None = None) -> ArtifactUploadReceipt:
+        refuse_unusable_upload(self.snapshot)
         return self._transport.request(
             operations.ARTIFACT_FINALIZE,
             ArtifactUploadReceipt,
@@ -186,6 +199,7 @@ class AsyncArtifactUpload:
         )
 
     async def finalize(self, *, mutation: MutationOptions | None = None) -> ArtifactUploadReceipt:
+        refuse_unusable_upload(self.snapshot)
         return await self._transport.request(
             operations.ARTIFACT_FINALIZE,
             ArtifactUploadReceipt,
@@ -405,6 +419,7 @@ class Artifacts:
             artifact_id=artifact_id,
             mutation=prepare_mutation,
         )
+        refuse_unusable_upload(upload.snapshot)
         if upload.snapshot.state == "prepared":
             upload.transfer(source, transfer=transfer)
         return upload.finalize(mutation=finalize_mutation).artifact
@@ -563,6 +578,7 @@ class AsyncArtifacts:
             artifact_id=artifact_id,
             mutation=prepare_mutation,
         )
+        refuse_unusable_upload(upload.snapshot)
         if upload.snapshot.state == "prepared":
             await upload.transfer(source, transfer=transfer)
         return (await upload.finalize(mutation=finalize_mutation)).artifact
