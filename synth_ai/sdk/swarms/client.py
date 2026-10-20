@@ -24,6 +24,7 @@ from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
 from synth_ai.types.refs import Ref
 
+from .create_retry import async_create_with_retry, create_with_retry
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
@@ -215,19 +216,23 @@ class SwarmsClient:
             resources,
             repo,
         )
-        result = self._transport.request(
-            operations.CREATE,
-            RunSnapshot,
-            body=body,
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.project_id == project_id
-                and (models is None or result.model == models.default)
-                and (providers is None or result.provider == providers.default),
-                "Admitted project or requested override mismatch",
-            ),
-        )
+
+        def send(options: MutationOptions | None) -> RunSnapshot:
+            return self._transport.request(
+                operations.CREATE,
+                RunSnapshot,
+                body=body,
+                options=options,
+                validate=lambda result: verified(
+                    result,
+                    result.project_id == project_id
+                    and (models is None or result.model == models.default)
+                    and (providers is None or result.provider == providers.default),
+                    "Admitted project or requested override mismatch",
+                ),
+            )
+
+        result = create_with_retry(send, mutation)
         return SwarmRun(self._transport, result.run_id, snapshot=result)
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
@@ -400,19 +405,23 @@ class AsyncSwarmsClient:
             resources,
             repo,
         )
-        result = await self._transport.request(
-            operations.CREATE,
-            RunSnapshot,
-            body=body,
-            options=mutation,
-            validate=lambda result: verified(
-                result,
-                result.project_id == project_id
-                and (models is None or result.model == models.default)
-                and (providers is None or result.provider == providers.default),
-                "Admitted project or requested override mismatch",
-            ),
-        )
+
+        async def send(options: MutationOptions | None) -> RunSnapshot:
+            return await self._transport.request(
+                operations.CREATE,
+                RunSnapshot,
+                body=body,
+                options=options,
+                validate=lambda result: verified(
+                    result,
+                    result.project_id == project_id
+                    and (models is None or result.model == models.default)
+                    and (providers is None or result.provider == providers.default),
+                    "Admitted project or requested override mismatch",
+                ),
+            )
+
+        result = await async_create_with_retry(send, mutation)
         return AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
