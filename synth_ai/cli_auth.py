@@ -24,10 +24,12 @@ from synth_ai.auth.storage import (
     default_store,
     require_private_file_support,
 )
+from synth_ai.cli_account import add_account_commands, run_account
 from synth_ai.client import SynthClient, resolve_key, resolve_url
 from synth_ai.core.environment import environment_value
-from synth_ai.errors import SynthError
-from synth_ai.options import ClientOptions, ReadOptions
+from synth_ai.errors import AuthenticationError, SynthError
+from synth_ai.options import ClientOptions
+from synth_ai.types.account_cloud import AccountContext
 from synth_ai.types.auth import AuthContext
 
 
@@ -132,24 +134,36 @@ def oauth_config(api_origin: str) -> OAuthConfig:
     client_id = os.environ.get("SYNTH_OAUTH_CLIENT_ID", "synth-ai-cli")
     if not client_id:
         raise AuthRefusalError("oauth_client_not_configured", 503)
-    return OAuthConfig(
+    configured = OAuthConfig(
         os.environ.get("SYNTH_OAUTH_ISSUER", api_origin.rstrip("/") + "/"),
         client_id,
         os.environ.get("SYNTH_OAUTH_RESOURCE", api_origin + "/mcp"),
     )
+    return replace(
+        configured,
+        scopes=(*configured.scopes, "account:read", "account:usage:read", "account:billing:read"),
+    )
 
 
-def verify_principal(token: str, origin: str, args: argparse.Namespace) -> AuthContext:
+def verify_principal(
+    token: str, origin: str, args: argparse.Namespace
+) -> AuthContext | AccountContext:
     """Validate the selected backend's real principal before accepting a login."""
     try:
         options = ClientOptions(candidate_manifest_sha256=args.candidate_manifest_sha256)
     except ValueError as error:
         raise AuthRefusalError("candidate_manifest_invalid", 400, service="synth-ai") from error
     with SynthClient(api_key=token, base_url=origin, options=options) as client:
-        return client.auth_context()
+        # An explicit legacy candidate pin keeps its negotiated auth primitive.
+        # Ordinary account setup never waits on workload capability discovery.
+        if args.candidate_manifest_sha256 is not None:
+            return client.auth_context()
+        return client.account.context()
 
 
 def run(args: argparse.Namespace, *, store: CredentialStore | None = None) -> int:
+    if args.command == "account":
+        return run_account(args)
     if args.command == "login" and args.device_auth:
         raise AuthRefusalError(
             "device_authorization_unavailable",
@@ -157,40 +171,6 @@ def run(args: argparse.Namespace, *, store: CredentialStore | None = None) -> in
             service="synth-ai",
             cause="Device login is not available in this release; use browser login or --with-token",
         )
-    if args.command == "account":
-        with SynthClient(
-            options=ClientOptions(candidate_manifest_sha256=args.candidate_manifest_sha256)
-        ) as client:
-            value = client.account.entitlements(request=ReadOptions(read_retry_count=0))
-        if args.json:
-            print(value.model_dump_json())
-        else:
-            print("Product\tAccess\tLimit\tCapacity\tUsed\tRemaining\tReset")
-            for product in value.subproducts:
-                if not product.limits:
-                    print(f"{product.subproduct}\t{product.access}\t—\t—\t—\t—\t—")
-                for limit in product.limits:
-                    capacity = (
-                        "Unavailable"
-                        if limit.state == "unavailable"
-                        else "Unlimited"
-                        if limit.value is None
-                        else str(limit.value)
-                    )
-                    print(
-                        "\t".join(
-                            (
-                                product.subproduct,
-                                product.access,
-                                limit.limit_id,
-                                capacity,
-                                str(limit.used) if limit.used is not None else "—",
-                                str(limit.remaining) if limit.remaining is not None else "—",
-                                limit.resets_at.isoformat() if limit.resets_at else "—",
-                            )
-                        )
-                    )
-        return 0
     if (
         args.command == "auth"
         and environment_value("SYNTH_API_KEY", "SYNTH_USER_KEY", "SYNTH_BACKEND_API_KEY")
@@ -274,24 +254,43 @@ def _run_locked(args: argparse.Namespace, store: CredentialStore | None) -> int:
             print(json.dumps({"state": "signed_out"}) if args.json else "Signed out")
             return 1
         principal = verify_principal(token, origin, args)
+        if isinstance(principal, AccountContext):
+            subject_id, tenant_id, observed_at = (
+                principal.user_id,
+                principal.org_id,
+                principal.observed_at,
+            )
+        else:
+            subject_id, tenant_id, observed_at = (
+                principal.subject_id,
+                principal.tenant_id,
+                principal.metadata.observed_at,
+            )
         status = {
             "state": "signed_in",
             "source": "environment" if value is not None else "stored",
             "credential_kind": principal.credential_kind,
-            "subject_id": principal.subject_id,
-            "tenant_id": principal.tenant_id,
+            "subject_id": subject_id,
+            "tenant_id": tenant_id,
             "scopes": list(principal.scopes),
+            "credential_id": principal.credential_id,
+            "api_origin": origin,
+            "oauth_client_id": principal.oauth_client_id,
+            "observed_at": observed_at.isoformat(),
         }
         print(
             json.dumps(status)
             if args.json
-            else f"Signed in · {principal.credential_kind} · {principal.tenant_id}"
+            else f"Signed in · {principal.credential_kind} · {tenant_id}"
         )
     return 0
 
 
 def parser() -> argparse.ArgumentParser:
+    from synth_ai import __version__
+
     root = argparse.ArgumentParser(prog="synth-ai")
+    root.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = root.add_subparsers(dest="command", required=True)
     login = commands.add_parser("login")
     modes = login.add_mutually_exclusive_group()
@@ -308,13 +307,7 @@ def parser() -> argparse.ArgumentParser:
     )
     status.add_argument("--json", action="store_true")
     status.add_argument("--candidate-manifest-sha256")
-    limits = (
-        commands.add_parser("account")
-        .add_subparsers(dest="account_command", required=True)
-        .add_parser("limits")
-    )
-    limits.add_argument("--json", action="store_true")
-    limits.add_argument("--candidate-manifest-sha256")
+    add_account_commands(commands)
     return root
 
 
@@ -333,15 +326,47 @@ def main() -> int:
         }
     except SynthError as error:
         refusal = {
-            "code": (error.code or "operation_refused")
-            if args is not None and args.command == "account"
-            else "authentication_refused",
+            "code": error.code
+            or (
+                "authentication_required"
+                if isinstance(error, AuthenticationError)
+                else "operation_refused"
+                if args is not None and args.command == "account"
+                else "authentication_refused"
+            ),
             "service": "backend",
             "route": "account" if args is not None and args.command == "account" else "auth",
-            "status": error.status or 503,
+            "status": error.status or (401 if isinstance(error, AuthenticationError) else 503),
             "cause": type(error).__name__,
         }
-    except (OSError, ValueError) as error:
+        if args is not None and args.command == "account":
+            if error.retry_after_seconds is not None:
+                refusal["retry_after_seconds"] = error.retry_after_seconds
+            if error.request_id:
+                refusal["request_id"] = error.request_id
+    except ValueError as error:
+        if args is not None and args.command == "account":
+            print(
+                json.dumps(
+                    {
+                        "code": "account_request_invalid",
+                        "service": "synth-ai",
+                        "route": "account",
+                        "status": 400,
+                        "cause": type(error).__name__,
+                    }
+                ),
+                file=sys.stderr,
+            )
+            return 2
+        refusal = {
+            "code": "credential_storage_or_configuration_unavailable",
+            "service": "synth-ai",
+            "route": "auth",
+            "status": 503,
+            "cause": type(error).__name__,
+        }
+    except OSError as error:
         refusal = {
             "code": "credential_storage_or_configuration_unavailable",
             "service": "synth-ai",

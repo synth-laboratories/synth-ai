@@ -91,3 +91,53 @@ POSIX ownership and permissions; explicit API keys work on other platforms.
 - [Changelog and migration](CHANGELOG.md)
 - [Release policy](RELEASING.md)
 - [Issues](https://github.com/synth-laboratories/synth-ai/issues)
+
+## Account companion
+
+The source candidate extends the existing `synth-ai` CLI with read-only cloud
+account commands. Its version follows the SDK and MCP package:
+
+```sh
+synth-ai --version
+synth-ai login
+synth-ai auth status --json
+synth-ai account context --json
+synth-ai account plan
+synth-ai account balance
+synth-ai account alerts
+synth-ai account usage --days 7 --json
+synth-ai account logs --days 7 --limit 50 --json
+synth-ai account billing
+synth-ai account keys
+synth-ai account apps
+```
+
+Billing, API-key lifecycle and connected-app management open the dashboard;
+these commands never purchase, change subscriptions or run workloads. Use
+`--no-browser` for a URL. Set `SYNTH_DASHBOARD_URL` to the dashboard origin when
+using a custom API origin. API-key setup also supports the existing
+`synth-ai login --with-token` stdin flow. Private-file storage and canonical
+`SYNTH_API_KEY` / `SYNTH_API_URL` precedence remain unchanged.
+
+The new account reads require a backend serving `account.v1` and explicit
+account scopes for financial data. Self-identity/context inspection is available
+to every valid customer credential, without workload capability discovery.
+`account:read` permits limits together with billing-read; `account:billing:read` permits
+plan/balance/alert settings, and usage/logs require both usage-read and billing-read. Existing
+credentials do not gain these grants automatically. Fresh OAuth consent names
+the account permissions. The existing `account limits` discovery command keeps
+its negotiated product-policy contract.
+
+SDK sync/async clients expose `account.context()`, `plan()`, `balance()`,
+`alerts()`, `limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
+bounded page and an explicit cursor. Dates must be timezone-aware; windows are
+bounded to 366 days. The CLI also accepts matching `--from` / `--to` timestamps
+and an optional `--product` filter for usage/logs.
+
+JSON retains exact money coefficients/scales, original event IDs and string
+sequence numbers, pending/unknown values, source coverage and observation times.
+Successful reads exit 0, including explicitly partial observations; refused or
+unavailable operations exit 1, and invalid command/input exits 2. Account reads
+use their own observational protocol and do not claim Index/Swarms execution
+manifest qualification. Native issuer, installed-package and deployed-cohort
+acceptance remain required before release.
