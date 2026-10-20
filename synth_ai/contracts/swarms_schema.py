@@ -35,8 +35,10 @@ from synth_ai.types.response_values import response_schema
 
 from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
+from synth_ai.sdk.core.artifact_types import ArtifactLabelsUpdate
 
 MODELS: tuple[type[BaseModel], ...] = (
+    ArtifactLabelsUpdate,
     ControlReceipt,
     ProgramRunView,
     FileRef,

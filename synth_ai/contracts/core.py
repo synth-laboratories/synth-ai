@@ -55,6 +55,83 @@ LINKS = Operation(
     "links.list", "GET", "/links", True, contract="core.v1", required_scope="swarms:read"
 )
 
+ARTIFACT_PREPARE = Operation(
+    "artifacts.uploads.prepare",
+    "POST",
+    "/projects/{project_id}/artifacts/uploads",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="swarms:write",
+)
+ARTIFACT_UPLOAD = Operation(
+    "artifacts.uploads.get",
+    "GET",
+    "/artifacts/uploads/{upload_id}",
+    True,
+    contract="core.v1",
+    required_scope="swarms:read",
+)
+ARTIFACT_FINALIZE = Operation(
+    "artifacts.uploads.finalize",
+    "POST",
+    "/artifacts/uploads/{upload_id}/finalize",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="swarms:write",
+)
+ARTIFACT_GET = Operation(
+    "artifacts.get",
+    "GET",
+    "/projects/{project_id}/artifacts/{artifact_id}",
+    True,
+    contract="core.v1",
+    required_scope="swarms:read",
+)
+ARTIFACT_LIST = Operation(
+    "artifacts.list",
+    "GET",
+    "/projects/{project_id}/artifacts",
+    True,
+    contract="core.v1",
+    required_scope="swarms:read",
+)
+ARTIFACT_CONTENT = Operation(
+    "artifacts.content",
+    "GET",
+    "/projects/{project_id}/artifacts/{artifact_id}/revisions/{revision}/content",
+    True,
+    contract="core.v1",
+    required_scope="swarms:read",
+)
+ARTIFACT_LABELS = Operation(
+    "artifacts.labels.update",
+    "PATCH",
+    "/projects/{project_id}/artifacts/{artifact_id}/labels",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="swarms:write",
+)
+ARTIFACT_ALIAS = Operation(
+    "artifacts.aliases.set",
+    "PUT",
+    "/projects/{project_id}/artifacts/aliases/{name}",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="swarms:write",
+)
+ARTIFACT_ALIAS_GET = Operation(
+    "artifacts.aliases.get",
+    "GET",
+    "/projects/{project_id}/artifacts/aliases/{name}",
+    True,
+    contract="core.v1",
+    required_scope="swarms:read",
+)
+
 ALL_OPERATIONS = (
     GET_REPOSITORY,
     REPOSITORY_REFS,
@@ -63,4 +140,13 @@ ALL_OPERATIONS = (
     REPOSITORY_ARCHIVE,
     CLONE_TOKEN,
     LINKS,
+    ARTIFACT_PREPARE,
+    ARTIFACT_UPLOAD,
+    ARTIFACT_FINALIZE,
+    ARTIFACT_GET,
+    ARTIFACT_LIST,
+    ARTIFACT_CONTENT,
+    ARTIFACT_LABELS,
+    ARTIFACT_ALIAS,
+    ARTIFACT_ALIAS_GET,
 )

@@ -17,6 +17,9 @@ from synth_ai.options import MutationOptions, ReadOptions
 from synth_ai.types.base import Page, PageCursor
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
+from synth_ai.types.refs import Ref
+from synth_ai.sdk.core.artifact_types import Labels
+from synth_ai.sdk.core.artifacts import list_query
 
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
@@ -29,18 +32,20 @@ def launch_request(
     objective: str,
     project_id: str,
     limits: Limits,
-    inputs: Inputs | None,
+    inputs: Inputs | list[Ref] | tuple[Ref, ...] | None,
     providers: Providers | None,
     models: Models | None,
+    labels: Labels | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative."""
     return LaunchRequest(
         objective=objective,
         project_id=project_id,
         limits=limits,
-        inputs=inputs,
+        inputs=Inputs(artifacts=tuple(inputs)) if isinstance(inputs, (list, tuple)) else inputs,
         providers=providers,
         models=models,
+        labels=labels,
     )
 
 
@@ -124,13 +129,14 @@ class SwarmsClient:
         *,
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
         return self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
@@ -145,13 +151,14 @@ class SwarmsClient:
         *,
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
         result = self._transport.request(
             operations.CREATE,
             RunSnapshot,
@@ -187,10 +194,11 @@ class SwarmsClient:
         limit: int,
         cursor: PageCursor | None = None,
         project_id: str | None = None,
+        label: Labels | None = None,
         request: ReadOptions | None = None,
     ) -> Page[RunSnapshot]:
         """Read one current authorized page, optionally scoped to a project."""
-        query = page_parameters(limit, cursor)
+        query = list_query(limit, cursor, None, label, None)
         if project_id is not None:
             query["project_id"] = identifier(project_id)
         return self._transport.request(
@@ -274,13 +282,14 @@ class AsyncSwarmsClient:
         *,
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
         return await self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
@@ -295,13 +304,14 @@ class AsyncSwarmsClient:
         *,
         project_id: str,
         limits: Limits,
-        inputs: Inputs | None = None,
+        inputs: Inputs | list[Ref] | tuple[Ref, ...] | None = None,
+        labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
-        body = launch_request(objective, project_id, limits, inputs, providers, models)
+        body = launch_request(objective, project_id, limits, inputs, providers, models, labels)
         result = await self._transport.request(
             operations.CREATE,
             RunSnapshot,
@@ -337,10 +347,11 @@ class AsyncSwarmsClient:
         limit: int,
         cursor: PageCursor | None = None,
         project_id: str | None = None,
+        label: Labels | None = None,
         request: ReadOptions | None = None,
     ) -> Page[RunSnapshot]:
         """Read one current authorized page, optionally scoped to a project."""
-        query = page_parameters(limit, cursor)
+        query = list_query(limit, cursor, None, label, None)
         if project_id is not None:
             query["project_id"] = identifier(project_id)
         return await self._transport.request(

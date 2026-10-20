@@ -20,6 +20,8 @@ class ResourceReference(ResponseBase):
         "search_response",
         "swarm",
         "repo_clone_token",
+        "artifact_upload",
+        "artifact",
     ]
     resource_id: ResponseIdentifier
 

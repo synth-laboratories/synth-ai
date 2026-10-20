@@ -100,7 +100,7 @@ def build_request(
     operation: Operation,
     path: str | None,
     body: bytes,
-    query: Mapping[str, str | int] | None,
+    query: Mapping[str, str | int | tuple[str, ...]] | None,
     options: ReadOptions | None,
     identity: MutationIdentity | None,
     remaining_seconds: float,

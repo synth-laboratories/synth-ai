@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, StrictInt, model_validator
+from pydantic import Field, StrictInt, model_validator, model_serializer
 
 from synth_ai.types.base import (
     Digest,
@@ -15,6 +15,8 @@ from synth_ai.types.base import (
     ResponseModel,
 )
 from synth_ai.types.money import Money
+from synth_ai.types.refs import Ref
+from synth_ai.sdk.core.artifact_types import Labels
 
 
 class Limits(Model):
@@ -41,12 +43,31 @@ class FileRef(Model):
 
 class Inputs(Model):
     files: tuple[FileRef, ...] = Field(default=(), max_length=32)
+    artifacts: tuple[Ref, ...] = Field(default=(), max_length=32)
+
+    @model_serializer(mode="wrap")
+    def omit_empty_artifacts(self, handler):
+        result = handler(self)
+        if not self.artifacts:
+            result.pop("artifacts", None)
+        return result
 
     @model_validator(mode="after")
     def validate_files(self) -> Self:
         identities = [(file.file_id, file.revision_id) for file in self.files]
         if len(identities) != len(set(identities)):
             raise ValueError("duplicate file revision selection")
+        selected = set()
+        for ref in self.artifacts:
+            if ref.authority != "artifacts" or ref.kind != "artifact":
+                raise ValueError("Inputs must select exact artifact revisions")
+            Ref.artifact(ref.record_id, ref.revision, ref.digest_sha256)
+            key = (ref.record_id, ref.revision)
+            if key in selected:
+                raise ValueError("Duplicate artifact input")
+            selected.add(key)
+        if len(self.files) + len(self.artifacts) > 32:
+            raise ValueError("Inputs exceed the total selection bound")
         return self
 
 
@@ -80,6 +101,14 @@ class LaunchRequest(Model):
     inputs: Inputs | None = None
     providers: Providers | None = None
     models: Models | None = None
+    labels: Labels | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_labels(self, handler):
+        result = handler(self)
+        if self.labels is None:
+            result.pop("labels", None)
+        return result
 
     @model_validator(mode="after")
     def validate_intent(self) -> Self:

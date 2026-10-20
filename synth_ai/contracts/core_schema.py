@@ -3,6 +3,18 @@
 from __future__ import annotations
 
 import json
+from synth_ai.sdk.core.artifact_types import (
+    Artifact,
+    ArtifactAlias,
+    ArtifactAliasSet,
+    ArtifactLabelsUpdate,
+    ArtifactManifest,
+    ArtifactObject,
+    ArtifactUploadManifest,
+    ArtifactUploadRequest,
+    ArtifactUploadStatus,
+    ArtifactUploadReceipt,
+)
 
 from synth_ai.sdk.core.types import (
     CloneToken,
@@ -20,6 +32,17 @@ from .core import ALL_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    Artifact,
+    ArtifactAlias,
+    ArtifactAliasSet,
+    ArtifactLabelsUpdate,
+    ArtifactManifest,
+    ArtifactObject,
+    ArtifactUploadManifest,
+    ArtifactUploadRequest,
+    ArtifactUploadStatus,
+    ArtifactUploadReceipt,
+    Page[Artifact],
     Ref,
     Producer,
     Link,

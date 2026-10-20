@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import cast
 
 import httpx
 
@@ -21,8 +22,8 @@ from synth_ai.core.http.cleanup import handle_cleanup_failure
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.http.lifetime import await_cleanup
 from synth_ai.core.http.response import annotate_response_error, classify_exchange, decode_response
-from synth_ai.errors import RequestTimeoutError, SynthError, TransportError
-from synth_ai.types.base import ClientTiming, ResponseModel
+from synth_ai.errors import ContractError, RequestTimeoutError, SynthError, TransportError
+from synth_ai.types.base import ClientTiming, Model, ResponseModel
 from synth_ai.types.refs import Ref
 
 from .archive_decode import CHUNK_BYTES, extract_verified, invalid
@@ -56,6 +57,13 @@ def remove_owned_tree(root: Path) -> None:
 
 
 class ArchiveTransfer:
+    operation = REPOSITORY_ARCHIVE
+    accept = "application/x-tar"
+    request_digest: str | None = None
+
+    def query(self) -> dict[str, str | int]:
+        return {"commit": self.reference.revision, "digest_sha256": self.reference.digest_sha256}
+
     def __init__(
         self, reference: Ref, destination: Path, options: RepositoryArchiveOptions, deadline: float
     ) -> None:
@@ -181,7 +189,7 @@ class ArchiveTransfer:
     def check(self) -> None:
         self.remaining()
 
-    def publish(self, tree: Path) -> RepositoryArchiveReceipt:
+    def publish(self, tree: Path) -> Model:
         with self.publication_lock:
             self.remaining()
             receipt = RepositoryArchiveReceipt(
@@ -201,9 +209,9 @@ class ArchiveTransfer:
 
     def annotate(self, error: SynthError) -> None:
         # An earlier capability refusal already identifies its own operation.
-        if error.operation is not None and error.operation != REPOSITORY_ARCHIVE.id:
+        if error.operation is not None and error.operation != self.operation.id:
             return
-        error.operation = REPOSITORY_ARCHIVE.id
+        error.operation = self.operation.id
         if self.response is not None:
             error.status = self.response.status_code
             request_id = self.response.headers.get("X-Request-Id", "")
@@ -213,7 +221,7 @@ class ArchiveTransfer:
             annotate_response_error(self.response, error)
 
 
-def error_response(response: httpx.Response, body: bytes) -> None:
+def error_response(response: httpx.Response, body: bytes, operation=REPOSITORY_ARCHIVE) -> None:
     decode_response(
         response,
         body,
@@ -222,9 +230,13 @@ def error_response(response: httpx.Response, body: bytes) -> None:
         None,
         False,
         "core.v1",
-        operation=REPOSITORY_ARCHIVE.id,
+        operation=operation.id,
     )
-    raise invalid("Repository archive returned an unexpected status")
+    raise ContractError(
+        "Byte download returned an unexpected status",
+        code="download_status_invalid",
+        operation=operation.id,
+    )
 
 
 class SyncArchive(ArchiveTransfer):
@@ -246,27 +258,22 @@ class SyncArchive(ArchiveTransfer):
             )
 
 
-def download_archive(
+def _download_owned(
     transport: HttpTransport,
     path: str,
-    reference: Ref,
-    destination: Path,
-    options: RepositoryArchiveOptions,
-    *,
-    deadline: float,
-) -> RepositoryArchiveReceipt:
-    state = SyncArchive(transport, reference, archive_destination(destination), options, deadline)
+    state: SyncArchive,
+) -> Model:
     transport._register_stream(state)
     primary: BaseException | None = None
     try:
         with state.scope.activate():
             response = transport._open_stream(
-                REPOSITORY_ARCHIVE,
+                state.operation,
                 path=path,
-                query={"commit": reference.revision, "digest_sha256": reference.digest_sha256},
+                query=state.query(),
                 remaining_seconds=state.remaining(),
-                digest=None,
-                accept="application/x-tar",
+                digest=state.request_digest,
+                accept=state.accept,
             )
             state.response = response
             state.headers(response)
@@ -275,15 +282,20 @@ def download_archive(
                 for chunk in response.iter_raw(CHUNK_BYTES):
                     state.remaining()
                     if len(body) + len(chunk) > min(65536, transport.maximum_response_bytes):
-                        raise invalid("Repository error exceeded the response byte ceiling")
+                        raise ContractError(
+                            "Byte error response exceeded its ceiling",
+                            code="download_error_too_large",
+                        )
                     body.extend(chunk)
-                error_response(response, bytes(body))
+                error_response(response, bytes(body), state.operation)
             archive = state.prepare()
             with archive.open("xb") as output:
                 for chunk in response.iter_raw(CHUNK_BYTES):
                     state.consume(chunk)
                     output.write(chunk)
                 state.finish_bytes()
+                output.flush()
+                os.fsync(output.fileno())
             return state.publish(state.extract(archive))
     except (httpx.TransportError, TimeoutError) as cause:
         primary = (
@@ -346,27 +358,22 @@ class AsyncArchive(ArchiveTransfer):
             raise
 
 
-async def download_archive_async(
+async def _download_owned_async(
     transport: AsyncHttpTransport,
     path: str,
-    reference: Ref,
-    destination: Path,
-    options: RepositoryArchiveOptions,
-    *,
-    deadline: float,
-) -> RepositoryArchiveReceipt:
-    state = AsyncArchive(reference, archive_destination(destination), options, deadline)
+    state: AsyncArchive,
+) -> Model:
     transport._register_stream(state)
     primary: BaseException | None = None
     try:
         async with asyncio.timeout(state.remaining()):
             response = await transport._open_stream(
-                REPOSITORY_ARCHIVE,
+                state.operation,
                 path=path,
-                query={"commit": reference.revision, "digest_sha256": reference.digest_sha256},
+                query=state.query(),
                 remaining_seconds=state.remaining(),
-                digest=None,
-                accept="application/x-tar",
+                digest=state.request_digest,
+                accept=state.accept,
             )
             state.response = response
             state.headers(response)
@@ -375,15 +382,20 @@ async def download_archive_async(
                 async for chunk in response.aiter_raw(CHUNK_BYTES):
                     state.remaining()
                     if len(body) + len(chunk) > min(65536, transport.maximum_response_bytes):
-                        raise invalid("Repository error exceeded the response byte ceiling")
+                        raise ContractError(
+                            "Byte error response exceeded its ceiling",
+                            code="download_error_too_large",
+                        )
                     body.extend(chunk)
-                error_response(response, bytes(body))
+                error_response(response, bytes(body), state.operation)
             archive = state.prepare()
             with archive.open("xb") as output:
                 async for chunk in response.aiter_raw(CHUNK_BYTES):
                     state.consume(chunk)
                     output.write(chunk)
                 state.finish_bytes()
+                output.flush()
+                os.fsync(output.fileno())
             tree = await state.extract_owned(archive)
             return state.publish(tree)
     except (httpx.TransportError, TimeoutError) as cause:
@@ -416,3 +428,29 @@ async def download_archive_async(
             transport._unregister_stream(state)
             state.finished.set()
             state.done.set()
+
+
+def download_archive(
+    transport: HttpTransport,
+    path: str,
+    reference: Ref,
+    destination: Path,
+    options: RepositoryArchiveOptions,
+    *,
+    deadline: float,
+) -> RepositoryArchiveReceipt:
+    state = SyncArchive(transport, reference, archive_destination(destination), options, deadline)
+    return cast(RepositoryArchiveReceipt, _download_owned(transport, path, state))
+
+
+async def download_archive_async(
+    transport: AsyncHttpTransport,
+    path: str,
+    reference: Ref,
+    destination: Path,
+    options: RepositoryArchiveOptions,
+    *,
+    deadline: float,
+) -> RepositoryArchiveReceipt:
+    state = AsyncArchive(reference, archive_destination(destination), options, deadline)
+    return cast(RepositoryArchiveReceipt, await _download_owned_async(transport, path, state))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import threading
 from typing import get_args
 
 from synth_ai.contracts import swarms as operations
@@ -82,6 +83,10 @@ class RunIdentity:
         return self._reference
 
     def _observe_snapshot(self, snapshot: RunSnapshot) -> RunSnapshot:
+        with self._identity_lock:
+            return self._observe_locked(snapshot)
+
+    def _observe_locked(self, snapshot: RunSnapshot) -> RunSnapshot:
         verified(
             snapshot,
             snapshot.run_id == self.run_id
@@ -114,9 +119,18 @@ class SwarmRun(RunIdentity):
     ) -> None:
         self._transport = transport
         self.run_id = identifier(run_id)
+        self._identity_lock = threading.Lock()
+        from .labels import RunLabels
+
+        self.labels = RunLabels(self)
         self.outputs = Outputs(transport, self.run_id)
         if snapshot is not None:
             self._observe_snapshot(snapshot)
+
+    def download(self, destination, *, options=None):
+        from .bundle import download
+
+        return download(self, destination, options)
 
     def produced(
         self,
@@ -421,9 +435,18 @@ class AsyncSwarmRun(RunIdentity):
     ) -> None:
         self._transport = transport
         self.run_id = identifier(run_id)
+        self._identity_lock = threading.Lock()
+        from .labels import AsyncRunLabels
+
+        self.labels = AsyncRunLabels(self)
         self.outputs = AsyncOutputs(transport, self.run_id)
         if snapshot is not None:
             self._observe_snapshot(snapshot)
+
+    async def download(self, destination, *, options=None):
+        from .bundle import download_async
+
+        return await download_async(self, destination, options)
 
     async def produced(
         self,

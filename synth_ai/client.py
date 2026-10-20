@@ -17,6 +17,7 @@ from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
 from synth_ai.sdk.core.links import AsyncLinks, Links
+from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
 from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
@@ -72,6 +73,7 @@ class SynthClient:
     tunnels: TunnelsClient
     repos: Repositories
     links: Links
+    artifacts: Artifacts
 
     def __init__(
         self,
@@ -94,6 +96,7 @@ class SynthClient:
         self.tunnels = TunnelsClient(self._transport)
         self.repos = Repositories(self._transport)
         self.links = Links(self._transport)
+        self.artifacts = Artifacts(self._transport)
 
     @classmethod
     def anonymous(
@@ -115,6 +118,7 @@ class SynthClient:
         client.tunnels = TunnelsClient(client._transport)
         client.repos = Repositories(client._transport)
         client.links = Links(client._transport)
+        client.artifacts = Artifacts(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -191,6 +195,7 @@ class AsyncSynthClient:
     tunnels: AsyncTunnelsClient
     repos: AsyncRepositories
     links: AsyncLinks
+    artifacts: AsyncArtifacts
 
     def __init__(
         self,
@@ -209,6 +214,7 @@ class AsyncSynthClient:
         self.tunnels = AsyncTunnelsClient(self._transport)
         self.repos = AsyncRepositories(self._transport)
         self.links = AsyncLinks(self._transport)
+        self.artifacts = AsyncArtifacts(self._transport)
 
     @classmethod
     def anonymous(
@@ -226,6 +232,7 @@ class AsyncSynthClient:
         client.tunnels = AsyncTunnelsClient(client._transport)
         client.repos = AsyncRepositories(client._transport)
         client.links = AsyncLinks(client._transport)
+        client.artifacts = AsyncArtifacts(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:

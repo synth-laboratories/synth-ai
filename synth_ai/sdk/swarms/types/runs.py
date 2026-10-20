@@ -96,10 +96,15 @@ class RunControlSummary(ResponseBase):
     state: ControlState
 
 
+from synth_ai.sdk.core.artifact_types import Labels
+
+
 class RunSnapshot(ResponseModel):
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
     ref: Ref | None = None
+    labels: Labels = Field(default_factory=dict)
+    labels_revision: StrictInt = Field(default=1, ge=1)
     state: RunState
     model: ResolvedModelId
     provider: ResponseIdentifier
