@@ -26,7 +26,7 @@ from synth_ai.types.refs import Ref
 
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
-from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers
+from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
 from .types.objectives import Guidance
 from .types.projects import ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
@@ -44,6 +44,7 @@ def launch_request(
     message: str | None = None,
     guidance: tuple[Guidance, ...] = (),
     resources: tuple[ResourceRequest, ...] = (),
+    repo: RepoSelector | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -67,6 +68,7 @@ def launch_request(
         providers=providers,
         models=models,
         labels=labels,
+        repo=repo,
     )
 
 
@@ -89,6 +91,7 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
             and configuration.providers.default != request.providers.default
         )
         or (not same_inputs)
+        or (request.repo is not None and configuration.repo != request.repo)
         or (not within_budget)
         or (resolved.wall_time_seconds > requested.wall_time_seconds)
         or (resolved.maximum_tasks > requested.maximum_tasks)
@@ -157,6 +160,7 @@ class SwarmsClient:
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -171,6 +175,7 @@ class SwarmsClient:
             message,
             guidance,
             resources,
+            repo,
         )
         return self._transport.request(
             operations.PREFLIGHT,
@@ -193,6 +198,7 @@ class SwarmsClient:
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -207,6 +213,7 @@ class SwarmsClient:
             message,
             guidance,
             resources,
+            repo,
         )
         result = self._transport.request(
             operations.CREATE,
@@ -338,6 +345,7 @@ class AsyncSwarmsClient:
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -352,6 +360,7 @@ class AsyncSwarmsClient:
             message,
             guidance,
             resources,
+            repo,
         )
         return await self._transport.request(
             operations.PREFLIGHT,
@@ -374,6 +383,7 @@ class AsyncSwarmsClient:
         labels: Labels | None = None,
         providers: Providers | None = None,
         models: Models | None = None,
+        repo: RepoSelector | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -388,6 +398,7 @@ class AsyncSwarmsClient:
             message,
             guidance,
             resources,
+            repo,
         )
         result = await self._transport.request(
             operations.CREATE,

@@ -1739,6 +1739,27 @@
           "title": "Money",
           "type": "object"
         },
+        "RepoSelector": {
+          "additionalProperties": true,
+          "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "repo_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Repo Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repo_id",
+            "base"
+          ],
+          "title": "RepoSelector",
+          "type": "object"
+        },
         "ResolvedConfiguration": {
           "additionalProperties": true,
           "properties": {
@@ -1779,6 +1800,17 @@
             },
             "providers": {
               "$ref": "#/$defs/ResolvedProviders"
+            },
+            "repo": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RepoSelector"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "run_id": {
               "anyOf": [
@@ -2315,6 +2347,28 @@
           "title": "Providers",
           "type": "object"
         },
+        "RepoSelector": {
+          "additionalProperties": false,
+          "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "repo_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Repo Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repo_id",
+            "base"
+          ],
+          "title": "RepoSelector",
+          "type": "object"
+        },
         "ResourceRequest": {
           "additionalProperties": false,
           "properties": {
@@ -2539,6 +2593,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/Providers"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RepoSelector"
             },
             {
               "type": "null"
@@ -6866,6 +6931,69 @@
       "title": "Providers",
       "type": "object"
     },
+    "RepoSelector": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "repo_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Repo Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_id",
+        "base"
+      ],
+      "title": "RepoSelector",
+      "type": "object"
+    },
     "ResolvedConfiguration": {
       "$defs": {
         "ClientTiming": {
@@ -7073,6 +7201,27 @@
             "scale"
           ],
           "title": "Money",
+          "type": "object"
+        },
+        "RepoSelector": {
+          "additionalProperties": true,
+          "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "repo_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Repo Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repo_id",
+            "base"
+          ],
+          "title": "RepoSelector",
           "type": "object"
         },
         "ResolvedModels": {
@@ -7283,6 +7432,17 @@
         },
         "providers": {
           "$ref": "#/$defs/ResolvedProviders"
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RepoSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "run_id": {
           "anyOf": [

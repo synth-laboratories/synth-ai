@@ -16,6 +16,7 @@ from synth_ai.sdk.swarms.types.launch import (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModels,
     ResolvedProviders,
 )
@@ -70,6 +71,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModels,
     ResolvedProviders,
     LaunchPreflight,
