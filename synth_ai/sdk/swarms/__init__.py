@@ -12,6 +12,7 @@ from .types.objectives import (
     Guidance,
     GuidanceCoverage,
     ObjectiveAnswer,
+    ObjectiveClaim,
     ObjectiveResult,
     ObjectiveVerdict,
 )
@@ -71,6 +72,7 @@ __all__ += [
     "ObjectiveResult",
     "ObjectiveVerdict",
     "ObjectiveAnswer",
+    "ObjectiveClaim",
     "GuidanceCoverage",
 ]
 

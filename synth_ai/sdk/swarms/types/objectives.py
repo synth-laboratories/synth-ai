@@ -41,6 +41,17 @@ class ObjectiveAnswer(OmitAbsent, ResponseBase):
     by: str
 
 
+class ObjectiveClaim(OmitAbsent, ResponseBase):
+    """Acknowledged run-objective claim; evidence retains exact immutable Refs."""
+
+    id: str
+    kind: Literal["progress", "achievement"]
+    summary: str
+    percent_complete: StrictInt = Field(ge=0, le=100)
+    evidence: tuple[Ref, ...] = Field(max_length=64)
+    by: str
+
+
 class ObjectiveResult(OmitAbsent, ResponseBase):
     id: str
     kind: Literal["oeq", "deo"]
@@ -53,7 +64,7 @@ class ObjectiveResult(OmitAbsent, ResponseBase):
     state: Literal["open", "claimed", "verified", "rejected", "partial", "not_applicable"]
     verdict: ObjectiveVerdict | None = None
     answer: ObjectiveAnswer | None = None
-    claims: tuple[dict, ...] = Field(default=(), max_length=1024)
+    claims: tuple[ObjectiveClaim, ...] = Field(default=(), max_length=1024)
 
 
 class GuidanceCoverage(OmitAbsent, ResponseBase):
