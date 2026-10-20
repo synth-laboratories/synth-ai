@@ -18529,6 +18529,56 @@
             "title": "ObjectiveAnswer",
             "type": "object"
           },
+          "ObjectiveClaim": {
+            "additionalProperties": true,
+            "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+            "properties": {
+              "by": {
+                "title": "By",
+                "type": "string"
+              },
+              "evidence": {
+                "items": {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                "maxItems": 64,
+                "title": "Evidence",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "progress",
+                  "achievement"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "percent_complete": {
+                "maximum": 100,
+                "minimum": 0,
+                "title": "Percent Complete",
+                "type": "integer"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "summary",
+              "percent_complete",
+              "evidence",
+              "by"
+            ],
+            "title": "ObjectiveClaim",
+            "type": "object"
+          },
           "ObjectiveResult": {
             "additionalProperties": true,
             "properties": {
@@ -18546,8 +18596,7 @@
               "claims": {
                 "default": [],
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/$defs/ObjectiveClaim"
                 },
                 "maxItems": 1024,
                 "title": "Claims",
@@ -19581,6 +19630,56 @@
             "title": "ObjectiveAnswer",
             "type": "object"
           },
+          "ObjectiveClaim": {
+            "additionalProperties": true,
+            "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+            "properties": {
+              "by": {
+                "title": "By",
+                "type": "string"
+              },
+              "evidence": {
+                "items": {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                "maxItems": 64,
+                "title": "Evidence",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "progress",
+                  "achievement"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "percent_complete": {
+                "maximum": 100,
+                "minimum": 0,
+                "title": "Percent Complete",
+                "type": "integer"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "summary",
+              "percent_complete",
+              "evidence",
+              "by"
+            ],
+            "title": "ObjectiveClaim",
+            "type": "object"
+          },
           "ObjectiveResult": {
             "additionalProperties": true,
             "properties": {
@@ -19598,8 +19697,7 @@
               "claims": {
                 "default": [],
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/$defs/ObjectiveClaim"
                 },
                 "maxItems": 1024,
                 "title": "Claims",
@@ -21167,6 +21265,56 @@
             "title": "ObjectiveAnswer",
             "type": "object"
           },
+          "ObjectiveClaim": {
+            "additionalProperties": true,
+            "description": "Acknowledged run-objective claim; evidence retains exact immutable Refs.",
+            "properties": {
+              "by": {
+                "title": "By",
+                "type": "string"
+              },
+              "evidence": {
+                "items": {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                "maxItems": 64,
+                "title": "Evidence",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "progress",
+                  "achievement"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "percent_complete": {
+                "maximum": 100,
+                "minimum": 0,
+                "title": "Percent Complete",
+                "type": "integer"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "summary",
+              "percent_complete",
+              "evidence",
+              "by"
+            ],
+            "title": "ObjectiveClaim",
+            "type": "object"
+          },
           "ObjectiveResult": {
             "additionalProperties": true,
             "properties": {
@@ -21184,8 +21332,7 @@
               "claims": {
                 "default": [],
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/$defs/ObjectiveClaim"
                 },
                 "maxItems": 1024,
                 "title": "Claims",
