@@ -221,6 +221,7 @@ class AsyncHttpTransport:
             return None
         if operation.contract == "account.v1":
             from synth_ai.contracts.account import require_account_read
+
             require_account_read(operation, self._options)
             return None
         if operation.id == CAPABILITIES.id:

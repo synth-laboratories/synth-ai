@@ -16,6 +16,7 @@ from synth_ai.errors import (
     RateLimitError,
     RefusedError,
 )
+
 from .backoff import retry_after_seconds
 
 T = TypeVar("T", bound=BaseModel)
