@@ -7,6 +7,7 @@ The actual materialized tree is verified by the shared commit-digest authority.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import ntpath
 import os
@@ -295,6 +296,14 @@ def extract_verified(
     resolved_root = root.resolve()
     for path, _ in symlinks:
         check()
+        # Python 3.13 resolve(strict=False) returns a looping link unchanged instead of
+        # raising; stat() follows the chain and reports ELOOP on every version. A
+        # dangling link (ENOENT) is legitimate and is still checked for escape below.
+        try:
+            os.stat(path)
+        except OSError as cause:
+            if cause.errno == errno.ELOOP:
+                raise invalid("Archive symlink graph cannot be safely resolved") from cause
         try:
             resolved = path.resolve(strict=False)
         except (RuntimeError, OSError) as cause:
