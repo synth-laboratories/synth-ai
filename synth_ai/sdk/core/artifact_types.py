@@ -33,7 +33,7 @@ from synth_ai.types.uploads import validate_upload_headers
 
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 ArtifactKind = Literal[
-    "file", "report", "answer", "dataset", "log", "figure", "workspace-snapshot", "other"
+    "file", "report", "answer", "dataset", "log", "figure", "policy", "workspace-snapshot", "other"
 ]
 ArtifactMediaType = Literal[
     "text/plain",

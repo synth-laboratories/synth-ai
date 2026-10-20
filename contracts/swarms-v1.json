@@ -2323,7 +2323,7 @@
               "items": {
                 "type": "string"
               },
-              "maxItems": 32,
+              "maxItems": 16,
               "title": "Collections",
               "type": "array"
             },

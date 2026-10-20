@@ -363,6 +363,7 @@
                 "dataset",
                 "log",
                 "figure",
+                "policy",
                 "workspace-snapshot",
                 "other"
               ],
@@ -999,6 +1000,7 @@
                     "dataset",
                     "log",
                     "figure",
+                    "policy",
                     "workspace-snapshot",
                     "other"
                   ],
@@ -1476,6 +1478,7 @@
             "dataset",
             "log",
             "figure",
+            "policy",
             "workspace-snapshot",
             "other"
           ],
@@ -1755,6 +1758,7 @@
                 "dataset",
                 "log",
                 "figure",
+                "policy",
                 "workspace-snapshot",
                 "other"
               ],
@@ -2323,6 +2327,7 @@
                     "dataset",
                     "log",
                     "figure",
+                    "policy",
                     "workspace-snapshot",
                     "other"
                   ],

@@ -23,7 +23,7 @@ class ResourceRequest(Model):
         default_factory=dict, max_length=4
     )
     models: tuple[str, ...] = Field(default=(), max_length=16)
-    collections: tuple[str, ...] = Field(default=(), max_length=32)
+    collections: tuple[str, ...] = Field(default=(), max_length=16)
     credential_ref: Ref | None = None
 
     @model_validator(mode="after")
