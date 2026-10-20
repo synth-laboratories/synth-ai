@@ -18,6 +18,7 @@ from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import CreationResolution
 from synth_ai.types.uploads import TransferReceipt
 
+from .deprecated import artifact_alias
 from .types.files import (
     FileManifest,
     FileSource,
@@ -33,6 +34,7 @@ class UploadSession:
         self._project_id = snapshot.project_id
         self._manifest = snapshot.manifest
 
+    @artifact_alias
     def status(self, *, request: ReadOptions | None = None) -> FileUploadStatus:
         """Read fresh state; this does not cancel, restart or finalize work.
 
@@ -54,6 +56,7 @@ class UploadSession:
         )
         return result
 
+    @artifact_alias
     def transfer(self, source: FileSource, *, transfer: TransferOptions) -> TransferReceipt:
         """Send bounded exact bytes using a scoped grant; never submit or automatically retry. Restartable flows use explicit prepare/status/finalize identities.
 
@@ -70,6 +73,7 @@ class UploadSession:
             self._transport.transfer_hosts,
         )
 
+    @artifact_alias
     def finalize(self, *, mutation: MutationOptions | None = None) -> FileUploadReceipt:
         """Ask the backend to seal verified bytes; resolve a lost acknowledgement before repeating.
 
@@ -96,6 +100,7 @@ class Uploads:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
+    @artifact_alias
     def prepare(
         self,
         project_id: str,
@@ -121,6 +126,7 @@ class Uploads:
         )
         return UploadSession(self._transport, result)
 
+    @artifact_alias
     def get(self, upload_id: str, *, request: ReadOptions | None = None) -> UploadSession:
         """Read or reattach the exact authorized resource with fresh server state.
 
@@ -137,6 +143,7 @@ class Uploads:
         )
         return UploadSession(self._transport, result)
 
+    @artifact_alias
     def resolve_creation(
         self, identity: MutationIdentity, *, request: ReadOptions | None = None
     ) -> CreationResolution[UploadSession]:
@@ -157,6 +164,7 @@ class AsyncUploadSession:
         self._project_id = snapshot.project_id
         self._manifest = snapshot.manifest
 
+    @artifact_alias
     async def status(self, *, request: ReadOptions | None = None) -> FileUploadStatus:
         """Read fresh state; this does not cancel, restart or finalize work.
 
@@ -178,6 +186,7 @@ class AsyncUploadSession:
         )
         return result
 
+    @artifact_alias
     async def transfer(self, source: FileSource, *, transfer: TransferOptions) -> TransferReceipt:
         """Send bounded exact bytes using a scoped grant; never submit or automatically retry. Restartable flows use explicit prepare/status/finalize identities.
 
@@ -194,6 +203,7 @@ class AsyncUploadSession:
             self._transport.transfer_hosts,
         )
 
+    @artifact_alias
     async def finalize(self, *, mutation: MutationOptions | None = None) -> FileUploadReceipt:
         """Ask the backend to seal verified bytes; resolve a lost acknowledgement before repeating.
 
@@ -220,6 +230,7 @@ class AsyncUploads:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
+    @artifact_alias
     async def prepare(
         self,
         project_id: str,
@@ -245,6 +256,7 @@ class AsyncUploads:
         )
         return AsyncUploadSession(self._transport, result)
 
+    @artifact_alias
     async def get(
         self, upload_id: str, *, request: ReadOptions | None = None
     ) -> AsyncUploadSession:
@@ -263,6 +275,7 @@ class AsyncUploads:
         )
         return AsyncUploadSession(self._transport, result)
 
+    @artifact_alias
     async def resolve_creation(
         self, identity: MutationIdentity, *, request: ReadOptions | None = None
     ) -> CreationResolution[AsyncUploadSession]:

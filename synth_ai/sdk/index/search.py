@@ -23,16 +23,27 @@ SearchObservation = TypeVar("SearchObservation", bound=SearchResponse | SearchSn
 
 
 def validate_search_retention(
-    result: SearchObservation, expected: RetentionMode | None = None
+    result: SearchObservation,
+    expected: RetentionMode | None = None,
+    *,
+    local_development_retention: bool = False,
 ) -> SearchObservation:
     """Require native policy acknowledgment for every customer search observation.
 
-    See: backend/notes/specifications/sdk/customer_api_adoption.md. Default ZDR
+    See: the public contract snapshots in contracts/ Default ZDR
     is an enforceable contract, including reattachment and MCP delivery.
     """
     if result.retention is None:
         raise ContractError("Search requires an explicit backend retention receipt")
-    if expected is not None and result.retention.mode != expected:
+    local_override = (
+        local_development_retention and expected == "zdr" and result.retention.mode == "retained"
+    )
+    if (
+        expected is not None
+        and result.retention.mode is not None
+        and result.retention.mode != expected
+        and not local_override
+    ):
         raise ContractError("Search changed the selected retention mode")
     return result
 
@@ -60,10 +71,16 @@ def search_request(query: str, options: SearchOptions, keyed: bool) -> SearchReq
 
 
 def validate_search_response(
-    result: SearchResponse, options: SearchOptions, keyed: bool
+    result: SearchResponse,
+    options: SearchOptions,
+    keyed: bool,
+    *,
+    local_development_retention: bool = False,
 ) -> SearchResponse:
     validate_search_retention(
-        result, options.retention if isinstance(options, KeyedSearchOptions) else "zdr"
+        result,
+        options.retention if isinstance(options, KeyedSearchOptions) else "zdr",
+        local_development_retention=local_development_retention and keyed,
     )
     if result.mode != options.mode or len(result.citations) > options.max_results:
         raise ContractError("Search result violates requested mode or citation bounds")
@@ -90,12 +107,17 @@ def validate_search_response(
 
 
 def validate_search_admission(
-    result: SearchSnapshot, options: KeyedSearchOptions
+    result: SearchSnapshot,
+    options: KeyedSearchOptions,
+    *,
+    local_development_retention: bool = False,
 ) -> SearchSnapshot:
     """Preserve selected intent; every search needs a native policy receipt.
 
-    See: backend/notes/specifications/sdk/index_contract.md."""
+    See: the public contract snapshots in contracts/"""
     if result.mode != options.mode:
         raise ContractError("Search admission changed the requested mode")
-    validate_search_retention(result, options.retention)
+    validate_search_retention(
+        result, options.retention, local_development_retention=local_development_retention
+    )
     return result

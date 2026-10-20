@@ -36,7 +36,7 @@ class UploadSession:
     def status(self, *, request: ReadOptions | None = None) -> UploadStatus:
         """Read fresh state; this does not cancel, restart or finalize work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.GET_UPLOAD,
             UploadStatus,
@@ -57,7 +57,7 @@ class UploadSession:
     def transfer(self, source: UploadSource, *, transfer: TransferOptions) -> TransferReceipt:
         """Send bounded exact bytes using a scoped grant; never submit or automatically retry. Restartable flows use explicit prepare/status/finalize identities.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         started = time.monotonic()
         status = self.status(request=ReadOptions(timeout_seconds=transfer.timeout_seconds))
         remaining = transfer.timeout_seconds - (time.monotonic() - started)
@@ -73,7 +73,7 @@ class UploadSession:
     def finalize(self, *, mutation: MutationOptions | None = None) -> UploadReceipt:
         """Ask the backend to seal verified bytes; resolve a lost acknowledgement before repeating.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.FINALIZE_UPLOAD,
             UploadReceipt,
@@ -105,7 +105,7 @@ class Uploads:
     ) -> UploadSession:
         """Prepare a scoped expiring transfer session for an immutable manifest.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         contribution_id = identifier(contribution_id)
         result = self._transport.request(
             operations.PREPARE_UPLOAD,
@@ -124,7 +124,7 @@ class Uploads:
     def get(self, upload_id: str, *, request: ReadOptions | None = None) -> UploadSession:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         upload_id = identifier(upload_id)
         result = self._transport.request(
             operations.GET_UPLOAD,
@@ -160,7 +160,7 @@ class AsyncUploadSession:
     async def status(self, *, request: ReadOptions | None = None) -> UploadStatus:
         """Read fresh state; this does not cancel, restart or finalize work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.GET_UPLOAD,
             UploadStatus,
@@ -181,7 +181,7 @@ class AsyncUploadSession:
     async def transfer(self, source: UploadSource, *, transfer: TransferOptions) -> TransferReceipt:
         """Send bounded exact bytes using a scoped grant; never submit or automatically retry. Restartable flows use explicit prepare/status/finalize identities.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         started = time.monotonic()
         status = await self.status(request=ReadOptions(timeout_seconds=transfer.timeout_seconds))
         remaining = transfer.timeout_seconds - (time.monotonic() - started)
@@ -197,7 +197,7 @@ class AsyncUploadSession:
     async def finalize(self, *, mutation: MutationOptions | None = None) -> UploadReceipt:
         """Ask the backend to seal verified bytes; resolve a lost acknowledgement before repeating.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.FINALIZE_UPLOAD,
             UploadReceipt,
@@ -229,7 +229,7 @@ class AsyncUploads:
     ) -> AsyncUploadSession:
         """Prepare a scoped expiring transfer session for an immutable manifest.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         contribution_id = identifier(contribution_id)
         result = await self._transport.request(
             operations.PREPARE_UPLOAD,
@@ -250,7 +250,7 @@ class AsyncUploads:
     ) -> AsyncUploadSession:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         upload_id = identifier(upload_id)
         result = await self._transport.request(
             operations.GET_UPLOAD,

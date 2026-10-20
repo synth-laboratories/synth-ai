@@ -6,7 +6,15 @@ from typing import Literal, Self
 
 from pydantic import AwareDatetime, Field, StrictInt, field_validator, model_validator
 
-from synth_ai.types.base import Cursor, Digest, Identifier, Model, Page, ResponseModel
+from synth_ai.types.base import (
+    Cursor,
+    Digest,
+    Model,
+    Page,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 
 from .retention import SearchRetention
 from .search import Mode, Query, validate_query_text
@@ -41,8 +49,8 @@ class SearchHistoryRequest(Model):
     filter: SearchHistoryFilter = Field(default_factory=SearchHistoryFilter)
 
 
-class SearchHistoryEntry(Model):
-    search_id: Identifier
+class SearchHistoryEntry(ResponseBase):
+    search_id: ResponseIdentifier
     query: Query = Field(repr=False)
     mode: Mode
     created_at: AwareDatetime
@@ -102,7 +110,7 @@ class SearchHistoryDeletion(Model):
 
 
 class SearchHistoryDeletionReceipt(ResponseModel):
-    search_id: Identifier
+    search_id: ResponseIdentifier
     archive_digest_sha256: Digest
     state: Literal["deleted", "already_deleted"]
     history_available: Literal[False]

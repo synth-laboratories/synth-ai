@@ -80,6 +80,24 @@ CANCEL = Operation(
     contract="swarms.v1",
     required_scope="swarms:control",
 )
+PAUSE = Operation(
+    "swarms.pause",
+    "POST",
+    "/swarms/runs/{run_id}/pause",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+RESUME = Operation(
+    "swarms.resume",
+    "POST",
+    "/swarms/runs/{run_id}/resume",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
 CONTROL = Operation(
     "swarms.control",
     "GET",
@@ -118,6 +136,8 @@ ALL_OPERATIONS = (
     EVENTS,
     TASKS,
     CANCEL,
+    PAUSE,
+    RESUME,
     CONTROL,
     USAGE,
     USAGE_ITEMS,
@@ -203,3 +223,24 @@ CREATE_PROJECT = Operation(
     required_scope="swarms:write",
 )
 ALL_OPERATIONS += (CREATE_PROJECT,)
+
+PROGRAM = Operation(
+    "swarms.program",
+    "GET",
+    "/swarms/runs/{run_id}/program",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
+ALL_OPERATIONS += (PROGRAM,)
+
+LABELS = Operation(
+    "swarms.labels.update",
+    "PATCH",
+    "/swarms/runs/{run_id}/labels",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:write",
+)
+ALL_OPERATIONS += (LABELS,)

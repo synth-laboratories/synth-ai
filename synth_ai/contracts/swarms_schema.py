@@ -6,6 +6,7 @@ import json
 
 from pydantic import BaseModel
 
+from synth_ai.sdk.core.artifact_types import ArtifactLabelsUpdate
 from synth_ai.sdk.swarms.types.files import File, FileManifest, FileUploadReceipt, FileUploadStatus
 from synth_ai.sdk.swarms.types.launch import (
     FileRef,
@@ -15,10 +16,20 @@ from synth_ai.sdk.swarms.types.launch import (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModels,
     ResolvedProviders,
 )
+from synth_ai.sdk.swarms.types.objectives import (
+    Guidance,
+    GuidanceCoverage,
+    ObjectiveAnswer,
+    ObjectiveResult,
+    ObjectiveVerdict,
+)
 from synth_ai.sdk.swarms.types.outputs import Output, OutputRef, TextContent, TransferTiming
+from synth_ai.sdk.swarms.types.programs import ProgramRunView
+from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -27,13 +38,22 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
-from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.types.base import EventCursor, Page
+from synth_ai.types.receipts import ControlReceipt
+from synth_ai.types.response_values import response_schema
 
 from .operations import PREFIX
 from .swarms import ALL_OPERATIONS
 
 MODELS: tuple[type[BaseModel], ...] = (
+    Guidance,
+    ObjectiveResult,
+    ObjectiveVerdict,
+    ObjectiveAnswer,
+    GuidanceCoverage,
+    ArtifactLabelsUpdate,
+    ControlReceipt,
+    ProgramRunView,
     FileRef,
     File,
     FileManifest,
@@ -51,6 +71,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModels,
     ResolvedProviders,
     LaunchPreflight,
@@ -72,7 +93,7 @@ def export_contract() -> str:
             {
                 "schema_version": "swarms.v1",
                 "status": "sdk_first_pending_backend",
-                "models": {model.__name__: model.model_json_schema() for model in MODELS},
+                "models": {model.__name__: response_schema(model) for model in MODELS},
                 "operations": [
                     {
                         "id": op.id,

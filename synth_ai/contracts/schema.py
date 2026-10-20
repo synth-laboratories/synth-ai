@@ -46,6 +46,7 @@ from synth_ai.sdk.index.types.history import (
     SearchHistoryRequest,
 )
 from synth_ai.sdk.index.types.retention import SearchRetention
+from synth_ai.sdk.index.types.retention_policy import RetentionPolicy, RetentionPolicyUpdate
 from synth_ai.sdk.index.types.search import (
     KeyedSearchOptions,
     KeyedSearchRequest,
@@ -54,12 +55,15 @@ from synth_ai.sdk.index.types.search import (
     SearchEvent,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
+    StrictSearchProgress,
 )
 from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.capabilities import Capabilities
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.receipts import ControlReceipt, MutationResolution
+from synth_ai.types.response_values import response_schema
 from synth_ai.types.uploads import (
     ContributionUploadManifest,
     TransferReceipt,
@@ -79,6 +83,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     ContributionMetadata,
     ContributionReview,
     SearchRetention,
+    RetentionPolicy,
+    RetentionPolicyUpdate,
     SearchHistoryDeletion,
     SearchHistoryDeletionReceipt,
     SearchHistoryEntry,
@@ -108,6 +114,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     SearchEvent,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
+    StrictSearchProgress,
     MutationIdentity,
     MutationResolution,
     ControlReceipt,
@@ -151,7 +159,7 @@ def export_contract() -> str:
                 "schema_version": CONTRACT,
                 "status": "sdk_first_pending_backend",
                 "operations": operations,
-                "models": {model.__name__: model.model_json_schema() for model in MODELS},
+                "models": {model.__name__: response_schema(model) for model in MODELS},
             },
             indent=2,
             sort_keys=True,

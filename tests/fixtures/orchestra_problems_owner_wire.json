@@ -1,0 +1,231 @@
+{
+  "5ca83a99-b111-4f28-b888-1f35ae3859c3": {
+    "problems": [
+      {
+        "code": "provider_refused_prompt",
+        "count": 1,
+        "evidence_refs": [
+          {
+            "kind": "receipt",
+            "ref": "44364f4e",
+            "service": "gateway"
+          },
+          {
+            "kind": "attempt",
+            "ref": "a06dc302-0000-4000-8000-000000000001",
+            "service": "orchestra"
+          },
+          {
+            "kind": "task",
+            "ref": "e9219958-16b9-5bda-b9ac-c285de448a72",
+            "service": "orchestra"
+          }
+        ],
+        "headline": "The model provider (provider:openai) refused the prompt (invalid_prompt); the worker cannot continue until the prompt changes.",
+        "id": "provider_refused_prompt.provider-openai.invalid_prompt",
+        "in_doubt": false,
+        "last_seen_unix_ms": 1792160428000,
+        "next": "Check the prompt and context sent for this attempt (gateway receipt 44364f4e); the provider flagged it. Change the task input; do not retry unchanged.",
+        "origin": "provider:openai",
+        "owner_hint": "model provider and prompt content (task author)",
+        "reason_chain": [
+          {
+            "cause": {
+              "transport": "response_failed_event",
+              "upstream_status": 200
+            },
+            "code": "invalid_prompt",
+            "service": "provider:openai",
+            "stage": "provider_stream"
+          },
+          {
+            "cause": {
+              "zero_cost_reason": "provider_refused_unbilled"
+            },
+            "code": "provider_error",
+            "service": "gateway",
+            "stage": "provider_stream"
+          },
+          {
+            "cause": {
+              "last_event": "agent.tool.completed"
+            },
+            "code": "agent_session_silent",
+            "service": "agents",
+            "stage": "turn"
+          },
+          {
+            "cause": {
+              "idle_ms": 240000
+            },
+            "code": "worker_stalled",
+            "service": "orchestra",
+            "stage": "task_progress"
+          },
+          {
+            "cause": {
+              "hold": "review_absent"
+            },
+            "code": "review_absent",
+            "service": "orchestra",
+            "stage": "auto_finalizer.task_close"
+          }
+        ],
+        "retryable": false,
+        "severity": "error",
+        "since_unix_ms": 1792160118000,
+        "state": "open"
+      }
+    ],
+    "schema_version": "synth.problems.v1"
+  },
+  "acd57130-9eb5-41e5-ae2f-a1d606bd81a6": {
+    "problems": [
+      {
+        "code": "settlement_exhausted",
+        "count": 1,
+        "evidence_refs": [],
+        "headline": "Orchestra gave up settling the run's money after 12 attempts.",
+        "id": "settlement_exhausted.orchestra.owner_reply_retryable_retry_exhausted",
+        "in_doubt": true,
+        "last_seen_unix_ms": 1792155000000,
+        "next": "Re-drive the financial.settle effect; check the owner exchange to the backend and its transport class.",
+        "origin": "orchestra",
+        "owner_hint": "orchestra owner",
+        "reason_chain": [
+          {
+            "cause": {
+              "attempts": 12,
+              "last_cause": "unavailable:backend:http_none:owner_unavailable:owner_exchange",
+              "transport_class": "unknown_not_recorded"
+            },
+            "code": "owner_reply_retryable_retry_exhausted",
+            "service": "orchestra",
+            "stage": "financial.settle"
+          }
+        ],
+        "retryable": true,
+        "severity": "error",
+        "since_unix_ms": 1792155000000,
+        "state": "open"
+      }
+    ],
+    "schema_version": "synth.problems.v1"
+  },
+  "f40b6a07-c2c9-4221-b24c-ed763cb81d00": {
+    "problems": [
+      {
+        "code": "sandbox_exec_result_lost",
+        "count": 1,
+        "evidence_refs": [
+          {
+            "kind": "session",
+            "ref": "4550c1a5-4067-5a0a-b278-d092baee2357",
+            "service": "agents"
+          },
+          {
+            "kind": "attempt",
+            "ref": "11ae5ce2-7c11-5868-aef3-1390cc931a87",
+            "service": "orchestra"
+          },
+          {
+            "kind": "task",
+            "ref": "d83b74a7-09a2-82b5-9f4d-9afbdbd75704",
+            "service": "orchestra"
+          }
+        ],
+        "headline": "A `shell` call in the sandbox never returned a result; the sandbox is idle and the attempt is stuck.",
+        "id": "sandbox_exec_result_lost.daytona.daytona_exec_unknown",
+        "in_doubt": true,
+        "last_seen_unix_ms": 1792162891000,
+        "next": "Check the agents session for the outstanding tool call and the sandbox state in Daytona; stop the attempt and relaunch the task.",
+        "origin": "daytona",
+        "owner_hint": "sandbox provider (Daytona) and agents sandbox-host owner",
+        "reason_chain": [
+          {
+            "cause": {
+              "box_state": "started_idle",
+              "result": "never_returned",
+              "tool": "shell"
+            },
+            "code": "daytona_exec_unknown",
+            "service": "daytona",
+            "stage": "exec"
+          },
+          {
+            "cause": {
+              "age_ms": 60000,
+              "last_tool": "shell"
+            },
+            "code": "agent_session_silent",
+            "service": "agents",
+            "stage": "turn"
+          },
+          {
+            "cause": {
+              "lease_until_ms": 1792162731000
+            },
+            "code": "lease_expired_outage_grace_exhausted",
+            "service": "orchestra",
+            "stage": "attempt_liveness"
+          },
+          {
+            "cause": {
+              "live_attempts": 0
+            },
+            "code": "scope_dormant",
+            "service": "orchestra",
+            "stage": "scope_service"
+          }
+        ],
+        "retryable": false,
+        "severity": "critical",
+        "since_unix_ms": 1792162491000,
+        "state": "open"
+      }
+    ],
+    "schema_version": "synth.problems.v1"
+  },
+  "orc02-wedged-run": {
+    "problems": [
+      {
+        "code": "head_input_refused_repeatedly",
+        "count": 5,
+        "evidence_refs": [],
+        "headline": "Orchestra keeps refusing the same input to this run (InvalidEnvelope).",
+        "id": "head_input_refused_repeatedly.orchestra.InvalidEnvelope",
+        "in_doubt": false,
+        "last_seen_unix_ms": 1792150020000,
+        "next": "Read the refusal's producer/consumer/schema/field; the head input will never apply unchanged.",
+        "origin": "orchestra",
+        "owner_hint": "orchestra owner",
+        "reason_chain": [
+          {
+            "cause": {
+              "consumer": "orchestra:application",
+              "input_kind": "no_launch",
+              "mismatch_unrecorded": true,
+              "producer": "backend"
+            },
+            "code": "InvalidEnvelope",
+            "service": "orchestra",
+            "stage": "input_protocol"
+          },
+          {
+            "cause": {
+              "consecutive_refusals": 5
+            },
+            "code": "scope_wedged",
+            "service": "orchestra",
+            "stage": "scope_scheduler"
+          }
+        ],
+        "retryable": false,
+        "severity": "critical",
+        "since_unix_ms": 1792150000000,
+        "state": "open"
+      }
+    ],
+    "schema_version": "synth.problems.v1"
+  }
+}

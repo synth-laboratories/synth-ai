@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location(
     "qualified_release", ROOT / ".github/verify_qualified_release.py"
@@ -135,3 +137,4 @@ def test_policy_file_declares_only_swarms_for_v023():
     assert policy["schema"] == "synth.sdk.release-policy.v1"
     assert policy["releases"]["0.23.0"]["deferrable"] == ["native-swarms"]
     assert policy["releases"]["0.23.1"]["deferrable"] == ["native-swarms"]
+    assert policy["releases"]["0.23.4"]["deferrable"] == ["native-swarms"]

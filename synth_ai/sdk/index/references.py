@@ -1,6 +1,6 @@
 """Exact provenance identities retained by Index; references never grant access.
 
-See: backend/notes/specifications/sdk/surface.md. Moved from the preserved
+See: the public contract snapshots in contracts/ Moved from the preserved
 Research Forge contracts without changing their wire constraints.
 """
 
@@ -8,17 +8,28 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
+from pydantic import ConfigDict, StringConstraints, WrapValidator, model_validator
 
-Identifier = Annotated[str, StringConstraints(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")]
+from synth_ai.types.base import Identifier, Model, _identifier
+
 Digest = Annotated[str, StringConstraints(pattern="^[0-9a-f]{64}$")]
+
+
+def _record_identifier(value, handler):
+    # This identity embeds a digest, rather than an opaque server identifier.
+    if isinstance(value, str) and value.startswith("intern-exec:"):
+        return handler(value)
+    return _identifier(value, handler)
+
+
 ReferenceRecordId = Annotated[
     str,
     StringConstraints(pattern="^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$"),
+    WrapValidator(_record_identifier),
 ]
 
 
-class Contract(BaseModel):
+class Contract(Model):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
 
@@ -49,6 +60,8 @@ class ExactReference(Contract):
 
     @model_validator(mode="after")
     def native_execution_scope(self) -> ExactReference:
+        if ":" in self.record_id and not self.record_id.startswith("intern-exec:"):
+            raise ValueError("native Intern execution reference must retain its digest identity")
         if ":" in self.record_id and (self.authority, self.kind) != ("mloky", "mloky_execution"):
             raise ValueError("native Intern execution reference authority/kind mismatch")
         return self

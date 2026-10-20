@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import sys
 import threading
 import time
@@ -23,17 +24,24 @@ from synth_ai.errors import (
     TransportError,
 )
 from synth_ai.options import ClientOptions, ReadOptions
-from synth_ai.types.base import ClientTiming, ResponseModel
+from synth_ai.types.base import ClientTiming
 from synth_ai.types.capabilities import Capabilities, NegotiatedCapability
 
+from .backoff import delay_seconds, retry_after_seconds, retry_failure
 from .blocking import DeadlineTransport
 from .cleanup import handle_cleanup_failure
 from .credentials import CredentialProvider
+from .identity import annotate_request_error, request_options
 from .lifetime import Closeable
 from .request import build_request, encode_body, mutation_identity
-from .response import decode_response, retry_delay, validate_negotiated_response
+from .response import (
+    annotate_response_error,
+    classify_exchange,
+    decode_response,
+    validate_negotiated_response,
+)
 
-T = TypeVar("T", bound=ResponseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 class HttpTransport:
@@ -44,15 +52,28 @@ class HttpTransport:
         options: ClientOptions,
         *,
         credential_provider: CredentialProvider | None = None,
+        _sleep: Callable[[float], None] | None = None,
+        _random: random.Random | None = None,
     ) -> None:
+        if options.local_development_retention and urlsplit(base_url).hostname not in {
+            "127.0.0.1",
+            "::1",
+        }:
+            raise ValueError("Local development retention requires a loopback API address")
+        self.local_development_retention = options.local_development_retention
+        self.strict_contract = options.strict_contract
         self._base_url = base_url
         self._api_key = api_key
         self._credential_provider = credential_provider
         self._options = options
+        self._sleep = _sleep or time.sleep
+        self._random = _random or random.Random()
         self.transfer_hosts = options.upload_hosts or (urlsplit(base_url).hostname or "",)
-        self._owned = True
-        self.client = httpx.Client(
-            trust_env=False, transport=DeadlineTransport(options.maximum_connections)
+        self._owned = options.http_client is None
+        # The inner pool handles environment proxies/CA so every network route
+        # stays on the cancellable loop; outer proxy mounts would bypass it.
+        self.client = options.http_client or httpx.Client(
+            trust_env=False, auth=None, transport=DeadlineTransport(options.maximum_connections)
         )
         self._closed = False
         self._streams: set[Closeable] = set()
@@ -92,9 +113,9 @@ class HttpTransport:
 
     def _register_stream(self, stream: Closeable) -> None:
         if self._closed:
-            raise RuntimeError("SDK client is closed")
+            raise ContractError("SDK client is closed", code="client_closed")
         if len(self._streams) >= self._options.maximum_connections:
-            raise RuntimeError("SDK active stream limit reached")
+            raise ContractError("SDK active stream limit reached", code="stream_limit")
         self._streams.add(stream)
 
     def _unregister_stream(self, stream: Closeable) -> None:
@@ -149,6 +170,16 @@ class HttpTransport:
     def _negotiate(self, operation: Operation, deadline: float) -> NegotiatedCapability | None:
         if operation.keyed and self._api_key is None and self._credential_provider is None:
             raise AuthenticationError("This operation requires an API key")
+        if operation.contract == "tunnels.v2":
+            from synth_ai.contracts.tunnels import require_control_operation
+
+            require_control_operation(operation, self._options)
+            return None
+        if operation.contract == "account.v1":
+            from synth_ai.contracts.account import require_account_read
+
+            require_account_read(operation, self._options)
+            return None
         if operation.id == CAPABILITIES.id:
             return None
         remaining = deadline - time.monotonic()
@@ -165,6 +196,7 @@ class HttpTransport:
             surface="http",
             expected_manifest_sha256=self._options.release_manifest_sha256,
             candidate_manifest_sha256=self._options.candidate_manifest_sha256,
+            strict_contract=self.strict_contract,
         )
 
     def _open_stream(
@@ -172,13 +204,55 @@ class HttpTransport:
         operation: Operation,
         *,
         path: str,
-        query: Mapping[str, str | int],
+        query: Mapping[str, str | int | tuple[str, ...]],
         remaining_seconds: float,
-        digest: str,
+        digest: str | None,
+        accept: str = "application/octet-stream",
+    ) -> httpx.Response:
+        selected = request_options(
+            operation,
+            ReadOptions(
+                timeout_seconds=remaining_seconds,
+                read_retry_count=0,
+            ),
+        )
+        try:
+            return self._open_stream_request(
+                operation,
+                path=path,
+                query=query,
+                remaining_seconds=remaining_seconds,
+                digest=digest,
+                options=selected,
+                accept=accept,
+            )
+        except SynthError as error:
+            annotate_request_error(error, operation, selected)
+            raise
+        except (httpx.TransportError, TimeoutError) as cause:
+            kind = (
+                RequestTimeoutError
+                if isinstance(cause, (httpx.TimeoutException, TimeoutError))
+                else TransportError
+            )
+            error = kind("Byte-stream exchange failed")
+            annotate_request_error(error, operation, selected)
+            raise error from cause
+
+    def _open_stream_request(
+        self,
+        operation: Operation,
+        *,
+        path: str,
+        query: Mapping[str, str | int | tuple[str, ...]],
+        remaining_seconds: float,
+        digest: str | None,
+        options: ReadOptions,
+        accept: str = "application/octet-stream",
     ) -> httpx.Response:
         """Open one SDK-owned read response, without retries or redirects."""
         if self._closed:
-            raise RuntimeError("SDK client is closed")
+            raise ContractError("SDK client is closed", code="client_closed")
         if operation.mutation or operation.method != "GET":
             raise ValueError("byte streams require an observational GET operation")
         deadline = time.monotonic() + remaining_seconds
@@ -199,14 +273,16 @@ class HttpTransport:
             path,
             b"",
             query,
-            ReadOptions(timeout_seconds=remaining_seconds, read_retry_count=0),
+            options,
             None,
             remaining_seconds,
             self._options.connect_timeout_seconds,
             negotiated=negotiated,
         )
-        request.headers["Accept"] = "application/octet-stream"
-        request.headers["If-Match"] = '"' + digest + '"'
+        request.headers["Accept"] = accept
+        request.headers.pop("If-Match", None)
+        if digest is not None:
+            request.headers["If-Match"] = '"' + digest + '"'
         response = self.client.send(request, stream=True, auth=None, follow_redirects=False)
         response = self._adopt_response(response)
         try:
@@ -219,6 +295,11 @@ class HttpTransport:
             raise
         return response
 
+    def mutation_events(self, operation: Operation, *, path: str, body: BaseModel, options=None):
+        from .stream import MutationEventStream
+
+        return MutationEventStream(self, operation, path=path, body=body, options=options)
+
     def request(
         self,
         operation: Operation,
@@ -226,12 +307,38 @@ class HttpTransport:
         *,
         body: BaseModel | None = None,
         path: str | None = None,
-        query: Mapping[str, str | int] | None = None,
+        query: Mapping[str, str | int | tuple[str, ...]] | None = None,
+        options: ReadOptions | None = None,
+        validate: Callable[[T], T] | None = None,
+    ) -> T:
+        selected = request_options(operation, options)
+        try:
+            return self._request(
+                operation,
+                model,
+                body=body,
+                path=path,
+                query=query,
+                options=selected,
+                validate=validate,
+            )
+        except SynthError as error:
+            annotate_request_error(error, operation, selected)
+            raise
+
+    def _request(
+        self,
+        operation: Operation,
+        model: type[T],
+        *,
+        body: BaseModel | None = None,
+        path: str | None = None,
+        query: Mapping[str, str | int | tuple[str, ...]] | None = None,
         options: ReadOptions | None = None,
         validate: Callable[[T], T] | None = None,
     ) -> T:
         if self._closed:
-            raise RuntimeError("SDK client is closed")
+            raise ContractError("SDK client is closed", code="client_closed")
         if options is not None and options.response_metadata is not None:
             options.response_metadata.rate_limits = ()
         payload = encode_body(body)
@@ -272,6 +379,7 @@ class HttpTransport:
                 remaining,
                 self._options.connect_timeout_seconds,
                 negotiated=negotiated,
+                attempt=attempt,
             )
             response: httpx.Response | None = None
             try:
@@ -279,37 +387,71 @@ class HttpTransport:
                 self._adopt_response(response)
                 if options is not None and options.response_metadata is not None:
                     options.response_metadata.capture(response.headers)
-                if response.headers.get("Content-Encoding", "identity").lower() != "identity":
-                    raise ContractError(
-                        "Compressed responses are outside the bounded wire contract"
-                    )
+                exchange = classify_exchange(
+                    response,
+                    None,
+                    contract=operation.contract,
+                    mutation=operation.mutation,
+                    identity=identity,
+                    attempt=attempt,
+                    attempts=attempts,
+                    operation=operation.id,
+                )
                 content = bytearray()
                 first_byte: float | None = None
-                for chunk in response.iter_bytes():
-                    if self._closed:
-                        raise ContractError("SDK client closed during response")
-                    now = time.monotonic()
-                    if first_byte is None:
-                        first_byte = now
-                    if len(content) + len(chunk) > self._options.maximum_response_bytes:
-                        raise ContractError("Response exceeded the configured byte bound")
-                    content.extend(chunk)
-                    if now >= deadline:
-                        raise RequestTimeoutError("Response deadline expired")
+                if exchange.kind == "decode":
+                    if response.headers.get("Content-Encoding", "identity").lower() != "identity":
+                        raise ContractError(
+                            "Compressed responses are outside the bounded wire contract"
+                        )
+                    for chunk in response.iter_bytes():
+                        if self._closed:
+                            raise ContractError("SDK client closed during response")
+                        now = time.monotonic()
+                        if first_byte is None:
+                            first_byte = now
+                        if len(content) + len(chunk) > self._options.maximum_response_bytes:
+                            raise ContractError("Response exceeded the configured byte bound")
+                        content.extend(chunk)
+                        if now >= deadline:
+                            raise RequestTimeoutError("Response deadline expired")
+                    exchange = classify_exchange(
+                        response,
+                        bytes(content),
+                        contract=operation.contract,
+                        mutation=operation.mutation,
+                        identity=identity,
+                        attempt=attempt,
+                        attempts=attempts,
+                        operation=operation.id,
+                    )
                 finished = time.monotonic()
                 if finished >= deadline:
                     raise RequestTimeoutError("Response deadline expired")
-                if (
-                    not operation.mutation
-                    and response.headers.get("X-Synth-Contract") == operation.contract
-                    and response.status_code in {429, 502, 503, 504}
-                    and attempt < attempts
-                ):
-                    delay = retry_delay(response, self._options.retry_delay_seconds)
+                if exchange.error is not None:
+                    raise annotate_response_error(response, exchange.error)
+                if exchange.kind == "retry":
+                    hint = retry_after_seconds(response.headers.get("Retry-After"))
+                    delay = delay_seconds(
+                        attempt,
+                        self._options.retry_base_delay_seconds,
+                        self._options.retry_max_delay_seconds,
+                        hint,
+                        rng=self._random,
+                    )
+                    failure = retry_failure(
+                        status=response.status_code,
+                        delay=delay,
+                        remaining=deadline - time.monotonic(),
+                        retry_after=hint,
+                    )
+                    if failure is not None:
+                        annotate_response_error(response, failure)
                     self._release_response(response)
-                    if delay >= deadline - time.monotonic():
-                        raise RequestTimeoutError("Retry would exceed the request deadline")
-                    time.sleep(delay)
+                    response = None
+                    if failure is not None:
+                        raise failure
+                    self._sleep(delay)
                     continue
                 timing = ClientTiming(
                     total_ms=(finished - started) * 1000,
@@ -325,6 +467,7 @@ class HttpTransport:
                     operation.mutation,
                     operation.contract,
                     negotiated=negotiated,
+                    operation=operation.id,
                 )
                 if operation.id == CAPABILITIES.id and isinstance(decoded, Capabilities):
                     validate_release(
@@ -333,18 +476,42 @@ class HttpTransport:
                         self._options.candidate_manifest_sha256,
                     )
                 return validate(decoded) if validate is not None else decoded
-            except (httpx.TransportError, RequestTimeoutError, ContractError) as cause:
+            except ContractError as cause:
                 if operation.mutation:
                     raise OutcomeUncertainError(
-                        "Mutation delivery is uncertain; retain its identity", identity=identity
+                        "Mutation response is invalid; reconcile its identity",
+                        identity=identity,
+                        reason="response_invalid",
+                        status=response.status_code if response is not None else None,
+                    ) from cause
+                raise
+            except (httpx.TransportError, RequestTimeoutError) as cause:
+                if operation.mutation:
+                    raise OutcomeUncertainError(
+                        "Mutation delivery is uncertain; retain its identity",
+                        identity=identity,
+                        reason="response_lost",
                     ) from cause
                 if isinstance(cause, httpx.TransportError) and attempt < attempts:
-                    delay = self._options.retry_delay_seconds
-                    if delay >= deadline - time.monotonic():
-                        raise RequestTimeoutError(
-                            "Retry would exceed the request deadline"
-                        ) from cause
-                    time.sleep(delay)
+                    delay = delay_seconds(
+                        attempt,
+                        self._options.retry_base_delay_seconds,
+                        self._options.retry_max_delay_seconds,
+                        None,
+                        rng=self._random,
+                    )
+                    failure = retry_failure(
+                        status=None,
+                        delay=delay,
+                        remaining=deadline - time.monotonic(),
+                        retry_after=None,
+                    )
+                    if response is not None:
+                        self._release_response(response)
+                        response = None
+                    if failure is not None:
+                        raise failure from cause
+                    self._sleep(delay)
                     continue
                 if isinstance(cause, httpx.TimeoutException):
                     raise RequestTimeoutError("HTTP request timed out") from cause

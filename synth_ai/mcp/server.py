@@ -34,6 +34,7 @@ from synth_ai.errors import (
     RateLimitError,
     RequestTimeoutError,
     ResultNotReadyError,
+    RetentionModeNotAllowed,
     SynthError,
     TransportError,
     UnsupportedOperationError,
@@ -65,11 +66,19 @@ def failure(error: ToolFailure, *, scope_challenge: str | None = None) -> CallTo
 
 
 def error_code(error: SynthError) -> str:
-    if (
-        not isinstance(error, OutcomeUncertainError)
-        and (error.status, error.code) in POLICY_ERROR_TYPES
-    ):
-        return str(error.code)
+    # Uncertainty is a custody disposition, including when the upstream attached
+    # a policy code. Preserve that existing consumer signal.
+    if isinstance(error, OutcomeUncertainError):
+        return "outcome_uncertain"
+    if error.code is not None:
+        try:
+            return TypeAdapter(Identifier).validate_python(error.code)
+        except ValidationError:
+            pass  # An untrusted code cannot replace the coarse typed category.
+    return error_category(error)
+
+
+def error_category(error: SynthError) -> str:
     for kind, name in (
         (UnsupportedOperationError, "operation_unavailable"),
         (AuthenticationError, "authentication_required"),
@@ -190,7 +199,9 @@ def create_server(
         dispatched = False
         effective_scope = spec.scope
         try:
-            async with asyncio.timeout(timeout_seconds):
+            async with asyncio.timeout(
+                690 if name == "index_search_deliver_events" else timeout_seconds
+            ):
                 if spec.name not in await executor.available_tools():
                     # A typed, attributable refusal: the cause names the gate and
                     # the id lets an operator find the server-side log line.
@@ -214,8 +225,32 @@ def create_server(
                     )
                 parsed = spec.validate_arguments(arguments)
                 effective_scope = spec.scope_for(parsed)
-                dispatched = True
-                result = spec.validate_result(await executor.invoke(spec, parsed))
+                if name == "index_search_deliver_events":
+                    from .progress import progress_scope
+
+                    context = server.request_context
+                    token = context.meta.progressToken if context.meta is not None else None
+                    if token is None:
+                        raise ContractError(
+                            "Strict DEEP requires a progress token", code="progress_token_required"
+                        )
+
+                    async def progress(value):
+                        if value.search_id != parsed["search_id"]:
+                            raise ContractError("Progress resource identity changed")
+                        await context.session.send_progress_notification(
+                            token,
+                            float(value.sequence),
+                            message=value.model_dump_json(),
+                            related_request_id=str(context.request_id),
+                        )
+
+                    dispatched = True
+                    with progress_scope(progress):
+                        result = spec.validate_result(await executor.invoke(spec, parsed))
+                else:
+                    dispatched = True
+                    result = spec.validate_result(await executor.invoke(spec, parsed))
                 encoded = JSON_OBJECT.dump_json(result)
                 if len(encoded) > maximum_result_bytes:
                     return failure(
@@ -249,7 +284,11 @@ def create_server(
                     code="outcome_uncertain"
                     if dispatched and spec.mutates and isinstance(error, ContractError)
                     else error_code(error),
-                    message="Operation did not complete; inspect the typed code before retrying",
+                    category=error_category(error),
+                    message=str(error)[:512],
+                    status=error.status,
+                    retryable=error.retryable,
+                    operation=error.operation,
                     request_id=error.request_id,
                     identity=error.identity or retained_identity(arguments),
                     retry_after_seconds=error.retry_after_seconds,
@@ -260,6 +299,9 @@ def create_server(
                     if error.retryable is False or (error.status, error.code) in POLICY_ERROR_TYPES
                     else None,
                     idempotency_key=retained_key(arguments),
+                    allowed_modes=error.allowed_modes
+                    if isinstance(error, RetentionModeNotAllowed)
+                    else (),
                 ),
                 scope_challenge=effective_scope if error.code == "insufficient_scope" else None,
             )

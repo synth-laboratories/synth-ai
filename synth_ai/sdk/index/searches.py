@@ -5,6 +5,7 @@ from __future__ import annotations
 from synth_ai.contracts import operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
+from synth_ai.core.http.request import encode_body, mutation_identity
 from synth_ai.core.parameters import identifier, page_parameters, verified
 from synth_ai.core.recovery import async_resolve_creation as recover_creation_async
 from synth_ai.core.recovery import resolve_creation as recover_creation
@@ -29,20 +30,41 @@ class Searches:
     ) -> SearchRun:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
+        body = KeyedSearchRequest(query=query, options=options)
+        identity = mutation_identity(operations.CREATE_SEARCH, None, encode_body(body), mutation)
+        selected = (mutation or MutationOptions()).model_copy(
+            update={"identity": identity, "idempotency_key": None}
+        )
         snapshot = self._transport.request(
             operations.CREATE_SEARCH,
             SearchSnapshot,
-            body=KeyedSearchRequest(query=query, options=options),
-            options=mutation,
-            validate=lambda received: validate_search_admission(received, options),
+            body=body,
+            options=selected,
+            validate=lambda received: validate_search_admission(
+                received,
+                options,
+                local_development_retention=self._transport.local_development_retention,
+            ),
         )
-        return SearchRun(self._transport, snapshot.search_id, expected_retention=options.retention)
+        return SearchRun(
+            self._transport,
+            snapshot.search_id,
+            requested_mode=snapshot.mode,
+            expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+            inline_result=snapshot.inline_result,
+            strict_request=body
+            if snapshot.retention is not None
+            and snapshot.retention.mode == "zdr_strict"
+            and options.mode == "deep"
+            else None,
+            strict_creation_key=identity.key if identity is not None else None,
+        )
 
     def get(self, search_id: str, *, request: ReadOptions | None = None) -> SearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         search_id = identifier(search_id)
         snapshot = self._transport.request(
             operations.GET_SEARCH,
@@ -58,6 +80,7 @@ class Searches:
         return SearchRun(
             self._transport,
             search_id,
+            requested_mode=snapshot.mode,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
         )
 
@@ -66,7 +89,7 @@ class Searches:
     ) -> Page[SearchSnapshot]:
         """Read one bounded authorized page; no implicit all-pages traversal.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.LIST_SEARCHES,
             Page[SearchSnapshot],
@@ -86,7 +109,7 @@ class Searches:
     ) -> SearchHistoryPage:
         """Read one private retained-history page; no query execution or expiry extension.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = filter or SearchHistoryFilter()
         return self._transport.request(
             operations.SEARCH_HISTORY,
@@ -118,22 +141,41 @@ class AsyncSearches:
     ) -> AsyncSearchRun:
         """Create one durable owner resource; uncertain responses preserve mutation identity.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
+        body = KeyedSearchRequest(query=query, options=options)
+        identity = mutation_identity(operations.CREATE_SEARCH, None, encode_body(body), mutation)
+        selected = (mutation or MutationOptions()).model_copy(
+            update={"identity": identity, "idempotency_key": None}
+        )
         snapshot = await self._transport.request(
             operations.CREATE_SEARCH,
             SearchSnapshot,
-            body=KeyedSearchRequest(query=query, options=options),
-            options=mutation,
-            validate=lambda received: validate_search_admission(received, options),
+            body=body,
+            options=selected,
+            validate=lambda received: validate_search_admission(
+                received,
+                options,
+                local_development_retention=self._transport.local_development_retention,
+            ),
         )
         return AsyncSearchRun(
-            self._transport, snapshot.search_id, expected_retention=options.retention
+            self._transport,
+            snapshot.search_id,
+            requested_mode=snapshot.mode,
+            expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
+            inline_result=snapshot.inline_result,
+            strict_request=body
+            if snapshot.retention is not None
+            and snapshot.retention.mode == "zdr_strict"
+            and options.mode == "deep"
+            else None,
+            strict_creation_key=identity.key if identity is not None else None,
         )
 
     async def get(self, search_id: str, *, request: ReadOptions | None = None) -> AsyncSearchRun:
         """Read or reattach the exact authorized resource with fresh server state.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         search_id = identifier(search_id)
         snapshot = await self._transport.request(
             operations.GET_SEARCH,
@@ -149,6 +191,7 @@ class AsyncSearches:
         return AsyncSearchRun(
             self._transport,
             search_id,
+            requested_mode=snapshot.mode,
             expected_retention=snapshot.retention.mode if snapshot.retention is not None else None,
         )
 
@@ -157,7 +200,7 @@ class AsyncSearches:
     ) -> Page[SearchSnapshot]:
         """Read one bounded authorized page; no implicit all-pages traversal.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.LIST_SEARCHES,
             Page[SearchSnapshot],
@@ -177,7 +220,7 @@ class AsyncSearches:
     ) -> SearchHistoryPage:
         """Read one private retained-history page; no query execution or expiry extension.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = filter or SearchHistoryFilter()
         return await self._transport.request(
             operations.SEARCH_HISTORY,

@@ -1,6 +1,6 @@
 """Immutable authorized output metadata and local delivery receipts.
 
-See backend/notes/specifications/sdk/swarms_outputs.md. Availability is independent
+See the public contract snapshots in contracts/ Availability is independent
 of run completion; metadata is not permission to deliver bytes later.
 """
 
@@ -12,7 +12,14 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, StrictInt, model_validator
 
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.base import (
+    Digest,
+    Identifier,
+    Model,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 
 MediaType = Annotated[
     str,
@@ -30,8 +37,8 @@ class OutputRef(Model):
 
 
 class Output(ResponseModel):
-    run_id: Identifier
-    output_id: Identifier
+    run_id: ResponseIdentifier
+    output_id: ResponseIdentifier
     state: Literal["pending", "available", "withheld", "expired", "deleted"]
     reference: OutputRef | None
     filename: str | None = Field(default=None, min_length=1, max_length=255)
@@ -50,7 +57,7 @@ class Output(ResponseModel):
         return self
 
 
-class TransferTiming(Model):
+class TransferTiming(ResponseBase):
     total_ms: float = Field(ge=0)
     first_byte_ms: float | None = Field(ge=0)
     source: Literal["sdk_monotonic", "server_monotonic"] = "sdk_monotonic"

@@ -10,7 +10,14 @@ from typing import Literal, Self
 from pydantic import AwareDatetime, Field, StrictInt, model_validator
 
 from synth_ai.core.local_files import open_regular_file
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.base import (
+    Digest,
+    Identifier,
+    Model,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 
 
 def validate_upload_headers(
@@ -42,8 +49,8 @@ class ContributionPackageRef(Model):
 
 
 class UploadStatus(ResponseModel):
-    upload_id: Identifier
-    contribution_id: Identifier
+    upload_id: ResponseIdentifier
+    contribution_id: ResponseIdentifier
     state: Literal["prepared", "received", "finalized", "expired", "refused"]
     manifest: ContributionUploadManifest
     transfer_url: str | None = Field(max_length=4096, repr=False)
@@ -64,7 +71,7 @@ class UploadStatus(ResponseModel):
 
 
 class UploadReceipt(ResponseModel):
-    upload_id: Identifier
+    upload_id: ResponseIdentifier
     reference: ContributionPackageRef
     state: Literal["finalized"]
 
@@ -110,8 +117,8 @@ class LocalContributionPackage:
     source: UploadSource
 
 
-class TransferReceipt(Model):
-    upload_id: Identifier
+class TransferReceipt(ResponseBase):
+    upload_id: ResponseIdentifier
     byte_size: StrictInt
     digest_sha256: Digest
     etag: str | None = Field(max_length=512)

@@ -3,17 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, Literal, Self, TypeVar
+from typing import Any, Generic, Literal, Self, TypeVar
 
-from pydantic import model_validator
+from pydantic import SerializerFunctionWrapHandler, model_serializer, model_validator
 
-from .base import Identifier, Model, ResponseMetadata, ResponseModel
+from .base import ResponseBase, ResponseIdentifier, ResponseMetadata, ResponseModel
 from .identity import MutationIdentity
 
 
-class ResourceReference(Model):
-    kind: Literal["search", "contribution", "upload", "control", "search_response", "swarm"]
-    resource_id: Identifier
+class ResourceReference(ResponseBase):
+    kind: Literal[
+        "search",
+        "contribution",
+        "upload",
+        "control",
+        "search_response",
+        "swarm",
+        "repo_clone_token",
+        "artifact_upload",
+        "artifact",
+    ]
+    resource_id: ResponseIdentifier
 
 
 ResolutionState = Literal["accepted", "pending", "not_accepted", "unavailable", "conflict"]
@@ -31,14 +41,26 @@ class MutationResolution(ResponseModel):
         return self
 
 
+ControlCommand = Literal["cancel", "pause", "resume"]
+ControlState = Literal["accepted", "applied", "quiesced", "refused"]
+
+
 class ControlReceipt(ResponseModel):
-    operation_id: Identifier
-    resource_id: Identifier
-    state: Literal["accepted", "applied", "refused"]
+    operation_id: ResponseIdentifier
+    resource_id: ResponseIdentifier
+    state: ControlState
+    command: ControlCommand | None = None
     reason: str | None
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+
+    @model_serializer(mode="wrap")
+    def omit_absent_command(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = handler(self)
+        if self.command is None:
+            value.pop("command", None)
+        return value
 
 
 T = TypeVar("T")

@@ -11,7 +11,13 @@ from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.observation import AsyncEventStream, EventStream
 from synth_ai.core.parameters import identifier, page_parameters, verified
-from synth_ai.errors import ContractError, OperationFailedError, RequestTimeoutError
+from synth_ai.errors import (
+    ContractError,
+    OperationFailedError,
+    RequestTimeoutError,
+    SearchContentPurged,
+    StrictZdrResultUnavailable,
+)
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
@@ -20,8 +26,13 @@ from synth_ai.types.usage import UsageOperation, UsageSummary
 from .search import validate_search_retention
 from .types.history import SearchHistoryDeletion, SearchHistoryDeletionReceipt
 from .types.retention import RetentionMode
-from .types.search import SearchEvent, SearchResponse, SearchSnapshot
-
+from .types.search import (
+    KeyedSearchRequest,
+    SearchEvent,
+    SearchResponse,
+    SearchSnapshot,
+    StrictSearchEventRequest,
+)
 
 _TERMINAL_WITHOUT_RESULT = frozenset({"failed", "cancelled"})
 
@@ -45,6 +56,32 @@ def _raise_terminal(search_id: str, snapshot: SearchSnapshot, result: SearchResp
     )
 
 
+def _raise_unreadable(search_id: str, snapshot: SearchSnapshot) -> None:
+    """Raise a typed definite error when status proves no result will ever be readable.
+
+    Silent for unknown or absent retention so older backends keep today's polling."""
+    retention = snapshot.retention
+    if retention is None or snapshot.result_available:
+        return
+    if retention.content_state == "purged":
+        raise SearchContentPurged(
+            f"Search {search_id} content was purged; only metadata remains",
+            code="search_content_purged",
+            status=410,
+            retryable=False,
+            request_id=snapshot.metadata.request_id,
+        )
+    if retention.mode == "zdr_strict" and snapshot.state not in _TERMINAL_WITHOUT_RESULT:
+        raise StrictZdrResultUnavailable(
+            f"Search {search_id} is zdr_strict and its result is never stored; "
+            "use run.inline_result (FAST) or run.events() (DEEP)",
+            code="result_not_retained_strict_zdr",
+            status=409,
+            retryable=False,
+            request_id=snapshot.metadata.request_id,
+        )
+
+
 class SearchRun:
     """Durable identity; each method reads fresh authorized state."""
 
@@ -54,15 +91,24 @@ class SearchRun:
         search_id: str,
         *,
         expected_retention: RetentionMode | None = None,
+        inline_result: SearchResponse | None = None,
+        strict_request: KeyedSearchRequest | None = None,
+        strict_creation_key: str | None = None,
+        requested_mode: str | None = None,
     ) -> None:
         self._transport = transport
         self.search_id = identifier(search_id)
         self._expected_retention = expected_retention
+        # A FAST zdr_strict create response carries the answer; None otherwise.
+        self.inline_result = inline_result
+        self._strict_request = strict_request
+        self._strict_creation_key = strict_creation_key
+        self._requested_mode = requested_mode
 
     def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.GET_SEARCH,
             SearchSnapshot,
@@ -80,7 +126,7 @@ class SearchRun:
     def result(self, *, request: ReadOptions | None = None) -> SearchResponse:
         """Read the saved canonical outcome, including partial/failure/cancellation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_RESULT,
             SearchResponse,
@@ -106,7 +152,7 @@ class SearchRun:
     ) -> SearchHistoryDeletionReceipt:
         """Delete the exact archived payload without cancelling or rerunning the search.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         body = SearchHistoryDeletion(expected_archive_digest_sha256=expected_archive_digest_sha256)
         return self._transport.request(
             operations.DELETE_SEARCH_HISTORY,
@@ -127,7 +173,7 @@ class SearchRun:
     ) -> Page[SearchEvent, EventCursor]:
         """Read a bounded cursor page tied to this search and current grants.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_EVENTS,
             Page[SearchEvent, EventCursor],
@@ -148,7 +194,7 @@ class SearchRun:
     def usage(self, *, request: ReadOptions | None = None) -> UsageSummary:
         """Read authoritative usage, cost and customer charge with independent finality.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_USAGE,
             UsageSummary,
@@ -162,7 +208,7 @@ class SearchRun:
     ) -> Page[UsageOperation]:
         """Read one bounded page of attributable operation/attempt observations.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.SEARCH_USAGE_ITEMS,
             Page[UsageOperation],
@@ -180,7 +226,7 @@ class SearchRun:
     def cancel(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
         """Request explicit remote cancellation and return an accepted/applied/refused receipt.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             operations.CANCEL_SEARCH,
             ControlReceipt,
@@ -197,7 +243,7 @@ class SearchRun:
     def control(self, operation_id: str, *, request: ReadOptions | None = None) -> ControlReceipt:
         """Read the current control receipt without reissuing the control operation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = self._transport.request(
             operations.CONTROL,
@@ -214,18 +260,55 @@ class SearchRun:
         )
         return result
 
+    def deliver_events(
+        self,
+        *,
+        original_request: KeyedSearchRequest,
+        creation_key: str,
+        mutation: MutationOptions | None = None,
+    ):
+        """Stream live strict DEEP progress and its terminal result in this request.
+
+        Lost content cannot be replayed. Closing disconnects the active owner.
+        """
+        from .strict_events import StrictSearchEvents
+
+        body = StrictSearchEventRequest(creation_key=creation_key, request=original_request)
+        self._strict_request = None
+        self._strict_creation_key = None
+        return StrictSearchEvents(self._transport, self.search_id, body, mutation)
+
     def events(
         self, *, observation: ObservationOptions, cursor: EventCursor | None = None
     ) -> EventStream[SearchEvent]:
-        """Create a lazy managed observer; local close never cancels remote work.
+        """Observe metadata pages, or own one live strict DEEP stream.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        Closing strict delivery disconnects its owner; content cannot be replayed.
+
+        See: the public contract snapshots in contracts/"""
+        if self._expected_retention == "zdr_strict" and self._requested_mode == "deep":
+            if (
+                cursor is not None
+                or self._strict_request is None
+                or self._strict_creation_key is None
+            ):
+                raise StrictZdrResultUnavailable(
+                    "Strict DEEP requires original client intent and no reconnect cursor",
+                    code="strict_event_intent_required",
+                    status=409,
+                    retryable=False,
+                )
+            return self.deliver_events(
+                original_request=self._strict_request,
+                creation_key=self._strict_creation_key,
+                mutation=MutationOptions(timeout_seconds=observation.timeout_seconds),
+            )
         return EventStream(self.event_page, cursor, observation, owner=self._transport)
 
     def wait(self, *, observation: ObservationOptions) -> SearchResponse:
         """Observe canonical result availability within a local deadline; never cancel or resubmit.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         deadline = time.monotonic() + observation.timeout_seconds
         polls = min(10000, int(observation.timeout_seconds / observation.poll_interval_seconds) + 2)
         for _ in range(polls):
@@ -237,6 +320,7 @@ class SearchRun:
                 read_retry_count=observation.retry_count_max,
             )
             snapshot = self.status(request=request)
+            _raise_unreadable(self.search_id, snapshot)
             if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
                 # A failed/cancelled Search never becomes result_available; fail
                 # now with its typed cause instead of polling to the deadline.
@@ -273,15 +357,24 @@ class AsyncSearchRun:
         search_id: str,
         *,
         expected_retention: RetentionMode | None = None,
+        inline_result: SearchResponse | None = None,
+        strict_request: KeyedSearchRequest | None = None,
+        strict_creation_key: str | None = None,
+        requested_mode: str | None = None,
     ) -> None:
         self._transport = transport
         self.search_id = identifier(search_id)
         self._expected_retention = expected_retention
+        # A FAST zdr_strict create response carries the answer; None otherwise.
+        self.inline_result = inline_result
+        self._strict_request = strict_request
+        self._strict_creation_key = strict_creation_key
+        self._requested_mode = requested_mode
 
     async def status(self, *, request: ReadOptions | None = None) -> SearchSnapshot:
         """Read fresh state; this does not cancel, restart or finalize work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.GET_SEARCH,
             SearchSnapshot,
@@ -299,7 +392,7 @@ class AsyncSearchRun:
     async def result(self, *, request: ReadOptions | None = None) -> SearchResponse:
         """Read the saved canonical outcome, including partial/failure/cancellation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_RESULT,
             SearchResponse,
@@ -325,7 +418,7 @@ class AsyncSearchRun:
     ) -> SearchHistoryDeletionReceipt:
         """Delete the exact archived payload without cancelling or rerunning the search.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         body = SearchHistoryDeletion(expected_archive_digest_sha256=expected_archive_digest_sha256)
         return await self._transport.request(
             operations.DELETE_SEARCH_HISTORY,
@@ -346,7 +439,7 @@ class AsyncSearchRun:
     ) -> Page[SearchEvent, EventCursor]:
         """Read a bounded cursor page tied to this search and current grants.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_EVENTS,
             Page[SearchEvent, EventCursor],
@@ -367,7 +460,7 @@ class AsyncSearchRun:
     async def usage(self, *, request: ReadOptions | None = None) -> UsageSummary:
         """Read authoritative usage, cost and customer charge with independent finality.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_USAGE,
             UsageSummary,
@@ -381,7 +474,7 @@ class AsyncSearchRun:
     ) -> Page[UsageOperation]:
         """Read one bounded page of attributable operation/attempt observations.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.SEARCH_USAGE_ITEMS,
             Page[UsageOperation],
@@ -399,7 +492,7 @@ class AsyncSearchRun:
     async def cancel(self, *, mutation: MutationOptions | None = None) -> ControlReceipt:
         """Request explicit remote cancellation and return an accepted/applied/refused receipt.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             operations.CANCEL_SEARCH,
             ControlReceipt,
@@ -418,7 +511,7 @@ class AsyncSearchRun:
     ) -> ControlReceipt:
         """Read the current control receipt without reissuing the control operation.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         operation_id = identifier(operation_id)
         result = await self._transport.request(
             operations.CONTROL,
@@ -435,18 +528,55 @@ class AsyncSearchRun:
         )
         return result
 
+    def deliver_events(
+        self,
+        *,
+        original_request: KeyedSearchRequest,
+        creation_key: str,
+        mutation: MutationOptions | None = None,
+    ):
+        """Stream live strict DEEP progress and its terminal result in this request.
+
+        Lost content cannot be replayed. Closing disconnects the active owner.
+        """
+        from .strict_events import AsyncStrictSearchEvents
+
+        body = StrictSearchEventRequest(creation_key=creation_key, request=original_request)
+        self._strict_request = None
+        self._strict_creation_key = None
+        return AsyncStrictSearchEvents(self._transport, self.search_id, body, mutation)
+
     def events(
         self, *, observation: ObservationOptions, cursor: EventCursor | None = None
     ) -> AsyncEventStream[SearchEvent]:
-        """Create a lazy managed observer; local close never cancels remote work.
+        """Observe metadata pages, or own one live strict DEEP stream.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        Closing strict delivery disconnects its owner; content cannot be replayed.
+
+        See: the public contract snapshots in contracts/"""
+        if self._expected_retention == "zdr_strict" and self._requested_mode == "deep":
+            if (
+                cursor is not None
+                or self._strict_request is None
+                or self._strict_creation_key is None
+            ):
+                raise StrictZdrResultUnavailable(
+                    "Strict DEEP requires original client intent and no reconnect cursor",
+                    code="strict_event_intent_required",
+                    status=409,
+                    retryable=False,
+                )
+            return self.deliver_events(
+                original_request=self._strict_request,
+                creation_key=self._strict_creation_key,
+                mutation=MutationOptions(timeout_seconds=observation.timeout_seconds),
+            )
         return AsyncEventStream(self.event_page, cursor, observation, owner=self._transport)
 
     async def wait(self, *, observation: ObservationOptions) -> SearchResponse:
         """Observe canonical result availability within a local deadline; never cancel or resubmit.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         deadline = time.monotonic() + observation.timeout_seconds
         polls = min(10000, int(observation.timeout_seconds / observation.poll_interval_seconds) + 2)
         for _ in range(polls):
@@ -458,6 +588,7 @@ class AsyncSearchRun:
                 read_retry_count=observation.retry_count_max,
             )
             snapshot = await self.status(request=request)
+            _raise_unreadable(self.search_id, snapshot)
             if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
                 remaining = deadline - time.monotonic()
                 _raise_terminal(

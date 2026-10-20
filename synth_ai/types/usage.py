@@ -5,14 +5,14 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, model_serializer, model_validator
 
-from .base import Identifier, Model, ResponseModel
+from .base import ResponseBase, ResponseIdentifier, ResponseModel
 from .funding import FundingPart, funding_fallback, validate_funding
 from .money import MoneyObservation
 
 
-class UsageMetric(Model):
+class UsageMetric(ResponseBase):
     name: str = Field(min_length=1, max_length=128)
     unit: Literal[
         "tokens",
@@ -39,8 +39,27 @@ class UsageMetric(Model):
         return self
 
 
+class ResourceUsage(ResponseBase):
+    plugin: str
+    dimension: Literal[
+        "spend_micros", "tokens", "tokens_in", "tokens_out", "calls", "index_searches", "wall_ms"
+    ]
+    usage_class: Literal["agent", "workload", "tool"]
+    role: str
+    state: Literal["measured", "estimated", "unknown", "pending"]
+    amount: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    charge: MoneyObservation | None = None
+
+    @model_validator(mode="after")
+    def validate_observation(self) -> Self:
+        if (self.state in {"measured", "estimated"}) != (self.amount is not None):
+            raise ValueError("Unknown resource usage is never zero")
+        return self
+
+
 class UsageSummary(ResponseModel):
-    operation_id: Identifier
+    resource_usage: tuple[ResourceUsage, ...] = Field(default=(), max_length=16384)
+    operation_id: ResponseIdentifier
     physical: tuple[UsageMetric, ...] = Field(max_length=128)
     cost: MoneyObservation
     customer_charge: MoneyObservation
@@ -50,6 +69,13 @@ class UsageSummary(ResponseModel):
         default_factory=lambda: MoneyObservation(state="unknown", amount=None)
     )
     funding: tuple[FundingPart, ...] = Field(default=(), max_length=7)
+
+    @model_serializer(mode="wrap")
+    def omit_empty_resources(self, handler):
+        value = handler(self)
+        if not self.resource_usage:
+            value.pop("resource_usage", None)
+        return value
 
     @model_validator(mode="after")
     def validate_final_charge(self) -> Self:
@@ -66,9 +92,9 @@ class UsageSummary(ResponseModel):
 
 
 class UsageOperation(ResponseModel):
-    operation_id: Identifier
-    parent_id: Identifier | None
-    attempt_id: Identifier
-    event_id: Identifier
+    operation_id: ResponseIdentifier
+    parent_id: ResponseIdentifier | None
+    attempt_id: ResponseIdentifier
+    event_id: ResponseIdentifier
     component: str = Field(min_length=1, max_length=128)
     usage: UsageSummary

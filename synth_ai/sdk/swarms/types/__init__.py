@@ -15,14 +15,18 @@ from .launch import (
     Models,
     Project,
     Providers,
+    RepoSelector,
     ResolvedModelId,
     ResolvedModels,
     ResolvedProviders,
 )
+from .objectives import ObjectiveClaim
 from .outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
+from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
 from .runs import (
     LaunchPreflight,
     ResolvedConfiguration,
+    RunControlSummary,
     RunFailure,
     RunSnapshot,
     RunState,
@@ -34,6 +38,10 @@ from .runs import (
 )
 
 __all__ = [
+    "PROBLEMS_SCHEMA",
+    "EvidenceRef",
+    "Problem",
+    "ReasonLink",
     "File",
     "FileManifest",
     "FileMediaType",
@@ -42,6 +50,7 @@ __all__ = [
     "FileUploadStatus",
     "FileRef",
     "Inputs",
+    "RepoSelector",
     "Limits",
     "Models",
     "Project",
@@ -54,9 +63,11 @@ __all__ = [
     "OutputRef",
     "TextContent",
     "TransferTiming",
+    "ObjectiveClaim",
     "LaunchPreflight",
     "ResolvedConfiguration",
     "RunFailure",
+    "RunControlSummary",
     "RunSnapshot",
     "RunState",
     "SwarmEvent",
@@ -65,3 +76,5 @@ __all__ = [
     "TaskExecutionFacts",
     "TaskState",
 ]
+
+from .programs import ProgramRunView as ProgramRunView

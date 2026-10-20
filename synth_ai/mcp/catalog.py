@@ -22,6 +22,7 @@ from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
 from synth_ai.sdk.index.types.contributions import Contribution
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
+from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
@@ -38,6 +39,7 @@ from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
 from synth_ai.types.receipts import ControlReceipt, MutationResolution
+from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from .contracts import (
@@ -56,6 +58,7 @@ from .contracts import (
     PublicContributionsArguments,
     PublicSearchArguments,
     Recovery,
+    RetentionPolicyMutation,
     RunControl,
     RunCreate,
     RunCreated,
@@ -72,6 +75,7 @@ from .contracts import (
     SearchIdentity,
     SearchMutation,
     SearchPage,
+    StrictSearchDelivery,
 )
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
@@ -146,7 +150,7 @@ class ToolDefinition(Generic[RequestT, ResultT]):
         return JSON_OBJECT.validate_python(self.request.model_json_schema())
 
     def output_schema(self) -> JsonObject:
-        return JSON_OBJECT.validate_python(self.result.model_json_schema())
+        return JSON_OBJECT.validate_python(response_schema(self.result))
 
     def validate_arguments(self, arguments: JsonObject) -> JsonObject:
         parsed = self.request.model_validate_json(JSON_OBJECT.dump_json(arguments))
@@ -178,6 +182,22 @@ async def account_entitlements(
     return await client.account.entitlements()
 
 
+async def retention_get(client: AsyncSynthClient, args: EmptyArguments) -> RetentionPolicy:
+    return await client.index.retention.get()
+
+
+async def retention_update(
+    client: AsyncSynthClient, args: RetentionPolicyMutation
+) -> RetentionPolicy:
+    return await client.index.retention.update(
+        default_mode=args.default_mode,
+        allowed_modes=args.allowed_modes,
+        enforced=args.enforced,
+        expected_revision=args.expected_revision,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
 async def public_search(client: AsyncSynthClient, args: PublicSearchArguments) -> SearchResponse:
     return await client.index.search(args.query, options=args.options)
 
@@ -196,7 +216,7 @@ async def create_search(client: AsyncSynthClient, args: SearchCreate) -> SearchC
         options=args.options,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
-    return SearchCreated(search_id=run.search_id)
+    return SearchCreated(search_id=run.search_id, inline_result=run.inline_result)
 
 
 async def search_status(client: AsyncSynthClient, args: SearchIdentity) -> SearchSnapshot:
@@ -363,6 +383,18 @@ async def run_cancel(client: AsyncSynthClient, args: RunMutation) -> ControlRece
     )
 
 
+async def run_pause(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
+    return await (await client.swarms.get(args.run_id)).pause(
+        mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
+async def run_resume(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
+    return await (await client.swarms.get(args.run_id)).resume(
+        mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
 async def outputs(client: AsyncSynthClient, args: RunPage) -> Page[Output]:
     return await (await client.swarms.get(args.run_id)).outputs.list(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
@@ -397,7 +429,44 @@ async def run_control(client: AsyncSynthClient, args: RunControl) -> ControlRece
     return await (await client.swarms.get(args.run_id)).control(args.operation_id)
 
 
+async def deliver_search_events(
+    client: AsyncSynthClient, args: StrictSearchDelivery
+) -> Page[SearchEvent, EventCursor]:
+    from synth_ai.sdk.index.search_run import AsyncSearchRun
+    from synth_ai.sdk.index.types.search import StrictSearchProgress
+
+    from .progress import publish_progress
+
+    run = AsyncSearchRun(client.index._transport, args.search_id, expected_retention="zdr_strict")
+    async with run.deliver_events(
+        original_request=args.request,
+        creation_key=args.creation_key,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key, timeout_seconds=690),
+    ) as events:
+        terminal = None
+        async for event in events:
+            if isinstance(event, StrictSearchProgress):
+                await publish_progress(event)
+            else:
+                terminal = event
+        if terminal is None:
+            from synth_ai.errors import OutcomeUncertainError
+
+            raise OutcomeUncertainError("Strict event terminal was not delivered")
+        return Page[SearchEvent, EventCursor](
+            metadata=terminal.result.metadata, items=(terminal,), complete=True, next_cursor=None
+        )
+
+
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "index_search_deliver_events",
+        index_operations.DELIVER_SEARCH_EVENTS,
+        "Deliver live strict DEEP progress and the terminal result using original intent and creation key. Requires a progress token; content cannot be replayed.",
+        StrictSearchDelivery,
+        Page[SearchEvent, EventCursor],
+        deliver_search_events,
+    ),
     ToolDefinition(
         "index_search_control",
         index_operations.CONTROL,
@@ -501,6 +570,22 @@ TOOLS: tuple[ToolSpec, ...] = (
         SearchHistoryArguments,
         SearchHistoryPage,
         search_history,
+    ),
+    ToolDefinition(
+        "index_retention_get",
+        index_operations.GET_RETENTION,
+        "Read this organization's default and allowed Index retention modes.",
+        EmptyArguments,
+        RetentionPolicy,
+        retention_get,
+    ),
+    ToolDefinition(
+        "index_retention_update",
+        index_operations.PUT_RETENTION,
+        "Replace org retention policy at the observed revision with a stable key. Org admins only.",
+        RetentionPolicyMutation,
+        RetentionPolicy,
+        retention_update,
     ),
     ToolDefinition(
         "index_search_history_delete",
@@ -653,6 +738,22 @@ TOOLS: tuple[ToolSpec, ...] = (
         RunPage,
         Page[UsageOperation],
         run_usage_items,
+    ),
+    ToolDefinition(
+        "swarms_pause",
+        swarm_operations.PAUSE,
+        "Request pause with a stable idempotency key; the original run deadline continues.",
+        RunMutation,
+        ControlReceipt,
+        run_pause,
+    ),
+    ToolDefinition(
+        "swarms_resume",
+        swarm_operations.RESUME,
+        "Request resume with a stable idempotency key; the original run deadline continues.",
+        RunMutation,
+        ControlReceipt,
+        run_resume,
     ),
     ToolDefinition(
         "swarms_cancel",

@@ -281,6 +281,7 @@ def create_http_app(
     candidate_manifest_sha256: str | None = None,
     allowed_origins: tuple[str, ...] = (),
     legacy_issuer_urls: tuple[str, ...] = (),
+    streaming_tools: frozenset[str] | None = None,
 ) -> Starlette:
     """Create one stateless protected MCP endpoint; backend supplies live authorization.
 
@@ -301,6 +302,10 @@ def create_http_app(
     known = {tool.name for tool in TOOLS}
     if not enabled_tools <= known:
         raise ValueError("Hosted allowlist contains an unknown tool")
+    required_streaming = enabled_tools & {"index_search_deliver_events"}
+    streaming_tools = required_streaming if streaming_tools is None else streaming_tools
+    if not required_streaming <= streaming_tools:
+        raise ValueError("Strict DEEP tools require live streaming transport")
     resource = AnyHttpUrl(resource_url)
     issuer = AnyHttpUrl(issuer_url)
     executor = HostedExecutor(
@@ -319,10 +324,28 @@ def create_http_app(
             allowed_origins=list(allowed_origins),
         ),
     )
+    streaming_manager = StreamableHTTPSessionManager(
+        app=server,
+        json_response=False,
+        stateless=True,
+        max_request_body_size=128 * 1024,
+        security_settings=TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[host],
+            allowed_origins=list(allowed_origins),
+        ),
+    )
+    if not streaming_tools <= enabled_tools:
+        raise ValueError("Streaming tools require the qualified enabled allowlist")
+    from .streaming import StreamingToolSelector
+
+    handle_request = StreamingToolSelector(
+        manager.handle_request, streaming_manager.handle_request, streaming_tools
+    )
 
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncGenerator[None]:
-        async with manager.run():
+        async with manager.run(), streaming_manager.run():
             yield
 
     routes = create_protected_resource_routes(
@@ -335,7 +358,7 @@ def create_http_app(
         Route(
             urlsplit(resource_url).path or "/",
             endpoint=RequireAuthMiddleware(
-                manager.handle_request,
+                handle_request,
                 required_scopes=[],
                 resource_metadata_url=build_resource_metadata_url(resource),
             ),

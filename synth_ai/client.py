@@ -16,8 +16,12 @@ from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
+from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
+from synth_ai.sdk.core.links import AsyncLinks, Links
+from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
+from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.capabilities import Capabilities
 from synth_ai.types.identity import MutationIdentity
@@ -66,6 +70,10 @@ class SynthClient:
     index: IndexClient
     swarms: SwarmsClient
     account: AccountClient
+    tunnels: TunnelsClient
+    repos: Repositories
+    links: Links
+    artifacts: Artifacts
 
     def __init__(
         self,
@@ -77,7 +85,7 @@ class SynthClient:
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
             raise ValueError(
-                "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
+                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
             )
         origin = resolve_url(base_url)
         key, provider = _credentials(api_key, origin)
@@ -85,6 +93,10 @@ class SynthClient:
         self.index = IndexClient(self._transport, True)
         self.swarms = SwarmsClient(self._transport)
         self.account = AccountClient(self._transport)
+        self.tunnels = TunnelsClient(self._transport)
+        self.repos = Repositories(self._transport)
+        self.links = Links(self._transport)
+        self.artifacts = Artifacts(self._transport)
 
     @classmethod
     def anonymous(
@@ -92,23 +104,27 @@ class SynthClient:
     ) -> SynthClient:
         """Construct a public client without reading ambient credentials or doing network IO.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
             raise ValueError(
-                "SynthClient owns its network transport; async borrowing requires AsyncSynthClient"
+                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
             )
         client = cls.__new__(cls)
         client._transport = HttpTransport(resolve_url(base_url), None, selected)
         client.index = IndexClient(client._transport, False)
         client.swarms = SwarmsClient(client._transport)
         client.account = AccountClient(client._transport)
+        client.tunnels = TunnelsClient(client._transport)
+        client.repos = Repositories(client._transport)
+        client.links = Links(client._transport)
+        client.artifacts = Artifacts(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
         """Read nonsecret deployment facts; these do not grant resource access.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return self._transport.request(CAPABILITIES, Capabilities, options=request)
 
     @property
@@ -124,7 +140,7 @@ class SynthClient:
     def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
         """Read verified identity and current grants without secrets or tenant overrides.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
 
     def resolve_mutation(
@@ -132,7 +148,7 @@ class SynthClient:
     ) -> MutationResolution:
         """Reconcile known scoped mutation identity; unavailable is not proof of nonacceptance.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = self._transport.request(
             recovery_operation(identity),
             MutationResolution,
@@ -151,7 +167,7 @@ class SynthClient:
     def close(self) -> None:
         """Close owned network resources without cancelling durable remote work.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         self._transport.close()
 
     def __enter__(self) -> SynthClient:
@@ -176,6 +192,10 @@ class AsyncSynthClient:
     index: AsyncIndexClient
     swarms: AsyncSwarmsClient
     account: AsyncAccountClient
+    tunnels: AsyncTunnelsClient
+    repos: AsyncRepositories
+    links: AsyncLinks
+    artifacts: AsyncArtifacts
 
     def __init__(
         self,
@@ -191,6 +211,10 @@ class AsyncSynthClient:
         self.index = AsyncIndexClient(self._transport, True)
         self.swarms = AsyncSwarmsClient(self._transport)
         self.account = AsyncAccountClient(self._transport)
+        self.tunnels = AsyncTunnelsClient(self._transport)
+        self.repos = AsyncRepositories(self._transport)
+        self.links = AsyncLinks(self._transport)
+        self.artifacts = AsyncArtifacts(self._transport)
 
     @classmethod
     def anonymous(
@@ -198,19 +222,23 @@ class AsyncSynthClient:
     ) -> AsyncSynthClient:
         """Construct a public client without reading ambient credentials or doing network IO.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         selected = options or ClientOptions()
         client = cls.__new__(cls)
         client._transport = AsyncHttpTransport(resolve_url(base_url), None, selected)
         client.index = AsyncIndexClient(client._transport, False)
         client.swarms = AsyncSwarmsClient(client._transport)
         client.account = AsyncAccountClient(client._transport)
+        client.tunnels = AsyncTunnelsClient(client._transport)
+        client.repos = AsyncRepositories(client._transport)
+        client.links = AsyncLinks(client._transport)
+        client.artifacts = AsyncArtifacts(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
         """Read nonsecret deployment facts; these do not grant resource access.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return await self._transport.request(CAPABILITIES, Capabilities, options=request)
 
     @property
@@ -226,7 +254,7 @@ class AsyncSynthClient:
     async def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
         """Read verified identity and current grants without secrets or tenant overrides.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         return await self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
 
     async def resolve_mutation(
@@ -234,7 +262,7 @@ class AsyncSynthClient:
     ) -> MutationResolution:
         """Reconcile known scoped mutation identity; unavailable is not proof of nonacceptance.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         result = await self._transport.request(
             recovery_operation(identity),
             MutationResolution,
@@ -253,7 +281,7 @@ class AsyncSynthClient:
     async def aclose(self) -> None:
         """End async local ownership without cancelling durable work or closing borrowed clients.
 
-        See: backend/notes/specifications/sdk/index_contract.md."""
+        See: the public contract snapshots in contracts/"""
         await self._transport.aclose()
 
     async def __aenter__(self) -> AsyncSynthClient:

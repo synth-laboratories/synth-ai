@@ -1,9 +1,10 @@
 """Deadline-bound HTTP transport for explicit HTTPX use.
 
-See backend/notes/specifications/sdk/index_contract.md. The transport owns its
-network loop and pool. Arbitrary non-cooperative synchronous transports cannot
-be preempted; SynthClient uses this implementation internally and does not
-accept synchronous client injection. An HTTPX caller must close its client.
+See the public contract snapshots in contracts/ The transport owns its
+network loop and pool, honoring environment proxies and CA settings. Arbitrary
+non-cooperative synchronous transports cannot be preempted. An HTTPX caller
+must close its client and set trust_env=False on the outer client so its proxy
+mounts do not bypass this transport.
 """
 
 from synth_ai.core.http.blocking import DeadlineTransport

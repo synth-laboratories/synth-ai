@@ -4,13 +4,13 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from .base import Identifier, OAuthClientIdentifier, ResponseModel
+from .base import OAuthClientIdentifier, ResponseIdentifier, ResponseModel
 
 
 class AuthContext(ResponseModel):
-    tenant_id: Identifier
-    subject_id: Identifier
-    credential_id: Identifier
+    tenant_id: ResponseIdentifier
+    subject_id: ResponseIdentifier
+    credential_id: ResponseIdentifier
     credential_kind: Literal["api_key", "oauth"]
     oauth_client_id: OAuthClientIdentifier | None
     subject_kind: Literal["user", "service"]

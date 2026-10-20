@@ -9,6 +9,7 @@ from synth_ai.core.parameters import identifier, page_parameters, verified
 from synth_ai.options import ReadOptions
 from synth_ai.types.base import Page, PageCursor
 
+from .deprecated import artifact_alias
 from .file_uploads import AsyncUploads, Uploads
 from .types.files import File
 
@@ -18,6 +19,7 @@ class Files:
         self._transport = transport
         self.uploads = Uploads(transport)
 
+    @artifact_alias
     def list(
         self,
         project_id: str,
@@ -42,6 +44,7 @@ class Files:
             ),
         )
 
+    @artifact_alias
     def get(self, project_id: str, file_id: str, *, request: ReadOptions | None = None) -> File:
         """Read the exact file; only a ready immutable reference is a launch input."""
         project_id, file_id = identifier(project_id), identifier(file_id)
@@ -63,6 +66,7 @@ class AsyncFiles:
         self._transport = transport
         self.uploads = AsyncUploads(transport)
 
+    @artifact_alias
     async def list(
         self,
         project_id: str,
@@ -87,6 +91,7 @@ class AsyncFiles:
             ),
         )
 
+    @artifact_alias
     async def get(
         self, project_id: str, file_id: str, *, request: ReadOptions | None = None
     ) -> File:

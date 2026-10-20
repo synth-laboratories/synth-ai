@@ -6,7 +6,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.base import Digest, Identifier, Model, ResponseIdentifier, ResponseModel
 
 from .annotations import AuthorAnnotations, ContributionAnnotations
 
@@ -17,8 +17,8 @@ class ContributionFilter(Model):
 
 
 class Contribution(ResponseModel):
-    contribution_id: Identifier
-    revision_id: Identifier | None
+    contribution_id: ResponseIdentifier
+    revision_id: ResponseIdentifier | None
     title: str | None = Field(max_length=256)
     status: Literal[
         "draft", "submitted", "changes_requested", "rejected", "qualified", "published", "withdrawn"
@@ -49,10 +49,10 @@ class ContributionDraft(Model):
 
 
 class ContributionRevision(ResponseModel):
-    contribution_id: Identifier
-    revision_id: Identifier
+    contribution_id: ResponseIdentifier
+    revision_id: ResponseIdentifier
     digest_sha256: Digest | None
-    parent_revision_id: Identifier | None = None
+    parent_revision_id: ResponseIdentifier | None = None
 
 
 class RightsAttestation(Model):
@@ -65,8 +65,8 @@ class RightsAttestation(Model):
 
 
 class AttestationReceipt(ResponseModel):
-    contribution_id: Identifier
-    revision_id: Identifier
+    contribution_id: ResponseIdentifier
+    revision_id: ResponseIdentifier
     accepted: bool
     state: Literal["pending_submission", "attested"]
     reason: str | None = Field(max_length=512)
@@ -77,8 +77,8 @@ class SubmissionRequest(Model):
 
 
 class SubmissionReceipt(ResponseModel):
-    contribution_id: Identifier
-    revision_id: Identifier
+    contribution_id: ResponseIdentifier
+    revision_id: ResponseIdentifier
     state: Literal["submitted", "refused"]
     reason: str | None = Field(max_length=512)
 
@@ -90,7 +90,7 @@ class ResearchCorrection(Model):
 
 
 class CorrectionReceipt(ResponseModel):
-    contribution_id: Identifier
-    revision_id: Identifier
+    contribution_id: ResponseIdentifier
+    revision_id: ResponseIdentifier
     state: Literal["recorded", "refused"]
     reason: str | None = Field(max_length=512)

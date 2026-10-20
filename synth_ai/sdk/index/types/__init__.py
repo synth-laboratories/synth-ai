@@ -40,6 +40,8 @@ from .search import (
     SearchFilters,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
+    StrictSearchProgress,
 )
 from .uploads import (
     ContributionPackageRef,
@@ -90,6 +92,8 @@ __all__ = [
     "SearchFilters",
     "SearchResponse",
     "SearchSnapshot",
+    "StrictSearchProgress",
+    "StrictSearchEventRequest",
     "ContributionPackageRef",
     "ContributionUploadManifest",
     "LocalContributionPackage",

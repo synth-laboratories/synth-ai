@@ -1,4 +1,4 @@
-"""Typed Index vocabulary. See backend/notes/specifications/sdk/index_contract.md."""
+"""Typed Index vocabulary. See the public contract snapshots in contracts/"""
 
 from .client import AsyncIndexClient, IndexClient
 from .search_run import AsyncSearchRun, SearchRun
@@ -17,6 +17,8 @@ from .types.search import (
     SearchFilters,
     SearchResponse,
     SearchSnapshot,
+    StrictSearchEventRequest,
+    StrictSearchProgress,
 )
 from .types.uploads import ContributionUploadManifest, LocalContributionPackage, UploadSource
 from .uploads import AsyncUploadSession, UploadSession
@@ -27,6 +29,8 @@ __all__ = [
     "SearchCitation",
     "SearchEvent",
     "SearchSnapshot",
+    "StrictSearchProgress",
+    "StrictSearchEventRequest",
     "AsyncIndexClient",
     "IndexClient",
     "AsyncSearchRun",

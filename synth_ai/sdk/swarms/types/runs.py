@@ -2,18 +2,50 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
-from pydantic import AwareDatetime, Field, StrictInt, model_validator
+from pydantic import (
+    AwareDatetime,
+    Field,
+    SerializerFunctionWrapHandler,
+    StrictInt,
+    model_serializer,
+    model_validator,
+)
 
 from synth_ai.errors import OperationFailedError
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.sdk.core.artifact_types import ResponseLabels
+from synth_ai.types.base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
+from synth_ai.types.receipts import ControlCommand, ControlState
+from synth_ai.types.refs import Ref
+from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import UsageSummary
 
-from .launch import Inputs, Limits, ResolvedModelId, ResolvedModels, ResolvedProviders
+from .launch import (
+    Inputs,
+    Limits,
+    RepoSelector,
+    ResolvedModelId,
+    ResolvedModels,
+    ResolvedProviders,
+)
+from .objectives import GuidanceCoverage, ObjectiveResult
+from .problems import Problem, ReasonLink
 
-RunState = Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
-TaskState = Literal[
+KnownRunState = Literal[
+    "queued",
+    "running",
+    "pausing",
+    "paused",
+    "cancelling",
+    "completed",
+    "partial",
+    "failed",
+    "cancelled",
+]
+RunState = KnownRunState | UnknownValue
+
+KnownTaskState = Literal[
     "pending",
     "queued",
     "running",
@@ -26,18 +58,21 @@ TaskState = Literal[
     "cancelled",
 ]
 
+TaskState = KnownTaskState | UnknownValue
+
 
 class ResolvedConfiguration(ResponseModel):
-    run_id: Identifier | None
-    project_id: Identifier
-    configuration_id: Identifier
+    run_id: ResponseIdentifier | None
+    project_id: ResponseIdentifier
+    configuration_id: ResponseIdentifier
     digest_sha256: Digest
-    profile_id: Identifier
+    profile_id: ResponseIdentifier
     runtime_image_digest: Digest
     limits: Limits
     inputs: Inputs
     providers: ResolvedProviders
     models: ResolvedModels
+    repo: RepoSelector | None = None
 
 
 class LaunchPreflight(ResponseModel):
@@ -56,28 +91,77 @@ class LaunchPreflight(ResponseModel):
         return self
 
 
+class RunFailure(ResponseBase):
+    code: ResponseIdentifier
+    retryable: bool
+    # Root-cause explanation (synth.problems.v1). Defaults keep a response from
+    # an older server valid; a new server always fills them.
+    problem_id: ResponseIdentifier | None = None
+    reason_chain: tuple[ReasonLink, ...] = Field(default=(), max_length=16)
+
+
+class RunControlSummary(ResponseBase):
+    operation_id: ResponseIdentifier
+    command: ControlCommand
+    state: ControlState
+
+
 class RunSnapshot(ResponseModel):
-    run_id: Identifier
-    project_id: Identifier
+    run_id: ResponseIdentifier
+    project_id: ResponseIdentifier
+    ref: Ref | None = None
+    labels: ResponseLabels = Field(default_factory=dict)
+    labels_revision: StrictInt = Field(default=1, ge=1)
+    objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
+    guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
     state: RunState
     model: ResolvedModelId
-    provider: Identifier
+    provider: ResponseIdentifier
     result_available: bool
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+    control: RunControlSummary | None = None
+    paused_at: AwareDatetime | None = None
+    resume_by: AwareDatetime | None = None
+    deadline_at: AwareDatetime | None = None
+    pause_count: StrictInt | None = Field(default=None, ge=0, le=2**32 - 1)
+    # Ranked open problems, root cause first (synth.problems.v1).
+    problems: tuple[Problem, ...] = Field(default=(), max_length=32)
+    # False when Orchestra's problems could not be read (see the
+    # `owner_unavailable` problem) or were not requested (list reads).
+    problems_observed: bool = False
+    # Set for a failed run, and for a run whose cancel was accepted but is not
+    # terminal: the root cause, not a generic code.
+    failure: RunFailure | None = None
 
+    @model_serializer(mode="wrap")
+    def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = handler(self)
+        for name in ("ref", "control", "paused_at", "resume_by", "deadline_at", "pause_count"):
+            if getattr(self, name) is None:
+                value.pop(name, None)
+        return value
 
-class RunFailure(Model):
-    code: Identifier
-    retryable: bool
+    @model_validator(mode="after")
+    def validate_reference(self) -> Self:
+        if self.ref is not None and (
+            self.ref.authority != "swarms"
+            or self.ref.kind != "run"
+            or self.ref.record_id != self.run_id
+            or self.ref.revision != "1"
+        ):
+            raise ValueError("Run reference must identify this exact frozen launch request")
+        return self
 
 
 class SwarmResult(ResponseModel):
-    run_id: Identifier
+    objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
+    guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
+    run_id: ResponseIdentifier
     status: Literal["completed", "partial", "failed", "cancelled"]
     text: str | None = Field(default=None, max_length=65536)
-    output_ids: tuple[Identifier, ...] = Field(max_length=256)
+    output_ids: tuple[ResponseIdentifier, ...] = Field(max_length=256)
     output_count: StrictInt = Field(ge=0)
     output_ready: bool
     warnings: tuple[str, ...] = Field(max_length=32)
@@ -101,8 +185,12 @@ class SwarmResult(ResponseModel):
     def raise_for_failure(self) -> None:
         """Opt into raising without losing the canonical result."""
         if self.status in {"failed", "cancelled"}:
+            root = (
+                self.failure.reason_chain[0] if self.failure and self.failure.reason_chain else None
+            )
             raise OperationFailedError(
-                "Swarm did not complete successfully",
+                "Swarm did not complete successfully"
+                + (f": root cause {root.service}/{root.code} at {root.stage}" if root else ""),
                 code=self.failure.code if self.failure else "swarm_cancelled",
                 request_id=self.metadata.request_id,
             )
@@ -124,7 +212,7 @@ TaskActivity = Literal[
 ]
 
 
-class TaskExecutionFacts(Model):
+class TaskExecutionFacts(ResponseBase):
     """Independent native execution facts; activity does not assert finality."""
 
     activity: tuple[TaskActivity, ...] = Field(max_length=12)
@@ -152,8 +240,8 @@ class TaskExecutionFacts(Model):
 
 
 class TaskOutcome(ResponseModel):
-    run_id: Identifier
-    task_id: Identifier
+    run_id: ResponseIdentifier
+    task_id: ResponseIdentifier
     state: TaskState
     attempts: StrictInt = Field(ge=0, le=2**32 - 1)
     failure: RunFailure | None
@@ -176,22 +264,45 @@ class TaskOutcome(ResponseModel):
         return self
 
 
-class SwarmEvent(Model):
-    event_id: Identifier
-    run_id: Identifier
+class SwarmEvent(ResponseBase):
+    event_id: ResponseIdentifier
+    run_id: ResponseIdentifier
     sequence: StrictInt = Field(ge=1)
-    kind: Literal[
-        "created",
-        "running",
-        "completed",
-        "partial",
-        "failed",
-        "cancelled",
-        "usage_updated",
-        "unknown",
-    ]
+    kind: (
+        Literal[
+            "created",
+            "objective.created",
+            "objective.revised",
+            "objective.not_applicable",
+            "objective.claimed",
+            "objective.answered",
+            "objective.verified",
+            "objective.rejected",
+            "objective.partial",
+            "objective.revision_approved",
+            "running",
+            "completed",
+            "partial",
+            "failed",
+            "cancelled",
+            "paused",
+            "resumed",
+            "cancel_requested",
+            "usage_updated",
+            "unknown",
+        ]
+        | UnknownValue
+    )
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
+    observed_at: AwareDatetime | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_event_time(self, handler):
+        value = handler(self)
+        if self.observed_at is None:
+            value.pop("observed_at", None)
+        return value
 
     @model_validator(mode="after")
     def validate_event(self) -> Self:

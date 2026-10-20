@@ -138,7 +138,7 @@ async def async_transfer(
     try:
         async with (
             asyncio.timeout(options.timeout_seconds),
-            httpx.AsyncClient(trust_env=False) as client,
+            httpx.AsyncClient(trust_env=True, auth=None) as client,
         ):
             request = client.build_request(
                 "PUT",

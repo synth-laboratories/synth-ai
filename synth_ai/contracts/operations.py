@@ -14,11 +14,11 @@ PREFIX = "/api/v1"
 @dataclass(frozen=True, slots=True)
 class Operation:
     id: str
-    method: Literal["GET", "POST", "PATCH"]
+    method: Literal["GET", "POST", "PATCH", "PUT"]
     path: str
     keyed: bool
     mutation: bool = False
-    contract: Literal["index.v1", "swarms.v1"] = "index.v1"
+    contract: Literal["index.v1", "swarms.v1", "core.v1", "tunnels.v2", "account.v1"] = "index.v1"
     required_scope: str | None = None
     may_charge: bool = False
 
@@ -102,6 +102,15 @@ SEARCH_EVENTS = Operation(
     True,
     required_scope="index:read",
 )
+DELIVER_SEARCH_EVENTS = Operation(
+    "index.searches.events.deliver",
+    "POST",
+    "/index/searches/{search_id}/events",
+    True,
+    True,
+    required_scope="index:search",
+    may_charge=True,
+)
 SEARCH_RESULT = Operation(
     "index.searches.result",
     "GET",
@@ -149,6 +158,12 @@ USAGE_ITEMS = Operation(
     required_scope="index:read",
 )
 ACCOUNT = Operation("index.account.get", "GET", "/index/account", True, required_scope="index:read")
+GET_RETENTION = Operation(
+    "index.retention.get", "GET", "/index/me/retention", True, required_scope="index:read"
+)
+PUT_RETENTION = Operation(
+    "index.retention.update", "PUT", "/index/me/retention", True, True, required_scope=None
+)
 COLLECTIONS = Operation(
     "index.collections.list", "GET", "/index/collections", True, required_scope="index:read"
 )
@@ -266,6 +281,7 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     SEARCH_HISTORY,
     DELETE_SEARCH_HISTORY,
     SEARCH_EVENTS,
+    DELIVER_SEARCH_EVENTS,
     SEARCH_RESULT,
     CANCEL_SEARCH,
     CONTROL,
@@ -274,6 +290,8 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     USAGE,
     USAGE_ITEMS,
     ACCOUNT,
+    GET_RETENTION,
+    PUT_RETENTION,
     COLLECTIONS,
     COLLECTION,
     CONTRIBUTIONS,

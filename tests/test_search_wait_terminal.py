@@ -1,6 +1,6 @@
 """Search wait fails early and hard on a terminal Search with no result.
 
-v0.23 slot4 2026-10-15: a DEEP Search failed in ~1 s (state ``failed``,
+A recorded v0.23 qualification case: a DEEP Search failed in ~1 s (state ``failed``,
 ``result_available`` false) and ``wait()`` polled for the full 15-minute
 deadline, then raised a bare RequestTimeoutError that hid the cause.
 """
@@ -9,11 +9,12 @@ import asyncio
 from datetime import UTC, datetime
 
 import pytest
-
 from synth_ai.errors import ContractError, OperationFailedError
 from synth_ai.options import ObservationOptions
 from synth_ai.sdk.index.search_run import AsyncSearchRun, SearchRun
 from synth_ai.sdk.index.types.search import SearchResponse, SearchSnapshot
+
+pytestmark = pytest.mark.unit
 
 SEARCH = "40ea7f75-8530-45f8-b05f-f9f0f9cca93a"
 METADATA = {

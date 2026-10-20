@@ -10,7 +10,7 @@ from typing import Literal, Self
 from pydantic import AwareDatetime, Field, StrictInt, model_validator
 
 from synth_ai.core.local_files import open_regular_file
-from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
+from synth_ai.types.base import Digest, Model, ResponseIdentifier, ResponseModel
 from synth_ai.types.uploads import validate_upload_headers
 
 from .launch import FileRef
@@ -42,8 +42,8 @@ class FileManifest(Model):
 
 
 class File(ResponseModel):
-    project_id: Identifier
-    file_id: Identifier
+    project_id: ResponseIdentifier
+    file_id: ResponseIdentifier
     state: Literal["scanning", "ready", "rejected", "deleted"]
     manifest: FileManifest
     reference: FileRef | None
@@ -64,8 +64,8 @@ class File(ResponseModel):
 
 
 class FileUploadStatus(ResponseModel):
-    upload_id: Identifier
-    project_id: Identifier
+    upload_id: ResponseIdentifier
+    project_id: ResponseIdentifier
     state: Literal["prepared", "received", "finalized", "expired", "refused"]
     manifest: FileManifest
     transfer_url: str | None = Field(max_length=4096, repr=False)
@@ -86,7 +86,7 @@ class FileUploadStatus(ResponseModel):
 
 
 class FileUploadReceipt(ResponseModel):
-    upload_id: Identifier
+    upload_id: ResponseIdentifier
     file: File
     state: Literal["finalized"]
 
