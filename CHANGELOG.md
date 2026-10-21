@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.5.dev2026102001
+
+Development build (contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 32b0b01e).
+
+- `SwarmRun.watch()` / `AsyncSwarmRun.watch()` stream verified `RunSnapshot`s from
+  `GET /swarms/runs/{run_id}/stream` (`swarms.stream`). Each snapshot's event id is its version
+  token (`watch.last_event_id`); the watch reconnects with `Last-Event-ID` on rotation and on
+  bounded transient failures, and ends when the backend reports the run final.
+
 ## 0.23.4
 
 Patch release on 0.23.1 (contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 22eb54d2).

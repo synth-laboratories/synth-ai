@@ -38,6 +38,7 @@ from .types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from .watch import AsyncRunWatch, RunWatch
 
 
 def _control_receipt(value: ControlReceipt, run_id: str, command: ControlCommand) -> ControlReceipt:
@@ -177,6 +178,14 @@ class SwarmRun(RunIdentity):
             options=request,
             validate=self._observe_snapshot,
         )
+
+    def watch(
+        self, *, observation: ObservationOptions | None = None, last_event_id: str | None = None
+    ) -> RunWatch:
+        """Stream verified snapshots until the run is final; closing never changes the run.
+
+        Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
+        return RunWatch(self, self._transport, observation, last_event_id)
 
     def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""
@@ -496,6 +505,14 @@ class AsyncSwarmRun(RunIdentity):
             options=request,
             validate=self._observe_snapshot,
         )
+
+    def watch(
+        self, *, observation: ObservationOptions | None = None, last_event_id: str | None = None
+    ) -> AsyncRunWatch:
+        """Stream verified snapshots until the run is final; closing never changes the run.
+
+        Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
+        return AsyncRunWatch(self, self._transport, observation, last_event_id)
 
     async def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""

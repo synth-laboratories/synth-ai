@@ -252,6 +252,7 @@ class AsyncHttpTransport:
         remaining_seconds: float,
         digest: str | None,
         accept: str = "application/octet-stream",
+        headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
         selected = request_options(
             operation,
@@ -269,6 +270,7 @@ class AsyncHttpTransport:
                 digest=digest,
                 options=selected,
                 accept=accept,
+                headers=headers,
             )
         except SynthError as error:
             annotate_request_error(error, operation, selected)
@@ -293,6 +295,7 @@ class AsyncHttpTransport:
         digest: str | None,
         options: ReadOptions,
         accept: str = "application/octet-stream",
+        headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
         """Open one SDK-owned read response, without retries or redirects."""
         if self._closed:
@@ -323,6 +326,8 @@ class AsyncHttpTransport:
         request.headers.pop("If-Match", None)
         if digest is not None:
             request.headers["If-Match"] = '"' + digest + '"'
+        for header, value in (headers or {}).items():
+            request.headers[header] = value
         response = await self._send_response(request)
         try:
             validate_negotiated_response(response, negotiated, None, False)
