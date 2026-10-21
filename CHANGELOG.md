@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.23.5.dev2026102001
+## 0.23.5
 
-Development build (contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 32b0b01e).
+Contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 32b0b01e.
 
 - `SwarmRun.watch()` / `AsyncSwarmRun.watch()` stream verified `RunSnapshot`s from
   `GET /swarms/runs/{run_id}/stream` (`swarms.stream`). Each snapshot's event id is its version
