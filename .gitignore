@@ -242,3 +242,20 @@ pytest.*.ini
 # Misc temp artifacts
 engine_bench_eval_timing.json
 greptile.json
+
+# Owned, bounded local modular-program qualification outputs.
+/.orchestra-work/
+
+# Internal workspace coordination and contributor documents.
+.pressure/
+.agents/
+HANDOFF_*
+SDK_0230_*
+!CONTRIBUTING.md
+!RELEASING.md
+
+# Public v0.23 guide; internal documentation remains excluded.
+!docs/
+docs/*
+!docs/swarms.md
+!CHANGELOG-ARCHIVE.md

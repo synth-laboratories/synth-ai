@@ -1,0 +1,9 @@
+{
+  "schema": "synth.sdk.preserved-candidate.v1",
+  "version": "0.23.0.dev2026101511",
+  "source_sha": "f7aba25590de8994d1f43f0e3252507956ab915e",
+  "filename": "synth_ai-0.23.0.dev2026101511-py3-none-any.whl",
+  "sha256": "eff53883e0451345c80780b446eeefb9dba216294d5c2be5c34ca0588633ee4e",
+  "publication_status": "not_authorized",
+  "qualification_status": "candidate; final native and staging acceptance required"
+}

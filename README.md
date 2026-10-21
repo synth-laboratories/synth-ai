@@ -1,308 +1,143 @@
-# Synth AI SDK
+# Synth Python SDK
 
-<!-- CI release pins: PyPI-0.22.2-orange synth-ai==0.22.2 -->
+A typed Python client for Synth Index search with citations, Swarms research
+runs, account access, and hosted or local MCP. Python 3.11 or newer is required.
 
-> Typed Index v0.2 APIs include QA and lifecycle operations, exact-revision rights attestations, and resealed research corrections.
+Swarms requires organization admission. An unavailable operation raises
+`UnsupportedOperationError` with code `operation_unavailable`. Inspect
+`client.account.entitlements()` for your organization's access conditions.
 
-[![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-
-Python SDK, CLI and MCP servers for **Synth Index** (cited search over reviewed
-research) and **Swarms** (hosted research runs under `client.research.swarms`).
-
-**Documentation:** https://docs.usesynth.ai/sdk/overview
-
-## Installation
-
-```bash
-uv add synth-ai
+```sh
+pip install synth-ai
+pip install 'synth-ai[mcp]'
+synth-ai login
 ```
 
-## Authenticate
-
-Free anonymous public Index Search needs no key (see [Synth Index](#synth-index)).
-Keyed Index Search, private collections and Swarms need `SYNTH_API_KEY`:
-
-```bash
-export SYNTH_API_KEY="sk_..."
-```
-
-A key selects the paid keyed Index route; it never makes a public request free.
-
-## Local Workspaces
-
-For local multi-repo development, `synth-ai` treats workspace resolution as a
-read-only overlay. `.env` and Synth home config may provide defaults and
-secrets; selecting a worktree must not rewrite those defaults.
-
-Use `SYNTH_WORKSPACE_MANIFEST` or `SYNTH_WORKSPACE_ROOT` for command-scoped
-worktree resolution. The resolver in `synth_ai.core.utils.workspace` returns
-repo paths and a scoped env mapping for subprocesses without mutating `.env`.
-
-Pass `base_url` when you need to pin a production, local, staging, or private
-backend explicitly:
+Use browser login or set `SYNTH_API_KEY`. Stored login credentials are reloaded
+on every authenticated call. `SYNTH_API_URL` overrides the default API origin,
+`https://api.usesynth.ai`. Anonymous Index search needs no login or API key.
 
 ```python
 from synth_ai import SynthClient
+from synth_ai.sdk.index import PublicSearchOptions
 
-client = SynthClient(base_url="http://127.0.0.1:8000")
+with SynthClient.anonymous() as client:
+    result = client.index.search("reproducible retrieval", options=PublicSearchOptions())
+    print(result.response)
 ```
 
-The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
-
-## Quickstart: Swarms
+Authenticated search has an explicit maximum charge:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.sdk.research.public import SwarmSpec
+from synth_ai.sdk.index import KeyedSearchOptions
+from synth_ai.types.money import Money
 
 with SynthClient() as client:
-    swarm = client.research.swarms.create(
-        SwarmSpec(objective="Assess this repository and produce a concise report.")
+    result = client.index.search(
+        "reproducible retrieval",
+        options=KeyedSearchOptions(maximum_charge=Money(coefficient=5, scale=2)),
     )
-    for event in swarm.events():
-        print(event.kind, event.telemetry.sequence)
-    result = swarm.wait(timeout_seconds=900)
-    print(result.swarm_id, result.state)
-    resolved = swarm.configuration()
-    print(resolved.config_version_id, resolved.snapshot_sha256)
-    usage = swarm.usage()
-    print(usage.money.nominal_pico_usd, usage.tokens.totals.input_tokens)
-    evidence = swarm.evidence()
-    print(evidence.artifacts, evidence.work_products)
+    print(result.response)
 ```
 
-`create` returns a durable handle immediately. `events()` yields typed events,
-including an explicit `UnknownSwarmEvent` for forward-compatible server events;
-`wait()` uses a monotonic deadline and returns the terminal typed `Swarm`.
-`configuration()` returns the immutable, versioned, secret-redacted launch
-snapshot bound to that swarm, so replay and audit do not depend on the
-project's current mutable configuration.
-`usage()` returns one typed cost, token, and actor-attribution projection plus
-its source, record count, observation time, and terminal-state freshness. It
-does not expose the legacy raw ledger-entry dictionaries.
-`evidence()` returns the complete durable artifact and WorkProduct index with
-strict counts and lifecycle freshness. Artifact and WorkProduct content reads
-use the same typed transport and return bytes; they do not expose storage
-authority.
-
-## Research SDK (Swarms)
-
-`SynthClient().research` hosts Swarms. Its stable namespaces are `projects`,
-`swarms`, and `factories` (the last is a supported compatibility API; it is not
-part of this release's recommended path).
-
-Create a durable project when work needs reusable configuration:
+Create a Swarms project, launch bounded work, wait, and download its results:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.sdk.research.public import EnvironmentKind, ProjectSpec, RuntimeKind, SwarmSpec
+from synth_ai.options import ObservationOptions
+from synth_ai.sdk.swarms import Limits
+from synth_ai.types.money import Money
 
 with SynthClient() as client:
-    project = client.research.projects.create(
-        ProjectSpec(
-            name="Repository assessment",
-            pool_id="pool_default",
-            runtime_kind=RuntimeKind("python"),
-            environment_kind=EnvironmentKind("docker"),
-            orchestrator_profile_id="profile_orchestrator",
-            default_worker_profile_id="profile_worker",
-        )
-    )
-    swarm = client.research.swarms.create(
-        SwarmSpec(objective="Produce the assessment."),
-        project_id=project.project_id,
-    )
-    print(swarm.wait().state)
+    project = client.swarms.projects.create("Research", objective="Compare retrieval methods")
+    run = client.swarms.create(message="Compare retrieval methods", project_id=project.project_id,
+        limits=Limits(maximum_charge=Money(coefficient=2, scale=0), wall_time_seconds=600,
+                      maximum_tasks=4, maximum_parallel_tasks=2))
+    result = run.wait(observation=ObservationOptions(timeout_seconds=660, idle_timeout_seconds=120,
+        reconnect_deadline_seconds=30, retry_count_max=3, maximum_events=2000, poll_interval_seconds=2))
+    bundle = run.download("research-results")
 ```
 
-Limits, economics, secrets, Tag, rich evidence projections, and administrative
-resource APIs remain available under `client.research.advanced` while their
-contracts are stabilized. Advanced APIs are not covered by the stable surface
-guarantee.
+The download verifies exact repository and artifact digests before publishing a
+new destination directory. Its manifest records the run reference, final commit,
+artifacts, objective verdicts, and answers. Existing destinations are refused.
+See [Swarms](docs/swarms.md) for input artifacts, guidance, resources, controls,
+and usage. Both `SynthClient` and `AsyncSynthClient` expose the same operations;
+async methods are awaited and clients support managed contexts.
 
-CLI discovery:
+Catch `SynthError` for API and transport failures. Common types are
+`AuthenticationError`, `RateLimitError`, `BudgetExceededError`,
+`RequestTimeoutError`, and `OutcomeUncertainError`.
 
-```bash
-synth-ai research --help
+**After `OutcomeUncertainError`, resolve the retained identity before deciding
+whether to submit new work:** `client.resolve_mutation(error.identity)`.
+`MutationCancelledError` derives from `asyncio.CancelledError` and also retains
+its mutation identity. A local timeout or closing a client does not cancel a run.
+
+Requests have total deadlines. Reads retry transient failures with bounded
+jitter and honor `Retry-After`. Mutations are never automatically replayed.
+Call `run.cancel()`, `run.pause()`, or `run.resume()` for remote controls.
+Use a stable `MutationOptions(idempotency_key=...)` for recoverable writes.
+
+Errors carry operation and request identifiers. Responses accept additive
+fields; unknown enum values remain visible. `ClientOptions(strict_contract=True)`
+requires exact schema hashes. Client options can borrow caller-owned HTTPX
+clients; closing the SDK leaves a borrowed client open. File-based login requires
+POSIX ownership and permissions; explicit API keys work on other platforms.
+
+- [Documentation](https://docs.usesynth.ai)
+- [Swarms guide](docs/swarms.md)
+- [Changelog and migration](CHANGELOG.md)
+- [Release policy](RELEASING.md)
+- [Issues](https://github.com/synth-laboratories/synth-ai/issues)
+
+## Account companion
+
+The source candidate extends the existing `synth-ai` CLI with read-only cloud
+account commands. Its version follows the SDK and MCP package:
+
+```sh
+synth-ai --version
+synth-ai login
+synth-ai auth status --json
+synth-ai account context --json
+synth-ai account plan
+synth-ai account balance
+synth-ai account alerts
+synth-ai account usage --days 7 --json
+synth-ai account logs --days 7 --limit 50 --json
+synth-ai account billing
+synth-ai account keys
+synth-ai account apps
 ```
 
-Project creation also accepts the backend-owned `ProjectSpec.policy` mapping.
-For example, a server-enabled fresh project can request
-`policy={"host_resource_custody_mode": "horizons_docker_sessions_only"}`.
-The backend validates this restricted mode and owns its immutable resource
-binding; SDK serialization does not grant additional authority.
+Billing, API-key lifecycle and connected-app management open the dashboard;
+these commands never purchase, change subscriptions or run workloads. Use
+`--no-browser` for a URL. Set `SYNTH_DASHBOARD_URL` to the dashboard origin when
+using a custom API origin. API-key setup also supports the existing
+`synth-ai login --with-token` stdin flow. Private-file storage and canonical
+`SYNTH_API_KEY` / `SYNTH_API_URL` precedence remain unchanged.
 
-## Container pools
+The new account reads require a backend serving `account.v1` and explicit
+account scopes for financial data. Self-identity/context inspection is available
+to every valid customer credential, without workload capability discovery.
+`account:read` permits limits together with billing-read; `account:billing:read` permits
+plan/balance/alert settings, and usage/logs require both usage-read and billing-read. Existing
+credentials do not gain these grants automatically. Fresh OAuth consent names
+the account permissions. The existing `account limits` discovery command keeps
+its negotiated product-policy contract.
 
-The optional `synth-ai[pools]` extra exposes the canonical `synth-containers`
-client through `AsyncSynthClient.pools`. It uses the same configured backend
-credential and keeps hosted admission, resource ownership, and recovery in the
-backend. The enclosing async client closes the pool transport.
+SDK sync/async clients expose `account.context()`, `plan()`, `balance()`,
+`alerts()`, `limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
+bounded page and an explicit cursor. Dates must be timezone-aware; windows are
+bounded to 366 days. The CLI also accepts matching `--from` / `--to` timestamps
+and an optional `--product` filter for usage/logs.
 
-```python
-from synth_ai import AsyncSynthClient
-
-async def inspect_lease(lease_id: str, task_id: str):
-    async with AsyncSynthClient() as client:
-        return await client.pools.get_lease_interactive(lease_id, task_id=task_id)
-```
-
-For explicit lifetime management, `from synth_ai.pools import PoolClient`
-re-exports the same implementation. Research-only installations do not import
-this optional dependency. Development candidates must install the exact pinned
-containers wheel; an unpublished candidate extra is not a release claim.
-
-## CLI
-
-```bash
-synth-ai --help
-synth-ai index --help      # Synth Index Search and research intake
-synth-ai research --help   # Swarms and Research projects
-```
-
-Swarm launches take explicit deployment receipts, provenance mode, resource
-inventory and a finite budget limit:
-
-```bash
-synth-ai research swarms start --objective "Review the retained research" \
-  --deployment-pins deployment-pins.json --provenance-mode live \
-  --resource-bindings resource-bindings.json --budget-limit-usd 2
-```
-
-`deployment-pins.json` contains exactly `{"deployment_pins": [...]}`, with
-receipts from the deployed services (`DeploymentPin.to_wire()`).
-`resource-bindings.json` contains the three explicit arrays `model_file_ids`,
-`external_repository_ids` and `credential_ref_ids`; empty arrays select none.
-Files are limited to 64 KiB. Duplicate or unknown fields, unqualified timestamps,
-and invalid budget values refuse before a client opens. `dry_run` remains an
-explicit provenance mode; the backend validates the authority of every receipt.
-
-## Synth Index
-
-Index Search returns a cited `response` plus the exact Contribution revisions it
-cites. There are two routes, chosen explicitly by the client you use:
-
-| | Public route | Keyed route |
-| --- | --- | --- |
-| Caller | Anonymous only: no API key or session is sent | `SYNTH_API_KEY` (or a Clerk session) |
-| Python | `PublicIndexClient().public_search(...)` | `SynthClient().index.search(...)` |
-| CLI | `synth-ai index search --public` (0.21.1+) | `synth-ai index search --keyed` |
-| MCP `index_search` | No `SYNTH_API_KEY` in the server env | `SYNTH_API_KEY` set; runs only after the org turns on wallet payments |
-| Corpus | Published public Contributions | Public, or authorized private collections |
-| Price | Free to the caller | Paid: Fast is 5 cents per delivered Search; Deep is 5 cents plus measured model cost, capped by your `max_charge_cents` and at $1 per Search. The backend publishes the current price. |
-| Funding | None | Index promo credit, then the wallet with explicit consent (`allow_wallet`, `max_charge_cents`) |
-| Limits | Per-caller and platform-wide per-minute/per-day limits, a daily service budget and a Deep concurrency cap, published in `capabilities().public_search` | Your organization's mode grants, monthly caps and per-mode concurrency |
-| Retention | Published in `capabilities().public_search` (`retention`, `privacy_copy`) | Your organization's terms; public terms do not describe keyed Search |
-
-The public route exists only where the backend enables it (`public_search.enabled`
-in capabilities); otherwise it fails closed with `PublicSearchDisabledError`.
-The public route refuses any credential (409, `PublicSearchAuthenticatedError`),
-so a key never turns a public request into a free keyed one, and the SDK and CLI
-never switch routes on their own.
-
-```python
-from synth_ai.sdk.index import PublicIndexClient
-
-with PublicIndexClient() as index:  # anonymous: sends no key
-    print(index.public_search_terms().lines)  # price, limits, privacy from capabilities
-    result = index.public_search("RLVR verifier design", mode="fast", max_results=5)
-    print(result.response, [item.citation for item in result.citations])
-```
-
-Keyed (paid) Search:
-
-```python
-from uuid import uuid4
-
-from synth_ai import SynthClient
-from synth_ai.sdk.index import SearchBillingConstraints
-
-request_key = str(uuid4())  # Persist this before sending; reuse it on uncertain retry.
-with SynthClient() as synth:  # Reads SYNTH_API_KEY.
-    result = synth.index.search(
-        query="What evidence supports the retrieval design?",
-        mode="fast",
-        billing=SearchBillingConstraints(allow_wallet=True, max_charge_cents=5),
-        idempotency_key=request_key,
-    )
-    print(result.response, result.usage)
-```
-
-CLI:
-
-```bash
-synth-ai index search "RLVR verifier design" --public
-synth-ai index search "RLVR verifier design" --keyed --allow-wallet --max-charge-cents 5
-```
-
-With no key and no route flag the CLI refuses and asks for one. With an inherited
-`SYNTH_API_KEY`, `--public` still sends no key; without a flag the CLI uses the
-keyed route and says so on stderr.
-
-- **MCP:** `synth-ai-index-mcp` is an Index-only stdio server, read-only by
-  default. Setup and per-configuration economics are in the
-  [Index SDK guide](synth_ai/sdk/index/README.md#external-agents-over-stdio-mcp).
-- **Errors:** public-route refusals have their own types (rate limit, budget
-  exhausted, disabled route, credential conflict); see the
-  [Index SDK guide](synth_ai/sdk/index/README.md#errors).
-
-These calls require a deployed Index API; installing the SDK alone does not make
-a Search available.
-
-## Public Surface
-
-Use `SynthClient` as the front door:
-
-| Surface | Client namespace | Use it for |
-| --- | --- | --- |
-| **Index** | `client.index`, `PublicIndexClient` | Keyed (paid) and anonymous public (free) Search, exact contents. |
-| **Swarms** | `client.research.swarms` | Hosted research runs, events, usage and evidence. |
-| Research projects | `client.research.projects` | Reusable Swarm configuration. |
-| CLI / MCP | `synth-ai`, `synth-ai-index-mcp` | Terminal commands and an Index-only coding-agent server. |
-
-Swarms run on Synth's hosted research workers; see the
-[Managed Research docs](https://docs.usesynth.ai/managed-research/intro) for
-repo runs, evidence, checkpoints and final reports.
-
-## Swarms Billing
-
-Swarms and other Managed Research work draw from the same org-level allowance and
-flex-credit wallet. Free, Standard ($20/month), and Max ($200/month) expose
-premium and value usage windows with reset times, then use explicit flex credits
-after included usage is exhausted. Premium models consume allowance faster;
-value models stretch the same allowance further. Promo, make-good, banked, and
-override grants are manual audit events rather than automatic resets.
-
-The canonical backend surfaces are `GET /smr/billing/catalog`,
-`GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
-`GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
-SDK, use `client.research.advanced.economics` for authoritative billing reads
-while the economics contract remains advanced. Do not infer
-allowance from legacy Autumn balances or local spend summaries, and do not
-recompute discounts in the client.
-
-## Links
-
-- [Install and authenticate](https://docs.usesynth.ai/sdk/install-and-auth)
-- [SynthClient guide](https://docs.usesynth.ai/sdk/synth-client)
-- [SDK reference](https://docs.usesynth.ai/reference/sdk)
-- [OpenAPI contracts](https://docs.usesynth.ai/reference/openapi)
-
-## Local Development
-
-Use `uv run` for Python tools:
-
-```bash
-uv sync --group dev
-uv run ruff format --check .
-uv run ruff check .
-uv run ty check
-make docs-gen   # generate Blume SDK reference into docs/
-make docs-dev   # preview at http://localhost:3000/overview
-```
-
-Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
-`lefthook install` to run formatting, linting, and type checks on staged Python
-files.
+JSON retains exact money coefficients/scales, original event IDs and string
+sequence numbers, pending/unknown values, source coverage and observation times.
+Successful reads exit 0, including explicitly partial observations; refused or
+unavailable operations exit 1, and invalid command/input exits 2. Account reads
+use their own observational protocol and do not claim Index/Swarms execution
+manifest qualification. Native issuer, installed-package and deployed-cohort
+acceptance remain required before release.

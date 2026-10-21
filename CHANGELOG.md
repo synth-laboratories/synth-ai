@@ -1,5 +1,119 @@
 # Changelog
 
+## 0.23.5
+
+Contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 32b0b01e.
+
+- `SwarmRun.watch()` / `AsyncSwarmRun.watch()` stream verified `RunSnapshot`s from
+  `GET /swarms/runs/{run_id}/stream` (`swarms.stream`). Each snapshot's event id is its version
+  token (`watch.last_event_id`); the watch reconnects with `Last-Event-ID` on rotation and on
+  bounded transient failures, and ends when the backend reports the run final.
+
+## 0.23.4
+
+Patch release on 0.23.1 (contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 22eb54d2).
+Swarms is not part of the production release; `native-swarms` is the only deferrable
+retained check (SYN-4887).
+
+- Versioned account-only credential and cloud companion (#495).
+- Exact Refs, provenance links, bounded repository archives and artifact uploads/downloads.
+- Atomic run bundles, revisioned labels, artifact inputs, message/guidance and objective results.
+- Pause/resume controls and typed resource grants with itemized agent/workload/tool usage.
+- Response models decode tolerantly: `Artifact.labels`, `RunSnapshot.labels` and
+  `ResourceGrant`/`ResourceGrantSet` accept what a newer server stores; request types stay
+  strict. `ArtifactManifest` stays strict because its digest covers every field.
+- `run.download()` requires a final run (`execution_closed`, `cleanup_complete`,
+  `accounting_final`) and selects the exact run branch across ref pages; uploads in a
+  refused or expired state raise a typed error before finalize.
+- Consistent transport errors, request identifiers, jittered read retries, injected HTTPX clients,
+  and shipped contract fingerprints across supported Pydantic versions.
+
+### Breaking
+
+The legacy `objective` launch argument emits a deprecation warning; use `message`. The
+alias is sent on the wire as `message` (the backend accepts either field, never both).
+Absent `inputs`, `providers`, `models`, `labels`, `guidance` and `resources` are omitted
+from launch requests rather than sent as `null`.
+The legacy file/output facades remain readable with deprecation warnings.
+
+### 0.22 to 0.23 migration
+
+| Previous | Current |
+| --- | --- |
+| `PublicIndexClient` | `SynthClient.anonymous()` |
+| `client.research.swarms` / `SwarmSpec` | `client.swarms.create(message=..., project_id=..., limits=...)` |
+| Legacy file uploads | `client.artifacts.upload(...)` and exact input Refs |
+| Separate MCP executables | `synth-ai-mcp` |
+| Implicit collection iteration | One page, followed by its explicit cursor |
+| `SYNTH_USER_KEY`, `SYNTH_BACKEND_API_KEY` | `SYNTH_API_KEY` (aliases removed in 0.25.0) |
+| `SYNTH_BACKEND_URL`, `SYNTH_API_BASE_URL` | `SYNTH_API_URL` (aliases removed in 0.25.0) |
+| Broad research/optimizer/container namespaces | Product-specific packages |
+
+- `RetentionModeNotAllowed.allowed_modes` also reads the `X-Synth-Retention-Allowed-Modes` header when the body omits it; `SearchContentPurged` exposes `search_id`/`purges_at`/`purged_at` from `X-Synth-Search-Id`/`X-Synth-Purges-At`/`X-Synth-Purged-At` when sent.
+- Includes organization retention, bounded DEEP `deadline_seconds`, and the Tunnel v2 control surface from the prior unpublished 0.24.0.dev20261018 tag (index.v1 fingerprint unchanged).
+
+### Tunnel v2 (previously 0.24.0.dev20261018)
+
+
+- Restore typed Tunnel v2 connector, lease custody, capability and checkpoint/session control through the current sync/async SDK transports.
+- Keep canonical UUID recovery and immutable deadlines; mutations are never automatically replayed after uncertain delivery.
+- Preserve the existing Index/Swarms schema fingerprints. Tunnel catalog v2 uses its separate versioned backend protocol and does not claim Index/Swarms release qualification.
+
+## 0.23.1
+
+Patch release on 0.23.0. No API surface or contract bytes change.
+
+- Retained-history lifetime errors are the same over hosted MCP as over HTTP. A history
+  entry that was deleted, has expired or is unavailable now raises a typed, public exception
+  (for example `search_history_deleted`) instead of a generic `transport_error`
+  (SYN-4635). Unknown status/code pairs and uncertain mutations keep their behavior.
+- HTTP 408 replies while observing a search or run are classified as `RequestTimeoutError`, so
+  bounded observation recovery retries them, and `Retry-After` hints are carried on the error
+  (SYN-4560).
+- The release verifier now accepts the attestation files that PyPI publication adds
+  (SYN-4373) and the SDK contracts shipped in 0.23.0 are reconciled with these fixes
+  (SYN-4354). Swarms is still not part of the production release.
+
+## 0.23.0 (2026-10-16)
+
+### Supported source changes
+
+- Reduced typed `SynthClient` / `AsyncSynthClient` facade for Index, matching
+  sync/async methods and durable operation handles. The SDK includes the Swarms
+  client facade; Swarms is not enabled in the v0.23 production release and calls
+  return a typed `operation_unavailable` until it is.
+- Explicit request deadlines, bounded lazy streams, integrity-checked downloads,
+  and cleanup of owned client resources without cancelling durable server work.
+- Canonical `SYNTH_API_KEY` and `SYNTH_API_URL`, with value-free warnings for
+  deprecated aliases and refusals for conflicting values.
+- Per-organization entitlement and capability discovery.
+
+### Authentication and transport
+
+- Browser PKCE login and API-key login over stdin, origin-bound private credential
+  storage, verified auth status, refresh, and logout.
+- Unified `synth-ai-mcp` with public/read/action profiles and backend scope checks.
+- Usage quantities, list-price observations, customer charges and exact funding
+  attribution as separate fields. Unknown/pending values remain explicit.
+
+### Breaking changes and migration
+
+- Replace `PublicIndexClient` with `SynthClient.anonymous()` and typed options.
+- Replace `client.research.swarms` / `SwarmSpec` with `client.swarms.create(...)`,
+  an existing project, explicit limits and immutable input references.
+- Use `synth-ai-mcp` instead of the separate Index/Research MCP executables.
+- The broad legacy Research, optimization, container and tunnel namespaces are
+  removed from this package. Use the respective product packages where available.
+- List calls return one page. Pass the returned opaque cursor explicitly.
+- Preserve mutation identity across uncertain outcomes; resolve before retrying.
+  Output availability, execution closure, settlement and cleanup are independent.
+
+### Limits
+
+Device login returns `device_authorization_unavailable` before contacting the
+provider. Factory is not part of the reduced public surface. Swarms requires organization admission. No per-operation price
+is implied; current backend entitlements and charge ceilings are authoritative.
+
 ## 0.22.1 — 2026-09-30
 
 ### Fixed
@@ -34,985 +148,3 @@
 Same Python package source as the `0.22.0.dev663` prerelease (synth-ai `dev` `681d0ce2`);
 only version metadata and the README long description differ.
 
-## 0.21.3 — 2026-09-29
-
-### Fixed
-
-- Match the backend Research billing-profile enum, including `internal_test`, and mirror the pinned backend OpenAPI export.
-- Remove a duplicate Research operation registry entry.
-- Complete reference documentation for the newly exposed Research contracts and SDK entry points, preserving wire formats and request behavior.
-
-All notable changes to the `synth-ai` package are documented here.
-
-## 0.21.2 — 2026-09-29
-
-### Fixed
-
-- **Free public Search receipts parse.** Search usage, customer charges and
-  usage-summary rows accept the backend's `service_free_public` funding source
-  and the `synth.index.public.fast.free.v1` / `synth.index.public.deep.free.v1`
-  price versions. A service-funded receipt must be an uncharged public Search
-  (zero amount, no wallet debit, allowance or ledger movement); anything else is
-  rejected as a contract violation.
-- **Public result route.** `index.public.searches.result`
-  (`GET /api/v1/index/public/searches/{search_id}/result`) is in the public
-  operation map.
-- **Contract.** `openapi/index-v1.json` is byte-identical to backend
-  `contracts/synth_index_openapi.json` at production v0.23.2 (SHA-256
-  `dd66a912…bd7b2`); 135 `IndexErrorCode` values match.
-
-
-### Removed
-
-- **Index answer is removed.** The backend no longer serves
-  `POST /api/v1/index/answer`, so `index.answer(...)` (sync and async), the
-  `AnswerSpec` / `AnswerResult` / `AnswerCitation` / `AnswerClaim` /
-  `AnswerStatus` / `AnswerUsage` types and `synth_ai.sdk.index.answer`, the
-  `synth-ai index answer` CLI command, the `index_answer` MCP tool (and
-  `INDEX_HIDDEN_TOOL_NAMES` / `include_answer`), and the vendored OpenAPI
-  operation are gone. Use `index.search(...)`, whose results carry a cited
-  `response`. Breaking for any caller of `index.answer(...)`.
-
-### Changed
-
-- **Wallet terms 2026-09-28.** `WALLET_TERMS_VERSION` is now
-  `synth-index-wallet-terms-2026-09-28` (an empty DEEP stop at a limit,
-  `infrastructure_stopped`, is charged). The backend still accepts
-  `synth-index-wallet-terms-2026-09-27` and waives that stop for orgs that
-  consented to it; other versions get `422 index_wallet_terms_version_unknown`.
-- **CLI public route.** `synth-ai index search --public` runs the free anonymous
-  public Search (`PublicIndexClient`) and prints the result with the backend's
-  `terms`; `--keyed` selects the paid keyed route. The CLI never switches routes
-  on its own: `--public` never sends an inherited `SYNTH_API_KEY`; `--keyed` or a
-  keyed-only option (`--private-collection`, `--allow-wallet`,
-  `--max-charge-cents`, `--deadline-seconds`) without a key is refused rather
-  than downgraded; `--public` with `--keyed`, `--api-key` or a keyed-only option
-  is a usage error; no key and no flag is a usage error. An inherited key with no
-  flag keeps the 0.21.0 keyed behavior and prints a stderr notice. Search output
-  now includes `route` (`public` or `keyed`).
-- **MCP `index_search` output contract.** Results carry `route`; `terms` is
-  promised and returned only on free public results. Keyed results report
-  `paid` and `charge` and no `terms`. The tool description no longer says terms
-  come "with every result". `public_search_result_payload(...)` is shared by the
-  CLI and MCP.
-- **Public-route error messages.** `PublicSearchBudgetExhaustedError` messages
-  now include the `Retry-After` wait when the backend sends one, alongside the
-  existing typed rate-limit, disabled-route and credential-conflict errors.
-- **Docs and metadata.** README, Index SDK guide, MCP setup prompt and CLI/MCP
-  READMEs describe the two routes consistently (free anonymous public vs paid
-  keyed, including public-scope keyed Search), document public-route errors, and
-  present Index and Swarms (`research.swarms`) as the current paths. Factory and
-  Intern remain supported APIs but are no longer promoted there. Package
-  description and keywords no longer describe a Factory-centric SDK.
-- Public search copy describes zero durable query-content retention and bounded encrypted processing, rather than “retained for zero days.” Capability values still control the wording. Budget-exhausted errors also expose `retry_after_s` consistently with rate-limit errors. No paid/private routing changes. Not built or published.
-
-## 0.21.0 — 2026-09-28 (Index Search v0.2)
-
-### Added
-
-- **Free public Index search (Index Search v0.2).** `PublicIndexClient` /
-  `PublicIndexAPI.public_search(...)` run Fast (synchronous) and Deep (admitted,
-  then polled with a search token) searches over reviewed Contributions with no
-  account or API key (`POST /api/v1/index/public/search`). Results carry the
-  inline-cited `response`, `citations` (exact revisions, first-appearance
-  order), `customer_charge_cents` and the Monitor release id. Price, rate
-  limits, retention and privacy wording come from
-  `capabilities().public_search` (`PublicSearchCapability`,
-  `public_search_copy(...)`); nothing is priced by hand.
-- **Typed public search errors** per backend code: `PublicSearchRateLimitedError`
-  (429, `retry_after_s`, `scope`), `PublicSearchBudgetExhaustedError` (503, typed
-  `scope`: `PublicSearchBudgetScope.DAILY_CENTS` / `DEEP_CONCURRENCY`),
-  `PublicSearchRateStoreUnavailableError`, `PublicSearchMonitorUnavailableError`,
-  `PublicSearchRequestTooLargeError`, `PublicSearchDisabledError`,
-  `PublicSearchNotFoundError`, `PublicSearchFailedError`,
-  `PublicSearchCancelledError` and `PublicSearchAuthenticatedError`.
-- **Opt-in paid search for keyed MCP `index_search`.** With an API key,
-  `index_search` runs the paid search (`POST /api/v1/index/search`) only when the
-  organization has turned on wallet payments for the requested mode. Consent and
-  the monthly limit are read from `GET /api/v1/index/me/access-funding` (cached
-  for 60 s). Every paid call sends `billing.allow_wallet=true` and an explicit
-  per-call ceiling: Fast is capped at the Fast price and Deep at the docs ceiling
-  or the organization's monthly limit, whichever is lower. The tool output reports
-  the `charge` (amount, wallet debit, funding source, receipt, ceiling). Without
-  consent the tool raises `WalletConsentRequiredError`
-  (`index_wallet_consent_required`) with the steps to enable it and a docs link,
-  before any paid request is sent. Nobody is charged without opting in. SDK
-  helpers: `wallet_search_grant(...)`, `WalletSearchGrant`, `WalletConsentReason`.
-
-### Changed
-
-- **The public route is anonymous-only.** The backend refuses a credentialed
-  request to `/index/public/search` with 409 `index_public_search_authenticated`;
-  the SDK raises `PublicSearchAuthenticatedError`. Keyed callers use the paid
-  `IndexAPI.search(...)`.
-- **MCP `index_search` without a key is the free public search.** The funded
-  authenticated search tool is `index_private_search` (key required).
-- Fast public results are final: `public_search_handle(...)` refuses a Fast
-  search (the token only authorizes Deep reads).
-- The public search id, token, expiry, charge and Monitor release id are read
-  from response headers (backend #1660), with the body as a fallback.
-
-### Also in this release
-
-- Executable workspace uploads: the CLI and the MCP workspace upload tool can declare a file executable (#403).
-
-## Synth Index alpha v0.1 (Index v1) — 2026-09-28, no new package version
-
-Synth Index alpha v0.1 runs on the published `synth-ai` 0.20.x line with
-backend v0.22.3. It needs no new SDK release. Install or upgrade with
-`synth-ai>=0.20.2`.
-
-What 0.20.x provides for the alpha:
-
-- **Authenticated, paid FAST and DEEP Search.** `SynthClient().index.search(...)`
-  with `mode="fast"` or `mode="deep"`, or the durable
-  `index.searches.create(...)` / `SearchHandle.wait()` lifecycle for DEEP. Every
-  Search needs `SYNTH_API_KEY`, an authorized organization and funding.
-  `SearchBillingConstraints` states the most the caller agrees to pay.
-- **DEEP is beta.** DEEP create is idempotent and reconnects by Search ID
-  (0.20.1). Each status poll is bounded to 20 s (0.20.2).
-- **MCP server `synth-ai-index-mcp`**, an Index-only stdio entrypoint. It is
-  read-only by default. Search tools (`index_search`, `index_search_create`,
-  `index_search_get`, `index_search_result`) are advertised only when
-  `SYNTH_API_KEY` is set. `index_answer` is not offered.
-- **What you can search:** reviewed, published research.
-
-Not part of alpha v0.1: `/index/answer`, downloading the files
-behind a citation (403 `index_asset_download_unavailable`), citations that point
-to an exact passage, a latency guarantee, and free, anonymous or zero-data-retention
-Search. Contributing research to the Index is also not part of the alpha; it is
-planned for Index v0.2.
-
-## 0.20.2 — 2026-09-27
-
-No breaking changes.
-
-### Fixed
-
-- **A hung status poll no longer stalls DEEP waits.** `SearchHandle.wait()`
-  (sync and async), `index.search(mode="deep")` and the MCP
-  `index_search_get` / `index_search_result` tools bound each lifecycle status
-  read to at most 20 s (`STATUS_POLL_TIMEOUT_SECONDS`, never past the overall
-  wait deadline). A read that times out is treated as transient and polled
-  again; the overall wait deadline is unchanged. Previously one poll whose
-  response never arrived held the caller for the 120 s client transport
-  timeout (prod 2026-09-27, P12). `searches.get(...)` and `refresh(...)` accept
-  an optional `timeout_seconds`.
-
-## 0.20.1 — 2026-09-27 (Index public launch patch)
-
-No breaking changes. Upgrade recommended for every DEEP Search caller.
-
-### Changed
-
-- **`index_answer` is no longer offered by the MCP servers.** `/index/answer`
-  is not part of the public Index launch, so `synth-ai-index-mcp` and
-  `synth-ai-research-mcp` neither advertise nor dispatch `index_answer`
-  (`INDEX_HIDDEN_TOOL_NAMES`). The Python `index.answer(...)` client method is
-  unchanged.
-- **Contribution asset downloads are not available at the public launch.**
-  `index.contributions.assets.retrieve(...)` and
-  `index.public.contributions.assets.retrieve(...)` receive 403
-  `IndexErrorCode.ASSET_DOWNLOAD_UNAVAILABLE`
-  (`index_asset_download_unavailable`, reason `not_available_at_launch`),
-  which is never retried. Search results and Contribution reads still quote
-  passages from the files. No MCP tool downloads assets.
-- **`IndexErrorCode.CONTRIBUTION_WITHDRAWN`** (`contribution_withdrawn`, 404,
-  not retried): reads of a withdrawn Contribution or any of its revisions by
-  anyone but its owner (backend 0.22.0).
-
-### Fixed
-
-- **DEEP create never loses an admitted Search.** The backend admits a DEEP
-  Search (holding its charge ceiling and a concurrency slot) before the
-  response reporting it is delivered, so a transient 503 on create
-  (`monitor_admission_deadline_exceeded`, `monitor_draining`,
-  `index_unavailable`) previously left a running, charge-holding Search the
-  caller could not see; new creates then hit `index_concurrency_limited`.
-  `index.searches.create(...)` and `index.search(mode="deep")` now:
-  - always send an `Idempotency-Key` (a fresh UUID when you pass none;
-    `idempotency_key=` still overrides);
-  - retry transient failures (HTTP 502/503/504, timeouts, network errors) with
-    the **same request and key**, up to 3 attempts and 30 s of waiting,
-    honouring `Retry-After` (a `Retry-After` beyond that budget is raised
-    rather than slept through, e.g. a daily platform limit);
-  - reconnect by ID when a failure names the admitted Search
-    (`X-Synth-Search-Id` header or `search_id` in the error body) instead of
-    creating another.
-  Tune with `IndexRetryPolicy` (`create(..., retry=IndexRetryPolicy(...))`).
-- **DEEP wait polls through transient failures.** `SearchHandle.wait()` and
-  the async handle keep polling a known Search ID through a transient 503
-  until the local deadline, and retry the final result read.
-- **MCP**: tool errors now include `reason`, and `search_id` when the failure
-  names an admitted Search; `index_search`/`index_search_create` descriptions
-  tell agents to retry with the same key and reconnect by `search_id`.
-
-### Added
-
-- `IndexErrorCode.CAPACITY_EXHAUSTED` (`index_capacity_exhausted`, 503 with
-  `Retry-After`) and `IndexErrorCode.QUERY_TOO_LONG` (`index_query_too_long`).
-- `SynthError.reason` (server sub-cause such as `daily_spend_cap`,
-  `key_concurrency_limit`, `wallet_insufficient`) and `SynthError.resource`;
-  `synth_ai.sdk.index.search_id_from_error(error)`.
-
-## 0.20.0 — 2026-09-25 (ships with Synth Index cut 1)
-
-Upgrade required: 0.19.x cannot parse the Index search response served by the
-backend from this release onward (see Changed (breaking) below).
-
-### Added
-
-- **Index Search API (FAST and DEEP)** — `SynthClient().index.search(...)`
-  returns a `SearchResult`: a delivered `response` text with inline citations
-  plus `citations`, a tuple of exact `ContributionReference`s (contribution and
-  revision) listed in first-appearance order. An uncited response is always the
-  fixed abstention text. `mode="fast"` runs immediately; `mode="deep"` creates
-  a durable Search and waits for it. `index.answer(...)` returns a grounded
-  answer; every delivered citation must support a claim.
-- **Durable Search lifecycle** — create a Search, reconnect by ID, page ordered
-  events, read the completed result and request cancellation (sync and async
-  handles). A local wait timeout leaves the server Search running.
-- **fast.v2 pricing** — `SearchUsage.price_version` defaults to
-  `synth.index.fast.v2`: public and private FAST searches both cost 5 cents per
-  successful logical search. Wallet funding requires
-  `billing.allow_wallet=true` and `max_charge_cents>=5`. `synth.index.fast.v1`
-  receipts (public free, private 5 cents) still validate for historical usage.
-  DEEP usage never carries a fast price version.
-- **MCP entry points** — `synth-ai-index-mcp` is a dedicated stdio server that
-  advertises only Index tools (`index_search`, `index_search_create`,
-  `index_search_get`, `index_search_result`, `index_search_events`,
-  `index_search_cancel`, `index_answer`, `index_get_contents`,
-  `index_get_contribution`, `index_contribution_status`). It requires an
-  explicit `SYNTH_BACKEND_URL`; search and answer tools need `SYNTH_API_KEY`.
-  `synth-ai-research-mcp` adds the same Index tools when
-  `SYNTH_INDEX_MCP_ENABLED=true`. Both accept `--help` and `--version` (exit 0);
-  missing or invalid configuration such as an absent `SYNTH_BACKEND_URL` exits 2
-  with one line (`McpConfigurationError`, a `ValueError` subclass), not a
-  traceback. Unknown arguments are rejected.
-- **Index contract and failures** — the SDK's Index OpenAPI export matches the
-  backend's generated contract. `IndexErrorCode` names current Search and
-  Contribution failures while retaining prior values for existing clients;
-  unknown future codes remain available through `error.failure.code`. Direct
-  Index clients and the Index MCP use a bounded default transport timeout.
-- **Typed Container Pools** — `SynthClient().research.container_pools` exposes
-  backend-owned pool deployment and reconciliation. Packaging validates Docker
-  contexts, applies supported `.dockerignore` rules, and rejects credential-like
-  files before upload.
-- **Current Swarm, Intern, and Workshop contracts** — resource inventory,
-  settlement, rollout provenance, durable transcript replay, authenticated
-  Workshop messaging, and project-bound deployment capabilities are available
-  through the canonical Research SDK and MCP server.
-
-### Changed (breaking)
-
-- **Search response shape** — `SearchResult.results` (a tuple of ranked
-  `SearchHit`s) is replaced by `response` + `citations`. The 0.19 FAST-only
-  `price_version: Literal["synth.index.fast.v1"]` is replaced by an identifier
-  that defaults to `synth.index.fast.v2`. A 0.19.x client fails validation on
-  every current search response.
-
-  Migration: upgrade with `pip install -U "synth-ai>=0.20.0"`. Replace
-  `for hit in result.results:` with `result.response` for the answer text and
-  `result.citations` for the cited `contribution_id`/`revision_id`; fetch
-  content, when there are citations, with
-  `index.contents.retrieve(references=result.citations, search_id=result.search_id)`. Read `result.usage.amount_cents` rather than
-  assuming public search is free. MCP callers read `citations` from
-  `index_search` output instead of `results`.
-
-### Removed (breaking)
-
-- **Legacy Research Intern sessions** — `client.intern.sessions`, reactive
-  session stream/turn/event types, legacy enablement flags, the old
-  `*_research_intern_session*` operations and aliases, and the legacy MCP
-  session tools are removed. Use `client.intern.sync_` or
-  `client.intern.async_`.
-
-## 0.19.0 — 2026-09-14
-
-### Added
-
-- **Synth Index SDK** — typed fast search, exact-revision contents, Contribution
-  upload/finalize/submit, review and publication workflows, collections, tags,
-  profiles, usage, rewards, and contest contracts under `SynthClient().index`.
-- **Credential-free public clients** — `PublicIndexClient` and
-  `AsyncPublicIndexClient` search and retrieve reviewed public Contributions
-  without an API key. They cannot select private collections or write content.
-- **Synth Index MCP tools** — bounded public reads are available with explicit
-  `SYNTH_INDEX_MCP_ENABLED=true`; contribution tools additionally require the
-  write flag and an API key. No Index tool can approve or publish research.
-- **Swarm and Intern policies** — Index access is an explicit, read-only policy
-  by default. Draft preparation requires separately persisted operator intent.
-- **Intern Sync presence and approvals** — the synchronous runtime exposes
-  `presence`, `release_presence`, `approvals`, and `decide_approval` on both the
-  sync and native-async clients. `KickoffContract` includes `trace_capture`.
-
-### Security and billing
-
-- Public search is free and private search is five cents per successful logical
-  search. Typed rate-limit, payment, authorization, conflict, and transient
-  failures preserve server retry and request metadata.
-- Contents and excerpts are caller-bounded. Uploads validate all paths, sizes,
-  hashes, and destinations before transferring bytes; MCP local-file reads are
-  descriptor-relative and reject symlinks, escapes, and credential-like data.
-- Search results remain bound to exact Contribution and revision identities.
-  The SDK does not infer review, publication, rewards, or access from metadata.
-
-### Removed (breaking)
-
-- The legacy Research Intern sessions plane, including `client.intern.sessions`,
-  reactive session stream/turn/event types, legacy enablement flags, the old
-  `*_research_intern_session*` operations and aliases, and the legacy MCP session
-  tools. Use `client.intern.sync_` or `client.intern.async_`.
-
-## 0.18.2 — 2026-09-10
-
-Release candidate; publication is pending protected CI approval.
-
-- Reconciled the bounded248-operation Research registry with the backend release
-  contract, preserving legacy event and acceptance-receipt lookup aliases.
-- Restored typed not-found and retention errors, surface-parity helpers, strict
-  acceptance fixtures, trace-store preflight clients, and run provenance pins.
-- Fixture requests use the backend's generic acceptance_default label; eval
-  task content remains outside production dependencies.
-
-### Added
-
-- **`client.intern.program`** — the Effort-first Intern research program.
-  `list_efforts` returns the Effort board (each Effort plus its open-work
-  counts); `get_effort` returns the Effort rollup — Progress, Results,
-  Experiments, Knowledge — with the cycle/wake/spend/host chrome demoted to a
-  secondary `runtime` block. Objectives, milestones, tasks, progress claims, and
-  objective links hang beneath one Effort, which is a path segment on every
-  create, so a row cannot be written without its binding. Both the synchronous
-  and native-async clients carry the namespace.
-- **Fifteen `intern_*` MCP tools** for the same surface: `intern_effort_board`,
-  `intern_effort_detail`, and the objective / milestone / task / progress-claim /
-  objective-link families. Effort lifecycle is not duplicated — the existing
-  `research_list_factory_efforts`, `research_get_effort`, and
-  `research_patch_effort` remain the Effort verbs.
-- **`client.intern.program.search_memory` / `get_memory_hit`** plus the
-  `intern_memory_search` / `intern_memory_get` MCP tools read the Intern's own
-  history. Both surfaces return the retrieval payload with no wrapper and with
-  explicit nulls intact, matching the Intern's own memory tools field for field,
-  so the same records are never described two ways.
-- **`synth_ai.sdk.research.intern_grants`** — the agent-facing grant matrix: the
-  capabilities a running Intern may hold, which tool needs which, and the action
-  kind each is proposed under. `validate_intern_tool_grant` refuses swarm
-  task-graph planning and swarm run-task writes with
-  `intern_swarm_plan_tasks_ownership_forbidden` before the registry is consulted,
-  so the refusal names the boundary. The Intern kicks a swarm run off and polls
-  it; it never owns the run's task graph.
-
-### Fixed
-
-- `InternAsyncRuntime` now models `spend` (`InternAsyncRuntimeSpend`) and
-  `host_lease` (`InternAsyncRuntimeHostLease`). The spend block is the burn that
-  actually gates Async work — the same totals the capability gate and sweeper
-  read, persistent-host idle cost included — and reports the daily ceiling first
-  when both have tripped. `InternEffortRuntimeStrip` gained the Effort-inventory
-  trim counters and `active_effort_id`; results rows gained `link_source` and
-  `effort_scoped`.
-- `InternAsyncCheckpoint.evidence_refs` is a tuple of typed
-  `InternProducedResourceReference` values, not strings, and the model carries
-  `research_records`. `InternAsyncBlocker` carries the full blocker projection
-  (identity, status, binding, handoff context, timestamps), and
-  `InternAsyncEffortWorkSummary` carries `last_advanced_cycle`. All three models
-  forbid unknown fields, so each omission raised a validation error against a
-  real backend response rather than dropping data.
-
-### Changed
-
-- Project and Swarm hero list methods now return typed `SyncPage` values with an
-  accepted continuation cursor, including for the backend's legacy array response.
-- The session compatibility surface uses `repositories` consistently; the
-  duplicate `repos` namespace and its second DTO family were removed.
-- Raw-trace downloads now use the shared transport, including its timeout and
-  typed error mapping, without forwarding backend credentials to presigned URLs.
-- Dev-environment proof collection now fails on incomplete work-product or trace
-  evidence instead of encoding exceptions as apparent proof fields.
-
-### Removed
-
-- Six unadvertised `tag_*` MCP tools were parked. The typed
-  `SynthClient().research.tag` SDK remains available.
-
-## 0.18.0 — 2026-07-29
-
-A minor release rather than a patch because modules were removed, not moved: the
-infrastructure and managed-agent surfaces below have no alias and no successor
-import path in this package.
-
-### Removed
-
-- **Managed Agents.** `synth_ai.sdk.managed_agents`, `sdk.managed_agents_anthropic`,
-  `sdk.openai_agents_sdk`, and `sdk.openai_tools` are gone. The package is a
-  Research SDK; a second agent-authoring framework inside it was a second product.
-- **Containers, tunnels, and pools.** `synth_ai.sdk.pools`, `sdk.containers`,
-  `sdk.container`, `sdk.base`, `sdk.horizons_private`, `cli.pools`, `cli.tunnels`,
-  and `cli.containers` are gone, along with `openapi/container-contract-v1.yaml`.
-  `SynthClient` is Research-only.
-- **`synth-ai dev-envs`.** The dev-environment CLI was the control-plane worker's
-  side of the materialization protocol — `claim-materialization --worker-id`,
-  `seed-topology-manifest`, `materialize` — not a customer surface. Nothing is
-  lost: `SynthClient().research.dev_environments` and the MCP
-  `research_*_dev_environment*` tools call the same routes.
-- **The `synth-ai-research-factory-standup` console script**, along with
-  `sdk/research/factory_plans/`. It hardcoded `factory.name == "synth-rsi"`,
-  seven internal milestone IDs, and Synth's private repo remotes as an
-  allowlist, and its one built-in plan was Synth's own `kind: internal` Factory.
-  A customer could not run it. Use `research.factories.standup()` instead.
-- **The vendored backend schemas left the wheel.**
-  `synth_ai/sdk/research/schemas/{smr_openapi.yaml,public_models.json}` moved to
-  a top-level `schemas/` directory. No module ever read them; they are drift-gate
-  inputs for CI. This removes ~2.1MB per wheel and stops a Research-only package
-  from shipping the backend's `/v1/tunnels` and `/v1/pools` route definitions.
-
-### Added
-
-- **`research.factories.standup(plan)`** creates a Factory, links its project,
-  and seeds its efforts from a single plan mapping, returning a typed
-  `FactoryStandupResult`. `research.factories.plan_standup(plan)` is the dry run:
-  it resolves and validates every request payload without sending one. This is
-  the portable half of the removed stand-up script.
-- `SYNTH_RESEARCH_MCP_ADVANCED_TOOLS=1` makes `synth-ai-research-mcp` advertise
-  the full tool tree. Previously `main()` hardcoded the stable subset with no
-  override, and because `call_tool` resolves against the advertised set, the
-  other 247 tools were not merely hidden but uncallable.
-- **`verify_cloud_s0_evidence(payload, ...)`** in
-  `sdk.research.session.dev_environments` checks a dev-environment evidence
-  packet for run binding, receipt readiness, work-product and trace counts, and
-  git branch/sha proof. Lifted out of the removed `dev-envs` CLI.
-
-### Fixed
-
-- **`synth_ai.core.research.*` no longer breaks packaged data files.** The
-  deprecation alias returns the real module, and CPython was stamping the alias's
-  origin-less spec onto it. Any process that imported through the old path lost
-  `importlib.resources` for the target: `files()` returned an empty listing and
-  reading any packaged data file raised `FileNotFoundError: Can't open orphan
-  path`. The alias now restores the module's own identity after loading.
-- **The sdist ships its runtime data again.** `MANIFEST.in` re-included
-  `synth_ai/managed_research/*`, a path deleted in 0.17.5, so the blanket `*.json`
-  exclude won and `--no-binary` installs shipped without the JSON data files under
-  `sdk/research/`.
-- **`synth_ai.sdk.research.public.AsyncResearchClient`** resolved to a name that
-  does not exist and raised `AttributeError` on access.
-- **MCP tool scopes fail closed.** A tool missing from the scope table silently
-  got `required_scopes=()`; 48 of 311 tools were unscoped, including
-  `research_pause_run`, `research_resume_run`, and `research_start_one_off_run`.
-  The table is now keyed on advertised names and a missing entry raises at
-  registry build.
-
-## 0.17.5 — 2026-07-29
-
-A patch release even though module paths moved, because nothing breaks: the old
-paths still import, resolve to the same objects, and only add a
-`DeprecationWarning`.
-
-### Changed
-
-- **Research moved from `synth_ai.core.research` to `synth_ai.sdk.research`.**
-  `SynthClient().research` is unchanged and remains the supported entrypoint —
-  only module paths moved. `core/` had come to mean two things at once, shared
-  plumbing and the Research SDK, and the package README documented a layering
-  DAG that Research did not follow. Now `core/` is plumbing, `sdk/` is every
-  public client including Research, and a checker enforces it.
-
-  **Old paths still work.** `synth_ai.core.research.*` resolves through an import
-  alias that emits a `DeprecationWarning` once per module. The alias returns the
-  *same module object*, so classes are identical across both paths and
-  `isinstance` works either way. Migrate at your convenience:
-
-  ```python
-  # before
-  from synth_ai.core.research.contracts.status import SwarmStatus
-
-  # after
-  from synth_ai.sdk.research.contracts.status import SwarmStatus
-  ```
-
-  The alias is scheduled for removal in a later release; see
-  `unify_sdk_layering.md`.
-
-- The `core → sdk.pagination` import that violated the package's own layering is
-  gone. It was never fixed directly: relocating Research under `sdk/` made it a
-  legal peer import.
-
-### Fixed
-
-- Wheel packaging followed the move. `package-data` still globbed
-  `core/research/factory_plans/*.json` and `core/research/schemas/*`, which are
-  the only thing that puts those data files in the wheel — a stale glob ships a
-  package that imports and then fails at runtime looking for them.
-
-## 0.17.4 — 2026-07-29
-
-### Changed
-
-- **An unconfigured client resolves to production again.** `SynthClient()` with
-  no `base_url` and no backend environment variables had been resolving to
-  `http://localhost:8000` since 2026-02-13, so the pip-install path failed
-  against a port nobody was serving. The documented default is production, and
-  local development is the case that says so — via `base_url`, `ENVIRONMENT`,
-  `SYNTH_BACKEND_URL_OVERRIDE`, or the `DEV_*`/`LOCAL_*` variables, all
-  unchanged. If you relied on the bare default reaching localhost, set
-  `SYNTH_BACKEND_URL_OVERRIDE=local` or `ENVIRONMENT=dev`.
-- `synth_ai.core.research._internal.urls` no longer resolves separately. It
-  hardcoded `https://api.usesynth.ai` and read only `SYNTH_BACKEND_URL`, so it
-  ignored `SYNTH_BACKEND_URL_OVERRIDE`, `ENVIRONMENT`, and the dev chain —
-  anything reaching `core.research.auth` could target a different backend than
-  the rest of the SDK. It now delegates to `core.utils.urls`.
-- **The public model catalog is now eight models**: `gpt-5.6-luna`,
-  `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-mini`, `cursor/grok-4.5`,
-  `cursor/composer-2.5`, `modal/moonshotai/Kimi-K3`, and
-  `synth_internal/laguna-s-2.1-nvfp4`. `gpt-5.3-codex`, `gpt-5.3-codex-spark`,
-  `gpt-5.4`, `gpt-5.5`, `x-ai/grok-4.3`, `x-ai/grok-build`, and
-  `moonshotai/kimi-k2.6` are no longer listed publicly. They remain in the
-  supported catalog and stay usable; only their public listing changes.
-- **`ActorModel.KIMI_K3` now routes to Modal**, not Baseten. `ActorModel` is
-  split into `ActiveActorModel` (first-class shared selection) and
-  `DeprecatedActorModel` (legacy actor-specific overrides), with `ActorModel`
-  kept as a wire-compatible union of both. The Baseten route is still
-  reachable as `KIMI_K3_BASETEN`. Callers pinned to `ActorModel.KIMI_K3` change
-  inference provider without changing code — check that before upgrading.
-- **`display_group` is gone from the agent-model catalog response** and from the
-  vendored public-model snapshot. It was internal catalog taxonomy that no
-  backend, SDK, or frontend code read. The unrelated `display_group` on project
-  resource files is unaffected.
-- `SYNTH_BACKEND_URL_OVERRIDE=railway` is no longer accepted as an alias for the
-  dev backend, and environment detection no longer reads hosting-provider
-  variables. Use `dev`, `development`, or `staging`, and set `ENVIRONMENT`
-  explicitly where a platform used to be inferred.
-
-### Added
-
-- `SYNTH_INTERNAL` on `CredentialProvider` and `InferenceProvider`, so the
-  `synth_internal` route the Laguna model already used can be named. `swarms.py`
-  shipped a `synth_internal/...` model with no matching provider value.
-
-### Fixed
-
-- `Any`, `Path`, `PackageNotFoundError`, and `install_log_filter` no longer leak
-  into the `synth_ai` namespace. They were reachable as `synth_ai.Path` and
-  friends while absent from `__all__`.
-
-## 0.17.3 — 2026-07-29
-
-### Added
-
-- Typed model contracts for Laguna S 2.1 NVFP4 and Kimi K3, including the
-  Modal Shared API K3 route used by the release acceptance run.
-- Typed recurring Factory budgets, recurrence, Result authority selection,
-  live-acceptance consumers, Visual publication and account-library reads,
-  and Factory adjudicator and cleanup receipts.
-- `ResearchFacade.files`, exposing the existing typed Files API from the
-  stable `SynthClient().research` surface.
-
-### Fixed
-
-- Swarm provider selection now admits the typed `modal` provider used by the
-  Kimi K3 release route.
-- Multipart requests now let their body codec supply the correct content type.
-- Bound runtime attestations accept the declared provider set.
-- Trace capture and local bundle validation are no longer packaged as a
-  `synth-ai` extra. Those implementation surfaces remain owned by
-  `synth-containers`; this SDK retains typed backend transfer/read contracts.
-
-## 0.17.3.dev1 — 2026-07-26
-
-Prerelease development line following `0.17.2`.
-
-### Added
-
-- A canonical typed Effort recurrence contract now covers cadence, timezone,
-  concurrency, completion-triggered launches, success delay, bounded failure
-  backoff, metadata, and an exact typed `SwarmSpec` launch request.
-- `ResearchFactoriesAPI.create_effort` and the lower Research session Factory
-  facade accept the typed recurrence without changing its provider, profile,
-  model, or role selections.
-- `FactoryBudgetPolicy` exposes a typed recurring accounting period so
-  always-on internal Factories can use a resettable code-owned spend envelope
-  instead of an eventual all-time stop.
-- `FactorySpec` can select the native Result authority at creation, allowing a
-  new optimization Factory to define evaluation lenses without an operator
-  backfill or compatibility cutover.
-
-### Changed
-
-- The advanced/session `RecurrencePolicy` name is now a compatibility re-export
-  of the stable `EffortRecurrence` contract instead of a second wire model.
-
-## 0.17.2 — 2026-07-25
-
-### Removed
-
-- **Open Research is retired.** The SDK no longer exposes its public artifact,
-  visual, runtime-image, session-image, or Factory-operation contracts. Hosted
-  artifacts remain available for internal operator review without a public
-  promotion path.
-
-### Changed
-
-- **The vendored SMR OpenAPI now matches the retirement backend candidate
-  byte-for-byte.** The package no longer advertises removed Open Research
-  routes, schemas, enum values, or redaction profiles.
-
-## 0.17.1 — 2026-07-25
-
-Both fixes were found by running a real Managed Research eval against a deployed
-backend on `0.17.0`. Neither is reachable from a mocked client.
-
-### Fixed
-
-- **`research.swarms.wait` no longer ends a long wait because one poll failed.**
-  A retryable failure on a single poll — a lost DNS lookup, a reset connection, a
-  5xx — describes the caller's transport, not the Swarm, so the loop now absorbs
-  it and polls again inside the same deadline. `RetryPolicy` never covered this:
-  it retries an individual request, and `wait` is a loop of requests, so a wait
-  with nineteen minutes left died on a momentary resolver failure.
-
-  The distinction the loop preserves matters to anyone deciding whether to cancel
-  durable work: `TimeoutError` means the Swarm *was* read and was not terminal,
-  while a `SynthError` out of `wait` means its state was never established. A
-  runner that treats those alike will destroy live work on a network blip.
-
-- **`research.swarms.activity` decodes the `completed` run state.** The backend
-  has been reporting `completed` all along; `SwarmState` had no such member, so
-  the strict decode turned a healthy read into
-  `ValueError: 'completed' is not a valid SwarmState`. It is a terminal state.
-
-## 0.17.0 — 2026-07-24
-
-Breaking. `research.swarms.*` method names and return types both change from
-`0.16.1`. Read the migration table before upgrading.
-
-### Removed
-
-- **`synth_ai.research` and `synth_ai.managed_research` are gone.** The
-  supported import root is `synth_ai.core.research`. `SynthClient().research`
-  is unchanged.
-- **The `0.16.1` Swarm surface is withdrawn.** `0.16.1` moved the SDK wire
-  paths from `/smr/projects/{id}/runs` to `/smr/projects/{id}/swarms`, which
-  are backend *alias* routes; `/runs` is what the backend declares. The client
-  is back on the declared routes.
-
-### Changed — `research.swarms` migration
-
-| `0.16.1` | `0.17.0` |
-| --- | --- |
-| `get(...)` / `state(...)` / `public_state(...)` | `retrieve(...)` |
-| `stop(...)` | `cancel(...)` |
-| `check_preflight(...)` / `launch_preflight(...)` | `preflight(...)` |
-| `launch(...)` / `start(...)` / `start_run(...)` / `create_configured(...)` | `create(...)` |
-| `list_active(...)` | `list(...)` |
-| `stream_events(...)` | `events(...)` |
-
-Return types change with the names: `retrieve()` returns
-`core.research.contracts.swarms.Swarm`, not the former `ManagedResearchRun`.
-These are not aliases — the old names are removed, so an upgrade fails loudly
-at the call site rather than returning a differently-shaped object.
-
-### Added
-
-- `research.account`, `research.wiki`, `research.knowledge`,
-  `research.experiments`, and the Factory handle/usage namespaces, carried over
-  from the `0.16.x` line onto the current layout.
-- Fail-closed, serialized, idempotent PyPI publish workflow.
-
-### Notes
-
-- Install: `pip install synth-ai==0.17.0`.
-- Backends importing `synth_ai.mcp.research.server` must pin `>=0.17,<0.18`.
-  `0.16.1` does not contain that module.
-
-
-### Added
-
-- **First-class Research inference provider selection** — `SwarmSpec.provider`
-  accepts `auto`, a strict provider pin, or an ordered hard allowlist across
-  OpenAI (GA), Synth (alpha), xAI and Cursor (beta). Factory recurrence launch
-  specs use the same contract. Routing policy can additionally require ZDR,
-  no-training handling, a maximum retention window, domicile, and regions.
-
-### Changed
-
-- **Tinker is deprecated for new Research launches.** Historical enum values
-  remain readable, while new provider bindings and run-policy grants fail
-  before a request is sent.
-
-## 0.15.3.dev0 — 2026-07-17
-
-Prerelease. Install with `pip install --pre synth-ai` or pin
-`synth-ai==0.15.3.dev0`.
-
-### Security
-
-- **`repr(ManagedResearchClient)` no longer leaks the API key.** `api_key` was a
-  plain dataclass field that `__post_init__` overwrites with the resolved secret,
-  so the default `repr` / `%r` / traceback frame rendered the live credential
-  (also reachable via `SynthClient().research.session`). The field is now
-  `repr=False` with an explicit redacting `__repr__` (`api_key=<set|unset>`).
-
-### Fixed
-
-- **MCP denial parity across all tools.** Typed `SmrApiError` denials were mapped
-  to structured RPC errors for only the run-launch handlers; every other tool
-  flattened to a generic `-32000` text error, dropping `error_code` /
-  `http_status` / `detail`. A central mapping now surfaces the structured
-  `-32010` payload for any tool, so SDK and MCP expose the same denial contract.
-
-## 0.15.2 — 2026-07-17
-
-### Fixed
-
-- **Research run authority schema parity** — the vendored backend OpenAPI now
-  carries the optional `runtime_authority_source_version` field returned by
-  typed run-authority readouts, keeping the published SDK contract aligned with
-  the Research Factory backend release.
-- **Installed schema completeness** — source and wheel distributions now retain
-  the backend-authored public-model registry beside the vendored OpenAPI schema.
-
-## 0.15.1 — 2026-07-17
-
-### Added
-
-- **Fail-closed promotion discount preview** — `client.billing.preview_promotion_discount(...)`
-  returns typed backend-authored draft economics, including the draft terms,
-  preview inputs, charge/subsidy values, caps, and explicit
-  `enforcement_status="not_implemented"`. The SDK adds no activation, debit,
-  grant, or retirement path for this launch-readiness surface. The read-scoped
-  `smr_preview_admin_promotion_discount` MCP tool and its `research_*` alias
-  expose the same typed preview without adding a mutation path.
-- **Public Research launch authority models** — `synth_ai.research` now exports
-  typed agent harness/model, role bindings, worker palette, configured-run
-  request, and canonical authority-readout aliases so evals and customer code
-  do not import `synth_ai.managed_research.models` internals.
-- **Typed Tag Factory interface** — Tag session creation now requires `TagSessionCreateRequest`; session, watch, receipt, steering, and artifact payloads parse into typed models; and `get_factory_context(scope_id=… | session_id=…)` exposes the current champion, last decision, and candidate counts without raw `/smr/*` reads.
-- **Runnable-project runtime artifact authority** — `SmrRunnableProjectRequest` preserves an optional `runtime_artifact_release_id` so callers can bind project creation to an exact backend-registered runtime release without bypassing SDK normalization.
-- **Research Factory preview-confirm wake** — `ResearchFactoriesAPI` adds
-  `list`, `get`, `status`, `preview_wake`, and `wake_due`. Confirmation replays
-  the backend-authored request contract with its opaque preview token rather
-  than reconstructing a launch request in the client.
-
-### Changed
-
-- **Wake preview requires write authority** — `smr_preview_factory_wake` is
-  WRITE-scoped because the current backend dry-run route can persist scheduler
-  and admission metadata. The SDK does not describe that POST as a read-only
-  capability.
-- **Product CloudDeployments are provider-neutral** — creation requires an
-  explicit product `host_kind` and no longer exposes internal `slot1-cloud` /
-  `slot2-cloud` identities, claim fencing, or cdev artifact operations. Internal
-  CloudDevSlot tooling belongs to `synth-dev`.
-
-## 0.15.0 — 2026-07-13
-
-### Added
-
-- **Research Factory evidence** — typed Factory status now exposes proof readiness, accepted actor outputs, and experiment observability. `FactoriesAPI` adds experiment bundle/history/compare reads, while Tag and CLI projections carry experiment, candidate, and tag evidence.
-- **Factory maintenance runs** — `EffortsAPI.launch_maintenance(...)`, `FactoryRunKind.MAINTENANCE`, `FactoryMaintenanceAction`, and the `FactoryActorRole.ORCHESTRATOR` role support typed maintenance cycles without crossing backend authority boundaries.
-- **Project-bound Cloud Deployments** — `client.cloud_deployments` exposes exe.dev-backed deployments tied to project Git:
-  - Raw methods: `create_cloud_deployment`, `list_cloud_deployments`, `get_cloud_deployment`, `observe_cloud_deployment`, `deploy_cloud_deployment`, `retire_cloud_deployment` over `/smr/v1/deployments`.
-  - Convenience: `service_url()`, `wait_until_running()` (`failed` is retryable via `deploy`; `retired` is terminal).
-  - Safety: `retire(delete_vm=True)` requires `confirm_vm_name`.
-  - MCP tools: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
-  - OpenAPI vendoring: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
-- **P8 proof runners**: `scripts/prove_cloud_deployment_client.py`, `scripts/prove_cloud_deployment_mcp.py`.
-- **`SmrWorkerSubtype.ARTIFACT_BUILDER`** and **`SmrReviewerSubtype.ARTIFACT_REVIEWER`** — typed actor subtypes for Open Research hosted artifact build and review flows.
-- **`SynthClient().research.hosted_artifacts`** — operator API for hosted artifacts:
-  - `list(project_id=…)`, `get`, `get_for_run`, `get_content`
-  - `update` (PATCH metadata), `publish_public`, `assign_reviewer`, `delete`
-  - `list_public`, `get_public` for the Open Research index
-- **Run handle:** `handle.hosted_artifact.get()`, `.content()`, `.publish_public()`, `.assign_reviewer()`
-- **SDK reference:** [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) (via `make docs-gen`).
-
-### Notes
-
-- Pairs with backend Factory and CloudDeployment routes on the same release train; publish only after the backend routes are deployed for the target audience.
-- Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
-- Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
-
-## 0.14.2 — 2026-07-10
-
-### Added
-
-- Typed `SmrAgentModel` coverage for every model in the backend-owned supported-model
-  catalog, including `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and
-  `cursor/grok-4.5`.
-
-### Changed
-
-- The vendored Managed Research OpenAPI model enum now matches the backend catalog.
-- The retired BetterStack SDK-log ingestion endpoint and payload schemas are no
-  longer published; application logs use the backend-owned VictoriaLogs path.
-- Existing model values, including `gpt-5.4` and internal compatibility values, remain
-  importable so the daily release does not break existing typed callers.
-
-## 0.14.0 — 2026-06-27
-
-### Added
-
-- **`SynthClient().research.efforts`** — run→Effort graduation surface for promoting related Runs into persistent Research Factory Efforts:
-  - `efforts.proposals.list(project_id)` returns Gardener-authored graduation proposals.
-  - `efforts.from_runs(project_id, name, run_ids, factory_id=None)` graduates a set of Runs into a new Effort.
-- **Graduation SDK models**: `GraduationProposal` and `EffortFromRunsRequest` (with `effort_from_runs_payload`).
-- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on the Tag session projection.
-- **MCP tools**: `smr_list_graduation_proposals`, `smr_graduate_runs_to_effort`, and `smr_list_runs_by_effort` (reverse index over runs that carry `effort_id`).
-
-### Notes
-
-- Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
-
-## 0.13.1 — 2026-07-09
-
-### Added
-
-- Typed `client.billing.plan()` support for the unified `economics_snapshot.v1`
-  contract, including plan policy, allowance windows, wallet, banked resets,
-  promotion state, usage summaries, block details, and recovery actions.
-- Typed read-only billing catalog and manual-grant preview models aligned with
-  the production backend contract.
-
-### Notes
-
-- The vendored Managed Research OpenAPI snapshot is generated from the backend
-  production promotion branch for this release train.
-- This release does not claim, grant, reset, or mutate customer billing state.
-
-## 0.12.0 — 2026-06-25
-
-### Added
-
-- **`SynthClient().research.tag`** — Synth Tag beta session API for delegated Managed Research work:
-  - `create_session(...)` starts a Tag session and bound SMR run.
-  - `get_session(session_id)` returns coarse status and terminal receipt.
-  - `send_message(session_id, ...)` steers the same active run without starting a new run.
-  - `get_default_scope()` returns the default organization Tag scope.
-- **Tag SDK models**: `TagSession`, `TagSessionCreateRequest`, `TagMessageRequest`, `TagSessionReceipt`, and `TagScope`.
-- **MCP tools**: `tag_create_session`, `tag_get_session`, and `tag_send_message`.
-- **Example**: `examples/tag_delegate_smoke.py` for delegate, steer, and receipt smoke checks.
-
-### Notes
-
-- Pair with backend `/api/tag/v1` routes and the `tag_steward` runbook on the same release train.
-- Production proof: Tag smoke session `b5cd5bf9-c1a7-46db-a5a2-799ca1816c8b`, run `ba255a34-0da3-4007-8ac3-0c677d836d85`, receipt `state=done`, artifact `/smr/work-products/5eae8c7a-6bf4-54e8-93a5-96401fb237f7/content`.
-
-## 0.11.7 — 2026-06-25
-
-### Added
-
-- **`SmrAgentModel.X_AI_GROK_BUILD`** (`x-ai/grok-build`) — typed SDK/MCP support for hosted SMR runs on xAI Grok Build via direct **xAI** routing (`codex_xai_grok_build` platform profile). Pairs with backend catalog row `grok-build-0.1` and metered xAI proxy.
-
-### Changed
-
-- **Grok catalog consolidation:** `SmrAgentModel` drops `x-ai/grok-4.1-fast` and `x-ai/grok-4.20-beta`; **`x-ai/grok-4.3`** (direct xAI via Codex) is the supported public Grok 4.x model. Retired ids are aliased to grok-4.3 on the backend catalog, so existing run-policy references still resolve server-side. Vendored `smr_openapi.yaml` re-synced to the backend contract (byte-match).
-
-### Fixed
-
-- **xAI chat compatibility (backend + contract):** upstream xAI requests no longer send OpenAI-style penalty fields that caused streaming disconnects or hidden provider errors on Grok paths.
-
-## 0.11.6 — 2026-06-24
-
-### Added
-
-- **`client.promotions`** namespace — typed SMR promotion registry SDK:
-  - `list_public()`, `mine()`, `claim(campaign_id)` for `GET /smr/promotions`,
-    `GET /smr/promotions/mine`, and `POST /smr/promotions/{campaign_id}/claim`.
-  - Admin helpers: `list_admin_campaigns()`, `upsert_admin_campaign(...)`,
-    `retire_admin_campaign(campaign_id)`.
-
-### Notes
-
-- Pair with backend promotions registry routes (Phases 0–3) on the same deploy train.
-- OpenAPI contract synced from backend `smr_openapi.yaml`.
-
-## 0.11.5 — 2026-06-24
-
-### Added
-
-- **`client.billing`** namespace — typed SMR Codex-style billing SDK:
-  - `get_catalog()`, `get_plan()`, `get_run_drawdown(run_id)`, `preflight_run(...)`,
-    factory-effort drawdown/preflight, and admin grant helpers matching
-    `GET /smr/billing/plan`, `/smr/billing/catalog`, run drawdown, and preflight routes.
-
-### Notes
-
-- Ships the billing SDK already merged on `dev`; no Factory surface changes.
-- Pair with backend billing routes on the same deploy train.
-
-## 0.11.4 — 2026-06-24
-
-### Added
-
-- **`SmrAgentModel.BASETEN_ZAI_ORG_GLM_5_2`** (`baseten/zai-org/GLM-5.2`) — GLM 5.2 via Baseten, added to the public agent-model enum and the shared actor model allowlist.
-- Run-policy **`groq`** credential provider and **`openrouter`** inference provider accepted client-side (BYOK / run-policy coercion no longer rejects them).
-
-### Changed
-
-- **Public model catalog sunset** (backend `smr_supported_models.json`): Trinity Large Thinking (`arcee-ai/trinity-large-thinking` and `:free`), `gpt-oss-120b`, `gpt-5.4-nano`, `deepseek/deepseek-v4-flash`, and `deepseek/deepseek-v4-pro` are no longer public and are dropped from `GET /smr/agent-models`. These ids remain importable from `SmrAgentModel` (no breaking enum removal) but fail backend preflight; use `gpt-5.4-mini`, `gpt-5.4`, or GLM 5.2 (entitlement-dependent). DeepSeek×Codex bench profiles remain available internally via `profile_id`.
-
-### Fixed
-
-- Removed the dead **`smr_get_project_economics`** MCP tool. **Errata:** the 0.11.3 notes listed `smr_get_project_economics` as an included tool, but its handler returned a removed-contract error (no backend route). Use **`smr_get_project_usage`** / **`smr_get_run_usage`** / billing entitlements instead (per the 0.11.2 migration table).
-
-## 0.11.3 — 2026-06-22
-
-### Changed
-
-- Prepared a distinct launch package version for the current Managed Research MCP surface so PyPI can ship the 222-tool launch worktree instead of the stale 0.11.2 wheel.
-- Included the project economics and GitHub setup MCP tools in the release target: `smr_get_project_economics`, `smr_setup_github_status`, `smr_setup_github_start_oauth`, `smr_setup_github_list_repos`, and `smr_setup_github_disconnect`.
-
-## 0.11.2 — 2026-06-16
-
-### Added
-
-- **`SynthClient().research`** — public Managed Research + Research Factory namespace (`ResearchClient`).
-- MCP entrypoint **`synth-ai-managed-research-mcp`** (stdio) alongside hosted HTTP MCP at `https://api.usesynth.ai/mcp`.
-- Optional extra **`synth-ai[research]`** for Research/MCP dependencies.
-
-### Changed
-
-- **Canonical install:** `pip install "synth-ai[research]==0.11.2"` (or `uv add "synth-ai[research]"`).
-- **Canonical Python entry:** `from synth_ai import SynthClient` → `client.research`.
-- MCP tool enumeration and SDK namespaces reconciled to the shipped backend OpenAPI contract.
-
-### Removed (breaking vs 0.11.1)
-
-The following **public SDK/MCP surfaces were removed** because they are not part of the launch contract. Use the replacements below.
-
-| Removed area | Replacement |
-| --- | --- |
-| Objective / milestone / experiment CRUD helpers | Objectives are **runtime-managed** during runs; inspect with `smr_get_run_work_graph`, `smr_objectives` (read), run observability |
-| Project economics convenience wrappers on deprecated paths | **`smr_get_project_usage`**, **`smr_get_run_usage`**, resource-limit progress tools, billing entitlements |
-| Connect-git / legacy GitHub setup SDK modules | GitHub OAuth via MCP `smr_setup_github_*` where enabled; attach repos via console or `smr_work_repos_*` |
-| Standalone **`managed-research`** PyPI package as the primary story | **`synth-ai[research]`** only; legacy `ManagedResearchClient` import remains under `synth_ai` for advanced/low-level callers |
-| Data-factory trigger/publish MCP tools (`smr_trigger_data_factory`, …) | Factory programs via hosted control plane + documented factory MCP tools |
-
-### Migration (0.11.1 → 0.11.2)
-
-```bash
-uv add "synth-ai[research]==0.11.2"
-export SYNTH_API_KEY="sk_..."
-```
-
-```python
-# Before (0.11.1 docs / standalone package)
-# from managed_research import ManagedResearchClient
-# client = ManagedResearchClient()
-
-# After
-from synth_ai import SynthClient
-
-research = SynthClient().research
-projects = research.projects.list()
-run = research.runs.start(
-    "Inspect the repo and leave evidence.",
-    host_kind="daytona",
-    work_mode="directed_effort",
-    providers=[{"provider": "openrouter"}],
-    runbook="lite",
-)
-```
-
-- **MCP stdio:** `uv tool install "synth-ai[research]"` then run `synth-ai-managed-research-mcp`.
-- **Errors:** launch denials return typed exceptions / MCP tool errors with `402` (insufficient credits) and `429` (limits). See [Preflight and Errors](https://docs.usesynth.ai/managed-research/preflight-and-errors).

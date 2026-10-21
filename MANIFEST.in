@@ -1,8 +1,10 @@
 include README.md
+include RELEASING.md
 include LICENSE
-include openapi/index-v1.json
-include openapi/research-v1.json
-include openapi/messaging-v1.json
+include contracts/index-v1.json
+include contracts/swarms-v1.json
+include contracts/mcp-v1.json
+include contracts/core-v1.json
 recursive-include synth_ai *.py
 recursive-include synth_ai *.md
 # Prune heavy example/demo/test/data trees from the sdist (keep code)
@@ -13,6 +15,7 @@ recursive-exclude synth_ai **/tests/*
 
 # Remove large data files from package
 recursive-exclude synth_ai *.json
+include synth_ai/contracts/fingerprints.json
 recursive-exclude synth_ai *.db
 recursive-exclude synth_ai *.duckdb
 recursive-exclude synth_ai *.sqlite
@@ -28,3 +31,6 @@ recursive-exclude synth_ai *.tar
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .DS_Store
+
+include CHANGELOG.md
+include docs/swarms.md

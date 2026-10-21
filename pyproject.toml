@@ -1,49 +1,48 @@
 [project]
 name = "synth-ai"
-version = "0.22.2"
-description = "Python SDK, CLI and MCP servers for Synth Index search and Swarms"
-keywords = ["synth", "index", "search", "citations", "research", "swarms", "mcp", "sdk"]
-authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
+version = "0.23.5"
+description = "Synth SDK for Index, Swarms, account access, and hosted MCP"
+keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
+authors = [{name = "Synth AI", email = "sdk@usesynth.ai"}]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
-    # Live SDK runtime
-    "pydantic>=2.0.0",
-    "pynacl>=1.5.0",
-    "click>=8.1.7,<8.2",
-    "httpx>=0.28.1",
-    # MCP validates closed producer-owned JSON schemas before invoking handlers.
-    "jsonschema>=4.18,<5",
+    "typing-extensions>=4.12,<5",
+    # Page's default generic cursor requires pydantic 2.11 (2.9/2.10 cannot import it).
+    "pydantic>=2.11,<3",
+    "httpx>=0.28.1,<1",
 ]
 
 [project.scripts]
-synth-ai = "synth_ai.cli:cli"
-synth-ai-research-mcp = "synth_ai.mcp.research.server:main"
-synth-ai-index-mcp = "synth_ai.mcp.research.server:main_index"
-
-[project.optional-dependencies]
-pools = [
-    "synth-containers>=0.4.3.dev2026091126,<0.5",
-]
-dev = [
-    "build>=1.2.2.post1",
-    "twine>=4.0.0",
-    "keyring>=24.0.0",
-    "ruff>=0.1.0",
-    "papermill>=2.6.0",
-    "nest_asyncio>=1.6.0",
-    "mdxify>=0.2.0",
-]
-research = [
-    # Compatibility extra retained so `synth-ai[research]` remains valid.
-]
+synth-ai = "synth_ai.cli_auth:main"
+synth-ai-mcp = "synth_ai.mcp_entrypoint:main"
 
 [project.urls]
-Homepage = "https://github.com/synth-laboratories/synth-ai"
+Homepage = "https://usesynth.ai"
+Documentation = "https://docs.usesynth.ai"
+Changelog = "https://github.com/synth-laboratories/synth-ai/blob/main/CHANGELOG.md"
 Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
+
+[project.optional-dependencies]
+mcp = [
+    "mcp>=1.30,<2",
+]
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -73,7 +72,7 @@ include-package-data = true
 "synth_ai" = [
     "py.typed",
 ]
-"synth_ai.sdk.research.contracts" = ["intern_authority_producer.json"]
+"synth_ai.contracts" = ["fingerprints.json"]
 
 [tool.ruff]
 # Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
@@ -88,7 +87,6 @@ extend-exclude = [
     "dev",
     "docs",
     "scripts",
-    "tests",
     "private_tests",
     "old",
     "tauri",
@@ -117,21 +115,28 @@ ignore = [
 
 [dependency-groups]
 dev = [
+    "readme-renderer>=44,<45",
+    # The release schema generator uses this serializer; runtime reads shipped hashes.
+    "pydantic==2.12.5",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
     "build>=1.2.2.post1",
     "twine>=4.0.0",
-    "keyring>=24.0.0",
     "jsonschema>=4.18,<5",
-    "pytest>=8.3.3",
-    "pytest-xdist>=3.6.1",
-    "pytest-timeout>=2.3.1",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.1.0",
-    "ty>=0.0.1a5",
-    "responses>=0.25.7",
-    "httpx>=0.28.1",
-    "papermill>=2.6.0",
-    "nest_asyncio>=1.6.0",
-    "nbstripout>=0.8.2",
-    "ipykernel>=7.1.0",
+    "ruff==0.17.0",
+    "ty==0.0.86",
+    "httpx>=0.28.1,<1",
     "mdxify>=0.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers -p no:cacheprovider"
+markers = [
+    "unit: pure model and decoder tests",
+    "contract: contract fingerprints and wire fixtures",
+    "mcp: hosted MCP tool contracts (requires the mcp extra)",
+    "release: packaging and release attestation checks",
 ]

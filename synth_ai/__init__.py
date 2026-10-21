@@ -1,310 +1,34 @@
-"""Python-only Synth SDK surface."""
+"""Synth Python SDK: typed clients for Index, Swarms and hosted MCP."""
 
 from __future__ import annotations
 
-import importlib
-from importlib import metadata as _metadata
-
-# Aliased to underscore names so they do not land in the package namespace:
-# `synth_ai.Path` / `synth_ai.Any` are import artifacts, not public API, and
-# anything reachable from `import synth_ai` but absent from __all__ reads as
-# surface a customer may rely on.
+import re as _re
 from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
+from importlib.metadata import version as _installed_version
 from pathlib import Path as _Path
-from typing import Any as _Any
+from typing import TYPE_CHECKING as _TYPE_CHECKING
 
-from synth_ai.core.utils.log_filter import (
-    install_log_filter as _install_log_filter,
-)
-
-_install_log_filter()
+if _TYPE_CHECKING:
+    from synth_ai.client import AsyncSynthClient, SynthClient
 
 try:
-    __version__ = _metadata.version("synth-ai")
-except _PackageNotFoundError:
-    try:
-        import tomllib as _toml
-    except ModuleNotFoundError:  # pragma: no cover
-        import tomli as _toml  # type: ignore[no-redef]  # ty: ignore[unresolved-import]
+    __version__ = _installed_version("synth-ai")
+except _PackageNotFoundError as _version_error:
+    _project = _Path(__file__).resolve().parents[1] / "pyproject.toml"
+    _match = _re.search(r'^version = "([^"]+)"$', _project.read_text(), _re.MULTILINE)
+    if _match is None:
+        raise RuntimeError("SDK source metadata has no version") from _version_error
+    __version__ = _match.group(1)
 
-    try:
-        pyproject_path = _Path(__file__).resolve().parents[1] / "pyproject.toml"
-        with pyproject_path.open("rb") as fh:
-            _pyproject = _toml.load(fh)
-        __version__ = str(_pyproject["project"]["version"])
-    except Exception:
-        __version__ = "0.0.0.dev0"
+__all__ = ["AsyncSynthClient", "SynthClient"]
 
 
-__all__ = [
-    "AsyncSynthClient",
-    "AsyncOptimizersClient",
-    "DataBindingCreateRequest",
-    "DatasetRevisionCreateRequest",
-    "DatasetRevisionFinalizeRequest",
-    "DatasetRevisionLifecycleRequest",
-    "DatasetRevisionPrepareRequest",
-    "DraftDeliveryAuthorityResponse",
-    "EnsureDraftDeliveryRequest",
-    "FactoryLunaRole",
-    "FactoryRoleReceiptMintRequest",
-    "FactoryRoleReceiptProvenance",
-    "FactoryRoleReceiptResponse",
-    "FactoryRoleReceiptRuntimeEvidence",
-    "FactoryStorageAuthorityResponse",
-    "ResearchApiError",
-    "MagiDecisionKind",
-    "MagiDecisionReceiptResponse",
-    "MagiDecisionRequest",
-    "MagiMode",
-    "ProjectComputerCleanupReceiptResponse",
-    "ProjectComputerCleanupRequest",
-    "ProjectComputerExecuteRequest",
-    "ProjectComputerInspectRequest",
-    "ProjectComputerLeaseAcquireRequest",
-    "ProjectComputerLeaseReleaseRequest",
-    "ProjectComputerLeaseRenewRequest",
-    "ProjectComputerOperationReconcileRequest",
-    "ProjectComputerProvisionRequest",
-    "ProjectComputerReplaceRequest",
-    "WorkspacePushConfirmationReceipt",
-    "ResearchClient",
-    "ResearchConcurrentRunLimitExceededError",
-    "ResearchInsufficientCreditsError",
-    "ResearchLimitExceededError",
-    "ResearchLimitExtensionGuardedResumeBlockedError",
-    "ResearchLimitExtensionIdempotencyConflictError",
-    "ResearchLimitRevisionConflictError",
-    "ResearchProjectCreateRequest",
-    "ResearchInternProvisionRequest",
-    "ResearchInternResponse",
-    "ResearchInternStatus",
-    "ResearchSwarmLaunchRequest",
-    "ResearchSwarmState",
-    "ResearchVisual",
-    "ResearchVisualPage",
-    "ResearchUnsafeLimitExtensionError",
-    "ResearchVisualPatchRequest",
-    "ResearchVisualPromotionRequest",
-    "ResearchVisualVersions",
-    "SynthClient",
-    "OptimizersClient",
-    "OptimizerRunOutputs",
-    "SavedLoraCheckpoint",
-    "SavedLoraCheckpointPage",
-    "SavedLoraLineage",
-    "SavedLoraRunPage",
-    "HostedTrainingModelCatalog",
-]
+def __getattr__(name: str) -> object:
+    """Load client composition only when requested, keeping release tooling independent."""
+    if name in __all__:
+        from synth_ai.client import AsyncSynthClient, SynthClient
 
-_EXPORTS: dict[str, tuple[str, str]] = {
-    "AsyncOptimizersClient": ("synth_ai.sdk.optimizers", "AsyncOptimizersClient"),
-    "HostedTrainingModelCatalog": (
-        "synth_ai.sdk.optimizers",
-        "HostedTrainingModelCatalog",
-    ),
-    "OptimizersClient": ("synth_ai.sdk.optimizers", "OptimizersClient"),
-    "OptimizerRunOutputs": ("synth_ai.sdk.optimizers", "OptimizerRunOutputs"),
-    "SavedLoraCheckpoint": ("synth_ai.sdk.optimizers", "SavedLoraCheckpoint"),
-    "SavedLoraCheckpointPage": (
-        "synth_ai.sdk.optimizers",
-        "SavedLoraCheckpointPage",
-    ),
-    "SavedLoraLineage": ("synth_ai.sdk.optimizers", "SavedLoraLineage"),
-    "SavedLoraRunPage": ("synth_ai.sdk.optimizers", "SavedLoraRunPage"),
-    "DataBindingCreateRequest": (
-        "synth_ai.sdk.research.contracts",
-        "DataBindingCreateRequest",
-    ),
-    "DatasetRevisionCreateRequest": (
-        "synth_ai.sdk.research.contracts",
-        "DatasetRevisionCreateRequest",
-    ),
-    "DatasetRevisionFinalizeRequest": (
-        "synth_ai.sdk.research.contracts",
-        "DatasetRevisionFinalizeRequest",
-    ),
-    "DatasetRevisionLifecycleRequest": (
-        "synth_ai.sdk.research.contracts",
-        "DatasetRevisionLifecycleRequest",
-    ),
-    "DatasetRevisionPrepareRequest": (
-        "synth_ai.sdk.research.contracts",
-        "DatasetRevisionPrepareRequest",
-    ),
-    "DraftDeliveryAuthorityResponse": (
-        "synth_ai.sdk.research.contracts",
-        "DraftDeliveryAuthorityResponse",
-    ),
-    "EnsureDraftDeliveryRequest": (
-        "synth_ai.sdk.research.contracts",
-        "EnsureDraftDeliveryRequest",
-    ),
-    "FactoryLunaRole": (
-        "synth_ai.sdk.research.contracts",
-        "FactoryLunaRole",
-    ),
-    "FactoryRoleReceiptMintRequest": (
-        "synth_ai.sdk.research.contracts",
-        "FactoryRoleReceiptMintRequest",
-    ),
-    "FactoryRoleReceiptProvenance": (
-        "synth_ai.sdk.research.contracts",
-        "FactoryRoleReceiptProvenance",
-    ),
-    "FactoryRoleReceiptResponse": (
-        "synth_ai.sdk.research.contracts",
-        "FactoryRoleReceiptResponse",
-    ),
-    "FactoryRoleReceiptRuntimeEvidence": (
-        "synth_ai.sdk.research.contracts",
-        "FactoryRoleReceiptRuntimeEvidence",
-    ),
-    "FactoryStorageAuthorityResponse": (
-        "synth_ai.sdk.research.contracts",
-        "FactoryStorageAuthorityResponse",
-    ),
-    "MagiDecisionRequest": (
-        "synth_ai.sdk.research.contracts",
-        "MagiDecisionRequest",
-    ),
-    "MagiDecisionKind": (
-        "synth_ai.sdk.research.contracts",
-        "MagiDecisionKind",
-    ),
-    "MagiDecisionReceiptResponse": (
-        "synth_ai.sdk.research.contracts",
-        "MagiDecisionReceiptResponse",
-    ),
-    "MagiMode": ("synth_ai.sdk.research.contracts", "MagiMode"),
-    "ProjectComputerCleanupReceiptResponse": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerCleanupReceiptResponse",
-    ),
-    "ProjectComputerCleanupRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerCleanupRequest",
-    ),
-    "ProjectComputerExecuteRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerExecuteRequest",
-    ),
-    "ProjectComputerInspectRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerInspectRequest",
-    ),
-    "ProjectComputerLeaseAcquireRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerLeaseAcquireRequest",
-    ),
-    "ProjectComputerLeaseReleaseRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerLeaseReleaseRequest",
-    ),
-    "ProjectComputerLeaseRenewRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerLeaseRenewRequest",
-    ),
-    "ProjectComputerOperationReconcileRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerOperationReconcileRequest",
-    ),
-    "ProjectComputerProvisionRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerProvisionRequest",
-    ),
-    "ProjectComputerReplaceRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ProjectComputerReplaceRequest",
-    ),
-    "WorkspacePushConfirmationReceipt": (
-        "synth_ai.sdk.research.contracts",
-        "WorkspacePushConfirmationReceipt",
-    ),
-    "ResearchApiError": ("synth_ai.sdk.research.errors", "ResearchApiError"),
-    "ResearchConcurrentRunLimitExceededError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchConcurrentRunLimitExceededError",
-    ),
-    "ResearchInsufficientCreditsError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchInsufficientCreditsError",
-    ),
-    "ResearchLimitExceededError": ("synth_ai.sdk.research.errors", "ResearchLimitExceededError"),
-    "ResearchLimitExtensionGuardedResumeBlockedError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchLimitExtensionGuardedResumeBlockedError",
-    ),
-    "ResearchLimitExtensionIdempotencyConflictError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchLimitExtensionIdempotencyConflictError",
-    ),
-    "ResearchLimitRevisionConflictError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchLimitRevisionConflictError",
-    ),
-    "ResearchUnsafeLimitExtensionError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchUnsafeLimitExtensionError",
-    ),
-    "SmrApiError": ("synth_ai.sdk.research.errors", "ResearchApiError"),
-    "SmrConcurrentRunLimitExceededError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchConcurrentRunLimitExceededError",
-    ),
-    "SmrInsufficientCreditsError": (
-        "synth_ai.sdk.research.errors",
-        "ResearchInsufficientCreditsError",
-    ),
-    "SmrLimitExceededError": ("synth_ai.sdk.research.errors", "ResearchLimitExceededError"),
-    "ResearchClient": ("synth_ai.sdk.research.facade", "ResearchClient"),
-    "ResearchProjectCreateRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchProjectCreateRequest",
-    ),
-    "ResearchInternProvisionRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchInternProvisionRequest",
-    ),
-    "ResearchInternResponse": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchInternResponse",
-    ),
-    "ResearchInternStatus": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchInternStatus",
-    ),
-    "ResearchSwarmLaunchRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchSwarmLaunchRequest",
-    ),
-    "ResearchSwarmState": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchSwarmState",
-    ),
-    "ResearchVisual": ("synth_ai.sdk.research.contracts", "ResearchVisual"),
-    "ResearchVisualPage": ("synth_ai.sdk.research.contracts", "ResearchVisualPage"),
-    "ResearchVisualPatchRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchVisualPatchRequest",
-    ),
-    "ResearchVisualPromotionRequest": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchVisualPromotionRequest",
-    ),
-    "ResearchVisualVersions": (
-        "synth_ai.sdk.research.contracts",
-        "ResearchVisualVersions",
-    ),
-    "SynthClient": ("synth_ai.client", "SynthClient"),
-    "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
-}
-
-
-def __getattr__(name: str) -> _Any:
-    target = _EXPORTS.get(name)
-    if target is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_name, attr_name = target
-    module = importlib.import_module(module_name)
-    return getattr(module, attr_name)
+        clients = {"AsyncSynthClient": AsyncSynthClient, "SynthClient": SynthClient}
+        globals().update(clients)
+        return clients[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

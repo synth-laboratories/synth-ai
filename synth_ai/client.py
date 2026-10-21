@@ -1,352 +1,299 @@
-"""Python-only front-door SDK clients."""
+"""Explicit authenticated/anonymous composition. See backend SDK index_contract.md."""
 
 from __future__ import annotations
 
-import warnings
-from typing import TYPE_CHECKING
+import asyncio
+from types import TracebackType
 
-from synth_ai.core.auth.credentials import resolve_api_credential
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
-from synth_ai.sdk.index.timeouts import INDEX_TRANSPORT_TIMEOUT_SECONDS
+from synth_ai.auth.provider import StoredCredentialProvider
+from synth_ai.contracts.operations import AUTH_CONTEXT, CAPABILITIES
+from synth_ai.contracts.registry import recovery_operation
+from synth_ai.core.environment import environment_value
+from synth_ai.core.http.async_client import AsyncHttpTransport
+from synth_ai.core.http.cleanup import handle_cleanup_failure
+from synth_ai.core.http.client import HttpTransport
+from synth_ai.core.http.request import validate_base_url
+from synth_ai.errors import AuthenticationError, ContractError
+from synth_ai.options import ClientOptions, ReadOptions
+from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
+from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
+from synth_ai.sdk.core.links import AsyncLinks, Links
+from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
+from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
+from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
+from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
+from synth_ai.types.auth import AuthContext
+from synth_ai.types.capabilities import Capabilities
+from synth_ai.types.identity import MutationIdentity
+from synth_ai.types.receipts import MutationResolution
 
-if TYPE_CHECKING:
-    from synth_ai.core.http.async_transport import AsyncHttpTransport
-    from synth_ai.core.http.transport import HttpTransport
-    from synth_ai.pools import PoolClient
-    from synth_ai.sdk.index.client import AsyncIndexAPI, IndexAPI
-    from synth_ai.sdk.messaging import AsyncMessagingClient, MessagingClient
-    from synth_ai.sdk.optimizers import AsyncOptimizersClient, OptimizersClient
-    from synth_ai.sdk.research import AsyncResearchClient
-    from synth_ai.sdk.research.facade import ResearchClient
+DEFAULT_BASE_URL = "https://api.usesynth.ai"
 
 
-def _resolve_api_key(api_key: str | None) -> str:
-    return resolve_api_credential(api_key).value
+def resolve_key(api_key: str | None) -> str:
+    selected = (
+        api_key
+        if api_key is not None
+        else environment_value("SYNTH_API_KEY", "SYNTH_USER_KEY", "SYNTH_BACKEND_API_KEY")
+    )
+    if not selected or not selected.strip() or any(character in selected for character in "\r\n"):
+        raise AuthenticationError("Provide an API key explicitly or through SYNTH_API_KEY")
+    return selected.strip()
 
 
-def _resolve_base_url(base_url: str | None) -> str:
-    return normalize_backend_base(base_url or BACKEND_URL_BASE)
+def resolve_url(base_url: str | None) -> str:
+    selected = (
+        base_url
+        if base_url is not None
+        else environment_value("SYNTH_API_URL", "SYNTH_BACKEND_URL", "SYNTH_API_BASE_URL")
+    )
+    return validate_base_url(DEFAULT_BASE_URL if selected is None else selected)
+
+
+def _credentials(
+    api_key: str | None, origin: str
+) -> tuple[str | None, StoredCredentialProvider | None]:
+    selected = (
+        api_key
+        if api_key is not None
+        else environment_value("SYNTH_API_KEY", "SYNTH_USER_KEY", "SYNTH_BACKEND_API_KEY")
+    )
+    if selected is not None:
+        return resolve_key(selected), None
+    return None, StoredCredentialProvider(origin)
 
 
 class SynthClient:
-    """Synchronous entry point for Index, Research, Messaging and hosted optimizers.
+    """An owned SDK lifetime with cancellable network IO."""
 
-    Namespaces and their transports are created lazily. Closing the client closes
-    all transports that it opened. Factory APIs remain available for compatibility.
-
-    Example:
-        ```python
-        from synth_ai import SynthClient
-
-        with SynthClient(api_key="YOUR_SYNTH_API_KEY") as client:
-            index = client.index
-        ```
-    """
+    _transport: HttpTransport
+    index: IndexClient
+    swarms: SwarmsClient
+    account: AccountClient
+    tunnels: TunnelsClient
+    repos: Repositories
+    links: Links
+    artifacts: Artifacts
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout_seconds: float | None = None,
+        options: ClientOptions | None = None,
     ) -> None:
-        """Configure credentials, endpoint and transport timeouts without making requests.
+        selected = options or ClientOptions()
+        if selected.async_http_client is not None:
+            raise ValueError(
+                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
+            )
+        origin = resolve_url(base_url)
+        key, provider = _credentials(api_key, origin)
+        self._transport = HttpTransport(origin, key, selected, credential_provider=provider)
+        self.index = IndexClient(self._transport, True)
+        self.swarms = SwarmsClient(self._transport)
+        self.account = AccountClient(self._transport)
+        self.tunnels = TunnelsClient(self._transport)
+        self.repos = Repositories(self._transport)
+        self.links = Links(self._transport)
+        self.artifacts = Artifacts(self._transport)
 
-        Args:
-            api_key: Explicit Synth API credential; None uses the configured credential resolver.
-            base_url: Backend URL override; None uses the SDK's configured backend base URL.
-            timeout_seconds: Transport timeout in seconds. None uses 30 seconds for
-                Research, Messaging and Optimizers, and the Index transport default for Index.
-        """
-        self.api_key = _resolve_api_key(api_key)
-        self.base_url = _resolve_base_url(base_url)
-        self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
-        self._index_timeout_seconds = (
-            INDEX_TRANSPORT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+    @classmethod
+    def anonymous(
+        cls, *, base_url: str | None = None, options: ClientOptions | None = None
+    ) -> SynthClient:
+        """Construct a public client without reading ambient credentials or doing network IO.
+
+        See: the public contract snapshots in contracts/"""
+        selected = options or ClientOptions()
+        if selected.async_http_client is not None:
+            raise ValueError(
+                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
+            )
+        client = cls.__new__(cls)
+        client._transport = HttpTransport(resolve_url(base_url), None, selected)
+        client.index = IndexClient(client._transport, False)
+        client.swarms = SwarmsClient(client._transport)
+        client.account = AccountClient(client._transport)
+        client.tunnels = TunnelsClient(client._transport)
+        client.repos = Repositories(client._transport)
+        client.links = Links(client._transport)
+        client.artifacts = Artifacts(client._transport)
+        return client
+
+    def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
+        """Read nonsecret deployment facts; these do not grant resource access.
+
+        See: the public contract snapshots in contracts/"""
+        return self._transport.request(CAPABILITIES, Capabilities, options=request)
+
+    @property
+    def candidate_manifest_sha256(self) -> str | None:
+        """Explicit nonproduction candidate pin; absent for ordinary clients."""
+        return self._transport.candidate_manifest_sha256
+
+    @property
+    def base_url(self) -> str:
+        """The validated API origin selected for this client."""
+        return self._transport.base_url
+
+    def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
+        """Read verified identity and current grants without secrets or tenant overrides.
+
+        See: the public contract snapshots in contracts/"""
+        return self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
+
+    def resolve_mutation(
+        self, identity: MutationIdentity, *, request: ReadOptions | None = None
+    ) -> MutationResolution:
+        """Reconcile known scoped mutation identity; unavailable is not proof of nonacceptance.
+
+        See: the public contract snapshots in contracts/"""
+        result = self._transport.request(
+            recovery_operation(identity),
+            MutationResolution,
+            query={
+                "key": identity.key,
+                "operation": identity.operation,
+                "resource_path": identity.resource_path,
+                "payload_sha256": identity.payload_sha256,
+            },
+            options=request,
         )
-        self._research_client: ResearchClient | None = None
-        self._optimizers_client: OptimizersClient | None = None
-        self._index_api: IndexAPI | None = None
-        self._index_transport: HttpTransport | None = None
-        self._messaging_client: MessagingClient | None = None
-
-    @property
-    def index(self) -> IndexAPI:
-        """Return the lazily initialized Index namespace.
-
-        Returns:
-            IndexAPI using this client's credential, backend URL and Index timeout.
-        """
-        if self._index_api is None:
-            from synth_ai.core.http.transport import HttpTransport
-            from synth_ai.sdk.index.client import IndexAPI
-
-            self._index_transport = HttpTransport(
-                base_url=self.base_url,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout_seconds=self._index_timeout_seconds,
-            )
-            self._index_api = IndexAPI(self._index_transport)
-        return self._index_api
-
-    @property
-    def messaging(self) -> MessagingClient:
-        """Return the lazily initialized Messaging namespace.
-
-        Returns:
-            MessagingClient for typed threads, history and explicit Workshop device grants.
-        """
-        if self._messaging_client is None:
-            from synth_ai.sdk.messaging import MessagingClient
-
-            self._messaging_client = MessagingClient(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._messaging_client
-
-    @property
-    def research(self) -> ResearchClient:
-        """Return the lazily initialized Research namespace.
-
-        Returns:
-            ResearchClient for hosted projects and swarms, with compatibility Factory APIs.
-        """
-        if self._research_client is None:
-            from synth_ai.sdk.research.facade import ResearchClient
-
-            self._research_client = ResearchClient(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._research_client
+        if result.identity != identity:
+            raise ContractError("Resolver returned a different mutation identity")
+        return result
 
     def close(self) -> None:
-        """Close all lazily opened SDK transports."""
-        if self._index_transport is not None:
-            self._index_transport.close()
-            self._index_transport = None
-            self._index_api = None
-        if self._messaging_client is not None:
-            self._messaging_client.close()
-            self._messaging_client = None
-        if self._research_client is not None:
-            self._research_client.close()
-            self._research_client = None
-        if self._optimizers_client is not None:
-            self._optimizers_client.close()
-            self._optimizers_client = None
+        """Close owned network resources without cancelling durable remote work.
 
-    @property
-    def optimizers(self) -> OptimizersClient:
-        """Return the lazily initialized hosted Optimizers namespace.
-
-        Returns:
-            OptimizersClient for hosted training model discovery and saved-LoRA lineage.
-        """
-        if self._optimizers_client is None:
-            from synth_ai.sdk.optimizers import OptimizersClient
-
-            self._optimizers_client = OptimizersClient(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._optimizers_client
+        See: the public contract snapshots in contracts/"""
+        self._transport.close()
 
     def __enter__(self) -> SynthClient:
         return self
 
-    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
-        self.close()
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            self.close()
+        except Exception as cause:
+            handle_cleanup_failure(cause, exception, mutation=False, identity=None)
 
 
 class AsyncSynthClient:
-    """Asynchronous entry point with lazily initialized SDK namespaces.
+    """Native async client; construction and anonymous factory do no IO."""
 
-    Example:
-        ```python
-        from synth_ai import AsyncSynthClient
-
-        async def inspect_namespace():
-            async with AsyncSynthClient(api_key="YOUR_SYNTH_API_KEY") as client:
-                index = client.index
-        ```
-    """
+    _transport: AsyncHttpTransport
+    index: AsyncIndexClient
+    swarms: AsyncSwarmsClient
+    account: AsyncAccountClient
+    tunnels: AsyncTunnelsClient
+    repos: AsyncRepositories
+    links: AsyncLinks
+    artifacts: AsyncArtifacts
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout_seconds: float | None = None,
+        options: ClientOptions | None = None,
     ) -> None:
-        """Configure credentials, endpoint and transport timeouts without making requests.
+        selected = options or ClientOptions()
+        origin = resolve_url(base_url)
+        key, provider = _credentials(api_key, origin)
+        self._transport = AsyncHttpTransport(origin, key, selected, credential_provider=provider)
+        self.index = AsyncIndexClient(self._transport, True)
+        self.swarms = AsyncSwarmsClient(self._transport)
+        self.account = AsyncAccountClient(self._transport)
+        self.tunnels = AsyncTunnelsClient(self._transport)
+        self.repos = AsyncRepositories(self._transport)
+        self.links = AsyncLinks(self._transport)
+        self.artifacts = AsyncArtifacts(self._transport)
 
-        Args:
-            api_key: Explicit Synth API credential; None uses the configured credential resolver.
-            base_url: Backend URL override; None uses the SDK's configured backend base URL.
-            timeout_seconds: Transport timeout in seconds. None uses 30 seconds for
-                Research, Messaging and Optimizers, and the Index transport default for Index.
-        """
-        self.api_key = _resolve_api_key(api_key)
-        self.base_url = _resolve_base_url(base_url)
-        self.timeout_seconds = 30.0 if timeout_seconds is None else timeout_seconds
-        self._index_timeout_seconds = (
-            INDEX_TRANSPORT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+    @classmethod
+    def anonymous(
+        cls, *, base_url: str | None = None, options: ClientOptions | None = None
+    ) -> AsyncSynthClient:
+        """Construct a public client without reading ambient credentials or doing network IO.
+
+        See: the public contract snapshots in contracts/"""
+        selected = options or ClientOptions()
+        client = cls.__new__(cls)
+        client._transport = AsyncHttpTransport(resolve_url(base_url), None, selected)
+        client.index = AsyncIndexClient(client._transport, False)
+        client.swarms = AsyncSwarmsClient(client._transport)
+        client.account = AsyncAccountClient(client._transport)
+        client.tunnels = AsyncTunnelsClient(client._transport)
+        client.repos = AsyncRepositories(client._transport)
+        client.links = AsyncLinks(client._transport)
+        client.artifacts = AsyncArtifacts(client._transport)
+        return client
+
+    async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
+        """Read nonsecret deployment facts; these do not grant resource access.
+
+        See: the public contract snapshots in contracts/"""
+        return await self._transport.request(CAPABILITIES, Capabilities, options=request)
+
+    @property
+    def candidate_manifest_sha256(self) -> str | None:
+        """Explicit nonproduction candidate pin; absent for ordinary clients."""
+        return self._transport.candidate_manifest_sha256
+
+    @property
+    def base_url(self) -> str:
+        """The validated API origin selected for this client."""
+        return self._transport.base_url
+
+    async def auth_context(self, *, request: ReadOptions | None = None) -> AuthContext:
+        """Read verified identity and current grants without secrets or tenant overrides.
+
+        See: the public contract snapshots in contracts/"""
+        return await self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
+
+    async def resolve_mutation(
+        self, identity: MutationIdentity, *, request: ReadOptions | None = None
+    ) -> MutationResolution:
+        """Reconcile known scoped mutation identity; unavailable is not proof of nonacceptance.
+
+        See: the public contract snapshots in contracts/"""
+        result = await self._transport.request(
+            recovery_operation(identity),
+            MutationResolution,
+            query={
+                "key": identity.key,
+                "operation": identity.operation,
+                "resource_path": identity.resource_path,
+                "payload_sha256": identity.payload_sha256,
+            },
+            options=request,
         )
-        self._async_research_client: AsyncResearchClient | None = None
-        self._async_optimizers_client: AsyncOptimizersClient | None = None
-        self._index_api: AsyncIndexAPI | None = None
-        self._index_transport: AsyncHttpTransport | None = None
-        self._pool_client: PoolClient | None = None
-        self._async_messaging_client: AsyncMessagingClient | None = None
+        if result.identity != identity:
+            raise ContractError("Resolver returned a different mutation identity")
+        return result
 
-    @property
-    def index(self) -> AsyncIndexAPI:
-        """Return the lazily initialized asynchronous Index namespace.
+    async def aclose(self) -> None:
+        """End async local ownership without cancelling durable work or closing borrowed clients.
 
-        Returns:
-            AsyncIndexAPI using this client's credential, backend URL and Index timeout.
-        """
-        if self._index_api is None:
-            from synth_ai.core.http.async_transport import AsyncHttpTransport
-            from synth_ai.sdk.index.client import AsyncIndexAPI
-
-            self._index_transport = AsyncHttpTransport(
-                base_url=self.base_url,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout_seconds=self._index_timeout_seconds,
-            )
-            self._index_api = AsyncIndexAPI(self._index_transport)
-        return self._index_api
-
-    @property
-    def messaging(self) -> AsyncMessagingClient:
-        """Return the lazily initialized asynchronous Messaging namespace.
-
-        Returns:
-            AsyncMessagingClient for threads, history and explicit Workshop device grants.
-        """
-        if self._async_messaging_client is None:
-            from synth_ai.sdk.messaging import AsyncMessagingClient
-
-            self._async_messaging_client = AsyncMessagingClient(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._async_messaging_client
-
-    @property
-    def research(self) -> AsyncResearchClient:
-        """Return the lazily initialized asynchronous Research namespace.
-
-        Returns:
-            AsyncResearchClient using this client's credential, backend URL and timeout.
-        """
-        if self._async_research_client is None:
-            from synth_ai.sdk.research import AsyncResearchClient
-
-            self._async_research_client = AsyncResearchClient(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._async_research_client
-
-    @property
-    def pools(self) -> PoolClient:
-        """Backend-owned pool, deployment and interactive lease operations.
-
-        See: evals/docs/handoffs/EVAL_EXECUTION_STREAMING_DELIVERY_PLAN_2026-09-10.md §3.
-        Uses the canonical synth-containers client and this client's existing
-        backend credential. Requires the optional ``synth-ai[pools]`` extra.
-        Requests always pass through hosted admission and resource ownership.
-        """
-        if self._pool_client is None:
-            from synth_ai.pools import PoolClient
-
-            self._pool_client = PoolClient(
-                api_key=self.api_key,
-                backend_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._pool_client
-
-    @property
-    def async_research(self) -> AsyncResearchClient:
-        """Deprecated alias for :attr:`research`.
-
-        Returns:
-            The same AsyncResearchClient instance as research, after a deprecation warning.
-        """
-        warnings.warn(
-            "AsyncSynthClient.async_research is deprecated; use .research.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.research
-
-    async def close(self) -> None:
-        """Close all asynchronous Research transports."""
-        try:
-            if self._index_transport is not None:
-                await self._index_transport.close()
-                self._index_transport = None
-                self._index_api = None
-        finally:
-            try:
-                if self._async_messaging_client is not None:
-                    await self._async_messaging_client.close()
-                    self._async_messaging_client = None
-            finally:
-                try:
-                    if self._async_research_client is not None:
-                        await self._async_research_client.close()
-                        self._async_research_client = None
-                finally:
-                    try:
-                        if self._async_optimizers_client is not None:
-                            await self._async_optimizers_client.close()
-                            self._async_optimizers_client = None
-                    finally:
-                        if self._pool_client is not None:
-                            await self._pool_client.aclose()
-                            self._pool_client = None
-
-    @property
-    def optimizers(self) -> AsyncOptimizersClient:
-        """Return the lazily initialized asynchronous hosted Optimizers namespace.
-
-        Returns:
-            AsyncOptimizersClient using this client's credential, backend URL and timeout.
-        """
-        if self._async_optimizers_client is None:
-            from synth_ai.sdk.optimizers import AsyncOptimizersClient
-
-            self._async_optimizers_client = AsyncOptimizersClient(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout_seconds=self.timeout_seconds,
-            )
-        return self._async_optimizers_client
+        See: the public contract snapshots in contracts/"""
+        await self._transport.aclose()
 
     async def __aenter__(self) -> AsyncSynthClient:
         return self
 
     async def __aexit__(
         self,
-        exc_type: object,
-        exc: object,
-        traceback: object,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
-        await self.close()
-
-
-__all__ = [
-    "AsyncSynthClient",
-    "SynthClient",
-]
+        try:
+            await self.aclose()
+        except (Exception, asyncio.CancelledError) as cause:
+            handle_cleanup_failure(cause, exception, mutation=False, identity=None)

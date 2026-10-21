@@ -1,0 +1,4626 @@
+{
+  "archive_protocol": {
+    "content_encoding": "identity",
+    "format": "synth.git-raw-tar.v1",
+    "gitlinks": "empty directory with local PAX SYNTH.gitlink=<40 lowercase hex>",
+    "maximum_bytes": 536870912,
+    "maximum_entries": 100000,
+    "maximum_seconds": 900,
+    "media_type": "application/x-tar",
+    "publication": "exclusive directory rename only after EOF, byte hash and actual tree digest verification",
+    "request": {
+      "commit": "full lowercase SHA-1",
+      "digest_sha256": "exact canonical commit manifest digest"
+    },
+    "required_headers": {
+      "X-Synth-Archive-Bytes": "complete uncompressed tar byte count",
+      "X-Synth-Archive-Entries": "canonical tree entry count",
+      "X-Synth-Archive-Format": "synth.git-raw-tar.v1",
+      "X-Synth-Commit-Manifest-SHA256": "selected Ref.digest_sha256",
+      "X-Synth-Commit-SHA": "selected commit SHA-1",
+      "X-Synth-Content-SHA256": "SHA-256 of complete uncompressed tar bytes",
+      "X-Synth-Contract": "core.v1",
+      "X-Synth-Repo-Id": "selected public repo_id"
+    }
+  },
+  "models": {
+    "Artifact": {
+      "$defs": {
+        "ArtifactManifest": {
+          "additionalProperties": true,
+          "properties": {
+            "collection_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            },
+            "manifest_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            },
+            "manifest_schema_version": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Manifest Schema Version",
+              "type": "string"
+            },
+            "objects": {
+              "items": {
+                "$ref": "#/$defs/ArtifactObject"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "title": "Objects",
+              "type": "array"
+            },
+            "publication_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Publication Id",
+              "type": "string"
+            },
+            "revision": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "schema_version": {
+              "const": "synth.artifact-platform.v1",
+              "default": "synth.artifact-platform.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "manifest_schema_version",
+            "publication_id",
+            "collection_id",
+            "revision",
+            "objects",
+            "manifest_digest"
+          ],
+          "title": "ArtifactManifest",
+          "type": "object"
+        },
+        "ArtifactObject": {
+          "additionalProperties": true,
+          "properties": {
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "media_type": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 67108864,
+              "minimum": 0,
+              "title": "Size Bytes",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "logical_path",
+            "digest_sha256",
+            "size_bytes",
+            "media_type"
+          ],
+          "title": "ArtifactObject",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "aliases": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Aliases",
+          "type": "array"
+        },
+        "aliases_complete": {
+          "default": true,
+          "title": "Aliases Complete",
+          "type": "boolean"
+        },
+        "artifact_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "file",
+                "report",
+                "answer",
+                "dataset",
+                "log",
+                "figure",
+                "policy",
+                "workspace-snapshot",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "Kind"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "labels_revision": {
+          "minimum": 1,
+          "title": "Labels Revision",
+          "type": "integer"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ArtifactManifest"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "scan": {
+          "enum": [
+            "accepted",
+            "none"
+          ],
+          "title": "Scan",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "artifact_id",
+        "project_id",
+        "kind",
+        "labels",
+        "labels_revision",
+        "ref",
+        "manifest",
+        "scan",
+        "created_at"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ArtifactAlias": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "name": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "metadata",
+        "project_id",
+        "name",
+        "ref",
+        "revision"
+      ],
+      "title": "ArtifactAlias",
+      "type": "object"
+    },
+    "ArtifactAliasSet": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "ref": {
+          "$ref": "#/$defs/ExactReference"
+        }
+      },
+      "required": [
+        "ref",
+        "expected_revision"
+      ],
+      "title": "ArtifactAliasSet",
+      "type": "object"
+    },
+    "ArtifactLabelsUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "remove": {
+          "default": [],
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9_.-]+$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Remove",
+          "type": "array"
+        },
+        "set": {
+          "maxProperties": 32,
+          "patternProperties": {
+            "^[a-z0-9_.-]+$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "title": "Set",
+          "type": "object"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "ArtifactLabelsUpdate",
+      "type": "object"
+    },
+    "ArtifactManifest": {
+      "$defs": {
+        "ArtifactObject": {
+          "additionalProperties": false,
+          "properties": {
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "media_type": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 67108864,
+              "minimum": 0,
+              "title": "Size Bytes",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "logical_path",
+            "digest_sha256",
+            "size_bytes",
+            "media_type"
+          ],
+          "title": "ArtifactObject",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "collection_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Collection Id",
+          "type": "string"
+        },
+        "manifest_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Digest",
+          "type": "string"
+        },
+        "manifest_schema_version": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Manifest Schema Version",
+          "type": "string"
+        },
+        "objects": {
+          "items": {
+            "$ref": "#/$defs/ArtifactObject"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Objects",
+          "type": "array"
+        },
+        "publication_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Publication Id",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "synth.artifact-platform.v1",
+          "default": "synth.artifact-platform.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_schema_version",
+        "publication_id",
+        "collection_id",
+        "revision",
+        "objects",
+        "manifest_digest"
+      ],
+      "title": "ArtifactManifest",
+      "type": "object"
+    },
+    "ArtifactObject": {
+      "additionalProperties": false,
+      "properties": {
+        "digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest Sha256",
+          "type": "string"
+        },
+        "logical_path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Logical Path",
+          "type": "string"
+        },
+        "media_type": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 67108864,
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "logical_path",
+        "digest_sha256",
+        "size_bytes",
+        "media_type"
+      ],
+      "title": "ArtifactObject",
+      "type": "object"
+    },
+    "ArtifactUploadManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "maximum": 67108864,
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest Sha256",
+          "type": "string"
+        },
+        "filename": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+        },
+        "media_type": {
+          "enum": [
+            "text/plain",
+            "text/markdown",
+            "application/json",
+            "application/pdf",
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "application/zip",
+            "application/gzip",
+            "application/x-tar",
+            "application/octet-stream"
+          ],
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "filename",
+        "byte_size",
+        "digest_sha256",
+        "media_type"
+      ],
+      "title": "ArtifactUploadManifest",
+      "type": "object"
+    },
+    "ArtifactUploadReceipt": {
+      "$defs": {
+        "Artifact": {
+          "additionalProperties": true,
+          "properties": {
+            "aliases": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 200,
+              "title": "Aliases",
+              "type": "array"
+            },
+            "aliases_complete": {
+              "default": true,
+              "title": "Aliases Complete",
+              "type": "boolean"
+            },
+            "artifact_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Artifact Id",
+              "type": "string"
+            },
+            "created_at": {
+              "format": "date-time",
+              "title": "Created At",
+              "type": "string"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "file",
+                    "report",
+                    "answer",
+                    "dataset",
+                    "log",
+                    "figure",
+                    "policy",
+                    "workspace-snapshot",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "Kind"
+            },
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "maxLength": 512,
+                "minLength": 1
+              },
+              "title": "Labels",
+              "type": "object"
+            },
+            "labels_revision": {
+              "minimum": 1,
+              "title": "Labels Revision",
+              "type": "integer"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ArtifactManifest"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "project_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Project Id",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "scan": {
+              "enum": [
+                "accepted",
+                "none"
+              ],
+              "title": "Scan",
+              "type": "string"
+            }
+          },
+          "required": [
+            "metadata",
+            "artifact_id",
+            "project_id",
+            "kind",
+            "labels",
+            "labels_revision",
+            "ref",
+            "manifest",
+            "scan",
+            "created_at"
+          ],
+          "title": "Artifact",
+          "type": "object"
+        },
+        "ArtifactManifest": {
+          "additionalProperties": true,
+          "properties": {
+            "collection_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            },
+            "manifest_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            },
+            "manifest_schema_version": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Manifest Schema Version",
+              "type": "string"
+            },
+            "objects": {
+              "items": {
+                "$ref": "#/$defs/ArtifactObject"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "title": "Objects",
+              "type": "array"
+            },
+            "publication_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Publication Id",
+              "type": "string"
+            },
+            "revision": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "schema_version": {
+              "const": "synth.artifact-platform.v1",
+              "default": "synth.artifact-platform.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "manifest_schema_version",
+            "publication_id",
+            "collection_id",
+            "revision",
+            "objects",
+            "manifest_digest"
+          ],
+          "title": "ArtifactManifest",
+          "type": "object"
+        },
+        "ArtifactObject": {
+          "additionalProperties": true,
+          "properties": {
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "media_type": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 67108864,
+              "minimum": 0,
+              "title": "Size Bytes",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "logical_path",
+            "digest_sha256",
+            "size_bytes",
+            "media_type"
+          ],
+          "title": "ArtifactObject",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "state": {
+          "const": "finalized",
+          "default": "finalized",
+          "title": "State",
+          "type": "string"
+        },
+        "upload_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Upload Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "upload_id",
+        "artifact"
+      ],
+      "title": "ArtifactUploadReceipt",
+      "type": "object"
+    },
+    "ArtifactUploadRequest": {
+      "$defs": {
+        "ArtifactUploadManifest": {
+          "additionalProperties": false,
+          "properties": {
+            "byte_size": {
+              "maximum": 67108864,
+              "minimum": 0,
+              "title": "Byte Size",
+              "type": "integer"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "filename": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Filename",
+              "type": "string"
+            },
+            "media_type": {
+              "enum": [
+                "text/plain",
+                "text/markdown",
+                "application/json",
+                "application/pdf",
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "application/zip",
+                "application/gzip",
+                "application/x-tar",
+                "application/octet-stream"
+              ],
+              "title": "Media Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "byte_size",
+            "digest_sha256",
+            "media_type"
+          ],
+          "title": "ArtifactUploadManifest",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Id"
+        },
+        "kind": {
+          "default": "file",
+          "enum": [
+            "file",
+            "report",
+            "answer",
+            "dataset",
+            "log",
+            "figure",
+            "policy",
+            "workspace-snapshot",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "labels": {
+          "maxProperties": 32,
+          "patternProperties": {
+            "^[a-z0-9_.-]+$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ArtifactUploadManifest"
+        }
+      },
+      "required": [
+        "manifest"
+      ],
+      "title": "ArtifactUploadRequest",
+      "type": "object"
+    },
+    "ArtifactUploadStatus": {
+      "$defs": {
+        "ArtifactUploadManifest": {
+          "additionalProperties": true,
+          "properties": {
+            "byte_size": {
+              "maximum": 67108864,
+              "minimum": 0,
+              "title": "Byte Size",
+              "type": "integer"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "filename": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Filename",
+              "type": "string"
+            },
+            "media_type": {
+              "enum": [
+                "text/plain",
+                "text/markdown",
+                "application/json",
+                "application/pdf",
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "application/zip",
+                "application/gzip",
+                "application/x-tar",
+                "application/octet-stream"
+              ],
+              "title": "Media Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "byte_size",
+            "digest_sha256",
+            "media_type"
+          ],
+          "title": "ArtifactUploadManifest",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "artifact_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "file",
+                "report",
+                "answer",
+                "dataset",
+                "log",
+                "figure",
+                "policy",
+                "workspace-snapshot",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "Kind"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ArtifactUploadManifest"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "prepared",
+            "received",
+            "finalized",
+            "expired",
+            "refused"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "transfer_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 5,
+          "title": "Transfer Headers",
+          "type": "object"
+        },
+        "transfer_url": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transfer Url"
+        },
+        "upload_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Upload Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "upload_id",
+        "project_id",
+        "artifact_id",
+        "revision",
+        "state",
+        "manifest",
+        "kind"
+      ],
+      "title": "ArtifactUploadStatus",
+      "type": "object"
+    },
+    "CloneToken": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "auth_header": {
+          "maxLength": 8192,
+          "minLength": 8,
+          "title": "Auth Header",
+          "type": "string"
+        },
+        "clone_url": {
+          "title": "Clone Url",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "repo_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Repo Id",
+          "type": "string"
+        },
+        "scope": {
+          "const": "project",
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "project_id",
+        "repo_id",
+        "clone_url",
+        "auth_header",
+        "expires_at",
+        "scope"
+      ],
+      "title": "CloneToken",
+      "type": "object"
+    },
+    "CloneTokenRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "ttl_seconds": {
+          "default": 300,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Ttl Seconds",
+          "type": "integer"
+        }
+      },
+      "title": "CloneTokenRequest",
+      "type": "object"
+    },
+    "ExactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Authority",
+          "type": "string"
+        },
+        "digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "record_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Record Id",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "kind",
+        "record_id",
+        "revision",
+        "digest_sha256"
+      ],
+      "title": "ExactReference",
+      "type": "object"
+    },
+    "Link": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "Producer": {
+          "additionalProperties": false,
+          "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+          "properties": {
+            "admission": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "budget": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "context": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "grant": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "subject_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Subject Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "subject_id"
+          ],
+          "title": "Producer",
+          "type": "object"
+        },
+        "Relation": {
+          "enum": [
+            "consumed",
+            "produced",
+            "based_on",
+            "cites",
+            "derived_from",
+            "supersedes"
+          ],
+          "title": "Relation",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "link_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Link Id",
+          "type": "string"
+        },
+        "object": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "project_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "relation": {
+          "$ref": "#/$defs/Relation"
+        },
+        "subject": {
+          "$ref": "#/$defs/ExactReference"
+        }
+      },
+      "required": [
+        "link_id",
+        "project_id",
+        "subject",
+        "relation",
+        "object",
+        "producer",
+        "created_at"
+      ],
+      "title": "Link",
+      "type": "object"
+    },
+    "Page[Artifact, NewType]": {
+      "$defs": {
+        "Artifact": {
+          "additionalProperties": true,
+          "properties": {
+            "aliases": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 200,
+              "title": "Aliases",
+              "type": "array"
+            },
+            "aliases_complete": {
+              "default": true,
+              "title": "Aliases Complete",
+              "type": "boolean"
+            },
+            "artifact_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Artifact Id",
+              "type": "string"
+            },
+            "created_at": {
+              "format": "date-time",
+              "title": "Created At",
+              "type": "string"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "file",
+                    "report",
+                    "answer",
+                    "dataset",
+                    "log",
+                    "figure",
+                    "policy",
+                    "workspace-snapshot",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "Kind"
+            },
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "maxLength": 512,
+                "minLength": 1
+              },
+              "title": "Labels",
+              "type": "object"
+            },
+            "labels_revision": {
+              "minimum": 1,
+              "title": "Labels Revision",
+              "type": "integer"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ArtifactManifest"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "project_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Project Id",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "scan": {
+              "enum": [
+                "accepted",
+                "none"
+              ],
+              "title": "Scan",
+              "type": "string"
+            }
+          },
+          "required": [
+            "metadata",
+            "artifact_id",
+            "project_id",
+            "kind",
+            "labels",
+            "labels_revision",
+            "ref",
+            "manifest",
+            "scan",
+            "created_at"
+          ],
+          "title": "Artifact",
+          "type": "object"
+        },
+        "ArtifactManifest": {
+          "additionalProperties": true,
+          "properties": {
+            "collection_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            },
+            "manifest_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Digest",
+              "type": "string"
+            },
+            "manifest_schema_version": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Manifest Schema Version",
+              "type": "string"
+            },
+            "objects": {
+              "items": {
+                "$ref": "#/$defs/ArtifactObject"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "title": "Objects",
+              "type": "array"
+            },
+            "publication_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Publication Id",
+              "type": "string"
+            },
+            "revision": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "schema_version": {
+              "const": "synth.artifact-platform.v1",
+              "default": "synth.artifact-platform.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "manifest_schema_version",
+            "publication_id",
+            "collection_id",
+            "revision",
+            "objects",
+            "manifest_digest"
+          ],
+          "title": "ArtifactManifest",
+          "type": "object"
+        },
+        "ArtifactObject": {
+          "additionalProperties": true,
+          "properties": {
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "media_type": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 67108864,
+              "minimum": 0,
+              "title": "Size Bytes",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "logical_path",
+            "digest_sha256",
+            "size_bytes",
+            "media_type"
+          ],
+          "title": "ArtifactObject",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "maxItems": 1000,
+          "title": "Items",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "metadata",
+        "items",
+        "next_cursor",
+        "complete"
+      ],
+      "title": "Page[Artifact, NewType]",
+      "type": "object"
+    },
+    "Page[Link, NewType]": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "Link": {
+          "additionalProperties": true,
+          "properties": {
+            "created_at": {
+              "format": "date-time",
+              "title": "Created At",
+              "type": "string"
+            },
+            "link_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Link Id",
+              "type": "string"
+            },
+            "object": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "producer": {
+              "$ref": "#/$defs/Producer"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            },
+            "relation": {
+              "$ref": "#/$defs/Relation"
+            },
+            "subject": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "link_id",
+            "project_id",
+            "subject",
+            "relation",
+            "object",
+            "producer",
+            "created_at"
+          ],
+          "title": "Link",
+          "type": "object"
+        },
+        "Producer": {
+          "additionalProperties": true,
+          "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+          "properties": {
+            "admission": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "budget": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "context": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "grant": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "subject_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Subject Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "subject_id"
+          ],
+          "title": "Producer",
+          "type": "object"
+        },
+        "Relation": {
+          "enum": [
+            "consumed",
+            "produced",
+            "based_on",
+            "cites",
+            "derived_from",
+            "supersedes"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "maxItems": 1000,
+          "title": "Items",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "metadata",
+        "items",
+        "next_cursor",
+        "complete"
+      ],
+      "title": "Page[Link, NewType]",
+      "type": "object"
+    },
+    "Page[RepositoryRef, NewType]": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "RepositoryRef": {
+          "additionalProperties": true,
+          "properties": {
+            "commit_sha": {
+              "pattern": "^[0-9a-f]{40}$",
+              "title": "Commit Sha",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "name",
+            "commit_sha",
+            "ref"
+          ],
+          "title": "RepositoryRef",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/RepositoryRef"
+          },
+          "maxItems": 1000,
+          "title": "Items",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "metadata",
+        "items",
+        "next_cursor",
+        "complete"
+      ],
+      "title": "Page[RepositoryRef, NewType]",
+      "type": "object"
+    },
+    "Producer": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+      "properties": {
+        "admission": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "authority": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Authority",
+          "type": "string"
+        },
+        "budget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "subject_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Subject Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "subject_id"
+      ],
+      "title": "Producer",
+      "type": "object"
+    },
+    "RepositoryCommit": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "author_email": {
+          "title": "Author Email",
+          "type": "string"
+        },
+        "author_name": {
+          "title": "Author Name",
+          "type": "string"
+        },
+        "authored_at": {
+          "format": "date-time",
+          "title": "Authored At",
+          "type": "string"
+        },
+        "bytes": {
+          "maximum": 2147483648,
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "entries": {
+          "maximum": 100000,
+          "minimum": 0,
+          "title": "Entries",
+          "type": "integer"
+        },
+        "manifest_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Digest Sha256",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "parent_shas": {
+          "items": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "title": "Parent Shas",
+          "type": "array"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "repo_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Repo Id",
+          "type": "string"
+        },
+        "sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Sha",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "tree_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Tree Sha",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "project_id",
+        "repo_id",
+        "ref",
+        "sha",
+        "tree_sha",
+        "parent_shas",
+        "author_name",
+        "author_email",
+        "authored_at",
+        "summary",
+        "manifest_digest_sha256",
+        "entries",
+        "bytes"
+      ],
+      "title": "RepositoryCommit",
+      "type": "object"
+    },
+    "RepositoryDiff": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "RepositoryDiffFile": {
+          "additionalProperties": true,
+          "properties": {
+            "additions": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Additions"
+            },
+            "deletions": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Deletions"
+            },
+            "new_mode": {
+              "enum": [
+                "000000",
+                "100644",
+                "100755",
+                "120000",
+                "160000"
+              ],
+              "title": "New Mode",
+              "type": "string"
+            },
+            "old_mode": {
+              "enum": [
+                "000000",
+                "100644",
+                "100755",
+                "120000",
+                "160000"
+              ],
+              "title": "Old Mode",
+              "type": "string"
+            },
+            "old_path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Old Path"
+            },
+            "path": {
+              "title": "Path",
+              "type": "string"
+            },
+            "status": {
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "old_mode",
+            "new_mode",
+            "status"
+          ],
+          "title": "RepositoryDiffFile",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/RepositoryDiffFile"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "head": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "patch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Patch"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "repo_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Repo Id",
+          "type": "string"
+        },
+        "truncated": {
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "metadata",
+        "project_id",
+        "repo_id",
+        "base",
+        "head",
+        "files",
+        "truncated"
+      ],
+      "title": "RepositoryDiff",
+      "type": "object"
+    },
+    "RepositoryRef": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "commit_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Commit Sha",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/ExactReference"
+        }
+      },
+      "required": [
+        "name",
+        "commit_sha",
+        "ref"
+      ],
+      "title": "RepositoryRef",
+      "type": "object"
+    },
+    "RepositorySnapshot": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "default_branch": {
+          "title": "Default Branch",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "project_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "repo_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Repo Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "project_id",
+        "repo_id",
+        "default_branch"
+      ],
+      "title": "RepositorySnapshot",
+      "type": "object"
+    }
+  },
+  "operations": [
+    {
+      "id": "repos.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/repo",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "repos.refs",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/repo/refs",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "repos.commits.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/repo/commits/{commit_sha}",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "repos.diff",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/repo/diff",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "repos.archive",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/repo/archive",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "repos.clone_tokens.create",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/projects/{project_id}/repo/clone-tokens",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "links.list",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/links",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "artifacts.uploads.prepare",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/projects/{project_id}/artifacts/uploads",
+      "required_scope": "swarms:write"
+    },
+    {
+      "id": "artifacts.uploads.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/artifacts/uploads/{upload_id}",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "artifacts.uploads.finalize",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/artifacts/uploads/{upload_id}/finalize",
+      "required_scope": "swarms:write"
+    },
+    {
+      "id": "artifacts.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/artifacts/{artifact_id}",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "artifacts.list",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/artifacts",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "artifacts.content",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/artifacts/{artifact_id}/revisions/{revision}/content",
+      "required_scope": "swarms:read"
+    },
+    {
+      "id": "artifacts.labels.update",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "PATCH",
+      "mutation": true,
+      "path": "/api/v1/projects/{project_id}/artifacts/{artifact_id}/labels",
+      "required_scope": "swarms:write"
+    },
+    {
+      "id": "artifacts.aliases.set",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "PUT",
+      "mutation": true,
+      "path": "/api/v1/projects/{project_id}/artifacts/aliases/{name}",
+      "required_scope": "swarms:write"
+    },
+    {
+      "id": "artifacts.aliases.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/projects/{project_id}/artifacts/aliases/{name}",
+      "required_scope": "swarms:read"
+    }
+  ],
+  "repository_identity": "repo_ plus SHA-256 of the UTF-8 internal immutable repo identity; internal registry IDs are not public Ref IDs",
+  "schema_version": "core.v1",
+  "status": "sdk_first_pending_backend"
+}

@@ -1,0 +1,9 @@
+"""Request-scoped credential port. See backend auth-023.md."""
+
+from typing import Protocol
+
+
+class CredentialProvider(Protocol):
+    def resolve(self, deadline: float) -> str: ...
+    async def aresolve(self, deadline: float) -> str: ...
+    def close(self) -> None: ...
