@@ -38,6 +38,7 @@ candidates, for example v0.23.4.dev1. Qualification evidence belongs under
 refs/qualification/ and is not a public release tag. Retain both wheel and
 sdist digests in the release attestation. Do not rewrite published tags.
 
-The next source candidate is 0.23.4. Its generated contract files are source
+The next source candidate is 0.23.5. Swarms is included, so all seven retained
+qualification checks are required. Its generated contract files are source
 artifacts; they do not attest an installed wheel, service cohort, or runtime
 qualification. Publish only after the release owner accepts those receipts.

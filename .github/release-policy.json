@@ -15,6 +15,9 @@
       "deferrable": [
         "native-swarms"
       ]
+    },
+    "0.23.5": {
+      "deferrable": []
     }
   }
 }

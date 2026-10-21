@@ -11253,6 +11253,16 @@
       "mutation": true,
       "path": "/api/v1/swarms/runs/{run_id}/labels",
       "required_scope": "swarms:write"
+    },
+    {
+      "id": "swarms.stream",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/swarms/runs/{run_id}/stream",
+      "required_scope": "swarms:read"
     }
   ],
   "schema_version": "swarms.v1",
