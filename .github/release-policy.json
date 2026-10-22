@@ -17,7 +17,19 @@
       ]
     },
     "0.23.5": {
-      "deferrable": []
+      "deferrable": [],
+      "owner_waivers": {
+        "directive": "get v0.23 merged and up on staging/prod; do not run end-to-end acceptance tests; lift restrictions as needed to finish merge/deploy, while E2E stays skipped",
+        "approved_by": "release owner (directive relayed to the SDK release lane by the v0.23 coordinator)",
+        "approved_at": "2026-10-22",
+        "ticket": "SYN-4862",
+        "checks": [
+          "native-index-fast",
+          "native-index-deep",
+          "native-monitor",
+          "native-swarms"
+        ]
+      }
     }
   }
 }
