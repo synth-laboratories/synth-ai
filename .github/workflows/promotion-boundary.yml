@@ -1,0 +1,30 @@
+name: Promotion boundary
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  promotion-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate promotion origin
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          with open(os.environ['GITHUB_EVENT_PATH']) as stream:
+              event = json.load(stream)
+          pr = event['pull_request']
+          base = pr['base']['ref']
+          prefixes = {'staging': 'promote/dev-to-staging-', 'main': 'promote/staging-to-main-'}
+          if base in prefixes:
+              head = pr['head']
+              repository = head.get('repo') or {}
+              expected = pr['base']['repo']['id']
+              valid = repository.get('id') == expected and re.fullmatch(
+                  re.escape(prefixes[base]) + r'[A-Za-z0-9][A-Za-z0-9._/-]*', head['ref'])
+              if not valid:
+                  raise SystemExit('promotion_origin_refused: use the named promotion branch from this repository')
+          print('promotion origin accepted')
+          PY
