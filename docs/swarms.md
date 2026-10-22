@@ -96,3 +96,11 @@ cleanup or unknown usage; inspect the typed fields separately.
 For an iteration seeded from a prior output, include that exact artifact in
 `Inputs.artifacts` and set `Inputs.derived_from` to the same reference. The new
 run records both consumption and its derivation from that output.
+
+Native runs that select `observability_contract=obligations_v1` expose
+`RunSnapshot.obligations_closed` and `RunSnapshot.obligations`. Waivers identify
+an owner receipt, reason and original refusal code when present. The observation
+includes the complete `waiver_count` and a bounded `waivers` list;
+`waivers_complete=False` means additional waivers were not included. Closure is
+independent of accounting, cleanup, result availability and benchmark grades.
+Older runs omit the observation, so `None` means unobserved rather than open.
