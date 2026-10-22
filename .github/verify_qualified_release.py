@@ -36,6 +36,11 @@ POLICY_PATH = Path(__file__).with_name("release-policy.json")
 POLICY_SCHEMA = "synth.sdk.release-policy.v1"
 TICKET = re.compile(r"[A-Z][A-Z0-9]*-[0-9]+")
 MAX_REASON = 500
+MAX_DIRECTIVE = 2000
+MAX_APPROVER = 200
+APPROVED_AT = re.compile(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?Z)?")
+OWNER_WAIVED = "owner_waived"
+WAIVER_AUTHORITY_FIELDS = ("directive", "approved_by", "approved_at", "ticket")
 SHA = re.compile(r"[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+)?")
@@ -66,15 +71,22 @@ def document(raw: bytes) -> dict:
     return value
 
 
-def deferrable_checks(version: str) -> frozenset[str]:
-    """Checks the versioned release policy lets this version defer; none if undeclared."""
+def release_policy(version: str) -> dict:
+    """This version's entry in the versioned release policy; empty if undeclared."""
     if not POLICY_PATH.is_file():
-        return frozenset()
+        return {}
     policy = document(POLICY_PATH.read_bytes())
     require(policy.get("schema") == POLICY_SCHEMA, "invalid release policy")
     releases = policy.get("releases")
     require(isinstance(releases, dict), "invalid release policy")
-    names = releases.get(version, {}).get("deferrable", [])
+    entry = releases.get(version, {})
+    require(isinstance(entry, dict), "invalid release policy")
+    return entry
+
+
+def deferrable_checks(version: str) -> frozenset[str]:
+    """Checks the versioned release policy lets this version defer; none if undeclared."""
+    names = release_policy(version).get("deferrable", [])
     require(
         isinstance(names, list) and set(names) <= CHECKS and len(set(names)) == len(names),
         "invalid release policy",
@@ -100,6 +112,75 @@ def deferral(check: dict, evidence: bytes, deferrable: frozenset[str]) -> dict:
         "deferral record does not match the declared reason and ticket",
     )
     return {"reason": reason, "ticket": ticket}
+
+
+def owner_waiver_authority(version: str) -> dict:
+    """The reviewed owner directive that lets this version waive named checks; {} if none.
+
+    A waiver is source-controlled: the policy names the directive text, who approved it,
+    when, the tracking ticket and the exact checks it covers. A bundle cannot introduce a
+    waiver the policy at the qualified source does not declare.
+    """
+    authority = release_policy(version).get("owner_waivers")
+    if authority is None:
+        return {}
+    require(isinstance(authority, dict), "invalid owner waiver policy")
+    require(set(authority) == {*WAIVER_AUTHORITY_FIELDS, "checks"}, "invalid owner waiver policy")
+    names = authority["checks"]
+    require(
+        isinstance(names, list)
+        and len(names) > 0
+        and set(names) <= CHECKS
+        and len(set(names)) == len(names),
+        "invalid owner waiver policy",
+    )
+    directive, approver, approved_at = (
+        authority["directive"],
+        authority["approved_by"],
+        authority["approved_at"],
+    )
+    require(
+        isinstance(directive, str) and 0 < len(directive.strip()) <= MAX_DIRECTIVE,
+        "owner waiver policy requires the directive text",
+    )
+    require(
+        isinstance(approver, str) and 0 < len(approver.strip()) <= MAX_APPROVER,
+        "owner waiver policy requires who approved it",
+    )
+    require(
+        isinstance(approved_at, str) and APPROVED_AT.fullmatch(approved_at) is not None,
+        "owner waiver policy requires when it was approved",
+    )
+    require(
+        isinstance(authority["ticket"], str) and TICKET.fullmatch(authority["ticket"]) is not None,
+        "owner waiver policy requires a ticket id",
+    )
+    return authority
+
+
+def owner_waiver(check: dict, evidence: bytes, authority: dict) -> dict:
+    """Validate one owner-waived check against the policy authority; return its record."""
+    require(
+        check.get("name") in authority.get("checks", ()),
+        "check is not owner-waivable by release policy",
+    )
+    reason = check.get("reason")
+    require(
+        isinstance(reason, str) and 0 < len(reason.strip()) <= MAX_REASON,
+        "owner waiver requires a reason",
+    )
+    require("ticket" not in check, "owner waiver carries its ticket in the waiver record")
+    expected = {
+        "check": check["name"],
+        "outcome": OWNER_WAIVED,
+        "reason": reason,
+        **{key: authority[key] for key in WAIVER_AUTHORITY_FIELDS},
+    }
+    require(
+        document(evidence) == expected,
+        "owner waiver record does not match the declared reason and policy authority",
+    )
+    return {key: value for key, value in expected.items() if key not in {"check", "outcome"}}
 
 
 def source_gate(source: str, version: str, channel: str, branch: str) -> None:
@@ -199,7 +280,8 @@ def verify_bundle(
         require(len(raw_manifest) <= 1024 * 1024, "qualification manifest too large")
         manifest = document(raw_manifest)
         require(
-            manifest.get("schema") == SCHEMA and manifest.get("status") == "passed",
+            manifest.get("schema") == SCHEMA
+            and manifest.get("status") in {"passed", "passed_with_owner_waivers"},
             "artifact is not qualified",
         )
         require(
@@ -247,10 +329,12 @@ def verify_bundle(
         )
         allowed = {"qualification.json", *files}
         deferrable = deferrable_checks(version)
-        deferred = {}
+        authority = owner_waiver_authority(version)
+        deferred, waived, passed = {}, {}, []
         for check in checks:
             require(
-                check.get("status") in {"passed", "deferred"} and check.get("source_sha") == source,
+                check.get("status") in {"passed", "deferred", OWNER_WAIVED}
+                and check.get("source_sha") == source,
                 "qualification check incomplete",
             )
             require(
@@ -269,12 +353,20 @@ def verify_bundle(
             )
             if check["status"] == "deferred":
                 deferred[check["name"]] = deferral(check, zipped.read(evidence), deferrable)
+            elif check["status"] == OWNER_WAIVED:
+                waived[check["name"]] = owner_waiver(check, zipped.read(evidence), authority)
             else:
                 require(
                     "reason" not in check and "ticket" not in check,
                     "passed check cannot carry a deferral",
                 )
+                passed.append(check["name"])
             allowed.add(evidence)
+        # A waived check never reads as passed: the manifest must say waivers are present.
+        require(
+            manifest["status"] == ("passed_with_owner_waivers" if waived else "passed"),
+            "manifest status must declare owner waivers exactly when a check is waived",
+        )
         require(set(names) == allowed, "undeclared artifact file")
         require(not output.exists(), "prepared output already exists")
         (output / "dist").mkdir(parents=True)
@@ -292,6 +384,10 @@ def verify_bundle(
         "checks": sorted(CHECKS),
         "deferred": deferred,
     }
+    if waived:
+        # Only present when used, so receipts of fully passed bundles keep their shape.
+        receipt["passed"] = sorted(passed)
+        receipt["owner_waived"] = waived
     (output / "publish-receipt.json").write_text(
         json.dumps(receipt, sort_keys=True, indent=2) + "\n"
     )
