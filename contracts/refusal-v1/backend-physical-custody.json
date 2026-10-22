@@ -1,0 +1,166 @@
+{
+  "actor_id": "00000000-0000-4000-8000-000000000006",
+  "allocated_attempt": {
+    "owner": "orchestra",
+    "reference": "fixture:original-allocation",
+    "schema": "orchestra.prelaunch-attempt.v1",
+    "sha256": "sha256:48982065c09c2f12497d7a95bbc5cb35541955ea4c8fbe0e21521f5603292da7"
+  },
+  "attempt_id": "00000000-0000-4000-8000-000000000010",
+  "checked_at_ms": 1791389300000,
+  "completed_turn_receipts": [
+    "actual-fixture-owner-turn"
+  ],
+  "enrollment": {
+    "owner": "orchestra",
+    "reference": "fixture:enrollment",
+    "schema": "orchestra.machine-enrollment.v1",
+    "sha256": "sha256:cc046b631ffd91f3e45ba3797f581f2f0f56fee6d24dc7c3aa990718a0cbd09e"
+  },
+  "execution_state": "failed",
+  "failure": {
+    "code": "workspace_confirmation_unconfirmed",
+    "in_doubt": false,
+    "refusal": {
+      "code": "workspace_confirmation_unconfirmed",
+      "detail": {},
+      "in_doubt": false,
+      "operation_id": "original-operation",
+      "request_id": null,
+      "retryable": false,
+      "schema_version": "synth.refusal.v1",
+      "service": "agents",
+      "stage": "upstream_error_reply",
+      "status": 409,
+      "upstream": {
+        "code": "provenance_prepare_refused",
+        "detail": {},
+        "in_doubt": false,
+        "operation_id": "original-operation",
+        "request_id": "backend-request",
+        "retryable": false,
+        "schema_version": "synth.refusal.v1",
+        "service": "backend",
+        "stage": "provenance_prepare",
+        "status": 409,
+        "upstream": {
+          "code": "git_response_invalid",
+          "detail": {},
+          "in_doubt": false,
+          "operation_id": "original-operation",
+          "request_id": "git-request",
+          "retryable": false,
+          "schema_version": "synth.refusal.v1",
+          "service": "git-server",
+          "stage": "repository_decode",
+          "status": 404,
+          "upstream": null
+        }
+      }
+    },
+    "retryable": false
+  },
+  "inputs": {
+    "actor_catalogue": {
+      "owner": "backend",
+      "reference": "artifact:graph-7",
+      "schema": "actor-catalogue.v1",
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "assignment": {
+      "owner": "sublinear",
+      "reference": "artifact:graph-7",
+      "schema": "sublinear.assignment-receipt.v1",
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "attempt_id": "00000000-0000-4000-8000-000000000010",
+    "configuration_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "dynamic_sources": [
+      {
+        "evidence": {
+          "owner": "sublinear",
+          "reference": "artifact:graph-7",
+          "schema": "sublinear.graph-receipt.v1",
+          "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "origin": {
+          "owner": "sublinear",
+          "source_cursor": "owner-global:1042",
+          "source_id": "graph:7",
+          "source_revision": "7"
+        }
+      }
+    ],
+    "graph": {
+      "owner": "sublinear",
+      "reference": "artifact:graph-7",
+      "schema": "sublinear.graph-receipt.v1",
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "materialized_configuration": {
+      "owner": "mloky",
+      "reference": "artifact:graph-7",
+      "schema": "materialized-configuration.v1",
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "output_registry": {
+      "owner": "backend",
+      "reference": "artifact:graph-7",
+      "schema": "output-registry.v1",
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "profile": {
+      "owner": "backend",
+      "reference": "fixture:actual-profile",
+      "schema": "synth.actor-profile.v1",
+      "sha256": "sha256:8220707fab4127d05dc1cad65537fbbf2d78dd640c611675e464633d91c5b1b1"
+    },
+    "requirement_revision": "7",
+    "scope": {
+      "organization_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000002",
+      "stream_id": "00000000-0000-4000-8000-000000000003"
+    },
+    "task": {
+      "owner": "sublinear",
+      "reference": "artifact:graph-7",
+      "schema": "sublinear.task-receipt.v1",
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "operation_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "original_admission": {
+    "owner": "backend",
+    "reference": "fixture:original-child",
+    "schema": "synth.orchestra-attempt-admission.v1",
+    "sha256": "sha256:264f0ae0504fe0e52006857025c829defa2a55fa5d5e8d56c4174bdff5ece336"
+  },
+  "original_owner": {
+    "owner": "agents",
+    "reference": "ac2c2a99-0a18-57a7-ad92-6724ca1dbb65",
+    "schema": "mloky.swarm-execution.v3",
+    "sha256": "sha256:ead7e13a2e60c1715b7a53779b9f6a35d9afea76097abecdfdc4a0b58cfc8cbf"
+  },
+  "phase": "completion",
+  "purpose": "historical_source_custody",
+  "run_binding": {
+    "owner": "backend",
+    "reference": "fixture:binding",
+    "schema": "synth.orchestra-run-policy-binding.v1",
+    "sha256": "sha256:46ad85858c3817b22afd51e681db73813f7709118339348797d072184aa060d5"
+  },
+  "schema_version": "synth.orchestra-physical-custody-use.v1",
+  "scope": {
+    "organization_id": "00000000-0000-4000-8000-000000000001",
+    "project_id": "00000000-0000-4000-8000-000000000002",
+    "stream_id": "00000000-0000-4000-8000-000000000003"
+  },
+  "session": {
+    "owner": "orchestra",
+    "reference": "fixture:original-physical-session",
+    "schema": "orchestra.attempt-session.v1",
+    "sha256": "sha256:4f329c79e4686e4d474bbf0c70def277c5743349b600b7fdc5ac60f0d5d51a46"
+  },
+  "session_id": "ac2c2a99-0a18-57a7-ad92-6724ca1dbb65",
+  "valid_until_ms": 1791389330000
+}
