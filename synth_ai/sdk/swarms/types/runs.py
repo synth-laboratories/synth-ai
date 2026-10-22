@@ -30,7 +30,6 @@ from .launch import (
     ResolvedProviders,
 )
 from .objectives import GuidanceCoverage, ObjectiveResult
-from .obligations import RunObligations
 from .problems import Problem, ReasonLink
 
 KnownRunState = Literal[
@@ -122,8 +121,6 @@ class RunSnapshot(ResponseModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
-    obligations_closed: bool | None = None
-    obligations: RunObligations | None = None
     control: RunControlSummary | None = None
     paused_at: AwareDatetime | None = None
     resume_by: AwareDatetime | None = None
@@ -141,26 +138,13 @@ class RunSnapshot(ResponseModel):
     @model_serializer(mode="wrap")
     def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         value = handler(self)
-        for name in (
-            "ref",
-            "control",
-            "paused_at",
-            "resume_by",
-            "deadline_at",
-            "pause_count",
-            "obligations_closed",
-            "obligations",
-        ):
+        for name in ("ref", "control", "paused_at", "resume_by", "deadline_at", "pause_count"):
             if getattr(self, name) is None:
                 value.pop(name, None)
         return value
 
     @model_validator(mode="after")
     def validate_reference(self) -> Self:
-        if (self.obligations_closed is None) != (self.obligations is None) or (
-            self.obligations is not None and self.obligations_closed != self.obligations.closed
-        ):
-            raise ValueError("obligations closure must match the native observation")
         if self.ref is not None and (
             self.ref.authority != "swarms"
             or self.ref.kind != "run"
