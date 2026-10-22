@@ -10,7 +10,9 @@ Usage:
       --channel stable --output qualification.zip
 
 checks.json maps each CheckName value to {"status": "passed"|"pending", "evidence": <path>}
-or, for a check the release policy lets this version defer, {"status": "deferred", "reason": ..., "ticket": ...}.
+or, for a check the release policy lets this version defer, {"status": "deferred", "reason": ..., "ticket": ...},
+or, for a check the policy's reviewed owner directive covers, {"status": "owner_waived", "reason": ...}.
+A waived check is never recorded as passed: the manifest status becomes passed_with_owner_waivers.
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ class CheckStatus(StrEnum):
     PASSED = "passed"
     PENDING = "pending"
     DEFERRED = "deferred"
+    OWNER_WAIVED = "owner_waived"
 
 
 class Channel(StrEnum):
@@ -66,6 +69,7 @@ class QualificationErrorCode(StrEnum):
     WHEEL_VERSION_MISMATCH = "wheel_version_mismatch"
     OUTPUT_EXISTS = "output_exists"
     DEFERRAL_INVALID = "deferral_invalid"
+    WAIVER_INVALID = "waiver_invalid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +115,8 @@ class QualificationCheck:
         if self.status is CheckStatus.DEFERRED:
             wire["reason"] = self.reason
             wire["ticket"] = self.ticket
+        if self.status is CheckStatus.OWNER_WAIVED:
+            wire["reason"] = self.reason
         return wire
 
 
@@ -123,9 +129,10 @@ class QualifiedArtifact:
     checks: tuple[QualificationCheck, ...]
 
     def to_wire(self) -> dict[str, object]:
+        waived = any(check.status is CheckStatus.OWNER_WAIVED for check in self.checks)
         return {
             "schema": SCHEMA,
-            "status": CheckStatus.PASSED.value,
+            "status": "passed_with_owner_waivers" if waived else CheckStatus.PASSED.value,
             "source_sha": self.source_sha,
             "version": self.version,
             "channel": self.channel.value,
@@ -163,6 +170,7 @@ def build_bundle(
     channel: Channel,
     output: Path,
     deferrable: frozenset[CheckName] = frozenset(),
+    owner_waivers: Mapping[str, object] | None = None,
 ) -> QualifiedArtifact:
     if output.exists():
         raise QualificationError(QualificationErrorCode.OUTPUT_EXISTS, "output", str(output))
@@ -195,6 +203,32 @@ def build_bundle(
                 {"check": name.value, "reason": selected.reason, "ticket": selected.ticket}
             ).encode()
             archived = f"evidence/{name.value}/deferral.json"
+        elif selected.status is CheckStatus.OWNER_WAIVED:
+            authority = owner_waivers or {}
+            if name.value not in authority.get("checks", ()):
+                raise QualificationError(
+                    QualificationErrorCode.WAIVER_INVALID,
+                    name.value,
+                    "not owner-waivable by policy",
+                )
+            if not (selected.reason or "").strip():
+                raise QualificationError(
+                    QualificationErrorCode.WAIVER_INVALID, name.value, "reason required"
+                )
+            raw = json.dumps(
+                {
+                    "check": name.value,
+                    "outcome": CheckStatus.OWNER_WAIVED.value,
+                    "reason": selected.reason,
+                    **{
+                        key: authority[key]
+                        for key in ("directive", "approved_by", "approved_at", "ticket")
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            ).encode()
+            archived = f"evidence/{name.value}/owner-waiver.json"
         else:
             if selected.status is not CheckStatus.PASSED:
                 raise QualificationError(
@@ -211,7 +245,9 @@ def build_bundle(
             QualificationCheck(
                 name=name,
                 status=selected.status,
-                reason=selected.reason if selected.status is CheckStatus.DEFERRED else None,
+                reason=selected.reason
+                if selected.status in {CheckStatus.DEFERRED, CheckStatus.OWNER_WAIVED}
+                else None,
                 ticket=selected.ticket if selected.status is CheckStatus.DEFERRED else None,
                 source_sha=source_sha,
                 distributions=distributions,
@@ -252,9 +288,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     policy = json.loads(args.policy.read_text())
-    deferrable = frozenset(
-        CheckName(item) for item in policy["releases"].get(args.version, {}).get("deferrable", [])
-    )
+    entry = policy["releases"].get(args.version, {})
+    deferrable = frozenset(CheckName(item) for item in entry.get("deferrable", []))
     raw_checks: dict[str, dict[str, str]] = json.loads(args.checks.read_text())
     checks = {
         CheckName(name): CheckInput.from_wire(CheckName(name), value)
@@ -268,6 +303,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         channel=Channel(args.channel),
         output=args.output,
         deferrable=deferrable,
+        owner_waivers=entry.get("owner_waivers"),
     )
     digest = hashlib.sha256(args.output.read_bytes()).hexdigest()
     print(json.dumps({"archive": str(args.output), "archive_sha256": digest}))
