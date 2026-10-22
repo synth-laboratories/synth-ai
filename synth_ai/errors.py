@@ -10,6 +10,7 @@ from typing import Literal
 
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
+from synth_ai.types.refusal import Refusal
 
 
 class SynthError(Exception):
@@ -18,6 +19,7 @@ class SynthError(Exception):
         message: str,
         *,
         code: str | None = None,
+        refusal: Refusal | None = None,
         request_id: str | None = None,
         operation: str | None = None,
         client_request_id: str | None = None,
@@ -39,6 +41,7 @@ class SynthError(Exception):
         ]
         | None = None,
     ) -> None:
+        self.refusal = refusal
         self.reason = reason
         self.retryable = retryable
         self.stage = stage
@@ -63,6 +66,16 @@ class SynthError(Exception):
             if item.remaining is not None and item.limit is not None
         )
         detail = self._detail()
+        if self.refusal is not None:
+            leaf = self.refusal
+            request_ids = []
+            while True:
+                if leaf.request_id is not None:
+                    request_ids.append(leaf.request_id)
+                if leaf.upstream is None:
+                    break
+                leaf = leaf.upstream
+            detail += f" [leaf={leaf.service}:{leaf.code} request_ids={','.join(dict.fromkeys(request_ids))}]"
         if detail:
             message = detail
         return f"{message} ({capacity})" if capacity else message
