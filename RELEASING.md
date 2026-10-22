@@ -42,3 +42,11 @@ The next source candidate is 0.23.5. Swarms is included, so all seven retained
 qualification checks are required. Its generated contract files are source
 artifacts; they do not attest an installed wheel, service cohort, or runtime
 qualification. Publish only after the release owner accepts those receipts.
+
+A check the release owner explicitly waives is recorded as `owner_waived`, never
+as `passed`. The waiver authority lives in `.github/release-policy.json` under the
+version's `owner_waivers`: the directive text, who approved it, when, the ticket
+and the exact checks it covers. Each waived check carries a concrete reason and an
+`evidence/<check>/owner-waiver.json` record that must match that authority. A
+bundle with any waiver has manifest status `passed_with_owner_waivers`, and the
+publish receipt lists `passed` and `owner_waived` checks separately.
