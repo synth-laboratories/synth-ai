@@ -89,3 +89,12 @@ class WorkspaceWriteV2(Contract):
 
 class WorkspaceReceiptReadV2(WorkspaceReceiptRead):
     schema_version: Literal["forge.workspace-science.v2"] = "forge.workspace-science.v2"
+
+
+class WorkspaceEventsV2(Contract):
+    schema_version: Literal["forge.workspace-science.v2"] = "forge.workspace-science.v2"
+    principal: ProjectPrincipal
+    project_id: ProjectId
+    after: Annotated[int, Field(strict=True, ge=0, le=9223372036854775807)] = 0
+    limit: Annotated[int, Field(strict=True, ge=1, le=1000)] = 100
+    authorization: ProjectAuthorization

@@ -19,7 +19,11 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
-from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse, ForgeIndexDraftUploadResponse
+from synth_ai.sdk.forge.index_types import (
+    ForgeIndexDraftNoticesResponse,
+    ForgeIndexDraftResponse,
+    ForgeIndexDraftUploadResponse,
+)
 from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
@@ -531,6 +535,15 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.ForgeReceiptRead,
         ForgeIndexDraftResponse,
         forge_tools.index_draft_get,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_index_draft_notices",
+        forge_operations.INDEX_DRAFT_NOTICES,
+        "Read exact private source correction notices under current Forge and Index access; notices do not change released bytes or publish.",
+        forge_tools.ForgeIndexDraftNoticeRead,
+        ForgeIndexDraftNoticesResponse,
+        forge_tools.index_draft_notices,
         additional_scopes=("index:intake",),
     ),
     ToolDefinition(

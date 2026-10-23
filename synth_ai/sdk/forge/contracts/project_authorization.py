@@ -34,6 +34,7 @@ class ProjectAuthorization(Contract):
         "science.v2.read",
         "science.v2.write",
         "science.v2.receipt",
+        "science.v2.events",
     ]
     request_digest_sha256: Digest
     nonce: Identifier

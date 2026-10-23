@@ -212,3 +212,12 @@ private owner state with `index_contribution_owner_get`, equivalent to
 `client.index.contributions.get_owner`. These tools require `index:intake`;
 current native ownership and source policy still apply. Submission, scientific
 qualification, rights attestation and publication remain separate operations.
+
+Read private source corrections with `client.forge.index_drafts.notices` or
+`forge_index_draft_notices`, using the original project and draft operation IDs.
+Retain the exact Index `release` reference and scanned `next_cursor`; page with
+bounded `after` and `limit`. Current Forge read and Index intake/owner access
+remain required. Correct a frozen export under a new identity and record its
+exact typed source notice through admitted scientific authoring. The original
+sealed package bytes, Index qualification and public notice consent remain
+under their existing owners. Packaged research skill revision8 covers this path.

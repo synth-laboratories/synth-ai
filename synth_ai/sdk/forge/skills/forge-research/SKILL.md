@@ -119,6 +119,25 @@ owner endpoint; it does not widen public browsing or grant byte access. A state
 read alone does not replace reconciliation of the original mutation. Index
 controls already sealed replay and subsequent qualification/publication.
 
+When `forge_index_draft_notices` is exposed, read it with the original project
+and draft operation IDs. Retain its exact `release` reference and `next_cursor`.
+Page with that cursor using bounded `after` and `limit`; an empty filtered page
+can advance the checkpoint. These private facts require current Forge read and
+Index intake/owner access and grant no public notice consent.
+
+Correct scientific material through its existing typed authoring operations.
+Snapshots, frozen exports and notices are immutable: create a new identity for
+a corrected frozen export, retaining the original complete revision reference.
+With admitted write authority, record a typed `source_notice` using exact
+`original` and `replacement` references, its disposition and reason, and the
+selected Index `release` in `pinned_releases`. Retain that write's own stable key
+and receipt. Read notices after the retained checkpoint to inspect the result.
+
+A source correction does not rewrite a sealed package, transfer a grade,
+withdraw an Index revision, attest rights or publish a notice. A replacement
+Contribution revision still uses Index's separate allocation, validation,
+qualification and publication authority. Public notice consent remains separate.
+
 Keep the original mutation identity when a response is lost. Inspect or reconcile
 that operation before repeating an effect. A publication retry does not rerun
 the experiment. A new rerun is a separate linked trial under current limits.

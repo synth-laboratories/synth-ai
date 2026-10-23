@@ -74,7 +74,15 @@ INDEX_DRAFT_GET = Operation(
     contract="core.v1",
     required_scope="forge:read",
 )
-INDEX_DRAFT_OPERATIONS = (INDEX_DRAFT_CREATE, INDEX_DRAFT_GET)
+INDEX_DRAFT_NOTICES = Operation(
+    "forge.index_drafts.notices",
+    "GET",
+    "/index/forge/projects/{project_id}/drafts/{operation_id}/source-notices",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+INDEX_DRAFT_OPERATIONS = (INDEX_DRAFT_CREATE, INDEX_DRAFT_GET, INDEX_DRAFT_NOTICES)
 
 INDEX_DRAFT_UPLOAD = Operation(
     "forge.index_drafts.upload",

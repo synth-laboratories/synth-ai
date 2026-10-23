@@ -7,10 +7,12 @@ from synth_ai.core.parameters import identifier, verified
 
 from .index_types import (
     ForgeIndexDraftDescriptor,
+    ForgeIndexDraftNoticesResponse,
     ForgeIndexDraftRequest,
     ForgeIndexDraftResponse,
     ForgeIndexDraftUploadRequest,
     ForgeIndexDraftUploadResponse,
+    ForgeIndexNoticePage,
 )
 from .records import project_identity
 
@@ -34,6 +36,18 @@ def checked_upload(result, project_id, draft_operation_id, *, operation_id=None)
         and result.metadata.operation_id is not None
         and (operation_id is None or result.metadata.operation_id == operation_id),
         "Forge returned a different private upload receipt",
+    )
+
+
+def checked_notices(result, project_id, operation_id, page):
+    return verified(
+        result,
+        result.project_id == project_id
+        and result.draft_operation_id == operation_id
+        and result.metadata.operation_id == operation_id
+        and result.after == page.after
+        and len(result.items) <= page.limit,
+        "Forge returned a different private notice page",
     )
 
 
@@ -63,6 +77,20 @@ class IndexDrafts:
             ),
             options=request,
             validate=lambda result: checked(result, project_id, operation_id=operation_id),
+        )
+
+    def notices(self, project_id, operation_id, *, after=0, limit=100, request=None):
+        project_id, operation_id = project_identity(project_id), identifier(operation_id)
+        page = ForgeIndexNoticePage(after=after, limit=limit)
+        return self._transport.request(
+            operations.INDEX_DRAFT_NOTICES,
+            ForgeIndexDraftNoticesResponse,
+            path=operations.INDEX_DRAFT_NOTICES.path_for(
+                project_id=project_id, operation_id=operation_id
+            ),
+            query=page.model_dump(),
+            options=request,
+            validate=lambda result: checked_notices(result, project_id, operation_id, page),
         )
 
     def upload(self, project_id, draft_operation_id, descriptor, *, mutation=None):
@@ -129,6 +157,20 @@ class AsyncIndexDrafts:
             ),
             options=request,
             validate=lambda result: checked(result, project_id, operation_id=operation_id),
+        )
+
+    async def notices(self, project_id, operation_id, *, after=0, limit=100, request=None):
+        project_id, operation_id = project_identity(project_id), identifier(operation_id)
+        page = ForgeIndexNoticePage(after=after, limit=limit)
+        return await self._transport.request(
+            operations.INDEX_DRAFT_NOTICES,
+            ForgeIndexDraftNoticesResponse,
+            path=operations.INDEX_DRAFT_NOTICES.path_for(
+                project_id=project_id, operation_id=operation_id
+            ),
+            query=page.model_dump(),
+            options=request,
+            validate=lambda result: checked_notices(result, project_id, operation_id, page),
         )
 
     async def upload(self, project_id, draft_operation_id, descriptor, *, mutation=None):

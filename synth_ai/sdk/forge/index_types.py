@@ -4,28 +4,32 @@
 """Private Index draft custody for one exact Forge workspace export."""
 
 from typing import Annotated, Literal
+
 from pydantic import Field, model_validator
-from synth_ai.types.base import Model, ResponseModel, Identifier, Digest
-from .contracts.operations import RevisionReference
-from .contracts.projects import ProjectId
-from .index_contracts.package import (
-    ContributionAssetRole,
-    ContributionClaim,
-    EvidenceReference,
-    ResearchCard,
-    Reproduction,
-)
+
 from .index_contracts.annotations import AuthorAnnotations
 from .index_contracts.contracts import (
     ContributionKind,
     ResearchArea,
-    WorkflowStage,
     ShortText,
+    WorkflowStage,
 )
+from .index_contracts.forge_notice_contracts import ForgeSourceNoticeItem
+from .index_contracts.package import (
+    ContributionAssetRole,
+    ContributionClaim,
+    EvidenceReference,
+    Reproduction,
+    ResearchCard,
+)
+from synth_ai.types.base import Digest, Identifier, Model, ResponseModel
 from synth_ai.types.uploads import (
     ContributionPackageRef,
     ContributionUploadManifest,
 )
+from .contracts.contracts import ExactReference
+from .contracts.operations import RevisionReference
+from .contracts.projects import ProjectId
 
 
 class ForgeIndexDraftRequest(Model):
@@ -69,6 +73,49 @@ class ForgeIndexDraftResponse(ResponseModel):
             self.manifest_digest_sha256 is not None
         ):
             raise ValueError("validation state differs from the retained manifest")
+        return self
+
+
+class ForgeIndexNoticePage(Model):
+    after: Annotated[int, Field(strict=True, ge=0, le=9223372036854775807)] = 0
+    limit: Annotated[int, Field(strict=True, ge=1, le=100)] = 100
+
+
+class ForgeIndexDraftNoticesResponse(ResponseModel):
+    project_id: ProjectId
+    draft_operation_id: Identifier
+    export_revision: RevisionReference
+    release: ExactReference
+    items: tuple[ForgeSourceNoticeItem, ...] = Field(max_length=100)
+    after: Annotated[int, Field(strict=True, ge=0, le=9223372036854775807)]
+    next_cursor: Annotated[int, Field(strict=True, ge=0, le=9223372036854775807)]
+
+    @model_validator(mode="after")
+    def exact_page(self):
+        cursors = tuple(item.cursor for item in self.items)
+        if (
+            self.release.authority != "index"
+            or self.release.kind != "contribution"
+            or self.export_revision.reference.authority != "forge"
+            or self.export_revision.reference.kind != "scientific_export"
+            or self.next_cursor < self.after
+            or cursors != tuple(sorted(set(cursors)))
+            or any(
+                not self.after < item.cursor <= self.next_cursor
+                or item.notice.authority != "forge"
+                or item.notice.kind != "source_notice"
+                or item.original.authority != "forge"
+                or (item.disposition != "retraction" and item.replacement is None)
+                or item.replacement is not None
+                and (
+                    item.replacement.authority != "forge"
+                    or item.replacement.kind != item.original.kind
+                    or item.replacement == item.original
+                )
+                for item in self.items
+            )
+        ):
+            raise ValueError("notice page differs from its exact private selection")
         return self
 
 
