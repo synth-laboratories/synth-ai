@@ -45,6 +45,22 @@
           "native-swarms"
         ]
       }
+    },
+    "0.23.7": {
+      "deferrable": [],
+      "owner_waivers": {
+        "directive": "get v0.23 merged and up on staging/prod; do not run end-to-end acceptance tests; lift restrictions as needed to finish merge/deploy, while E2E stays skipped",
+        "approved_by": "release owner (standing instruction to skip E2E and complete merge/deploy; v0.23.2 promotion decision to ship dev as-is, relayed to the SDK release lane)",
+        "approved_at": "2026-10-23",
+        "ticket": "SYN-4962",
+        "checks": [
+          "native-index-fast",
+          "native-index-deep",
+          "native-monitor",
+          "native-swarms",
+          "staging"
+        ]
+      }
     }
   }
 }
