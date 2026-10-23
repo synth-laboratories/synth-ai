@@ -105,6 +105,20 @@ qualify claims, attest rights, approve a public audience or publish. Keep captur
 gaps and full credit in the generated evidence. Source-grant revocation still
 controls future source reads; historical receipts do not grant future access.
 
+When explicitly instructed to validate the private handoff and
+`index_contribution_submit` is exposed, pass the exact returned Contribution
+and revision IDs with a separate retained submission idempotency key. This uses
+Index's existing finalized-package validation and sealing path. Current Index
+owner/intake access is required; new workspace-source validation also checks
+the original user's current Forge source policy. Submission is not independent
+scientific qualification, rights attestation or publication.
+
+After uncertain submission delivery, retry that exact revision and key.
+`index_contribution_owner_get` inspects current private owner state through the
+owner endpoint; it does not widen public browsing or grant byte access. A state
+read alone does not replace reconciliation of the original mutation. Index
+controls already sealed replay and subsequent qualification/publication.
+
 Keep the original mutation identity when a response is lost. Inspect or reconcile
 that operation before repeating an effect. A publication retry does not rerun
 the experiment. A new rerun is a separate linked trial under current limits.

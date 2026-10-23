@@ -201,3 +201,14 @@ upload/upload_get tools. `prepared`, `received` and `finalized` distinguish
 reservation, received bytes and an exact native package reference. Finalized
 packaging leaves the Contribution private and in draft state; validation,
 scientific qualification, rights attestation and publication remain separate.
+
+
+Explicit MCP validation can use `index_contribution_submit` with the finalized
+Contribution/revision IDs and its own retained mutation key. It calls the same
+existing Index submission operation as `client.index.contributions.submit`;
+new Forge workspace-source validation retains original source policy. Recover
+an uncertain submission by retrying its exact revision/key. Inspect current
+private owner state with `index_contribution_owner_get`, equivalent to
+`client.index.contributions.get_owner`. These tools require `index:intake`;
+current native ownership and source policy still apply. Submission, scientific
+qualification, rights attestation and publication remain separate operations.

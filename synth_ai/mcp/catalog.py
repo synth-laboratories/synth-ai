@@ -29,7 +29,7 @@ from synth_ai.sdk.forge.types import (
 )
 from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
-from synth_ai.sdk.index.types.contributions import Contribution
+from synth_ai.sdk.index.types.contributions import Contribution, SubmissionReceipt
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
@@ -51,6 +51,7 @@ from synth_ai.types.receipts import ControlReceipt, MutationResolution
 from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
+from . import contribution_owner as owner_tools
 from . import forge as forge_tools
 from .contracts import (
     JSON_OBJECT,
@@ -472,6 +473,22 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "index_contribution_submit",
+        index_operations.SUBMIT,
+        "Validate and submit one exact finalized private owner revision; retain its retry key. This does not attest rights, qualify research or publish.",
+        owner_tools.ContributionSubmit,
+        SubmissionReceipt,
+        owner_tools.submit,
+    ),
+    ToolDefinition(
+        "index_contribution_owner_get",
+        index_operations.OWNED_CONTRIBUTION,
+        "Inspect current private owner state through the owner endpoint; public browsing remains public-only.",
+        ContributionIdentity,
+        Contribution,
+        owner_tools.get,
+    ),
     ToolDefinition(
         "forge_index_draft_upload",
         forge_operations.INDEX_DRAFT_UPLOAD,
