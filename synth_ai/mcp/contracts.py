@@ -30,6 +30,7 @@ from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.types.base import Cursor, Digest, Identifier, Model, ResponseBase, ResponseIdentifier
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
+from synth_ai.types.refusal import Refusal
 
 JsonObject = dict[str, JsonValue]
 JSON_OBJECT = TypeAdapter(JsonObject)
@@ -188,6 +189,7 @@ class RunCreated(ResponseBase):
 
 
 class ToolFailure(ResponseBase):
+    refusal: Refusal | None = None
     code: Annotated[str, Field(max_length=128)]
     category: Annotated[str, Field(max_length=128)] | None = None
     message: Annotated[str, Field(max_length=512)]
@@ -203,3 +205,12 @@ class ToolFailure(ResponseBase):
     outcome: Literal["not_accepted", "unknown"] | None = None
     # retention_mode_not_allowed: the modes the organization permits.
     allowed_modes: tuple[str, ...] = ()
+
+    @model_serializer(mode="wrap")
+    def omit_absent_refusal(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        # Keep the retained legacy shape on the supported Pydantic 2.11 floor;
+        # Field(exclude_if=...) is only implemented by newer Pydantic releases.
+        data: dict[str, object] = handler(self)
+        if self.refusal is None:
+            data.pop("refusal", None)
+        return data

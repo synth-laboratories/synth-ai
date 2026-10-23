@@ -43,6 +43,7 @@ from synth_ai.types.base import (
 from synth_ai.types.capabilities import NegotiatedCapability
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import parse_rate_limits
+from synth_ai.types.refusal import Refusal
 
 from .backoff import retry_after_seconds
 
@@ -61,6 +62,32 @@ class ErrorDetail(ResponseBase):
 
 class ErrorResponse(ResponseBase):
     error: ErrorDetail
+
+
+class RefusalErrorDetail(ErrorDetail):
+    model_config = ConfigDict(extra="forbid")
+    refusal: Refusal
+
+
+class RefusalErrorResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    error: RefusalErrorDetail
+
+
+def _decode_error(response: httpx.Response, body: bytes) -> ErrorDetail | RefusalErrorDetail:
+    contract = response.headers.get("X-Synth-Refusal-Contract")
+    if contract is None:
+        return ErrorResponse.model_validate_json(body).error
+    if contract != "synth.refusal.v1":
+        raise ContractError("Unsupported refusal contract", status=response.status_code)
+    if len(body) > 262_144:
+        raise ContractError(
+            "Versioned refusal document exceeds its bound", status=response.status_code
+        )
+    error = RefusalErrorResponse.model_validate_json(body).error
+    if error.code != error.refusal.code:
+        raise ContractError("Refusal code does not match error code", status=response.status_code)
+    return error
 
 
 class _TolerantErrorDetail(BaseModel):
@@ -256,11 +283,22 @@ def _decode_response(
     if response.status_code != 200:
         allowed_modes: tuple[str, ...] = ()
         try:
-            error = ErrorResponse.model_validate_json(body).error
+            error = _decode_error(response, body)
             sent_outcome = error.outcome if "outcome" in error.model_fields_set else None
             if error.code in _TOLERANT_REFUSAL_CODES:
                 allowed_modes = _TolerantErrorResponse.model_validate_json(body).error.modes()
-        except ValidationError as cause:
+        except (ValidationError, ContractError) as cause:
+            if response.headers.get("X-Synth-Refusal-Contract") is not None:
+                if mutation:
+                    raise OutcomeUncertainError(
+                        "Malformed versioned refusal; reconcile the mutation identity",
+                        identity=identity,
+                        status=response.status_code,
+                        reason="response_invalid",
+                    ) from cause
+                raise ContractError(
+                    "Malformed versioned refusal document", status=response.status_code
+                ) from cause
             try:
                 tolerant = _TolerantErrorResponse.model_validate_json(body).error
             except ValidationError:
@@ -288,6 +326,7 @@ def _decode_response(
             raise OutcomeUncertainError(
                 "Mutation outcome is uncertain",
                 code=error.code,
+                refusal=getattr(error, "refusal", None),
                 request_id=error.request_id,
                 status=response.status_code,
                 identity=identity,
@@ -323,6 +362,7 @@ def _decode_response(
             kind = PaymentRequiredError
         refusal = kind(
             f"{operation or contract} refused: {error.code}",
+            refusal=getattr(error, "refusal", None),
             retryable=False if definite else None,
             code=error.code,
             request_id=error.request_id,
@@ -394,6 +434,7 @@ def classify_exchange(
     negotiated = response.headers.get("X-Synth-Contract") == contract
     if response.status_code in TRANSIENT_STATUSES:
         typed = False
+        explicit_retryable = None
         bounded_encoding = (
             response.headers.get("Content-Encoding", "identity").lower() == "identity"
         )
@@ -406,9 +447,13 @@ def classify_exchange(
             == "application/json"
         ):
             try:
-                ErrorResponse.model_validate_json(body or b"")
+                parsed = _decode_error(response, body or b"")
+                if isinstance(parsed, RefusalErrorDetail):
+                    explicit_retryable = parsed.refusal.retryable
                 typed = True
-            except ValidationError:
+            except (ValidationError, ContractError):
+                if response.headers.get("X-Synth-Refusal-Contract") is not None:
+                    return Exchange("decode")
                 pass  # The infrastructure disposition below retains this failure.
         if not typed:
             if mutation:
@@ -433,7 +478,12 @@ def classify_exchange(
                     stage="infrastructure",
                 ),
             )
-        if not mutation and response.status_code != 500 and attempt < attempts:
+        if (
+            not mutation
+            and response.status_code != 500
+            and attempt < attempts
+            and explicit_retryable is not False
+        ):
             return Exchange("retry", retry_delay(response, 0.0))
     if not negotiated:
         if mutation:
