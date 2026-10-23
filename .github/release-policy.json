@@ -57,8 +57,7 @@
           "native-index-fast",
           "native-index-deep",
           "native-monitor",
-          "native-swarms",
-          "staging"
+          "native-swarms"
         ]
       }
     }
