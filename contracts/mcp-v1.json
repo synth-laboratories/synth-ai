@@ -19402,6 +19402,29 @@
             "title": "Money",
             "type": "object"
           },
+          "PoolSelection": {
+            "additionalProperties": false,
+            "description": "``rhodes.pool`` grant selection; see rhodes-pool-program-plugin.v1.md.",
+            "properties": {
+              "pool_ids": {
+                "items": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "minItems": 1,
+                "title": "Pool Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "pool_ids"
+            ],
+            "title": "PoolSelection",
+            "type": "object"
+          },
           "Providers": {
             "additionalProperties": false,
             "properties": {
@@ -19466,7 +19489,7 @@
                   "minimum": 0,
                   "type": "integer"
                 },
-                "maxProperties": 7,
+                "maxProperties": 8,
                 "minProperties": 1,
                 "propertyNames": {
                   "enum": [
@@ -19476,7 +19499,8 @@
                     "tokens_out",
                     "calls",
                     "index_searches",
-                    "wall_ms"
+                    "wall_ms",
+                    "rollouts"
                   ]
                 },
                 "title": "Limits",
@@ -19494,7 +19518,8 @@
               "plugin": {
                 "enum": [
                   "openrouter.inference",
-                  "index.search"
+                  "index.search",
+                  "rhodes.pool"
                 ],
                 "title": "Plugin",
                 "type": "string"
@@ -19514,7 +19539,8 @@
                       "tokens_out",
                       "calls",
                       "index_searches",
-                      "wall_ms"
+                      "wall_ms",
+                      "rollouts"
                     ]
                   },
                   "type": "object"
@@ -19545,6 +19571,17 @@
                 "minItems": 1,
                 "title": "Roles",
                 "type": "array"
+              },
+              "selection": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PoolSelection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               },
               "version": {
                 "default": 1,
@@ -19684,7 +19721,7 @@
             "items": {
               "$ref": "#/$defs/ResourceRequest"
             },
-            "maxItems": 2,
+            "maxItems": 3,
             "title": "Resources",
             "type": "array"
           }
@@ -20510,6 +20547,29 @@
             "title": "Money",
             "type": "object"
           },
+          "PoolSelection": {
+            "additionalProperties": false,
+            "description": "``rhodes.pool`` grant selection; see rhodes-pool-program-plugin.v1.md.",
+            "properties": {
+              "pool_ids": {
+                "items": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "minItems": 1,
+                "title": "Pool Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "pool_ids"
+            ],
+            "title": "PoolSelection",
+            "type": "object"
+          },
           "Providers": {
             "additionalProperties": false,
             "properties": {
@@ -20574,7 +20634,7 @@
                   "minimum": 0,
                   "type": "integer"
                 },
-                "maxProperties": 7,
+                "maxProperties": 8,
                 "minProperties": 1,
                 "propertyNames": {
                   "enum": [
@@ -20584,7 +20644,8 @@
                     "tokens_out",
                     "calls",
                     "index_searches",
-                    "wall_ms"
+                    "wall_ms",
+                    "rollouts"
                   ]
                 },
                 "title": "Limits",
@@ -20602,7 +20663,8 @@
               "plugin": {
                 "enum": [
                   "openrouter.inference",
-                  "index.search"
+                  "index.search",
+                  "rhodes.pool"
                 ],
                 "title": "Plugin",
                 "type": "string"
@@ -20622,7 +20684,8 @@
                       "tokens_out",
                       "calls",
                       "index_searches",
-                      "wall_ms"
+                      "wall_ms",
+                      "rollouts"
                     ]
                   },
                   "type": "object"
@@ -20653,6 +20716,17 @@
                 "minItems": 1,
                 "title": "Roles",
                 "type": "array"
+              },
+              "selection": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PoolSelection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               },
               "version": {
                 "default": 1,
@@ -20799,7 +20873,7 @@
             "items": {
               "$ref": "#/$defs/ResourceRequest"
             },
-            "maxItems": 2,
+            "maxItems": 3,
             "title": "Resources",
             "type": "array"
           }
