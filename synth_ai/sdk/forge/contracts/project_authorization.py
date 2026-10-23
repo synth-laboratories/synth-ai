@@ -28,6 +28,7 @@ class ProjectAuthorization(Contract):
         "projects.read",
         "projects.apply",
         "projects.policy",
+        "projects.scope",
         "projects.run-policy",
         "projects.run-grant",
         "projects.run-revoke",
