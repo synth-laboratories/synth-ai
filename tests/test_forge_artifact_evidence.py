@@ -121,3 +121,70 @@ def test_mcp_evidence_read_cannot_supply_authority_or_past_receipt():
             tool.validate_arguments(
                 {"project_id": PROJECT, "record_id": "material", field: "invented"}
             )
+
+
+def test_generated_archive_decoder_preserves_native_revision_provenance():
+    from datetime import UTC, datetime
+    from hashlib import sha256
+
+    from synth_ai.sdk.forge.contracts.contracts import (
+        ExactReference,
+        Producer,
+        Scope,
+        contract_digest,
+    )
+    from synth_ai.sdk.forge.contracts.freezing import (
+        ARCHIVE_V3,
+        ARCHIVE_V4,
+        scientific_archive,
+        scientific_archive_sources,
+        verify_scientific_archive,
+    )
+    from synth_ai.sdk.forge.contracts.operations import revision_reference
+    from synth_ai.sdk.forge.contracts.operations_v2 import RecordRevisionV2
+    from synth_ai.sdk.forge.contracts.records import ResearchLog, Snapshot
+
+    scope = Scope(organization_id="81000000-0000-4000-8000-000000000001", project_id=PROJECT)
+    payload = ResearchLog(title="A retained observation")
+    now = datetime.now(UTC)
+    record = RecordRevisionV2(
+        scope=scope,
+        payload=payload,
+        reference=ExactReference(
+            authority="forge",
+            kind="research_log",
+            record_id="log",
+            revision="1",
+            digest_sha256=contract_digest(payload),
+        ),
+        producer=Producer(authority="human", subject_id="human"),
+        operation_id="original",
+        recorded_at=now,
+    )
+    content = scientific_archive(
+        scope, (record,), cutoff_at=now, gaps=("No execution.",), schema_version=ARCHIVE_V4
+    )
+    snapshot = Snapshot(
+        cutoff_at=now,
+        sources=scientific_archive_sources((record,), schema_version=ARCHIVE_V4),
+        archive=ExactReference(
+            authority="artifact-platform",
+            kind="archive",
+            record_id=PROJECT,
+            revision="1",
+            digest_sha256=sha256(content).hexdigest(),
+        ),
+        capture_completeness="partial",
+        gaps=("No execution.",),
+    )
+    assert verify_scientific_archive(
+        content,
+        scope,
+        snapshot,
+        retained=lambda scope, reference: revision_reference(record),
+        require_revisions=True,
+    ) == (record,)
+    with pytest.raises(ValueError):
+        scientific_archive(
+            scope, (record,), cutoff_at=now, gaps=("No execution.",), schema_version=ARCHIVE_V3
+        )
