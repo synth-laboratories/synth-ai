@@ -13,14 +13,27 @@ from typing import Generic, Protocol, TypeVar
 from pydantic import BaseModel
 
 from synth_ai import AsyncSynthClient
+from synth_ai.contracts import forge as forge_operations
 from synth_ai.contracts import operations as index_operations
 from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.forge.index_types import (
+    ForgeIndexDraftNoticesResponse,
+    ForgeIndexDraftResponse,
+    ForgeIndexDraftUploadResponse,
+)
+from synth_ai.sdk.forge.types import (
+    ProjectMutationResponse,
+    ProjectResponse,
+    ScientificArtifactEvidenceResponse,
+    ScientificReceiptResponse,
+    ScientificRecordResponse,
+)
 from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
-from synth_ai.sdk.index.types.contributions import Contribution
+from synth_ai.sdk.index.types.contributions import Contribution, SubmissionReceipt
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
@@ -42,6 +55,8 @@ from synth_ai.types.receipts import ControlReceipt, MutationResolution
 from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
+from . import contribution_owner as owner_tools
+from . import forge as forge_tools
 from .contracts import (
     JSON_OBJECT,
     ContentArguments,
@@ -92,6 +107,8 @@ class ToolSpec(Protocol):
     @property
     def scope(self) -> str | None: ...
     @property
+    def additional_scopes(self) -> tuple[str, ...]: ...
+    @property
     def mutates(self) -> bool: ...
     @property
     def paid(self) -> bool: ...
@@ -115,6 +132,7 @@ class ToolDefinition(Generic[RequestT, ResultT]):
     request: type[RequestT]
     result: type[ResultT]
     execute: Callable[[AsyncSynthClient, RequestT], Awaitable[ResultT]]
+    additional_scopes: tuple[str, ...] = ()
 
     @property
     def operation(self) -> str:
@@ -459,6 +477,139 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "index_contribution_submit",
+        index_operations.SUBMIT,
+        "Validate and submit one exact finalized private owner revision; retain its retry key. This does not attest rights, qualify research or publish.",
+        owner_tools.ContributionSubmit,
+        SubmissionReceipt,
+        owner_tools.submit,
+    ),
+    ToolDefinition(
+        "index_contribution_owner_get",
+        index_operations.OWNED_CONTRIBUTION,
+        "Inspect current private owner state through the owner endpoint; public browsing remains public-only.",
+        ContributionIdentity,
+        Contribution,
+        owner_tools.get,
+    ),
+    ToolDefinition(
+        "forge_index_draft_upload",
+        forge_operations.INDEX_DRAFT_UPLOAD,
+        "Package frozen native Artifact outputs into a private Index draft; retain the key for recovery. Returns IDs and state without transfer credentials.",
+        forge_tools.ForgeIndexDraftUpload,
+        ForgeIndexDraftUploadResponse,
+        forge_tools.index_draft_upload,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_index_draft_upload_get",
+        forge_operations.INDEX_DRAFT_UPLOAD_GET,
+        "Recover private upload custody and package IDs under current Forge and Index access.",
+        forge_tools.ForgeIndexDraftUploadRead,
+        ForgeIndexDraftUploadResponse,
+        forge_tools.index_draft_upload_get,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_artifact_evidence_get",
+        forge_operations.ARTIFACT_EVIDENCE_GET,
+        "Inspect retained Artifact read evidence for an exact revision; byte access does not prove capture or execution.",
+        forge_tools.ForgeRecordRead,
+        ScientificArtifactEvidenceResponse,
+        forge_tools.artifact_evidence_get,
+    ),
+    ToolDefinition(
+        "forge_index_draft_create",
+        forge_operations.INDEX_DRAFT_CREATE,
+        "Allocate one private Index draft for an exact frozen Forge export; retain the key for recovery.",
+        forge_tools.ForgeIndexDraftCreate,
+        ForgeIndexDraftResponse,
+        forge_tools.index_draft_create,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_index_draft_get",
+        forge_operations.INDEX_DRAFT_GET,
+        "Recover original private draft IDs under current Forge and Index access.",
+        forge_tools.ForgeReceiptRead,
+        ForgeIndexDraftResponse,
+        forge_tools.index_draft_get,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_index_draft_notices",
+        forge_operations.INDEX_DRAFT_NOTICES,
+        "Read exact private source correction notices under current Forge and Index access; notices do not change released bytes or publish.",
+        forge_tools.ForgeIndexDraftNoticeRead,
+        ForgeIndexDraftNoticesResponse,
+        forge_tools.index_draft_notices,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_record_get",
+        forge_operations.RECORD_GET,
+        "Read an exact scientific record revision with current workspace access.",
+        forge_tools.ForgeRecordRead,
+        ScientificRecordResponse,
+        forge_tools.record_get,
+    ),
+    ToolDefinition(
+        "forge_record_write",
+        forge_operations.RECORD_WRITE,
+        "Record typed scientific intent under current admission with a stable retry key.",
+        forge_tools.ForgeRecordWrite,
+        ScientificReceiptResponse,
+        forge_tools.record_write,
+    ),
+    ToolDefinition(
+        "forge_receipt_get",
+        forge_operations.RECEIPT_GET,
+        "Recover the original scientific receipt after an uncertain write outcome.",
+        forge_tools.ForgeReceiptRead,
+        ScientificReceiptResponse,
+        forge_tools.receipt_get,
+    ),
+    ToolDefinition(
+        "forge_project_get",
+        forge_operations.PROJECT_GET,
+        "Inspect a research workspace with current access and retained revision.",
+        forge_tools.ForgeProjectIdentity,
+        ProjectResponse,
+        forge_tools.get,
+    ),
+    ToolDefinition(
+        "forge_project_create",
+        forge_operations.PROJECT_APPLY,
+        "Create an independent research workspace with a stable retry key.",
+        forge_tools.ForgeProjectCreate,
+        ProjectMutationResponse,
+        forge_tools.create,
+    ),
+    ToolDefinition(
+        "forge_project_update",
+        forge_operations.PROJECT_APPLY,
+        "Revise a research workspace title and objective at its expected revision.",
+        forge_tools.ForgeProjectUpdate,
+        ProjectMutationResponse,
+        forge_tools.update,
+    ),
+    ToolDefinition(
+        "forge_project_archive",
+        forge_operations.PROJECT_APPLY,
+        "Archive or unarchive a research workspace while retaining its evidence.",
+        forge_tools.ForgeProjectArchive,
+        ProjectMutationResponse,
+        forge_tools.archive,
+    ),
+    ToolDefinition(
+        "forge_project_members",
+        forge_operations.PROJECT_APPLY,
+        "Replace explicit workspace membership at its expected revision.",
+        forge_tools.ForgeProjectMembers,
+        ProjectMutationResponse,
+        forge_tools.members,
+    ),
     ToolDefinition(
         "index_search_deliver_events",
         index_operations.DELIVER_SEARCH_EVENTS,

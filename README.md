@@ -141,3 +141,83 @@ unavailable operations exit 1, and invalid command/input exits 2. Account reads
 use their own observational protocol and do not claim Index/Swarms execution
 manifest qualification. Native issuer, installed-package and deployed-cohort
 acceptance remain required before release.
+## Forge research workspaces (v0.24 candidate)
+
+Forge workspaces organize scientific work independently of executable Swarms
+projects. The selected backend must admit these operations and the credential
+must carry explicit `forge:read`/`forge:write` scopes.
+
+```python
+from synth_ai import SynthClient
+from synth_ai.options import MutationOptions
+
+with SynthClient() as client:
+    created = client.forge.projects.create(
+        title="Craftax comparison",
+        objective="Compare the two approaches using the pinned evaluation protocol",
+        mutation=MutationOptions(idempotency_key="craftax-study-1"),
+    )
+    project = client.forge.projects.get(created.receipt.project_id)
+```
+
+Async clients expose the same methods. Retain the project ID, original mutation
+identity and expected revision for retries and edits. Archive/unarchive preserves
+research history; membership changes require current workspace ownership.
+
+The MCP catalogue includes `forge_project_get`, `forge_project_create`,
+`forge_project_update`, `forge_project_archive` and `forge_project_members`.
+Scientific tools are `forge_record_get`, `forge_record_write` and
+`forge_receipt_get`; sync and async clients expose `client.forge.records.get`,
+`client.forge.records.write` and `client.forge.receipts.get`. Writes accept typed
+canonical records with an expected revision and stable mutation key. Recover
+the original receipt after response loss or admission expiry before another
+attempt. Manual results retain unverified status.
+Typed inputs are available from `synth_ai.sdk.forge`, including `Protocol`,
+`Experiment`, `Trial`, `Review`, and protocol/input observation types. Register a
+trial before execution; v2 state observations append immutable revisions with
+the registered parameters fixed. A rerun uses a new trial and exact `parent_trial`.
+Legacy records keep their original versions; native records carry explicit v2
+envelopes, and execution-bound input claims need their owning verifier.
+Connections with admitted Forge tools can discover the packaged `forge-research`
+skill as a content-addressed MCP resource. Research runs pin that skill together
+with their admitted scientific tools and method/program versions. Workspace
+operations alone do not qualify a complete scientific Swarm or evaluator path.
+
+
+Private Index handoff uses `client.forge.index_drafts.create(project_id,
+export_revision, mutation=...)` to allocate custody for an exact frozen export.
+Retain the original draft operation ID. Then call
+`client.forge.index_drafts.upload(project_id, draft_operation_id, descriptor,
+mutation=...)`, or the `forge_index_draft_upload` MCP tool. The author supplies
+research metadata and an asset ID/role/path layout; the backend resolves frozen
+native Artifact bytes, digests, licenses and full credit. Current `forge:read`,
+`index:intake` and private Artifact grants are required. Transfer credentials
+stay inside the native upload service.
+
+Preserve each mutation key on retry. Recover allocation with `index_drafts.get`
+and upload custody with `index_drafts.upload_get(project_id,
+draft_operation_id, upload_operation_id)`. MCP exposes matching create/get and
+upload/upload_get tools. `prepared`, `received` and `finalized` distinguish
+reservation, received bytes and an exact native package reference. Finalized
+packaging leaves the Contribution private and in draft state; validation,
+scientific qualification, rights attestation and publication remain separate.
+
+
+Explicit MCP validation can use `index_contribution_submit` with the finalized
+Contribution/revision IDs and its own retained mutation key. It calls the same
+existing Index submission operation as `client.index.contributions.submit`;
+new Forge workspace-source validation retains original source policy. Recover
+an uncertain submission by retrying its exact revision/key. Inspect current
+private owner state with `index_contribution_owner_get`, equivalent to
+`client.index.contributions.get_owner`. These tools require `index:intake`;
+current native ownership and source policy still apply. Submission, scientific
+qualification, rights attestation and publication remain separate operations.
+
+Read private source corrections with `client.forge.index_drafts.notices` or
+`forge_index_draft_notices`, using the original project and draft operation IDs.
+Retain the exact Index `release` reference and scanned `next_cursor`; page with
+bounded `after` and `limit`. Current Forge read and Index intake/owner access
+remain required. Correct a frozen export under a new identity and record its
+exact typed source notice through admitted scientific authoring. The original
+sealed package bytes, Index qualification and public notice consent remain
+under their existing owners. Packaged research skill revision8 covers this path.

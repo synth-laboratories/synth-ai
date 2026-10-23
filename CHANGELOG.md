@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.7
+
+- Swarms launches can grant `rhodes.pool`: a top-level `selection.pool_ids` (1-8 distinct ids), the `rollouts` limit, and up to three resource grants per launch.
+- swarms.v1 contract fingerprint changes to match the backend export; core.v1 and index.v1 are unchanged.
+
 ## 0.23.6
 
 - Preserve negotiated `synth.refusal.v1` failure chains in SDK HTTP errors and MCP results.

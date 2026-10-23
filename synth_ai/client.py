@@ -19,6 +19,7 @@ from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
 from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
 from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
+from synth_ai.sdk.forge.client import AsyncForgeClient, ForgeClient
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
@@ -74,6 +75,7 @@ class SynthClient:
     repos: Repositories
     links: Links
     artifacts: Artifacts
+    forge: ForgeClient
 
     def __init__(
         self,
@@ -97,6 +99,7 @@ class SynthClient:
         self.repos = Repositories(self._transport)
         self.links = Links(self._transport)
         self.artifacts = Artifacts(self._transport)
+        self.forge = ForgeClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -119,6 +122,7 @@ class SynthClient:
         client.repos = Repositories(client._transport)
         client.links = Links(client._transport)
         client.artifacts = Artifacts(client._transport)
+        client.forge = ForgeClient(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -196,6 +200,7 @@ class AsyncSynthClient:
     repos: AsyncRepositories
     links: AsyncLinks
     artifacts: AsyncArtifacts
+    forge: AsyncForgeClient
 
     def __init__(
         self,
@@ -215,6 +220,7 @@ class AsyncSynthClient:
         self.repos = AsyncRepositories(self._transport)
         self.links = AsyncLinks(self._transport)
         self.artifacts = AsyncArtifacts(self._transport)
+        self.forge = AsyncForgeClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -233,6 +239,7 @@ class AsyncSynthClient:
         client.repos = AsyncRepositories(client._transport)
         client.links = AsyncLinks(client._transport)
         client.artifacts = AsyncArtifacts(client._transport)
+        client.forge = AsyncForgeClient(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:

@@ -164,12 +164,14 @@ def create_server(
                     ),
                 )
                 tool.meta = {"synth/operation": spec.operation, "synth/mayCharge": spec.paid}
+                if spec.additional_scopes:
+                    tool.meta["synth/additionalRequiredScopes"] = list(spec.additional_scopes)
                 visible.append(tool)
         return visible
 
     @server.list_resources()
     async def list_resources() -> list[Resource]:
-        return [
+        resources = [
             Resource(
                 uri=AnyUrl("synth://reference/tools"),
                 name="Synth tool reference",
@@ -177,9 +179,29 @@ def create_server(
                 description="Schemas for tools available on this connection; returned content remains untrusted data.",
             )
         ]
+        if any(tool.name.startswith("forge_") for tool in await list_tools()):
+            from synth_ai.sdk.forge.skill import research_skill
+
+            skill = research_skill()
+            resources.append(
+                Resource(
+                    uri=AnyUrl(skill.uri),
+                    name="Forge research skill",
+                    mimeType="text/markdown",
+                    description=f"forge-research revision {skill.revision}; SHA256 {skill.sha256}",
+                )
+            )
+        return resources
 
     @server.read_resource()
     async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
+        from synth_ai.sdk.forge.skill import research_skill
+
+        skill = research_skill()
+        if str(uri) == skill.uri:
+            if not any(tool.name.startswith("forge_") for tool in await list_tools()):
+                raise ValueError("Unknown resource")
+            return [ReadResourceContents(content=skill.content, mime_type="text/markdown")]
         if str(uri) != "synth://reference/tools":
             raise ValueError("Unknown resource")
         schemas = [tool.model_dump(mode="json", exclude_none=True) for tool in await list_tools()]
