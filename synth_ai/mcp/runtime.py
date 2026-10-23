@@ -70,7 +70,10 @@ class SDKExecutor:
 
     def _permitted(self, tool: ToolSpec, context: AuthContext | None, scope: str | None) -> bool:
         return tool.name in self._enabled and (
-            not tool.keyed or context is not None and (scope is None or scope in context.scopes)
+            not tool.keyed
+            or context is not None
+            and (scope is None or scope in context.scopes)
+            and all(required in context.scopes for required in tool.additional_scopes)
         )
 
     async def _current_tools(self) -> tuple[frozenset[str], AuthContext | None]:

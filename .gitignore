@@ -27,6 +27,7 @@ private_tests
 .claude
 .opencode
 .uv-cache
+.local/
 .cursorrules
 AGENTS.md
 **/AGENTS.md
@@ -259,3 +260,4 @@ SDK_0230_*
 docs/*
 !docs/swarms.md
 !CHANGELOG-ARCHIVE.md
+!synth_ai/sdk/forge/skills/forge-research/SKILL.md
