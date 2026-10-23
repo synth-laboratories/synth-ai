@@ -1,0 +1,6 @@
+contract = "synth.refusal.v1"
+source_repo = "backend"
+source_path = "tests/fixtures/refusal-v1/backend-physical-custody.json"
+source_commit = "9edfffbe3efe4476ee144ac3e8a94df5026b75a8"
+source_branch = "codex/syn4863-observability-invariants-20261022"
+vendored_on = "2026-10-22"

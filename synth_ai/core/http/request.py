@@ -140,6 +140,7 @@ def build_request(
         request.headers.pop("X-Synth-Contract", None)
     else:
         request.headers["X-Synth-Contract"] = operation.contract
+    request.headers["X-Synth-Accept-Refusal"] = "synth.refusal.v1"
     request.headers["Accept-Encoding"] = "identity"
     request.headers["X-Synth-Request-Timeout-Ms"] = str(max(1, int(remaining_seconds * 1000)))
     if body:

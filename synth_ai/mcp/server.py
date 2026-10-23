@@ -285,6 +285,7 @@ def create_server(
                     if dispatched and spec.mutates and isinstance(error, ContractError)
                     else error_code(error),
                     category=error_category(error),
+                    refusal=error.refusal,
                     message=str(error)[:512],
                     status=error.status,
                     retryable=error.retryable,
