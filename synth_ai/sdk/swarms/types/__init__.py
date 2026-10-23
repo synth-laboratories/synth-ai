@@ -38,6 +38,11 @@ from .runs import (
 )
 
 __all__ = [
+    "ForkFlushMethod",
+    "ForkFlushOverrides",
+    "ForkFlushParameters",
+    "ForkFlushRound",
+    "ResolvedResearchMethod",
     "PROBLEMS_SCHEMA",
     "EvidenceRef",
     "Problem",
@@ -77,4 +82,11 @@ __all__ = [
     "TaskState",
 ]
 
+from .methods import (
+    ForkFlushMethod,
+    ForkFlushOverrides,
+    ForkFlushParameters,
+    ForkFlushRound,
+    ResolvedResearchMethod,
+)
 from .programs import ProgramRunView as ProgramRunView

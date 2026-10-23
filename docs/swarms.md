@@ -96,3 +96,28 @@ cleanup or unknown usage; inspect the typed fields separately.
 For an iteration seeded from a prior output, include that exact artifact in
 `Inputs.artifacts` and set `Inputs.derived_from` to the same reference. The new
 run records both consumption and its derivation from that output.
+
+
+## Experimental research method selection
+
+The v0.24 source API carries an explicit method release and typed overrides:
+
+```python
+from synth_ai.sdk.swarms import ForkFlushMethod, ForkFlushOverrides
+
+method = ForkFlushMethod(overrides=ForkFlushOverrides(branches=8))
+```
+
+Pass `method=method` to the launch call. The same `method` option works on sync/async `preflight` and `create`. Omission
+preserves server defaults. Fork-and-Flush accepts 2–128 branches and an optional
+ordered tuple of `ForkFlushRound` allocations, expressed in integer basis points
+of the aggregate charge ceiling. Defaults belong to the selected release; an
+override is never silently narrowed or replaced. Full resolved parameters and
+program/profile/context-policy pins are available in method-aware readbacks.
+
+This release adds selection contracts and a locally tested Orchestra control
+component. Hosted workspace/session/evaluator adapters are not yet qualified.
+The backend reports `research_method_unavailable` before paid execution rather
+than running another method. The SDK refuses a successful readback that omits
+an explicitly selected method or changes its overrides. No paper-result or
+Craftax-improvement claim follows from the local fixtures.
