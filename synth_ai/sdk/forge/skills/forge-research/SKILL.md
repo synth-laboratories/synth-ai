@@ -66,6 +66,25 @@ observed rerun, execution completion, charges and cleanup distinct.
 
 ## Retry and finish
 
+Freeze the selected scientific records in a Snapshot, preserving its exact
+archive and explicit capture gaps, then record a ScientificExport selecting
+that Snapshot's exact sources, output bytes, licenses, recipe, exporter and
+every contributor, including funders. Read the exact export revision and retain
+its complete revision reference, which binds provenance as well as payload.
+
+When `forge_index_draft_create` is exposed, pass the admitted project ID,
+that `export_revision` and a retained `idempotency_key`. The host must hold
+current `forge:read` and `index:intake` grants. Preserve the returned operation,
+contribution, revision and collection IDs. After response loss, retry that exact
+intent with the same key or call `forge_index_draft_get` with its original
+operation ID. Never switch keys to recover an uncertain allocation.
+
+The returned private draft awaits the existing Index upload and validation
+workflow. Creation alone does not seal evidence, qualify claims, attest rights,
+approve a public audience or publish. Keep capture gaps and complete credit in
+the generated evidence. Use only the owner's existing Artifact upload path;
+do not invent byte storage or public rights from a Forge citation.
+
 Keep the original mutation identity when a response is lost. Inspect or reconcile
 that operation before repeating an effect. A publication retry does not rerun
 the experiment. A new rerun is a separate linked trial under current limits.

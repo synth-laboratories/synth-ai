@@ -20,5 +20,5 @@ class ResearchSkill:
 def research_skill() -> ResearchSkill:
     raw = files("synth_ai.sdk.forge").joinpath("skills/forge-research/SKILL.md").read_bytes()
     return ResearchSkill(
-        "forge-research", "3", hashlib.sha256(raw).hexdigest(), raw.decode("utf-8")
+        "forge-research", "4", hashlib.sha256(raw).hexdigest(), raw.decode("utf-8")
     )

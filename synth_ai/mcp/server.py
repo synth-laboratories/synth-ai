@@ -164,6 +164,8 @@ def create_server(
                     ),
                 )
                 tool.meta = {"synth/operation": spec.operation, "synth/mayCharge": spec.paid}
+                if spec.additional_scopes:
+                    tool.meta["synth/additionalRequiredScopes"] = list(spec.additional_scopes)
                 visible.append(tool)
         return visible
 

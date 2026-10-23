@@ -8,6 +8,7 @@ from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
 from synth_ai.sdk.forge.contracts.scientific_v2 import RecordV2
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceRecord
+from synth_ai.sdk.forge.index_types import ForgeIndexDraftRequest
 from synth_ai.types.base import Identifier, Model
 
 
@@ -54,6 +55,22 @@ class ForgeRecordWrite(ForgeProjectIdentity):
 
 class ForgeReceiptRead(ForgeProjectIdentity):
     operation_id: Identifier
+
+
+class ForgeIndexDraftCreate(ForgeIndexDraftRequest, ForgeProjectIdentity):
+    idempotency_key: Identifier
+
+
+async def index_draft_create(client, args):
+    return await client.forge.index_drafts.create(
+        args.project_id,
+        args.export_revision,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def index_draft_get(client, args):
+    return await client.forge.index_drafts.get(args.project_id, args.operation_id)
 
 
 async def record_get(client, args):

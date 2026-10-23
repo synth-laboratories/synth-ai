@@ -19,6 +19,7 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse
 from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
@@ -100,6 +101,8 @@ class ToolSpec(Protocol):
     @property
     def scope(self) -> str | None: ...
     @property
+    def additional_scopes(self) -> tuple[str, ...]: ...
+    @property
     def mutates(self) -> bool: ...
     @property
     def paid(self) -> bool: ...
@@ -123,6 +126,7 @@ class ToolDefinition(Generic[RequestT, ResultT]):
     request: type[RequestT]
     result: type[ResultT]
     execute: Callable[[AsyncSynthClient, RequestT], Awaitable[ResultT]]
+    additional_scopes: tuple[str, ...] = ()
 
     @property
     def operation(self) -> str:
@@ -467,6 +471,24 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "forge_index_draft_create",
+        forge_operations.INDEX_DRAFT_CREATE,
+        "Allocate one private Index draft for an exact frozen Forge export; retain the key for recovery.",
+        forge_tools.ForgeIndexDraftCreate,
+        ForgeIndexDraftResponse,
+        forge_tools.index_draft_create,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_index_draft_get",
+        forge_operations.INDEX_DRAFT_GET,
+        "Recover original private draft IDs under current Forge and Index access.",
+        forge_tools.ForgeReceiptRead,
+        ForgeIndexDraftResponse,
+        forge_tools.index_draft_get,
+        additional_scopes=("index:intake",),
+    ),
     ToolDefinition(
         "forge_record_get",
         forge_operations.RECORD_GET,

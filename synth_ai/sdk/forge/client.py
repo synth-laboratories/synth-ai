@@ -15,6 +15,7 @@ from .contracts.projects import (
     ProjectOperation,
     ProjectUpdate,
 )
+from .index_drafts import AsyncIndexDrafts, IndexDrafts
 from .records import AsyncReceipts, AsyncRecords, Receipts, Records, project_identity
 from .types import ProjectMutationResponse, ProjectResponse
 
@@ -179,6 +180,7 @@ class ForgeClient:
         self.projects = Projects(transport)
         self.records = Records(transport)
         self.receipts = Receipts(transport)
+        self.index_drafts = IndexDrafts(transport)
 
 
 class AsyncForgeClient:
@@ -186,3 +188,4 @@ class AsyncForgeClient:
         self.projects = AsyncProjects(transport)
         self.records = AsyncRecords(transport)
         self.receipts = AsyncReceipts(transport)
+        self.index_drafts = AsyncIndexDrafts(transport)

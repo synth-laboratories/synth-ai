@@ -213,6 +213,7 @@ class HostedExecutor:
             )
             and tool.name in principal.allowed_tools
             and (tool.scope is None or tool.scope in principal.scopes)
+            and all(scope in principal.scopes for scope in tool.additional_scopes)
         )
 
     async def unavailable_cause(self, tool: ToolSpec) -> str:
@@ -233,6 +234,9 @@ class HostedExecutor:
             return "principal_not_authorized"
         if tool.scope is not None and tool.scope not in principal.scopes:
             return f"scope_missing:{tool.scope}"
+        for scope in tool.additional_scopes:
+            if scope not in principal.scopes:
+                return f"scope_missing:{scope}"
         return "unknown"
 
     async def visible_tools(self) -> frozenset[str]:
@@ -264,7 +268,9 @@ class HostedExecutor:
             candidate_manifest_sha256=self._candidate_manifest_sha256,
         )
         scope = tool.scope_for(arguments)
-        if scope is not None and scope not in principal.scopes:
+        if (scope is not None and scope not in principal.scopes) or any(
+            required not in principal.scopes for required in tool.additional_scopes
+        ):
             raise PermissionDeniedError(
                 "Original mutation scope is required", code="insufficient_scope"
             )

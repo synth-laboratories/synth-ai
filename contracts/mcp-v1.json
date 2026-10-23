@@ -3,6 +3,853 @@
   "status": "sdk_first_pending_backend_and_protocol_qualification",
   "tools": [
     {
+      "additional_required_scopes": [
+        "index:intake"
+      ],
+      "description": "Allocate one private Index draft for an exact frozen Forge export; retain the key for recovery.",
+      "idempotent": true,
+      "input_schema": {
+        "$defs": {
+          "ExactReference": {
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "RevisionReference": {
+            "additionalProperties": false,
+            "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+            "properties": {
+              "document_digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Document Digest Sha256",
+                "type": "string"
+              },
+              "reference": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "schema_version": {
+                "const": "forge.revision-reference.v1",
+                "default": "forge.revision-reference.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "reference",
+              "document_digest_sha256"
+            ],
+            "title": "RevisionReference",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "export_revision": {
+            "$ref": "#/$defs/RevisionReference"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "export_revision",
+          "idempotency_key"
+        ],
+        "title": "ForgeIndexDraftCreate",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "forge_index_draft_create",
+      "operation": "forge.index_drafts.create",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "RevisionReference": {
+            "additionalProperties": true,
+            "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+            "properties": {
+              "document_digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Document Digest Sha256",
+                "type": "string"
+              },
+              "reference": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "schema_version": {
+                "const": "forge.revision-reference.v1",
+                "default": "forge.revision-reference.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "reference",
+              "document_digest_sha256"
+            ],
+            "title": "RevisionReference",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "collection_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "export_revision": {
+            "$ref": "#/$defs/RevisionReference"
+          },
+          "manifest_digest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Digest Sha256"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "submitted",
+              "changes_requested",
+              "rejected",
+              "qualified",
+              "published",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_state": {
+            "enum": [
+              "awaiting_upload",
+              "sealed"
+            ],
+            "title": "Validation State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "project_id",
+          "export_revision",
+          "contribution_id",
+          "revision_id",
+          "collection_id",
+          "status",
+          "validation_state",
+          "manifest_digest_sha256"
+        ],
+        "title": "ForgeIndexDraftResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "additional_required_scopes": [
+        "index:intake"
+      ],
+      "description": "Recover original private draft IDs under current Forge and Index access.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id"
+        ],
+        "title": "ForgeReceiptRead",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "forge_index_draft_get",
+      "operation": "forge.index_drafts.get",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "RevisionReference": {
+            "additionalProperties": true,
+            "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+            "properties": {
+              "document_digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Document Digest Sha256",
+                "type": "string"
+              },
+              "reference": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "schema_version": {
+                "const": "forge.revision-reference.v1",
+                "default": "forge.revision-reference.v1",
+                "title": "Schema Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "reference",
+              "document_digest_sha256"
+            ],
+            "title": "RevisionReference",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "collection_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "export_revision": {
+            "$ref": "#/$defs/RevisionReference"
+          },
+          "manifest_digest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Digest Sha256"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "submitted",
+              "changes_requested",
+              "rejected",
+              "qualified",
+              "published",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_state": {
+            "enum": [
+              "awaiting_upload",
+              "sealed"
+            ],
+            "title": "Validation State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "project_id",
+          "export_revision",
+          "contribution_id",
+          "revision_id",
+          "collection_id",
+          "status",
+          "validation_state",
+          "manifest_digest_sha256"
+        ],
+        "title": "ForgeIndexDraftResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
       "description": "Read an exact scientific record revision with current workspace access.",
       "idempotent": true,
       "input_schema": {

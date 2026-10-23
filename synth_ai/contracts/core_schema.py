@@ -27,6 +27,7 @@ from synth_ai.sdk.core.types import (
 from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
 from synth_ai.sdk.forge.contracts.projects import ProjectOperation
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
+from synth_ai.sdk.forge.index_types import ForgeIndexDraftRequest, ForgeIndexDraftResponse
 from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
@@ -42,6 +43,8 @@ from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    ForgeIndexDraftRequest,
+    ForgeIndexDraftResponse,
     PublicWriteV2,
     WorkspaceIntent,
     ScientificRecordResponse,

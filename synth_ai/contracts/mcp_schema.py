@@ -25,6 +25,11 @@ def export_catalog() -> str:
                         "operation": tool.operation,
                         "description": tool.description,
                         "required_scope": tool.scope,
+                        **(
+                            {"additional_required_scopes": list(tool.additional_scopes)}
+                            if tool.additional_scopes
+                            else {}
+                        ),
                         "mutates": tool.mutates,
                         "may_charge": tool.paid,
                         "keyed": tool.keyed,
