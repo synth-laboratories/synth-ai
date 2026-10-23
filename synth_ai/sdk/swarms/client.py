@@ -1,4 +1,4 @@
-"""First Swarms implementation slice: one model, explicit finite launch and durable identity.
+"""Swarms launches with explicit limits and durable identity.
 
 See the public contract snapshots in contracts/ Provider credentials,
 harness and profile selection remain backend-owned; no client fallback routing.
@@ -104,7 +104,14 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
     requested = request.limits
     amount = resolved.maximum_charge
     ceiling = requested.maximum_charge
-    within_budget = amount.coefficient * 10**ceiling.scale <= ceiling.coefficient * 10**amount.scale
+    within_budget = (
+        ceiling is None
+        or (
+            amount is not None
+            and amount.coefficient * 10**ceiling.scale
+            <= ceiling.coefficient * 10**amount.scale
+        )
+    )
     same_inputs = request.inputs is None or configuration.inputs == request.inputs
     if (
         configuration.project_id != request.project_id

@@ -26,14 +26,23 @@ from .resources import ResourceRequest
 
 
 class Limits(Model):
-    maximum_charge: Money
+    # Explicit null requests operator-funded local execution; backend authority
+    # decides whether the selected target and project permit it.
+    maximum_charge: Money | None
     wall_time_seconds: StrictInt = Field(ge=1, le=86400)
     maximum_tasks: StrictInt = Field(ge=1, le=1000)
     maximum_parallel_tasks: StrictInt = Field(ge=1, le=1000)
 
+    @model_serializer(mode="wrap")
+    def serialize_limits(self, handler):
+        body = handler(self)
+        if self.maximum_charge is None:
+            body["maximum_charge"] = None
+        return body
+
     @model_validator(mode="after")
     def validate_limits(self) -> Self:
-        if self.maximum_charge.coefficient < 0:
+        if self.maximum_charge is not None and self.maximum_charge.coefficient < 0:
             raise ValueError("maximum charge must be nonnegative")
         if self.maximum_parallel_tasks > self.maximum_tasks:
             raise ValueError("parallel tasks cannot exceed total tasks")
