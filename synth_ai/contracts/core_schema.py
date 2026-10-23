@@ -25,7 +25,13 @@ from synth_ai.sdk.core.types import (
     RepositorySnapshot,
 )
 from synth_ai.sdk.forge.contracts.projects import ProjectOperation
-from synth_ai.sdk.forge.types import ProjectMutationResponse, ProjectResponse
+from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
+from synth_ai.sdk.forge.types import (
+    ProjectMutationResponse,
+    ProjectResponse,
+    ScientificReceiptResponse,
+    ScientificRecordResponse,
+)
 from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
 from synth_ai.types.response_values import response_schema
@@ -35,6 +41,9 @@ from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    WorkspaceIntent,
+    ScientificRecordResponse,
+    ScientificReceiptResponse,
     ProjectOperation,
     ProjectResponse,
     ProjectMutationResponse,

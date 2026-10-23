@@ -16,6 +16,10 @@ changes use the inspected expected revision. A Swarm uses its existing admitted
 workspace and grants; it does not create a human identity or enlarge membership.
 
 Read the relevant admitted scientific records before starting an experiment.
+Use `forge_record_get` with the project ID, record ID and exact revision when
+citing prior work. `forge_record_write` accepts a typed record payload, record
+ID, expected revision and retained idempotency key. The host supplies the
+original identity and admitted producer; do not add either to tool arguments.
 Cite exact record revisions and evidence references. Access to a project does
 not imply access to another project's records, trace bodies or private files.
 
@@ -46,6 +50,10 @@ observed rerun, execution completion, charges and cleanup distinct.
 Keep the original mutation identity when a response is lost. Inspect or reconcile
 that operation before repeating an effect. A publication retry does not rerun
 the experiment. A new rerun is a separate linked trial under current limits.
+Use `forge_receipt_get` with the original project and operation IDs. A retained
+receipt confirms that write, even after its write admission has expired, subject
+to current read access. An unavailable lookup leaves the outcome unknown. Do not
+switch keys or start another trial to recover an uncertain write.
 
 Write reports from exact retained records and raw evidence. Include limitations
 and missing inputs, and inspect capture/retrieval state before claiming the work

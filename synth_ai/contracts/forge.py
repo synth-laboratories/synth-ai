@@ -22,4 +22,32 @@ PROJECT_APPLY = Operation(
     required_scope="forge:write",
 )
 
-ALL_OPERATIONS = (PROJECT_GET, PROJECT_APPLY)
+RECORD_GET = Operation(
+    "forge.records.get",
+    "GET",
+    "/forge/projects/{project_id}/records/{record_id}",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+RECORD_WRITE = Operation(
+    "forge.records.write",
+    "POST",
+    "/forge/projects/{project_id}/scientific-operations",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+RECEIPT_GET = Operation(
+    "forge.receipts.get",
+    "GET",
+    "/forge/projects/{project_id}/receipts/{operation_id}",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+
+PROJECT_OPERATIONS = (PROJECT_GET, PROJECT_APPLY)
+SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, RECEIPT_GET)
+ALL_OPERATIONS = (*PROJECT_OPERATIONS, *SCIENCE_OPERATIONS)

@@ -19,7 +19,12 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
-from synth_ai.sdk.forge.types import ProjectMutationResponse, ProjectResponse
+from synth_ai.sdk.forge.types import (
+    ProjectMutationResponse,
+    ProjectResponse,
+    ScientificReceiptResponse,
+    ScientificRecordResponse,
+)
 from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
 from synth_ai.sdk.index.types.contributions import Contribution
@@ -462,6 +467,30 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "forge_record_get",
+        forge_operations.RECORD_GET,
+        "Read an exact scientific record revision with current workspace access.",
+        forge_tools.ForgeRecordRead,
+        ScientificRecordResponse,
+        forge_tools.record_get,
+    ),
+    ToolDefinition(
+        "forge_record_write",
+        forge_operations.RECORD_WRITE,
+        "Record typed scientific intent under current admission with a stable retry key.",
+        forge_tools.ForgeRecordWrite,
+        ScientificReceiptResponse,
+        forge_tools.record_write,
+    ),
+    ToolDefinition(
+        "forge_receipt_get",
+        forge_operations.RECEIPT_GET,
+        "Recover the original scientific receipt after an uncertain write outcome.",
+        forge_tools.ForgeReceiptRead,
+        ScientificReceiptResponse,
+        forge_tools.receipt_get,
+    ),
     ToolDefinition(
         "forge_project_get",
         forge_operations.PROJECT_GET,

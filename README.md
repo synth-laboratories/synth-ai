@@ -166,6 +166,12 @@ research history; membership changes require current workspace ownership.
 
 The MCP catalogue includes `forge_project_get`, `forge_project_create`,
 `forge_project_update`, `forge_project_archive` and `forge_project_members`.
+Scientific tools are `forge_record_get`, `forge_record_write` and
+`forge_receipt_get`; sync and async clients expose `client.forge.records.get`,
+`client.forge.records.write` and `client.forge.receipts.get`. Writes accept typed
+canonical records with an expected revision and stable mutation key. Recover
+the original receipt after response loss or admission expiry before another
+attempt. Manual results retain unverified status.
 Connections with admitted Forge tools can discover the packaged `forge-research`
 skill as a content-addressed MCP resource. Research runs pin that skill together
 with their admitted scientific tools and method/program versions. Workspace

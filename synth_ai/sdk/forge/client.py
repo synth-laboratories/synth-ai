@@ -5,7 +5,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from synth_ai.contracts import forge as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
 from synth_ai.core.http.client import HttpTransport
-from synth_ai.core.parameters import identifier, verified
+from synth_ai.core.parameters import verified
 from synth_ai.options import MutationOptions, ReadOptions
 
 from .contracts.projects import (
@@ -15,6 +15,7 @@ from .contracts.projects import (
     ProjectOperation,
     ProjectUpdate,
 )
+from .records import AsyncReceipts, AsyncRecords, Receipts, Records, project_identity
 from .types import ProjectMutationResponse, ProjectResponse
 
 
@@ -25,7 +26,7 @@ def project_operation(project_id, change, expected_revision, mutation):
         key = uuid4().hex
         selected = selected.model_copy(update={"idempotency_key": key})
     request = ProjectOperation(
-        project_id=identifier(project_id),
+        project_id=project_identity(project_id),
         operation_id=key,
         expected_revision=expected_revision,
         change=change,
@@ -66,7 +67,7 @@ class Projects:
         self._transport = transport
 
     def get(self, project_id: str, *, request: ReadOptions | None = None) -> ProjectResponse:
-        project_id = identifier(project_id)
+        project_id = project_identity(project_id)
         return self._transport.request(
             operations.PROJECT_GET,
             ProjectResponse,
@@ -122,7 +123,7 @@ class AsyncProjects:
         self._transport = transport
 
     async def get(self, project_id: str, *, request: ReadOptions | None = None) -> ProjectResponse:
-        project_id = identifier(project_id)
+        project_id = project_identity(project_id)
         return await self._transport.request(
             operations.PROJECT_GET,
             ProjectResponse,
@@ -176,8 +177,12 @@ class AsyncProjects:
 class ForgeClient:
     def __init__(self, transport: HttpTransport):
         self.projects = Projects(transport)
+        self.records = Records(transport)
+        self.receipts = Receipts(transport)
 
 
 class AsyncForgeClient:
     def __init__(self, transport: AsyncHttpTransport):
         self.projects = AsyncProjects(transport)
+        self.records = AsyncRecords(transport)
+        self.receipts = AsyncReceipts(transport)

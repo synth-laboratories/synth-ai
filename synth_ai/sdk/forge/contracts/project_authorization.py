@@ -24,7 +24,14 @@ class ProjectAuthorization(Contract):
     schema_version: Literal["forge.project-authorization.v1"] = (
         "forge.project-authorization.v1"
     )
-    action: Literal["projects.read", "projects.apply"]
+    action: Literal[
+        "projects.read",
+        "projects.apply",
+        "projects.policy",
+        "science.read",
+        "science.write",
+        "science.receipt",
+    ]
     request_digest_sha256: Digest
     nonce: Identifier
     issued_unix_ms: Annotated[int, Field(strict=True, ge=0)]
