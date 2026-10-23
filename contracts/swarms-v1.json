@@ -1640,6 +1640,55 @@
           "title": "FileRef",
           "type": "object"
         },
+        "ForkFlushParameters": {
+          "additionalProperties": true,
+          "properties": {
+            "branches": {
+              "maximum": 128,
+              "minimum": 2,
+              "title": "Branches",
+              "type": "integer"
+            },
+            "rounds": {
+              "items": {
+                "$ref": "#/$defs/ForkFlushRound"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "title": "Rounds",
+              "type": "array"
+            }
+          },
+          "required": [
+            "branches",
+            "rounds"
+          ],
+          "title": "ForkFlushParameters",
+          "type": "object"
+        },
+        "ForkFlushRound": {
+          "additionalProperties": true,
+          "properties": {
+            "after_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "After Budget Bps",
+              "type": "integer"
+            },
+            "exploration_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "Exploration Budget Bps",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "after_budget_bps",
+            "exploration_budget_bps"
+          ],
+          "title": "ForkFlushRound",
+          "type": "object"
+        },
         "Inputs": {
           "additionalProperties": true,
           "properties": {
@@ -1783,6 +1832,17 @@
             "metadata": {
               "$ref": "#/$defs/ResponseMetadata"
             },
+            "method": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ResolvedResearchMethod"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "models": {
               "$ref": "#/$defs/ResolvedModels"
             },
@@ -1879,6 +1939,61 @@
             "default"
           ],
           "title": "ResolvedProviders",
+          "type": "object"
+        },
+        "ResolvedResearchMethod": {
+          "additionalProperties": true,
+          "properties": {
+            "configuration_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Configuration Digest",
+              "type": "string"
+            },
+            "context_policy_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Context Policy Digest",
+              "type": "string"
+            },
+            "definition_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Definition Digest",
+              "type": "string"
+            },
+            "forge_profile_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Forge Profile Digest",
+              "type": "string"
+            },
+            "parameters": {
+              "$ref": "#/$defs/ForkFlushParameters"
+            },
+            "program_id": {
+              "const": "research.fork_flush",
+              "title": "Program Id",
+              "type": "string"
+            },
+            "program_version": {
+              "const": 1,
+              "title": "Program Version",
+              "type": "integer"
+            },
+            "release": {
+              "const": "research.fork_flush@1",
+              "title": "Release",
+              "type": "string"
+            }
+          },
+          "required": [
+            "release",
+            "program_id",
+            "program_version",
+            "definition_digest",
+            "configuration_digest",
+            "forge_profile_digest",
+            "context_policy_digest",
+            "parameters"
+          ],
+          "title": "ResolvedResearchMethod",
           "type": "object"
         },
         "ResponseMetadata": {
@@ -2150,6 +2265,91 @@
             "digest_sha256"
           ],
           "title": "FileRef",
+          "type": "object"
+        },
+        "ForkFlushMethod": {
+          "additionalProperties": false,
+          "properties": {
+            "overrides": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ForkFlushOverrides"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "release": {
+              "const": "research.fork_flush@1",
+              "default": "research.fork_flush@1",
+              "title": "Release",
+              "type": "string"
+            }
+          },
+          "title": "ForkFlushMethod",
+          "type": "object"
+        },
+        "ForkFlushOverrides": {
+          "additionalProperties": false,
+          "properties": {
+            "branches": {
+              "anyOf": [
+                {
+                  "maximum": 128,
+                  "minimum": 2,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Branches"
+            },
+            "rounds": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/ForkFlushRound"
+                  },
+                  "maxItems": 8,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Rounds"
+            }
+          },
+          "title": "ForkFlushOverrides",
+          "type": "object"
+        },
+        "ForkFlushRound": {
+          "additionalProperties": false,
+          "properties": {
+            "after_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "After Budget Bps",
+              "type": "integer"
+            },
+            "exploration_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "Exploration Budget Bps",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "after_budget_bps",
+            "exploration_budget_bps"
+          ],
+          "title": "ForkFlushRound",
           "type": "object"
         },
         "Guidance": {
@@ -2593,6 +2793,17 @@
           ],
           "default": null,
           "title": "Message"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForkFlushMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "models": {
           "anyOf": [
@@ -4335,6 +4546,55 @@
           "title": "ExactReference",
           "type": "object"
         },
+        "ForkFlushParameters": {
+          "additionalProperties": true,
+          "properties": {
+            "branches": {
+              "maximum": 128,
+              "minimum": 2,
+              "title": "Branches",
+              "type": "integer"
+            },
+            "rounds": {
+              "items": {
+                "$ref": "#/$defs/ForkFlushRound"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "title": "Rounds",
+              "type": "array"
+            }
+          },
+          "required": [
+            "branches",
+            "rounds"
+          ],
+          "title": "ForkFlushParameters",
+          "type": "object"
+        },
+        "ForkFlushRound": {
+          "additionalProperties": true,
+          "properties": {
+            "after_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "After Budget Bps",
+              "type": "integer"
+            },
+            "exploration_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "Exploration Budget Bps",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "after_budget_bps",
+            "exploration_budget_bps"
+          ],
+          "title": "ForkFlushRound",
+          "type": "object"
+        },
         "GuidanceCoverage": {
           "additionalProperties": true,
           "properties": {
@@ -4830,6 +5090,61 @@
           "title": "ReasonLink",
           "type": "object"
         },
+        "ResolvedResearchMethod": {
+          "additionalProperties": true,
+          "properties": {
+            "configuration_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Configuration Digest",
+              "type": "string"
+            },
+            "context_policy_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Context Policy Digest",
+              "type": "string"
+            },
+            "definition_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Definition Digest",
+              "type": "string"
+            },
+            "forge_profile_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Forge Profile Digest",
+              "type": "string"
+            },
+            "parameters": {
+              "$ref": "#/$defs/ForkFlushParameters"
+            },
+            "program_id": {
+              "const": "research.fork_flush",
+              "title": "Program Id",
+              "type": "string"
+            },
+            "program_version": {
+              "const": 1,
+              "title": "Program Version",
+              "type": "integer"
+            },
+            "release": {
+              "const": "research.fork_flush@1",
+              "title": "Release",
+              "type": "string"
+            }
+          },
+          "required": [
+            "release",
+            "program_id",
+            "program_version",
+            "definition_digest",
+            "configuration_digest",
+            "forge_profile_digest",
+            "context_policy_digest",
+            "parameters"
+          ],
+          "title": "ResolvedResearchMethod",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -5055,6 +5370,17 @@
             },
             "metadata": {
               "$ref": "#/$defs/ResponseMetadata"
+            },
+            "method": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ResolvedResearchMethod"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "model": {
               "maxLength": 256,
@@ -7141,6 +7467,55 @@
           "title": "FileRef",
           "type": "object"
         },
+        "ForkFlushParameters": {
+          "additionalProperties": true,
+          "properties": {
+            "branches": {
+              "maximum": 128,
+              "minimum": 2,
+              "title": "Branches",
+              "type": "integer"
+            },
+            "rounds": {
+              "items": {
+                "$ref": "#/$defs/ForkFlushRound"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "title": "Rounds",
+              "type": "array"
+            }
+          },
+          "required": [
+            "branches",
+            "rounds"
+          ],
+          "title": "ForkFlushParameters",
+          "type": "object"
+        },
+        "ForkFlushRound": {
+          "additionalProperties": true,
+          "properties": {
+            "after_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "After Budget Bps",
+              "type": "integer"
+            },
+            "exploration_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "Exploration Budget Bps",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "after_budget_bps",
+            "exploration_budget_bps"
+          ],
+          "title": "ForkFlushRound",
+          "type": "object"
+        },
         "Inputs": {
           "additionalProperties": true,
           "properties": {
@@ -7293,6 +7668,61 @@
             "default"
           ],
           "title": "ResolvedProviders",
+          "type": "object"
+        },
+        "ResolvedResearchMethod": {
+          "additionalProperties": true,
+          "properties": {
+            "configuration_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Configuration Digest",
+              "type": "string"
+            },
+            "context_policy_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Context Policy Digest",
+              "type": "string"
+            },
+            "definition_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Definition Digest",
+              "type": "string"
+            },
+            "forge_profile_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Forge Profile Digest",
+              "type": "string"
+            },
+            "parameters": {
+              "$ref": "#/$defs/ForkFlushParameters"
+            },
+            "program_id": {
+              "const": "research.fork_flush",
+              "title": "Program Id",
+              "type": "string"
+            },
+            "program_version": {
+              "const": 1,
+              "title": "Program Version",
+              "type": "integer"
+            },
+            "release": {
+              "const": "research.fork_flush@1",
+              "title": "Release",
+              "type": "string"
+            }
+          },
+          "required": [
+            "release",
+            "program_id",
+            "program_version",
+            "definition_digest",
+            "configuration_digest",
+            "forge_profile_digest",
+            "context_policy_digest",
+            "parameters"
+          ],
+          "title": "ResolvedResearchMethod",
           "type": "object"
         },
         "ResponseMetadata": {
@@ -7451,6 +7881,17 @@
         },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedResearchMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "models": {
           "$ref": "#/$defs/ResolvedModels"
@@ -7652,6 +8093,55 @@
             "digest_sha256"
           ],
           "title": "ExactReference",
+          "type": "object"
+        },
+        "ForkFlushParameters": {
+          "additionalProperties": true,
+          "properties": {
+            "branches": {
+              "maximum": 128,
+              "minimum": 2,
+              "title": "Branches",
+              "type": "integer"
+            },
+            "rounds": {
+              "items": {
+                "$ref": "#/$defs/ForkFlushRound"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "title": "Rounds",
+              "type": "array"
+            }
+          },
+          "required": [
+            "branches",
+            "rounds"
+          ],
+          "title": "ForkFlushParameters",
+          "type": "object"
+        },
+        "ForkFlushRound": {
+          "additionalProperties": true,
+          "properties": {
+            "after_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "After Budget Bps",
+              "type": "integer"
+            },
+            "exploration_budget_bps": {
+              "maximum": 9999,
+              "minimum": 1,
+              "title": "Exploration Budget Bps",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "after_budget_bps",
+            "exploration_budget_bps"
+          ],
+          "title": "ForkFlushRound",
           "type": "object"
         },
         "GuidanceCoverage": {
@@ -8149,6 +8639,61 @@
           "title": "ReasonLink",
           "type": "object"
         },
+        "ResolvedResearchMethod": {
+          "additionalProperties": true,
+          "properties": {
+            "configuration_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Configuration Digest",
+              "type": "string"
+            },
+            "context_policy_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Context Policy Digest",
+              "type": "string"
+            },
+            "definition_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Definition Digest",
+              "type": "string"
+            },
+            "forge_profile_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Forge Profile Digest",
+              "type": "string"
+            },
+            "parameters": {
+              "$ref": "#/$defs/ForkFlushParameters"
+            },
+            "program_id": {
+              "const": "research.fork_flush",
+              "title": "Program Id",
+              "type": "string"
+            },
+            "program_version": {
+              "const": 1,
+              "title": "Program Version",
+              "type": "integer"
+            },
+            "release": {
+              "const": "research.fork_flush@1",
+              "title": "Release",
+              "type": "string"
+            }
+          },
+          "required": [
+            "release",
+            "program_id",
+            "program_version",
+            "definition_digest",
+            "configuration_digest",
+            "forge_profile_digest",
+            "context_policy_digest",
+            "parameters"
+          ],
+          "title": "ResolvedResearchMethod",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -8442,6 +8987,17 @@
         },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedResearchMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "model": {
           "maxLength": 256,

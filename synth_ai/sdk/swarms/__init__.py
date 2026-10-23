@@ -8,6 +8,13 @@ from .output_stream import AsyncOutputStream, OutputStream
 from .run import AsyncSwarmRun, SwarmRun
 from .types.files import File, FileManifest, FileSource, FileUploadReceipt, FileUploadStatus
 from .types.launch import FileRef, Inputs, Limits, Models, Providers, RepoSelector
+from .types.methods import (
+    ForkFlushMethod,
+    ForkFlushOverrides,
+    ForkFlushParameters,
+    ForkFlushRound,
+    ResolvedResearchMethod,
+)
 from .types.objectives import (
     Guidance,
     GuidanceCoverage,
@@ -31,6 +38,11 @@ from .types.runs import (
 from .watch import AsyncRunWatch, RunWatch
 
 __all__ = [
+    "ForkFlushMethod",
+    "ForkFlushOverrides",
+    "ForkFlushParameters",
+    "ForkFlushRound",
+    "ResolvedResearchMethod",
     "EvidenceRef",
     "Problem",
     "ReasonLink",
