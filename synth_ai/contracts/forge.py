@@ -48,6 +48,14 @@ RECEIPT_GET = Operation(
     contract="core.v1",
     required_scope="forge:read",
 )
+ARTIFACT_EVIDENCE_GET = Operation(
+    "forge.records.artifact_evidence",
+    "GET",
+    "/forge/projects/{project_id}/records/{record_id}/artifact-evidence",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
 
 INDEX_DRAFT_CREATE = Operation(
     "forge.index_drafts.create",
@@ -69,5 +77,5 @@ INDEX_DRAFT_GET = Operation(
 INDEX_DRAFT_OPERATIONS = (INDEX_DRAFT_CREATE, INDEX_DRAFT_GET)
 
 PROJECT_OPERATIONS = (PROJECT_GET, PROJECT_APPLY)
-SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, RECEIPT_GET)
+SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, RECEIPT_GET, ARTIFACT_EVIDENCE_GET)
 ALL_OPERATIONS = (*PROJECT_OPERATIONS, *SCIENCE_OPERATIONS, *INDEX_DRAFT_OPERATIONS)

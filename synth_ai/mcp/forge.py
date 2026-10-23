@@ -77,6 +77,12 @@ async def record_get(client, args):
     return await client.forge.records.get(args.project_id, args.record_id, revision=args.revision)
 
 
+async def artifact_evidence_get(client, args):
+    return await client.forge.records.artifact_evidence(
+        args.project_id, args.record_id, revision=args.revision
+    )
+
+
 async def record_write(client, args):
     return await client.forge.records.write(
         args.project_id,

@@ -99,3 +99,19 @@ is reproducible. Leave resource lifecycle and settlement to their owning runtime
 Creating a report or export does not authorize public publication.
 New v2 record envelopes require private archive v4; old archives keep their
 original decoding. Archive integrity alone does not prove full capture or rerun.
+
+## Artifact read evidence
+
+When exposed, use `forge_artifact_evidence_get` with the project, record and
+exact revision. Retain its complete scientific revision pin and verification
+reference. `byte_access_only` means the original authorized human read exact
+Artifact bytes through their owner and retained native access receipt references.
+It does not prove executed inputs, complete capture, future retention or rerun.
+An empty evidence value means that revision has no such retained verification;
+do not promote an old author citation into verified evidence.
+
+Independent human authoring uses current `forge:read` and `forge:write` scopes
+and explicit private Artifact user grants. Keep snapshots partial and disclose
+capture gaps until the actual capture owner supplies stronger evidence. These
+human reads do not confer workload authority on a Swarm. Use only the actor
+profile and tools delivered with the run; report unavailable authority explicitly.

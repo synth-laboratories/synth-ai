@@ -31,6 +31,7 @@ from synth_ai.sdk.forge.index_types import ForgeIndexDraftRequest, ForgeIndexDra
 from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
+    ScientificArtifactEvidenceResponse,
     ScientificReceiptResponse,
     ScientificRecordResponse,
 )
@@ -49,6 +50,7 @@ MODELS = (
     WorkspaceIntent,
     ScientificRecordResponse,
     ScientificReceiptResponse,
+    ScientificArtifactEvidenceResponse,
     ProjectOperation,
     ProjectResponse,
     ProjectMutationResponse,

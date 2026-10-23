@@ -7944,6 +7944,468 @@
       "title": "RepositorySnapshot",
       "type": "object"
     },
+    "ScientificArtifactEvidenceResponse": {
+      "$defs": {
+        "ArtifactReadEvidence": {
+          "additionalProperties": true,
+          "properties": {
+            "access_receipt": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "byte_count": {
+              "maximum": 4194304,
+              "minimum": 0,
+              "title": "Byte Count",
+              "type": "integer"
+            },
+            "collection_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Collection Id",
+              "type": "string"
+            },
+            "logical_path": {
+              "anyOf": [
+                {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Logical Path"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "media_type": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "policy_version": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "title": "Policy Version",
+              "type": "integer"
+            },
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "reference",
+            "manifest",
+            "access_receipt",
+            "collection_id",
+            "policy_version",
+            "logical_path",
+            "byte_count",
+            "media_type"
+          ],
+          "title": "ArtifactReadEvidence",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "RevisionReference": {
+          "additionalProperties": true,
+          "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+          "properties": {
+            "document_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Document Digest Sha256",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.revision-reference.v1",
+              "default": "forge.revision-reference.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "document_digest_sha256"
+          ],
+          "title": "RevisionReference",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        },
+        "WorkspaceArtifactEvidence": {
+          "additionalProperties": true,
+          "properties": {
+            "mode": {
+              "const": "byte_access_only",
+              "default": "byte_access_only",
+              "title": "Mode",
+              "type": "string"
+            },
+            "operation_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Operation Digest Sha256",
+              "type": "string"
+            },
+            "operation_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "reads": {
+              "items": {
+                "$ref": "#/$defs/ArtifactReadEvidence"
+              },
+              "maxItems": 1024,
+              "minItems": 1,
+              "title": "Reads",
+              "type": "array"
+            },
+            "schema_version": {
+              "const": "forge.workspace-artifact-evidence.v1",
+              "default": "forge.workspace-artifact-evidence.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "snapshot_revisions": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/RevisionReference"
+              },
+              "maxItems": 1024,
+              "title": "Snapshot Revisions",
+              "type": "array"
+            }
+          },
+          "required": [
+            "scope",
+            "operation_id",
+            "operation_digest_sha256",
+            "reads"
+          ],
+          "title": "WorkspaceArtifactEvidence",
+          "type": "object"
+        },
+        "WorkspaceArtifactView": {
+          "additionalProperties": true,
+          "description": "Historical reads, with original credential and transport proof kept internal.",
+          "properties": {
+            "evidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/WorkspaceArtifactEvidence"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "$ref": "#/$defs/RevisionReference"
+            },
+            "schema_version": {
+              "const": "forge.workspace-artifact-view.v1",
+              "default": "forge.workspace-artifact-view.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "verification_reference": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "scope",
+            "revision",
+            "evidence",
+            "verification_reference"
+          ],
+          "title": "WorkspaceArtifactView",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "artifact_evidence": {
+          "$ref": "#/$defs/WorkspaceArtifactView"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        }
+      },
+      "required": [
+        "metadata",
+        "artifact_evidence"
+      ],
+      "title": "ScientificArtifactEvidenceResponse",
+      "type": "object"
+    },
     "ScientificReceiptResponse": {
       "$defs": {
         "ClientTiming": {
@@ -12617,6 +13079,16 @@
       "method": "GET",
       "mutation": false,
       "path": "/api/v1/forge/projects/{project_id}/receipts/{operation_id}",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.records.artifact_evidence",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/records/{record_id}/artifact-evidence",
       "required_scope": "forge:read"
     },
     {

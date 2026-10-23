@@ -23,6 +23,7 @@ from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse
 from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
+    ScientificArtifactEvidenceResponse,
     ScientificReceiptResponse,
     ScientificRecordResponse,
 )
@@ -471,6 +472,14 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "forge_artifact_evidence_get",
+        forge_operations.ARTIFACT_EVIDENCE_GET,
+        "Inspect retained Artifact read evidence for an exact revision; byte access does not prove capture or execution.",
+        forge_tools.ForgeRecordRead,
+        ScientificArtifactEvidenceResponse,
+        forge_tools.artifact_evidence_get,
+    ),
     ToolDefinition(
         "forge_index_draft_create",
         forge_operations.INDEX_DRAFT_CREATE,

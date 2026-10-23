@@ -13,7 +13,11 @@ from .contracts.operations_v2 import PublicWriteV2
 from .contracts.projects import ProjectId
 from .contracts.scientific_v2 import RecordV2, VersionedRecord
 from .contracts.workspace_science import WorkspaceIntent
-from .types import ScientificReceiptResponse, ScientificRecordResponse
+from .types import (
+    ScientificArtifactEvidenceResponse,
+    ScientificReceiptResponse,
+    ScientificRecordResponse,
+)
 
 
 def project_identity(value):
@@ -73,6 +77,19 @@ def check_receipt(result, project_id, operation_id, request=None):
     return verified(result, valid, "Forge returned a different scientific receipt")
 
 
+def check_artifact_evidence(result, project_id, record_id, revision):
+    evidence = result.artifact_evidence
+    reference = evidence.revision.reference
+    return verified(
+        result,
+        evidence.scope.project_id == project_id
+        and reference.authority == "forge"
+        and reference.record_id == record_id
+        and (revision is None or reference.revision == str(revision)),
+        "Forge returned different Artifact evidence",
+    )
+
+
 class Records:
     def __init__(self, transport):
         self._transport = transport
@@ -101,6 +118,23 @@ class Records:
             options=selected,
             validate=lambda result: check_receipt(
                 result, project_id, request.operation_id, request
+            ),
+        )
+
+    def artifact_evidence(self, project_id, record_id, *, revision=None, request=None):
+        project_id, record_id = project_identity(project_id), identifier(record_id)
+        if revision is not None and (type(revision) is not int or not 1 <= revision <= 2147483647):
+            raise ValueError("revision must be a positive bounded integer")
+        return self._transport.request(
+            operations.ARTIFACT_EVIDENCE_GET,
+            ScientificArtifactEvidenceResponse,
+            path=operations.ARTIFACT_EVIDENCE_GET.path_for(
+                project_id=project_id, record_id=record_id
+            ),
+            query={} if revision is None else {"revision": revision},
+            options=request,
+            validate=lambda result: check_artifact_evidence(
+                result, project_id, record_id, revision
             ),
         )
 
@@ -148,6 +182,23 @@ class AsyncRecords:
             options=selected,
             validate=lambda result: check_receipt(
                 result, project_id, request.operation_id, request
+            ),
+        )
+
+    async def artifact_evidence(self, project_id, record_id, *, revision=None, request=None):
+        project_id, record_id = project_identity(project_id), identifier(record_id)
+        if revision is not None and (type(revision) is not int or not 1 <= revision <= 2147483647):
+            raise ValueError("revision must be a positive bounded integer")
+        return await self._transport.request(
+            operations.ARTIFACT_EVIDENCE_GET,
+            ScientificArtifactEvidenceResponse,
+            path=operations.ARTIFACT_EVIDENCE_GET.path_for(
+                project_id=project_id, record_id=record_id
+            ),
+            query={} if revision is None else {"revision": revision},
+            options=request,
+            validate=lambda result: check_artifact_evidence(
+                result, project_id, record_id, revision
             ),
         )
 

@@ -8,6 +8,7 @@ from synth_ai.types.base import ResponseModel
 from .contracts.projects import ProjectReceipt, ProjectState
 from .contracts.operations import Receipt
 from .contracts.operations_v2 import ScientificRevision
+from .contracts.workspace_artifacts import WorkspaceArtifactView
 
 
 class ProjectResponse(ResponseModel):
@@ -24,3 +25,7 @@ class ScientificRecordResponse(ResponseModel):
 
 class ScientificReceiptResponse(ResponseModel):
     receipt: Receipt
+
+
+class ScientificArtifactEvidenceResponse(ResponseModel):
+    artifact_evidence: WorkspaceArtifactView
