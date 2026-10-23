@@ -29,6 +29,8 @@ class ProjectAuthorization(Contract):
         "projects.apply",
         "projects.policy",
         "projects.run-policy",
+        "projects.run-grant",
+        "projects.run-revoke",
         "science.read",
         "science.write",
         "science.receipt",
