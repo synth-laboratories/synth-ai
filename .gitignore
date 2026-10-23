@@ -27,6 +27,7 @@ private_tests
 .claude
 .opencode
 .uv-cache
+.local/
 .cursorrules
 AGENTS.md
 **/AGENTS.md

@@ -141,3 +141,32 @@ unavailable operations exit 1, and invalid command/input exits 2. Account reads
 use their own observational protocol and do not claim Index/Swarms execution
 manifest qualification. Native issuer, installed-package and deployed-cohort
 acceptance remain required before release.
+## Forge research workspaces (v0.24 candidate)
+
+Forge workspaces organize scientific work independently of executable Swarms
+projects. The selected backend must admit these operations and the credential
+must carry explicit `forge:read`/`forge:write` scopes.
+
+```python
+from synth_ai import SynthClient
+from synth_ai.options import MutationOptions
+
+with SynthClient() as client:
+    created = client.forge.projects.create(
+        title="Craftax comparison",
+        objective="Compare the two approaches using the pinned evaluation protocol",
+        mutation=MutationOptions(idempotency_key="craftax-study-1"),
+    )
+    project = client.forge.projects.get(created.receipt.project_id)
+```
+
+Async clients expose the same methods. Retain the project ID, original mutation
+identity and expected revision for retries and edits. Archive/unarchive preserves
+research history; membership changes require current workspace ownership.
+
+The MCP catalogue includes `forge_project_get`, `forge_project_create`,
+`forge_project_update`, `forge_project_archive` and `forge_project_members`.
+Connections with admitted Forge tools can discover the packaged `forge-research`
+skill as a content-addressed MCP resource. Research runs pin that skill together
+with their admitted scientific tools and method/program versions. Workspace
+operations alone do not qualify a complete scientific Swarm or evaluator path.

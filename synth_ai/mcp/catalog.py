@@ -13,11 +13,13 @@ from typing import Generic, Protocol, TypeVar
 from pydantic import BaseModel
 
 from synth_ai import AsyncSynthClient
+from synth_ai.contracts import forge as forge_operations
 from synth_ai.contracts import operations as index_operations
 from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.forge.types import ProjectMutationResponse, ProjectResponse
 from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
 from synth_ai.sdk.index.types.contributions import Contribution
@@ -42,6 +44,7 @@ from synth_ai.types.receipts import ControlReceipt, MutationResolution
 from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
+from . import forge as forge_tools
 from .contracts import (
     JSON_OBJECT,
     ContentArguments,
@@ -459,6 +462,46 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "forge_project_get",
+        forge_operations.PROJECT_GET,
+        "Inspect a research workspace with current access and retained revision.",
+        forge_tools.ForgeProjectIdentity,
+        ProjectResponse,
+        forge_tools.get,
+    ),
+    ToolDefinition(
+        "forge_project_create",
+        forge_operations.PROJECT_APPLY,
+        "Create an independent research workspace with a stable retry key.",
+        forge_tools.ForgeProjectCreate,
+        ProjectMutationResponse,
+        forge_tools.create,
+    ),
+    ToolDefinition(
+        "forge_project_update",
+        forge_operations.PROJECT_APPLY,
+        "Revise a research workspace title and objective at its expected revision.",
+        forge_tools.ForgeProjectUpdate,
+        ProjectMutationResponse,
+        forge_tools.update,
+    ),
+    ToolDefinition(
+        "forge_project_archive",
+        forge_operations.PROJECT_APPLY,
+        "Archive or unarchive a research workspace while retaining its evidence.",
+        forge_tools.ForgeProjectArchive,
+        ProjectMutationResponse,
+        forge_tools.archive,
+    ),
+    ToolDefinition(
+        "forge_project_members",
+        forge_operations.PROJECT_APPLY,
+        "Replace explicit workspace membership at its expected revision.",
+        forge_tools.ForgeProjectMembers,
+        ProjectMutationResponse,
+        forge_tools.members,
+    ),
     ToolDefinition(
         "index_search_deliver_events",
         index_operations.DELIVER_SEARCH_EVENTS,

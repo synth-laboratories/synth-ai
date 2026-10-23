@@ -24,14 +24,20 @@ from synth_ai.sdk.core.types import (
     RepositoryRef,
     RepositorySnapshot,
 )
+from synth_ai.sdk.forge.contracts.projects import ProjectOperation
+from synth_ai.sdk.forge.types import ProjectMutationResponse, ProjectResponse
 from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
 from synth_ai.types.response_values import response_schema
 
 from .core import ALL_OPERATIONS
+from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    ProjectOperation,
+    ProjectResponse,
+    ProjectMutationResponse,
     Artifact,
     ArtifactAlias,
     ArtifactAliasSet,
@@ -102,7 +108,7 @@ def export_contract() -> str:
                         "may_charge": op.may_charge,
                         "idempotent": op.idempotent,
                     }
-                    for op in ALL_OPERATIONS
+                    for op in (*ALL_OPERATIONS, *FORGE_OPERATIONS)
                 ],
             },
             sort_keys=True,
