@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.6
+
+- Preserve negotiated `synth.refusal.v1` failure chains in SDK HTTP errors and MCP results.
+- Reject unsupported refusal versions, oversized envelopes, and mismatched refusal codes.
+- Keep existing Index and Swarms contract fingerprints unchanged.
+
 ## 0.23.5
 
 Contracts: core.v1 bbc5c42b, index.v1 378b8af4, swarms.v1 32b0b01e.
