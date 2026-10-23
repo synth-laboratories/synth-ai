@@ -9,27 +9,48 @@ from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import ResourceUsage
 
-__all__ = ["ResourceGrant", "ResourceGrantSet", "ResourceRequest", "ResourceUsage"]
+__all__ = ["PoolSelection", "ResourceGrant", "ResourceGrantSet", "ResourceRequest", "ResourceUsage"]
 
-ResourcePluginId = Literal["openrouter.inference", "index.search"]
+ResourcePluginId = Literal["openrouter.inference", "index.search", "rhodes.pool"]
 ResourceRole = Literal["planner", "worker", "reviewer", "run_assessor"]
 ResourceDimension = Literal[
-    "spend_micros", "tokens", "tokens_in", "tokens_out", "calls", "index_searches", "wall_ms"
+    "spend_micros",
+    "tokens",
+    "tokens_in",
+    "tokens_out",
+    "calls",
+    "index_searches",
+    "wall_ms",
+    "rollouts",
 ]
 ResourceAmount = Annotated[StrictInt, Field(ge=0, le=2**63 - 1)]
+PoolId = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")]
+
+
+class PoolSelection(Model):
+    """``rhodes.pool`` grant selection; see rhodes-pool-program-plugin.v1.md."""
+
+    pool_ids: tuple[PoolId, ...] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def distinct(self) -> Self:
+        if len(set(self.pool_ids)) != len(self.pool_ids):
+            raise ValueError("Pool selections must be distinct")
+        return self
 
 
 class ResourceRequest(Model):
     plugin: ResourcePluginId
     version: StrictInt = Field(default=1, ge=1, le=1)
     roles: tuple[ResourceRole, ...] = Field(min_length=1, max_length=4)
-    limits: dict[ResourceDimension, ResourceAmount] = Field(min_length=1, max_length=7)
+    limits: dict[ResourceDimension, ResourceAmount] = Field(min_length=1, max_length=8)
     role_limits: dict[ResourceRole, dict[ResourceDimension, ResourceAmount]] = Field(
         default_factory=dict, max_length=4
     )
     models: tuple[str, ...] = Field(default=(), max_length=16)
     collections: tuple[str, ...] = Field(default=(), max_length=16)
     credential_ref: Ref | None = None
+    selection: PoolSelection | None = None
 
     @model_validator(mode="after")
     def validate_selection(self) -> Self:
@@ -44,6 +65,12 @@ class ResourceRequest(Model):
             raise ValueError("Index grants carry collection scope and no provider credentials")
         if self.plugin == "openrouter.inference" and (not self.models or self.collections):
             raise ValueError("Inference grants require models and no Index collections")
+        if (self.plugin == "rhodes.pool") != (self.selection is not None):
+            raise ValueError("Only Rhodes pool grants carry, and require, a pool selection")
+        if self.plugin == "rhodes.pool" and (
+            self.models or self.collections or self.credential_ref is not None
+        ):
+            raise ValueError("Rhodes pool grants carry pool ids and no credentials")
         if any(not value or len(value) > 256 for value in (*self.models, *self.collections)):
             raise ValueError("Resource selections must be nonempty bounded identifiers")
         return self
@@ -53,6 +80,8 @@ class ResourceRequest(Model):
         value = handler(self)
         if self.credential_ref is None:
             value.pop("credential_ref", None)
+        if self.selection is None:
+            value.pop("selection", None)
         for key in ("role_limits", "models", "collections"):
             if not value[key]:
                 value.pop(key, None)
@@ -73,6 +102,7 @@ class ResourceGrant(ResponseBase):
     models: tuple[str, ...] = Field(default=())
     collections: tuple[str, ...] = Field(default=())
     credential_ref: Ref | None = None
+    selection: PoolSelection | None = None
     funding_lane: Literal["platform", "user_connected"] | UnknownValue
     credential_refs: tuple[Ref, ...] = Field(default=())
     registry_digest: str = Field(pattern="^[0-9a-f]{64}$")
