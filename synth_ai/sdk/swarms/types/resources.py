@@ -9,9 +9,7 @@ from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
 from synth_ai.types.usage import ResourceUsage
 
-__all__ = ["PoolSelection", "ResourceGrant", "ResourceGrantSet", "ResourceRequest", "ResourceUsage"]
-
-ResourcePluginId = Literal["openrouter.inference", "index.search", "rhodes.pool"]
+ResourcePluginId = Literal["openrouter.inference", "index.search", "rhodes.pool", "forge.research"]
 ResourceRole = Literal["planner", "worker", "reviewer", "run_assessor"]
 ResourceDimension = Literal[
     "spend_micros",
@@ -24,7 +22,9 @@ ResourceDimension = Literal[
     "rollouts",
 ]
 ResourceAmount = Annotated[StrictInt, Field(ge=0, le=2**63 - 1)]
-PoolId = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")]
+PoolId = Annotated[
+    str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+]
 
 
 class PoolSelection(Model):
@@ -39,6 +39,24 @@ class PoolSelection(Model):
         return self
 
 
+class ProjectSelection(Model):
+    """Independent Forge project scope; see forge-research-program-plugin.v1.md."""
+
+    project_ids: tuple[
+        Annotated[
+            str,
+            Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+        ],
+        ...,
+    ] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def distinct(self) -> Self:
+        if len(set(self.project_ids)) != len(self.project_ids):
+            raise ValueError("Project selections must be distinct")
+        return self
+
+
 class ResourceRequest(Model):
     plugin: ResourcePluginId
     version: StrictInt = Field(default=1, ge=1, le=1)
@@ -50,7 +68,7 @@ class ResourceRequest(Model):
     models: tuple[str, ...] = Field(default=(), max_length=16)
     collections: tuple[str, ...] = Field(default=(), max_length=16)
     credential_ref: Ref | None = None
-    selection: PoolSelection | None = None
+    selection: PoolSelection | ProjectSelection | None = None
 
     @model_validator(mode="after")
     def validate_selection(self) -> Self:
@@ -65,12 +83,19 @@ class ResourceRequest(Model):
             raise ValueError("Index grants carry collection scope and no provider credentials")
         if self.plugin == "openrouter.inference" and (not self.models or self.collections):
             raise ValueError("Inference grants require models and no Index collections")
-        if (self.plugin == "rhodes.pool") != (self.selection is not None):
-            raise ValueError("Only Rhodes pool grants carry, and require, a pool selection")
-        if self.plugin == "rhodes.pool" and (
+        selection_type = {
+            "rhodes.pool": PoolSelection,
+            "forge.research": ProjectSelection,
+        }.get(self.plugin)
+        if selection_type is None:
+            if self.selection is not None:
+                raise ValueError("Only pool and Forge grants carry selections")
+        elif not isinstance(self.selection, selection_type):
+            raise ValueError("Resource plugin requires its own selection type")
+        if selection_type is not None and (
             self.models or self.collections or self.credential_ref is not None
         ):
-            raise ValueError("Rhodes pool grants carry pool ids and no credentials")
+            raise ValueError("Pool and Forge grants carry selected ids and no credentials")
         if any(not value or len(value) > 256 for value in (*self.models, *self.collections)):
             raise ValueError("Resource selections must be nonempty bounded identifiers")
         return self
@@ -102,7 +127,7 @@ class ResourceGrant(ResponseBase):
     models: tuple[str, ...] = Field(default=())
     collections: tuple[str, ...] = Field(default=())
     credential_ref: Ref | None = None
-    selection: PoolSelection | None = None
+    selection: PoolSelection | ProjectSelection | None = None
     funding_lane: Literal["platform", "user_connected"] | UnknownValue
     credential_refs: tuple[Ref, ...] = Field(default=())
     registry_digest: str = Field(pattern="^[0-9a-f]{64}$")
@@ -112,3 +137,13 @@ class ResourceGrant(ResponseBase):
 class ResourceGrantSet(ResponseBase):
     schema_version: str = "orchestra.resource-grants.v1"
     grants: tuple[ResourceGrant, ...] = Field(default=())
+
+
+__all__ = [
+    "PoolSelection",
+    "ProjectSelection",
+    "ResourceGrant",
+    "ResourceGrantSet",
+    "ResourceRequest",
+    "ResourceUsage",
+]
