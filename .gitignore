@@ -260,3 +260,4 @@ SDK_0230_*
 docs/*
 !docs/swarms.md
 !CHANGELOG-ARCHIVE.md
+!synth_ai/sdk/forge/skills/forge-research/SKILL.md
