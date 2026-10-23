@@ -24,6 +24,7 @@ from synth_ai.sdk.core.types import (
     RepositoryRef,
     RepositorySnapshot,
 )
+from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
 from synth_ai.sdk.forge.contracts.projects import ProjectOperation
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
 from synth_ai.sdk.forge.types import (
@@ -41,6 +42,7 @@ from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    PublicWriteV2,
     WorkspaceIntent,
     ScientificRecordResponse,
     ScientificReceiptResponse,

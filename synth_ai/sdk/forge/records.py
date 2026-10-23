@@ -9,7 +9,9 @@ from synth_ai.core.parameters import identifier, verified
 from synth_ai.options import MutationOptions
 
 from .contracts.contracts import contract_digest
+from .contracts.operations_v2 import PublicWriteV2
 from .contracts.projects import ProjectId
+from .contracts.scientific_v2 import RecordV2, VersionedRecord
 from .contracts.workspace_science import WorkspaceIntent
 from .types import ScientificReceiptResponse, ScientificRecordResponse
 
@@ -34,11 +36,13 @@ def intent(record_id, payload, expected_revision, mutation):
     # encoding cannot change the retry identity at the public boundary.
     from .contracts.workspace_science import WorkspaceRecord
 
-    values["payload"] = (
-        TypeAdapter(WorkspaceRecord).validate_python(payload).model_dump(mode="json")
-    )
+    record = TypeAdapter(WorkspaceRecord | RecordV2).validate_python(payload)
+    model = PublicWriteV2 if isinstance(record, VersionedRecord) else WorkspaceIntent
+    values["payload"] = record.model_dump(mode="json")
+    if model is PublicWriteV2:
+        values["schema_version"] = model.model_fields["schema_version"].default
     values["request_digest_sha256"] = contract_digest(values)
-    return WorkspaceIntent.model_validate(values), selected
+    return model.model_validate(values), selected
 
 
 def check_record(result, project_id, record_id, revision):

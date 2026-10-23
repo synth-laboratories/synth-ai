@@ -6,13 +6,14 @@ Public intent never accepts a principal or producer. The authenticated backend
 adds those under B01; Forge still verifies current admission and workspace ACLs.
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from .contracts import Contract, Identifier
 from .exports import ScientificExport, SourceNotice
 from .operations import PublicWrite, WriteOperation
+from .operations_v2 import ScientificWrite
 from .project_authorization import ProjectAuthorization
 from .projects import ProjectId, ProjectPrincipal
 from .records import (
@@ -73,3 +74,18 @@ class WorkspaceReceiptRead(Contract):
     project_id: ProjectId
     operation_id: Identifier
     authorization: ProjectAuthorization
+
+
+class WorkspaceReadV2(WorkspaceRead):
+    schema_version: Literal["forge.workspace-science.v2"] = "forge.workspace-science.v2"
+
+
+class WorkspaceWriteV2(Contract):
+    schema_version: Literal["forge.workspace-science.v2"] = "forge.workspace-science.v2"
+    principal: ProjectPrincipal
+    operation: ScientificWrite
+    authorization: ProjectAuthorization
+
+
+class WorkspaceReceiptReadV2(WorkspaceReceiptRead):
+    schema_version: Literal["forge.workspace-science.v2"] = "forge.workspace-science.v2"

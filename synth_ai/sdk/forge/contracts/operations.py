@@ -84,8 +84,10 @@ class RevisionReference(Contract):
     document_digest_sha256: Digest
 
 
-def revision_reference(record: RecordRevision) -> RevisionReference:
-    record = RecordRevision.model_validate(record.model_dump(mode="json"))
+def revision_reference(record: Contract) -> RevisionReference:
+    from .operations_v2 import parse_revision
+
+    record = parse_revision(record.model_dump(mode="json"))
     if (
         record.reference.authority != "forge"
         or record.reference.kind != record.payload.kind

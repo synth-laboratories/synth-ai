@@ -5,7 +5,8 @@
 from synth_ai.types.base import ResponseModel
 
 from .contracts.projects import ProjectReceipt, ProjectState
-from .contracts.operations import Receipt, RecordRevision
+from .contracts.operations import Receipt
+from .contracts.operations_v2 import ScientificRevision
 
 
 class ProjectResponse(ResponseModel):
@@ -17,7 +18,7 @@ class ProjectMutationResponse(ResponseModel):
 
 
 class ScientificRecordResponse(ResponseModel):
-    record: RecordRevision
+    record: ScientificRevision
 
 
 class ScientificReceiptResponse(ResponseModel):

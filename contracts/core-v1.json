@@ -4522,6 +4522,2021 @@
       "title": "ProjectResponse",
       "type": "object"
     },
+    "PublicWriteV2": {
+      "$defs": {
+        "Artifact": {
+          "additionalProperties": false,
+          "properties": {
+            "byte_count": {
+              "minimum": 0,
+              "title": "Byte Count",
+              "type": "integer"
+            },
+            "delivery": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ArtifactDeliveryBinding"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "kind": {
+              "const": "artifact",
+              "default": "artifact",
+              "title": "Kind",
+              "type": "string"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "media_type": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "object": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "role": {
+              "enum": [
+                "input",
+                "intermediate",
+                "output",
+                "evidence"
+              ],
+              "title": "Role",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            }
+          },
+          "required": [
+            "object",
+            "manifest",
+            "role",
+            "media_type",
+            "byte_count"
+          ],
+          "title": "Artifact",
+          "type": "object"
+        },
+        "ArtifactDeliveryBinding": {
+          "additionalProperties": false,
+          "properties": {
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "publication_id": {
+              "format": "uuid",
+              "title": "Publication Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "publication_id",
+            "logical_path"
+          ],
+          "title": "ArtifactDeliveryBinding",
+          "type": "object"
+        },
+        "Credit": {
+          "additionalProperties": false,
+          "properties": {
+            "contributor_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contributor Id",
+              "type": "string"
+            },
+            "license": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "License",
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "author",
+                "data",
+                "implementation",
+                "method",
+                "review",
+                "funding"
+              ],
+              "title": "Role",
+              "type": "string"
+            },
+            "upstream_contribution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "contributor_id",
+            "role",
+            "license"
+          ],
+          "title": "Credit",
+          "type": "object"
+        },
+        "DatasetSplit": {
+          "additionalProperties": false,
+          "properties": {
+            "ancestors": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 128,
+              "title": "Ancestors",
+              "type": "array"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "role": {
+              "enum": [
+                "train",
+                "dev",
+                "heldout"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "role",
+            "manifest"
+          ],
+          "title": "DatasetSplit",
+          "type": "object"
+        },
+        "EvaluationBinding": {
+          "additionalProperties": false,
+          "properties": {
+            "budget_protocol": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "comparator": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "configuration": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "consumed": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Consumed",
+              "type": "array"
+            },
+            "consumed_assets": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Consumed Assets",
+              "type": "array"
+            },
+            "corpus": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "data": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Data",
+              "type": "array"
+            },
+            "delivered": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Delivered",
+              "type": "array"
+            },
+            "evaluator": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "harness": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 128,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "metering": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Metering",
+              "type": "string"
+            },
+            "model": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "native_events": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "native_result": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "overlap_disposition": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "panel": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "scorer_receipt": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "seeds": {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Seeds",
+              "type": "array"
+            },
+            "split_manifest": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "task": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "usage_receipts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 128,
+              "title": "Usage Receipts",
+              "type": "array"
+            }
+          },
+          "required": [
+            "task",
+            "panel",
+            "corpus",
+            "model",
+            "harness",
+            "data",
+            "split_manifest",
+            "seeds",
+            "configuration",
+            "comparator",
+            "budget_protocol",
+            "overlap_disposition",
+            "evaluator",
+            "scorer_receipt",
+            "native_result",
+            "native_events",
+            "metering"
+          ],
+          "title": "EvaluationBinding",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ExecutedInputs": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "title": "Command",
+              "type": "array"
+            },
+            "evaluated_system": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution_inventory": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "gaps": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Gaps",
+              "type": "array"
+            },
+            "hardware": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "materials": {
+              "items": {
+                "$ref": "#/$defs/ExecutedMaterial"
+              },
+              "maxItems": 1024,
+              "title": "Materials",
+              "type": "array"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "provenance": {
+              "enum": [
+                "author_declared",
+                "execution_bound"
+              ],
+              "title": "Provenance",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "forge.executed-inputs.v1",
+              "default": "forge.executed-inputs.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "seeds": {
+              "default": [],
+              "items": {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 10000,
+              "title": "Seeds",
+              "type": "array"
+            },
+            "working_directory": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Working Directory",
+              "type": "string"
+            }
+          },
+          "required": [
+            "provenance",
+            "execution_inventory",
+            "observed_at",
+            "command",
+            "working_directory",
+            "materials"
+          ],
+          "title": "ExecutedInputs",
+          "type": "object"
+        },
+        "ExecutedMaterial": {
+          "additionalProperties": false,
+          "properties": {
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "role": {
+              "enum": [
+                "source",
+                "generated_source",
+                "dependencies",
+                "environment",
+                "input_data",
+                "evaluator",
+                "analysis",
+                "configuration"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "role",
+            "reference"
+          ],
+          "title": "ExecutedMaterial",
+          "type": "object"
+        },
+        "ExperimentV2": {
+          "additionalProperties": false,
+          "properties": {
+            "arms": {
+              "items": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Arms",
+              "type": "array"
+            },
+            "hypothesis": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "inputs": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Inputs",
+              "type": "array"
+            },
+            "kind": {
+              "const": "experiment",
+              "default": "experiment",
+              "title": "Kind",
+              "type": "string"
+            },
+            "protocol": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.experiment.v2",
+              "default": "forge.experiment.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "specification": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Specification",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "specification",
+            "protocol",
+            "arms"
+          ],
+          "title": "ExperimentV2",
+          "type": "object"
+        },
+        "Hypothesis": {
+          "additionalProperties": false,
+          "properties": {
+            "analysis_plan": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Analysis Plan",
+              "type": "string"
+            },
+            "decision_rule": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Decision Rule",
+              "type": "string"
+            },
+            "kind": {
+              "const": "hypothesis",
+              "default": "hypothesis",
+              "title": "Kind",
+              "type": "string"
+            },
+            "prediction": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Prediction",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "statement": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Statement",
+              "type": "string"
+            }
+          },
+          "required": [
+            "statement",
+            "prediction",
+            "decision_rule",
+            "analysis_plan"
+          ],
+          "title": "Hypothesis",
+          "type": "object"
+        },
+        "JsonValue": {},
+        "LogEntry": {
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "enum": [
+                "observation",
+                "rationale",
+                "attempt",
+                "failure",
+                "decision",
+                "correction"
+              ],
+              "title": "Category",
+              "type": "string"
+            },
+            "correction_of": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "kind": {
+              "const": "log_entry",
+              "default": "log_entry",
+              "title": "Kind",
+              "type": "string"
+            },
+            "log": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "occurred_at": {
+              "format": "date-time",
+              "title": "Occurred At",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "text": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "log",
+            "category",
+            "text",
+            "occurred_at"
+          ],
+          "title": "LogEntry",
+          "type": "object"
+        },
+        "Measurement": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Name",
+              "type": "string"
+            },
+            "uncertainty": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Uncertainty"
+            },
+            "unit": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Unit",
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "name",
+            "value",
+            "unit"
+          ],
+          "title": "Measurement",
+          "type": "object"
+        },
+        "OutputAsset": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "license": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "License",
+              "type": "string"
+            },
+            "source": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "asset_id",
+            "source",
+            "digest_sha256",
+            "license"
+          ],
+          "title": "OutputAsset",
+          "type": "object"
+        },
+        "Protocol": {
+          "additionalProperties": false,
+          "properties": {
+            "analysis_plan": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Analysis Plan",
+              "type": "string"
+            },
+            "arms": {
+              "items": {
+                "$ref": "#/$defs/ProtocolArm"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Arms",
+              "type": "array"
+            },
+            "comparison": {
+              "enum": [
+                "controlled",
+                "single_arm",
+                "observational"
+              ],
+              "title": "Comparison",
+              "type": "string"
+            },
+            "deviation_policy": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Deviation Policy",
+              "type": "string"
+            },
+            "hypothesis": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "kind": {
+              "const": "protocol",
+              "default": "protocol",
+              "title": "Kind",
+              "type": "string"
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "metrics": {
+              "items": {
+                "$ref": "#/$defs/ProtocolMetric"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "title": "Metrics",
+              "type": "array"
+            },
+            "question": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Question",
+              "type": "string"
+            },
+            "sampling": {
+              "$ref": "#/$defs/SamplingPlan"
+            },
+            "schema_version": {
+              "const": "forge.protocol.v1",
+              "default": "forge.protocol.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "stopping_rule": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Stopping Rule",
+              "type": "string"
+            },
+            "timing": {
+              "enum": [
+                "prospective",
+                "retrospective"
+              ],
+              "title": "Timing",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "question",
+            "timing",
+            "comparison",
+            "arms",
+            "metrics",
+            "sampling",
+            "analysis_plan",
+            "stopping_rule",
+            "deviation_policy"
+          ],
+          "title": "Protocol",
+          "type": "object"
+        },
+        "ProtocolArm": {
+          "additionalProperties": false,
+          "properties": {
+            "arm_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Arm Id",
+              "type": "string"
+            },
+            "baseline": {
+              "default": false,
+              "title": "Baseline",
+              "type": "boolean"
+            },
+            "description": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            }
+          },
+          "required": [
+            "arm_id",
+            "description"
+          ],
+          "title": "ProtocolArm",
+          "type": "object"
+        },
+        "ProtocolMetric": {
+          "additionalProperties": false,
+          "properties": {
+            "aggregation": {
+              "enum": [
+                "mean",
+                "median",
+                "sum",
+                "rate",
+                "distribution",
+                "none"
+              ],
+              "title": "Aggregation",
+              "type": "string"
+            },
+            "decision_rule": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Decision Rule",
+              "type": "string"
+            },
+            "description": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "direction": {
+              "enum": [
+                "minimize",
+                "maximize",
+                "descriptive"
+              ],
+              "title": "Direction",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Name",
+              "type": "string"
+            },
+            "unit": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Unit",
+              "type": "string"
+            },
+            "value_kind": {
+              "enum": [
+                "numeric",
+                "qualitative"
+              ],
+              "title": "Value Kind",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "description",
+            "unit",
+            "value_kind",
+            "direction",
+            "aggregation",
+            "decision_rule"
+          ],
+          "title": "ProtocolMetric",
+          "type": "object"
+        },
+        "Report": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "maxLength": 262144,
+              "minLength": 1,
+              "title": "Body",
+              "type": "string"
+            },
+            "claims": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Claims",
+              "type": "array"
+            },
+            "kind": {
+              "const": "report",
+              "default": "report",
+              "title": "Kind",
+              "type": "string"
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "methods": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Methods",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "body",
+            "methods"
+          ],
+          "title": "Report",
+          "type": "object"
+        },
+        "ResearchLog": {
+          "additionalProperties": false,
+          "properties": {
+            "effort": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "kind": {
+              "const": "research_log",
+              "default": "research_log",
+              "title": "Kind",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title"
+          ],
+          "title": "ResearchLog",
+          "type": "object"
+        },
+        "ResourceBinding": {
+          "additionalProperties": false,
+          "properties": {
+            "admission": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "category": {
+              "enum": [
+                "file",
+                "dataset",
+                "data_pool",
+                "model",
+                "checkpoint",
+                "evaluator",
+                "repository",
+                "workspace",
+                "image",
+                "deployment",
+                "pool",
+                "optimizer_job"
+              ],
+              "title": "Category",
+              "type": "string"
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "kind": {
+              "const": "resource_binding",
+              "default": "resource_binding",
+              "title": "Kind",
+              "type": "string"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "resource": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "splits": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/DatasetSplit"
+              },
+              "maxItems": 3,
+              "title": "Splits",
+              "type": "array"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            },
+            "usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 128,
+              "title": "Usage",
+              "type": "array"
+            }
+          },
+          "required": [
+            "category",
+            "title",
+            "resource",
+            "manifest"
+          ],
+          "title": "ResourceBinding",
+          "type": "object"
+        },
+        "Result": {
+          "additionalProperties": false,
+          "properties": {
+            "evaluation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/EvaluationBinding"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "evaluator": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "evidence": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "kind": {
+              "const": "result",
+              "default": "result",
+              "title": "Kind",
+              "type": "string"
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "measurements": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Measurement"
+              },
+              "maxItems": 256,
+              "title": "Measurements",
+              "type": "array"
+            },
+            "missing_evidence": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Missing Evidence",
+              "type": "array"
+            },
+            "outcome": {
+              "enum": [
+                "measured",
+                "failed",
+                "negative",
+                "null",
+                "inconclusive",
+                "interrupted",
+                "rejected"
+              ],
+              "title": "Outcome",
+              "type": "string"
+            },
+            "scorer_receipt": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "trial": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "usage": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Usage",
+              "type": "array"
+            },
+            "verification": {
+              "default": "unverified",
+              "enum": [
+                "unverified",
+                "producer_bound"
+              ],
+              "title": "Verification",
+              "type": "string"
+            }
+          },
+          "required": [
+            "trial",
+            "outcome"
+          ],
+          "title": "Result",
+          "type": "object"
+        },
+        "ReviewV2": {
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "enum": [
+                "comment",
+                "approved",
+                "rejected",
+                "needs_correction"
+              ],
+              "title": "Decision",
+              "type": "string"
+            },
+            "kind": {
+              "const": "review",
+              "default": "review",
+              "title": "Kind",
+              "type": "string"
+            },
+            "rationale": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Rationale",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "forge.review.v2",
+              "default": "forge.review.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "target": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "target",
+            "decision",
+            "rationale"
+          ],
+          "title": "ReviewV2",
+          "type": "object"
+        },
+        "SamplingPlan": {
+          "additionalProperties": false,
+          "properties": {
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "sample_count": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sample Count"
+            },
+            "seed_mode": {
+              "enum": [
+                "fixed",
+                "unseeded",
+                "unrecorded"
+              ],
+              "title": "Seed Mode",
+              "type": "string"
+            },
+            "seeds": {
+              "default": [],
+              "items": {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 10000,
+              "title": "Seeds",
+              "type": "array"
+            },
+            "splits": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Splits",
+              "type": "array"
+            },
+            "strategy": {
+              "enum": [
+                "fixed_count",
+                "sequential",
+                "observational"
+              ],
+              "title": "Strategy",
+              "type": "string"
+            },
+            "unit": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "unit",
+            "strategy",
+            "sample_count",
+            "seed_mode"
+          ],
+          "title": "SamplingPlan",
+          "type": "object"
+        },
+        "ScientificExport": {
+          "additionalProperties": false,
+          "properties": {
+            "assets": {
+              "items": {
+                "$ref": "#/$defs/OutputAsset"
+              },
+              "maxItems": 1024,
+              "minItems": 1,
+              "title": "Assets",
+              "type": "array"
+            },
+            "credits": {
+              "items": {
+                "$ref": "#/$defs/Credit"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "title": "Credits",
+              "type": "array"
+            },
+            "exporter": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "kind": {
+              "const": "scientific_export",
+              "default": "scientific_export",
+              "title": "Kind",
+              "type": "string"
+            },
+            "output_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Output Id",
+              "type": "string"
+            },
+            "proposed_public_sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 256,
+              "title": "Proposed Public Sources",
+              "type": "array"
+            },
+            "recipe": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "snapshots": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "title": "Snapshots",
+              "type": "array"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "minItems": 1,
+              "title": "Sources",
+              "type": "array"
+            }
+          },
+          "required": [
+            "output_id",
+            "snapshots",
+            "sources",
+            "assets",
+            "credits",
+            "recipe",
+            "exporter"
+          ],
+          "title": "ScientificExport",
+          "type": "object"
+        },
+        "Snapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "archive": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "capture_completeness": {
+              "enum": [
+                "complete",
+                "partial"
+              ],
+              "title": "Capture Completeness",
+              "type": "string"
+            },
+            "cutoff_at": {
+              "format": "date-time",
+              "title": "Cutoff At",
+              "type": "string"
+            },
+            "gaps": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Gaps",
+              "type": "array"
+            },
+            "imported_log_count": {
+              "anyOf": [
+                {
+                  "maximum": 5000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Imported Log Count"
+            },
+            "imported_log_head_sha256": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Imported Log Head Sha256"
+            },
+            "kind": {
+              "const": "snapshot",
+              "default": "snapshot",
+              "title": "Kind",
+              "type": "string"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "minItems": 1,
+              "title": "Sources",
+              "type": "array"
+            }
+          },
+          "required": [
+            "cutoff_at",
+            "sources",
+            "archive",
+            "capture_completeness"
+          ],
+          "title": "Snapshot",
+          "type": "object"
+        },
+        "SourceNotice": {
+          "additionalProperties": false,
+          "properties": {
+            "disposition": {
+              "enum": [
+                "correction",
+                "supersession",
+                "retraction"
+              ],
+              "title": "Disposition",
+              "type": "string"
+            },
+            "kind": {
+              "const": "source_notice",
+              "default": "source_notice",
+              "title": "Kind",
+              "type": "string"
+            },
+            "original": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "pinned_releases": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "minItems": 1,
+              "title": "Pinned Releases",
+              "type": "array"
+            },
+            "reason": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Reason",
+              "type": "string"
+            },
+            "replacement": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            }
+          },
+          "required": [
+            "original",
+            "disposition",
+            "reason",
+            "pinned_releases"
+          ],
+          "title": "SourceNotice",
+          "type": "object"
+        },
+        "TrialV2": {
+          "additionalProperties": false,
+          "properties": {
+            "arm": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Arm"
+            },
+            "configuration": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Configuration",
+              "type": "object"
+            },
+            "deviations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Deviations",
+              "type": "array"
+            },
+            "executed_inputs": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Executed Inputs",
+              "type": "array"
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution_inputs": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExecutedInputs"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "experiment": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "input_gaps": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Input Gaps",
+              "type": "array"
+            },
+            "kind": {
+              "const": "trial",
+              "default": "trial",
+              "title": "Kind",
+              "type": "string"
+            },
+            "parent_trial": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "protocol": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.trial.v2",
+              "default": "forge.trial.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "state": {
+              "enum": [
+                "registered",
+                "running",
+                "succeeded",
+                "failed",
+                "interrupted",
+                "rejected"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "experiment",
+            "configuration",
+            "executed_inputs",
+            "state",
+            "protocol"
+          ],
+          "title": "TrialV2",
+          "type": "object"
+        },
+        "WorkspaceBinding": {
+          "additionalProperties": false,
+          "properties": {
+            "archive": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "commit": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "image": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "kind": {
+              "const": "workspace_binding",
+              "default": "workspace_binding",
+              "title": "Kind",
+              "type": "string"
+            },
+            "repository": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "workspace": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "repository",
+            "commit",
+            "archive",
+            "image",
+            "workspace"
+          ],
+          "title": "WorkspaceBinding",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "maximum": 2147483646,
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "operation_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "artifact": "#/$defs/Artifact",
+              "experiment": "#/$defs/ExperimentV2",
+              "hypothesis": "#/$defs/Hypothesis",
+              "log_entry": "#/$defs/LogEntry",
+              "protocol": "#/$defs/Protocol",
+              "report": "#/$defs/Report",
+              "research_log": "#/$defs/ResearchLog",
+              "resource_binding": "#/$defs/ResourceBinding",
+              "result": "#/$defs/Result",
+              "review": "#/$defs/ReviewV2",
+              "scientific_export": "#/$defs/ScientificExport",
+              "snapshot": "#/$defs/Snapshot",
+              "source_notice": "#/$defs/SourceNotice",
+              "trial": "#/$defs/TrialV2",
+              "workspace_binding": "#/$defs/WorkspaceBinding"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Protocol"
+            },
+            {
+              "$ref": "#/$defs/ExperimentV2"
+            },
+            {
+              "$ref": "#/$defs/TrialV2"
+            },
+            {
+              "$ref": "#/$defs/ReviewV2"
+            },
+            {
+              "$ref": "#/$defs/Hypothesis"
+            },
+            {
+              "$ref": "#/$defs/Result"
+            },
+            {
+              "$ref": "#/$defs/ResearchLog"
+            },
+            {
+              "$ref": "#/$defs/LogEntry"
+            },
+            {
+              "$ref": "#/$defs/Report"
+            },
+            {
+              "$ref": "#/$defs/Artifact"
+            },
+            {
+              "$ref": "#/$defs/Snapshot"
+            },
+            {
+              "$ref": "#/$defs/ScientificExport"
+            },
+            {
+              "$ref": "#/$defs/SourceNotice"
+            },
+            {
+              "$ref": "#/$defs/ResourceBinding"
+            },
+            {
+              "$ref": "#/$defs/WorkspaceBinding"
+            }
+          ],
+          "title": "Payload"
+        },
+        "record_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Record Id",
+          "type": "string"
+        },
+        "request_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Digest Sha256",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "forge.workspace-intent.v2",
+          "default": "forge.workspace-intent.v2",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "record_id",
+        "expected_revision",
+        "payload",
+        "request_digest_sha256"
+      ],
+      "title": "PublicWriteV2",
+      "type": "object"
+    },
     "RepositoryCommit": {
       "$defs": {
         "ClientTiming": {
@@ -6240,6 +8255,151 @@
           "title": "ExactReference",
           "type": "object"
         },
+        "ExecutedInputs": {
+          "additionalProperties": true,
+          "properties": {
+            "command": {
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "title": "Command",
+              "type": "array"
+            },
+            "evaluated_system": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution_inventory": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "gaps": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Gaps",
+              "type": "array"
+            },
+            "hardware": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "materials": {
+              "items": {
+                "$ref": "#/$defs/ExecutedMaterial"
+              },
+              "maxItems": 1024,
+              "title": "Materials",
+              "type": "array"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "provenance": {
+              "enum": [
+                "author_declared",
+                "execution_bound"
+              ],
+              "title": "Provenance",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "forge.executed-inputs.v1",
+              "default": "forge.executed-inputs.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "seeds": {
+              "default": [],
+              "items": {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 10000,
+              "title": "Seeds",
+              "type": "array"
+            },
+            "working_directory": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Working Directory",
+              "type": "string"
+            }
+          },
+          "required": [
+            "provenance",
+            "execution_inventory",
+            "observed_at",
+            "command",
+            "working_directory",
+            "materials"
+          ],
+          "title": "ExecutedInputs",
+          "type": "object"
+        },
+        "ExecutedMaterial": {
+          "additionalProperties": true,
+          "properties": {
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "role": {
+              "enum": [
+                "source",
+                "generated_source",
+                "dependencies",
+                "environment",
+                "input_data",
+                "evaluator",
+                "analysis",
+                "configuration"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "role",
+            "reference"
+          ],
+          "title": "ExecutedMaterial",
+          "type": "object"
+        },
         "Experiment": {
           "additionalProperties": true,
           "properties": {
@@ -6317,6 +8477,85 @@
             "specification"
           ],
           "title": "Experiment",
+          "type": "object"
+        },
+        "ExperimentV2": {
+          "additionalProperties": true,
+          "properties": {
+            "arms": {
+              "items": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Arms",
+              "type": "array"
+            },
+            "hypothesis": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "inputs": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Inputs",
+              "type": "array"
+            },
+            "kind": {
+              "const": "experiment",
+              "default": "experiment",
+              "title": "Kind",
+              "type": "string"
+            },
+            "protocol": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.experiment.v2",
+              "default": "forge.experiment.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "specification": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Specification",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "specification",
+            "protocol",
+            "arms"
+          ],
+          "title": "ExperimentV2",
           "type": "object"
         },
         "Hypothesis": {
@@ -6592,6 +8831,230 @@
           "title": "Producer",
           "type": "object"
         },
+        "Protocol": {
+          "additionalProperties": true,
+          "properties": {
+            "analysis_plan": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Analysis Plan",
+              "type": "string"
+            },
+            "arms": {
+              "items": {
+                "$ref": "#/$defs/ProtocolArm"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Arms",
+              "type": "array"
+            },
+            "comparison": {
+              "enum": [
+                "controlled",
+                "single_arm",
+                "observational"
+              ],
+              "title": "Comparison",
+              "type": "string"
+            },
+            "deviation_policy": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Deviation Policy",
+              "type": "string"
+            },
+            "hypothesis": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "kind": {
+              "const": "protocol",
+              "default": "protocol",
+              "title": "Kind",
+              "type": "string"
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "metrics": {
+              "items": {
+                "$ref": "#/$defs/ProtocolMetric"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "title": "Metrics",
+              "type": "array"
+            },
+            "question": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Question",
+              "type": "string"
+            },
+            "sampling": {
+              "$ref": "#/$defs/SamplingPlan"
+            },
+            "schema_version": {
+              "const": "forge.protocol.v1",
+              "default": "forge.protocol.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "stopping_rule": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Stopping Rule",
+              "type": "string"
+            },
+            "timing": {
+              "enum": [
+                "prospective",
+                "retrospective"
+              ],
+              "title": "Timing",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "question",
+            "timing",
+            "comparison",
+            "arms",
+            "metrics",
+            "sampling",
+            "analysis_plan",
+            "stopping_rule",
+            "deviation_policy"
+          ],
+          "title": "Protocol",
+          "type": "object"
+        },
+        "ProtocolArm": {
+          "additionalProperties": true,
+          "properties": {
+            "arm_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Arm Id",
+              "type": "string"
+            },
+            "baseline": {
+              "default": false,
+              "title": "Baseline",
+              "type": "boolean"
+            },
+            "description": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            }
+          },
+          "required": [
+            "arm_id",
+            "description"
+          ],
+          "title": "ProtocolArm",
+          "type": "object"
+        },
+        "ProtocolMetric": {
+          "additionalProperties": true,
+          "properties": {
+            "aggregation": {
+              "enum": [
+                "mean",
+                "median",
+                "sum",
+                "rate",
+                "distribution",
+                "none"
+              ],
+              "title": "Aggregation",
+              "type": "string"
+            },
+            "decision_rule": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Decision Rule",
+              "type": "string"
+            },
+            "description": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "direction": {
+              "enum": [
+                "minimize",
+                "maximize",
+                "descriptive"
+              ],
+              "title": "Direction",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Name",
+              "type": "string"
+            },
+            "unit": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Unit",
+              "type": "string"
+            },
+            "value_kind": {
+              "enum": [
+                "numeric",
+                "qualitative"
+              ],
+              "title": "Value Kind",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "description",
+            "unit",
+            "value_kind",
+            "direction",
+            "aggregation",
+            "decision_rule"
+          ],
+          "title": "ProtocolMetric",
+          "type": "object"
+        },
         "RecordRevision": {
           "additionalProperties": true,
           "properties": {
@@ -6694,6 +9157,116 @@
             "recorded_at"
           ],
           "title": "RecordRevision",
+          "type": "object"
+        },
+        "RecordRevisionV2": {
+          "additionalProperties": true,
+          "properties": {
+            "operation_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "payload": {
+              "discriminator": {
+                "mapping": {
+                  "artifact": "#/$defs/Artifact",
+                  "experiment": "#/$defs/ExperimentV2",
+                  "hypothesis": "#/$defs/Hypothesis",
+                  "log_entry": "#/$defs/LogEntry",
+                  "protocol": "#/$defs/Protocol",
+                  "report": "#/$defs/Report",
+                  "research_log": "#/$defs/ResearchLog",
+                  "resource_binding": "#/$defs/ResourceBinding",
+                  "result": "#/$defs/Result",
+                  "review": "#/$defs/ReviewV2",
+                  "scientific_export": "#/$defs/ScientificExport",
+                  "snapshot": "#/$defs/Snapshot",
+                  "source_notice": "#/$defs/SourceNotice",
+                  "trial": "#/$defs/TrialV2",
+                  "workspace_binding": "#/$defs/WorkspaceBinding"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Protocol"
+                },
+                {
+                  "$ref": "#/$defs/ExperimentV2"
+                },
+                {
+                  "$ref": "#/$defs/TrialV2"
+                },
+                {
+                  "$ref": "#/$defs/ReviewV2"
+                },
+                {
+                  "$ref": "#/$defs/Hypothesis"
+                },
+                {
+                  "$ref": "#/$defs/Result"
+                },
+                {
+                  "$ref": "#/$defs/ResearchLog"
+                },
+                {
+                  "$ref": "#/$defs/LogEntry"
+                },
+                {
+                  "$ref": "#/$defs/Report"
+                },
+                {
+                  "$ref": "#/$defs/Artifact"
+                },
+                {
+                  "$ref": "#/$defs/Snapshot"
+                },
+                {
+                  "$ref": "#/$defs/ScientificExport"
+                },
+                {
+                  "$ref": "#/$defs/SourceNotice"
+                },
+                {
+                  "$ref": "#/$defs/ResourceBinding"
+                },
+                {
+                  "$ref": "#/$defs/WorkspaceBinding"
+                }
+              ],
+              "title": "Payload"
+            },
+            "producer": {
+              "$ref": "#/$defs/Producer"
+            },
+            "recorded_at": {
+              "format": "date-time",
+              "title": "Recorded At",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.record-revision.v2",
+              "default": "forge.record-revision.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            }
+          },
+          "required": [
+            "scope",
+            "reference",
+            "payload",
+            "producer",
+            "operation_id",
+            "recorded_at"
+          ],
+          "title": "RecordRevisionV2",
           "type": "object"
         },
         "Report": {
@@ -7148,6 +9721,139 @@
           "title": "Review",
           "type": "object"
         },
+        "ReviewV2": {
+          "additionalProperties": true,
+          "properties": {
+            "decision": {
+              "enum": [
+                "comment",
+                "approved",
+                "rejected",
+                "needs_correction"
+              ],
+              "title": "Decision",
+              "type": "string"
+            },
+            "kind": {
+              "const": "review",
+              "default": "review",
+              "title": "Kind",
+              "type": "string"
+            },
+            "rationale": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Rationale",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "forge.review.v2",
+              "default": "forge.review.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "target": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "target",
+            "decision",
+            "rationale"
+          ],
+          "title": "ReviewV2",
+          "type": "object"
+        },
+        "SamplingPlan": {
+          "additionalProperties": true,
+          "properties": {
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "sample_count": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sample Count"
+            },
+            "seed_mode": {
+              "enum": [
+                "fixed",
+                "unseeded",
+                "unrecorded"
+              ],
+              "title": "Seed Mode",
+              "type": "string"
+            },
+            "seeds": {
+              "default": [],
+              "items": {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 10000,
+              "title": "Seeds",
+              "type": "array"
+            },
+            "splits": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Splits",
+              "type": "array"
+            },
+            "strategy": {
+              "enum": [
+                "fixed_count",
+                "sequential",
+                "observational"
+              ],
+              "title": "Strategy",
+              "type": "string"
+            },
+            "unit": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "unit",
+            "strategy",
+            "sample_count",
+            "seed_mode"
+          ],
+          "title": "SamplingPlan",
+          "type": "object"
+        },
         "ScientificExport": {
           "additionalProperties": true,
           "properties": {
@@ -7545,6 +10251,142 @@
           "title": "Trial",
           "type": "object"
         },
+        "TrialV2": {
+          "additionalProperties": true,
+          "properties": {
+            "arm": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Arm"
+            },
+            "configuration": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Configuration",
+              "type": "object"
+            },
+            "deviations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Deviations",
+              "type": "array"
+            },
+            "executed_inputs": {
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Executed Inputs",
+              "type": "array"
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution_inputs": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExecutedInputs"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "experiment": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "input_gaps": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Input Gaps",
+              "type": "array"
+            },
+            "kind": {
+              "const": "trial",
+              "default": "trial",
+              "title": "Kind",
+              "type": "string"
+            },
+            "parent_trial": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "protocol": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.trial.v2",
+              "default": "forge.trial.v2",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "state": {
+              "enum": [
+                "registered",
+                "running",
+                "succeeded",
+                "failed",
+                "interrupted",
+                "rejected"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "experiment",
+            "configuration",
+            "executed_inputs",
+            "state",
+            "protocol"
+          ],
+          "title": "TrialV2",
+          "type": "object"
+        },
         "WorkspaceBinding": {
           "additionalProperties": true,
           "properties": {
@@ -7607,7 +10449,15 @@
           "$ref": "#/$defs/ResponseMetadata"
         },
         "record": {
-          "$ref": "#/$defs/RecordRevision"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordRevision"
+            },
+            {
+              "$ref": "#/$defs/RecordRevisionV2"
+            }
+          ],
+          "title": "Record"
         }
       },
       "required": [

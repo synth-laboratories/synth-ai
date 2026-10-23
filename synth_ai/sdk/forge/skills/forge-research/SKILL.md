@@ -32,12 +32,31 @@ returned project ID and original receipt. Do not add caller or credential fields
 
 ## Scientific work
 
+Register a typed protocol with declared arms, metrics/decision rules, sampling,
+analysis, stopping and deviation policies. Mark prospective specification and
+retrospective reconstruction explicitly. A hypothesis is optional when the work
+has none. Pin the returned exact protocol reference in its v2 experiment and
+trial records. Protocol-linked experiments, trials and reviews use their
+registered payload schema versions; do not add new fields to legacy payloads.
+
 Use the scientific tools actually exposed by the admitted research program.
 Register the experiment and trial before executing it, retaining exact input,
 code, evaluator and configuration references. State a genuine hypothesis and
 decision rule when the work has one; mark retrospective reconstruction honestly.
 If required authoring or evaluation tools are unavailable, report that specific
 blocked step before starting dependent compute.
+
+Register a trial before execution. Its v2 state may advance through immutable
+revisions while the registered experiment, protocol, arm and parameters stay
+fixed. Terminal trials are retained; a retry/rerun is a new linked trial, using
+the original exact `parent_trial` reference and current admission. Keep each
+transition's own mutation key and retain the original registered revision.
+
+Attach exact executed-input observations and explicit gaps. Author-declared
+inputs remain unverified; `execution_bound` requires the selected execution
+owner's verifier. Never infer actual inputs from the intended configuration or
+claim that an unavailable input was retained. Native record times are Forge
+commit times; a prospective protocol cannot postdate the observed execution.
 
 Record observations as work happens, including failed, null and adverse results.
 Connect each result to its actual trial and original raw evidence. An attached
@@ -59,3 +78,5 @@ Write reports from exact retained records and raw evidence. Include limitations
 and missing inputs, and inspect capture/retrieval state before claiming the work
 is reproducible. Leave resource lifecycle and settlement to their owning runtime.
 Creating a report or export does not authorize public publication.
+New v2 record envelopes require private archive v4; old archives keep their
+original decoding. Archive integrity alone does not prove full capture or rerun.

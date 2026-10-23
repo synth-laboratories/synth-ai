@@ -6,6 +6,7 @@ from pydantic import Field
 
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
+from synth_ai.sdk.forge.contracts.scientific_v2 import RecordV2
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceRecord
 from synth_ai.types.base import Identifier, Model
 
@@ -48,7 +49,7 @@ class ForgeRecordWrite(ForgeProjectIdentity):
     record_id: Identifier
     expected_revision: Annotated[int, Field(strict=True, ge=0, le=2147483646)]
     idempotency_key: Identifier
-    payload: WorkspaceRecord
+    payload: WorkspaceRecord | RecordV2
 
 
 class ForgeReceiptRead(ForgeProjectIdentity):

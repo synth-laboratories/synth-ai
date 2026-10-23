@@ -172,6 +172,12 @@ Scientific tools are `forge_record_get`, `forge_record_write` and
 canonical records with an expected revision and stable mutation key. Recover
 the original receipt after response loss or admission expiry before another
 attempt. Manual results retain unverified status.
+Typed inputs are available from `synth_ai.sdk.forge`, including `Protocol`,
+`Experiment`, `Trial`, `Review`, and protocol/input observation types. Register a
+trial before execution; v2 state observations append immutable revisions with
+the registered parameters fixed. A rerun uses a new trial and exact `parent_trial`.
+Legacy records keep their original versions; native records carry explicit v2
+envelopes, and execution-bound input claims need their owning verifier.
 Connections with admitted Forge tools can discover the packaged `forge-research`
 skill as a content-addressed MCP resource. Research runs pin that skill together
 with their admitted scientific tools and method/program versions. Workspace
