@@ -18,6 +18,8 @@ def test_wheel_has_only_sdk_and_distribution_metadata():
     for path in wheels:
         with zipfile.ZipFile(path) as wheel:
             names = wheel.namelist()
+            skill = "synth_ai/sdk/forge/skills/forge-research/SKILL.md"
+            assert wheel.read(skill) == (root / skill).read_bytes()
         assert all(
             name.startswith("synth_ai/") or name.split("/", 1)[0].endswith(".dist-info")
             for name in names
