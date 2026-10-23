@@ -8,7 +8,7 @@ from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
 from synth_ai.sdk.forge.contracts.scientific_v2 import RecordV2
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceRecord
-from synth_ai.sdk.forge.index_types import ForgeIndexDraftRequest
+from synth_ai.sdk.forge.index_types import ForgeIndexDraftRequest, ForgeIndexDraftUploadRequest
 from synth_ai.types.base import Identifier, Model
 
 
@@ -135,4 +135,28 @@ async def members(client, args):
         members=args.members,
         expected_revision=args.expected_revision,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+class ForgeIndexDraftUpload(ForgeIndexDraftUploadRequest, ForgeProjectIdentity):
+    draft_operation_id: Identifier
+    idempotency_key: Identifier
+
+
+class ForgeIndexDraftUploadRead(ForgeReceiptRead):
+    draft_operation_id: Identifier
+
+
+async def index_draft_upload(client, args):
+    return await client.forge.index_drafts.upload(
+        args.project_id,
+        args.draft_operation_id,
+        args.descriptor,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def index_draft_upload_get(client, args):
+    return await client.forge.index_drafts.upload_get(
+        args.project_id, args.draft_operation_id, args.operation_id
     )

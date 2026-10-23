@@ -182,3 +182,22 @@ Connections with admitted Forge tools can discover the packaged `forge-research`
 skill as a content-addressed MCP resource. Research runs pin that skill together
 with their admitted scientific tools and method/program versions. Workspace
 operations alone do not qualify a complete scientific Swarm or evaluator path.
+
+
+Private Index handoff uses `client.forge.index_drafts.create(project_id,
+export_revision, mutation=...)` to allocate custody for an exact frozen export.
+Retain the original draft operation ID. Then call
+`client.forge.index_drafts.upload(project_id, draft_operation_id, descriptor,
+mutation=...)`, or the `forge_index_draft_upload` MCP tool. The author supplies
+research metadata and an asset ID/role/path layout; the backend resolves frozen
+native Artifact bytes, digests, licenses and full credit. Current `forge:read`,
+`index:intake` and private Artifact grants are required. Transfer credentials
+stay inside the native upload service.
+
+Preserve each mutation key on retry. Recover allocation with `index_drafts.get`
+and upload custody with `index_drafts.upload_get(project_id,
+draft_operation_id, upload_operation_id)`. MCP exposes matching create/get and
+upload/upload_get tools. `prepared`, `received` and `finalized` distinguish
+reservation, received bytes and an exact native package reference. Finalized
+packaging leaves the Contribution private and in draft state; validation,
+scientific qualification, rights attestation and publication remain separate.

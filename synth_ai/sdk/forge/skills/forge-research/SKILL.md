@@ -79,11 +79,31 @@ contribution, revision and collection IDs. After response loss, retry that exact
 intent with the same key or call `forge_index_draft_get` with its original
 operation ID. Never switch keys to recover an uncertain allocation.
 
-The returned private draft awaits the existing Index upload and validation
-workflow. Creation alone does not seal evidence, qualify claims, attest rights,
-approve a public audience or publish. Keep capture gaps and complete credit in
-the generated evidence. Use only the owner's existing Artifact upload path;
-do not invent byte storage or public rights from a Forge citation.
+When `forge_index_draft_upload` is exposed, use the original draft operation ID
+and a separate retained upload idempotency key. Supply the authored descriptor:
+research kind, title, abstract, card, claims, evidence links, reproduction notes,
+and one asset layout for every frozen output. Each layout names its existing
+asset ID, role and archive path. The host obtains exact bytes, digests, sizes,
+media types, licenses and full credit from the frozen native Forge Artifacts.
+Do not supply those fields, transfer URLs, caller identity or public rights.
+The host still requires current `forge:read`, `index:intake` and native private
+Artifact user grants. Packaging grants no Forge write or execution authority.
+
+Retain the returned upload operation ID, upload ID and package reference.
+After response loss, retry the exact upload intent with the same key, or inspect
+`forge_index_draft_upload_get` using the original project, draft operation and
+upload operation IDs. Prepared custody means a reservation; received custody
+means the native owner has bytes; finalized custody includes its exact package
+reference. A missing receipt leaves the outcome uncertain. Never change keys
+or repeat an experiment to recover packaging. Received/finalized custody can
+resume under current draft/package access without rereading the original raw
+sources. New/prepared work requires current source byte access.
+
+The private draft then awaits the existing Index validation workflow.
+Allocation or finalized packaging alone does not seal scientific evidence,
+qualify claims, attest rights, approve a public audience or publish. Keep capture
+gaps and full credit in the generated evidence. Source-grant revocation still
+controls future source reads; historical receipts do not grant future access.
 
 Keep the original mutation identity when a response is lost. Inspect or reconcile
 that operation before repeating an effect. A publication retry does not rerun

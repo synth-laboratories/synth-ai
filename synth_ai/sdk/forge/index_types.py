@@ -3,11 +3,29 @@
 # ruff: noqa: I001
 """Private Index draft custody for one exact Forge workspace export."""
 
-from typing import Literal
-from pydantic import model_validator
+from typing import Annotated, Literal
+from pydantic import Field, model_validator
 from synth_ai.types.base import Model, ResponseModel, Identifier, Digest
 from .contracts.operations import RevisionReference
 from .contracts.projects import ProjectId
+from .index_contracts.package import (
+    ContributionAssetRole,
+    ContributionClaim,
+    EvidenceReference,
+    ResearchCard,
+    Reproduction,
+)
+from .index_contracts.annotations import AuthorAnnotations
+from .index_contracts.contracts import (
+    ContributionKind,
+    ResearchArea,
+    WorkflowStage,
+    ShortText,
+)
+from synth_ai.types.uploads import (
+    ContributionPackageRef,
+    ContributionUploadManifest,
+)
 
 
 class ForgeIndexDraftRequest(Model):
@@ -51,4 +69,60 @@ class ForgeIndexDraftResponse(ResponseModel):
             self.manifest_digest_sha256 is not None
         ):
             raise ValueError("validation state differs from the retained manifest")
+        return self
+
+
+class ForgeIndexOutputLayout(Model):
+    asset_id: Identifier
+    role: ContributionAssetRole
+    logical_path: Annotated[str, Field(min_length=1, max_length=1024)]
+
+
+class ForgeIndexDraftDescriptor(Model):
+    kind: ContributionKind
+    title: Annotated[str, Field(min_length=1, max_length=200)]
+    abstract: ShortText
+    research_areas: tuple[ResearchArea, ...] = Field(min_length=1, max_length=11)
+    workflow_stages: tuple[WorkflowStage, ...] = Field(min_length=1, max_length=6)
+    tag_ids: tuple[Identifier, ...] = Field(default=(), max_length=10)
+    card: ResearchCard
+    assets: tuple[ForgeIndexOutputLayout, ...] = Field(min_length=1, max_length=64)
+    claims: tuple[ContributionClaim, ...] = Field(min_length=1, max_length=128)
+    evidence: tuple[EvidenceReference, ...] = Field(default=(), max_length=512)
+    reproduction: Reproduction
+    tools: tuple[ShortText, ...] = Field(default=(), max_length=16)
+    revision_note: ShortText | None = None
+    author_annotations: AuthorAnnotations | None = None
+
+
+class ForgeIndexDraftUploadRequest(Model):
+    schema_version: Literal["forge.index-draft-upload.v1"] = (
+        "forge.index-draft-upload.v1"
+    )
+    descriptor: ForgeIndexDraftDescriptor
+
+
+class ForgeIndexDraftUploadResponse(ResponseModel):
+    project_id: ProjectId
+    draft_operation_id: Identifier
+    export_revision: RevisionReference
+    upload_id: Identifier
+    contribution_id: Identifier
+    revision_id: Identifier
+    manifest: ContributionUploadManifest
+    package: ContributionPackageRef | None
+    state: Literal["prepared", "received", "finalized", "expired", "refused"]
+
+    @model_validator(mode="after")
+    def native_package_binding(self):
+        if (self.state == "finalized") != (self.package is not None):
+            raise ValueError(
+                "upload state differs from positive native package custody"
+            )
+        if self.package is not None and (
+            self.package.contribution_id != self.contribution_id
+            or self.package.revision_id != self.revision_id
+            or self.package.digest_sha256 != self.manifest.digest_sha256
+        ):
+            raise ValueError("native package differs from the selected upload")
         return self

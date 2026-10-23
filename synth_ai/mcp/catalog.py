@@ -19,7 +19,7 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
-from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse
+from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse, ForgeIndexDraftUploadResponse
 from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
@@ -472,6 +472,24 @@ async def deliver_search_events(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "forge_index_draft_upload",
+        forge_operations.INDEX_DRAFT_UPLOAD,
+        "Package frozen native Artifact outputs into a private Index draft; retain the key for recovery. Returns IDs and state without transfer credentials.",
+        forge_tools.ForgeIndexDraftUpload,
+        ForgeIndexDraftUploadResponse,
+        forge_tools.index_draft_upload,
+        additional_scopes=("index:intake",),
+    ),
+    ToolDefinition(
+        "forge_index_draft_upload_get",
+        forge_operations.INDEX_DRAFT_UPLOAD_GET,
+        "Recover private upload custody and package IDs under current Forge and Index access.",
+        forge_tools.ForgeIndexDraftUploadRead,
+        ForgeIndexDraftUploadResponse,
+        forge_tools.index_draft_upload_get,
+        additional_scopes=("index:intake",),
+    ),
     ToolDefinition(
         "forge_artifact_evidence_get",
         forge_operations.ARTIFACT_EVIDENCE_GET,

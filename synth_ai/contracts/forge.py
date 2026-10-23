@@ -76,6 +76,30 @@ INDEX_DRAFT_GET = Operation(
 )
 INDEX_DRAFT_OPERATIONS = (INDEX_DRAFT_CREATE, INDEX_DRAFT_GET)
 
+INDEX_DRAFT_UPLOAD = Operation(
+    "forge.index_drafts.upload",
+    "POST",
+    "/index/forge/projects/{project_id}/drafts/{draft_operation_id}/uploads",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+INDEX_DRAFT_UPLOAD_GET = Operation(
+    "forge.index_drafts.upload_get",
+    "GET",
+    "/index/forge/projects/{project_id}/drafts/{draft_operation_id}/uploads/{operation_id}",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+INDEX_DRAFT_UPLOAD_OPERATIONS = (INDEX_DRAFT_UPLOAD, INDEX_DRAFT_UPLOAD_GET)
+
 PROJECT_OPERATIONS = (PROJECT_GET, PROJECT_APPLY)
 SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, RECEIPT_GET, ARTIFACT_EVIDENCE_GET)
-ALL_OPERATIONS = (*PROJECT_OPERATIONS, *SCIENCE_OPERATIONS, *INDEX_DRAFT_OPERATIONS)
+ALL_OPERATIONS = (
+    *PROJECT_OPERATIONS,
+    *SCIENCE_OPERATIONS,
+    *INDEX_DRAFT_OPERATIONS,
+    *INDEX_DRAFT_UPLOAD_OPERATIONS,
+)

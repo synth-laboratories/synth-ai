@@ -2550,6 +2550,944 @@
       "title": "ForgeIndexDraftResponse",
       "type": "object"
     },
+    "ForgeIndexDraftUploadRequest": {
+      "$defs": {
+        "AuthorAnnotations": {
+          "additionalProperties": false,
+          "properties": {
+            "keywords": {
+              "default": [],
+              "items": {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Keywords",
+              "type": "array"
+            },
+            "metadata": {
+              "$ref": "#/$defs/AuthorMetadata"
+            }
+          },
+          "title": "AuthorAnnotations",
+          "type": "object"
+        },
+        "AuthorMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "research_areas": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "topics": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Topics",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "title": "AuthorMetadata",
+          "type": "object"
+        },
+        "ContributionClaim": {
+          "additionalProperties": false,
+          "properties": {
+            "author_assessment": {
+              "enum": [
+                "supported",
+                "disproven",
+                "inconclusive",
+                "not_tested"
+              ],
+              "title": "Author Assessment",
+              "type": "string"
+            },
+            "claim_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Claim Id",
+              "type": "string"
+            },
+            "contradicting_evidence_ids": {
+              "default": [],
+              "items": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "title": "Contradicting Evidence Ids",
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "empirical",
+                "composition",
+                "conformance",
+                "diagnostic"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "missing_evidence_reason": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Missing Evidence Reason"
+            },
+            "scope": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Scope",
+              "type": "string"
+            },
+            "statement": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Statement",
+              "type": "string"
+            },
+            "supporting_evidence_ids": {
+              "default": [],
+              "items": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "title": "Supporting Evidence Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "claim_id",
+            "kind",
+            "statement",
+            "scope",
+            "author_assessment"
+          ],
+          "title": "ContributionClaim",
+          "type": "object"
+        },
+        "ContributionKind": {
+          "enum": [
+            "research_report",
+            "dataset",
+            "recipe",
+            "implementation",
+            "model",
+            "replication",
+            "engineering_note"
+          ],
+          "title": "ContributionKind",
+          "type": "string"
+        },
+        "EvidenceReference": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "evidence_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Evidence Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "comparison",
+                "experiment",
+                "evaluation",
+                "trace",
+                "manifest",
+                "conformance"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "locator": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Locator",
+              "type": "string"
+            }
+          },
+          "required": [
+            "evidence_id",
+            "kind",
+            "asset_id",
+            "locator"
+          ],
+          "title": "EvidenceReference",
+          "type": "object"
+        },
+        "ForgeIndexDraftDescriptor": {
+          "additionalProperties": false,
+          "properties": {
+            "abstract": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Abstract",
+              "type": "string"
+            },
+            "assets": {
+              "items": {
+                "$ref": "#/$defs/ForgeIndexOutputLayout"
+              },
+              "maxItems": 64,
+              "minItems": 1,
+              "title": "Assets",
+              "type": "array"
+            },
+            "author_annotations": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AuthorAnnotations"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "card": {
+              "$ref": "#/$defs/ResearchCard"
+            },
+            "claims": {
+              "items": {
+                "$ref": "#/$defs/ContributionClaim"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "title": "Claims",
+              "type": "array"
+            },
+            "evidence": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/EvidenceReference"
+              },
+              "maxItems": 512,
+              "title": "Evidence",
+              "type": "array"
+            },
+            "kind": {
+              "$ref": "#/$defs/ContributionKind"
+            },
+            "reproduction": {
+              "$ref": "#/$defs/Reproduction"
+            },
+            "research_areas": {
+              "items": {
+                "$ref": "#/$defs/ResearchArea"
+              },
+              "maxItems": 11,
+              "minItems": 1,
+              "title": "Research Areas",
+              "type": "array"
+            },
+            "revision_note": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Revision Note"
+            },
+            "tag_ids": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 10,
+              "title": "Tag Ids",
+              "type": "array"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            },
+            "tools": {
+              "default": [],
+              "items": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "title": "Tools",
+              "type": "array"
+            },
+            "workflow_stages": {
+              "items": {
+                "$ref": "#/$defs/WorkflowStage"
+              },
+              "maxItems": 6,
+              "minItems": 1,
+              "title": "Workflow Stages",
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "title",
+            "abstract",
+            "research_areas",
+            "workflow_stages",
+            "card",
+            "assets",
+            "claims",
+            "reproduction"
+          ],
+          "title": "ForgeIndexDraftDescriptor",
+          "type": "object"
+        },
+        "ForgeIndexOutputLayout": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "summary",
+                "report",
+                "code",
+                "data",
+                "model",
+                "environment",
+                "evidence",
+                "reproduce"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "asset_id",
+            "role",
+            "logical_path"
+          ],
+          "title": "ForgeIndexOutputLayout",
+          "type": "object"
+        },
+        "Reproduction": {
+          "additionalProperties": false,
+          "properties": {
+            "entrypoint_asset_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Entrypoint Asset Id"
+            },
+            "environment_asset_ids": {
+              "default": [],
+              "items": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 16,
+              "title": "Environment Asset Ids",
+              "type": "array"
+            },
+            "expected_outputs": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Expected Outputs",
+              "type": "string"
+            },
+            "instructions": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Instructions",
+              "type": "string"
+            },
+            "level": {
+              "enum": [
+                "inspectable",
+                "runnable",
+                "reproduced",
+                "not_applicable"
+              ],
+              "title": "Level",
+              "type": "string"
+            },
+            "restrictions": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Restrictions",
+              "type": "string"
+            }
+          },
+          "required": [
+            "level",
+            "instructions",
+            "expected_outputs",
+            "restrictions"
+          ],
+          "title": "Reproduction",
+          "type": "object"
+        },
+        "ResearchArea": {
+          "enum": [
+            "data",
+            "environment_design",
+            "evaluation",
+            "verifier",
+            "training_algorithm",
+            "optimization_search",
+            "retrieval",
+            "context",
+            "agent_harness",
+            "model",
+            "systems"
+          ],
+          "title": "ResearchArea",
+          "type": "string"
+        },
+        "ResearchCard": {
+          "additionalProperties": false,
+          "properties": {
+            "how_to_use": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "How To Use",
+              "type": "string"
+            },
+            "limitations": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Limitations",
+              "type": "string"
+            },
+            "observed": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Observed",
+              "type": "string"
+            },
+            "resources": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Resources",
+              "type": "string"
+            },
+            "reusable": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Reusable",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reusable",
+            "how_to_use",
+            "observed",
+            "limitations",
+            "resources"
+          ],
+          "title": "ResearchCard",
+          "type": "object"
+        },
+        "WorkflowStage": {
+          "enum": [
+            "data_preparation",
+            "training",
+            "optimization",
+            "evaluation",
+            "inference",
+            "research_operations"
+          ],
+          "title": "WorkflowStage",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "descriptor": {
+          "$ref": "#/$defs/ForgeIndexDraftDescriptor"
+        },
+        "schema_version": {
+          "const": "forge.index-draft-upload.v1",
+          "default": "forge.index-draft-upload.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "descriptor"
+      ],
+      "title": "ForgeIndexDraftUploadRequest",
+      "type": "object"
+    },
+    "ForgeIndexDraftUploadResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ContributionPackageRef": {
+          "additionalProperties": true,
+          "properties": {
+            "contribution_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "package_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Package Id",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "package_id",
+            "digest_sha256"
+          ],
+          "title": "ContributionPackageRef",
+          "type": "object"
+        },
+        "ContributionUploadManifest": {
+          "additionalProperties": true,
+          "properties": {
+            "byte_size": {
+              "maximum": 33554432,
+              "minimum": 1,
+              "title": "Byte Size",
+              "type": "integer"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "media_type": {
+              "enum": [
+                "application/zip",
+                "application/gzip"
+              ],
+              "title": "Media Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "byte_size",
+            "digest_sha256",
+            "media_type"
+          ],
+          "title": "ContributionUploadManifest",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "RevisionReference": {
+          "additionalProperties": true,
+          "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+          "properties": {
+            "document_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Document Digest Sha256",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.revision-reference.v1",
+              "default": "forge.revision-reference.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "document_digest_sha256"
+          ],
+          "title": "RevisionReference",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "contribution_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Contribution Id",
+          "type": "string"
+        },
+        "draft_operation_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Draft Operation Id",
+          "type": "string"
+        },
+        "export_revision": {
+          "$ref": "#/$defs/RevisionReference"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ContributionUploadManifest"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "package": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContributionPackageRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "project_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "prepared",
+            "received",
+            "finalized",
+            "expired",
+            "refused"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "upload_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Upload Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "project_id",
+        "draft_operation_id",
+        "export_revision",
+        "upload_id",
+        "contribution_id",
+        "revision_id",
+        "manifest",
+        "package",
+        "state"
+      ],
+      "title": "ForgeIndexDraftUploadResponse",
+      "type": "object"
+    },
     "Link": {
       "$defs": {
         "ExactReference": {
@@ -13109,6 +14047,26 @@
       "method": "GET",
       "mutation": false,
       "path": "/api/v1/index/forge/projects/{project_id}/drafts/{operation_id}",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.index_drafts.upload",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/index/forge/projects/{project_id}/drafts/{draft_operation_id}/uploads",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.index_drafts.upload_get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/index/forge/projects/{project_id}/drafts/{draft_operation_id}/uploads/{operation_id}",
       "required_scope": "forge:read"
     }
   ],
