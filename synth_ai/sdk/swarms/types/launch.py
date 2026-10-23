@@ -138,7 +138,7 @@ class LaunchRequest(Model):
     labels: Labels | None = None
     repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
-    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=2)
+    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=3)
 
     @property
     def objective(self) -> str:
