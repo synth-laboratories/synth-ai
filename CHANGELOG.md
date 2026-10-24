@@ -1,3 +1,7 @@
+## 0.23.8
+
+Swarms adds the `code_native` project template with typed `CodeValidation` in synchronous and asynchronous project creation. Code projects use the existing workspace-write worker, governed push, registered verifier, host-grade, and task/run review authorities. Report projects keep their default template.
+
 # Changelog
 
 ## 0.23.7

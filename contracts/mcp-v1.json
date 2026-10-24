@@ -9815,7 +9815,8 @@
                 "enum": [
                   "human",
                   "service",
-                  "actor"
+                  "actor",
+                  "swarm_run"
                 ],
                 "title": "Subject Kind",
                 "type": "string"
@@ -10158,6 +10159,129 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "ProgramActorBinding": {
+            "additionalProperties": true,
+            "description": "Original program-attempt coordinates; no inferred workload identity.",
+            "properties": {
+              "actor_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Actor Id",
+                "type": "string"
+              },
+              "admission": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "attempt_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Attempt Id",
+                "type": "string"
+              },
+              "execution_actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Actor Id",
+                "type": "string"
+              },
+              "execution_attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Attempt Id",
+                "type": "string"
+              },
+              "execution_project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Project Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Project Id",
+                "type": "string"
+              },
+              "run_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Run Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id",
+              "execution_project_id",
+              "run_id",
+              "actor_id",
+              "attempt_id",
+              "execution_actor_id",
+              "execution_attempt_id",
+              "admission"
+            ],
+            "title": "ProgramActorBinding",
+            "type": "object"
+          },
           "ProjectMember": {
             "additionalProperties": true,
             "properties": {
@@ -10200,7 +10324,8 @@
                 "enum": [
                   "human",
                   "service",
-                  "actor"
+                  "actor",
+                  "swarm_run"
                 ],
                 "title": "Subject Kind",
                 "type": "string"
@@ -10224,10 +10349,14 @@
                     "$ref": "#/$defs/ActorBinding"
                   },
                   {
+                    "$ref": "#/$defs/ProgramActorBinding"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Actor"
               },
               "credential_id": {
                 "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -10660,6 +10789,129 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "ProgramActorBinding": {
+            "additionalProperties": true,
+            "description": "Original program-attempt coordinates; no inferred workload identity.",
+            "properties": {
+              "actor_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Actor Id",
+                "type": "string"
+              },
+              "admission": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "attempt_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Attempt Id",
+                "type": "string"
+              },
+              "execution_actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Actor Id",
+                "type": "string"
+              },
+              "execution_attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Attempt Id",
+                "type": "string"
+              },
+              "execution_project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Project Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Project Id",
+                "type": "string"
+              },
+              "run_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Run Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id",
+              "execution_project_id",
+              "run_id",
+              "actor_id",
+              "attempt_id",
+              "execution_actor_id",
+              "execution_attempt_id",
+              "admission"
+            ],
+            "title": "ProgramActorBinding",
+            "type": "object"
+          },
           "ProjectMember": {
             "additionalProperties": true,
             "properties": {
@@ -10702,7 +10954,8 @@
                 "enum": [
                   "human",
                   "service",
-                  "actor"
+                  "actor",
+                  "swarm_run"
                 ],
                 "title": "Subject Kind",
                 "type": "string"
@@ -10726,10 +10979,14 @@
                     "$ref": "#/$defs/ActorBinding"
                   },
                   {
+                    "$ref": "#/$defs/ProgramActorBinding"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Actor"
               },
               "credential_id": {
                 "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -11153,6 +11410,129 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "ProgramActorBinding": {
+            "additionalProperties": true,
+            "description": "Original program-attempt coordinates; no inferred workload identity.",
+            "properties": {
+              "actor_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Actor Id",
+                "type": "string"
+              },
+              "admission": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "attempt_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Attempt Id",
+                "type": "string"
+              },
+              "execution_actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Actor Id",
+                "type": "string"
+              },
+              "execution_attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Attempt Id",
+                "type": "string"
+              },
+              "execution_project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Project Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Project Id",
+                "type": "string"
+              },
+              "run_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Run Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id",
+              "execution_project_id",
+              "run_id",
+              "actor_id",
+              "attempt_id",
+              "execution_actor_id",
+              "execution_attempt_id",
+              "admission"
+            ],
+            "title": "ProgramActorBinding",
+            "type": "object"
+          },
           "ProjectMember": {
             "additionalProperties": true,
             "properties": {
@@ -11195,7 +11575,8 @@
                 "enum": [
                   "human",
                   "service",
-                  "actor"
+                  "actor",
+                  "swarm_run"
                 ],
                 "title": "Subject Kind",
                 "type": "string"
@@ -11219,10 +11600,14 @@
                     "$ref": "#/$defs/ActorBinding"
                   },
                   {
+                    "$ref": "#/$defs/ProgramActorBinding"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Actor"
               },
               "credential_id": {
                 "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -11615,7 +12000,8 @@
                 "enum": [
                   "human",
                   "service",
-                  "actor"
+                  "actor",
+                  "swarm_run"
                 ],
                 "title": "Subject Kind",
                 "type": "string"
@@ -11736,6 +12122,129 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "ProgramActorBinding": {
+            "additionalProperties": true,
+            "description": "Original program-attempt coordinates; no inferred workload identity.",
+            "properties": {
+              "actor_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Actor Id",
+                "type": "string"
+              },
+              "admission": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "attempt_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Attempt Id",
+                "type": "string"
+              },
+              "execution_actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Actor Id",
+                "type": "string"
+              },
+              "execution_attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Attempt Id",
+                "type": "string"
+              },
+              "execution_project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Execution Project Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Project Id",
+                "type": "string"
+              },
+              "run_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Run Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id",
+              "execution_project_id",
+              "run_id",
+              "actor_id",
+              "attempt_id",
+              "execution_actor_id",
+              "execution_attempt_id",
+              "admission"
+            ],
+            "title": "ProgramActorBinding",
+            "type": "object"
+          },
           "ProjectMember": {
             "additionalProperties": true,
             "properties": {
@@ -11778,7 +12287,8 @@
                 "enum": [
                   "human",
                   "service",
-                  "actor"
+                  "actor",
+                  "swarm_run"
                 ],
                 "title": "Subject Kind",
                 "type": "string"
@@ -11802,10 +12312,14 @@
                     "$ref": "#/$defs/ActorBinding"
                   },
                   {
+                    "$ref": "#/$defs/ProgramActorBinding"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Actor"
               },
               "credential_id": {
                 "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -12774,7 +13288,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -15560,7 +16075,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -16829,7 +17345,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -18098,7 +18615,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -19234,7 +19752,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -20441,7 +20960,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -21561,7 +22081,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -25315,7 +25836,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -26309,7 +26831,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -26878,7 +27401,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -28562,10 +29086,105 @@
       "idempotent": true,
       "input_schema": {
         "$defs": {
+          "CodeExecutorSource": {
+            "additionalProperties": false,
+            "description": "Source identity checked by the registered verifier authority.",
+            "properties": {
+              "reference": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Reference",
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "title": "Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "reference",
+              "sha256"
+            ],
+            "title": "CodeExecutorSource",
+            "type": "object"
+          },
+          "CodeValidation": {
+            "additionalProperties": false,
+            "description": "Accepted code baseline and registered verifier; never an execution verdict.\n\nSee notes/specifications/tanha/current/systems/platform/orchestra_port_authority.md.\nReal measurements and the host grade remain independently owned.",
+            "properties": {
+              "allowed_files": {
+                "items": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "title": "Allowed Files",
+                "type": "array"
+              },
+              "baseline_digest": {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "title": "Baseline Digest",
+                "type": "string"
+              },
+              "baseline_file_sha256": {
+                "additionalProperties": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "maxProperties": 100,
+                "minProperties": 1,
+                "propertyNames": {
+                  "maxLength": 1024,
+                  "minLength": 1
+                },
+                "title": "Baseline File Sha256",
+                "type": "object"
+              },
+              "executor_source": {
+                "$ref": "#/$defs/CodeExecutorSource"
+              },
+              "image_release_id": {
+                "pattern": "^imgrel_[0-9a-f]{64}$",
+                "title": "Image Release Id",
+                "type": "string"
+              },
+              "native_image_id": {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "title": "Native Image Id",
+                "type": "string"
+              },
+              "required_artifacts": {
+                "items": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "title": "Required Artifacts",
+                "type": "array"
+              }
+            },
+            "required": [
+              "executor_source",
+              "image_release_id",
+              "native_image_id",
+              "baseline_digest",
+              "allowed_files",
+              "baseline_file_sha256",
+              "required_artifacts"
+            ],
+            "title": "CodeValidation",
+            "type": "object"
+          },
           "ProjectTemplate": {
             "description": "Closed set of server-authored project templates.",
             "enum": [
-              "report_native"
+              "report_native",
+              "code_native"
             ],
             "title": "ProjectTemplate",
             "type": "string"
@@ -28573,6 +29192,17 @@
         },
         "additionalProperties": false,
         "properties": {
+          "code_validation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CodeValidation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "idempotency_key": {
             "maxLength": 128,
             "minLength": 1,
@@ -29101,6 +29731,27 @@
             "title": "PoolSelection",
             "type": "object"
           },
+          "ProjectSelection": {
+            "additionalProperties": false,
+            "description": "Independent Forge project scope; see forge-research-program-plugin.v1.md.",
+            "properties": {
+              "project_ids": {
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "minItems": 1,
+                "title": "Project Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "project_ids"
+            ],
+            "title": "ProjectSelection",
+            "type": "object"
+          },
           "Providers": {
             "additionalProperties": false,
             "properties": {
@@ -29195,7 +29846,8 @@
                 "enum": [
                   "openrouter.inference",
                   "index.search",
-                  "rhodes.pool"
+                  "rhodes.pool",
+                  "forge.research"
                 ],
                 "title": "Plugin",
                 "type": "string"
@@ -29254,10 +29906,14 @@
                     "$ref": "#/$defs/PoolSelection"
                   },
                   {
+                    "$ref": "#/$defs/ProjectSelection"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Selection"
               },
               "version": {
                 "default": 1,
@@ -29397,7 +30053,7 @@
             "items": {
               "$ref": "#/$defs/ResourceRequest"
             },
-            "maxItems": 3,
+            "maxItems": 4,
             "title": "Resources",
             "type": "array"
           }
@@ -30246,6 +30902,27 @@
             "title": "PoolSelection",
             "type": "object"
           },
+          "ProjectSelection": {
+            "additionalProperties": false,
+            "description": "Independent Forge project scope; see forge-research-program-plugin.v1.md.",
+            "properties": {
+              "project_ids": {
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "minItems": 1,
+                "title": "Project Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "project_ids"
+            ],
+            "title": "ProjectSelection",
+            "type": "object"
+          },
           "Providers": {
             "additionalProperties": false,
             "properties": {
@@ -30340,7 +31017,8 @@
                 "enum": [
                   "openrouter.inference",
                   "index.search",
-                  "rhodes.pool"
+                  "rhodes.pool",
+                  "forge.research"
                 ],
                 "title": "Plugin",
                 "type": "string"
@@ -30399,10 +31077,14 @@
                     "$ref": "#/$defs/PoolSelection"
                   },
                   {
+                    "$ref": "#/$defs/ProjectSelection"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Selection"
               },
               "version": {
                 "default": 1,
@@ -30549,7 +31231,7 @@
             "items": {
               "$ref": "#/$defs/ResourceRequest"
             },
-            "maxItems": 3,
+            "maxItems": 4,
             "title": "Resources",
             "type": "array"
           }
@@ -33890,7 +34572,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -34621,7 +35304,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -35813,7 +36497,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -36382,7 +37067,8 @@
                   "tokens_out",
                   "calls",
                   "index_searches",
-                  "wall_ms"
+                  "wall_ms",
+                  "rollouts"
                 ],
                 "title": "Dimension",
                 "type": "string"
