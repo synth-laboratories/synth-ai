@@ -7,7 +7,10 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
+
+pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
+
+from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest  # noqa: E402
 from synth_ai import AsyncSynthClient
 from synth_ai.mcp.catalog import BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
