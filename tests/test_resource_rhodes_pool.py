@@ -2,7 +2,6 @@ import json
 
 import pytest
 from pydantic import ValidationError
-
 from synth_ai.sdk.swarms.types.resources import ResourceRequest
 
 

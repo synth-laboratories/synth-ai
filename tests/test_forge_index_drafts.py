@@ -60,7 +60,11 @@ def transport_fixture():
                 == hashlib.sha256(request.content).hexdigest()
             )
         result = {
-            "metadata": {**capability["metadata"], "contract": "core.v1", "operation_id": OPERATION},
+            "metadata": {
+                **capability["metadata"],
+                "contract": "core.v1",
+                "operation_id": OPERATION,
+            },
             "project_id": PROJECT,
             "export_revision": PIN,
             "contribution_id": "allocated-contribution",
