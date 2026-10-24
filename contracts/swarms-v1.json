@@ -6947,10 +6947,105 @@
     },
     "ProjectCreateRequest": {
       "$defs": {
+        "CodeExecutorSource": {
+          "additionalProperties": false,
+          "description": "Source identity checked by the registered verifier authority.",
+          "properties": {
+            "reference": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Reference",
+              "type": "string"
+            },
+            "sha256": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "sha256"
+          ],
+          "title": "CodeExecutorSource",
+          "type": "object"
+        },
+        "CodeValidation": {
+          "additionalProperties": false,
+          "description": "Accepted code baseline and registered verifier; never an execution verdict.\n\nSee notes/specifications/tanha/current/systems/platform/orchestra_port_authority.md.\nReal measurements and the host grade remain independently owned.",
+          "properties": {
+            "allowed_files": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "title": "Allowed Files",
+              "type": "array"
+            },
+            "baseline_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Baseline Digest",
+              "type": "string"
+            },
+            "baseline_file_sha256": {
+              "additionalProperties": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "maxProperties": 100,
+              "minProperties": 1,
+              "propertyNames": {
+                "maxLength": 1024,
+                "minLength": 1
+              },
+              "title": "Baseline File Sha256",
+              "type": "object"
+            },
+            "executor_source": {
+              "$ref": "#/$defs/CodeExecutorSource"
+            },
+            "image_release_id": {
+              "pattern": "^imgrel_[0-9a-f]{64}$",
+              "title": "Image Release Id",
+              "type": "string"
+            },
+            "native_image_id": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Native Image Id",
+              "type": "string"
+            },
+            "required_artifacts": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "title": "Required Artifacts",
+              "type": "array"
+            }
+          },
+          "required": [
+            "executor_source",
+            "image_release_id",
+            "native_image_id",
+            "baseline_digest",
+            "allowed_files",
+            "baseline_file_sha256",
+            "required_artifacts"
+          ],
+          "title": "CodeValidation",
+          "type": "object"
+        },
         "ProjectTemplate": {
           "description": "Closed set of server-authored project templates.",
           "enum": [
-            "report_native"
+            "report_native",
+            "code_native"
           ],
           "title": "ProjectTemplate",
           "type": "string"
@@ -6958,6 +7053,17 @@
       },
       "additionalProperties": false,
       "properties": {
+        "code_validation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeValidation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "name": {
           "maxLength": 256,
           "minLength": 1,
