@@ -67,7 +67,7 @@ def code_validation():
         json.dumps(
             {
                 "executor_source": {
-                    "reference": "a" * 40 + ":executor.py",
+                    "reference": "git:" + "a" * 40 + ":src/cardcodebench/op_public_executor.py",
                     "sha256": "sha256:" + "b" * 64,
                 },
                 "image_release_id": "imgrel_" + "c" * 64,

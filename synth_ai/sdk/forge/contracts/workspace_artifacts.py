@@ -224,16 +224,16 @@ def sign_artifact_request(key, action, digest, *, now_ms=None):
     if len(key) < 32:
         raise ForgeError("authority_unavailable", "workspace proof key is unavailable")
     now_ms = time_ns() // 1_000_000 if now_ms is None else now_ms
-    values = dict(
-        schema_version=AUTHORIZATION_SCHEMA,
-        action=action,
-        request_digest_sha256=digest,
-        nonce=uuid4().hex,
-        issued_unix_ms=now_ms,
-        expires_unix_ms=now_ms + MAX_LIFETIME_MS,
-    )
+    values = {
+        "schema_version": AUTHORIZATION_SCHEMA,
+        "action": action,
+        "request_digest_sha256": digest,
+        "nonce": uuid4().hex,
+        "issued_unix_ms": now_ms,
+        "expires_unix_ms": now_ms + MAX_LIFETIME_MS,
+    }
     signature = hmac.new(key, canonical_bytes(values), hashlib.sha256).hexdigest()
-    return WorkspaceArtifactAuthorization(**values, signature_sha256=signature)
+    return WorkspaceArtifactAuthorization.model_validate({**values, "signature_sha256": signature})
 
 
 def verify_artifact_request(key, proof, action, digest, *, now_ms=None):
@@ -317,7 +317,8 @@ class WorkspaceArtifactView(Contract):
         if (self.evidence is None) != (self.verification_reference is None):
             raise ValueError("Artifact evidence and verification identity must agree")
         if self.evidence is not None and (
-            self.evidence.scope != self.scope
+            self.verification_reference is None
+            or self.evidence.scope != self.scope
             or self.verification_reference.authority != "forge"
             or self.verification_reference.kind != "workspace_artifact_evidence"
             or self.verification_reference.record_id != self.evidence.operation_id

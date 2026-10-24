@@ -37,8 +37,9 @@ class CodeExecutorSource(Model):
 class CodeValidation(Model):
     """Accepted code baseline and registered verifier; never an execution verdict.
 
-    See notes/specifications/tanha/current/systems/platform/orchestra_port_authority.md.
+    See the public Swarms contract in contracts/swarms-v1.json.
     Real measurements and the host grade remain independently owned.
+    The executor reference is the registered git:<commit>:<path> source pin.
     """
 
     executor_source: CodeExecutorSource
