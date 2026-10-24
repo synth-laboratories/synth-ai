@@ -60,6 +60,20 @@
           "native-swarms"
         ]
       }
+    },
+    "0.23.8": {
+      "deferrable": [],
+      "owner_waivers": {
+        "directive": "SYN-4973 owner decision2026-10-23 15:00Z: E2E stays owner-waived while shipping current dev; newer2026-10-24 owner ruling specifically REQUIRES code-capable Swarms template+SDK and real CardCode proof, so native-swarms is not waived.",
+        "approved_by": "release owner, standing v0.23.2 promotion directive; code requirement recorded in current conversation",
+        "approved_at": "2026-10-23",
+        "ticket": "SYN-4973",
+        "checks": [
+          "native-index-fast",
+          "native-index-deep",
+          "native-monitor"
+        ]
+      }
     }
   }
 }

@@ -29,7 +29,7 @@ from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
 from .types.objectives import Guidance
-from .types.projects import ProjectCreateRequest, ProjectTemplate
+from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
 from .types.runs import LaunchPreflight, RunSnapshot
 
@@ -125,10 +125,13 @@ class Projects:
         *,
         objective: str,
         template: ProjectTemplate = ProjectTemplate.REPORT_NATIVE,
+        code_validation: CodeValidation | None = None,
         mutation: MutationOptions | None = None,
     ) -> Project:
         """Create a launchable project from a server-authored template; replay with the same key."""
-        body = ProjectCreateRequest(name=name, template=template, objective=objective)
+        body = ProjectCreateRequest(
+            name=name, template=template, objective=objective, code_validation=code_validation
+        )
         return self._transport.request(
             operations.CREATE_PROJECT,
             Project,
@@ -314,10 +317,13 @@ class AsyncProjects:
         *,
         objective: str,
         template: ProjectTemplate = ProjectTemplate.REPORT_NATIVE,
+        code_validation: CodeValidation | None = None,
         mutation: MutationOptions | None = None,
     ) -> Project:
         """Create a launchable project from a server-authored template; replay with the same key."""
-        body = ProjectCreateRequest(name=name, template=template, objective=objective)
+        body = ProjectCreateRequest(
+            name=name, template=template, objective=objective, code_validation=code_validation
+        )
         return await self._transport.request(
             operations.CREATE_PROJECT,
             Project,

@@ -325,6 +325,7 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
         args.name,
         objective=args.objective,
         template=args.template,
+        code_validation=args.code_validation,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
 
