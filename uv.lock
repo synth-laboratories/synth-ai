@@ -1133,7 +1133,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.23.7"
+version = "0.23.8"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
