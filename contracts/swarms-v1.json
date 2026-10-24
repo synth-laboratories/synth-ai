@@ -2357,6 +2357,27 @@
           "title": "PoolSelection",
           "type": "object"
         },
+        "ProjectSelection": {
+          "additionalProperties": false,
+          "description": "Independent Forge project scope; see forge-research-program-plugin.v1.md.",
+          "properties": {
+            "project_ids": {
+              "items": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "title": "Project Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_ids"
+          ],
+          "title": "ProjectSelection",
+          "type": "object"
+        },
         "Providers": {
           "additionalProperties": false,
           "properties": {
@@ -2451,7 +2472,8 @@
               "enum": [
                 "openrouter.inference",
                 "index.search",
-                "rhodes.pool"
+                "rhodes.pool",
+                "forge.research"
               ],
               "title": "Plugin",
               "type": "string"
@@ -2510,10 +2532,14 @@
                   "$ref": "#/$defs/PoolSelection"
                 },
                 {
+                  "$ref": "#/$defs/ProjectSelection"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "default": null
+              "default": null,
+              "title": "Selection"
             },
             "version": {
               "default": 1,
@@ -2653,7 +2679,7 @@
           "items": {
             "$ref": "#/$defs/ResourceRequest"
           },
-          "maxItems": 3,
+          "maxItems": 4,
           "title": "Resources",
           "type": "array"
         }
@@ -6920,10 +6946,105 @@
     },
     "ProjectCreateRequest": {
       "$defs": {
+        "CodeExecutorSource": {
+          "additionalProperties": false,
+          "description": "Source identity checked by the registered verifier authority.",
+          "properties": {
+            "reference": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Reference",
+              "type": "string"
+            },
+            "sha256": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "sha256"
+          ],
+          "title": "CodeExecutorSource",
+          "type": "object"
+        },
+        "CodeValidation": {
+          "additionalProperties": false,
+          "description": "Accepted code baseline and registered verifier; never an execution verdict.\n\nSee the public Swarms contract in contracts/swarms-v1.json.\nReal measurements and the host grade remain independently owned.\nThe executor reference is the registered git:<commit>:<path> source pin.",
+          "properties": {
+            "allowed_files": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "title": "Allowed Files",
+              "type": "array"
+            },
+            "baseline_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Baseline Digest",
+              "type": "string"
+            },
+            "baseline_file_sha256": {
+              "additionalProperties": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "maxProperties": 100,
+              "minProperties": 1,
+              "propertyNames": {
+                "maxLength": 1024,
+                "minLength": 1
+              },
+              "title": "Baseline File Sha256",
+              "type": "object"
+            },
+            "executor_source": {
+              "$ref": "#/$defs/CodeExecutorSource"
+            },
+            "image_release_id": {
+              "pattern": "^imgrel_[0-9a-f]{64}$",
+              "title": "Image Release Id",
+              "type": "string"
+            },
+            "native_image_id": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Native Image Id",
+              "type": "string"
+            },
+            "required_artifacts": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "title": "Required Artifacts",
+              "type": "array"
+            }
+          },
+          "required": [
+            "executor_source",
+            "image_release_id",
+            "native_image_id",
+            "baseline_digest",
+            "allowed_files",
+            "baseline_file_sha256",
+            "required_artifacts"
+          ],
+          "title": "CodeValidation",
+          "type": "object"
+        },
         "ProjectTemplate": {
           "description": "Closed set of server-authored project templates.",
           "enum": [
-            "report_native"
+            "report_native",
+            "code_native"
           ],
           "title": "ProjectTemplate",
           "type": "string"
@@ -6931,6 +7052,17 @@
       },
       "additionalProperties": false,
       "properties": {
+        "code_validation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeValidation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "name": {
           "maxLength": 256,
           "minLength": 1,

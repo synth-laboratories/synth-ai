@@ -10,7 +10,7 @@ from synth_ai.contracts import swarms as operations
 from synth_ai.mcp import catalog
 from synth_ai.mcp.contracts import ProjectCreate
 from synth_ai.sdk.swarms.client import AsyncProjects, Projects
-from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest, ProjectTemplate
+from synth_ai.sdk.swarms.types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 
 pytestmark = pytest.mark.unit
 
@@ -60,3 +60,112 @@ def test_shipped_contracts_include_the_operation_and_tool():
     assert "ProjectCreateRequest" in swarms["models"]
     mcp = json.loads((CONTRACTS / "mcp-v1.json").read_text())
     assert "swarms_project_create" in {tool["name"] for tool in mcp["tools"]}
+
+
+def code_validation():
+    return CodeValidation.model_validate_json(
+        json.dumps(
+            {
+                "executor_source": {
+                    "reference": "git:" + "a" * 40 + ":src/cardcodebench/op_public_executor.py",
+                    "sha256": "sha256:" + "b" * 64,
+                },
+                "image_release_id": "imgrel_" + "c" * 64,
+                "native_image_id": "sha256:" + "d" * 64,
+                "baseline_digest": "sha256:" + "e" * 64,
+                "allowed_files": ["src/cards.rs"],
+                "baseline_file_sha256": {"src/cards.rs": "f" * 64},
+                "required_artifacts": ["tasks/cg-087-potion/submission/src/cards.rs"],
+            }
+        )
+    )
+
+
+class ProjectTransport:
+    def __init__(self):
+        self.calls = []
+
+    def request(self, operation, response, **kwargs):
+        from types import SimpleNamespace
+
+        self.calls.append((operation, kwargs))
+        result = SimpleNamespace(name=kwargs["body"].name, launch_enabled=True)
+        return kwargs["validate"](result)
+
+
+def test_code_project_sync_forwards_closed_contract_and_idempotency():
+    from synth_ai.options import MutationOptions
+
+    transport = ProjectTransport()
+    validation = code_validation()
+    options = MutationOptions(idempotency_key="code-once")
+    Projects(transport).create(
+        "code",
+        objective="implement",
+        template=ProjectTemplate.CODE_NATIVE,
+        code_validation=validation,
+        mutation=options,
+    )
+    operation, kwargs = transport.calls[0]
+    assert operation is operations.CREATE_PROJECT
+    assert kwargs["options"] is options
+    body = json.loads(kwargs["body"].model_dump_json())
+    assert body["template"] == "code_native"
+    assert body["code_validation"] == json.loads(validation.model_dump_json())
+    assert "passed" not in body["code_validation"]
+
+
+@pytest.mark.asyncio
+async def test_code_project_async_and_mcp_forward_the_same_contract():
+    from types import SimpleNamespace
+
+    from synth_ai.options import MutationOptions
+
+    captured = []
+    transport = ProjectTransport()
+
+    async def send(*args, **kwargs):
+        return transport.request(*args, **kwargs)
+
+    client = AsyncProjects(SimpleNamespace(request=send))
+    validation = code_validation()
+    await client.create(
+        "code",
+        objective="implement",
+        template=ProjectTemplate.CODE_NATIVE,
+        code_validation=validation,
+        mutation=MutationOptions(idempotency_key="code-once"),
+    )
+    assert transport.calls[0][1]["body"].code_validation == validation
+
+    async def create(name, **kwargs):
+        captured.append((name, kwargs))
+        return "project"
+
+    args = ProjectCreate(
+        name="code",
+        objective="implement",
+        template=ProjectTemplate.CODE_NATIVE,
+        code_validation=validation,
+        idempotency_key="code-once",
+    )
+    result = await catalog.create_project(
+        SimpleNamespace(swarms=SimpleNamespace(projects=SimpleNamespace(create=create))), args
+    )
+    assert result == "project"
+    assert captured[0][1]["code_validation"] == validation
+    assert captured[0][1]["mutation"].idempotency_key == "code-once"
+
+
+def test_code_template_requires_validation_and_report_rejects_it():
+    with pytest.raises(ValidationError, match="code_native_requires_code_validation_only"):
+        ProjectCreateRequest(
+            name="code", objective="implement", template=ProjectTemplate.CODE_NATIVE
+        )
+    with pytest.raises(ValidationError, match="code_native_requires_code_validation_only"):
+        ProjectCreateRequest(
+            name="report",
+            objective="report",
+            template=ProjectTemplate.REPORT_NATIVE,
+            code_validation=code_validation(),
+        )
