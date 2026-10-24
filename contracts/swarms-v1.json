@@ -6971,7 +6971,7 @@
         },
         "CodeValidation": {
           "additionalProperties": false,
-          "description": "Accepted code baseline and registered verifier; never an execution verdict.\n\nSee notes/specifications/tanha/current/systems/platform/orchestra_port_authority.md.\nReal measurements and the host grade remain independently owned.",
+          "description": "Accepted code baseline and registered verifier; never an execution verdict.\n\nSee the public Swarms contract in contracts/swarms-v1.json.\nReal measurements and the host grade remain independently owned.\nThe executor reference is the registered git:<commit>:<path> source pin.",
           "properties": {
             "allowed_files": {
               "items": {

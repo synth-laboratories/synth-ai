@@ -7,7 +7,7 @@ These contracts deliberately carry logical identities only. Storage provider
 locators and credentials are server-side implementation details and are never
 valid contract fields.
 
-See: notes/specifications/tanha/current/systems/platform/artifact_platform.md
+See: contracts/core-v1.json
 """
 
 from __future__ import annotations
@@ -206,9 +206,8 @@ class ArtifactResourceScope(ArtifactContract):
             raise ValueError("org tenant requires org_id")
         if self.tenant_kind == ArtifactTenantKind.PLATFORM and self.org_id is not None:
             raise ValueError("platform tenant forbids org_id")
-        if self.visibility == ArtifactVisibility.ORG:
-            if self.tenant_kind != ArtifactTenantKind.ORG:
-                raise ValueError("org visibility requires an org tenant")
+        if self.visibility == ArtifactVisibility.ORG and self.tenant_kind != ArtifactTenantKind.ORG:
+            raise ValueError("org visibility requires an org tenant")
         return self
 
 
