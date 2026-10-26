@@ -1,4 +1,4 @@
-"""Run create retries a definite launch_admission_busy under fresh keys (SYN-4883)."""
+"""Run create retries a definite launch_admission_busy or owner_unavailable under fresh keys (SYN-4883, SYN-5091)."""
 
 from __future__ import annotations
 
@@ -27,6 +27,20 @@ def busy(request_id: str, retry_after: float | None = 1.0) -> RefusedError:
         retry_after_seconds=retry_after,
         retryable=False,
         cause="admission_lock_wait_exhausted:8000",
+    )
+    error.client_request_id = request_id
+    return error
+
+
+def owner_unavailable(request_id: str, retry_after: float | None = 1.0) -> RefusedError:
+    """The backend's pre-acceptance owner readiness refusal (SYN-5091)."""
+    error = RefusedError(
+        "create refused: owner_unavailable",
+        code="owner_unavailable",
+        status=503,
+        retry_after_seconds=retry_after,
+        retryable=False,
+        cause="port_readiness_owner_unavailable:blob_store=blob_write_unconfirmed:owner=agents",
     )
     error.client_request_id = request_id
     return error
@@ -63,6 +77,28 @@ def test_busy_then_success_retries_with_a_fresh_key_and_honors_retry_after() -> 
     assert retry.request_id is None
 
 
+def test_owner_unavailable_is_retried_under_a_fresh_key() -> None:
+    """A transient owner readiness refusal (outcome=not_accepted) is resubmitted."""
+    transport = FakeTransport(owner_unavailable("r1", 1.0), "run-3")
+    sleeps: list[float] = []
+    pinned = MutationOptions(idempotency_key="caller-key", request_id="r1")
+    assert create_with_retry(transport.send, pinned, sleep=sleeps.append) == "run-3"
+    assert sleeps == [1.0]
+    retry = transport.sent[1]
+    assert retry is not None
+    assert retry.idempotency_key is None and retry.identity is None and retry.request_id is None
+
+
+def test_owner_unavailable_exhaustion_keeps_its_code_and_cause() -> None:
+    transport = FakeTransport(*(owner_unavailable(f"o-{i}") for i in range(CREATE_RETRY_ATTEMPTS)))
+    with pytest.raises(LaunchRetryExhausted) as caught:
+        create_with_retry(transport.send, None, sleep=lambda _s: None)
+    assert len(transport.sent) == CREATE_RETRY_ATTEMPTS
+    assert caught.value.code == "owner_unavailable"
+    assert caught.value.cause.startswith("port_readiness_owner_unavailable:")
+    assert caught.value.request_ids == tuple(f"o-{i}" for i in range(CREATE_RETRY_ATTEMPTS))
+
+
 def test_retry_after_defaults_and_caps() -> None:
     transport = FakeTransport(busy("a", None), busy("b", 60.0), "ok")
     sleeps: list[float] = []
@@ -88,7 +124,9 @@ def test_exhaustion_is_typed_and_carries_every_request_id() -> None:
     "error",
     [
         RefusedError("x", code="invalid_objective", status=422, retryable=False),
+        RefusedError("x", code="launch_preparation_refused", status=503, retryable=False),
         ConflictError("x", code="launch_admission_busy", status=409),
+        ConflictError("x", code="owner_unavailable", status=409),
         OutcomeUncertainError("uncertain", status=503),
     ],
 )

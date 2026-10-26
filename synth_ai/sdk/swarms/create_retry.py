@@ -3,7 +3,10 @@
 The backend refuses a launch that lost the per-org admission lock with 503
 ``launch_admission_busy`` and ``outcome=not_accepted``: nothing was admitted, so
 resubmitting is safe, but only under a FRESH idempotency key (the refused key's
-intent is recorded as not accepted). Only a ``RefusedError`` whose code is in
+intent is recorded as not accepted). The same holds for 503 ``owner_unavailable``
+(SYN-5091): one owner readiness probe (agents, orchestra or sublinear) failed
+before acceptance, the backend recorded ``not_accepted`` and answered with a
+bounded ``Retry-After``. Only a ``RefusedError`` whose code is in
 ``RETRY_SAFE_REFUSAL_CODES`` is retried; every other refusal and every uncertain
 outcome surfaces unchanged.
 """
@@ -22,7 +25,7 @@ from synth_ai.options import MutationOptions
 CREATE_RETRY_ATTEMPTS = 4
 DEFAULT_RETRY_AFTER_SECONDS = 1.0
 MAX_RETRY_AFTER_SECONDS = 8.0
-RETRY_SAFE_REFUSAL_CODES = frozenset({"launch_admission_busy"})
+RETRY_SAFE_REFUSAL_CODES = frozenset({"launch_admission_busy", "owner_unavailable"})
 
 T = TypeVar("T")
 

@@ -74,6 +74,20 @@
           "native-monitor"
         ]
       }
+    },
+    "0.23.9": {
+      "deferrable": [],
+      "owner_waivers": {
+        "directive": "SYN-4973 owner decision 2026-10-23 15:00Z: E2E stays owner-waived while shipping current dev; the 2026-10-24 owner ruling REQUIRES code-capable Swarms template+SDK and real CardCode proof, so native-swarms is not waived. 0.23.9 is the 0.23.8 wheel plus the SYN-5091 create retry (owner_unavailable); contracts unchanged.",
+        "approved_by": "release owner, standing v0.23.2 promotion directive; code requirement recorded in current conversation",
+        "approved_at": "2026-10-26",
+        "ticket": "SYN-4973",
+        "checks": [
+          "native-index-fast",
+          "native-index-deep",
+          "native-monitor"
+        ]
+      }
     }
   }
 }
