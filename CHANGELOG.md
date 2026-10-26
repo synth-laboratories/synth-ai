@@ -1,3 +1,8 @@
+## 0.23.9
+
+- Swarms run create retries the backend's pre-acceptance `owner_unavailable` refusal (503, `outcome=not_accepted`, bounded `Retry-After`) under a fresh idempotency key, the same way as `launch_admission_busy`; a transient owner readiness probe failure no longer fails the create (SYN-5091).
+- Contracts (core.v1, index.v1, swarms.v1) are unchanged from 0.23.8.
+
 ## 0.23.8
 
 Swarms adds the `code_native` project template with typed `CodeValidation` in synchronous and asynchronous project creation. Code projects use the existing workspace-write worker, governed push, registered verifier, host-grade, and task/run review authorities. Report projects keep their default template.
