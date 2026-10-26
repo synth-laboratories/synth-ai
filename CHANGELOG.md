@@ -4,6 +4,11 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 # Changelog
 
+## 0.23.9
+
+- Swarms run create retries the backend's pre-acceptance `owner_unavailable` refusal (503, `outcome=not_accepted`, bounded `Retry-After`) under a fresh idempotency key, the same way as `launch_admission_busy`; a transient owner readiness probe failure no longer fails the create (SYN-5091).
+- Contracts (core.v1, index.v1, swarms.v1) are unchanged from 0.23.8.
+
 ## 0.23.7
 
 - Swarms launches can grant `rhodes.pool`: a top-level `selection.pool_ids` (1-8 distinct ids), the `rollouts` limit, and up to three resource grants per launch.
