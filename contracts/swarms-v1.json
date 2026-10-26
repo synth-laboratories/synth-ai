@@ -5525,7 +5525,8 @@
                 "tokens_out",
                 "calls",
                 "index_searches",
-                "wall_ms"
+                "wall_ms",
+                "rollouts"
               ],
               "title": "Dimension",
               "type": "string"
@@ -8911,7 +8912,8 @@
                 "tokens_out",
                 "calls",
                 "index_searches",
-                "wall_ms"
+                "wall_ms",
+                "rollouts"
               ],
               "title": "Dimension",
               "type": "string"
@@ -9919,7 +9921,8 @@
                 "tokens_out",
                 "calls",
                 "index_searches",
-                "wall_ms"
+                "wall_ms",
+                "rollouts"
               ],
               "title": "Dimension",
               "type": "string"
