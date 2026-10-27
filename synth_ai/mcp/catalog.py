@@ -332,23 +332,33 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
 
 async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflight:
     return await client.swarms.preflight(
-        args.objective,
+        args.legacy_objective,
+        message=args.message,
+        guidance=args.guidance,
+        resources=args.resources,
         project_id=args.project_id,
         limits=args.limits,
         inputs=args.inputs,
+        labels=args.labels,
         providers=args.providers,
         models=args.models,
+        repo=args.repo,
     )
 
 
 async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
     run = await client.swarms.create(
-        args.objective,
+        args.legacy_objective,
+        message=args.message,
+        guidance=args.guidance,
+        resources=args.resources,
         project_id=args.project_id,
         limits=args.limits,
         inputs=args.inputs,
+        labels=args.labels,
         providers=args.providers,
         models=args.models,
+        repo=args.repo,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
     return RunCreated(run_id=run.run_id)
