@@ -5,7 +5,7 @@
 
 from synth_ai.types.base import ResponseModel
 
-from .contracts.projects import ProjectReceipt, ProjectState
+from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
 from .contracts.operations import Receipt
 from .contracts.operations_v2 import ScientificRevision
 from .contracts.workspace_artifacts import WorkspaceArtifactView
@@ -13,6 +13,10 @@ from .contracts.workspace_artifacts import WorkspaceArtifactView
 
 class ProjectResponse(ResponseModel):
     project: ProjectState
+
+
+class ProjectListResponse(ResponseModel):
+    page: ProjectPage
 
 
 class ProjectMutationResponse(ResponseModel):
