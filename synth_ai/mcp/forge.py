@@ -20,6 +20,11 @@ class ForgeProjectIdentity(Model):
     project_id: ProjectId
 
 
+class ForgeProjectPage(Model):
+    after: ProjectId | None = None
+    limit: Annotated[int, Field(strict=True, ge=1, le=100)] = 50
+
+
 class ForgeProjectCreate(Model):
     project_id: ProjectId | None = None
     title: Annotated[str, Field(min_length=1, max_length=8000)]
@@ -109,6 +114,10 @@ async def record_write(client, args):
 
 async def receipt_get(client, args):
     return await client.forge.receipts.get(args.project_id, args.operation_id)
+
+
+async def list_projects(client, args):
+    return await client.forge.projects.list(after=args.after, limit=args.limit)
 
 
 async def get(client, args):

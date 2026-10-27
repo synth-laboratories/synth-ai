@@ -25,6 +25,7 @@ from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftUploadResponse,
 )
 from synth_ai.sdk.forge.types import (
+    ProjectListResponse,
     ProjectMutationResponse,
     ProjectResponse,
     ScientificArtifactEvidenceResponse,
@@ -331,23 +332,33 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
 
 async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflight:
     return await client.swarms.preflight(
-        args.objective,
+        args.legacy_objective,
+        message=args.message,
         project_id=args.project_id,
         limits=args.limits,
         inputs=args.inputs,
         providers=args.providers,
         models=args.models,
+        labels=args.labels,
+        repo=args.repo,
+        guidance=args.guidance,
+        resources=args.resources,
     )
 
 
 async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
     run = await client.swarms.create(
-        args.objective,
+        args.legacy_objective,
+        message=args.message,
         project_id=args.project_id,
         limits=args.limits,
         inputs=args.inputs,
         providers=args.providers,
         models=args.models,
+        labels=args.labels,
+        repo=args.repo,
+        guidance=args.guidance,
+        resources=args.resources,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
     return RunCreated(run_id=run.run_id)
@@ -569,6 +580,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.ForgeReceiptRead,
         ScientificReceiptResponse,
         forge_tools.receipt_get,
+    ),
+    ToolDefinition(
+        "forge_project_list",
+        forge_operations.PROJECT_LIST,
+        "List accessible research workspaces in bounded pages.",
+        forge_tools.ForgeProjectPage,
+        ProjectListResponse,
+        forge_tools.list_projects,
     ),
     ToolDefinition(
         "forge_project_get",
