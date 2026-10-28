@@ -3641,6 +3641,459 @@
       "title": "Output",
       "type": "object"
     },
+    "OutputPage": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "Output": {
+          "additionalProperties": true,
+          "properties": {
+            "filename": {
+              "anyOf": [
+                {
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Filename"
+            },
+            "metadata": {
+              "$ref": "#/$defs/ResponseMetadata"
+            },
+            "output_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Output Id",
+              "type": "string"
+            },
+            "reference": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/OutputRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "run_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Run Id",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "pending",
+                "available",
+                "withheld",
+                "expired",
+                "deleted"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "metadata",
+            "run_id",
+            "output_id",
+            "state",
+            "reference"
+          ],
+          "title": "Output",
+          "type": "object"
+        },
+        "OutputRef": {
+          "additionalProperties": true,
+          "properties": {
+            "byte_size": {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "Byte Size",
+              "type": "integer"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "media_type": {
+              "maxLength": 255,
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$",
+              "title": "Media Type",
+              "type": "string"
+            },
+            "output_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Output Id",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Revision Id",
+              "type": "string"
+            },
+            "run_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "run_id",
+            "output_id",
+            "revision_id",
+            "digest_sha256",
+            "byte_size",
+            "media_type"
+          ],
+          "title": "OutputRef",
+          "type": "object"
+        },
+        "OutputVerification": {
+          "additionalProperties": true,
+          "description": "Public execution verification of one pushed code output (SYN-4548).\n\n``pending`` always names a ``reason``; ``failed`` always carries an\n``error``; ``passed`` carries neither.",
+          "properties": {
+            "attempts": {
+              "minimum": 0,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/OutputVerificationError"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Message"
+            },
+            "operation_id": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "passed",
+                "failed"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation_id",
+            "status",
+            "attempts"
+          ],
+          "title": "OutputVerification",
+          "type": "object"
+        },
+        "OutputVerificationError": {
+          "additionalProperties": true,
+          "description": "Why a code output's public execution verification failed; never retryable.",
+          "properties": {
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "detail": {
+              "default": "",
+              "maxLength": 2000,
+              "title": "Detail",
+              "type": "string"
+            },
+            "message": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Message",
+              "type": "string"
+            },
+            "refusal_code": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Refusal Code"
+            },
+            "retryable": {
+              "const": false,
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "OutputVerificationError",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "description": "Run outputs plus the public execution verification of pushed code.\n\n``verifications`` is additive: it lists every code-publication verification\nof the run on the first page (``cursor`` absent) and is empty on later\npages; older consumers ignore it.",
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Output"
+          },
+          "maxItems": 1000,
+          "title": "Items",
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Cursor"
+        },
+        "verifications": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OutputVerification"
+          },
+          "maxItems": 1000,
+          "title": "Verifications",
+          "type": "array"
+        }
+      },
+      "required": [
+        "metadata",
+        "items",
+        "next_cursor",
+        "complete"
+      ],
+      "title": "OutputPage",
+      "type": "object"
+    },
     "OutputRef": {
       "additionalProperties": false,
       "properties": {
@@ -3693,6 +4146,178 @@
         "media_type"
       ],
       "title": "OutputRef",
+      "type": "object"
+    },
+    "OutputVerification": {
+      "$defs": {
+        "OutputVerificationError": {
+          "additionalProperties": true,
+          "description": "Why a code output's public execution verification failed; never retryable.",
+          "properties": {
+            "code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            },
+            "detail": {
+              "default": "",
+              "maxLength": 2000,
+              "title": "Detail",
+              "type": "string"
+            },
+            "message": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Message",
+              "type": "string"
+            },
+            "refusal_code": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Refusal Code"
+            },
+            "retryable": {
+              "const": false,
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "OutputVerificationError",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "description": "Public execution verification of one pushed code output (SYN-4548).\n\n``pending`` always names a ``reason``; ``failed`` always carries an\n``error``; ``passed`` carries neither.",
+      "properties": {
+        "attempts": {
+          "minimum": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutputVerificationError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "operation_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "passed",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "status",
+        "attempts"
+      ],
+      "title": "OutputVerification",
+      "type": "object"
+    },
+    "OutputVerificationError": {
+      "additionalProperties": true,
+      "description": "Why a code output's public execution verification failed; never retryable.",
+      "properties": {
+        "code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Detail",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "refusal_code": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refusal Code"
+        },
+        "retryable": {
+          "const": false,
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "OutputVerificationError",
       "type": "object"
     },
     "Page[File, NewType]": {

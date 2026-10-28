@@ -16,7 +16,16 @@ from .types.objectives import (
     ObjectiveResult,
     ObjectiveVerdict,
 )
-from .types.outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
+from .types.outputs import (
+    DownloadReceipt,
+    Output,
+    OutputPage,
+    OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    TextContent,
+    TransferTiming,
+)
 from .types.problems import EvidenceRef, Problem, ReasonLink
 from .types.resources import ResourceGrant, ResourceGrantSet, ResourceRequest, ResourceUsage
 from .types.runs import (
@@ -48,6 +57,9 @@ __all__ = [
     "FileUploadStatus",
     "DownloadReceipt",
     "Output",
+    "OutputPage",
+    "OutputVerification",
+    "OutputVerificationError",
     "OutputRef",
     "TextContent",
     "TransferTiming",

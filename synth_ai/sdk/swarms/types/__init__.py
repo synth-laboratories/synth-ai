@@ -21,7 +21,16 @@ from .launch import (
     ResolvedProviders,
 )
 from .objectives import ObjectiveClaim
-from .outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
+from .outputs import (
+    DownloadReceipt,
+    Output,
+    OutputPage,
+    OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    TextContent,
+    TransferTiming,
+)
 from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
 from .runs import (
     LaunchPreflight,
@@ -60,6 +69,9 @@ __all__ = [
     "ResolvedProviders",
     "DownloadReceipt",
     "Output",
+    "OutputPage",
+    "OutputVerification",
+    "OutputVerificationError",
     "OutputRef",
     "TextContent",
     "TransferTiming",
