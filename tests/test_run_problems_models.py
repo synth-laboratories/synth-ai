@@ -96,7 +96,8 @@ def test_a_response_from_an_older_server_still_validates() -> None:
     [
         lambda p: p["reason_chain"][0].update(cause=None),
         lambda p: p.update(reason_chain=[]),
-        lambda p: p.update(origin="somewhere"),
+        lambda p: p.update(origin="not an origin!"),
+        lambda p: p["reason_chain"][0].update(service=""),
     ],
 )
 def test_malformed_known_problem_values_are_refused(mutate) -> None:
@@ -136,3 +137,20 @@ def test_raise_for_failure_names_the_root_cause_not_just_a_code() -> None:
         result.raise_for_failure()
     assert error.value.code == "provider_refused_prompt"
     assert "provider:openai/invalid_prompt" in str(error.value)
+
+
+def test_docker_origin_is_known_and_a_future_origin_is_typed_unknown() -> None:
+    from synth_ai.sdk.swarms import UnknownOrigin
+
+    docker = customer_problem("docker-sandbox-unreachable")
+    status = wire(RunSnapshot, snapshot_payload(problems=[docker]))
+    assert status.problems[0].origin == "docker"
+    assert not isinstance(status.problems[0].origin, UnknownOrigin)
+    assert status.problems[0].reason_chain[0].service == "docker"
+    future = customer_problem("docker-sandbox-unreachable")
+    future["origin"] = "somewhere"
+    future["reason_chain"][0]["service"] = "somewhere"
+    status = wire(RunSnapshot, snapshot_payload(problems=[future]))
+    assert isinstance(status.problems[0].origin, UnknownOrigin)
+    assert status.problems[0].origin == "somewhere"
+    assert isinstance(status.problems[0].reason_chain[0].service, UnknownOrigin)
