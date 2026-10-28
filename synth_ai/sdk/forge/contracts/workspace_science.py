@@ -28,7 +28,7 @@ from .records import (
     Snapshot,
     Trial,
 )
-from .resources import ResourceBinding, WorkspaceBinding
+from .resources import ExecutionLink, ResourceBinding, WorkspaceBinding
 
 WorkspaceRecord = Annotated[
     Hypothesis
@@ -44,7 +44,8 @@ WorkspaceRecord = Annotated[
     | ScientificExport
     | SourceNotice
     | ResourceBinding
-    | WorkspaceBinding,
+    | WorkspaceBinding
+    | ExecutionLink,
     Field(discriminator="kind"),
 ]
 

@@ -25,7 +25,7 @@ from .records import (
     Snapshot,
     Trial,
 )
-from .resources import ResourceBinding, WorkspaceBinding
+from .resources import ExecutionLink, ResourceBinding, WorkspaceBinding
 
 Seed = Annotated[int, Field(strict=True, ge=0, le=2**63 - 1)]
 
@@ -240,6 +240,7 @@ RecordV2 = Annotated[
     | ScientificExport
     | SourceNotice
     | ResourceBinding
-    | WorkspaceBinding,
+    | WorkspaceBinding
+    | ExecutionLink,
     Field(discriminator="kind"),
 ]
