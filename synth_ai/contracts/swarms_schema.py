@@ -27,7 +27,15 @@ from synth_ai.sdk.swarms.types.objectives import (
     ObjectiveResult,
     ObjectiveVerdict,
 )
-from synth_ai.sdk.swarms.types.outputs import Output, OutputRef, TextContent, TransferTiming
+from synth_ai.sdk.swarms.types.outputs import (
+    Output,
+    OutputPage,
+    OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    TextContent,
+    TransferTiming,
+)
 from synth_ai.sdk.swarms.types.programs import ProgramRunView
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import (
@@ -62,6 +70,9 @@ MODELS: tuple[type[BaseModel], ...] = (
     FileUploadStatus,
     Output,
     OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    OutputPage,
     TextContent,
     TransferTiming,
     Page[File],

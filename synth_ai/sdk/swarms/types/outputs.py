@@ -16,6 +16,7 @@ from synth_ai.types.base import (
     Digest,
     Identifier,
     Model,
+    Page,
     ResponseBase,
     ResponseIdentifier,
     ResponseModel,
@@ -55,6 +56,53 @@ class Output(ResponseModel):
         if self.filename is not None and any(char in self.filename for char in "/\\\x00\r\n"):
             raise ValueError("filename must be a label, not a filesystem path")
         return self
+
+
+VerificationCode = Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class OutputVerificationError(ResponseBase):
+    """Why a code output's public execution verification failed; never retryable."""
+
+    code: VerificationCode
+    refusal_code: VerificationCode | None = None
+    message: str = Field(min_length=1, max_length=512)
+    detail: str = Field(default="", max_length=2000)
+    retryable: Literal[False] = False
+
+
+class OutputVerification(ResponseBase):
+    """Public execution verification of one pushed code output (SYN-4548).
+
+    ``pending`` always names a ``reason``; ``failed`` always carries an
+    ``error``; ``passed`` carries neither.
+    """
+
+    operation_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["pending", "passed", "failed"]
+    reason: VerificationCode | None = None
+    message: str | None = Field(default=None, max_length=512)
+    error: OutputVerificationError | None = None
+    attempts: StrictInt = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_status(self) -> Self:
+        if (self.status == "pending") != (self.reason is not None):
+            raise ValueError("pending verification requires exactly one reason")
+        if (self.status == "failed") != (self.error is not None):
+            raise ValueError("failed verification requires exactly one error")
+        return self
+
+
+class OutputPage(Page[Output]):
+    """Run outputs plus the public execution verification of pushed code.
+
+    ``verifications`` is additive: it lists every code-publication verification
+    of the run on the first page (``cursor`` absent) and is empty on later
+    pages; older consumers ignore it.
+    """
+
+    verifications: tuple[OutputVerification, ...] = Field(default=(), max_length=1000)
 
 
 class TransferTiming(ResponseBase):
