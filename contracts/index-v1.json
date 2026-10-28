@@ -7978,6 +7978,19 @@
               "title": "Cleanup Complete",
               "type": "boolean"
             },
+            "created_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created At"
+            },
             "execution_closed": {
               "title": "Execution Closed",
               "type": "boolean"
@@ -13964,6 +13977,19 @@
         "cleanup_complete": {
           "title": "Cleanup Complete",
           "type": "boolean"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
         },
         "execution_closed": {
           "title": "Execution Closed",
