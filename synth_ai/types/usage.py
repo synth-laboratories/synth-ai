@@ -42,7 +42,14 @@ class UsageMetric(ResponseBase):
 class ResourceUsage(ResponseBase):
     plugin: str
     dimension: Literal[
-        "spend_micros", "tokens", "tokens_in", "tokens_out", "calls", "index_searches", "wall_ms"
+        "spend_micros",
+        "tokens",
+        "tokens_in",
+        "tokens_out",
+        "calls",
+        "index_searches",
+        "wall_ms",
+        "rollouts",
     ]
     usage_class: Literal["agent", "workload", "tool"]
     role: str

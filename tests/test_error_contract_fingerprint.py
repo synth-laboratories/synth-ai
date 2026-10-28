@@ -16,7 +16,9 @@ pytestmark = pytest.mark.contract
 # SYN-4888 makes response schemas tolerant while request construction stays strict.
 # SYN-4885 adds core response metadata and clone-token recovery resources.
 # The pin was refreshed to the recomputed export; bd9a6454... was stale.
-INDEX_V1_SCHEMA_SHA256 = "378b8af453314609672ef96bead88e6e0b2dc1be9da4b156c59c4e5b7bfb0119"
+# Existing dev rollout-usage DTOs have a different reviewed export. Curated
+# v0.23.8 promotion retains its deployed Index DTOs and corresponding pin.
+INDEX_V1_SCHEMA_SHA256 = "a2f0b3aef897506464e66e5c715a8fd6f26530ba73b1d41e4a204b69d8553d7e"
 
 
 def test_index_v1_fingerprint_matches_the_candidate_export():
