@@ -6,7 +6,7 @@
 from synth_ai.types.base import ResponseModel
 
 from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
-from .contracts.operations import Receipt
+from .contracts.operations import Event, Receipt
 from .contracts.operations_v2 import ScientificRevision
 from .contracts.workspace_artifacts import WorkspaceArtifactView
 
@@ -29,6 +29,10 @@ class ScientificRecordResponse(ResponseModel):
 
 class ScientificReceiptResponse(ResponseModel):
     receipt: Receipt
+
+
+class ScientificEventsResponse(ResponseModel):
+    events: tuple[Event, ...]
 
 
 class ScientificArtifactEvidenceResponse(ResponseModel):

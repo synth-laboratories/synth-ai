@@ -48,6 +48,14 @@ RECORD_WRITE = Operation(
     contract="core.v1",
     required_scope="forge:write",
 )
+SYNC_WRITE = Operation(
+    "forge.records.sync_write", "POST", "/forge/projects/{project_id}/sync-operations",
+    True, True, contract="core.v1", required_scope="forge:write",
+)
+EVENTS_LIST = Operation(
+    "forge.events.list", "GET", "/forge/projects/{project_id}/events",
+    True, contract="core.v1", required_scope="forge:read",
+)
 RECEIPT_GET = Operation(
     "forge.receipts.get",
     "GET",
@@ -112,7 +120,7 @@ INDEX_DRAFT_UPLOAD_GET = Operation(
 INDEX_DRAFT_UPLOAD_OPERATIONS = (INDEX_DRAFT_UPLOAD, INDEX_DRAFT_UPLOAD_GET)
 
 PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)
-SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, RECEIPT_GET, ARTIFACT_EVIDENCE_GET)
+SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, SYNC_WRITE, EVENTS_LIST, RECEIPT_GET, ARTIFACT_EVIDENCE_GET)
 ALL_OPERATIONS = (
     *PROJECT_OPERATIONS,
     *SCIENCE_OPERATIONS,
