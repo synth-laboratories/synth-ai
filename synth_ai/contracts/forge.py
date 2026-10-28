@@ -49,12 +49,21 @@ RECORD_WRITE = Operation(
     required_scope="forge:write",
 )
 SYNC_WRITE = Operation(
-    "forge.records.sync_write", "POST", "/forge/projects/{project_id}/sync-operations",
-    True, True, contract="core.v1", required_scope="forge:write",
+    "forge.records.sync_write",
+    "POST",
+    "/forge/projects/{project_id}/sync-operations",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
 )
 EVENTS_LIST = Operation(
-    "forge.events.list", "GET", "/forge/projects/{project_id}/events",
-    True, contract="core.v1", required_scope="forge:read",
+    "forge.events.list",
+    "GET",
+    "/forge/projects/{project_id}/events",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
 )
 RECEIPT_GET = Operation(
     "forge.receipts.get",
@@ -119,11 +128,41 @@ INDEX_DRAFT_UPLOAD_GET = Operation(
 )
 INDEX_DRAFT_UPLOAD_OPERATIONS = (INDEX_DRAFT_UPLOAD, INDEX_DRAFT_UPLOAD_GET)
 
+# SYN-5157: report publication as the caller. Both need the caller's own API
+# key as Forge's acting credential; other credential kinds are refused.
+REPORT_VERSION_PUBLISH = Operation(
+    "forge.report_versions.publish",
+    "POST",
+    "/forge/projects/{project_id}/report-versions",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+REPORT_SHARES_REVOKE_INACTIVE = Operation(
+    "forge.report_shares.revoke_inactive",
+    "POST",
+    "/forge/projects/{project_id}/report-shares/revoke-inactive",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+REPORT_OPERATIONS = (REPORT_VERSION_PUBLISH, REPORT_SHARES_REVOKE_INACTIVE)
+
 PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)
-SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, SYNC_WRITE, EVENTS_LIST, RECEIPT_GET, ARTIFACT_EVIDENCE_GET)
+SCIENCE_OPERATIONS = (
+    RECORD_GET,
+    RECORD_WRITE,
+    SYNC_WRITE,
+    EVENTS_LIST,
+    RECEIPT_GET,
+    ARTIFACT_EVIDENCE_GET,
+)
 ALL_OPERATIONS = (
     *PROJECT_OPERATIONS,
     *SCIENCE_OPERATIONS,
     *INDEX_DRAFT_OPERATIONS,
     *INDEX_DRAFT_UPLOAD_OPERATIONS,
+    *REPORT_OPERATIONS,
 )

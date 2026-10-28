@@ -6,6 +6,7 @@ from pydantic import Field
 
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
+from synth_ai.sdk.forge.contracts.report_manifests import ReportVersion
 from synth_ai.sdk.forge.contracts.scientific_v2 import RecordV2
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceRecord
 from synth_ai.sdk.forge.index_types import (
@@ -182,4 +183,30 @@ async def index_draft_upload(client, args):
 async def index_draft_upload_get(client, args):
     return await client.forge.index_drafts.upload_get(
         args.project_id, args.draft_operation_id, args.operation_id
+    )
+
+
+class ForgeReportPublish(ForgeProjectIdentity):
+    version: ReportVersion
+    idempotency_key: Identifier
+
+
+class ForgeReportRevokeInactive(ForgeProjectIdentity):
+    lineage_id: Identifier
+    idempotency_key: Identifier
+
+
+async def report_publish(client, args):
+    return await client.forge.reports.publish(
+        args.project_id,
+        args.version,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def report_revoke_inactive(client, args):
+    return await client.forge.reports.revoke_inactive(
+        args.project_id,
+        args.lineage_id,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )

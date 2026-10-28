@@ -3,11 +3,14 @@
 # ruff: noqa: I001
 """Public workspace envelopes; see docs/forge-projects.md and SYN-4844."""
 
-from synth_ai.types.base import ResponseModel
+from typing import Literal
 
-from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
+from synth_ai.types.base import ResponseModel
+from .contracts.contracts import Contract, Digest, Identifier, Scope
 from .contracts.operations import Event, Receipt
 from .contracts.operations_v2 import ScientificRevision
+from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
+from .contracts.report_manifests import ReportVersion
 from .contracts.workspace_artifacts import WorkspaceArtifactView
 
 
@@ -37,3 +40,62 @@ class ScientificEventsResponse(ResponseModel):
 
 class ScientificArtifactEvidenceResponse(ResponseModel):
     artifact_evidence: WorkspaceArtifactView
+
+
+class ReportPublishIntent(Contract):
+    """Publish one exact report version as the calling user (SYN-5157).
+
+    The producer is never caller supplied: B01 admission stamps it. The
+    caller's own API key reaches Forge only as the acting credential, so
+    evidence custody and share calls stay within that user's grants.
+    """
+
+    schema_version: Literal["forge.report-publish-intent.v1"] = (
+        "forge.report-publish-intent.v1"
+    )
+    operation_id: Identifier
+    version: ReportVersion
+
+
+class ReportShareRevokeIntent(Contract):
+    """Retry returning a lineage's inactive versions' shares to private."""
+
+    schema_version: Literal["forge.report-share-revoke-intent.v1"] = (
+        "forge.report-share-revoke-intent.v1"
+    )
+    operation_id: Identifier
+    lineage_id: Identifier
+
+
+class ShareRevocation(Contract):
+    version_sha256: Digest
+    version: int
+    status: Literal["revoked", "not_visible", "pending"]
+    refusal_code: str | None = None
+    retryable: bool | None = None
+
+
+class ShareRevocationReport(Contract):
+    schema_version: Literal["forge.report-share-revocation.v1"] = (
+        "forge.report-share-revocation.v1"
+    )
+    scope: Scope
+    lineage_id: str
+    head_sha256: Digest
+    revocations: tuple[ShareRevocation, ...]
+
+
+class ReportPublication(Contract):
+    schema_version: Literal["forge.report-publication.v1"] = (
+        "forge.report-publication.v1"
+    )
+    version_sha256: Digest
+    revocation: ShareRevocationReport | None = None
+
+
+class ReportPublicationResponse(ResponseModel):
+    publication: ReportPublication
+
+
+class ReportShareRevocationResponse(ResponseModel):
+    revocation: ShareRevocationReport
