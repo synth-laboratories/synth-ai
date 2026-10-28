@@ -35,6 +35,7 @@ from .types.runs import (
     RunSnapshot,
     RunState,
     SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
 )
@@ -234,11 +235,11 @@ class SwarmRun(RunIdentity):
 
     def event_page(
         self, *, limit: int, cursor: EventCursor | None = None, request: ReadOptions | None = None
-    ) -> Page[SwarmEvent, EventCursor]:
+    ) -> SwarmEventPage:
         """Read a bounded page; cursors never transfer authority."""
         return self._transport.request(
             operations.EVENTS,
-            Page[SwarmEvent, EventCursor],
+            SwarmEventPage,
             path=f"/swarms/runs/{self.run_id}/events",
             query=page_parameters(limit, cursor),
             options=request,
@@ -561,11 +562,11 @@ class AsyncSwarmRun(RunIdentity):
 
     async def event_page(
         self, *, limit: int, cursor: EventCursor | None = None, request: ReadOptions | None = None
-    ) -> Page[SwarmEvent, EventCursor]:
+    ) -> SwarmEventPage:
         """Read a bounded page; cursors never transfer authority."""
         return await self._transport.request(
             operations.EVENTS,
-            Page[SwarmEvent, EventCursor],
+            SwarmEventPage,
             path=f"/swarms/runs/{self.run_id}/events",
             query=page_parameters(limit, cursor),
             options=request,

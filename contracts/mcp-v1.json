@@ -31614,6 +31614,92 @@
       "operation": "swarms.preflight",
       "output_schema": {
         "$defs": {
+          "AdmittedResourceGrant": {
+            "additionalProperties": true,
+            "description": "Secret-free summary of one frozen resource grant.",
+            "properties": {
+              "collections": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Collections",
+                "type": "array"
+              },
+              "funding_lane": {
+                "title": "Funding Lane",
+                "type": "string"
+              },
+              "grant_id": {
+                "title": "Grant Id",
+                "type": "string"
+              },
+              "limits": {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "title": "Limits",
+                "type": "object"
+              },
+              "models": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Models",
+                "type": "array"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role_limits": {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object"
+                },
+                "title": "Role Limits",
+                "type": "object"
+              },
+              "roles": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Roles",
+                "type": "array"
+              },
+              "selection": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Selection"
+              },
+              "version": {
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "grant_id",
+              "plugin",
+              "version",
+              "roles",
+              "limits",
+              "role_limits",
+              "models",
+              "collections",
+              "selection",
+              "funding_lane"
+            ],
+            "title": "AdmittedResourceGrant",
+            "type": "object"
+          },
           "ClientTiming": {
             "additionalProperties": true,
             "properties": {
@@ -31893,6 +31979,21 @@
                   }
                 ],
                 "default": null
+              },
+              "resource_grants": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "$ref": "#/$defs/AdmittedResourceGrant"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resource Grants"
               },
               "run_id": {
                 "anyOf": [
@@ -35025,6 +35126,92 @@
       "operation": "swarms.configuration",
       "output_schema": {
         "$defs": {
+          "AdmittedResourceGrant": {
+            "additionalProperties": true,
+            "description": "Secret-free summary of one frozen resource grant.",
+            "properties": {
+              "collections": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Collections",
+                "type": "array"
+              },
+              "funding_lane": {
+                "title": "Funding Lane",
+                "type": "string"
+              },
+              "grant_id": {
+                "title": "Grant Id",
+                "type": "string"
+              },
+              "limits": {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "title": "Limits",
+                "type": "object"
+              },
+              "models": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Models",
+                "type": "array"
+              },
+              "plugin": {
+                "title": "Plugin",
+                "type": "string"
+              },
+              "role_limits": {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object"
+                },
+                "title": "Role Limits",
+                "type": "object"
+              },
+              "roles": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Roles",
+                "type": "array"
+              },
+              "selection": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Selection"
+              },
+              "version": {
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "grant_id",
+              "plugin",
+              "version",
+              "roles",
+              "limits",
+              "role_limits",
+              "models",
+              "collections",
+              "selection",
+              "funding_lane"
+            ],
+            "title": "AdmittedResourceGrant",
+            "type": "object"
+          },
           "ClientTiming": {
             "additionalProperties": true,
             "properties": {
@@ -35472,6 +35659,21 @@
               }
             ],
             "default": null
+          },
+          "resource_grants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/AdmittedResourceGrant"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resource Grants"
           },
           "run_id": {
             "anyOf": [
@@ -37278,6 +37480,7 @@
           }
         },
         "additionalProperties": true,
+        "description": "A bounded page with an optional reusable observation position.",
         "properties": {
           "complete": {
             "title": "Complete",
@@ -37304,6 +37507,18 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "resume_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Cursor"
           }
         },
         "required": [
@@ -37312,7 +37527,7 @@
           "next_cursor",
           "complete"
         ],
-        "title": "Page[SwarmEvent, NewType]",
+        "title": "SwarmEventPage",
         "type": "object"
       },
       "required_scope": "swarms:read"

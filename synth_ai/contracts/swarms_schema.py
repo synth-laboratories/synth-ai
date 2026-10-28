@@ -35,6 +35,7 @@ from synth_ai.sdk.swarms.types.runs import (
     ResolvedConfiguration,
     RunSnapshot,
     SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
 )
@@ -78,6 +79,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     ResolvedConfiguration,
     RunSnapshot,
     SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
     Page[RunSnapshot],
