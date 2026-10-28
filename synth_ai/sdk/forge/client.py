@@ -17,7 +17,7 @@ from .contracts.projects import (
 )
 from .index_drafts import AsyncIndexDrafts, IndexDrafts
 from .records import AsyncReceipts, AsyncRecords, Receipts, Records, project_identity
-from .types import ProjectMutationResponse, ProjectResponse
+from .types import ProjectListResponse, ProjectMutationResponse, ProjectResponse
 
 
 def project_operation(project_id, change, expected_revision, mutation):
@@ -54,6 +54,29 @@ def checked_project(result, project_id):
     )
 
 
+def list_parameters(after, limit):
+    if type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100")
+    return {"limit": limit, **({"after": project_identity(after)} if after is not None else {})}
+
+
+def checked_page(result, after, limit):
+    projects = result.page.projects
+    identities = [item.project_id for item in projects]
+    return verified(
+        result,
+        len(identities) <= limit
+        and identities == sorted(set(identities))
+        and (after is None or all(identity > after for identity in identities))
+        and len({item.organization_id for item in projects}) <= 1
+        and (
+            result.page.next_cursor is None
+            or (identities and result.page.next_cursor == identities[-1])
+        ),
+        "Forge returned an invalid project page",
+    )
+
+
 def checked_mutation(result, request):
     return verified(
         result,
@@ -66,6 +89,18 @@ def checked_mutation(result, request):
 class Projects:
     def __init__(self, transport: HttpTransport):
         self._transport = transport
+
+    def list(
+        self, *, after=None, limit=50, request: ReadOptions | None = None
+    ) -> ProjectListResponse:
+        query = list_parameters(after, limit)
+        return self._transport.request(
+            operations.PROJECT_LIST,
+            ProjectListResponse,
+            query=query,
+            options=request,
+            validate=lambda result: checked_page(result, after, limit),
+        )
 
     def get(self, project_id: str, *, request: ReadOptions | None = None) -> ProjectResponse:
         project_id = project_identity(project_id)
@@ -122,6 +157,18 @@ class Projects:
 class AsyncProjects:
     def __init__(self, transport: AsyncHttpTransport):
         self._transport = transport
+
+    async def list(
+        self, *, after=None, limit=50, request: ReadOptions | None = None
+    ) -> ProjectListResponse:
+        query = list_parameters(after, limit)
+        return await self._transport.request(
+            operations.PROJECT_LIST,
+            ProjectListResponse,
+            query=query,
+            options=request,
+            validate=lambda result: checked_page(result, after, limit),
+        )
 
     async def get(self, project_id: str, *, request: ReadOptions | None = None) -> ProjectResponse:
         project_id = project_identity(project_id)

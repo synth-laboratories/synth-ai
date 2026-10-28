@@ -7,10 +7,12 @@ import asyncio
 import pytest
 from synth_ai.errors import ConflictError, OutcomeUncertainError, RefusedError
 from synth_ai.options import MutationOptions
+from synth_ai.types.refusal import Refusal
 from synth_ai.sdk.swarms.create_retry import (
     CREATE_RETRY_ATTEMPTS,
     DEFAULT_RETRY_AFTER_SECONDS,
     MAX_RETRY_AFTER_SECONDS,
+    RETRY_WAIT_BUDGET_SECONDS,
     LaunchRetryExhausted,
     async_create_with_retry,
     create_with_retry,
@@ -100,7 +102,7 @@ def test_owner_unavailable_exhaustion_keeps_its_code_and_cause() -> None:
 
 
 def test_retry_after_defaults_and_caps() -> None:
-    transport = FakeTransport(busy("a", None), busy("b", 60.0), "ok")
+    transport = FakeTransport(busy("a", None), busy("b", 600.0), "ok")
     sleeps: list[float] = []
     create_with_retry(transport.send, None, sleep=sleeps.append)
     assert sleeps == [DEFAULT_RETRY_AFTER_SECONDS, MAX_RETRY_AFTER_SECONDS]
@@ -146,3 +148,101 @@ def test_async_path_retries_the_same_way() -> None:
 
     result = asyncio.run(async_create_with_retry(transport.async_send, None, sleep=sleep))
     assert result == "run-2" and slept == [0.5] and len(transport.sent) == 2
+
+
+def backpressure(
+    request_id: str,
+    *,
+    retryable: bool = True,
+    retry_after: float | None = 15.0,
+    code: str = "smr_control_plane_admission_backpressure",
+) -> RefusedError:
+    """SYN-5009: 429 per-project active-run cap with a retryable refusal document."""
+    error = RefusedError(
+        f"create refused: {code}",
+        code=code,
+        status=429,
+        retry_after_seconds=retry_after,
+        retryable=False,
+        cause="project_active_runs_full",
+        refusal=Refusal(
+            schema_version="synth.refusal.v1",
+            code=code,
+            service="backend",
+            stage="native_launch_preparation",
+            retryable=retryable,
+            in_doubt=False,
+            operation_id="swarms.create",
+            request_id=request_id,
+            status=429,
+            upstream=None,
+            detail={
+                "cause": "project_active_runs_full",
+                "budget_scope": "project",
+                "limit": "5",
+                "held": "0",
+                "pending": "5",
+            },
+        ),
+    )
+    error.client_request_id = request_id
+    return error
+
+
+def test_backpressure_429_retries_and_honors_retry_after_within_the_cap() -> None:
+    transport = FakeTransport(backpressure("b1", retry_after=5.0), "run-4")
+    sleeps: list[float] = []
+    assert create_with_retry(transport.send, None, sleep=sleeps.append) == "run-4"
+    assert sleeps == [5.0]
+    assert len(transport.sent) == 2
+
+
+def test_retry_after_15_is_waited_as_15() -> None:
+    transport = FakeTransport(backpressure("b1", retry_after=15.0), "run-5")
+    sleeps: list[float] = []
+    create_with_retry(transport.send, None, sleep=sleeps.append)
+    assert sleeps == [15.0]
+
+
+def test_total_wait_budget_ends_the_retry() -> None:
+    transport = FakeTransport(*(backpressure(f"w{i}", retry_after=50.0) for i in range(4)))
+    sleeps: list[float] = []
+    with pytest.raises(LaunchRetryExhausted):
+        create_with_retry(transport.send, None, sleep=sleeps.append)
+    assert sleeps == [50.0, 50.0]
+    assert sum(sleeps) <= RETRY_WAIT_BUDGET_SECONDS
+
+
+def test_older_server_code_without_flag_still_retries() -> None:
+    transport = FakeTransport(backpressure("b1", retryable=False, retry_after=None), "run-6")
+    sleeps: list[float] = []
+    assert create_with_retry(transport.send, None, sleep=sleeps.append) == "run-6"
+    assert sleeps == [DEFAULT_RETRY_AFTER_SECONDS]
+
+
+def test_unknown_code_retries_only_when_the_document_says_retryable() -> None:
+    transport = FakeTransport(backpressure("x1", code="future_capacity_full"), "run-7")
+    assert create_with_retry(transport.send, None, sleep=lambda _s: None) == "run-7"
+    refused = FakeTransport(backpressure("x2", code="future_capacity_full", retryable=False))
+    with pytest.raises(RefusedError):
+        create_with_retry(refused.send, None, sleep=lambda _s: None)
+    assert len(refused.sent) == 1
+
+
+def test_retryable_document_without_retry_after_is_not_retried() -> None:
+    transport = FakeTransport(backpressure("x3", code="future_capacity_full", retry_after=None))
+    with pytest.raises(RefusedError):
+        create_with_retry(transport.send, None, sleep=lambda _s: None)
+    assert len(transport.sent) == 1
+
+
+def test_backpressure_exhaustion_surfaces_cause_and_cause_detail() -> None:
+    transport = FakeTransport(*(backpressure(f"b-{i}") for i in range(CREATE_RETRY_ATTEMPTS)))
+    with pytest.raises(LaunchRetryExhausted) as caught:
+        create_with_retry(transport.send, None, sleep=lambda _s: None)
+    error = caught.value
+    assert error.code == "smr_control_plane_admission_backpressure"
+    assert error.cause == "project_active_runs_full"
+    assert error.cause_detail == "budget_scope=project held=0 pending=5 limit=5"
+    assert "cause=project_active_runs_full" in str(error)
+    assert "cause_detail=budget_scope=project held=0 pending=5 limit=5" in str(error)
