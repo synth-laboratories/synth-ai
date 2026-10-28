@@ -5,6 +5,14 @@
 
 from .operations import Operation
 
+PROJECT_LIST = Operation(
+    "forge.projects.list",
+    "GET",
+    "/forge/projects",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
 PROJECT_GET = Operation(
     "forge.projects.get",
     "GET",
@@ -103,7 +111,7 @@ INDEX_DRAFT_UPLOAD_GET = Operation(
 )
 INDEX_DRAFT_UPLOAD_OPERATIONS = (INDEX_DRAFT_UPLOAD, INDEX_DRAFT_UPLOAD_GET)
 
-PROJECT_OPERATIONS = (PROJECT_GET, PROJECT_APPLY)
+PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)
 SCIENCE_OPERATIONS = (RECORD_GET, RECORD_WRITE, RECEIPT_GET, ARTIFACT_EVIDENCE_GET)
 ALL_OPERATIONS = (
     *PROJECT_OPERATIONS,

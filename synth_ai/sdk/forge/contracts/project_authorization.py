@@ -26,6 +26,7 @@ class ProjectAuthorization(Contract):
     )
     action: Literal[
         "projects.read",
+        "projects.list",
         "projects.apply",
         "projects.policy",
         "projects.scope",

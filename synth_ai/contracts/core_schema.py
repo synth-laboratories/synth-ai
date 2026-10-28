@@ -36,6 +36,7 @@ from synth_ai.sdk.forge.index_types import (
     ForgeIndexNoticePage,
 )
 from synth_ai.sdk.forge.types import (
+    ProjectListResponse,
     ProjectMutationResponse,
     ProjectResponse,
     ScientificArtifactEvidenceResponse,
@@ -63,6 +64,7 @@ MODELS = (
     ScientificReceiptResponse,
     ScientificArtifactEvidenceResponse,
     ProjectOperation,
+    ProjectListResponse,
     ProjectResponse,
     ProjectMutationResponse,
     Artifact,

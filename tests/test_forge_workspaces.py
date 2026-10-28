@@ -35,7 +35,7 @@ def receipt_and_headers():
             "surfaces": ["http", "mcp"],
             "reason": None,
         }
-        for name in ("forge.projects.apply", "forge.projects.get")
+        for name in ("forge.projects.apply", "forge.projects.get", "forge.projects.list")
     ]
     snapshot = {k: v for k, v in body.items() if k not in {"metadata", "capability_sha256"}}
     body["capability_sha256"] = snapshot_sha256(
@@ -58,6 +58,21 @@ def fixture_transport():
         if request.url.path.endswith("/capabilities"):
             return httpx.Response(200, headers={"X-Synth-Contract": "index.v1"}, json=capability)
         calls.append(request)
+        if request.method == "GET" and request.url.path.endswith("/forge/projects"):
+            metadata = {**capability["metadata"], "contract": "core.v1"}
+            project = {
+                "organization_id": "org",
+                "project_id": "63000000-0000-4000-8000-000000000001",
+                "revision": 1,
+                "title": "Research",
+                "objective": "Compare",
+                "archived": False,
+            }
+            return httpx.Response(
+                200,
+                headers=headers,
+                json={"metadata": metadata, "page": {"projects": [project], "next_cursor": None}},
+            )
         operation = ProjectOperation.model_validate_json(request.content)
         assert request.headers["Idempotency-Key"] == operation.operation_id
         assert (
@@ -170,3 +185,37 @@ def test_forge_mcp_inputs_cannot_select_original_identity_and_skill_is_exact():
     assert skill.sha256 == hashlib.sha256(skill.content.encode()).hexdigest()
     assert skill.uri.endswith(skill.sha256)
     assert tool.scope == "forge:write" and not tool.paid
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+def test_project_discovery_uses_negotiated_read_only_api(async_mode):
+    transport, calls = fixture_transport()
+
+    async def run_async():
+        async with (
+            httpx.AsyncClient(transport=transport) as network,
+            AsyncSynthClient(
+                api_key="fixture",
+                base_url="https://backend.test",
+                options=ClientOptions(async_http_client=network),
+            ) as client,
+        ):
+            return await client.forge.projects.list(limit=2)
+
+    if async_mode:
+        response = asyncio.run(run_async())
+    else:
+        with (
+            httpx.Client(transport=transport) as network,
+            SynthClient(
+                api_key="fixture",
+                base_url="https://backend.test",
+                options=ClientOptions(http_client=network),
+            ) as client,
+        ):
+            response = client.forge.projects.list(limit=2)
+    assert response.page.projects[0].title == "Research"
+    assert response.page.next_cursor is None
+    assert len(calls) == 1 and calls[0].method == "GET"
+    assert calls[0].url.params["limit"] == "2"
+    assert BY_NAME["forge_project_list"].operation == "forge.projects.list"
