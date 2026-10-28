@@ -135,6 +135,11 @@ credentials do not gain these grants automatically. Fresh OAuth consent names
 the account permissions. The existing `account limits` discovery command keeps
 its negotiated product-policy contract.
 
+SDK integrations can use `account_read_scopes(operation)` from
+`synth_ai.contracts.account` to inspect the complete explicit scope set. The
+operation's single `required_scope` field alone does not represent both grants
+required by usage, events and limits. The backend remains the live authority.
+
 SDK sync/async clients expose `account.context()`, `plan()`, `balance()`,
 `alerts()`, `limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
 bounded page and an explicit cursor. Dates must be timezone-aware; windows are
