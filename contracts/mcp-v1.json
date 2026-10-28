@@ -3,6 +3,1013 @@
   "status": "sdk_first_pending_backend_and_protocol_qualification",
   "tools": [
     {
+      "additional_required_scopes": [
+        "account:usage:read"
+      ],
+      "description": "Read the connected account's plan, wallet and monthly usage.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyArguments",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "account_usage_snapshot",
+      "operation": "account.snapshot",
+      "output_schema": {
+        "$defs": {
+          "AccountBalance": {
+            "additionalProperties": false,
+            "properties": {
+              "classes": {
+                "items": {
+                  "$ref": "#/$defs/FundingClassBalance"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "title": "Classes",
+                "type": "array"
+              },
+              "consumption_order": {
+                "items": {
+                  "enum": [
+                    "included",
+                    "sponsored",
+                    "purchased",
+                    "unattributed"
+                  ],
+                  "type": "string"
+                },
+                "title": "Consumption Order",
+                "type": "array"
+              },
+              "ledger_net": {
+                "$ref": "#/$defs/Money"
+              },
+              "ledger_updated_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Ledger Updated At"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "reserved_attribution": {
+                "const": "not_attributed",
+                "default": "not_attributed",
+                "title": "Reserved Attribution",
+                "type": "string"
+              },
+              "total": {
+                "$ref": "#/$defs/BalanceTotal"
+              }
+            },
+            "required": [
+              "observed_at",
+              "ledger_updated_at",
+              "total",
+              "classes",
+              "ledger_net",
+              "consumption_order"
+            ],
+            "title": "AccountBalance",
+            "type": "object"
+          },
+          "AccountUsageSummary": {
+            "additionalProperties": false,
+            "properties": {
+              "actions": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ActionUsageTotals"
+                },
+                "title": "Actions",
+                "type": "array"
+              },
+              "daily": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/DailyUsageTotals"
+                },
+                "title": "Daily",
+                "type": "array"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "period_end": {
+                "format": "date-time",
+                "title": "Period End",
+                "type": "string"
+              },
+              "period_start": {
+                "format": "date-time",
+                "title": "Period Start",
+                "type": "string"
+              },
+              "products": {
+                "items": {
+                  "$ref": "#/$defs/ProductUsageTotals"
+                },
+                "title": "Products",
+                "type": "array"
+              },
+              "sources": {
+                "items": {
+                  "$ref": "#/$defs/UsageSourceState"
+                },
+                "title": "Sources",
+                "type": "array"
+              },
+              "total": {
+                "$ref": "#/$defs/UsageTotals"
+              }
+            },
+            "required": [
+              "period_start",
+              "period_end",
+              "observed_at",
+              "sources",
+              "products",
+              "total"
+            ],
+            "title": "AccountUsageSummary",
+            "type": "object"
+          },
+          "ActionUsageTotals": {
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "$ref": "#/$defs/UsageAction"
+              },
+              "component": {
+                "title": "Component",
+                "type": "string"
+              },
+              "product": {
+                "enum": [
+                  "index",
+                  "swarms",
+                  "monitor"
+                ],
+                "title": "Product",
+                "type": "string"
+              },
+              "totals": {
+                "$ref": "#/$defs/UsageTotals"
+              }
+            },
+            "required": [
+              "product",
+              "component",
+              "action",
+              "totals"
+            ],
+            "title": "ActionUsageTotals",
+            "type": "object"
+          },
+          "BalanceReady": {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "const": "ready",
+                "default": "ready",
+                "title": "State",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/AccountBalance"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "BalanceReady",
+            "type": "object"
+          },
+          "BalanceTotal": {
+            "additionalProperties": false,
+            "properties": {
+              "available": {
+                "$ref": "#/$defs/Money"
+              },
+              "balance": {
+                "$ref": "#/$defs/Money"
+              },
+              "reserved": {
+                "$ref": "#/$defs/Money"
+              }
+            },
+            "required": [
+              "balance",
+              "reserved",
+              "available"
+            ],
+            "title": "BalanceTotal",
+            "type": "object"
+          },
+          "CurrentPlan": {
+            "additionalProperties": false,
+            "properties": {
+              "cancels_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cancels At"
+              },
+              "code": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Code"
+              },
+              "issued_this_week": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "monthly_price": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "observation_revision": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Observation Revision"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "period_start": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Period Start"
+              },
+              "plan_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Plan Id"
+              },
+              "policy_version": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Policy Version"
+              },
+              "projected_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Projected At"
+              },
+              "provider_observed_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Provider Observed At"
+              },
+              "remaining_this_week": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "renews_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Renews At"
+              },
+              "resets_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resets At"
+              },
+              "state": {
+                "enum": [
+                  "ready",
+                  "migration_required",
+                  "disabled",
+                  "unavailable"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "used_this_week": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "wallet_observed_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Wallet Observed At"
+              },
+              "weekly_included": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "state",
+              "observed_at"
+            ],
+            "title": "CurrentPlan",
+            "type": "object"
+          },
+          "DailyUsageTotals": {
+            "additionalProperties": false,
+            "properties": {
+              "day": {
+                "format": "date",
+                "title": "Day",
+                "type": "string"
+              },
+              "product": {
+                "enum": [
+                  "index",
+                  "swarms",
+                  "monitor"
+                ],
+                "title": "Product",
+                "type": "string"
+              },
+              "totals": {
+                "$ref": "#/$defs/UsageTotals"
+              }
+            },
+            "required": [
+              "day",
+              "product",
+              "totals"
+            ],
+            "title": "DailyUsageTotals",
+            "type": "object"
+          },
+          "FundingClassBalance": {
+            "additionalProperties": false,
+            "properties": {
+              "available": {
+                "$ref": "#/$defs/Money"
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Expires At"
+              },
+              "funding_class": {
+                "enum": [
+                  "included",
+                  "sponsored",
+                  "purchased",
+                  "unattributed"
+                ],
+                "title": "Funding Class",
+                "type": "string"
+              },
+              "non_expiring": {
+                "$ref": "#/$defs/Money"
+              },
+              "reserved": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "funding_class",
+              "available",
+              "expires_at",
+              "non_expiring"
+            ],
+            "title": "FundingClassBalance",
+            "type": "object"
+          },
+          "FundingSource": {
+            "enum": [
+              "not_billed",
+              "included_in_operation",
+              "plan_allowance",
+              "promotion",
+              "credits",
+              "unattributed",
+              "unsettled"
+            ],
+            "title": "FundingSource",
+            "type": "string"
+          },
+          "FundingTotal": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "$ref": "#/$defs/Money"
+              },
+              "item_count": {
+                "minimum": 0,
+                "title": "Item Count",
+                "type": "integer"
+              },
+              "source": {
+                "$ref": "#/$defs/FundingSource"
+              },
+              "unknown_amount_item_count": {
+                "minimum": 0,
+                "title": "Unknown Amount Item Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "source",
+              "amount",
+              "item_count",
+              "unknown_amount_item_count"
+            ],
+            "title": "FundingTotal",
+            "type": "object"
+          },
+          "Money": {
+            "additionalProperties": false,
+            "properties": {
+              "coefficient": {
+                "maximum": 1000000000000000000000000000000,
+                "minimum": -1000000000000000000000000000000,
+                "title": "Coefficient",
+                "type": "integer"
+              },
+              "currency": {
+                "const": "USD",
+                "default": "USD",
+                "title": "Currency",
+                "type": "string"
+              },
+              "scale": {
+                "maximum": 12,
+                "minimum": 0,
+                "title": "Scale",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "coefficient",
+              "scale"
+            ],
+            "title": "Money",
+            "type": "object"
+          },
+          "PlanReady": {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "const": "ready",
+                "default": "ready",
+                "title": "State",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/CurrentPlan"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "PlanReady",
+            "type": "object"
+          },
+          "ProductUsageTotals": {
+            "additionalProperties": false,
+            "properties": {
+              "product": {
+                "enum": [
+                  "index",
+                  "swarms",
+                  "monitor"
+                ],
+                "title": "Product",
+                "type": "string"
+              },
+              "totals": {
+                "$ref": "#/$defs/UsageTotals"
+              }
+            },
+            "required": [
+              "product",
+              "totals"
+            ],
+            "title": "ProductUsageTotals",
+            "type": "object"
+          },
+          "Unavailable": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "anyOf": [
+                  {
+                    "const": "account_scope_required",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Code"
+              },
+              "state": {
+                "const": "unavailable",
+                "default": "unavailable",
+                "title": "State",
+                "type": "string"
+              }
+            },
+            "title": "Unavailable",
+            "type": "object"
+          },
+          "UsageAction": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "label": {
+                "title": "Label",
+                "type": "string"
+              },
+              "product": {
+                "enum": [
+                  "index",
+                  "swarms",
+                  "monitor"
+                ],
+                "title": "Product",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "product"
+            ],
+            "title": "UsageAction",
+            "type": "object"
+          },
+          "UsageMetricTotals": {
+            "additionalProperties": false,
+            "properties": {
+              "item_count": {
+                "minimum": 0,
+                "title": "Item Count",
+                "type": "integer"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "quantity": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Quantity"
+              },
+              "state": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "pending",
+                  "unknown"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "unit": {
+                "title": "Unit",
+                "type": "string"
+              },
+              "unknown_quantity_item_count": {
+                "minimum": 0,
+                "title": "Unknown Quantity Item Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "unit",
+              "state",
+              "quantity",
+              "item_count",
+              "unknown_quantity_item_count"
+            ],
+            "title": "UsageMetricTotals",
+            "type": "object"
+          },
+          "UsageReady": {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "const": "ready",
+                "default": "ready",
+                "title": "State",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/AccountUsageSummary"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "UsageReady",
+            "type": "object"
+          },
+          "UsageSourceState": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Code"
+              },
+              "coverage_start": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Coverage Start"
+              },
+              "product": {
+                "enum": [
+                  "index",
+                  "swarms",
+                  "monitor"
+                ],
+                "title": "Product",
+                "type": "string"
+              },
+              "projected_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Projected At"
+              },
+              "state": {
+                "enum": [
+                  "available",
+                  "partial",
+                  "unavailable"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "watermark": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Watermark"
+              }
+            },
+            "required": [
+              "product",
+              "state"
+            ],
+            "title": "UsageSourceState",
+            "type": "object"
+          },
+          "UsageTotals": {
+            "additionalProperties": false,
+            "properties": {
+              "estimated_charge": {
+                "$ref": "#/$defs/Money"
+              },
+              "estimated_charge_item_count": {
+                "minimum": 0,
+                "title": "Estimated Charge Item Count",
+                "type": "integer"
+              },
+              "final_item_count": {
+                "minimum": 0,
+                "title": "Final Item Count",
+                "type": "integer"
+              },
+              "funding": {
+                "items": {
+                  "$ref": "#/$defs/FundingTotal"
+                },
+                "title": "Funding",
+                "type": "array"
+              },
+              "included_item_count": {
+                "default": 0,
+                "minimum": 0,
+                "title": "Included Item Count",
+                "type": "integer"
+              },
+              "item_count": {
+                "minimum": 0,
+                "title": "Item Count",
+                "type": "integer"
+              },
+              "list_price": {
+                "$ref": "#/$defs/Money"
+              },
+              "measured_charge": {
+                "$ref": "#/$defs/Money"
+              },
+              "measured_charge_item_count": {
+                "minimum": 0,
+                "title": "Measured Charge Item Count",
+                "type": "integer"
+              },
+              "metrics": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/UsageMetricTotals"
+                },
+                "title": "Metrics",
+                "type": "array"
+              },
+              "pending_charge_item_count": {
+                "minimum": 0,
+                "title": "Pending Charge Item Count",
+                "type": "integer"
+              },
+              "pending_item_count": {
+                "minimum": 0,
+                "title": "Pending Item Count",
+                "type": "integer"
+              },
+              "unknown_charge_item_count": {
+                "minimum": 0,
+                "title": "Unknown Charge Item Count",
+                "type": "integer"
+              },
+              "unknown_item_count": {
+                "minimum": 0,
+                "title": "Unknown Item Count",
+                "type": "integer"
+              },
+              "unknown_list_price_item_count": {
+                "minimum": 0,
+                "title": "Unknown List Price Item Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "item_count",
+              "measured_charge",
+              "measured_charge_item_count",
+              "estimated_charge",
+              "estimated_charge_item_count",
+              "pending_charge_item_count",
+              "unknown_charge_item_count",
+              "final_item_count",
+              "pending_item_count",
+              "unknown_item_count",
+              "list_price",
+              "unknown_list_price_item_count",
+              "funding"
+            ],
+            "title": "UsageTotals",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "balance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BalanceReady"
+              },
+              {
+                "$ref": "#/$defs/Unavailable"
+              }
+            ],
+            "title": "Balance"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PlanReady"
+              },
+              {
+                "$ref": "#/$defs/Unavailable"
+              }
+            ],
+            "title": "Plan"
+          },
+          "schema": {
+            "const": "synth.account-usage.v1",
+            "default": "synth.account-usage.v1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UsageReady"
+              },
+              {
+                "$ref": "#/$defs/Unavailable"
+              }
+            ],
+            "title": "Usage"
+          }
+        },
+        "required": [
+          "plan",
+          "balance",
+          "usage"
+        ],
+        "title": "AccountUsageSnapshot",
+        "type": "object"
+      },
+      "required_scope": "account:billing:read"
+    },
+    {
       "description": "Validate and submit one exact finalized private owner revision; retain its retry key. This does not attest rights, qualify research or publish.",
       "idempotent": true,
       "input_schema": {
@@ -4649,6 +5656,103 @@
             "title": "ExecutedMaterial",
             "type": "object"
           },
+          "ExecutionLink": {
+            "additionalProperties": true,
+            "description": "Project-scoped pointer to an execution another authority owns (SYN-5139).\n\nNot a grant and not a dispatch. The owner keeps custody, status and\naccounting; readers observe it independently and the link stays a claim\nuntil that owner confirms it. A Forge workspace is never the owner's\nSwarms project or Rhodes pool.",
+            "properties": {
+              "environment": {
+                "enum": [
+                  "local",
+                  "staging",
+                  "production"
+                ],
+                "title": "Environment",
+                "type": "string"
+              },
+              "execution_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Execution Id",
+                "type": "string"
+              },
+              "kind": {
+                "const": "execution_link",
+                "default": "execution_link",
+                "title": "Kind",
+                "type": "string"
+              },
+              "owner": {
+                "enum": [
+                  "swarms",
+                  "rhodes"
+                ],
+                "title": "Owner",
+                "type": "string"
+              },
+              "owner_project_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Owner Project Id"
+              },
+              "pool_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Pool Id"
+              },
+              "sources": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                "maxItems": 1024,
+                "title": "Sources",
+                "type": "array"
+              },
+              "subject": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "target": {
+                "enum": [
+                  "swarm_run",
+                  "rhodes_pool",
+                  "rhodes_rollout"
+                ],
+                "title": "Target",
+                "type": "string"
+              }
+            },
+            "required": [
+              "owner",
+              "target",
+              "environment",
+              "execution_id"
+            ],
+            "title": "ExecutionLink",
+            "type": "object"
+          },
           "Experiment": {
             "additionalProperties": true,
             "properties": {
@@ -5317,6 +6421,7 @@
                   "mapping": {
                     "artifact": "#/$defs/Artifact",
                     "effort": "#/$defs/Effort",
+                    "execution_link": "#/$defs/ExecutionLink",
                     "experiment": "#/$defs/Experiment",
                     "hypothesis": "#/$defs/Hypothesis",
                     "log_entry": "#/$defs/LogEntry",
@@ -5378,6 +6483,9 @@
                   },
                   {
                     "$ref": "#/$defs/WorkspaceBinding"
+                  },
+                  {
+                    "$ref": "#/$defs/ExecutionLink"
                   }
                 ],
                 "title": "Payload"
@@ -5420,6 +6528,7 @@
                 "discriminator": {
                   "mapping": {
                     "artifact": "#/$defs/Artifact",
+                    "execution_link": "#/$defs/ExecutionLink",
                     "experiment": "#/$defs/ExperimentV2",
                     "hypothesis": "#/$defs/Hypothesis",
                     "log_entry": "#/$defs/LogEntry",
@@ -5482,6 +6591,9 @@
                   },
                   {
                     "$ref": "#/$defs/WorkspaceBinding"
+                  },
+                  {
+                    "$ref": "#/$defs/ExecutionLink"
                   }
                 ],
                 "title": "Payload"
@@ -7236,6 +8348,103 @@
             "title": "ExecutedMaterial",
             "type": "object"
           },
+          "ExecutionLink": {
+            "additionalProperties": false,
+            "description": "Project-scoped pointer to an execution another authority owns (SYN-5139).\n\nNot a grant and not a dispatch. The owner keeps custody, status and\naccounting; readers observe it independently and the link stays a claim\nuntil that owner confirms it. A Forge workspace is never the owner's\nSwarms project or Rhodes pool.",
+            "properties": {
+              "environment": {
+                "enum": [
+                  "local",
+                  "staging",
+                  "production"
+                ],
+                "title": "Environment",
+                "type": "string"
+              },
+              "execution_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Execution Id",
+                "type": "string"
+              },
+              "kind": {
+                "const": "execution_link",
+                "default": "execution_link",
+                "title": "Kind",
+                "type": "string"
+              },
+              "owner": {
+                "enum": [
+                  "swarms",
+                  "rhodes"
+                ],
+                "title": "Owner",
+                "type": "string"
+              },
+              "owner_project_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Owner Project Id"
+              },
+              "pool_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Pool Id"
+              },
+              "sources": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                "maxItems": 1024,
+                "title": "Sources",
+                "type": "array"
+              },
+              "subject": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExactReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "target": {
+                "enum": [
+                  "swarm_run",
+                  "rhodes_pool",
+                  "rhodes_rollout"
+                ],
+                "title": "Target",
+                "type": "string"
+              }
+            },
+            "required": [
+              "owner",
+              "target",
+              "environment",
+              "execution_id"
+            ],
+            "title": "ExecutionLink",
+            "type": "object"
+          },
           "Experiment": {
             "additionalProperties": false,
             "properties": {
@@ -8854,6 +10063,7 @@
                 "discriminator": {
                   "mapping": {
                     "artifact": "#/$defs/Artifact",
+                    "execution_link": "#/$defs/ExecutionLink",
                     "experiment": "#/$defs/Experiment",
                     "hypothesis": "#/$defs/Hypothesis",
                     "log_entry": "#/$defs/LogEntry",
@@ -8912,6 +10122,9 @@
                   },
                   {
                     "$ref": "#/$defs/WorkspaceBinding"
+                  },
+                  {
+                    "$ref": "#/$defs/ExecutionLink"
                   }
                 ]
               },
@@ -8919,6 +10132,7 @@
                 "discriminator": {
                   "mapping": {
                     "artifact": "#/$defs/Artifact",
+                    "execution_link": "#/$defs/ExecutionLink",
                     "experiment": "#/$defs/ExperimentV2",
                     "hypothesis": "#/$defs/Hypothesis",
                     "log_entry": "#/$defs/LogEntry",
@@ -8981,6 +10195,9 @@
                   },
                   {
                     "$ref": "#/$defs/WorkspaceBinding"
+                  },
+                  {
+                    "$ref": "#/$defs/ExecutionLink"
                   }
                 ]
               }
@@ -20713,6 +21930,19 @@
             "title": "Cleanup Complete",
             "type": "boolean"
           },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
@@ -22823,6 +24053,19 @@
               "cleanup_complete": {
                 "title": "Cleanup Complete",
                 "type": "boolean"
+              },
+              "created_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Created At"
               },
               "execution_closed": {
                 "title": "Execution Closed",

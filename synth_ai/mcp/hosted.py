@@ -39,7 +39,12 @@ from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.base import Identifier, Model, OAuthClientIdentifier
 from synth_ai.types.capabilities import Capabilities
 
-from .account_capability import ACCOUNT_MCP_OPERATION, AccountMcpCapability, require_account_mcp
+from .account_capability import (
+    ACCOUNT_MCP_OPERATION,
+    ACCOUNT_MCP_SCOPES,
+    AccountMcpCapability,
+    require_account_mcp,
+)
 from .catalog import TOOLS, ToolSpec
 from .contracts import JSON_OBJECT, JsonObject
 from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
@@ -296,6 +301,7 @@ def create_http_app(
     enabled_tools: frozenset[str],
     capability_provider: Callable[[], Capabilities] | None = None,
     account_capability_provider: Callable[[], AccountMcpCapability | None] | None = None,
+    account_oauth_scopes_supported: bool = False,
     candidate_manifest_sha256: str | None = None,
     allowed_origins: tuple[str, ...] = (),
     legacy_issuer_urls: tuple[str, ...] = (),
@@ -320,6 +326,10 @@ def create_http_app(
     known = {tool.name for tool in TOOLS}
     if not enabled_tools <= known:
         raise ValueError("Hosted allowlist contains an unknown tool")
+    if account_oauth_scopes_supported and (
+        "account_usage_snapshot" not in enabled_tools or account_capability_provider is None
+    ):
+        raise ValueError("Account OAuth scopes require the separately qualified account tool")
     required_streaming = enabled_tools & {"index_search_deliver_events"}
     streaming_tools = required_streaming if streaming_tools is None else streaming_tools
     if not required_streaming <= streaming_tools:
@@ -373,7 +383,11 @@ def create_http_app(
     routes = create_protected_resource_routes(
         resource,
         [issuer],
-        scopes_supported=list(AUTHORIZATION_SCOPES),
+        scopes_supported=list(
+            (*AUTHORIZATION_SCOPES, *ACCOUNT_MCP_SCOPES)
+            if account_oauth_scopes_supported
+            else AUTHORIZATION_SCOPES
+        ),
         resource_name="Synth Index and Swarms",
     )
     routes.append(
