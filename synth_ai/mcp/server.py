@@ -164,6 +164,11 @@ def create_server(
                     ),
                 )
                 tool.meta = {"synth/operation": spec.operation, "synth/mayCharge": spec.paid}
+                if spec.operation == "account.snapshot":
+                    from .account_capability import ACCOUNT_MCP_SCHEMA_SHA256
+
+                    tool.meta["synth/contract"] = "account.v1"
+                    tool.meta["synth/schemaSha256"] = ACCOUNT_MCP_SCHEMA_SHA256
                 if spec.additional_scopes:
                     tool.meta["synth/additionalRequiredScopes"] = list(spec.additional_scopes)
                 visible.append(tool)

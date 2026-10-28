@@ -28,7 +28,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from synth_ai.contracts.registry import OPERATIONS_BY_ID
-from synth_ai.core.capabilities import require_operation, supports_operation
+from synth_ai.core.capabilities import require_operation
 from synth_ai.errors import (
     AuthenticationError,
     PermissionDeniedError,
@@ -39,6 +39,7 @@ from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.base import Identifier, Model, OAuthClientIdentifier
 from synth_ai.types.capabilities import Capabilities
 
+from .account_capability import ACCOUNT_MCP_OPERATION, AccountMcpCapability, require_account_mcp
 from .catalog import TOOLS, ToolSpec
 from .contracts import JSON_OBJECT, JsonObject
 from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
@@ -177,11 +178,36 @@ class HostedExecutor:
         enabled_tools: frozenset[str],
         capability_provider: Callable[[], Capabilities] | None,
         candidate_manifest_sha256: str | None,
+        account_capability_provider: Callable[[], AccountMcpCapability | None] | None = None,
     ) -> None:
         self._backend = backend
         self._enabled = enabled_tools
         self._capability_provider = capability_provider
         self._candidate_manifest_sha256 = candidate_manifest_sha256
+        self._account_capability_provider = account_capability_provider
+
+    def _require_tool(self, tool: ToolSpec, receipt: Capabilities) -> None:
+        if tool.operation == ACCOUNT_MCP_OPERATION:
+            account = (
+                self._account_capability_provider() if self._account_capability_provider else None
+            )
+            require_account_mcp(
+                account, receipt, candidate_manifest_sha256=self._candidate_manifest_sha256
+            )
+        else:
+            require_operation(
+                receipt,
+                OPERATIONS_BY_ID[tool.operation],
+                surface="mcp",
+                candidate_manifest_sha256=self._candidate_manifest_sha256,
+            )
+
+    def _supports_tool(self, tool: ToolSpec, receipt: Capabilities) -> bool:
+        try:
+            self._require_tool(tool, receipt)
+        except SynthError:
+            return False
+        return True
 
     def _capabilities(self) -> Capabilities:
         if self._capability_provider is None:
@@ -205,12 +231,7 @@ class HostedExecutor:
             tool.name
             for tool in TOOLS
             if tool.name in self._enabled
-            and supports_operation(
-                receipt,
-                OPERATIONS_BY_ID[tool.operation],
-                surface="mcp",
-                candidate_manifest_sha256=self._candidate_manifest_sha256,
-            )
+            and self._supports_tool(tool, receipt)
             and tool.name in principal.allowed_tools
             and (tool.scope is None or tool.scope in principal.scopes)
             and all(scope in principal.scopes for scope in tool.additional_scopes)
@@ -222,12 +243,7 @@ class HostedExecutor:
         if tool.name not in self._enabled:
             return "tool_not_enabled"
         try:
-            require_operation(
-                self._capabilities(),
-                OPERATIONS_BY_ID[tool.operation],
-                surface="mcp",
-                candidate_manifest_sha256=self._candidate_manifest_sha256,
-            )
+            self._require_tool(tool, self._capabilities())
         except SynthError as error:
             return f"capability:{error.code or type(error).__name__}"
         if tool.name not in principal.allowed_tools:
@@ -261,12 +277,7 @@ class HostedExecutor:
         principal = self.principal()
         if tool.name not in self._enabled or tool.name not in principal.allowed_tools:
             raise PermissionDeniedError("Tool is outside the active authorization")
-        require_operation(
-            self._capabilities(),
-            OPERATIONS_BY_ID[tool.operation],
-            surface="mcp",
-            candidate_manifest_sha256=self._candidate_manifest_sha256,
-        )
+        self._require_tool(tool, self._capabilities())
         scope = tool.scope_for(arguments)
         if (scope is not None and scope not in principal.scopes) or any(
             required not in principal.scopes for required in tool.additional_scopes
@@ -284,6 +295,7 @@ def create_http_app(
     issuer_url: str,
     enabled_tools: frozenset[str],
     capability_provider: Callable[[], Capabilities] | None = None,
+    account_capability_provider: Callable[[], AccountMcpCapability | None] | None = None,
     candidate_manifest_sha256: str | None = None,
     allowed_origins: tuple[str, ...] = (),
     legacy_issuer_urls: tuple[str, ...] = (),
@@ -315,7 +327,11 @@ def create_http_app(
     resource = AnyHttpUrl(resource_url)
     issuer = AnyHttpUrl(issuer_url)
     executor = HostedExecutor(
-        backend, enabled_tools, capability_provider, candidate_manifest_sha256
+        backend,
+        enabled_tools,
+        capability_provider,
+        candidate_manifest_sha256,
+        account_capability_provider,
     )
     server = create_server(executor)
     host = urlsplit(resource_url).netloc
