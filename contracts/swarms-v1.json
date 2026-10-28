@@ -5476,10 +5476,20 @@
               "type": "string"
             },
             "origin": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Origin",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Origin"
             },
             "owner_hint": {
               "maxLength": 1024,
@@ -5561,10 +5571,20 @@
               "type": "string"
             },
             "service": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Service",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Service"
             },
             "stage": {
               "maxLength": 96,
@@ -6773,10 +6793,20 @@
               "type": "string"
             },
             "service": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Service",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Service"
             },
             "stage": {
               "maxLength": 96,
@@ -9003,10 +9033,20 @@
               "type": "string"
             },
             "origin": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Origin",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Origin"
             },
             "owner_hint": {
               "maxLength": 1024,
@@ -9088,10 +9128,20 @@
               "type": "string"
             },
             "service": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Service",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Service"
             },
             "stage": {
               "maxLength": 96,
@@ -11367,10 +11417,20 @@
               "type": "string"
             },
             "service": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Service",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Service"
             },
             "stage": {
               "maxLength": 96,
@@ -11967,10 +12027,20 @@
               "type": "string"
             },
             "service": {
-              "maxLength": 96,
-              "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-              "title": "Service",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 96,
+                  "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                  "type": "string"
+                },
+                {
+                  "maxLength": 96,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                  "type": "string"
+                }
+              ],
+              "title": "Service"
             },
             "stage": {
               "maxLength": 96,

@@ -26,7 +26,7 @@ from .types.outputs import (
     TextContent,
     TransferTiming,
 )
-from .types.problems import EvidenceRef, Problem, ReasonLink
+from .types.problems import EvidenceRef, Problem, ReasonLink, UnknownOrigin
 from .types.resources import ResourceGrant, ResourceGrantSet, ResourceRequest, ResourceUsage
 from .types.runs import (
     LaunchPreflight,
@@ -43,6 +43,7 @@ __all__ = [
     "EvidenceRef",
     "Problem",
     "ReasonLink",
+    "UnknownOrigin",
     "RunFailure",
     "SwarmEvent",
     "TaskOutcome",

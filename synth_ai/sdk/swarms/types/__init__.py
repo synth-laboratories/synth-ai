@@ -31,7 +31,7 @@ from .outputs import (
     TextContent,
     TransferTiming,
 )
-from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
+from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink, UnknownOrigin
 from .runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -51,6 +51,7 @@ __all__ = [
     "EvidenceRef",
     "Problem",
     "ReasonLink",
+    "UnknownOrigin",
     "File",
     "FileManifest",
     "FileMediaType",
