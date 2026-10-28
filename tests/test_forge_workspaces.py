@@ -69,7 +69,8 @@ def fixture_transport():
                 "archived": False,
             }
             return httpx.Response(
-                200, headers=headers,
+                200,
+                headers=headers,
                 json={"metadata": metadata, "page": {"projects": [project], "next_cursor": None}},
             )
         operation = ProjectOperation.model_validate_json(request.content)
@@ -193,7 +194,11 @@ def test_project_discovery_uses_negotiated_read_only_api(async_mode):
     async def run_async():
         async with (
             httpx.AsyncClient(transport=transport) as network,
-            AsyncSynthClient(api_key="fixture", base_url="https://backend.test", options=ClientOptions(async_http_client=network)) as client,
+            AsyncSynthClient(
+                api_key="fixture",
+                base_url="https://backend.test",
+                options=ClientOptions(async_http_client=network),
+            ) as client,
         ):
             return await client.forge.projects.list(limit=2)
 
@@ -202,7 +207,11 @@ def test_project_discovery_uses_negotiated_read_only_api(async_mode):
     else:
         with (
             httpx.Client(transport=transport) as network,
-            SynthClient(api_key="fixture", base_url="https://backend.test", options=ClientOptions(http_client=network)) as client,
+            SynthClient(
+                api_key="fixture",
+                base_url="https://backend.test",
+                options=ClientOptions(http_client=network),
+            ) as client,
         ):
             response = client.forge.projects.list(limit=2)
     assert response.page.projects[0].title == "Research"

@@ -69,7 +69,10 @@ def checked_page(result, after, limit):
         and identities == sorted(set(identities))
         and (after is None or all(identity > after for identity in identities))
         and len({item.organization_id for item in projects}) <= 1
-        and (result.page.next_cursor is None or (identities and result.page.next_cursor == identities[-1])),
+        and (
+            result.page.next_cursor is None
+            or (identities and result.page.next_cursor == identities[-1])
+        ),
         "Forge returned an invalid project page",
     )
 
@@ -87,10 +90,15 @@ class Projects:
     def __init__(self, transport: HttpTransport):
         self._transport = transport
 
-    def list(self, *, after=None, limit=50, request: ReadOptions | None = None) -> ProjectListResponse:
+    def list(
+        self, *, after=None, limit=50, request: ReadOptions | None = None
+    ) -> ProjectListResponse:
         query = list_parameters(after, limit)
         return self._transport.request(
-            operations.PROJECT_LIST, ProjectListResponse, query=query, options=request,
+            operations.PROJECT_LIST,
+            ProjectListResponse,
+            query=query,
+            options=request,
             validate=lambda result: checked_page(result, after, limit),
         )
 
@@ -150,10 +158,15 @@ class AsyncProjects:
     def __init__(self, transport: AsyncHttpTransport):
         self._transport = transport
 
-    async def list(self, *, after=None, limit=50, request: ReadOptions | None = None) -> ProjectListResponse:
+    async def list(
+        self, *, after=None, limit=50, request: ReadOptions | None = None
+    ) -> ProjectListResponse:
         query = list_parameters(after, limit)
         return await self._transport.request(
-            operations.PROJECT_LIST, ProjectListResponse, query=query, options=request,
+            operations.PROJECT_LIST,
+            ProjectListResponse,
+            query=query,
+            options=request,
             validate=lambda result: checked_page(result, after, limit),
         )
 
