@@ -28,7 +28,9 @@ from synth_ai.options import MutationOptions
 
 CREATE_RETRY_ATTEMPTS = 4
 DEFAULT_RETRY_AFTER_SECONDS = 1.0
-MAX_RETRY_AFTER_SECONDS = 8.0
+MAX_RETRY_AFTER_SECONDS = 60.0
+# Sum of the actual waits across one create; the next wait that would exceed it ends the retry.
+RETRY_WAIT_BUDGET_SECONDS = 120.0
 RETRY_SAFE_REFUSAL_CODES = frozenset(
     {"launch_admission_busy", "owner_unavailable", "smr_control_plane_admission_backpressure"}
 )
@@ -140,6 +142,7 @@ def create_with_retry(
     sleep: Callable[[float], None] = time.sleep,
 ) -> T:
     attempts: list[LaunchAttempt] = []
+    waited = 0.0
     options = mutation
     while True:
         try:
@@ -148,9 +151,11 @@ def create_with_retry(
             if not is_retry_safe(error):
                 raise
             _record(attempts, error)
-            if len(attempts) >= CREATE_RETRY_ATTEMPTS:
+            delay = retry_delay(error)
+            if len(attempts) >= CREATE_RETRY_ATTEMPTS or waited + delay > RETRY_WAIT_BUDGET_SECONDS:
                 raise LaunchRetryExhausted(tuple(attempts)) from error
-            sleep(retry_delay(error))
+            sleep(delay)
+            waited += delay
             options = fresh_options(mutation)
 
 
@@ -161,6 +166,7 @@ async def async_create_with_retry(
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> T:
     attempts: list[LaunchAttempt] = []
+    waited = 0.0
     options = mutation
     while True:
         try:
@@ -169,7 +175,9 @@ async def async_create_with_retry(
             if not is_retry_safe(error):
                 raise
             _record(attempts, error)
-            if len(attempts) >= CREATE_RETRY_ATTEMPTS:
+            delay = retry_delay(error)
+            if len(attempts) >= CREATE_RETRY_ATTEMPTS or waited + delay > RETRY_WAIT_BUDGET_SECONDS:
                 raise LaunchRetryExhausted(tuple(attempts)) from error
-            await sleep(retry_delay(error))
+            await sleep(delay)
+            waited += delay
             options = fresh_options(mutation)

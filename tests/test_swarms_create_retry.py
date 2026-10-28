@@ -12,6 +12,7 @@ from synth_ai.sdk.swarms.create_retry import (
     CREATE_RETRY_ATTEMPTS,
     DEFAULT_RETRY_AFTER_SECONDS,
     MAX_RETRY_AFTER_SECONDS,
+    RETRY_WAIT_BUDGET_SECONDS,
     LaunchRetryExhausted,
     async_create_with_retry,
     create_with_retry,
@@ -101,7 +102,7 @@ def test_owner_unavailable_exhaustion_keeps_its_code_and_cause() -> None:
 
 
 def test_retry_after_defaults_and_caps() -> None:
-    transport = FakeTransport(busy("a", None), busy("b", 60.0), "ok")
+    transport = FakeTransport(busy("a", None), busy("b", 600.0), "ok")
     sleeps: list[float] = []
     create_with_retry(transport.send, None, sleep=sleeps.append)
     assert sleeps == [DEFAULT_RETRY_AFTER_SECONDS, MAX_RETRY_AFTER_SECONDS]
@@ -196,11 +197,20 @@ def test_backpressure_429_retries_and_honors_retry_after_within_the_cap() -> Non
     assert len(transport.sent) == 2
 
 
-def test_backpressure_advice_above_the_budget_is_capped() -> None:
+def test_retry_after_15_is_waited_as_15() -> None:
     transport = FakeTransport(backpressure("b1", retry_after=15.0), "run-5")
     sleeps: list[float] = []
     create_with_retry(transport.send, None, sleep=sleeps.append)
-    assert sleeps == [MAX_RETRY_AFTER_SECONDS]
+    assert sleeps == [15.0]
+
+
+def test_total_wait_budget_ends_the_retry() -> None:
+    transport = FakeTransport(*(backpressure(f"w{i}", retry_after=50.0) for i in range(4)))
+    sleeps: list[float] = []
+    with pytest.raises(LaunchRetryExhausted):
+        create_with_retry(transport.send, None, sleep=sleeps.append)
+    assert sleeps == [50.0, 50.0]
+    assert sum(sleeps) <= RETRY_WAIT_BUDGET_SECONDS
 
 
 def test_older_server_code_without_flag_still_retries() -> None:
