@@ -54,6 +54,7 @@ class SDKExecutor:
         if not any(
             tool.keyed
             and tool.name in self._enabled
+            and tool.operation in OPERATIONS_BY_ID
             and supports_operation(
                 receipt,
                 OPERATIONS_BY_ID[tool.operation],
@@ -85,6 +86,7 @@ class SDKExecutor:
             tool.name
             for tool in TOOLS
             if self._permitted(tool, context, tool.scope)
+            and tool.operation in OPERATIONS_BY_ID
             and supports_operation(
                 receipt,
                 OPERATIONS_BY_ID[tool.operation],
@@ -122,7 +124,7 @@ class SDKExecutor:
         return visible_policy_tools(available, policy)
 
     async def invoke(self, tool: ToolSpec, arguments: JsonObject) -> JsonObject:
-        if tool.name not in self._enabled:
+        if tool.name not in self._enabled or tool.operation not in OPERATIONS_BY_ID:
             raise PermissionDeniedError(
                 "Tool is disabled for this connection", code="tool_disabled"
             )

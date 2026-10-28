@@ -58,6 +58,7 @@ from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from . import contribution_owner as owner_tools
 from . import forge as forge_tools
+from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
     JSON_OBJECT,
     ContentArguments,
@@ -488,7 +489,26 @@ async def deliver_search_events(
         )
 
 
+ACCOUNT_SNAPSHOT = Operation(
+    "account.snapshot",
+    "GET",
+    "/account/usage/snapshot",
+    True,
+    contract="account.v1",
+    required_scope="account:billing:read",
+)
+
+
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "account_usage_snapshot",
+        ACCOUNT_SNAPSHOT,
+        "Read the connected account's plan, wallet and monthly usage.",
+        EmptyArguments,
+        AccountUsageSnapshot,
+        account_usage_snapshot,
+        additional_scopes=("account:usage:read",),
+    ),
     ToolDefinition(
         "index_contribution_submit",
         index_operations.SUBMIT,
