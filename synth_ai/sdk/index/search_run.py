@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import NoReturn
 
 from synth_ai.contracts import operations as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
@@ -37,7 +36,9 @@ from .types.search import (
 _TERMINAL_WITHOUT_RESULT = frozenset({"failed", "cancelled"})
 
 
-def _raise_terminal(search_id: str, snapshot: SearchSnapshot, result: SearchResponse) -> NoReturn:
+def _terminal_result(
+    search_id: str, snapshot: SearchSnapshot, result: SearchResponse, *, raise_on_failure: bool
+) -> SearchResponse:
     """Fail early and hard on a terminal Search with no deliverable result."""
     if result.status != snapshot.state:
         raise ContractError(
@@ -46,6 +47,8 @@ def _raise_terminal(search_id: str, snapshot: SearchSnapshot, result: SearchResp
             code="search_terminal_state_mismatch",
             request_id=result.metadata.request_id,
         )
+    if not raise_on_failure:
+        return result
     failure = result.failure
     code = failure.code if failure is not None else "search_cancelled"
     retryable = failure.retryable if failure is not None else False
@@ -305,8 +308,13 @@ class SearchRun:
             )
         return EventStream(self.event_page, cursor, observation, owner=self._transport)
 
-    def wait(self, *, observation: ObservationOptions) -> SearchResponse:
-        """Observe canonical result availability within a local deadline; never cancel or resubmit.
+    def wait(
+        self, *, observation: ObservationOptions, raise_on_failure: bool = True
+    ) -> SearchResponse:
+        """Observe a result within a local deadline; never cancel or resubmit.
+
+        By default a failed or cancelled terminal Search raises. Set
+        ``raise_on_failure=False`` to return its verified terminal result.
 
         See: the public contract snapshots in contracts/"""
         deadline = time.monotonic() + observation.timeout_seconds
@@ -325,7 +333,7 @@ class SearchRun:
                 # A failed/cancelled Search never becomes result_available; fail
                 # now with its typed cause instead of polling to the deadline.
                 remaining = deadline - time.monotonic()
-                _raise_terminal(
+                return _terminal_result(
                     self.search_id,
                     snapshot,
                     self.result(
@@ -334,6 +342,7 @@ class SearchRun:
                             read_retry_count=observation.retry_count_max,
                         )
                     ),
+                    raise_on_failure=raise_on_failure,
                 )
             if snapshot.result_available:
                 remaining = deadline - time.monotonic()
@@ -573,8 +582,13 @@ class AsyncSearchRun:
             )
         return AsyncEventStream(self.event_page, cursor, observation, owner=self._transport)
 
-    async def wait(self, *, observation: ObservationOptions) -> SearchResponse:
-        """Observe canonical result availability within a local deadline; never cancel or resubmit.
+    async def wait(
+        self, *, observation: ObservationOptions, raise_on_failure: bool = True
+    ) -> SearchResponse:
+        """Observe a result within a local deadline; never cancel or resubmit.
+
+        By default a failed or cancelled terminal Search raises. Set
+        ``raise_on_failure=False`` to return its verified terminal result.
 
         See: the public contract snapshots in contracts/"""
         deadline = time.monotonic() + observation.timeout_seconds
@@ -591,7 +605,7 @@ class AsyncSearchRun:
             _raise_unreadable(self.search_id, snapshot)
             if snapshot.state in _TERMINAL_WITHOUT_RESULT and not snapshot.result_available:
                 remaining = deadline - time.monotonic()
-                _raise_terminal(
+                return _terminal_result(
                     self.search_id,
                     snapshot,
                     await self.result(
@@ -600,6 +614,7 @@ class AsyncSearchRun:
                             read_retry_count=observation.retry_count_max,
                         )
                     ),
+                    raise_on_failure=raise_on_failure,
                 )
             if snapshot.result_available:
                 remaining = deadline - time.monotonic()
