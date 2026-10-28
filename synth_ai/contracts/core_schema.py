@@ -40,6 +40,7 @@ from synth_ai.sdk.forge.types import (
     ProjectMutationResponse,
     ProjectResponse,
     ScientificArtifactEvidenceResponse,
+    ScientificEventsResponse,
     ScientificReceiptResponse,
     ScientificRecordResponse,
 )
@@ -63,6 +64,7 @@ MODELS = (
     ScientificRecordResponse,
     ScientificReceiptResponse,
     ScientificArtifactEvidenceResponse,
+    ScientificEventsResponse,
     ProjectOperation,
     ProjectListResponse,
     ProjectResponse,
