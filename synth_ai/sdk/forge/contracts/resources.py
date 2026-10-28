@@ -10,7 +10,14 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from .contracts import Contract, ExactReference, Text
+from .contracts import Contract, ExactReference, Identifier, Text
+
+EXECUTION_LINK_OWNERS = {
+    "swarm_run": "swarms",
+    "rhodes_pool": "rhodes",
+    "rhodes_rollout": "rhodes",
+}
+EXECUTION_LINK_SUBJECTS = frozenset({"experiment", "trial", "result"})
 
 
 class DatasetSplit(Contract):
@@ -80,4 +87,41 @@ class WorkspaceBinding(Contract):
             )
         ):
             raise ValueError("workspace effects retain existing custody")
+        return self
+
+
+class ExecutionLink(Contract):
+    """Project-scoped pointer to an execution another authority owns (SYN-5139).
+
+    Not a grant and not a dispatch. The owner keeps custody, status and
+    accounting; readers observe it independently and the link stays a claim
+    until that owner confirms it. A Forge workspace is never the owner's
+    Swarms project or Rhodes pool.
+    """
+
+    kind: Literal["execution_link"] = "execution_link"
+    owner: Literal["swarms", "rhodes"]
+    target: Literal["swarm_run", "rhodes_pool", "rhodes_rollout"]
+    environment: Literal["local", "staging", "production"]
+    execution_id: Identifier
+    owner_project_id: Identifier | None = None
+    pool_id: Identifier | None = None
+    subject: ExactReference | None = None
+    sources: tuple[ExactReference, ...] = Field(default=(), max_length=1024)
+
+    @model_validator(mode="after")
+    def owner_target(self):
+        if EXECUTION_LINK_OWNERS[self.target] != self.owner:
+            raise ValueError("execution link target belongs to a different owner")
+        if self.owner_project_id is not None and self.target != "swarm_run":
+            raise ValueError("owner project applies only to Swarms runs")
+        if (self.pool_id is not None) != (self.target == "rhodes_rollout"):
+            raise ValueError("Rhodes rollouts, and only rollouts, require a pool")
+        if self.subject is not None and (
+            self.subject.authority != "forge"
+            or self.subject.kind not in EXECUTION_LINK_SUBJECTS
+        ):
+            raise ValueError(
+                "execution link subject must cite a Forge experiment, trial or result"
+            )
         return self

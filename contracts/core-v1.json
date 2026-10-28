@@ -7212,6 +7212,103 @@
           "title": "ExecutedMaterial",
           "type": "object"
         },
+        "ExecutionLink": {
+          "additionalProperties": false,
+          "description": "Project-scoped pointer to an execution another authority owns (SYN-5139).\n\nNot a grant and not a dispatch. The owner keeps custody, status and\naccounting; readers observe it independently and the link stays a claim\nuntil that owner confirms it. A Forge workspace is never the owner's\nSwarms project or Rhodes pool.",
+          "properties": {
+            "environment": {
+              "enum": [
+                "local",
+                "staging",
+                "production"
+              ],
+              "title": "Environment",
+              "type": "string"
+            },
+            "execution_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Execution Id",
+              "type": "string"
+            },
+            "kind": {
+              "const": "execution_link",
+              "default": "execution_link",
+              "title": "Kind",
+              "type": "string"
+            },
+            "owner": {
+              "enum": [
+                "swarms",
+                "rhodes"
+              ],
+              "title": "Owner",
+              "type": "string"
+            },
+            "owner_project_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Owner Project Id"
+            },
+            "pool_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Pool Id"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "target": {
+              "enum": [
+                "swarm_run",
+                "rhodes_pool",
+                "rhodes_rollout"
+              ],
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          "required": [
+            "owner",
+            "target",
+            "environment",
+            "execution_id"
+          ],
+          "title": "ExecutionLink",
+          "type": "object"
+        },
         "ExperimentV2": {
           "additionalProperties": false,
           "properties": {
@@ -8619,6 +8716,7 @@
           "discriminator": {
             "mapping": {
               "artifact": "#/$defs/Artifact",
+              "execution_link": "#/$defs/ExecutionLink",
               "experiment": "#/$defs/ExperimentV2",
               "hypothesis": "#/$defs/Hypothesis",
               "log_entry": "#/$defs/LogEntry",
@@ -8681,6 +8779,9 @@
             },
             {
               "$ref": "#/$defs/WorkspaceBinding"
+            },
+            {
+              "$ref": "#/$defs/ExecutionLink"
             }
           ],
           "title": "Payload"
@@ -11385,6 +11486,103 @@
           "title": "ExecutedMaterial",
           "type": "object"
         },
+        "ExecutionLink": {
+          "additionalProperties": true,
+          "description": "Project-scoped pointer to an execution another authority owns (SYN-5139).\n\nNot a grant and not a dispatch. The owner keeps custody, status and\naccounting; readers observe it independently and the link stays a claim\nuntil that owner confirms it. A Forge workspace is never the owner's\nSwarms project or Rhodes pool.",
+          "properties": {
+            "environment": {
+              "enum": [
+                "local",
+                "staging",
+                "production"
+              ],
+              "title": "Environment",
+              "type": "string"
+            },
+            "execution_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Execution Id",
+              "type": "string"
+            },
+            "kind": {
+              "const": "execution_link",
+              "default": "execution_link",
+              "title": "Kind",
+              "type": "string"
+            },
+            "owner": {
+              "enum": [
+                "swarms",
+                "rhodes"
+              ],
+              "title": "Owner",
+              "type": "string"
+            },
+            "owner_project_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Owner Project Id"
+            },
+            "pool_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Pool Id"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "target": {
+              "enum": [
+                "swarm_run",
+                "rhodes_pool",
+                "rhodes_rollout"
+              ],
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          "required": [
+            "owner",
+            "target",
+            "environment",
+            "execution_id"
+          ],
+          "title": "ExecutionLink",
+          "type": "object"
+        },
         "Experiment": {
           "additionalProperties": true,
           "properties": {
@@ -12053,6 +12251,7 @@
                 "mapping": {
                   "artifact": "#/$defs/Artifact",
                   "effort": "#/$defs/Effort",
+                  "execution_link": "#/$defs/ExecutionLink",
                   "experiment": "#/$defs/Experiment",
                   "hypothesis": "#/$defs/Hypothesis",
                   "log_entry": "#/$defs/LogEntry",
@@ -12114,6 +12313,9 @@
                 },
                 {
                   "$ref": "#/$defs/WorkspaceBinding"
+                },
+                {
+                  "$ref": "#/$defs/ExecutionLink"
                 }
               ],
               "title": "Payload"
@@ -12156,6 +12358,7 @@
               "discriminator": {
                 "mapping": {
                   "artifact": "#/$defs/Artifact",
+                  "execution_link": "#/$defs/ExecutionLink",
                   "experiment": "#/$defs/ExperimentV2",
                   "hypothesis": "#/$defs/Hypothesis",
                   "log_entry": "#/$defs/LogEntry",
@@ -12218,6 +12421,9 @@
                 },
                 {
                   "$ref": "#/$defs/WorkspaceBinding"
+                },
+                {
+                  "$ref": "#/$defs/ExecutionLink"
                 }
               ],
               "title": "Payload"
@@ -13822,6 +14028,103 @@
           "title": "ExactReference",
           "type": "object"
         },
+        "ExecutionLink": {
+          "additionalProperties": false,
+          "description": "Project-scoped pointer to an execution another authority owns (SYN-5139).\n\nNot a grant and not a dispatch. The owner keeps custody, status and\naccounting; readers observe it independently and the link stays a claim\nuntil that owner confirms it. A Forge workspace is never the owner's\nSwarms project or Rhodes pool.",
+          "properties": {
+            "environment": {
+              "enum": [
+                "local",
+                "staging",
+                "production"
+              ],
+              "title": "Environment",
+              "type": "string"
+            },
+            "execution_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Execution Id",
+              "type": "string"
+            },
+            "kind": {
+              "const": "execution_link",
+              "default": "execution_link",
+              "title": "Kind",
+              "type": "string"
+            },
+            "owner": {
+              "enum": [
+                "swarms",
+                "rhodes"
+              ],
+              "title": "Owner",
+              "type": "string"
+            },
+            "owner_project_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Owner Project Id"
+            },
+            "pool_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Pool Id"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 1024,
+              "title": "Sources",
+              "type": "array"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "target": {
+              "enum": [
+                "swarm_run",
+                "rhodes_pool",
+                "rhodes_rollout"
+              ],
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          "required": [
+            "owner",
+            "target",
+            "environment",
+            "execution_id"
+          ],
+          "title": "ExecutionLink",
+          "type": "object"
+        },
         "Experiment": {
           "additionalProperties": false,
           "properties": {
@@ -14865,6 +15168,7 @@
           "discriminator": {
             "mapping": {
               "artifact": "#/$defs/Artifact",
+              "execution_link": "#/$defs/ExecutionLink",
               "experiment": "#/$defs/Experiment",
               "hypothesis": "#/$defs/Hypothesis",
               "log_entry": "#/$defs/LogEntry",
@@ -14923,6 +15227,9 @@
             },
             {
               "$ref": "#/$defs/WorkspaceBinding"
+            },
+            {
+              "$ref": "#/$defs/ExecutionLink"
             }
           ],
           "title": "Payload"
