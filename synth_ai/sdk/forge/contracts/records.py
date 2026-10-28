@@ -16,7 +16,7 @@ from pydantic import AwareDatetime, Field, JsonValue, model_validator
 from .contracts import Contract, Digest, ExactReference, Identifier, Text
 from .evaluation import EvaluationBinding
 from .exports import ScientificExport, SourceNotice
-from .resources import ResourceBinding, WorkspaceBinding
+from .resources import ExecutionLink, ResourceBinding, WorkspaceBinding
 
 References = Annotated[tuple[ExactReference, ...], Field(max_length=1024)]
 
@@ -234,6 +234,7 @@ Record = Annotated[
     | ScientificExport
     | SourceNotice
     | ResourceBinding
-    | WorkspaceBinding,
+    | WorkspaceBinding
+    | ExecutionLink,
     Field(discriminator="kind"),
 ]
