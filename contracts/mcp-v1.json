@@ -9689,6 +9689,305 @@
       "required_scope": "forge:read"
     },
     {
+      "description": "List accessible research workspaces in bounded pages.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "After"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "ForgeProjectPage",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "forge_project_list",
+      "operation": "forge.projects.list",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ProjectPage": {
+            "additionalProperties": true,
+            "properties": {
+              "next_cursor": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Next Cursor"
+              },
+              "projects": {
+                "items": {
+                  "$ref": "#/$defs/ProjectSummary"
+                },
+                "title": "Projects",
+                "type": "array"
+              }
+            },
+            "required": [
+              "projects"
+            ],
+            "title": "ProjectPage",
+            "type": "object"
+          },
+          "ProjectSummary": {
+            "additionalProperties": true,
+            "properties": {
+              "archived": {
+                "title": "Archived",
+                "type": "boolean"
+              },
+              "objective": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "title": "Objective",
+                "type": "string"
+              },
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Project Id",
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "title": "Revision",
+                "type": "integer"
+              },
+              "title": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "title": "Title",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id",
+              "revision",
+              "title",
+              "objective",
+              "archived"
+            ],
+            "title": "ProjectSummary",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "page": {
+            "$ref": "#/$defs/ProjectPage"
+          }
+        },
+        "required": [
+          "metadata",
+          "page"
+        ],
+        "title": "ProjectListResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
       "description": "Inspect a research workspace with current access and retained revision.",
       "idempotent": true,
       "input_schema": {

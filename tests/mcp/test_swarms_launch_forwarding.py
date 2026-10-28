@@ -17,7 +17,7 @@ def test_preflight_and_launch_forward_explicit_forge_and_rhodes_grants(message_f
         message_field: "Evaluate the selected workspace",
         "project_id": "execution-project",
         "limits": {
-            "maximum_charge": None,
+            "maximum_charge": {"coefficient": 5, "scale": 0, "currency": "USD"},
             "wall_time_seconds": 60,
             "maximum_tasks": 1,
             "maximum_parallel_tasks": 1,
