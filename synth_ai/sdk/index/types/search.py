@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    AwareDatetime,
     ConfigDict,
     Field,
     SerializerFunctionWrapHandler,
@@ -169,6 +170,7 @@ class SearchResponse(ResponseModel):
 
 class SearchSnapshot(ResponseModel):
     search_id: ResponseIdentifier
+    created_at: AwareDatetime | None = None
     mode: Mode
     state: (
         Literal["queued", "running", "completed", "partial", "failed", "cancelled"] | UnknownValue
