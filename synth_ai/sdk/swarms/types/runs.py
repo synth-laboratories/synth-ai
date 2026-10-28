@@ -15,7 +15,14 @@ from pydantic import (
 
 from synth_ai.errors import OperationFailedError
 from synth_ai.sdk.core.artifact_types import ResponseLabels
-from synth_ai.types.base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
+from synth_ai.types.base import (
+    Digest,
+    EventCursor,
+    Page,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 from synth_ai.types.receipts import ControlCommand, ControlState
 from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
@@ -61,6 +68,21 @@ KnownTaskState = Literal[
 TaskState = KnownTaskState | UnknownValue
 
 
+class AdmittedResourceGrant(ResponseBase):
+    """Secret-free summary of one frozen resource grant."""
+
+    grant_id: str
+    plugin: str
+    version: StrictInt
+    roles: tuple[str, ...]
+    limits: dict[str, StrictInt]
+    role_limits: dict[str, dict[str, StrictInt]]
+    models: tuple[str, ...]
+    collections: tuple[str, ...]
+    selection: dict[str, Any] | None
+    funding_lane: str
+
+
 class ResolvedConfiguration(ResponseModel):
     run_id: ResponseIdentifier | None
     project_id: ResponseIdentifier
@@ -73,6 +95,7 @@ class ResolvedConfiguration(ResponseModel):
     providers: ResolvedProviders
     models: ResolvedModels
     repo: RepoSelector | None = None
+    resource_grants: tuple[AdmittedResourceGrant, ...] | None = None
 
 
 class LaunchPreflight(ResponseModel):
@@ -311,3 +334,9 @@ class SwarmEvent(ResponseBase):
         if (self.kind == "usage_updated") != (self.usage is not None):
             raise ValueError("only usage_updated carries usage")
         return self
+
+
+class SwarmEventPage(Page[SwarmEvent, EventCursor]):
+    """A bounded page with an optional reusable observation position."""
+
+    resume_cursor: EventCursor | None = None

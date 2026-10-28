@@ -45,7 +45,7 @@ from synth_ai.sdk.swarms.types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
     RunSnapshot,
-    SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
 )
@@ -385,7 +385,7 @@ async def run_result(client: AsyncSynthClient, args: RunIdentity) -> SwarmResult
     return await (await client.swarms.get(args.run_id)).result()
 
 
-async def run_events(client: AsyncSynthClient, args: RunPage) -> Page[SwarmEvent, EventCursor]:
+async def run_events(client: AsyncSynthClient, args: RunPage) -> SwarmEventPage:
     return await (await client.swarms.get(args.run_id)).event_page(
         limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
     )
@@ -883,7 +883,7 @@ TOOLS: tuple[ToolSpec, ...] = (
         swarm_operations.EVENTS,
         "Read one bounded event page. Closing observation never cancels work.",
         RunPage,
-        Page[SwarmEvent, EventCursor],
+        SwarmEventPage,
         run_events,
     ),
     ToolDefinition(
