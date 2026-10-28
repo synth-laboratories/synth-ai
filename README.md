@@ -41,6 +41,13 @@ with SynthClient() as client:
     print(result.response)
 ```
 
+For keyed DEEP searches, `index.search` creates a durable Search and observes its
+result. With strict ZDR it consumes the original request-owned event stream;
+strict content cannot be replayed after a disconnect. An observation timeout
+does not cancel a durable Search and includes its ID for reattachment when the
+retention policy permits. An explicitly supplied legacy `index.search` mutation
+identity remains bound to its original synchronous route.
+
 Create a Swarms project, launch bounded work, wait, and download its results:
 
 ```python
