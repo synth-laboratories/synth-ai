@@ -4,6 +4,12 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 # Changelog
 
+## 0.23.10
+
+- Swarms run create retries the backend's 429 `smr_control_plane_admission_backpressure` (per-project or per-org active-run cap, `outcome=not_accepted`) under a fresh idempotency key, honouring `Retry-After`. Any refusal whose `synth.refusal.v1` document says `retryable=true` (not in doubt) with a `Retry-After` is now retried the same way; 4xx refusals without it are not retried (SYN-5009).
+- `LaunchRetryExhausted` now reports `cause` and `cause_detail` (budget scope, held, pending, limit) in its message; each `LaunchAttempt` carries `cause_detail`.
+- Contracts (core.v1, index.v1, swarms.v1) are unchanged from 0.23.9.
+
 ## 0.23.9
 
 - Swarms run create retries the backend's pre-acceptance `owner_unavailable` refusal (503, `outcome=not_accepted`, bounded `Retry-After`) under a fresh idempotency key, the same way as `launch_admission_busy`; a transient owner readiness probe failure no longer fails the create (SYN-5091).
