@@ -7,6 +7,13 @@ from .labels import AsyncRunLabels, RunLabels
 from .output_stream import AsyncOutputStream, OutputStream
 from .run import AsyncSwarmRun, SwarmRun
 from .types.files import File, FileManifest, FileSource, FileUploadReceipt, FileUploadStatus
+from .types.programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramFamilyRef,
+    ResearchBinding,
+)
 from .types.launch import FileRef, Inputs, Limits, Models, Providers, RepoSelector
 from .types.objectives import (
     Guidance,
@@ -40,6 +47,11 @@ from .types.runs import (
 from .watch import AsyncRunWatch, RunWatch
 
 __all__ = [
+    "ProgramChoice",
+    "ProgramFamily",
+    "ProgramFamilyList",
+    "ProgramFamilyRef",
+    "ResearchBinding",
     "EvidenceRef",
     "Problem",
     "ReasonLink",

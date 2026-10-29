@@ -19,6 +19,7 @@ from synth_ai.types.money import Money
 from synth_ai.types.refs import Ref
 
 from .objectives import Guidance
+from .programs import ProgramChoice
 from .resources import ResourceRequest
 
 
@@ -135,6 +136,7 @@ class LaunchRequest(Model):
     inputs: Inputs | None = None
     providers: Providers | None = None
     models: Models | None = None
+    program: ProgramChoice | None = None
     labels: Labels | None = None
     repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
@@ -147,7 +149,7 @@ class LaunchRequest(Model):
     @model_serializer(mode="wrap")
     def omit_absent_labels(self, handler):
         result = handler(self)
-        for name in ("labels", "inputs", "providers", "models", "repo"):
+        for name in ("labels", "inputs", "providers", "models", "repo", "program"):
             if getattr(self, name) is None:
                 result.pop(name, None)
         if not self.guidance:

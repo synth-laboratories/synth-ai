@@ -37290,6 +37290,262 @@
       "required_scope": "swarms:write"
     },
     {
+      "description": "List the exact program family versions (general, research) a launch may select.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyArguments",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "swarms_families",
+      "operation": "swarms.families.list",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ProgramFamily": {
+            "additionalProperties": true,
+            "description": "One family version a launch may select.",
+            "properties": {
+              "id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Id",
+                "type": "string"
+              },
+              "required_actor_types": {
+                "items": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "title": "Required Actor Types",
+                "type": "array"
+              },
+              "research_binding": {
+                "enum": [
+                  "required",
+                  "forbidden"
+                ],
+                "title": "Research Binding",
+                "type": "string"
+              },
+              "summary": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "title": "Summary",
+                "type": "string"
+              },
+              "version": {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "summary",
+              "research_binding",
+              "required_actor_types"
+            ],
+            "title": "ProgramFamily",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "families": {
+            "items": {
+              "$ref": "#/$defs/ProgramFamily"
+            },
+            "title": "Families",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "families"
+        ],
+        "title": "ProgramFamilyList",
+        "type": "object"
+      },
+      "required_scope": "swarms:read"
+    },
+    {
       "description": "Preview resolved launch configuration and blockers without starting execution or reserving budget.",
       "idempotent": true,
       "input_schema": {
@@ -37577,6 +37833,55 @@
             "title": "PoolSelection",
             "type": "object"
           },
+          "ProgramChoice": {
+            "additionalProperties": false,
+            "properties": {
+              "family": {
+                "$ref": "#/$defs/ProgramFamilyRef"
+              },
+              "research": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ResearchBinding"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "family"
+            ],
+            "title": "ProgramChoice",
+            "type": "object"
+          },
+          "ProgramFamilyRef": {
+            "additionalProperties": false,
+            "description": "An exact public family version, e.g. ``swarms.general`` version 1.",
+            "properties": {
+              "id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "title": "Id",
+                "type": "string"
+              },
+              "version": {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ],
+            "title": "ProgramFamilyRef",
+            "type": "object"
+          },
           "ProjectSelection": {
             "additionalProperties": false,
             "description": "Independent Forge project scope; see forge-research-program-plugin.v1.md.",
@@ -37631,6 +37936,30 @@
               "base"
             ],
             "title": "RepoSelector",
+            "type": "object"
+          },
+          "ResearchBinding": {
+            "additionalProperties": false,
+            "description": "The research family's bound Forge project and record protocol.",
+            "properties": {
+              "forge_project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Forge Project Id",
+                "type": "string"
+              },
+              "record_protocol": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$",
+                "title": "Record Protocol",
+                "type": "string"
+              }
+            },
+            "required": [
+              "forge_project_id",
+              "record_protocol"
+            ],
+            "title": "ResearchBinding",
             "type": "object"
           },
           "ResourceRequest": {
@@ -37864,6 +38193,17 @@
             ],
             "default": null,
             "title": "Objective"
+          },
+          "program": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProgramChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "project_id": {
             "maxLength": 128,
@@ -38849,6 +39189,55 @@
             "title": "PoolSelection",
             "type": "object"
           },
+          "ProgramChoice": {
+            "additionalProperties": false,
+            "properties": {
+              "family": {
+                "$ref": "#/$defs/ProgramFamilyRef"
+              },
+              "research": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ResearchBinding"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "family"
+            ],
+            "title": "ProgramChoice",
+            "type": "object"
+          },
+          "ProgramFamilyRef": {
+            "additionalProperties": false,
+            "description": "An exact public family version, e.g. ``swarms.general`` version 1.",
+            "properties": {
+              "id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "title": "Id",
+                "type": "string"
+              },
+              "version": {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ],
+            "title": "ProgramFamilyRef",
+            "type": "object"
+          },
           "ProjectSelection": {
             "additionalProperties": false,
             "description": "Independent Forge project scope; see forge-research-program-plugin.v1.md.",
@@ -38903,6 +39292,30 @@
               "base"
             ],
             "title": "RepoSelector",
+            "type": "object"
+          },
+          "ResearchBinding": {
+            "additionalProperties": false,
+            "description": "The research family's bound Forge project and record protocol.",
+            "properties": {
+              "forge_project_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "title": "Forge Project Id",
+                "type": "string"
+              },
+              "record_protocol": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$",
+                "title": "Record Protocol",
+                "type": "string"
+              }
+            },
+            "required": [
+              "forge_project_id",
+              "record_protocol"
+            ],
+            "title": "ResearchBinding",
             "type": "object"
           },
           "ResourceRequest": {
@@ -39143,6 +39556,17 @@
             ],
             "default": null,
             "title": "Objective"
+          },
+          "program": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProgramChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "project_id": {
             "maxLength": 128,

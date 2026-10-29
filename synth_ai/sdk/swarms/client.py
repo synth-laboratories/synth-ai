@@ -28,6 +28,7 @@ from .create_retry import async_create_with_retry, create_with_retry
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
+from .types.programs import ProgramChoice, ProgramFamilyList
 from .types.objectives import Guidance
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
@@ -46,6 +47,7 @@ def launch_request(
     guidance: tuple[Guidance, ...] = (),
     resources: tuple[ResourceRequest, ...] = (),
     repo: RepoSelector | None = None,
+    program: ProgramChoice | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -70,6 +72,7 @@ def launch_request(
         models=models,
         labels=labels,
         repo=repo,
+        program=program,
     )
 
 
@@ -165,6 +168,7 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        program: ProgramChoice | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -180,6 +184,7 @@ class SwarmsClient:
             guidance,
             resources,
             repo,
+            program,
         )
         return self._transport.request(
             operations.PREFLIGHT,
@@ -203,6 +208,7 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        program: ProgramChoice | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -218,6 +224,7 @@ class SwarmsClient:
             guidance,
             resources,
             repo,
+            program,
         )
 
         def send(options: MutationOptions | None) -> RunSnapshot:
@@ -237,6 +244,20 @@ class SwarmsClient:
 
         result = create_with_retry(send, mutation)
         return SwarmRun(self._transport, result.run_id, snapshot=result)
+
+    def families(self, *, request: ReadOptions | None = None) -> ProgramFamilyList:
+        """The exact program family versions a launch may select (SYN-4849)."""
+        return self._transport.request(
+            operations.FAMILIES,
+            ProgramFamilyList,
+            options=request,
+            validate=lambda result: verified(
+                result,
+                len({(item.id, item.version) for item in result.families})
+                == len(result.families),
+                "Duplicate program family version",
+            ),
+        )
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
         """Reattach to an authorized durable run without restarting it."""
@@ -357,6 +378,7 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        program: ProgramChoice | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -372,6 +394,7 @@ class AsyncSwarmsClient:
             guidance,
             resources,
             repo,
+            program,
         )
         return await self._transport.request(
             operations.PREFLIGHT,
@@ -395,6 +418,7 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        program: ProgramChoice | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -410,6 +434,7 @@ class AsyncSwarmsClient:
             guidance,
             resources,
             repo,
+            program,
         )
 
         async def send(options: MutationOptions | None) -> RunSnapshot:
@@ -429,6 +454,20 @@ class AsyncSwarmsClient:
 
         result = await async_create_with_retry(send, mutation)
         return AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
+
+    async def families(self, *, request: ReadOptions | None = None) -> ProgramFamilyList:
+        """The exact program family versions a launch may select (SYN-4849)."""
+        return await self._transport.request(
+            operations.FAMILIES,
+            ProgramFamilyList,
+            options=request,
+            validate=lambda result: verified(
+                result,
+                len({(item.id, item.version) for item in result.families})
+                == len(result.families),
+                "Duplicate program family version",
+            ),
+        )
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
         """Reattach to an authorized durable run without restarting it."""

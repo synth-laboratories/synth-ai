@@ -42,7 +42,12 @@ from synth_ai.sdk.swarms.types.outputs import (
     TextContent,
     TransferTiming,
 )
-from synth_ai.sdk.swarms.types.programs import ProgramRunView
+from synth_ai.sdk.swarms.types.programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramRunView,
+)
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import (
     LaunchPreflight,
@@ -69,6 +74,9 @@ MODELS: tuple[type[BaseModel], ...] = (
     ArtifactLabelsUpdate,
     ControlReceipt,
     ProgramRunView,
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
     Approval,
     ApprovalList,
     ApprovalDecisionRequest,

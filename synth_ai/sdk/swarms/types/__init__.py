@@ -8,6 +8,13 @@ from .files import (
     FileUploadReceipt,
     FileUploadStatus,
 )
+from .programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramFamilyRef,
+    ResearchBinding,
+)
 from .launch import (
     FileRef,
     Inputs,
@@ -47,6 +54,11 @@ from .runs import (
 )
 
 __all__ = [
+    "ProgramChoice",
+    "ProgramFamily",
+    "ProgramFamilyList",
+    "ProgramFamilyRef",
+    "ResearchBinding",
     "PROBLEMS_SCHEMA",
     "EvidenceRef",
     "Problem",

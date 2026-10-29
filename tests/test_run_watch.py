@@ -359,7 +359,8 @@ def test_swarms_contract_exports_the_stream_operation():
             "idempotent": True,
         }
     ]
-    assert exported["operations"][-1]["id"] == "swarms.stream"
+    ids = [item["id"] for item in exported["operations"]]
+    assert len(ids) == len(set(ids))
     assert operations.STREAM.matches_resource_path("/api/v1/swarms/runs/run-1/stream")
     retained = (Path(__file__).parents[1] / "contracts/swarms-v1.json").read_text()
     assert digest_exported_contract(retained) == schema_sha256("swarms.v1")
