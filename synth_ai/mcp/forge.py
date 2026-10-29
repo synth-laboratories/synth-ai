@@ -219,6 +219,12 @@ class ForgeReportShareRead(ForgeProjectIdentity):
     digest: VersionDigest
 
 
+class ForgeReportArtifactRead(ForgeReportShareRead):
+    """One artifact the version's manifest pins (SYN-5158 gap 3)."""
+
+    artifact_id: Identifier
+
+
 class ForgeReportShareCreate(ForgeReportShareRead):
     """Named principals only; there is no public/unlisted audience."""
 
@@ -298,3 +304,7 @@ async def report_export(client, args):
 
 async def report_availability(client, args):
     return await client.forge.reports.availability(args.project_id, args.digest)
+
+
+async def report_artifact(client, args):
+    return await client.forge.reports.read_artifact(args.project_id, args.digest, args.artifact_id)

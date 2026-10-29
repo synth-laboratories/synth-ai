@@ -456,6 +456,34 @@ class ReportExportResponse(ResponseModel):
     export: ReportExportBundle
 
 
+# SYN-5158 gap 3: inline (hosted/stdio MCP) artifact bytes are bounded; larger
+# artifacts stream through ``forge.report_reader.download`` to a file.
+REPORT_ARTIFACT_INLINE_MAX_BYTES = 16 * 1024 * 1024
+
+
+class ReportArtifactContent(Contract):
+    """One manifest artifact of one exact version, digest-verified, as data."""
+
+    schema_version: Literal["synth.forge.report-artifact-content.v1"] = (
+        "synth.forge.report-artifact-content.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    artifact_id: Identifier
+    role: Literal["input", "intermediate", "output", "evidence"]
+    access: ReportAccess
+    content_sha256: Digest
+    size_bytes: int = Field(ge=1, le=REPORT_ARTIFACT_INLINE_MAX_BYTES)
+    media_type: str = Field(min_length=1, max_length=255)
+    rendering: Literal["plain_text"] = "plain_text"
+    content_base64: str
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportArtifactContentResponse(ResponseModel):
+    artifact: ReportArtifactContent
+
+
 class ReportVersionAvailabilityResponse(ResponseModel):
     """Per-artifact availability of one version as the caller sees it now."""
 
