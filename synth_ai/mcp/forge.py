@@ -1,8 +1,8 @@
 """Typed workspace tools; host identity and authority never enter tool arguments."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field
 
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
@@ -208,5 +208,59 @@ async def report_revoke_inactive(client, args):
     return await client.forge.reports.revoke_inactive(
         args.project_id,
         args.lineage_id,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+VersionDigest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class ForgeReportShareRead(ForgeProjectIdentity):
+    digest: VersionDigest
+
+
+class ForgeReportShareCreate(ForgeReportShareRead):
+    """Named principals only; there is no public/unlisted audience."""
+
+    audience: Literal["organization", "invited"]
+    invited: Annotated[tuple[Identifier, ...], Field(max_length=256)] = ()
+    expires_at: AwareDatetime | None = None
+    idempotency_key: Identifier
+
+
+class ForgeReportShareRevoke(ForgeReportShareRead):
+    idempotency_key: Identifier
+
+
+class ForgeReportShareList(ForgeProjectIdentity):
+    after: VersionDigest | None = None
+    limit: Annotated[int, Field(strict=True, ge=1, le=1000)] = 100
+
+
+async def report_share(client, args):
+    return await client.forge.reports.share(
+        args.project_id,
+        args.digest,
+        audience=args.audience,
+        invited=args.invited,
+        expires_at=args.expires_at,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def report_share_get(client, args):
+    return await client.forge.reports.get_share(args.project_id, args.digest)
+
+
+async def report_share_list(client, args):
+    return await client.forge.reports.list_shares(
+        args.project_id, after=args.after, limit=args.limit
+    )
+
+
+async def report_share_revoke(client, args):
+    return await client.forge.reports.revoke_share(
+        args.project_id,
+        args.digest,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )

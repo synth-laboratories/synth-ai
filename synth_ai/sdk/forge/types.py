@@ -3,7 +3,10 @@
 # ruff: noqa: I001
 """Public workspace envelopes; see docs/forge-projects.md and SYN-4844."""
 
-from typing import Literal
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import AwareDatetime, Field
 
 from synth_ai.types.base import ResponseModel
 from .contracts.contracts import Contract, Digest, Identifier, Scope
@@ -99,3 +102,52 @@ class ReportPublicationResponse(ResponseModel):
 
 class ReportShareRevocationResponse(ResponseModel):
     revocation: ShareRevocationReport
+
+
+class ReportShareIntent(Contract):
+    """Share one exact report version with named principals (SYN-5157).
+
+    Owner decision 2026-10-28: only the organization or invited members; there
+    is no public/unlisted audience. ``expires_at`` is optional, caller-set and
+    timezone-aware; access ends at that instant (owner grants never expire).
+    """
+
+    schema_version: Literal["forge.report-share-intent.v1"] = (
+        "forge.report-share-intent.v1"
+    )
+    operation_id: Identifier
+    audience: Literal["organization", "invited"]
+    invited: Annotated[tuple[Identifier, ...], Field(max_length=256)] = ()
+    expires_at: AwareDatetime | None = None
+
+
+class ReportShareRevokeOneIntent(Contract):
+    """Return one exact version's share to private (share or lineage owner)."""
+
+    schema_version: Literal["forge.report-share-revoke-one-intent.v1"] = (
+        "forge.report-share-revoke-one-intent.v1"
+    )
+    operation_id: Identifier
+
+
+class ReportShare(Contract):
+    schema_version: Literal["synth.forge.report-share.v1"] = (
+        "synth.forge.report-share.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    audience: Literal["private", "organization", "invited"]
+    invited: tuple[str, ...] = ()
+    policy_version: int
+    publication_id: str
+    # Caller-set end of the share; None = until revoked.
+    expires_at: datetime | None = None
+    expired: bool = False
+
+
+class ReportShareResponse(ResponseModel):
+    share: ReportShare
+
+
+class ReportShareListResponse(ResponseModel):
+    shares: tuple[ReportShare, ...]

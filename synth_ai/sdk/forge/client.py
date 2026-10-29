@@ -16,8 +16,8 @@ from .contracts.projects import (
     ProjectUpdate,
 )
 from .index_drafts import AsyncIndexDrafts, IndexDrafts
-from .reports import AsyncReports, Reports
 from .records import AsyncReceipts, AsyncRecords, Receipts, Records, project_identity
+from .reports import AsyncReports, Reports
 from .types import ProjectListResponse, ProjectMutationResponse, ProjectResponse
 
 
