@@ -175,6 +175,11 @@ class HttpTransport:
 
             require_control_operation(operation, self._options)
             return None
+        if operation.contract == "menagerie.v1":
+            from synth_ai.contracts.menagerie import require_menagerie_operation
+
+            require_menagerie_operation(operation, self._options)
+            return None
         if operation.contract == "account.v1":
             from synth_ai.contracts.account import require_account_read
 

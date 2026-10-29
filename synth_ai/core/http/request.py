@@ -136,7 +136,7 @@ def build_request(
         request.headers["X-Synth-Schema-SHA256"] = negotiated.schema_sha256
         request.headers["X-Synth-Capabilities-SHA256"] = negotiated.capability_sha256
         request.headers["X-Synth-Release-Manifest-SHA256"] = negotiated.release_manifest_sha256
-    if operation.contract == "tunnels.v2":
+    if operation.contract in {"tunnels.v2", "menagerie.v1"}:
         request.headers.pop("X-Synth-Contract", None)
     else:
         request.headers["X-Synth-Contract"] = operation.contract
