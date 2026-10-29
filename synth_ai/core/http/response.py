@@ -64,7 +64,33 @@ class ErrorResponse(ResponseBase):
     error: ErrorDetail
 
 
-class RefusalErrorDetail(ErrorDetail):
+# SYN-4551: rich error bodies are negotiated per request, never by environment.
+# This SDK sends ``X-Synth-Accept-Errors: synth.errors.v2``; a backend that
+# honours it marks the body with ``X-Synth-Error-Contract: synth.errors.v2``.
+# Without that response header the body is decoded as v1 (older backends).
+ACCEPT_ERRORS_HEADER = "X-Synth-Accept-Errors"
+ERROR_CONTRACT_HEADER = "X-Synth-Error-Contract"
+ERRORS_V2 = "synth.errors.v2"
+_CAUSE_TOKEN = r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+
+
+class ErrorDetailV2(ErrorDetail):
+    """``ErrorDetail`` plus the typed cause fields; each is omitted when unknown.
+
+    Not part of the fingerprinted ``index.v1`` export: v2 is a separately
+    negotiated error contract, so old SDKs keep their pinned schema."""
+
+    service: str | None = Field(default=None, max_length=32, pattern=_CAUSE_TOKEN)
+    stage: str | None = Field(default=None, max_length=64, pattern=_CAUSE_TOKEN)
+    cause_code: str | None = Field(default=None, max_length=64, pattern=_CAUSE_TOKEN)
+    upstream_status: int | None = Field(default=None, ge=100, le=599)
+
+
+class ErrorResponseV2(ResponseBase):
+    error: ErrorDetailV2
+
+
+class RefusalErrorDetail(ErrorDetailV2):
     model_config = ConfigDict(extra="forbid")
     refusal: Refusal
 
@@ -74,9 +100,16 @@ class RefusalErrorResponse(BaseModel):
     error: RefusalErrorDetail
 
 
-def _decode_error(response: httpx.Response, body: bytes) -> ErrorDetail | RefusalErrorDetail:
+def _decode_error(
+    response: httpx.Response, body: bytes
+) -> ErrorDetail | ErrorDetailV2 | RefusalErrorDetail:
+    error_contract = response.headers.get(ERROR_CONTRACT_HEADER)
+    if error_contract is not None and error_contract != ERRORS_V2:
+        raise ContractError("Unsupported error contract", status=response.status_code)
     contract = response.headers.get("X-Synth-Refusal-Contract")
     if contract is None:
+        if error_contract == ERRORS_V2:
+            return ErrorResponseV2.model_validate_json(body).error
         return ErrorResponse.model_validate_json(body).error
     if contract != "synth.refusal.v1":
         raise ContractError("Unsupported refusal contract", status=response.status_code)
@@ -88,6 +121,18 @@ def _decode_error(response: httpx.Response, body: bytes) -> ErrorDetail | Refusa
     if error.code != error.refusal.code:
         raise ContractError("Refusal code does not match error code", status=response.status_code)
     return error
+
+
+def _cause_fields(error: ErrorDetail) -> dict[str, object]:
+    """Typed v2 cause fields for the exception; empty for a v1 body."""
+    if not isinstance(error, ErrorDetailV2):
+        return {}
+    return {
+        "service": error.service,
+        "stage": error.stage,
+        "cause": error.cause_code,
+        "upstream_status": error.upstream_status,
+    }
 
 
 class _TolerantErrorDetail(BaseModel):
@@ -331,6 +376,7 @@ def _decode_response(
                 status=response.status_code,
                 identity=identity,
                 retry_after_seconds=error.retry_after_seconds,
+                **_cause_fields(error),
             )
         kind: type[SynthError] = RefusedError if definite else SynthError
         if (response.status_code, error.code) in POLICY_ERROR_TYPES:
@@ -369,6 +415,7 @@ def _decode_response(
             status=response.status_code,
             identity=identity,
             retry_after_seconds=error.retry_after_seconds,
+            **_cause_fields(error),
         )
         if isinstance(refusal, RetentionModeNotAllowed):
             refusal.allowed_modes = allowed_modes or _header_modes(response.headers)

@@ -144,6 +144,9 @@ def build_request(
     # This SDK decodes v2 problem origins (unknown ones as UnknownOrigin); a
     # backend serves v1 origins to any caller that does not ask (SYN-4551).
     request.headers["X-Synth-Accept-Problems"] = "synth.problems.v2"
+    # Rich error bodies (service, stage, cause_code, upstream_status); the
+    # decoder falls back to v1 when the backend does not mark the body v2.
+    request.headers["X-Synth-Accept-Errors"] = "synth.errors.v2"
     request.headers["Accept-Encoding"] = "identity"
     request.headers["X-Synth-Request-Timeout-Ms"] = str(max(1, int(remaining_seconds * 1000)))
     if body:

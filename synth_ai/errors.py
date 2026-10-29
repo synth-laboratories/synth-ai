@@ -30,6 +30,8 @@ class SynthError(Exception):
         retryable: bool | None = None,
         stage: str | None = None,
         cause: str | None = None,
+        service: str | None = None,
+        upstream_status: int | None = None,
         closure_pending: str | None = None,
         closure_expected_by: datetime | None = None,
         reason: Literal[
@@ -46,6 +48,8 @@ class SynthError(Exception):
         self.retryable = retryable
         self.stage = stage
         self.cause = cause
+        self.service = service
+        self.upstream_status = upstream_status
         self.closure_pending = closure_pending
         self.closure_expected_by = closure_expected_by
         self.code = code
@@ -87,8 +91,10 @@ class SynthError(Exception):
             ("status", self.status),
             ("request_id", self.request_id),
             ("operation", self.operation),
+            ("service", self.service),
             ("stage", self.stage),
             ("cause", self.cause),
+            ("upstream_status", self.upstream_status),
             ("closure_pending", self.closure_pending),
             (
                 "closure_expected_by",
@@ -102,7 +108,16 @@ class SynthError(Exception):
 
     def __repr__(self) -> str:
         parts = [repr(Exception.__str__(self))]
-        for name in ("code", "status", "request_id", "operation", "stage", "cause"):
+        for name in (
+            "code",
+            "status",
+            "request_id",
+            "operation",
+            "service",
+            "stage",
+            "cause",
+            "upstream_status",
+        ):
             value = getattr(self, name)
             if value is not None:
                 parts.append(f"{name}={value!r}")
