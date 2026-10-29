@@ -270,6 +270,20 @@ class OutcomeUncertainError(SynthError):
     """Retain identity and reconcile before repeating work."""
 
 
+class LifecycleWriteRefusedError(OutcomeUncertainError):
+    """The backend refused to write an Orchestra-owned run's lifecycle (SYN-4642).
+
+    Orchestra owns stop/cancel/pause/resume for these runs. The owner command
+    may already have been dispatched, so the outcome stays uncertain: resolve
+    ``identity`` and read the run before repeating the control.
+    """
+
+
+LIFECYCLE_WRITE_REFUSAL_CODES = frozenset(
+    {"orchestra_lifecycle_write_refused", "lifecycle_write_not_owner"}
+)
+
+
 class OperationFailedError(SynthError):
     """Explicit opt-in failure raising for an inspectable result."""
 
