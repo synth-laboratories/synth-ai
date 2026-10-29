@@ -8813,6 +8813,393 @@
       "title": "PublicWriteV2",
       "type": "object"
     },
+    "ReportExportResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ReportExportBundle": {
+          "additionalProperties": true,
+          "description": "Portable export: provenance manifest, its digest and exact version bytes.",
+          "properties": {
+            "files": {
+              "items": {
+                "$ref": "#/$defs/ReportExportFile"
+              },
+              "title": "Files",
+              "type": "array"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ReportExportManifest"
+            },
+            "manifest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Sha256",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.forge.report-export.v1",
+              "default": "synth.forge.report-export.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "manifest",
+            "manifest_sha256",
+            "files"
+          ],
+          "title": "ReportExportBundle",
+          "type": "object"
+        },
+        "ReportExportEntry": {
+          "additionalProperties": true,
+          "properties": {
+            "access": {
+              "enum": [
+                "project",
+                "owner",
+                "organization",
+                "invited"
+              ],
+              "title": "Access",
+              "type": "string"
+            },
+            "disposition": {
+              "enum": [
+                "initial",
+                "correction",
+                "supersession",
+                "retraction"
+              ],
+              "title": "Disposition",
+              "type": "string"
+            },
+            "lineage_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Lineage Id",
+              "type": "string"
+            },
+            "media_type": {
+              "const": "application/vnd.synth.forge.report-version.v1+json",
+              "default": "application/vnd.synth.forge.report-version.v1+json",
+              "title": "Media Type",
+              "type": "string"
+            },
+            "path": {
+              "title": "Path",
+              "type": "string"
+            },
+            "size_bytes": {
+              "minimum": 1,
+              "title": "Size Bytes",
+              "type": "integer"
+            },
+            "version": {
+              "title": "Version",
+              "type": "integer"
+            },
+            "version_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Version Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "version_sha256",
+            "lineage_id",
+            "version",
+            "disposition",
+            "size_bytes",
+            "access"
+          ],
+          "title": "ReportExportEntry",
+          "type": "object"
+        },
+        "ReportExportFile": {
+          "additionalProperties": true,
+          "properties": {
+            "content_base64": {
+              "title": "Content Base64",
+              "type": "string"
+            },
+            "path": {
+              "title": "Path",
+              "type": "string"
+            },
+            "version_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Version Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "version_sha256",
+            "content_base64"
+          ],
+          "title": "ReportExportFile",
+          "type": "object"
+        },
+        "ReportExportManifest": {
+          "additionalProperties": true,
+          "description": "Provenance of an explicit, caller-selected export; grants nothing.",
+          "properties": {
+            "entries": {
+              "items": {
+                "$ref": "#/$defs/ReportExportEntry"
+              },
+              "title": "Entries",
+              "type": "array"
+            },
+            "exported_at": {
+              "format": "date-time",
+              "title": "Exported At",
+              "type": "string"
+            },
+            "exported_by": {
+              "title": "Exported By",
+              "type": "string"
+            },
+            "index_contribution": {
+              "const": "none",
+              "default": "none",
+              "title": "Index Contribution",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.forge.report-export-manifest.v1",
+              "default": "synth.forge.report-export-manifest.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "selection": {
+              "items": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "maxItems": 32,
+              "minItems": 1,
+              "title": "Selection",
+              "type": "array"
+            }
+          },
+          "required": [
+            "scope",
+            "exported_by",
+            "exported_at",
+            "selection",
+            "entries"
+          ],
+          "title": "ReportExportManifest",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "export": {
+          "$ref": "#/$defs/ReportExportBundle"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        }
+      },
+      "required": [
+        "metadata",
+        "export"
+      ],
+      "title": "ReportExportResponse",
+      "type": "object"
+    },
     "ReportPublicationResponse": {
       "$defs": {
         "ClientTiming": {
@@ -10844,6 +11231,1911 @@
         "operation_id"
       ],
       "title": "ReportShareRevokeOneIntent",
+      "type": "object"
+    },
+    "ReportVersionBrowseResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ReportVersionEntry": {
+          "additionalProperties": true,
+          "description": "One report version the caller may open, from browse (no content).",
+          "properties": {
+            "access": {
+              "enum": [
+                "owner",
+                "organization",
+                "invited"
+              ],
+              "title": "Access",
+              "type": "string"
+            },
+            "expired": {
+              "default": false,
+              "title": "Expired",
+              "type": "boolean"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expires At"
+            },
+            "index_contribution": {
+              "const": "none",
+              "default": "none",
+              "title": "Index Contribution",
+              "type": "string"
+            },
+            "publication_id": {
+              "title": "Publication Id",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.forge.report-version-entry.v1",
+              "default": "synth.forge.report-version-entry.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "version_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Version Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "version_sha256",
+            "access",
+            "publication_id"
+          ],
+          "title": "ReportVersionEntry",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/ReportVersionEntry"
+          },
+          "title": "Versions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "metadata",
+        "versions"
+      ],
+      "title": "ReportVersionBrowseResponse",
+      "type": "object"
+    },
+    "ReportVersionComparisonResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ManifestSource": {
+          "additionalProperties": true,
+          "properties": {
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "role": {
+              "enum": [
+                "source",
+                "evaluation",
+                "result",
+                "snapshot",
+                "export",
+                "recipe",
+                "exporter"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "role"
+          ],
+          "title": "ManifestSource",
+          "type": "object"
+        },
+        "MissingEvidence": {
+          "additionalProperties": true,
+          "description": "Evidence the report would need but cannot pin; never silently dropped.",
+          "properties": {
+            "description": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "reference": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "state": {
+              "enum": [
+                "absent",
+                "unverified",
+                "inaccessible"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "description",
+            "state"
+          ],
+          "title": "MissingEvidence",
+          "type": "object"
+        },
+        "ReportArtifactChange": {
+          "additionalProperties": true,
+          "properties": {
+            "artifact_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Artifact Id",
+              "type": "string"
+            },
+            "base_role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Base Role"
+            },
+            "base_sha256": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Base Sha256"
+            },
+            "change": {
+              "enum": [
+                "added",
+                "removed",
+                "changed"
+              ],
+              "title": "Change",
+              "type": "string"
+            },
+            "head_role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Head Role"
+            },
+            "head_sha256": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Head Sha256"
+            }
+          },
+          "required": [
+            "artifact_id",
+            "change"
+          ],
+          "title": "ReportArtifactChange",
+          "type": "object"
+        },
+        "ReportEvidenceChanges": {
+          "additionalProperties": true,
+          "properties": {
+            "added": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/MissingEvidence"
+              },
+              "title": "Added",
+              "type": "array"
+            },
+            "removed": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/MissingEvidence"
+              },
+              "title": "Removed",
+              "type": "array"
+            }
+          },
+          "title": "ReportEvidenceChanges",
+          "type": "object"
+        },
+        "ReportFieldChange": {
+          "additionalProperties": true,
+          "properties": {
+            "base": {
+              "title": "Base",
+              "type": "string"
+            },
+            "field": {
+              "enum": [
+                "title",
+                "methodology",
+                "body_sha256",
+                "disclosure_audience"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "head": {
+              "title": "Head",
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "base",
+            "head"
+          ],
+          "title": "ReportFieldChange",
+          "type": "object"
+        },
+        "ReportSourceChanges": {
+          "additionalProperties": true,
+          "properties": {
+            "added": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ManifestSource"
+              },
+              "title": "Added",
+              "type": "array"
+            },
+            "removed": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ManifestSource"
+              },
+              "title": "Removed",
+              "type": "array"
+            }
+          },
+          "title": "ReportSourceChanges",
+          "type": "object"
+        },
+        "ReportTextChanges": {
+          "additionalProperties": true,
+          "properties": {
+            "added": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Added",
+              "type": "array"
+            },
+            "removed": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Removed",
+              "type": "array"
+            }
+          },
+          "title": "ReportTextChanges",
+          "type": "object"
+        },
+        "ReportVersionComparison": {
+          "additionalProperties": true,
+          "description": "Structured diff between two exact versions; content stays plain data.",
+          "properties": {
+            "artifacts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReportArtifactChange"
+              },
+              "title": "Artifacts",
+              "type": "array"
+            },
+            "base": {
+              "$ref": "#/$defs/ReportVersionSummary"
+            },
+            "claims": {
+              "$ref": "#/$defs/ReportTextChanges",
+              "default": {
+                "added": [],
+                "removed": []
+              }
+            },
+            "fields": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ReportFieldChange"
+              },
+              "title": "Fields",
+              "type": "array"
+            },
+            "head": {
+              "$ref": "#/$defs/ReportVersionSummary"
+            },
+            "limitations": {
+              "$ref": "#/$defs/ReportTextChanges",
+              "default": {
+                "added": [],
+                "removed": []
+              }
+            },
+            "manifest_changed": {
+              "title": "Manifest Changed",
+              "type": "boolean"
+            },
+            "missing_evidence": {
+              "$ref": "#/$defs/ReportEvidenceChanges",
+              "default": {
+                "added": [],
+                "removed": []
+              }
+            },
+            "relation": {
+              "enum": [
+                "identical",
+                "successor",
+                "predecessor",
+                "same_lineage",
+                "unrelated"
+              ],
+              "title": "Relation",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.forge.report-version-comparison.v1",
+              "default": "synth.forge.report-version-comparison.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "sources": {
+              "$ref": "#/$defs/ReportSourceChanges",
+              "default": {
+                "added": [],
+                "removed": []
+              }
+            }
+          },
+          "required": [
+            "scope",
+            "base",
+            "head",
+            "relation",
+            "manifest_changed"
+          ],
+          "title": "ReportVersionComparison",
+          "type": "object"
+        },
+        "ReportVersionSummary": {
+          "additionalProperties": true,
+          "properties": {
+            "access": {
+              "enum": [
+                "project",
+                "owner",
+                "organization",
+                "invited"
+              ],
+              "title": "Access",
+              "type": "string"
+            },
+            "disposition": {
+              "enum": [
+                "initial",
+                "correction",
+                "supersession",
+                "retraction"
+              ],
+              "title": "Disposition",
+              "type": "string"
+            },
+            "lineage_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Lineage Id",
+              "type": "string"
+            },
+            "manifest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Sha256",
+              "type": "string"
+            },
+            "published_at": {
+              "format": "date-time",
+              "title": "Published At",
+              "type": "string"
+            },
+            "version": {
+              "title": "Version",
+              "type": "integer"
+            },
+            "version_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Version Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version_sha256",
+            "lineage_id",
+            "version",
+            "disposition",
+            "published_at",
+            "manifest_sha256",
+            "access"
+          ],
+          "title": "ReportVersionSummary",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "comparison": {
+          "$ref": "#/$defs/ReportVersionComparison"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        }
+      },
+      "required": [
+        "metadata",
+        "comparison"
+      ],
+      "title": "ReportVersionComparisonResponse",
+      "type": "object"
+    },
+    "ReportVersionDocumentResponse": {
+      "$defs": {
+        "ArtifactDeliveryBinding": {
+          "additionalProperties": true,
+          "properties": {
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "publication_id": {
+              "format": "uuid",
+              "title": "Publication Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "publication_id",
+            "logical_path"
+          ],
+          "title": "ArtifactDeliveryBinding",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "Credit": {
+          "additionalProperties": true,
+          "properties": {
+            "contributor_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Contributor Id",
+              "type": "string"
+            },
+            "license": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "License",
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "author",
+                "data",
+                "implementation",
+                "method",
+                "review",
+                "funding"
+              ],
+              "title": "Role",
+              "type": "string"
+            },
+            "upstream_contribution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "contributor_id",
+            "role",
+            "license"
+          ],
+          "title": "Credit",
+          "type": "object"
+        },
+        "Disclosure": {
+          "additionalProperties": true,
+          "description": "Who may be shown this version. Sharing is not an Index contribution.",
+          "properties": {
+            "audience": {
+              "default": "private",
+              "enum": [
+                "private",
+                "organization",
+                "invited"
+              ],
+              "title": "Audience",
+              "type": "string"
+            },
+            "index_contribution": {
+              "const": "none",
+              "default": "none",
+              "title": "Index Contribution",
+              "type": "string"
+            }
+          },
+          "title": "Disclosure",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ManifestArtifact": {
+          "additionalProperties": true,
+          "description": "One exact artifact version the report relies on, pinned by content digest.",
+          "properties": {
+            "artifact_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Artifact Id",
+              "type": "string"
+            },
+            "byte_count": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Byte Count"
+            },
+            "content_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Content Sha256",
+              "type": "string"
+            },
+            "delivery": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ArtifactDeliveryBinding"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "manifest": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "media_type": {
+              "anyOf": [
+                {
+                  "maxLength": 8000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Media Type"
+            },
+            "object": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "record": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "role": {
+              "enum": [
+                "input",
+                "intermediate",
+                "output",
+                "evidence"
+              ],
+              "title": "Role",
+              "type": "string"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "artifact_id",
+            "object",
+            "content_sha256",
+            "role"
+          ],
+          "title": "ManifestArtifact",
+          "type": "object"
+        },
+        "ManifestProvenance": {
+          "additionalProperties": true,
+          "properties": {
+            "derived_from": {
+              "enum": [
+                "forge.report.v1",
+                "forge.scientific-export.v1"
+              ],
+              "title": "Derived From",
+              "type": "string"
+            },
+            "export": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "index_disclosure_proposals": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "maxItems": 256,
+              "title": "Index Disclosure Proposals",
+              "type": "array"
+            },
+            "producer": {
+              "$ref": "#/$defs/Producer"
+            },
+            "report_revision": {
+              "$ref": "#/$defs/RevisionReference"
+            }
+          },
+          "required": [
+            "report_revision",
+            "producer",
+            "derived_from"
+          ],
+          "title": "ManifestProvenance",
+          "type": "object"
+        },
+        "ManifestSource": {
+          "additionalProperties": true,
+          "properties": {
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "role": {
+              "enum": [
+                "source",
+                "evaluation",
+                "result",
+                "snapshot",
+                "export",
+                "recipe",
+                "exporter"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "role"
+          ],
+          "title": "ManifestSource",
+          "type": "object"
+        },
+        "MissingEvidence": {
+          "additionalProperties": true,
+          "description": "Evidence the report would need but cannot pin; never silently dropped.",
+          "properties": {
+            "description": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "reference": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "state": {
+              "enum": [
+                "absent",
+                "unverified",
+                "inaccessible"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "description",
+            "state"
+          ],
+          "title": "MissingEvidence",
+          "type": "object"
+        },
+        "Producer": {
+          "additionalProperties": true,
+          "description": "Execution DTOs stay producer-owned; only exact opaque references live here.",
+          "properties": {
+            "admission": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "budget": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "context": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "grant": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExactReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "subject_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Subject Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "subject_id"
+          ],
+          "title": "Producer",
+          "type": "object"
+        },
+        "ReportManifest": {
+          "additionalProperties": true,
+          "properties": {
+            "artifacts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ManifestArtifact"
+              },
+              "maxItems": 1024,
+              "title": "Artifacts",
+              "type": "array"
+            },
+            "body_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Body Sha256",
+              "type": "string"
+            },
+            "claims": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Claims",
+              "type": "array"
+            },
+            "credits": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Credit"
+              },
+              "maxItems": 256,
+              "title": "Credits",
+              "type": "array"
+            },
+            "disclosure": {
+              "$ref": "#/$defs/Disclosure",
+              "default": {
+                "audience": "private",
+                "index_contribution": "none"
+              }
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "methodology": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Methodology",
+              "type": "string"
+            },
+            "missing_evidence": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/MissingEvidence"
+              },
+              "maxItems": 1024,
+              "title": "Missing Evidence",
+              "type": "array"
+            },
+            "provenance": {
+              "$ref": "#/$defs/ManifestProvenance"
+            },
+            "report": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.report-manifest.v1",
+              "default": "forge.report-manifest.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "sources": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ManifestSource"
+              },
+              "maxItems": 2048,
+              "title": "Sources",
+              "type": "array"
+            },
+            "title": {
+              "maxLength": 8000,
+              "minLength": 1,
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "report",
+            "title",
+            "methodology",
+            "body_sha256",
+            "provenance"
+          ],
+          "title": "ReportManifest",
+          "type": "object"
+        },
+        "ReportVersion": {
+          "additionalProperties": true,
+          "properties": {
+            "disposition": {
+              "enum": [
+                "initial",
+                "correction",
+                "supersession",
+                "retraction"
+              ],
+              "title": "Disposition",
+              "type": "string"
+            },
+            "lineage_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Lineage Id",
+              "type": "string"
+            },
+            "manifest": {
+              "$ref": "#/$defs/ReportManifest"
+            },
+            "manifest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifest Sha256",
+              "type": "string"
+            },
+            "previous": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ReportVersionLink"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "published_at": {
+              "format": "date-time",
+              "title": "Published At",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "maxLength": 8000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "schema_version": {
+              "const": "forge.report-version.v1",
+              "default": "forge.report-version.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "version": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "lineage_id",
+            "version",
+            "disposition",
+            "manifest_sha256",
+            "manifest",
+            "published_at"
+          ],
+          "title": "ReportVersion",
+          "type": "object"
+        },
+        "ReportVersionDocument": {
+          "additionalProperties": true,
+          "description": "One exact, digest-verified report version opened as the caller.",
+          "properties": {
+            "access": {
+              "enum": [
+                "project",
+                "owner",
+                "organization",
+                "invited"
+              ],
+              "title": "Access",
+              "type": "string"
+            },
+            "content_base64": {
+              "title": "Content Base64",
+              "type": "string"
+            },
+            "index_contribution": {
+              "const": "none",
+              "default": "none",
+              "title": "Index Contribution",
+              "type": "string"
+            },
+            "media_type": {
+              "const": "application/vnd.synth.forge.report-version.v1+json",
+              "default": "application/vnd.synth.forge.report-version.v1+json",
+              "title": "Media Type",
+              "type": "string"
+            },
+            "rendering": {
+              "const": "plain_text",
+              "default": "plain_text",
+              "title": "Rendering",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.forge.report-version-document.v1",
+              "default": "synth.forge.report-version-document.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "size_bytes": {
+              "minimum": 1,
+              "title": "Size Bytes",
+              "type": "integer"
+            },
+            "version": {
+              "$ref": "#/$defs/ReportVersion"
+            },
+            "version_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Version Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "version_sha256",
+            "access",
+            "size_bytes",
+            "content_base64",
+            "version"
+          ],
+          "title": "ReportVersionDocument",
+          "type": "object"
+        },
+        "ReportVersionLink": {
+          "additionalProperties": true,
+          "properties": {
+            "version": {
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            },
+            "version_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Version Sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "version_sha256"
+          ],
+          "title": "ReportVersionLink",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "RevisionReference": {
+          "additionalProperties": true,
+          "description": "Exact identity of one complete retained revision, provenance included.\n\nSee docs/decisions/0001. ``reference.digest_sha256`` keeps its payload-only\nmeaning; ``document_digest_sha256`` binds producer, operation and time too.\nIt proves the document Forge recorded, not external producer attestation.",
+          "properties": {
+            "document_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Document Digest Sha256",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.revision-reference.v1",
+              "default": "forge.revision-reference.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reference",
+            "document_digest_sha256"
+          ],
+          "title": "RevisionReference",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "document": {
+          "$ref": "#/$defs/ReportVersionDocument"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        }
+      },
+      "required": [
+        "metadata",
+        "document"
+      ],
+      "title": "ReportVersionDocumentResponse",
       "type": "object"
     },
     "RepositoryCommit": {
@@ -17649,6 +19941,46 @@
       "mutation": true,
       "path": "/api/v1/forge/projects/{project_id}/report-shares/{digest}/revoke",
       "required_scope": "forge:write"
+    },
+    {
+      "id": "forge.report_reader.browse",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/report-reader/versions",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.report_reader.open",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/report-reader/versions/{digest}",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.report_reader.compare",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/report-reader/compare/{digest}/{other_digest}",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.report_reader.export",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/report-reader/export",
+      "required_scope": "forge:read"
     }
   ],
   "repository_identity": "repo_ plus SHA-256 of the UTF-8 internal immutable repo identity; internal registry IDs are not public Ref IDs",

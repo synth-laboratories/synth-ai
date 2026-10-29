@@ -264,3 +264,33 @@ async def report_share_revoke(client, args):
         args.digest,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
+
+
+# SYN-5158: report reader. Reads only; content returns as data (plain text).
+class ForgeReportBrowse(ForgeProjectIdentity):
+    after: VersionDigest | None = None
+    limit: Annotated[int, Field(strict=True, ge=1, le=1000)] = 100
+
+
+class ForgeReportCompare(ForgeReportShareRead):
+    other_digest: VersionDigest
+
+
+class ForgeReportExport(ForgeProjectIdentity):
+    digests: Annotated[tuple[VersionDigest, ...], Field(min_length=1, max_length=32)]
+
+
+async def report_browse(client, args):
+    return await client.forge.reports.browse(args.project_id, after=args.after, limit=args.limit)
+
+
+async def report_open(client, args):
+    return await client.forge.reports.open(args.project_id, args.digest)
+
+
+async def report_compare(client, args):
+    return await client.forge.reports.compare(args.project_id, args.digest, args.other_digest)
+
+
+async def report_export(client, args):
+    return await client.forge.reports.export(args.project_id, args.digests)
