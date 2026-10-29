@@ -6,6 +6,7 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 ## Unreleased
 
+- `client.menagerie` (sync and async) reads and writes Menagerie model identity: `export()`, `resolve()`, `archive_model()`/`restore_model()`, `archive_record()`/`restore_record()`, `record_lineage()`/`lineage()`, and `record_deployment()`/`retire_deployment()` for serving identity. Its routes are versioned as `menagerie.v1`: they are not negotiated and a release-pinned client refuses them (`menagerie_release_not_qualified`). Refusals raise typed errors carrying the backend `error_code`, `stage` and `cause`; writes replay server-side, so repeating a call after `OutcomeUncertainError` is safe. No MCP tools; core.v1, index.v1 and swarms.v1 are unchanged (SYN-5183).
 - Swarms preflight and create surface the backend's `x-ratelimit-{limit,remaining,reset,burst}-<dimension>` success headers as typed `RateLimitSnapshot` tuples: `LaunchPreflight.rate_limits` and `SwarmRun.rate_limits` (sync and async). A caller-supplied `ResponseMetadata` is filled as before (SYN-4680).
 - `synth-ai swarms preflight --request launch.json [--json]` previews a launch and prints one `rate limit <dimension>: remaining X/limit Y, resets T` line per reported dimension. It reserves no budget and starts no run.
 - MCP `swarms_preflight` returns `LaunchPreflightResult` (the preflight body plus `rate_limits`) and `swarms_create` adds `rate_limits` to `RunCreated`; `contracts/mcp-v1.json` is regenerated. core.v1, index.v1 and swarms.v1 are unchanged.
