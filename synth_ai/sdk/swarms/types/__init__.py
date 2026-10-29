@@ -64,6 +64,7 @@ __all__ = [
     "ProgramFamilyList",
     "ProgramFamilyRef",
     "ResearchBinding",
+    "ResearchMethodChoice",
     "ForkFlushMethod",
     "ForkFlushOverrides",
     "ForkFlushParameters",
@@ -138,6 +139,7 @@ from .programs import (
     ProgramFamilyList,
     ProgramFamilyRef,
     ResearchBinding,
+    ResearchMethodChoice,
 )
 from .programs import ProgramRunView as ProgramRunView
 from .status_facets import (

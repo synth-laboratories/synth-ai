@@ -2,7 +2,14 @@
 
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, StrictInt, StringConstraints, model_serializer
+from pydantic import (
+    Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
+    StringConstraints,
+    model_serializer,
+)
 
 from synth_ai.types.base import Model, ResponseBase, ResponseIdentifier, ResponseModel
 
@@ -45,7 +52,9 @@ ForgeProjectId = Annotated[
 ]
 RecordProtocol = Annotated[
     str,
-    StringConstraints(strict=True, min_length=1, max_length=256, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$"),
+    StringConstraints(
+        strict=True, min_length=1, max_length=256, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$"
+    ),
 ]
 ResearchBindingRule = Literal["required", "forbidden"]
 
@@ -57,11 +66,42 @@ class ProgramFamilyRef(Model):
     version: ProgramFamilyVersion
 
 
+ReleaseIdentifier = Annotated[
+    str,
+    StringConstraints(strict=True, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$"),
+]
+MethodParameter = StrictBool | StrictInt | StrictStr
+
+
+class ResearchMethodChoice(Model):
+    """SYN-4845: one exact published Forge method release and its typed slots.
+
+    The backend resolves it against the published classic release set into an
+    immutable research plan before admission; unknown releases, undeclared or
+    out-of-bounds slots and incompatible pairings refuse before compute.
+    """
+
+    method_id: ReleaseIdentifier
+    revision: ReleaseIdentifier
+    parameters: dict[ReleaseIdentifier, MethodParameter] = Field(
+        default_factory=dict, max_length=128
+    )
+
+
 class ResearchBinding(Model):
     """The research family's bound Forge project and record protocol."""
 
     forge_project_id: ForgeProjectId
     record_protocol: RecordProtocol
+    method: ResearchMethodChoice | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_method(self, handler):
+        # Bindings without a method keep their exact accepted bytes.
+        result = handler(self)
+        if self.method is None:
+            result.pop("method", None)
+        return result
 
 
 class ProgramChoice(Model):
@@ -98,4 +138,5 @@ __all__ = [
     "ProgramRunView",
     "ResearchBinding",
     "ResearchBindingRule",
+    "ResearchMethodChoice",
 ]

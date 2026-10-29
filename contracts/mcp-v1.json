@@ -38101,6 +38101,17 @@
                 "title": "Forge Project Id",
                 "type": "string"
               },
+              "method": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ResearchMethodChoice"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "record_protocol": {
                 "maxLength": 256,
                 "minLength": 1,
@@ -38114,6 +38125,48 @@
               "record_protocol"
             ],
             "title": "ResearchBinding",
+            "type": "object"
+          },
+          "ResearchMethodChoice": {
+            "additionalProperties": false,
+            "description": "SYN-4845: one exact published Forge method release and its typed slots.\n\nThe backend resolves it against the published classic release set into an\nimmutable research plan before admission; unknown releases, undeclared or\nout-of-bounds slots and incompatible pairings refuse before compute.",
+            "properties": {
+              "method_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Method Id",
+                "type": "string"
+              },
+              "parameters": {
+                "maxProperties": 128,
+                "patternProperties": {
+                  "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "title": "Parameters",
+                "type": "object"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "method_id",
+              "revision"
+            ],
+            "title": "ResearchMethodChoice",
             "type": "object"
           },
           "ResourceRequest": {
@@ -40052,6 +40105,17 @@
                 "title": "Forge Project Id",
                 "type": "string"
               },
+              "method": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ResearchMethodChoice"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "record_protocol": {
                 "maxLength": 256,
                 "minLength": 1,
@@ -40065,6 +40129,48 @@
               "record_protocol"
             ],
             "title": "ResearchBinding",
+            "type": "object"
+          },
+          "ResearchMethodChoice": {
+            "additionalProperties": false,
+            "description": "SYN-4845: one exact published Forge method release and its typed slots.\n\nThe backend resolves it against the published classic release set into an\nimmutable research plan before admission; unknown releases, undeclared or\nout-of-bounds slots and incompatible pairings refuse before compute.",
+            "properties": {
+              "method_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Method Id",
+                "type": "string"
+              },
+              "parameters": {
+                "maxProperties": 128,
+                "patternProperties": {
+                  "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "title": "Parameters",
+                "type": "object"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "method_id",
+              "revision"
+            ],
+            "title": "ResearchMethodChoice",
             "type": "object"
           },
           "ResourceRequest": {
