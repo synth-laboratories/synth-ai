@@ -39,6 +39,7 @@ from .launch import (
     ResolvedProviders,
 )
 from .methods import ResolvedResearchMethod
+from .overrides import ProfileOverrideReadback
 from .objectives import GuidanceCoverage, ObjectiveResult
 from .problems import Problem, ReasonLink
 
@@ -100,6 +101,15 @@ class ResolvedConfiguration(ResponseModel):
     models: ResolvedModels
     repo: RepoSelector | None = None
     resource_grants: tuple[AdmittedResourceGrant, ...] | None = None
+    # SYN-4848: echoed only when the launch selects profile overrides.
+    profile_overrides: ProfileOverrideReadback | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_overrides(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = handler(self)
+        if self.profile_overrides is None:
+            value.pop("profile_overrides", None)
+        return value
 
 
 class LaunchPreflight(ResponseModel):
@@ -173,11 +183,21 @@ class RunSnapshot(ResponseModel):
     # Set for a failed run, and for a run whose cancel was accepted but is not
     # terminal: the root cause, not a generic code.
     failure: RunFailure | None = None
+    # SYN-4848: the frozen model/effort overrides and, once prepared, their resolution.
+    profile_overrides: ProfileOverrideReadback | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         value = handler(self)
-        for name in ("ref", "control", "paused_at", "resume_by", "deadline_at", "pause_count"):
+        for name in (
+            "ref",
+            "control",
+            "paused_at",
+            "resume_by",
+            "deadline_at",
+            "pause_count",
+            "profile_overrides",
+        ):
             if getattr(self, name) is None:
                 value.pop(name, None)
         return value
