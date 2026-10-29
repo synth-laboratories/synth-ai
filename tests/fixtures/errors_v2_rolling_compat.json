@@ -1,0 +1,26 @@
+{
+  "_comment": "SYN-4551 customer error bodies per negotiated error contract (v1 = no X-Synth-Accept-Errors; v2 = synth.errors.v2, marked by X-Synth-Error-Contract). Shared byte-for-byte with backend tests/customer_api/fixtures/errors_v2_rolling_compat.json.",
+  "accept_header": "X-Synth-Accept-Errors",
+  "response_header": "X-Synth-Error-Contract",
+  "version": "synth.errors.v2",
+  "cases": [
+    {
+      "name": "customer_refusal_with_stage_and_cause",
+      "status": 503,
+      "v1": {"error": {"code": "service_unavailable", "request_id": "req-1", "retry_after_seconds": null, "outcome": "not_accepted"}},
+      "v2": {"error": {"code": "service_unavailable", "request_id": "req-1", "retry_after_seconds": null, "outcome": "not_accepted", "service": "backend", "stage": "admission_lock_wait", "cause_code": "db_timeout"}}
+    },
+    {
+      "name": "upstream_refusal_with_status",
+      "status": 502,
+      "v1": {"error": {"code": "upstream_unavailable", "request_id": "req-2", "retry_after_seconds": null, "outcome": "not_accepted"}},
+      "v2": {"error": {"code": "upstream_unavailable", "request_id": "req-2", "retry_after_seconds": null, "outcome": "not_accepted", "service": "orchestra", "stage": "runtime_binding_place", "cause_code": "port_owner_unreachable", "upstream_status": 503}}
+    },
+    {
+      "name": "bare_refusal_omits_absent_fields",
+      "status": 401,
+      "v1": {"error": {"code": "authentication_required", "request_id": "req-3", "retry_after_seconds": null, "outcome": "not_accepted"}},
+      "v2": {"error": {"code": "authentication_required", "request_id": "req-3", "retry_after_seconds": null, "outcome": "not_accepted", "service": "backend"}}
+    }
+  ]
+}
