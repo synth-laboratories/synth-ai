@@ -294,3 +294,7 @@ async def report_compare(client, args):
 
 async def report_export(client, args):
     return await client.forge.reports.export(args.project_id, args.digests)
+
+
+async def report_availability(client, args):
+    return await client.forge.reports.availability(args.project_id, args.digest)

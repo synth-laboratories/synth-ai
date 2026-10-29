@@ -53,6 +53,7 @@ OPERATIONS = (
     "forge.report_reader.open",
     "forge.report_reader.compare",
     "forge.report_reader.export",
+    "forge.report_reader.availability",
 )
 
 
@@ -60,7 +61,52 @@ def b64(content: bytes) -> str:
     return base64.b64encode(content).decode()
 
 
-def document(version, *, tamper=False):
+def lineage_status(cited, *, lineage_id=None):
+    links = [
+        {"version": item.version, "version_sha256": version_digest(item)}
+        for item in (FIRST, CORRECTION)
+    ]
+    head = links[-1]
+    return {
+        "citation": {
+            "cited": {"version": cited.version, "version_sha256": version_digest(cited)},
+            "head": head,
+            "state": "current" if cited is CORRECTION else "stale",
+        },
+        "superseded_by": links[1] if cited is FIRST else None,
+        "lineage": {
+            "scope": SCOPE.model_dump(mode="json"),
+            "lineage_id": lineage_id or cited.lineage_id,
+            "versions": [
+                {
+                    "version": item.version,
+                    "version_sha256": version_digest(item),
+                    "disposition": item.disposition,
+                    "previous_sha256": None
+                    if item.previous is None
+                    else item.previous.version_sha256,
+                    "report_record_id": f"report-versions.{'a' * 48}.v{item.version}",
+                    "report_revision": 1,
+                    "published_at": item.published_at.isoformat(),
+                    "publisher_authority": "human",
+                    "publisher_subject_id": "user-1",
+                    "record": {
+                        "authority": "forge",
+                        "kind": "artifact",
+                        "record_id": f"report-versions.{'a' * 48}.v{item.version}",
+                        "revision": "1",
+                        "digest_sha256": "b" * 64,
+                    },
+                }
+                for item in (FIRST, CORRECTION)
+            ],
+            "head": head,
+            "state": "active",
+        },
+    }
+
+
+def document(version, *, tamper=False, lineage=None):
     content = version_bytes(version)
     digest = version_digest(version)
     if tamper:
@@ -72,6 +118,7 @@ def document(version, *, tamper=False):
         "size_bytes": len(content),
         "content_base64": b64(content),
         "version": version.model_dump(mode="json"),
+        **({} if lineage is None else lineage),
     }
 
 
@@ -109,7 +156,7 @@ def bundle(versions_, *, tamper=False) -> ReportExportBundle:
     )
 
 
-def wire(*, tamper=False):
+def wire(*, tamper=False, lineage=None):
     capability, headers = receipt_and_headers()
     for name in OPERATIONS:
         capability["operations"].append(
@@ -151,12 +198,28 @@ def wire(*, tamper=False):
                     FIRST, BASE, "project", CORRECTION, HEAD, "invited"
                 ).model_dump(mode="json")
             }
+        elif path.endswith("/availability"):
+            payload = {
+                "availability": {
+                    "scope": SCOPE.model_dump(mode="json"),
+                    "version_sha256": path.split("/")[-2],
+                    "artifacts": [
+                        {
+                            "artifact_id": "curve",
+                            "content_sha256": "c" * 64,
+                            "state": "expired",
+                            "error_code": "grant_missing",
+                        }
+                    ],
+                    "missing_evidence": [],
+                }
+            }
         elif path.endswith("/report-reader/export"):
             selected = request.url.params.get_list("digest")
             chosen = [{BASE: FIRST, HEAD: CORRECTION}[item] for item in selected]
             payload = {"export": bundle(chosen, tamper=tamper).model_dump(mode="json")}
         else:
-            payload = {"document": document(FIRST, tamper=tamper)}
+            payload = {"document": document(FIRST, tamper=tamper, lineage=lineage)}
         return httpx.Response(200, headers=headers, json={"metadata": metadata, **payload})
 
     return httpx.MockTransport(respond), calls
@@ -273,3 +336,36 @@ def test_reader_tools_are_reads_without_authority_fields():
         BY_NAME["forge_report_export"].validate_arguments(
             {"project_id": PROJECT, "digests": [BASE] * 33}
         )
+
+
+def test_project_reader_lineage_status_and_availability():
+    transport, calls = wire(lineage=lineage_status(FIRST))
+    network, client = client_for(transport)
+    with network, client:
+        opened = client.forge.reports.open(PROJECT, BASE).document
+        assert opened.citation.state == "stale"
+        assert opened.superseded_by.version_sha256 == HEAD
+        assert opened.lineage.head.version_sha256 == HEAD
+        report = client.forge.reports.availability(PROJECT, BASE).availability
+        assert [(item.artifact_id, item.state) for item in report.artifacts] == [
+            ("curve", "expired")
+        ]
+        with pytest.raises(ValueError):
+            client.forge.reports.availability(PROJECT, "not-a-digest")
+    assert calls[-1].url.path.endswith(f"/report-reader/versions/{BASE}/availability")
+    assert calls[-1].method == "GET"
+
+
+def test_lineage_status_for_another_version_is_refused():
+    transport, _ = wire(lineage=lineage_status(CORRECTION))
+    network, client = client_for(transport)
+    with network, client:
+        with pytest.raises(ContractError):
+            client.forge.reports.open(PROJECT, BASE)
+
+
+def test_availability_tool_is_a_read_needing_your_key():
+    tool = BY_NAME["forge_report_availability"]
+    assert (tool.scope, tool.mutates, tool.paid) == ("forge:read", False, False)
+    with pytest.raises(ValueError):
+        tool.validate_arguments({"project_id": PROJECT, "digest": BASE, "acting_credential": "x"})

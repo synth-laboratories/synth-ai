@@ -18,6 +18,7 @@ import binascii
 import hashlib
 
 from synth_ai.contracts.forge import (
+    REPORT_READER_AVAILABILITY,
     REPORT_READER_BROWSE,
     REPORT_READER_COMPARE,
     REPORT_READER_EXPORT,
@@ -33,6 +34,7 @@ from .types import (
     REPORT_EXPORT_MAX_VERSIONS,
     ReportExportBundle,
     ReportExportResponse,
+    ReportVersionAvailabilityResponse,
     ReportVersionBrowseResponse,
     ReportVersionComparisonResponse,
     ReportVersionDocument,
@@ -125,8 +127,32 @@ def check_browse(result, project_id, after, limit):
 
 
 def check_open(result, project_id, digest):
-    verify_document(result.document, project_id, digest)
+    document = result.document
+    verify_document(document, project_id, digest)
+    citation = document.citation
+    verified(
+        result,
+        citation is None
+        or (
+            citation.cited.version_sha256 == digest
+            and citation.cited.version == document.version.version
+            and document.lineage is not None
+            and document.lineage.lineage_id == document.version.lineage_id
+            and document.lineage.scope == document.scope
+            and citation.head == document.lineage.head
+        ),
+        "Forge returned lineage status for a different report version",
+    )
     return result
+
+
+def check_availability(result, project_id, digest):
+    report = result.availability
+    return verified(
+        result,
+        report.scope.project_id == project_id and report.version_sha256 == digest,
+        "Forge returned availability for a different report version",
+    )
 
 
 def check_compare(result, project_id, digest, other_digest):
@@ -214,6 +240,17 @@ def _export_call(project_id, digests, request):
     }
 
 
+def _availability_call(project_id, digest, request):
+    project_id, digest = project_identity(project_id), _digest(digest)
+    return {
+        "operation": REPORT_READER_AVAILABILITY,
+        "model": ReportVersionAvailabilityResponse,
+        "path": REPORT_READER_AVAILABILITY.path_for(project_id=project_id, digest=digest),
+        "options": request,
+        "validate": lambda result: check_availability(result, project_id, digest),
+    }
+
+
 def _send(transport, call):
     call = dict(call)
     return transport.request(call.pop("operation"), call.pop("model"), **call)
@@ -243,6 +280,16 @@ class ReportReader:
         """Explicit selection with a provenance manifest; see ``export_files``."""
         return _send(self._transport, _export_call(project_id, digests, request))
 
+    def availability(
+        self, project_id, digest, *, request=None
+    ) -> ReportVersionAvailabilityResponse:
+        """Per-artifact availability of one version as you see it now.
+
+        Each manifest artifact is ``available``, ``retained``, ``expired`` or
+        ``missing``. Needs your own API key (Forge reads custody as you).
+        """
+        return _send(self._transport, _availability_call(project_id, digest, request))
+
 
 class AsyncReportReader:
     def __init__(self, transport):
@@ -265,3 +312,8 @@ class AsyncReportReader:
 
     async def export(self, project_id, digests, *, request=None) -> ReportExportResponse:
         return await _send(self._transport, _export_call(project_id, digests, request))
+
+    async def availability(
+        self, project_id, digest, *, request=None
+    ) -> ReportVersionAvailabilityResponse:
+        return await _send(self._transport, _availability_call(project_id, digest, request))

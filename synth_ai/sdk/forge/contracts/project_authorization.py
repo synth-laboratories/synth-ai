@@ -42,6 +42,10 @@ class ProjectAuthorization(Contract):
         "science.v2.events",
         "reports.versions.publish",
         "reports.shares.revoke-inactive",
+        "reports.versions.status",
+        "reports.versions.list",
+        "reports.versions.availability",
+        "reports.lineages.rebuild",
     ]
     request_digest_sha256: Digest
     nonce: Identifier

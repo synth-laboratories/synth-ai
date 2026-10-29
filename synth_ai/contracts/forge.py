@@ -224,11 +224,22 @@ REPORT_READER_EXPORT = Operation(
     contract="core.v1",
     required_scope="forge:read",
 )
+# SYN-5158: per-artifact availability of one version as the caller's own
+# custody grants see it now (Forge lineage index; needs the caller's API key).
+REPORT_READER_AVAILABILITY = Operation(
+    "forge.report_reader.availability",
+    "GET",
+    "/forge/projects/{project_id}/report-reader/versions/{digest}/availability",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
 REPORT_READER_OPERATIONS = (
     REPORT_READER_BROWSE,
     REPORT_READER_OPEN,
     REPORT_READER_COMPARE,
     REPORT_READER_EXPORT,
+    REPORT_READER_AVAILABILITY,
 )
 REPORT_OPERATIONS = (
     REPORT_VERSION_PUBLISH,
