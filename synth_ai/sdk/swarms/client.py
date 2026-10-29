@@ -28,6 +28,7 @@ from .create_retry import async_create_with_retry, create_with_retry
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
+from .types.methods import ForkFlushMethod
 from .types.objectives import Guidance
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
@@ -46,6 +47,7 @@ def launch_request(
     guidance: tuple[Guidance, ...] = (),
     resources: tuple[ResourceRequest, ...] = (),
     repo: RepoSelector | None = None,
+    method: ForkFlushMethod | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -70,6 +72,7 @@ def launch_request(
         models=models,
         labels=labels,
         repo=repo,
+        method=method,
     )
 
 
@@ -90,6 +93,10 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
         or (
             request.providers is not None
             and configuration.providers.default != request.providers.default
+        )
+        or (
+            request.method is not None
+            and (configuration.method is None or not configuration.method.satisfies(request.method))
         )
         or (not same_inputs)
         or (request.repo is not None and configuration.repo != request.repo)
@@ -165,6 +172,7 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -180,6 +188,7 @@ class SwarmsClient:
             guidance,
             resources,
             repo,
+            method,
         )
         return self._transport.request(
             operations.PREFLIGHT,
@@ -203,6 +212,7 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -218,6 +228,7 @@ class SwarmsClient:
             guidance,
             resources,
             repo,
+            method,
         )
 
         def send(options: MutationOptions | None) -> RunSnapshot:
@@ -230,7 +241,11 @@ class SwarmsClient:
                     result,
                     result.project_id == project_id
                     and (models is None or result.model == models.default)
-                    and (providers is None or result.provider == providers.default),
+                    and (providers is None or result.provider == providers.default)
+                    and (
+                        method is None
+                        or (result.method is not None and result.method.satisfies(method))
+                    ),
                     "Admitted project or requested override mismatch",
                 ),
             )
@@ -357,6 +372,7 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -372,6 +388,7 @@ class AsyncSwarmsClient:
             guidance,
             resources,
             repo,
+            method,
         )
         return await self._transport.request(
             operations.PREFLIGHT,
@@ -395,6 +412,7 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -410,6 +428,7 @@ class AsyncSwarmsClient:
             guidance,
             resources,
             repo,
+            method,
         )
 
         async def send(options: MutationOptions | None) -> RunSnapshot:
@@ -422,7 +441,11 @@ class AsyncSwarmsClient:
                     result,
                     result.project_id == project_id
                     and (models is None or result.model == models.default)
-                    and (providers is None or result.provider == providers.default),
+                    and (providers is None or result.provider == providers.default)
+                    and (
+                        method is None
+                        or (result.method is not None and result.method.satisfies(method))
+                    ),
                     "Admitted project or requested override mismatch",
                 ),
             )
