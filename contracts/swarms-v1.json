@@ -3198,7 +3198,14 @@
           "additionalProperties": true,
           "properties": {
             "maximum_charge": {
-              "$ref": "#/$defs/Money"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "maximum_parallel_tasks": {
               "maximum": 1000,
@@ -4179,7 +4186,14 @@
           "additionalProperties": false,
           "properties": {
             "maximum_charge": {
-              "$ref": "#/$defs/Money"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "maximum_parallel_tasks": {
               "maximum": 1000,
@@ -4871,7 +4885,14 @@
       "additionalProperties": false,
       "properties": {
         "maximum_charge": {
-          "$ref": "#/$defs/Money"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "maximum_parallel_tasks": {
           "maximum": 1000,
@@ -11994,7 +12015,14 @@
           "additionalProperties": true,
           "properties": {
             "maximum_charge": {
-              "$ref": "#/$defs/Money"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Money"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "maximum_parallel_tasks": {
               "maximum": 1000,
