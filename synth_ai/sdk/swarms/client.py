@@ -31,9 +31,9 @@ from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
 from .types.methods import ForkFlushMethod
+from .types.objectives import Guidance
 from .types.overrides import ProfileOverrides
 from .types.programs import ProgramChoice, ProgramFamilyList
-from .types.objectives import Guidance
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
 from .types.runs import LaunchPreflight, RunSnapshot
@@ -315,8 +315,7 @@ class SwarmsClient:
             options=request,
             validate=lambda result: verified(
                 result,
-                len({(item.id, item.version) for item in result.families})
-                == len(result.families),
+                len({(item.id, item.version) for item in result.families}) == len(result.families),
                 "Duplicate program family version",
             ),
         )
@@ -549,8 +548,7 @@ class AsyncSwarmsClient:
             options=request,
             validate=lambda result: verified(
                 result,
-                len({(item.id, item.version) for item in result.families})
-                == len(result.families),
+                len({(item.id, item.version) for item in result.families}) == len(result.families),
                 "Duplicate program family version",
             ),
         )

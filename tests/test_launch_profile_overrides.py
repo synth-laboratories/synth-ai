@@ -100,9 +100,10 @@ def _preflight(readback: dict | None, *, ready: bool = True) -> LaunchPreflight:
 
 def test_absent_overrides_keep_the_launch_bytes():
     request = launch_request(None, "p", LIMITS, None, None, None, message="m")
-    assert request.model_dump_json() == LaunchRequest(
-        message="m", project_id="p", limits=LIMITS
-    ).model_dump_json()
+    assert (
+        request.model_dump_json()
+        == LaunchRequest(message="m", project_id="p", limits=LIMITS).model_dump_json()
+    )
     assert "profile_overrides" not in json.loads(request.model_dump_json())
 
 

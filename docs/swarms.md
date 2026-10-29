@@ -105,6 +105,53 @@ and `program_family_configuration_unsupported` (the project does not run a
 registered program). Orchestra resolves the exact program, definition and actor
 profiles before dispatch and may refuse with its own `program_family_*` code.
 
+## Model and effort overrides
+
+A launch may fix the model and/or reasoning effort of the roles its program
+declares as overridable. Per field, precedence is the template default (the
+admitted authored profile), then the launch-wide choice, then the named-role
+choice. The launch-wide choice reaches declared coordinator roles only; the
+evaluated system changes only through a named-role choice, and never under a
+bound research protocol.
+
+```python
+from synth_ai.sdk.swarms import Limits, ModelEffortChoice, ProfileOverrides
+from synth_ai.types.money import Money
+
+limits = Limits(maximum_charge=Money(coefficient=5, scale=0, currency="USD"),
+                wall_time_seconds=3600, maximum_tasks=8, maximum_parallel_tasks=2)
+overrides = ProfileOverrides(
+    launch=ModelEffortChoice(effort="high"),
+    roles={"worker": ModelEffortChoice(canonical_model="gpt-6-luna", effort="low")},
+)
+client.swarms.create(message="Tune the planner", project_id=project_id,
+                     limits=limits, profile_overrides=overrides)
+```
+
+`client.swarms.preflight(..., profile_overrides=overrides)` previews the same
+choice; `preview.configuration.profile_overrides.resolution.actors` lists each
+actor's effective `canonical_model` and `effort`, `model_source` and
+`effort_source`, and `base_profile_digest`/`profile_digest`.
+
+MCP `swarms_preflight` and `swarms_create` accept the same `profile_overrides`
+object. A ready preflight echoes the exact request and its resolution: per
+actor the effective model and effort, their provenance (`template_default`,
+`launch` or `role`), the base and derived profile digests, whether the
+evaluated system changed, and the declaration, request and resolution digests.
+A derived profile differs from its base only in model and effort, so tools,
+limits and per-call spend never widen. Create freezes the request; the run
+snapshot's `profile_overrides` reads back the frozen request and, once the run
+is prepared, the resolution the run executes with. Omitting
+`profile_overrides` keeps the launch request bytes and the project's profiles
+unchanged.
+
+Preflight reports, and preparation refuses before any paid work, typed codes:
+`profile_override_undeclared` (the project's program declares no override
+slots), `profile_override_role_unknown`, `profile_override_role_absent`,
+`profile_override_unsupported` (a model/effort pair the role does not declare),
+`profile_override_protected_protocol` and `profile_override_invalid`. Nothing
+is substituted.
+
 ## Controls, results and downloads
 
 `run.pause()`, `run.resume()` and `run.cancel()` return durable control receipts.

@@ -111,6 +111,13 @@ from .approvals import ApprovalDecisionRequest as ApprovalDecisionRequest
 from .approvals import ApprovalList as ApprovalList
 from .approvals import WaitAnswerReceipt as WaitAnswerReceipt
 from .approvals import WaitAnswerRequest as WaitAnswerRequest
+from .methods import (
+    ForkFlushMethod,
+    ForkFlushOverrides,
+    ForkFlushParameters,
+    ForkFlushRound,
+    ResolvedResearchMethod,
+)
 from .overrides import (
     ModelEffortChoice,
     ProfileOverrideReadback,
@@ -124,12 +131,5 @@ from .programs import (
     ProgramFamilyList,
     ProgramFamilyRef,
     ResearchBinding,
-)
-from .methods import (
-    ForkFlushMethod,
-    ForkFlushOverrides,
-    ForkFlushParameters,
-    ForkFlushRound,
-    ResolvedResearchMethod,
 )
 from .programs import ProgramRunView as ProgramRunView
