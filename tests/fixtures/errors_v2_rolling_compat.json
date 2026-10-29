@@ -1,5 +1,5 @@
 {
-  "_comment": "SYN-4551 customer error bodies per negotiated error contract (v1 = no X-Synth-Accept-Errors; v2 = synth.errors.v2, marked by X-Synth-Error-Contract). Shared byte-for-byte with backend tests/customer_api/fixtures/errors_v2_rolling_compat.json.",
+  "_comment": "SYN-4551 customer error bodies per negotiated error contract (v1 = no X-Synth-Accept-Errors; v2 = synth.errors.v2, marked by X-Synth-Error-Contract). Shared byte-for-byte with backend tests/customer_api/fixtures/errors_v2_rolling_compat.json and synth-ai tests/fixtures/errors_v2_rolling_compat.json.",
   "accept_header": "X-Synth-Accept-Errors",
   "response_header": "X-Synth-Error-Contract",
   "version": "synth.errors.v2",
