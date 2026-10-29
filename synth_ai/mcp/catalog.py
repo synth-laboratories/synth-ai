@@ -33,6 +33,7 @@ from synth_ai.sdk.forge.types import (
     ReportShareListResponse,
     ReportShareResponse,
     ReportShareRevocationResponse,
+    ReportArtifactContentResponse,
     ReportVersionAvailabilityResponse,
     ReportVersionBrowseResponse,
     ReportVersionComparisonResponse,
@@ -719,6 +720,16 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.ForgeReportShareRead,
         ReportVersionAvailabilityResponse,
         forge_tools.report_availability,
+    ),
+    ToolDefinition(
+        "forge_report_artifact",
+        forge_operations.REPORT_READER_DOWNLOAD,
+        "Exact bytes of one artifact a report version pins, as data (plain text, "
+        "never rendered), for a project reader or a live share grantee. Bounded "
+        "at 16 MiB; use the SDK download for larger artifacts.",
+        forge_tools.ForgeReportArtifactRead,
+        ReportArtifactContentResponse,
+        forge_tools.report_artifact,
     ),
     ToolDefinition(
         "forge_project_list",

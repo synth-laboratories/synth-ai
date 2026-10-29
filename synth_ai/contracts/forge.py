@@ -234,12 +234,25 @@ REPORT_READER_AVAILABILITY = Operation(
     contract="core.v1",
     required_scope="forge:read",
 )
+# SYN-5158 gap 3: exact bytes of one artifact a version's manifest pins, for a
+# project reader or a live share grantee of that version. The body streams with
+# its final chunk withheld until size, sha256 and the reader's authority are
+# re-verified; artifacts the manifest does not pin are refused.
+REPORT_READER_DOWNLOAD = Operation(
+    "forge.report_reader.download",
+    "GET",
+    "/forge/projects/{project_id}/report-reader/versions/{digest}/artifacts/{artifact_id}/content",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
 REPORT_READER_OPERATIONS = (
     REPORT_READER_BROWSE,
     REPORT_READER_OPEN,
     REPORT_READER_COMPARE,
     REPORT_READER_EXPORT,
     REPORT_READER_AVAILABILITY,
+    REPORT_READER_DOWNLOAD,
 )
 REPORT_OPERATIONS = (
     REPORT_VERSION_PUBLISH,

@@ -20759,6 +20759,16 @@
       "mutation": false,
       "path": "/api/v1/forge/projects/{project_id}/report-reader/versions/{digest}/availability",
       "required_scope": "forge:read"
+    },
+    {
+      "id": "forge.report_reader.download",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/report-reader/versions/{digest}/artifacts/{artifact_id}/content",
+      "required_scope": "forge:read"
     }
   ],
   "repository_identity": "repo_ plus SHA-256 of the UTF-8 internal immutable repo identity; internal registry IDs are not public Ref IDs",

@@ -16872,6 +16872,344 @@
       "required_scope": "forge:read"
     },
     {
+      "description": "Exact bytes of one artifact a report version pins, as data (plain text, never rendered), for a project reader or a live share grantee. Bounded at 16 MiB; use the SDK download for larger artifacts.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "One artifact the version's manifest pins (SYN-5158 gap 3).",
+        "properties": {
+          "artifact_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "digest",
+          "artifact_id"
+        ],
+        "title": "ForgeReportArtifactRead",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "forge_report_artifact",
+      "operation": "forge.report_reader.download",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ReportArtifactContent": {
+            "additionalProperties": true,
+            "description": "One manifest artifact of one exact version, digest-verified, as data.",
+            "properties": {
+              "access": {
+                "enum": [
+                  "project",
+                  "owner",
+                  "organization",
+                  "invited"
+                ],
+                "title": "Access",
+                "type": "string"
+              },
+              "artifact_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Artifact Id",
+                "type": "string"
+              },
+              "content_base64": {
+                "title": "Content Base64",
+                "type": "string"
+              },
+              "content_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Content Sha256",
+                "type": "string"
+              },
+              "index_contribution": {
+                "const": "none",
+                "default": "none",
+                "title": "Index Contribution",
+                "type": "string"
+              },
+              "media_type": {
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Media Type",
+                "type": "string"
+              },
+              "rendering": {
+                "const": "plain_text",
+                "default": "plain_text",
+                "title": "Rendering",
+                "type": "string"
+              },
+              "role": {
+                "enum": [
+                  "input",
+                  "intermediate",
+                  "output",
+                  "evidence"
+                ],
+                "title": "Role",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.report-artifact-content.v1",
+                "default": "synth.forge.report-artifact-content.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "size_bytes": {
+                "maximum": 16777216,
+                "minimum": 1,
+                "title": "Size Bytes",
+                "type": "integer"
+              },
+              "version_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Version Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "version_sha256",
+              "artifact_id",
+              "role",
+              "access",
+              "content_sha256",
+              "size_bytes",
+              "media_type",
+              "content_base64"
+            ],
+            "title": "ReportArtifactContent",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "artifact": {
+            "$ref": "#/$defs/ReportArtifactContent"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "artifact"
+        ],
+        "title": "ReportArtifactContentResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
       "description": "List accessible research workspaces in bounded pages.",
       "idempotent": true,
       "input_schema": {

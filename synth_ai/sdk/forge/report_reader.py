@@ -290,6 +290,32 @@ class ReportReader:
         """
         return _send(self._transport, _availability_call(project_id, digest, request))
 
+    def download(self, project_id, digest, artifact_id, destination, *, options=None):
+        """Write one artifact the version's manifest pins to ``destination``.
+
+        For a project reader or a live share grantee of the version. Size and
+        sha256 are verified against the opened, verified manifest before the
+        file is linked into place.
+        """
+        from .report_download import download_artifact
+
+        return download_artifact(
+            self, project_id, digest, artifact_id, destination, options=options
+        )
+
+    def read_artifact(self, project_id, digest, artifact_id, *, maximum_bytes=None):
+        """Verified bytes as data (``rendering == "plain_text"``), bounded."""
+        from .report_download import read_artifact
+        from .types import REPORT_ARTIFACT_INLINE_MAX_BYTES
+
+        return read_artifact(
+            self,
+            project_id,
+            digest,
+            artifact_id,
+            maximum_bytes=maximum_bytes or REPORT_ARTIFACT_INLINE_MAX_BYTES,
+        )
+
 
 class AsyncReportReader:
     def __init__(self, transport):
@@ -317,3 +343,22 @@ class AsyncReportReader:
         self, project_id, digest, *, request=None
     ) -> ReportVersionAvailabilityResponse:
         return await _send(self._transport, _availability_call(project_id, digest, request))
+
+    async def download(self, project_id, digest, artifact_id, destination, *, options=None):
+        from .report_download import download_artifact_async
+
+        return await download_artifact_async(
+            self, project_id, digest, artifact_id, destination, options=options
+        )
+
+    async def read_artifact(self, project_id, digest, artifact_id, *, maximum_bytes=None):
+        from .report_download import read_artifact_async
+        from .types import REPORT_ARTIFACT_INLINE_MAX_BYTES
+
+        return await read_artifact_async(
+            self,
+            project_id,
+            digest,
+            artifact_id,
+            maximum_bytes=maximum_bytes or REPORT_ARTIFACT_INLINE_MAX_BYTES,
+        )
