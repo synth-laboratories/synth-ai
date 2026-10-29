@@ -66,6 +66,45 @@ Platform and customer-connected funding do not fall back to each other.
 `run.usage().resource_usage` separates plugin, dimension, role and usage class.
 Unknown or pending usage has `amount=None`; it is never reported as zero.
 
+## Program families
+
+A launch may select one exact program family version. `client.swarms.families()`
+(MCP `swarms_families`) lists the versions this deployment declares; there is
+no "latest". `swarms.general@1` runs planner-concluded code work without Forge,
+Factory, Effort, wiki or a scientific project. `swarms.research@1` runs the same
+host with a research binding: the Forge project and record protocol the run
+publishes into.
+
+```python
+from synth_ai.sdk.swarms import Limits, ProgramChoice, ProgramFamilyRef, ResearchBinding, ResourceRequest
+from synth_ai.types.money import Money
+
+limits = Limits(maximum_charge=Money(coefficient=5, scale=0, currency="USD"),
+                wall_time_seconds=3600, maximum_tasks=8, maximum_parallel_tasks=2)
+forge_project_id = "63000000-0000-4000-8000-000000000001"
+program = ProgramChoice(
+    family=ProgramFamilyRef(id="swarms.research", version=1),
+    research=ResearchBinding(forge_project_id=forge_project_id, record_protocol="forge.records@1"),
+)
+resources = (ResourceRequest(
+    plugin="forge.research", roles=("worker",), limits={"calls": 50},
+    selection={"project_ids": (forge_project_id,)},
+),)
+client.swarms.create(message="Reproduce the baseline", project_id=project_id,
+                     limits=limits, program=program, resources=resources)
+```
+
+The research binding's Forge project must be granted by a `forge.research`
+resource on the same launch, so the caller's current Forge access is checked
+before acceptance. Omitting `program` keeps the project's configured program.
+Preflight reports, and create refuses, the same typed codes:
+`program_family_version_unknown`, `program_family_context_unbound` (research
+without a binding), `program_family_context_forbidden` (a research binding or
+Forge grant on the general family), `program_family_research_project_ungranted`
+and `program_family_configuration_unsupported` (the project does not run a
+registered program). Orchestra resolves the exact program, definition and actor
+profiles before dispatch and may refuse with its own `program_family_*` code.
+
 ## Controls, results and downloads
 
 `run.pause()`, `run.resume()` and `run.cancel()` return durable control receipts.

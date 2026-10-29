@@ -20,6 +20,7 @@ from synth_ai.types.refs import Ref
 
 from .methods import ForkFlushMethod
 from .objectives import Guidance
+from .programs import ProgramChoice
 from .resources import ResourceRequest
 
 
@@ -137,6 +138,7 @@ class LaunchRequest(Model):
     providers: Providers | None = None
     models: Models | None = None
     method: ForkFlushMethod | None = None
+    program: ProgramChoice | None = None
     labels: Labels | None = None
     repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
@@ -149,7 +151,7 @@ class LaunchRequest(Model):
     @model_serializer(mode="wrap")
     def omit_absent_labels(self, handler):
         result = handler(self)
-        for name in ("labels", "inputs", "providers", "models", "repo", "method"):
+        for name in ("labels", "inputs", "providers", "models", "repo", "method", "program"):
             if getattr(self, name) is None:
                 result.pop(name, None)
         if not self.guidance:

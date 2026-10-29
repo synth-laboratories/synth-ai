@@ -59,6 +59,7 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from synth_ai.sdk.swarms.types.programs import ProgramFamilyList
 from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
@@ -344,6 +345,10 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
     )
 
 
+async def program_families(client: AsyncSynthClient, args: EmptyArguments) -> ProgramFamilyList:
+    return await client.swarms.families()
+
+
 async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflightResult:
     result = await client.swarms.preflight(
         args.legacy_objective,
@@ -358,6 +363,7 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
         guidance=args.guidance,
         resources=args.resources,
         method=args.method,
+        program=args.program,
     )
     return LaunchPreflightResult.of(result)
 
@@ -376,6 +382,7 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
         guidance=args.guidance,
         resources=args.resources,
         method=args.method,
+        program=args.program,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
     return RunCreated(run_id=run.run_id, rate_limits=run.rate_limits)
@@ -981,6 +988,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         ProjectCreate,
         Project,
         create_project,
+    ),
+    ToolDefinition(
+        "swarms_families",
+        swarm_operations.FAMILIES,
+        "List the exact program family versions (general, research) a launch may select.",
+        EmptyArguments,
+        ProgramFamilyList,
+        program_families,
     ),
     ToolDefinition(
         "swarms_preflight",

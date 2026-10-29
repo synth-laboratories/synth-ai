@@ -47,6 +47,11 @@ from .runs import (
 )
 
 __all__ = [
+    "ProgramChoice",
+    "ProgramFamily",
+    "ProgramFamilyList",
+    "ProgramFamilyRef",
+    "ResearchBinding",
     "ForkFlushMethod",
     "ForkFlushOverrides",
     "ForkFlushParameters",
@@ -99,6 +104,13 @@ from .approvals import Approval as Approval
 from .approvals import ApprovalDecisionReceipt as ApprovalDecisionReceipt
 from .approvals import ApprovalDecisionRequest as ApprovalDecisionRequest
 from .approvals import ApprovalList as ApprovalList
+from .programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramFamilyRef,
+    ResearchBinding,
+)
 from .methods import (
     ForkFlushMethod,
     ForkFlushOverrides,
