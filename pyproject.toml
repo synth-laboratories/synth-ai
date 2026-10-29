@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.24.0.dev202610291702"
+version = "0.24.0.dev202610291800"
 description = "Synth SDK for Index, Swarms, account access, and hosted MCP"
 keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
 authors = [{name = "Synth AI", email = "sdk@usesynth.ai"}]

@@ -67,6 +67,15 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from synth_ai.sdk.swarms.types.status_facets import (
+    CleanupFacet,
+    ExecutionFacet,
+    FacetCause,
+    PublicationCounts,
+    PublicationFacet,
+    RunStatusFacets,
+    SettlementFacet,
+)
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
 from synth_ai.types.response_values import response_schema
@@ -91,6 +100,13 @@ MODELS: tuple[type[BaseModel], ...] = (
     ResolvedProfileActor,
     ProfileOverrideResolution,
     ProfileOverrideReadback,
+    FacetCause,
+    ExecutionFacet,
+    PublicationCounts,
+    PublicationFacet,
+    SettlementFacet,
+    CleanupFacet,
+    RunStatusFacets,
     Approval,
     ApprovalList,
     ApprovalDecisionRequest,

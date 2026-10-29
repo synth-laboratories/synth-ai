@@ -152,6 +152,31 @@ slots), `profile_override_role_unknown`, `profile_override_role_absent`,
 `profile_override_protected_protocol` and `profile_override_invalid`. Nothing
 is substituted.
 
+## Status facets
+
+`RunSnapshot.state` is unchanged. A server that supports it also returns
+`status_facets`, which splits the run into four facts read from their own
+authorities, so a terminal `state` never implies the rest:
+
+| Facet | States | Authority |
+| --- | --- | --- |
+| `execution` | `queued`, `running`, `closing`, `closed`, `never_started`, `unknown` | Orchestra run lifecycle / program terminal; the backend's never-launched closure for a run Orchestra never started |
+| `publication` | `not_required`, `pending`, `published`, `waived`, `refused`, `unknown` | Orchestra's obligations-v1 `publication` entries |
+| `settlement` | `pending`, `in_doubt`, `refused`, `final`, `unknown` | Backend admission holds + Orchestra `financial.settle` receipts (the same flags as `accounting_final`) |
+| `cleanup` | `pending`, `complete`, `failed`, `unknown` | Orchestra lifecycle terminalization; the never-launched closure |
+
+Each facet has an optional `cause` with a stable `code` and the `authority` it
+was derived from, for example `{"code": "program_family_context_unbound",
+"authority": "orchestra.program_create"}` on a run refused at create.
+`execution` has `outcome`, `started_at` and `closed_at`. `cleanup` has
+`completed_at`. `publication` has the owner's open/closed/waived `counts`.
+`settlement` has `customer_charge_final`, `supplier_settlement_final` and the
+owner's settlement `operation_id`. These fields appear only when the server
+recorded them. A fact the server did not observe is `unknown`, never a zero or
+a success. An older server omits `status_facets`. A newer state decodes as an
+unknown value; it is not rejected. Hosted and stdio MCP `swarms_status` return
+the same object.
+
 ## Controls, results and downloads
 
 `run.pause()`, `run.resume()` and `run.cancel()` return durable control receipts.

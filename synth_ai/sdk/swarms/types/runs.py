@@ -42,6 +42,7 @@ from .methods import ResolvedResearchMethod
 from .objectives import GuidanceCoverage, ObjectiveResult
 from .overrides import ProfileOverrideReadback
 from .problems import Problem, ReasonLink
+from .status_facets import RunStatusFacets
 
 KnownRunState = Literal[
     "queued",
@@ -185,6 +186,9 @@ class RunSnapshot(ResponseModel):
     failure: RunFailure | None = None
     # SYN-4848: the frozen model/effort overrides and, once prepared, their resolution.
     profile_overrides: ProfileOverrideReadback | None = None
+    # SYN-4849: execution, publication, settlement and cleanup read independently.
+    # Absent from servers that predate it; ``state`` is unchanged.
+    status_facets: RunStatusFacets | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -197,6 +201,7 @@ class RunSnapshot(ResponseModel):
             "deadline_at",
             "pause_count",
             "profile_overrides",
+            "status_facets",
         ):
             if getattr(self, name) is None:
                 value.pop(name, None)

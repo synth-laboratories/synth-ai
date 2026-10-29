@@ -47,6 +47,13 @@ from .runs import (
 )
 
 __all__ = [
+    "CleanupFacet",
+    "ExecutionFacet",
+    "FacetCause",
+    "PublicationCounts",
+    "PublicationFacet",
+    "RunStatusFacets",
+    "SettlementFacet",
     "ModelEffortChoice",
     "ProfileOverrideReadback",
     "ProfileOverrideResolution",
@@ -133,3 +140,12 @@ from .programs import (
     ResearchBinding,
 )
 from .programs import ProgramRunView as ProgramRunView
+from .status_facets import (
+    CleanupFacet,
+    ExecutionFacet,
+    FacetCause,
+    PublicationCounts,
+    PublicationFacet,
+    RunStatusFacets,
+    SettlementFacet,
+)
