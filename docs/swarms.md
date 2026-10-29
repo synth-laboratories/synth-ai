@@ -220,7 +220,10 @@ can select those annotations.
 
 Handle `OutcomeUncertainError` by resolving `error.identity` with
 `client.resolve_mutation(...)`. Keep the original key, body and revision; do
-not create a new operation because the reply was lost. Poll the retained handle
+not create a new operation because the reply was lost.
+`LifecycleWriteRefusedError` (a subclass) means the backend refused to write
+the lifecycle of an Orchestra-owned run; the owner command may still have been
+dispatched, so resolve the identity and read the run the same way. Poll the retained handle
 when acceptance is known. A terminal result may still have pending settlement,
 cleanup or unknown usage; inspect the typed fields separately.
 

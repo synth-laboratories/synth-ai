@@ -15,10 +15,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from synth_ai.contracts.fingerprint import schema_sha256
 from synth_ai.core.version_skew import schema_error
 from synth_ai.errors import (
+    LIFECYCLE_WRITE_REFUSAL_CODES,
     POLICY_ERROR_TYPES,
     AuthenticationError,
     ConflictError,
     ContractError,
+    LifecycleWriteRefusedError,
     NotFoundError,
     OutcomeUncertainError,
     PaymentRequiredError,
@@ -372,7 +374,12 @@ def _decode_response(
             )
         definite = is_definite_refusal(response.status_code, sent_outcome)
         if mutation and not definite:
-            raise OutcomeUncertainError(
+            uncertain = (
+                LifecycleWriteRefusedError
+                if error.code in LIFECYCLE_WRITE_REFUSAL_CODES
+                else OutcomeUncertainError
+            )
+            raise uncertain(
                 "Mutation outcome is uncertain",
                 code=error.code,
                 refusal=getattr(error, "refusal", None),
