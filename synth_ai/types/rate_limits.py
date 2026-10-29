@@ -62,3 +62,16 @@ class ResponseMetadata:
 
     def capture(self, headers: Mapping[str, str]) -> None:
         self.rate_limits = parse_rate_limits(headers)
+
+
+def describe_rate_limit(snapshot: RateLimitSnapshot) -> str:
+    """One human line per dimension, e.g. ``rate limit concurrency: remaining 3/limit 5, resets …``."""
+
+    def known(value: object) -> str:
+        return "unknown" if value is None else str(value)
+
+    line = (
+        f"rate limit {snapshot.dimension}: remaining {known(snapshot.remaining)}"
+        f"/limit {known(snapshot.limit)}, resets {known(snapshot.reset_at)}"
+    )
+    return line if snapshot.burst is None else f"{line}, burst {snapshot.burst}"

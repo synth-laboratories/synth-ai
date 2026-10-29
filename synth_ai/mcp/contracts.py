@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    AwareDatetime,
     Field,
     JsonValue,
     SerializerFunctionWrapHandler,
@@ -27,7 +28,16 @@ from synth_ai.sdk.index.types.search import (
 )
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
-from synth_ai.types.base import Cursor, Digest, Identifier, Model, ResponseBase, ResponseIdentifier
+from synth_ai.sdk.swarms.types.runs import LaunchPreflight, ResolvedConfiguration
+from synth_ai.types.base import (
+    Cursor,
+    Digest,
+    Identifier,
+    Model,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.refusal import Refusal
@@ -191,8 +201,26 @@ class SearchCreated(ResponseBase):
         return data
 
 
+class LaunchPreflightResult(ResponseModel):
+    """swarms_preflight result: the preflight body plus response-header capacity (SYN-4680)."""
+
+    ready: bool
+    blockers: tuple[str, ...] = Field(max_length=32)
+    configuration: ResolvedConfiguration | None
+    expires_at: AwareDatetime | None
+    reservation_created: Literal[False] = False
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
+
+    @classmethod
+    def of(cls, preflight: LaunchPreflight) -> Self:
+        fields = {name: getattr(preflight, name) for name in LaunchPreflight.model_fields}
+        return cls(**fields, rate_limits=preflight.rate_limits)
+
+
 class RunCreated(ResponseBase):
     run_id: ResponseIdentifier
+    # x-ratelimit-* capacity reported on the admitting create response (SYN-4680).
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
 
 
 class ToolFailure(ResponseBase):

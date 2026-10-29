@@ -132,3 +132,15 @@ The backend reports `research_method_unavailable` before paid execution rather
 than running another method. The SDK refuses a successful readback that omits
 an explicitly selected method or changes its overrides. No paper-result or
 Craftax-improvement claim follows from the local fixtures.
+
+## Rate capacity on preflight and create
+
+Preflight and create successes carry the account's remaining Swarms capacity as
+`x-ratelimit-*` headers. The SDK exposes them as typed snapshots,
+`RateLimitSnapshot(dimension, limit, remaining, reset_at, burst)`: read
+`preview.rate_limits` on the `LaunchPreflight` that `preflight` returns, and
+`run.rate_limits` on the `SwarmRun` that `create` returns (sync and async).
+
+`synth-ai swarms preflight --request launch.json` prints one line per dimension,
+and the MCP `swarms_preflight` and `swarms_create` results include `rate_limits`.
+An empty tuple means the server reported no capacity headers.

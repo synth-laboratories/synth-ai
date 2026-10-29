@@ -28,12 +28,12 @@ from synth_ai.sdk.forge.types import (
     ProjectListResponse,
     ProjectMutationResponse,
     ProjectResponse,
+    ReportArtifactContentResponse,
     ReportExportResponse,
     ReportPublicationResponse,
     ReportShareListResponse,
     ReportShareResponse,
     ReportShareRevocationResponse,
-    ReportArtifactContentResponse,
     ReportVersionAvailabilityResponse,
     ReportVersionBrowseResponse,
     ReportVersionComparisonResponse,
@@ -48,18 +48,17 @@ from synth_ai.sdk.index.types.contributions import Contribution, SubmissionRecei
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
+from synth_ai.sdk.swarms.types.approvals import ApprovalDecisionReceipt, ApprovalList
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
 from synth_ai.sdk.swarms.types.outputs import Output, TextContent
 from synth_ai.sdk.swarms.types.runs import (
-    LaunchPreflight,
     ResolvedConfiguration,
     RunSnapshot,
     SwarmEventPage,
     SwarmResult,
     TaskOutcome,
 )
-from synth_ai.sdk.swarms.types.approvals import ApprovalDecisionReceipt, ApprovalList
 from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
@@ -78,6 +77,7 @@ from .contracts import (
     EmptyArguments,
     FileIdentity,
     JsonObject,
+    LaunchPreflightResult,
     OutputIdentity,
     OutputText,
     PageArguments,
@@ -344,8 +344,8 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
     )
 
 
-async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflight:
-    return await client.swarms.preflight(
+async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflightResult:
+    result = await client.swarms.preflight(
         args.legacy_objective,
         message=args.message,
         project_id=args.project_id,
@@ -359,6 +359,7 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
         resources=args.resources,
         method=args.method,
     )
+    return LaunchPreflightResult.of(result)
 
 
 async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
@@ -377,7 +378,7 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
         method=args.method,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
-    return RunCreated(run_id=run.run_id)
+    return RunCreated(run_id=run.run_id, rate_limits=run.rate_limits)
 
 
 async def runs(client: AsyncSynthClient, args: RunList) -> Page[RunSnapshot]:
@@ -986,7 +987,7 @@ TOOLS: tuple[ToolSpec, ...] = (
         swarm_operations.PREFLIGHT,
         "Preview resolved launch configuration and blockers without starting execution or reserving budget.",
         LaunchRequest,
-        LaunchPreflight,
+        LaunchPreflightResult,
         preflight,
     ),
     ToolDefinition(
