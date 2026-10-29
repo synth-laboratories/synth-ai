@@ -254,3 +254,23 @@ STREAM = Operation(
     required_scope="swarms:read",
 )
 ALL_OPERATIONS += (STREAM,)
+
+# SYN-4547: customer approval surface for approval-gated capabilities.
+APPROVALS = Operation(
+    "swarms.approvals.list",
+    "GET",
+    "/swarms/runs/{run_id}/approvals",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
+DECIDE_APPROVAL = Operation(
+    "swarms.approvals.decide",
+    "POST",
+    "/swarms/runs/{run_id}/approvals/{approval_id}/decision",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+ALL_OPERATIONS += (APPROVALS, DECIDE_APPROVAL)

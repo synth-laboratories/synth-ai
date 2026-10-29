@@ -28,6 +28,12 @@ from synth_ai.types.refs import Link, Ref, Relation
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from .outputs import AsyncOutputs, Outputs
+from .types.approvals import (
+    ApprovalDecision,
+    ApprovalDecisionReceipt,
+    ApprovalDecisionRequest,
+    ApprovalList,
+)
 from .types.programs import ProgramRunView
 from .types.runs import (
     KnownRunState,
@@ -187,6 +193,54 @@ class SwarmRun(RunIdentity):
 
         Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
         return RunWatch(self, self._transport, observation, last_event_id)
+
+    def approvals(self, *, request: ReadOptions | None = None) -> ApprovalList:
+        """List the run's parked approval-gated calls with typed state and revision."""
+        return self._transport.request(
+            operations.APPROVALS,
+            ApprovalList,
+            path=f"/swarms/runs/{self.run_id}/approvals",
+            options=request,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and all(item.run_id == self.run_id for item in result.items),
+                "Approval list identity mismatch",
+            ),
+        )
+
+    def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        decision: ApprovalDecision,
+        expected_revision: int,
+        reason: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> ApprovalDecisionReceipt:
+        """Approve or refuse one parked call at ``expected_revision``.
+
+        A stale revision is refused as ``approval_revision_stale``; replaying
+        the same decision for the same revision returns the original verdict.
+        """
+        selected = identifier(approval_id)
+        return self._transport.request(
+            operations.DECIDE_APPROVAL,
+            ApprovalDecisionReceipt,
+            body=ApprovalDecisionRequest(
+                decision=decision, expected_revision=expected_revision, reason=reason
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/decision",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.decided_revision == expected_revision,
+                "Approval decision identity mismatch",
+            ),
+        )
 
     def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""
@@ -514,6 +568,54 @@ class AsyncSwarmRun(RunIdentity):
 
         Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
         return AsyncRunWatch(self, self._transport, observation, last_event_id)
+
+    async def approvals(self, *, request: ReadOptions | None = None) -> ApprovalList:
+        """List the run's parked approval-gated calls with typed state and revision."""
+        return await self._transport.request(
+            operations.APPROVALS,
+            ApprovalList,
+            path=f"/swarms/runs/{self.run_id}/approvals",
+            options=request,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and all(item.run_id == self.run_id for item in result.items),
+                "Approval list identity mismatch",
+            ),
+        )
+
+    async def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        decision: ApprovalDecision,
+        expected_revision: int,
+        reason: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> ApprovalDecisionReceipt:
+        """Approve or refuse one parked call at ``expected_revision``.
+
+        A stale revision is refused as ``approval_revision_stale``; replaying
+        the same decision for the same revision returns the original verdict.
+        """
+        selected = identifier(approval_id)
+        return await self._transport.request(
+            operations.DECIDE_APPROVAL,
+            ApprovalDecisionReceipt,
+            body=ApprovalDecisionRequest(
+                decision=decision, expected_revision=expected_revision, reason=reason
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/decision",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.decided_revision == expected_revision,
+                "Approval decision identity mismatch",
+            ),
+        )
 
     async def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""

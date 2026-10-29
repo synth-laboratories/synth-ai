@@ -147,6 +147,13 @@ class RunMutation(RunIdentity):
     idempotency_key: Identifier
 
 
+class ApprovalDecide(RunMutation):
+    approval_id: Identifier
+    decision: Literal["approve", "refuse"]
+    expected_revision: StrictInt = Field(ge=1)
+    reason: str | None = Field(default=None, min_length=1, max_length=4096)
+
+
 class OutputIdentity(RunIdentity):
     output_id: Identifier
 

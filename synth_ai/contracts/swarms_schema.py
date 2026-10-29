@@ -7,6 +7,12 @@ import json
 from pydantic import BaseModel
 
 from synth_ai.sdk.core.artifact_types import ArtifactLabelsUpdate
+from synth_ai.sdk.swarms.types.approvals import (
+    Approval,
+    ApprovalDecisionReceipt,
+    ApprovalDecisionRequest,
+    ApprovalList,
+)
 from synth_ai.sdk.swarms.types.files import File, FileManifest, FileUploadReceipt, FileUploadStatus
 from synth_ai.sdk.swarms.types.launch import (
     FileRef,
@@ -63,6 +69,10 @@ MODELS: tuple[type[BaseModel], ...] = (
     ArtifactLabelsUpdate,
     ControlReceipt,
     ProgramRunView,
+    Approval,
+    ApprovalList,
+    ApprovalDecisionRequest,
+    ApprovalDecisionReceipt,
     FileRef,
     File,
     FileManifest,

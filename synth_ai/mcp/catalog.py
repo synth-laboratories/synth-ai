@@ -58,6 +58,7 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from synth_ai.sdk.swarms.types.approvals import ApprovalDecisionReceipt, ApprovalList
 from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
@@ -70,6 +71,7 @@ from . import forge as forge_tools
 from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
     JSON_OBJECT,
+    ApprovalDecide,
     ContentArguments,
     ContributionIdentity,
     EmptyArguments,
@@ -432,6 +434,22 @@ async def run_pause(client: AsyncSynthClient, args: RunMutation) -> ControlRecei
 async def run_resume(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
     return await (await client.swarms.get(args.run_id)).resume(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
+async def run_approvals(client: AsyncSynthClient, args: RunIdentity) -> ApprovalList:
+    return await (await client.swarms.get(args.run_id)).approvals()
+
+
+async def run_decide_approval(
+    client: AsyncSynthClient, args: ApprovalDecide
+) -> ApprovalDecisionReceipt:
+    return await (await client.swarms.get(args.run_id)).decide_approval(
+        args.approval_id,
+        decision=args.decision,
+        expected_revision=args.expected_revision,
+        reason=args.reason,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
 
 
@@ -1053,6 +1071,22 @@ TOOLS: tuple[ToolSpec, ...] = (
         RunMutation,
         ControlReceipt,
         run_cancel,
+    ),
+    ToolDefinition(
+        "swarms_approvals",
+        swarm_operations.APPROVALS,
+        "List the run's parked approval-gated calls with typed state, revision and deadline.",
+        RunIdentity,
+        ApprovalList,
+        run_approvals,
+    ),
+    ToolDefinition(
+        "swarms_approval_decide",
+        swarm_operations.DECIDE_APPROVAL,
+        "Approve or refuse one parked call at its expected revision; a stale revision is a typed conflict.",
+        ApprovalDecide,
+        ApprovalDecisionReceipt,
+        run_decide_approval,
     ),
     ToolDefinition(
         "swarms_outputs",

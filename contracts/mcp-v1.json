@@ -46137,6 +46137,663 @@
       "required_scope": "swarms:control"
     },
     {
+      "description": "List the run's parked approval-gated calls with typed state, revision and deadline.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "RunIdentity",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "swarms_approvals",
+      "operation": "swarms.approvals.list",
+      "output_schema": {
+        "$defs": {
+          "Approval": {
+            "additionalProperties": true,
+            "description": "One parked approval-gated call as Orchestra retains it.",
+            "properties": {
+              "actor_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Actor Id",
+                "type": "string"
+              },
+              "approval_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Approval Id",
+                "type": "string"
+              },
+              "argument_digest": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Argument Digest",
+                "type": "string"
+              },
+              "attempt_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Attempt Id",
+                "type": "string"
+              },
+              "capability": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Capability",
+                "type": "string"
+              },
+              "deadline_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Deadline At"
+              },
+              "decidable": {
+                "title": "Decidable",
+                "type": "boolean"
+              },
+              "kind": {
+                "const": "tool_call",
+                "title": "Kind",
+                "type": "string"
+              },
+              "metadata": {
+                "$ref": "#/$defs/ResponseMetadata"
+              },
+              "on_timeout": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "decline",
+                      "cancel",
+                      "escalate"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "On Timeout"
+              },
+              "parked_at": {
+                "format": "date-time",
+                "title": "Parked At",
+                "type": "string"
+              },
+              "question": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "title": "Question",
+                "type": "string"
+              },
+              "revision": {
+                "maximum": 9223372036854775807,
+                "minimum": 1,
+                "title": "Revision",
+                "type": "integer"
+              },
+              "run_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Run Id",
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "awaiting",
+                  "approved",
+                  "refused",
+                  "permit_delivered",
+                  "permit_refused",
+                  "permit_in_doubt"
+                ],
+                "title": "State",
+                "type": "string"
+              },
+              "tool": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Tool",
+                "type": "string"
+              }
+            },
+            "required": [
+              "metadata",
+              "approval_id",
+              "run_id",
+              "revision",
+              "state",
+              "kind",
+              "question",
+              "tool",
+              "capability",
+              "argument_digest",
+              "actor_id",
+              "attempt_id",
+              "parked_at",
+              "deadline_at",
+              "on_timeout",
+              "decidable"
+            ],
+            "title": "Approval",
+            "type": "object"
+          },
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "description": "Every approval Orchestra holds open for the run (bounded by the owner).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/Approval"
+            },
+            "maxItems": 1000,
+            "title": "Items",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "run_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "run_id",
+          "items"
+        ],
+        "title": "ApprovalList",
+        "type": "object"
+      },
+      "required_scope": "swarms:read"
+    },
+    {
+      "description": "Approve or refuse one parked call at its expected revision; a stale revision is a typed conflict.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "refuse"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "idempotency_key",
+          "approval_id",
+          "decision",
+          "expected_revision"
+        ],
+        "title": "ApprovalDecide",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "swarms_approval_decide",
+      "operation": "swarms.approvals.decide",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "description": "Orchestra's journaled verdict for one decided revision.",
+        "properties": {
+          "approval_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "decided_revision": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Decided Revision",
+            "type": "integer"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "refuse"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "run_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "enacted",
+              "refused"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "run_id",
+          "approval_id",
+          "decision",
+          "decided_revision",
+          "verdict"
+        ],
+        "title": "ApprovalDecisionReceipt",
+        "type": "object"
+      },
+      "required_scope": "swarms:control"
+    },
+    {
       "description": "List authorized output descriptors; metadata does not grant byte access.",
       "idempotent": true,
       "input_schema": {
