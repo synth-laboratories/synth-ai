@@ -148,7 +148,53 @@ REPORT_SHARES_REVOKE_INACTIVE = Operation(
     contract="core.v1",
     required_scope="forge:write",
 )
-REPORT_OPERATIONS = (REPORT_VERSION_PUBLISH, REPORT_SHARES_REVOKE_INACTIVE)
+# SYN-5157: scoped share of one exact report version, as the verified caller.
+# Named principals only (organization or invited members); no public/unlisted.
+REPORT_SHARE_PUT = Operation(
+    "forge.report_shares.put",
+    "PUT",
+    "/forge/projects/{project_id}/report-shares/{digest}",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+REPORT_SHARE_GET = Operation(
+    "forge.report_shares.get",
+    "GET",
+    "/forge/projects/{project_id}/report-shares/{digest}",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+REPORT_SHARES_LIST = Operation(
+    "forge.report_shares.list",
+    "GET",
+    "/forge/projects/{project_id}/report-shares",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+REPORT_SHARE_REVOKE = Operation(
+    "forge.report_shares.revoke",
+    "POST",
+    "/forge/projects/{project_id}/report-shares/{digest}/revoke",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+REPORT_SHARE_OPERATIONS = (
+    REPORT_SHARE_PUT,
+    REPORT_SHARE_GET,
+    REPORT_SHARES_LIST,
+    REPORT_SHARE_REVOKE,
+)
+REPORT_OPERATIONS = (
+    REPORT_VERSION_PUBLISH,
+    REPORT_SHARES_REVOKE_INACTIVE,
+    *REPORT_SHARE_OPERATIONS,
+)
 
 PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)
 SCIENCE_OPERATIONS = (

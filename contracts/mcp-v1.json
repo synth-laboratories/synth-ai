@@ -12327,6 +12327,1311 @@
       "required_scope": "forge:write"
     },
     {
+      "description": "Share one exact report version with the organization or invited members, optionally until expires_at.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "Named principals only; there is no public/unlisted audience.",
+        "properties": {
+          "audience": {
+            "enum": [
+              "organization",
+              "invited"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expires At"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "invited": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Invited",
+            "type": "array"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "digest",
+          "audience",
+          "idempotency_key"
+        ],
+        "title": "ForgeReportShareCreate",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "forge_report_share",
+      "operation": "forge.report_shares.put",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ReportShare": {
+            "additionalProperties": true,
+            "properties": {
+              "audience": {
+                "enum": [
+                  "private",
+                  "organization",
+                  "invited"
+                ],
+                "title": "Audience",
+                "type": "string"
+              },
+              "expired": {
+                "default": false,
+                "title": "Expired",
+                "type": "boolean"
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Expires At"
+              },
+              "invited": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "Invited",
+                "type": "array"
+              },
+              "policy_version": {
+                "title": "Policy Version",
+                "type": "integer"
+              },
+              "publication_id": {
+                "title": "Publication Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.report-share.v1",
+                "default": "synth.forge.report-share.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "version_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Version Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "version_sha256",
+              "audience",
+              "policy_version",
+              "publication_id"
+            ],
+            "title": "ReportShare",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "share": {
+            "$ref": "#/$defs/ReportShare"
+          }
+        },
+        "required": [
+          "metadata",
+          "share"
+        ],
+        "title": "ReportShareResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:write"
+    },
+    {
+      "description": "Read the share state of one report version you own.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "digest"
+        ],
+        "title": "ForgeReportShareRead",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "forge_report_share_get",
+      "operation": "forge.report_shares.get",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ReportShare": {
+            "additionalProperties": true,
+            "properties": {
+              "audience": {
+                "enum": [
+                  "private",
+                  "organization",
+                  "invited"
+                ],
+                "title": "Audience",
+                "type": "string"
+              },
+              "expired": {
+                "default": false,
+                "title": "Expired",
+                "type": "boolean"
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Expires At"
+              },
+              "invited": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "Invited",
+                "type": "array"
+              },
+              "policy_version": {
+                "title": "Policy Version",
+                "type": "integer"
+              },
+              "publication_id": {
+                "title": "Publication Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.report-share.v1",
+                "default": "synth.forge.report-share.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "version_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Version Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "version_sha256",
+              "audience",
+              "policy_version",
+              "publication_id"
+            ],
+            "title": "ReportShare",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "share": {
+            "$ref": "#/$defs/ReportShare"
+          }
+        },
+        "required": [
+          "metadata",
+          "share"
+        ],
+        "title": "ReportShareResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "description": "List shares you own of this project's report versions.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "After"
+          },
+          "limit": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ForgeReportShareList",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "forge_report_shares_list",
+      "operation": "forge.report_shares.list",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ReportShare": {
+            "additionalProperties": true,
+            "properties": {
+              "audience": {
+                "enum": [
+                  "private",
+                  "organization",
+                  "invited"
+                ],
+                "title": "Audience",
+                "type": "string"
+              },
+              "expired": {
+                "default": false,
+                "title": "Expired",
+                "type": "boolean"
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Expires At"
+              },
+              "invited": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "Invited",
+                "type": "array"
+              },
+              "policy_version": {
+                "title": "Policy Version",
+                "type": "integer"
+              },
+              "publication_id": {
+                "title": "Publication Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.report-share.v1",
+                "default": "synth.forge.report-share.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "version_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Version Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "version_sha256",
+              "audience",
+              "policy_version",
+              "publication_id"
+            ],
+            "title": "ReportShare",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "shares": {
+            "items": {
+              "$ref": "#/$defs/ReportShare"
+            },
+            "title": "Shares",
+            "type": "array"
+          }
+        },
+        "required": [
+          "metadata",
+          "shares"
+        ],
+        "title": "ReportShareListResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "description": "Return one report version's share to private.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "digest",
+          "idempotency_key"
+        ],
+        "title": "ForgeReportShareRevoke",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "forge_report_share_revoke",
+      "operation": "forge.report_shares.revoke",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ReportShare": {
+            "additionalProperties": true,
+            "properties": {
+              "audience": {
+                "enum": [
+                  "private",
+                  "organization",
+                  "invited"
+                ],
+                "title": "Audience",
+                "type": "string"
+              },
+              "expired": {
+                "default": false,
+                "title": "Expired",
+                "type": "boolean"
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Expires At"
+              },
+              "invited": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "Invited",
+                "type": "array"
+              },
+              "policy_version": {
+                "title": "Policy Version",
+                "type": "integer"
+              },
+              "publication_id": {
+                "title": "Publication Id",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.report-share.v1",
+                "default": "synth.forge.report-share.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "version_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Version Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "version_sha256",
+              "audience",
+              "policy_version",
+              "publication_id"
+            ],
+            "title": "ReportShare",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "share": {
+            "$ref": "#/$defs/ReportShare"
+          }
+        },
+        "required": [
+          "metadata",
+          "share"
+        ],
+        "title": "ReportShareResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:write"
+    },
+    {
       "description": "List accessible research workspaces in bounded pages.",
       "idempotent": true,
       "input_schema": {
@@ -34875,10 +36180,20 @@
                 "type": "string"
               },
               "origin": {
-                "maxLength": 96,
-                "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-                "title": "Origin",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 96,
+                    "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                    "type": "string"
+                  },
+                  {
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                    "type": "string"
+                  }
+                ],
+                "title": "Origin"
               },
               "owner_hint": {
                 "maxLength": 1024,
@@ -34960,10 +36275,20 @@
                 "type": "string"
               },
               "service": {
-                "maxLength": 96,
-                "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-                "title": "Service",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 96,
+                    "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                    "type": "string"
+                  },
+                  {
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                    "type": "string"
+                  }
+                ],
+                "title": "Service"
               },
               "stage": {
                 "maxLength": 96,
@@ -35976,10 +37301,20 @@
                 "type": "string"
               },
               "origin": {
-                "maxLength": 96,
-                "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-                "title": "Origin",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 96,
+                    "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                    "type": "string"
+                  },
+                  {
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                    "type": "string"
+                  }
+                ],
+                "title": "Origin"
               },
               "owner_hint": {
                 "maxLength": 1024,
@@ -36061,10 +37396,20 @@
                 "type": "string"
               },
               "service": {
-                "maxLength": 96,
-                "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-                "title": "Service",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 96,
+                    "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                    "type": "string"
+                  },
+                  {
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                    "type": "string"
+                  }
+                ],
+                "title": "Service"
               },
               "stage": {
                 "maxLength": 96,
@@ -37680,10 +39025,20 @@
                 "type": "string"
               },
               "service": {
-                "maxLength": 96,
-                "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-                "title": "Service",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 96,
+                    "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                    "type": "string"
+                  },
+                  {
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                    "type": "string"
+                  }
+                ],
+                "title": "Service"
               },
               "stage": {
                 "maxLength": 96,
@@ -39052,10 +40407,20 @@
                 "type": "string"
               },
               "service": {
-                "maxLength": 96,
-                "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|tunnel|database|host|unknown)$",
-                "title": "Service",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 96,
+                    "pattern": "^(provider:[A-Za-z0-9_.-]{1,64}|gateway|agents|orchestra|sublinear|backend|daytona|docker|tunnel|database|host|unknown)$",
+                    "type": "string"
+                  },
+                  {
+                    "maxLength": 96,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+                    "type": "string"
+                  }
+                ],
+                "title": "Service"
               },
               "stage": {
                 "maxLength": 96,
