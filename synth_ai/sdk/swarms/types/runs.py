@@ -36,6 +36,7 @@ from .launch import (
     ResolvedModels,
     ResolvedProviders,
 )
+from .methods import ResolvedResearchMethod
 from .objectives import GuidanceCoverage, ObjectiveResult
 from .problems import Problem, ReasonLink
 
@@ -84,6 +85,7 @@ class AdmittedResourceGrant(ResponseBase):
 
 
 class ResolvedConfiguration(ResponseModel):
+    method: ResolvedResearchMethod | None = None
     run_id: ResponseIdentifier | None
     project_id: ResponseIdentifier
     configuration_id: ResponseIdentifier
@@ -130,6 +132,7 @@ class RunControlSummary(ResponseBase):
 
 
 class RunSnapshot(ResponseModel):
+    method: ResolvedResearchMethod | None = None
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
     ref: Ref | None = None

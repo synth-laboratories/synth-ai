@@ -357,6 +357,7 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
         repo=args.repo,
         guidance=args.guidance,
         resources=args.resources,
+        method=args.method,
     )
 
 
@@ -373,6 +374,7 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
         repo=args.repo,
         guidance=args.guidance,
         resources=args.resources,
+        method=args.method,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
     return RunCreated(run_id=run.run_id)
