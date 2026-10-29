@@ -90,4 +90,8 @@ __all__ = [
     "TaskState",
 ]
 
+from .approvals import Approval as Approval
+from .approvals import ApprovalDecisionReceipt as ApprovalDecisionReceipt
+from .approvals import ApprovalDecisionRequest as ApprovalDecisionRequest
+from .approvals import ApprovalList as ApprovalList
 from .programs import ProgramRunView as ProgramRunView

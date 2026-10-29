@@ -74,6 +74,17 @@ observe the intended state. Resume retains the run identity and deadline and
 restores only non-conflicting paused changes onto current repository content.
 A snapshot with unsupported entries or a conflicting edit is refused.
 
+Approval-gated capabilities (any `require_approval` tool, such as `git_push`
+to a remote other than the run's own Synth-hosted workspace) park until a
+principal with `swarms:control` decides them. `run.approvals()` lists the parked
+calls with typed `state` and `revision`; `run.decide_approval(approval_id,
+decision="approve" | "refuse", expected_revision=...)` relays one decision to
+Orchestra, which journals the verdict. A stale `expected_revision` is refused
+with `approval_revision_stale` (re-list and decide again); replaying the same
+decision for the same revision returns the original verdict. Hosted and stdio
+MCP expose the same operations as `swarms_approvals` and
+`swarms_approval_decide`.
+
 `run.download(destination)` publishes a new directory only after every selected
 resource passes its digest and size checks. It includes `MANIFEST.json`, the
 final repository tree when present, `objectives.json`, answers, and artifacts at
