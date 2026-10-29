@@ -47,6 +47,7 @@ from .types.programs import (
     ProgramFamilyList,
     ProgramFamilyRef,
     ResearchBinding,
+    ResearchMethodChoice,
 )
 from .types.resources import ResourceGrant, ResourceGrantSet, ResourceRequest, ResourceUsage
 from .types.runs import (
@@ -87,6 +88,7 @@ __all__ = [
     "ProgramFamilyList",
     "ProgramFamilyRef",
     "ResearchBinding",
+    "ResearchMethodChoice",
     "ForkFlushMethod",
     "ForkFlushOverrides",
     "ForkFlushParameters",
