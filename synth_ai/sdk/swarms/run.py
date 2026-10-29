@@ -23,6 +23,7 @@ from synth_ai.errors import (
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.types.base import EventCursor, Page, PageCursor
+from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.receipts import ControlCommand, ControlReceipt, MutationResolution
 from synth_ai.types.refs import Link, Ref, Relation
 from synth_ai.types.usage import UsageOperation, UsageSummary
@@ -79,6 +80,9 @@ class RunIdentity:
     _reference: Ref | None = None
     _project_id: str | None = None
     _identity_lock: threading.Lock
+    # x-ratelimit-* capacity reported on the create response that admitted this run
+    # (SYN-4680); empty for a run reattached by get() or resolve_creation().
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
 
     @property
     def ref(self) -> Ref:

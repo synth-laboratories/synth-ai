@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import builtins
 import warnings
+from typing import TypeVar
 
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
@@ -21,6 +22,7 @@ from synth_ai.sdk.core.artifact_types import Labels
 from synth_ai.sdk.core.artifacts import list_query
 from synth_ai.types.base import Page, PageCursor
 from synth_ai.types.identity import MutationIdentity
+from synth_ai.types.rate_limits import ResponseMetadata
 from synth_ai.types.receipts import CreationResolution
 from synth_ai.types.refs import Ref
 
@@ -33,6 +35,17 @@ from .types.objectives import Guidance
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
 from .types.runs import LaunchPreflight, RunSnapshot
+
+OptionsT = TypeVar("OptionsT", ReadOptions, MutationOptions)
+
+
+def metered(options: OptionsT | None, kind: type[OptionsT]) -> tuple[OptionsT, ResponseMetadata]:
+    """Capture response rate-limit headers; reuse a caller-supplied ResponseMetadata."""
+    base = options if options is not None else kind()
+    if base.response_metadata is not None:
+        return base, base.response_metadata
+    metadata = ResponseMetadata()
+    return base.model_copy(update={"response_metadata": metadata}), metadata
 
 
 def launch_request(
@@ -190,13 +203,15 @@ class SwarmsClient:
             repo,
             method,
         )
-        return self._transport.request(
+        options, metadata = metered(request, ReadOptions)
+        result = self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
             body=body,
-            options=request,
+            options=options,
             validate=lambda result: validate_preflight(result, body),
         )
+        return result.with_rate_limits(metadata.rate_limits)
 
     def create(
         self,
@@ -250,8 +265,11 @@ class SwarmsClient:
                 ),
             )
 
+        mutation, metadata = metered(mutation, MutationOptions)
         result = create_with_retry(send, mutation)
-        return SwarmRun(self._transport, result.run_id, snapshot=result)
+        run = SwarmRun(self._transport, result.run_id, snapshot=result)
+        run.rate_limits = metadata.rate_limits
+        return run
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
         """Reattach to an authorized durable run without restarting it."""
@@ -390,13 +408,15 @@ class AsyncSwarmsClient:
             repo,
             method,
         )
-        return await self._transport.request(
+        options, metadata = metered(request, ReadOptions)
+        result = await self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
             body=body,
-            options=request,
+            options=options,
             validate=lambda result: validate_preflight(result, body),
         )
+        return result.with_rate_limits(metadata.rate_limits)
 
     async def create(
         self,
@@ -450,8 +470,11 @@ class AsyncSwarmsClient:
                 ),
             )
 
+        mutation, metadata = metered(mutation, MutationOptions)
         result = await async_create_with_retry(send, mutation)
-        return AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
+        run = AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
+        run.rate_limits = metadata.rate_limits
+        return run
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
         """Reattach to an authorized durable run without restarting it."""

@@ -4,6 +4,12 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 # Changelog
 
+## Unreleased
+
+- Swarms preflight and create surface the backend's `x-ratelimit-{limit,remaining,reset,burst}-<dimension>` success headers as typed `RateLimitSnapshot` tuples: `LaunchPreflight.rate_limits` and `SwarmRun.rate_limits` (sync and async). A caller-supplied `ResponseMetadata` is filled as before (SYN-4680).
+- `synth-ai swarms preflight --request launch.json [--json]` previews a launch and prints one `rate limit <dimension>: remaining X/limit Y, resets T` line per reported dimension. It reserves no budget and starts no run.
+- MCP `swarms_preflight` returns `LaunchPreflightResult` (the preflight body plus `rate_limits`) and `swarms_create` adds `rate_limits` to `RunCreated`; `contracts/mcp-v1.json` is regenerated. core.v1, index.v1 and swarms.v1 are unchanged.
+
 ## 0.23.10
 
 - Swarms run create retries the backend's 429 `smr_control_plane_admission_backpressure` (per-project or per-org active-run cap, `outcome=not_accepted`) under a fresh idempotency key, honouring the server's `Retry-After` in full (up to 60 s per wait; the total wait is bounded at 120 s across at most 4 attempts). Any refusal whose `synth.refusal.v1` document says `retryable=true` (not in doubt) with a `Retry-After` is now retried the same way; 4xx refusals without it are not retried (SYN-5009).

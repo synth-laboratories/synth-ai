@@ -38356,6 +38356,68 @@
             "title": "Money",
             "type": "object"
           },
+          "RateLimitSnapshot": {
+            "additionalProperties": true,
+            "properties": {
+              "burst": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Burst"
+              },
+              "dimension": {
+                "title": "Dimension",
+                "type": "string"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Limit"
+              },
+              "remaining": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Remaining"
+              },
+              "reset_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Reset At"
+              }
+            },
+            "required": [
+              "dimension",
+              "limit",
+              "remaining",
+              "reset_at"
+            ],
+            "title": "RateLimitSnapshot",
+            "type": "object"
+          },
           "RepoSelector": {
             "additionalProperties": true,
             "description": "Launch on a project repository at an exact base commit (SYN-4885).\n\n``base`` is the git-server commit Ref (core.v1: authority ``git``, kind\n``commit``, record_id = ``repo_id``, revision = full SHA-1, digest =\ngit-server commit manifest digest). The backend verifies the repository\nbelongs to the launch project and the commit exists with that digest, then\nfreezes it into the run configuration and seeds the workspace from it.",
@@ -38715,6 +38777,7 @@
           }
         },
         "additionalProperties": true,
+        "description": "swarms_preflight result: the preflight body plus response-header capacity (SYN-4680).",
         "properties": {
           "blockers": {
             "items": {
@@ -38749,6 +38812,14 @@
           "metadata": {
             "$ref": "#/$defs/ResponseMetadata"
           },
+          "rate_limits": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/RateLimitSnapshot"
+            },
+            "title": "Rate Limits",
+            "type": "array"
+          },
           "ready": {
             "title": "Ready",
             "type": "boolean"
@@ -38767,7 +38838,7 @@
           "configuration",
           "expires_at"
         ],
-        "title": "LaunchPreflight",
+        "title": "LaunchPreflightResult",
         "type": "object"
       },
       "required_scope": "swarms:run"
@@ -39504,8 +39575,80 @@
       "name": "swarms_create",
       "operation": "swarms.create",
       "output_schema": {
+        "$defs": {
+          "RateLimitSnapshot": {
+            "additionalProperties": true,
+            "properties": {
+              "burst": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Burst"
+              },
+              "dimension": {
+                "title": "Dimension",
+                "type": "string"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Limit"
+              },
+              "remaining": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Remaining"
+              },
+              "reset_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Reset At"
+              }
+            },
+            "required": [
+              "dimension",
+              "limit",
+              "remaining",
+              "reset_at"
+            ],
+            "title": "RateLimitSnapshot",
+            "type": "object"
+          }
+        },
         "additionalProperties": true,
         "properties": {
+          "rate_limits": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/RateLimitSnapshot"
+            },
+            "title": "Rate Limits",
+            "type": "array"
+          },
           "run_id": {
             "maxLength": 512,
             "minLength": 1,

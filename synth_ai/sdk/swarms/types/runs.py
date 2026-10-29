@@ -7,6 +7,7 @@ from typing import Any, Literal, Self
 from pydantic import (
     AwareDatetime,
     Field,
+    PrivateAttr,
     SerializerFunctionWrapHandler,
     StrictInt,
     model_serializer,
@@ -23,6 +24,7 @@ from synth_ai.types.base import (
     ResponseIdentifier,
     ResponseModel,
 )
+from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.receipts import ControlCommand, ControlState
 from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
@@ -106,6 +108,17 @@ class LaunchPreflight(ResponseModel):
     configuration: ResolvedConfiguration | None
     expires_at: AwareDatetime | None
     reservation_created: Literal[False] = False
+    # Response-header capacity (SYN-4680); not part of the JSON body or schema.
+    _rate_limits: tuple[RateLimitSnapshot, ...] = PrivateAttr(default=())
+
+    @property
+    def rate_limits(self) -> tuple[RateLimitSnapshot, ...]:
+        """``x-ratelimit-*`` capacity the server reported on this preflight response."""
+        return self._rate_limits
+
+    def with_rate_limits(self, rate_limits: tuple[RateLimitSnapshot, ...]) -> Self:
+        self._rate_limits = rate_limits
+        return self
 
     @model_validator(mode="after")
     def validate_preview(self) -> Self:
