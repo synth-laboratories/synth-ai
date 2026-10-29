@@ -33,6 +33,7 @@ from synth_ai.sdk.forge.types import (
     ReportShareListResponse,
     ReportShareResponse,
     ReportShareRevocationResponse,
+    ReportVersionAvailabilityResponse,
     ReportVersionBrowseResponse,
     ReportVersionComparisonResponse,
     ReportVersionDocumentResponse,
@@ -691,6 +692,15 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.ForgeReportExport,
         ReportExportResponse,
         forge_tools.report_export,
+    ),
+    ToolDefinition(
+        "forge_report_availability",
+        forge_operations.REPORT_READER_AVAILABILITY,
+        "Per-artifact availability of one report version as you see it now: "
+        "available, retained, expired or missing.",
+        forge_tools.ForgeReportShareRead,
+        ReportVersionAvailabilityResponse,
+        forge_tools.report_availability,
     ),
     ToolDefinition(
         "forge_project_list",

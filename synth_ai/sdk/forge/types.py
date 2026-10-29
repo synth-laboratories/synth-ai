@@ -13,7 +13,8 @@ from .contracts.contracts import Contract, Digest, Identifier, Scope
 from .contracts.operations import Event, Receipt
 from .contracts.operations_v2 import ScientificRevision
 from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
-from .contracts.report_manifests import ManifestSource, MissingEvidence, ReportVersion
+from .contracts.report_lineages import ReportLineage, ReportVersionAvailability
+from .contracts.report_manifests import CitationStatus, ManifestSource, MissingEvidence, ReportVersion, ReportVersionLink
 from .contracts.workspace_artifacts import WorkspaceArtifactView
 
 
@@ -165,6 +166,11 @@ class ReportShareListResponse(ResponseModel):
 REPORT_VERSION_MEDIA_TYPE = "application/vnd.synth.forge.report-version.v1+json"
 REPORT_EXPORT_MAX_VERSIONS = 32
 ReportAccess = Literal["project", "owner", "organization", "invited"]
+# SYN-5158: Forge lineage state of a version, from the lineage index. Present
+# only where the caller has Forge project ``read`` (``access == "project"``);
+# share-only readers have no project ACL and see ``None``.
+LineageState = Literal["current", "stale", "retracted"]
+Disposition = Literal["initial", "correction", "supersession", "retraction"]
 
 
 class ReportVersionEntry(Contract):
@@ -175,11 +181,18 @@ class ReportVersionEntry(Contract):
     )
     scope: Scope
     version_sha256: Digest
+    # project: a Forge project member (every indexed version, shared or not);
     # owner: the caller owns its share; organization/invited: shared with them.
-    access: Literal["owner", "organization", "invited"]
-    publication_id: str
+    access: ReportAccess
+    # The version's share publication; None for a never-shared project version.
+    publication_id: str | None = None
     expires_at: datetime | None = None
     expired: bool = False
+    lineage_id: Identifier | None = None
+    version: int | None = Field(default=None, ge=1)
+    disposition: Disposition | None = None
+    head: ReportVersionLink | None = None
+    state: LineageState | None = None
     index_contribution: Literal["none"] = "none"
 
 
@@ -200,6 +213,11 @@ class ReportVersionDocument(Contract):
     size_bytes: int = Field(ge=1)
     content_base64: str
     version: ReportVersion
+    # Lineage status (project readers only): cited/head/state, the version
+    # that superseded this one, and the whole lineage.
+    citation: CitationStatus | None = None
+    superseded_by: ReportVersionLink | None = None
+    lineage: ReportLineage | None = None
     index_contribution: Literal["none"] = "none"
 
 
@@ -211,6 +229,7 @@ class ReportVersionSummary(Contract):
     published_at: AwareDatetime
     manifest_sha256: Digest
     access: ReportAccess
+    state: LineageState | None = None
 
 
 class ReportFieldChange(Contract):
@@ -264,7 +283,7 @@ class ReportVersionComparison(Contract):
     missing_evidence: ReportEvidenceChanges = ReportEvidenceChanges()
 
 
-def report_version_summary(version, digest, access) -> ReportVersionSummary:
+def report_version_summary(version, digest, access, state=None) -> ReportVersionSummary:
     return ReportVersionSummary(
         version_sha256=digest,
         lineage_id=version.lineage_id,
@@ -273,6 +292,7 @@ def report_version_summary(version, digest, access) -> ReportVersionSummary:
         published_at=version.published_at,
         manifest_sha256=version.manifest_sha256,
         access=access,
+        state=state,
     )
 
 
@@ -282,7 +302,15 @@ def _ordered_difference(left, right):
 
 
 def compare_report_versions(
-    base, base_digest, base_access, head, head_digest, head_access
+    base,
+    base_digest,
+    base_access,
+    head,
+    head_digest,
+    head_access,
+    *,
+    base_state=None,
+    head_state=None,
 ) -> ReportVersionComparison:
     """Pure structured diff of two already digest-verified versions."""
     if base.manifest.scope != head.manifest.scope:
@@ -335,8 +363,8 @@ def compare_report_versions(
         )
     return ReportVersionComparison(
         scope=old.scope,
-        base=report_version_summary(base, base_digest, base_access),
-        head=report_version_summary(head, head_digest, head_access),
+        base=report_version_summary(base, base_digest, base_access, base_state),
+        head=report_version_summary(head, head_digest, head_access, head_state),
         relation=relation,
         manifest_changed=base.manifest_sha256 != head.manifest_sha256,
         fields=fields,
@@ -371,6 +399,8 @@ class ReportExportEntry(Contract):
     )
     size_bytes: int = Field(ge=1)
     access: ReportAccess
+    state: LineageState | None = None
+    head: ReportVersionLink | None = None
 
 
 class ReportExportManifest(Contract):
@@ -424,3 +454,9 @@ class ReportVersionComparisonResponse(ResponseModel):
 
 class ReportExportResponse(ResponseModel):
     export: ReportExportBundle
+
+
+class ReportVersionAvailabilityResponse(ResponseModel):
+    """Per-artifact availability of one version as the caller sees it now."""
+
+    availability: ReportVersionAvailability
