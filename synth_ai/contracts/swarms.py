@@ -286,3 +286,14 @@ ANSWER_WAIT = Operation(
     required_scope="swarms:control",
 )
 ALL_OPERATIONS += (ANSWER_WAIT,)
+
+# SYN-4849: the exact program family versions a launch may select.
+FAMILIES = Operation(
+    "swarms.families.list",
+    "GET",
+    "/swarms/families",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
+ALL_OPERATIONS += (FAMILIES,)

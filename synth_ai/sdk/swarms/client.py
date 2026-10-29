@@ -31,6 +31,7 @@ from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
 from .types.methods import ForkFlushMethod
+from .types.programs import ProgramChoice, ProgramFamilyList
 from .types.objectives import Guidance
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
@@ -61,6 +62,7 @@ def launch_request(
     resources: tuple[ResourceRequest, ...] = (),
     repo: RepoSelector | None = None,
     method: ForkFlushMethod | None = None,
+    program: ProgramChoice | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -86,6 +88,7 @@ def launch_request(
         labels=labels,
         repo=repo,
         method=method,
+        program=program,
     )
 
 
@@ -186,6 +189,7 @@ class SwarmsClient:
         models: Models | None = None,
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -202,6 +206,7 @@ class SwarmsClient:
             resources,
             repo,
             method,
+            program,
         )
         options, metadata = metered(request, ReadOptions)
         result = self._transport.request(
@@ -228,6 +233,7 @@ class SwarmsClient:
         models: Models | None = None,
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -244,6 +250,7 @@ class SwarmsClient:
             resources,
             repo,
             method,
+            program,
         )
 
         def send(options: MutationOptions | None) -> RunSnapshot:
@@ -270,6 +277,20 @@ class SwarmsClient:
         run = SwarmRun(self._transport, result.run_id, snapshot=result)
         run.rate_limits = metadata.rate_limits
         return run
+
+    def families(self, *, request: ReadOptions | None = None) -> ProgramFamilyList:
+        """The exact program family versions a launch may select (SYN-4849)."""
+        return self._transport.request(
+            operations.FAMILIES,
+            ProgramFamilyList,
+            options=request,
+            validate=lambda result: verified(
+                result,
+                len({(item.id, item.version) for item in result.families})
+                == len(result.families),
+                "Duplicate program family version",
+            ),
+        )
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
         """Reattach to an authorized durable run without restarting it."""
@@ -391,6 +412,7 @@ class AsyncSwarmsClient:
         models: Models | None = None,
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -407,6 +429,7 @@ class AsyncSwarmsClient:
             resources,
             repo,
             method,
+            program,
         )
         options, metadata = metered(request, ReadOptions)
         result = await self._transport.request(
@@ -433,6 +456,7 @@ class AsyncSwarmsClient:
         models: Models | None = None,
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -449,6 +473,7 @@ class AsyncSwarmsClient:
             resources,
             repo,
             method,
+            program,
         )
 
         async def send(options: MutationOptions | None) -> RunSnapshot:
@@ -475,6 +500,20 @@ class AsyncSwarmsClient:
         run = AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
         run.rate_limits = metadata.rate_limits
         return run
+
+    async def families(self, *, request: ReadOptions | None = None) -> ProgramFamilyList:
+        """The exact program family versions a launch may select (SYN-4849)."""
+        return await self._transport.request(
+            operations.FAMILIES,
+            ProgramFamilyList,
+            options=request,
+            validate=lambda result: verified(
+                result,
+                len({(item.id, item.version) for item in result.families})
+                == len(result.families),
+                "Duplicate program family version",
+            ),
+        )
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
         """Reattach to an authorized durable run without restarting it."""

@@ -8,6 +8,13 @@ from .output_stream import AsyncOutputStream, OutputStream
 from .run import AsyncSwarmRun, SwarmRun
 from .types.files import File, FileManifest, FileSource, FileUploadReceipt, FileUploadStatus
 from .types.launch import FileRef, Inputs, Limits, Models, Providers, RepoSelector
+from .types.programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramFamilyRef,
+    ResearchBinding,
+)
 from .types.methods import (
     ForkFlushMethod,
     ForkFlushOverrides,
@@ -47,6 +54,11 @@ from .types.runs import (
 from .watch import AsyncRunWatch, RunWatch
 
 __all__ = [
+    "ProgramChoice",
+    "ProgramFamily",
+    "ProgramFamilyList",
+    "ProgramFamilyRef",
+    "ResearchBinding",
     "ForkFlushMethod",
     "ForkFlushOverrides",
     "ForkFlushParameters",
