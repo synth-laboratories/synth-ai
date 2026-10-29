@@ -1205,6 +1205,85 @@
       "title": "ArtifactLabelsUpdate",
       "type": "object"
     },
+    "CleanupFacet": {
+      "$defs": {
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FacetCause"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "pending",
+                "complete",
+                "failed",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "State"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "CleanupFacet",
+      "type": "object"
+    },
     "ControlReceipt": {
       "$defs": {
         "ClientTiming": {
@@ -1454,6 +1533,147 @@
         "cleanup_complete"
       ],
       "title": "ControlReceipt",
+      "type": "object"
+    },
+    "ExecutionFacet": {
+      "$defs": {
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FacetCause"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "closed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Closed At"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "completed",
+                "partial",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "queued",
+                "running",
+                "closing",
+                "closed",
+                "never_started",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "State"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "ExecutionFacet",
+      "type": "object"
+    },
+    "FacetCause": {
+      "additionalProperties": true,
+      "description": "Why a facet is in its state: a stable code and the authority it came from.",
+      "properties": {
+        "authority": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Authority",
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "authority"
+      ],
+      "title": "FacetCause",
       "type": "object"
     },
     "File": {
@@ -6796,6 +7016,59 @@
     },
     "Page[RunSnapshot, NewType]": {
       "$defs": {
+        "CleanupFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Completed At"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "complete",
+                    "failed",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "CleanupFacet",
+          "type": "object"
+        },
         "ClientTiming": {
           "additionalProperties": true,
           "properties": {
@@ -6896,6 +7169,121 @@
             "digest_sha256"
           ],
           "title": "ExactReference",
+          "type": "object"
+        },
+        "ExecutionFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "closed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Closed At"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Outcome"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Started At"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "closing",
+                    "closed",
+                    "never_started",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "ExecutionFacet",
+          "type": "object"
+        },
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
           "type": "object"
         },
         "ForkFlushParameters": {
@@ -7556,6 +7944,86 @@
           "title": "ProfileOverrides",
           "type": "object"
         },
+        "PublicationCounts": {
+          "additionalProperties": true,
+          "properties": {
+            "closed": {
+              "minimum": 0,
+              "title": "Closed",
+              "type": "integer"
+            },
+            "open": {
+              "minimum": 0,
+              "title": "Open",
+              "type": "integer"
+            },
+            "waived": {
+              "minimum": 0,
+              "title": "Waived",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "open",
+            "closed",
+            "waived"
+          ],
+          "title": "PublicationCounts",
+          "type": "object"
+        },
+        "PublicationFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "counts": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PublicationCounts"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "not_required",
+                    "pending",
+                    "published",
+                    "waived",
+                    "refused",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "PublicationFacet",
+          "type": "object"
+        },
         "ReasonLink": {
           "additionalProperties": true,
           "properties": {
@@ -8112,6 +8580,17 @@
                 }
               ],
               "title": "State"
+            },
+            "status_facets": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RunStatusFacets"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             }
           },
           "required": [
@@ -8127,6 +8606,110 @@
             "cleanup_complete"
           ],
           "title": "RunSnapshot",
+          "type": "object"
+        },
+        "RunStatusFacets": {
+          "additionalProperties": true,
+          "properties": {
+            "cleanup": {
+              "$ref": "#/$defs/CleanupFacet"
+            },
+            "execution": {
+              "$ref": "#/$defs/ExecutionFacet"
+            },
+            "publication": {
+              "$ref": "#/$defs/PublicationFacet"
+            },
+            "settlement": {
+              "$ref": "#/$defs/SettlementFacet"
+            }
+          },
+          "required": [
+            "execution",
+            "publication",
+            "settlement",
+            "cleanup"
+          ],
+          "title": "RunStatusFacets",
+          "type": "object"
+        },
+        "SettlementFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "customer_charge_final": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Customer Charge Final"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Operation Id"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "in_doubt",
+                    "refused",
+                    "final",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            },
+            "supplier_settlement_final": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Supplier Settlement Final"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "SettlementFacet",
           "type": "object"
         },
         "TimingSpan": {
@@ -10824,6 +11407,139 @@
       "title": "Providers",
       "type": "object"
     },
+    "PublicationCounts": {
+      "additionalProperties": true,
+      "properties": {
+        "closed": {
+          "minimum": 0,
+          "title": "Closed",
+          "type": "integer"
+        },
+        "open": {
+          "minimum": 0,
+          "title": "Open",
+          "type": "integer"
+        },
+        "waived": {
+          "minimum": 0,
+          "title": "Waived",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "open",
+        "closed",
+        "waived"
+      ],
+      "title": "PublicationCounts",
+      "type": "object"
+    },
+    "PublicationFacet": {
+      "$defs": {
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
+          "type": "object"
+        },
+        "PublicationCounts": {
+          "additionalProperties": true,
+          "properties": {
+            "closed": {
+              "minimum": 0,
+              "title": "Closed",
+              "type": "integer"
+            },
+            "open": {
+              "minimum": 0,
+              "title": "Open",
+              "type": "integer"
+            },
+            "waived": {
+              "minimum": 0,
+              "title": "Waived",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "open",
+            "closed",
+            "waived"
+          ],
+          "title": "PublicationCounts",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FacetCause"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PublicationCounts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "not_required",
+                "pending",
+                "published",
+                "waived",
+                "refused",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "State"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "PublicationFacet",
+      "type": "object"
+    },
     "RepoSelector": {
       "$defs": {
         "ExactReference": {
@@ -11937,6 +12653,59 @@
     },
     "RunSnapshot": {
       "$defs": {
+        "CleanupFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Completed At"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "complete",
+                    "failed",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "CleanupFacet",
+          "type": "object"
+        },
         "ClientTiming": {
           "additionalProperties": true,
           "properties": {
@@ -12037,6 +12806,121 @@
             "digest_sha256"
           ],
           "title": "ExactReference",
+          "type": "object"
+        },
+        "ExecutionFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "closed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Closed At"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Outcome"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Started At"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "closing",
+                    "closed",
+                    "never_started",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "ExecutionFacet",
+          "type": "object"
+        },
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
           "type": "object"
         },
         "ForkFlushParameters": {
@@ -12697,6 +13581,86 @@
           "title": "ProfileOverrides",
           "type": "object"
         },
+        "PublicationCounts": {
+          "additionalProperties": true,
+          "properties": {
+            "closed": {
+              "minimum": 0,
+              "title": "Closed",
+              "type": "integer"
+            },
+            "open": {
+              "minimum": 0,
+              "title": "Open",
+              "type": "integer"
+            },
+            "waived": {
+              "minimum": 0,
+              "title": "Waived",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "open",
+            "closed",
+            "waived"
+          ],
+          "title": "PublicationCounts",
+          "type": "object"
+        },
+        "PublicationFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "counts": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PublicationCounts"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "not_required",
+                    "pending",
+                    "published",
+                    "waived",
+                    "refused",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "PublicationFacet",
+          "type": "object"
+        },
         "ReasonLink": {
           "additionalProperties": true,
           "properties": {
@@ -13027,6 +13991,110 @@
           "title": "RunFailure",
           "type": "object"
         },
+        "RunStatusFacets": {
+          "additionalProperties": true,
+          "properties": {
+            "cleanup": {
+              "$ref": "#/$defs/CleanupFacet"
+            },
+            "execution": {
+              "$ref": "#/$defs/ExecutionFacet"
+            },
+            "publication": {
+              "$ref": "#/$defs/PublicationFacet"
+            },
+            "settlement": {
+              "$ref": "#/$defs/SettlementFacet"
+            }
+          },
+          "required": [
+            "execution",
+            "publication",
+            "settlement",
+            "cleanup"
+          ],
+          "title": "RunStatusFacets",
+          "type": "object"
+        },
+        "SettlementFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "customer_charge_final": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Customer Charge Final"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Operation Id"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "in_doubt",
+                    "refused",
+                    "final",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            },
+            "supplier_settlement_final": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Supplier Settlement Final"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "SettlementFacet",
+          "type": "object"
+        },
         "TimingSpan": {
           "additionalProperties": true,
           "properties": {
@@ -13321,6 +14389,17 @@
             }
           ],
           "title": "State"
+        },
+        "status_facets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RunStatusFacets"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -13336,6 +14415,465 @@
         "cleanup_complete"
       ],
       "title": "RunSnapshot",
+      "type": "object"
+    },
+    "RunStatusFacets": {
+      "$defs": {
+        "CleanupFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Completed At"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "complete",
+                    "failed",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "CleanupFacet",
+          "type": "object"
+        },
+        "ExecutionFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "closed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Closed At"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "completed",
+                    "partial",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Outcome"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Started At"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "closing",
+                    "closed",
+                    "never_started",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "ExecutionFacet",
+          "type": "object"
+        },
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
+          "type": "object"
+        },
+        "PublicationCounts": {
+          "additionalProperties": true,
+          "properties": {
+            "closed": {
+              "minimum": 0,
+              "title": "Closed",
+              "type": "integer"
+            },
+            "open": {
+              "minimum": 0,
+              "title": "Open",
+              "type": "integer"
+            },
+            "waived": {
+              "minimum": 0,
+              "title": "Waived",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "open",
+            "closed",
+            "waived"
+          ],
+          "title": "PublicationCounts",
+          "type": "object"
+        },
+        "PublicationFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "counts": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PublicationCounts"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "not_required",
+                    "pending",
+                    "published",
+                    "waived",
+                    "refused",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "PublicationFacet",
+          "type": "object"
+        },
+        "SettlementFacet": {
+          "additionalProperties": true,
+          "properties": {
+            "cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FacetCause"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "customer_charge_final": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Customer Charge Final"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Operation Id"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "in_doubt",
+                    "refused",
+                    "final",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ],
+              "title": "State"
+            },
+            "supplier_settlement_final": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Supplier Settlement Final"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "SettlementFacet",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "cleanup": {
+          "$ref": "#/$defs/CleanupFacet"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionFacet"
+        },
+        "publication": {
+          "$ref": "#/$defs/PublicationFacet"
+        },
+        "settlement": {
+          "$ref": "#/$defs/SettlementFacet"
+        }
+      },
+      "required": [
+        "execution",
+        "publication",
+        "settlement",
+        "cleanup"
+      ],
+      "title": "RunStatusFacets",
+      "type": "object"
+    },
+    "SettlementFacet": {
+      "$defs": {
+        "FacetCause": {
+          "additionalProperties": true,
+          "description": "Why a facet is in its state: a stable code and the authority it came from.",
+          "properties": {
+            "authority": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Authority",
+              "type": "string"
+            },
+            "code": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "authority"
+          ],
+          "title": "FacetCause",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FacetCause"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "customer_charge_final": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customer Charge Final"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation Id"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "pending",
+                "in_doubt",
+                "refused",
+                "final",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "State"
+        },
+        "supplier_settlement_final": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supplier Settlement Final"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "SettlementFacet",
       "type": "object"
     },
     "SwarmEvent": {

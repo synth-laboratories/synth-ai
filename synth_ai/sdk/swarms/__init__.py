@@ -58,9 +58,25 @@ from .types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from .types.status_facets import (
+    CleanupFacet,
+    ExecutionFacet,
+    FacetCause,
+    PublicationCounts,
+    PublicationFacet,
+    RunStatusFacets,
+    SettlementFacet,
+)
 from .watch import AsyncRunWatch, RunWatch
 
 __all__ = [
+    "CleanupFacet",
+    "ExecutionFacet",
+    "FacetCause",
+    "PublicationCounts",
+    "PublicationFacet",
+    "RunStatusFacets",
+    "SettlementFacet",
     "ModelEffortChoice",
     "ProfileOverrideReadback",
     "ProfileOverrideResolution",
