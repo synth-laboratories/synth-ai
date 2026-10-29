@@ -190,10 +190,51 @@ REPORT_SHARE_OPERATIONS = (
     REPORT_SHARES_LIST,
     REPORT_SHARE_REVOKE,
 )
+# SYN-5158: report reader. Browse versions visible to the caller, open one
+# exact digest-verified version, compare two, export an explicit selection.
+REPORT_READER_BROWSE = Operation(
+    "forge.report_reader.browse",
+    "GET",
+    "/forge/projects/{project_id}/report-reader/versions",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+REPORT_READER_OPEN = Operation(
+    "forge.report_reader.open",
+    "GET",
+    "/forge/projects/{project_id}/report-reader/versions/{digest}",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+REPORT_READER_COMPARE = Operation(
+    "forge.report_reader.compare",
+    "GET",
+    "/forge/projects/{project_id}/report-reader/compare/{digest}/{other_digest}",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+REPORT_READER_EXPORT = Operation(
+    "forge.report_reader.export",
+    "GET",
+    "/forge/projects/{project_id}/report-reader/export",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+REPORT_READER_OPERATIONS = (
+    REPORT_READER_BROWSE,
+    REPORT_READER_OPEN,
+    REPORT_READER_COMPARE,
+    REPORT_READER_EXPORT,
+)
 REPORT_OPERATIONS = (
     REPORT_VERSION_PUBLISH,
     REPORT_SHARES_REVOKE_INACTIVE,
     *REPORT_SHARE_OPERATIONS,
+    *REPORT_READER_OPERATIONS,
 )
 
 PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)

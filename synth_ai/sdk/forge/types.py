@@ -13,7 +13,7 @@ from .contracts.contracts import Contract, Digest, Identifier, Scope
 from .contracts.operations import Event, Receipt
 from .contracts.operations_v2 import ScientificRevision
 from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
-from .contracts.report_manifests import ReportVersion
+from .contracts.report_manifests import ManifestSource, MissingEvidence, ReportVersion
 from .contracts.workspace_artifacts import WorkspaceArtifactView
 
 
@@ -151,3 +151,276 @@ class ReportShareResponse(ResponseModel):
 
 class ReportShareListResponse(ResponseModel):
     shares: tuple[ReportShare, ...]
+
+
+# --- SYN-5158: report reader (browse / open / compare / export) -------------
+#
+# Safe rendering: every reader response carries report content as data with a
+# declared media type. Manifest text (title, methodology, claims, limitations,
+# missing-evidence descriptions) is plain text: renderers escape it and never
+# interpret it as HTML, Markdown-with-HTML or script. Exact version bytes travel
+# base64-encoded so a reader can re-hash them against ``version_sha256``.
+# Reading or sharing a version is never an Index contribution.
+
+REPORT_VERSION_MEDIA_TYPE = "application/vnd.synth.forge.report-version.v1+json"
+REPORT_EXPORT_MAX_VERSIONS = 32
+ReportAccess = Literal["project", "owner", "organization", "invited"]
+
+
+class ReportVersionEntry(Contract):
+    """One report version the caller may open, from browse (no content)."""
+
+    schema_version: Literal["synth.forge.report-version-entry.v1"] = (
+        "synth.forge.report-version-entry.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    # owner: the caller owns its share; organization/invited: shared with them.
+    access: Literal["owner", "organization", "invited"]
+    publication_id: str
+    expires_at: datetime | None = None
+    expired: bool = False
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportVersionDocument(Contract):
+    """One exact, digest-verified report version opened as the caller."""
+
+    schema_version: Literal["synth.forge.report-version-document.v1"] = (
+        "synth.forge.report-version-document.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    # project: read from project evidence custody; else through a share.
+    access: ReportAccess
+    media_type: Literal["application/vnd.synth.forge.report-version.v1+json"] = (
+        REPORT_VERSION_MEDIA_TYPE
+    )
+    rendering: Literal["plain_text"] = "plain_text"
+    size_bytes: int = Field(ge=1)
+    content_base64: str
+    version: ReportVersion
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportVersionSummary(Contract):
+    version_sha256: Digest
+    lineage_id: Identifier
+    version: int
+    disposition: Literal["initial", "correction", "supersession", "retraction"]
+    published_at: AwareDatetime
+    manifest_sha256: Digest
+    access: ReportAccess
+
+
+class ReportFieldChange(Contract):
+    field: Literal["title", "methodology", "body_sha256", "disclosure_audience"]
+    base: str
+    head: str
+
+
+class ReportTextChanges(Contract):
+    added: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+
+
+class ReportArtifactChange(Contract):
+    artifact_id: Identifier
+    change: Literal["added", "removed", "changed"]
+    base_sha256: Digest | None = None
+    head_sha256: Digest | None = None
+    base_role: str | None = None
+    head_role: str | None = None
+
+
+class ReportSourceChanges(Contract):
+    added: tuple[ManifestSource, ...] = ()
+    removed: tuple[ManifestSource, ...] = ()
+
+
+class ReportEvidenceChanges(Contract):
+    added: tuple[MissingEvidence, ...] = ()
+    removed: tuple[MissingEvidence, ...] = ()
+
+
+class ReportVersionComparison(Contract):
+    """Structured diff between two exact versions; content stays plain data."""
+
+    schema_version: Literal["synth.forge.report-version-comparison.v1"] = (
+        "synth.forge.report-version-comparison.v1"
+    )
+    scope: Scope
+    base: ReportVersionSummary
+    head: ReportVersionSummary
+    relation: Literal[
+        "identical", "successor", "predecessor", "same_lineage", "unrelated"
+    ]
+    manifest_changed: bool
+    fields: tuple[ReportFieldChange, ...] = ()
+    claims: ReportTextChanges = ReportTextChanges()
+    limitations: ReportTextChanges = ReportTextChanges()
+    sources: ReportSourceChanges = ReportSourceChanges()
+    artifacts: tuple[ReportArtifactChange, ...] = ()
+    missing_evidence: ReportEvidenceChanges = ReportEvidenceChanges()
+
+
+def report_version_summary(version, digest, access) -> ReportVersionSummary:
+    return ReportVersionSummary(
+        version_sha256=digest,
+        lineage_id=version.lineage_id,
+        version=version.version,
+        disposition=version.disposition,
+        published_at=version.published_at,
+        manifest_sha256=version.manifest_sha256,
+        access=access,
+    )
+
+
+def _ordered_difference(left, right):
+    present = set(right)
+    return tuple(item for item in dict.fromkeys(left) if item not in present)
+
+
+def compare_report_versions(
+    base, base_digest, base_access, head, head_digest, head_access
+) -> ReportVersionComparison:
+    """Pure structured diff of two already digest-verified versions."""
+    if base.manifest.scope != head.manifest.scope:
+        raise ValueError("compared versions must share one project scope")
+    if base_digest == head_digest:
+        relation = "identical"
+    elif head.previous is not None and head.previous.version_sha256 == base_digest:
+        relation = "successor"
+    elif base.previous is not None and base.previous.version_sha256 == head_digest:
+        relation = "predecessor"
+    elif base.lineage_id == head.lineage_id:
+        relation = "same_lineage"
+    else:
+        relation = "unrelated"
+    old, new = base.manifest, head.manifest
+    fields = tuple(
+        ReportFieldChange(field=name, base=before, head=after)
+        for name, before, after in (
+            ("title", old.title, new.title),
+            ("methodology", old.methodology, new.methodology),
+            ("body_sha256", old.body_sha256, new.body_sha256),
+            (
+                "disclosure_audience",
+                old.disclosure.audience,
+                new.disclosure.audience,
+            ),
+        )
+        if before != after
+    )
+    before = {item.artifact_id: item for item in old.artifacts}
+    after = {item.artifact_id: item for item in new.artifacts}
+    artifacts = []
+    for artifact_id in sorted(before.keys() | after.keys()):
+        prior, current = before.get(artifact_id), after.get(artifact_id)
+        if prior is not None and current is not None and prior == current:
+            continue
+        artifacts.append(
+            ReportArtifactChange(
+                artifact_id=artifact_id,
+                change="added"
+                if prior is None
+                else "removed"
+                if current is None
+                else "changed",
+                base_sha256=None if prior is None else prior.content_sha256,
+                head_sha256=None if current is None else current.content_sha256,
+                base_role=None if prior is None else prior.role,
+                head_role=None if current is None else current.role,
+            )
+        )
+    return ReportVersionComparison(
+        scope=old.scope,
+        base=report_version_summary(base, base_digest, base_access),
+        head=report_version_summary(head, head_digest, head_access),
+        relation=relation,
+        manifest_changed=base.manifest_sha256 != head.manifest_sha256,
+        fields=fields,
+        claims=ReportTextChanges(
+            added=_ordered_difference(new.claims, old.claims),
+            removed=_ordered_difference(old.claims, new.claims),
+        ),
+        limitations=ReportTextChanges(
+            added=_ordered_difference(new.limitations, old.limitations),
+            removed=_ordered_difference(old.limitations, new.limitations),
+        ),
+        sources=ReportSourceChanges(
+            added=_ordered_difference(new.sources, old.sources),
+            removed=_ordered_difference(old.sources, new.sources),
+        ),
+        artifacts=tuple(artifacts),
+        missing_evidence=ReportEvidenceChanges(
+            added=_ordered_difference(new.missing_evidence, old.missing_evidence),
+            removed=_ordered_difference(old.missing_evidence, new.missing_evidence),
+        ),
+    )
+
+
+class ReportExportEntry(Contract):
+    path: str
+    version_sha256: Digest
+    lineage_id: Identifier
+    version: int
+    disposition: Literal["initial", "correction", "supersession", "retraction"]
+    media_type: Literal["application/vnd.synth.forge.report-version.v1+json"] = (
+        REPORT_VERSION_MEDIA_TYPE
+    )
+    size_bytes: int = Field(ge=1)
+    access: ReportAccess
+
+
+class ReportExportManifest(Contract):
+    """Provenance of an explicit, caller-selected export; grants nothing."""
+
+    schema_version: Literal["synth.forge.report-export-manifest.v1"] = (
+        "synth.forge.report-export-manifest.v1"
+    )
+    scope: Scope
+    exported_by: str
+    exported_at: AwareDatetime
+    selection: tuple[Digest, ...] = Field(
+        min_length=1, max_length=REPORT_EXPORT_MAX_VERSIONS
+    )
+    entries: tuple[ReportExportEntry, ...]
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportExportFile(Contract):
+    path: str
+    version_sha256: Digest
+    content_base64: str
+
+
+class ReportExportBundle(Contract):
+    """Portable export: provenance manifest, its digest and exact version bytes."""
+
+    schema_version: Literal["synth.forge.report-export.v1"] = (
+        "synth.forge.report-export.v1"
+    )
+    manifest: ReportExportManifest
+    manifest_sha256: Digest
+    files: tuple[ReportExportFile, ...]
+
+
+def report_export_path(digest: str) -> str:
+    return f"report-versions/{digest}.json"
+
+
+class ReportVersionBrowseResponse(ResponseModel):
+    versions: tuple[ReportVersionEntry, ...]
+
+
+class ReportVersionDocumentResponse(ResponseModel):
+    document: ReportVersionDocument
+
+
+class ReportVersionComparisonResponse(ResponseModel):
+    comparison: ReportVersionComparison
+
+
+class ReportExportResponse(ResponseModel):
+    export: ReportExportBundle

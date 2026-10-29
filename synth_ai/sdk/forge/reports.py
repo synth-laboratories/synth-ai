@@ -22,6 +22,7 @@ from synth_ai.options import MutationOptions
 
 from .contracts.report_manifests import ReportVersion, version_digest
 from .records import project_identity
+from .report_reader import AsyncReportReader, ReportReader
 from .types import (
     ReportPublicationResponse,
     ReportPublishIntent,
@@ -191,7 +192,9 @@ def _send(transport, call):
     return transport.request(call.pop("operation"), call.pop("model"), **call)
 
 
-class Reports:
+class Reports(ReportReader):
+    """Publish/share (SYN-5157) and browse/open/compare/export (SYN-5158)."""
+
     def __init__(self, transport):
         self._transport = transport
 
@@ -249,7 +252,7 @@ class Reports:
         return _send(self._transport, _revoke_call(project_id, digest, mutation))
 
 
-class AsyncReports:
+class AsyncReports(AsyncReportReader):
     def __init__(self, transport):
         self._transport = transport
 
