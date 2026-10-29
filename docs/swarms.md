@@ -85,6 +85,15 @@ decision for the same revision returns the original verdict. Hosted and stdio
 MCP expose the same operations as `swarms_approvals` and
 `swarms_approval_decide`.
 
+The same list carries the run's open human-in-the-loop waits (`kind="wait"`,
+with `wait_kind`, `options`, `answer_schema`, `answer_scope`, `answerers`,
+`deadline_at` and `on_timeout`). `run.answer_wait(approval_id, decision=...,
+expected_revision=...)` answers one; `wait_revision_stale`,
+`wait_already_resolved` and `wait_timed_out` are typed conflicts, and replaying
+the same answer returns the original receipt. MCP: `swarms_wait_answer`.
+`run.events()` reports `approval.parked`, `approval.decided`, `wait.opened` and
+`wait.resolved` with the `approval_id` they concern.
+
 `run.download(destination)` publishes a new directory only after every selected
 resource passes its digest and size checks. It includes `MANIFEST.json`, the
 final repository tree when present, `objectives.json`, answers, and artifacts at

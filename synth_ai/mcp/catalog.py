@@ -48,7 +48,11 @@ from synth_ai.sdk.index.types.contributions import Contribution, SubmissionRecei
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
-from synth_ai.sdk.swarms.types.approvals import ApprovalDecisionReceipt, ApprovalList
+from synth_ai.sdk.swarms.types.approvals import (
+    ApprovalDecisionReceipt,
+    ApprovalList,
+    WaitAnswerReceipt,
+)
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
 from synth_ai.sdk.swarms.types.outputs import Output, TextContent
@@ -72,6 +76,7 @@ from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
     JSON_OBJECT,
     ApprovalDecide,
+    WaitAnswer,
     ContentArguments,
     ContributionIdentity,
     EmptyArguments,
@@ -453,6 +458,18 @@ async def run_decide_approval(
         decision=args.decision,
         expected_revision=args.expected_revision,
         reason=args.reason,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def run_answer_wait(client: AsyncSynthClient, args: WaitAnswer) -> WaitAnswerReceipt:
+    return await (await client.swarms.get(args.run_id)).answer_wait(
+        args.approval_id,
+        decision=args.decision,
+        expected_revision=args.expected_revision,
+        answer_scope=args.answer_scope,
+        answer_schema=args.answer_schema,
+        answerer=args.answerer,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
 
@@ -1101,6 +1118,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         ApprovalDecide,
         ApprovalDecisionReceipt,
         run_decide_approval,
+    ),
+    ToolDefinition(
+        "swarms_wait_answer",
+        swarm_operations.ANSWER_WAIT,
+        "Answer one open human-in-the-loop wait at its expected revision; a stale revision is a typed conflict.",
+        WaitAnswer,
+        WaitAnswerReceipt,
+        run_answer_wait,
     ),
     ToolDefinition(
         "swarms_outputs",

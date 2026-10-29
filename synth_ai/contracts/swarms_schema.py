@@ -12,6 +12,8 @@ from synth_ai.sdk.swarms.types.approvals import (
     ApprovalDecisionReceipt,
     ApprovalDecisionRequest,
     ApprovalList,
+    WaitAnswerReceipt,
+    WaitAnswerRequest,
 )
 from synth_ai.sdk.swarms.types.files import File, FileManifest, FileUploadReceipt, FileUploadStatus
 from synth_ai.sdk.swarms.types.launch import (
@@ -73,6 +75,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     ApprovalList,
     ApprovalDecisionRequest,
     ApprovalDecisionReceipt,
+    WaitAnswerRequest,
+    WaitAnswerReceipt,
     FileRef,
     File,
     FileManifest,

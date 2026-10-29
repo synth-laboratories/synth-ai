@@ -274,3 +274,15 @@ DECIDE_APPROVAL = Operation(
     required_scope="swarms:control",
 )
 ALL_OPERATIONS += (APPROVALS, DECIDE_APPROVAL)
+
+# SYN-4650: answer one open human-in-the-loop wait listed by swarms.approvals.list.
+ANSWER_WAIT = Operation(
+    "swarms.approvals.answer",
+    "POST",
+    "/swarms/runs/{run_id}/approvals/{approval_id}/answer",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+ALL_OPERATIONS += (ANSWER_WAIT,)

@@ -303,6 +303,11 @@ class TaskOutcome(ResponseModel):
         return self
 
 
+INTERACTION_EVENT_KINDS = frozenset(
+    ("approval.parked", "approval.decided", "wait.opened", "wait.resolved")
+)
+
+
 class SwarmEvent(ResponseBase):
     event_id: ResponseIdentifier
     run_id: ResponseIdentifier
@@ -328,6 +333,10 @@ class SwarmEvent(ResponseBase):
             "resumed",
             "cancel_requested",
             "usage_updated",
+            "approval.parked",
+            "approval.decided",
+            "wait.opened",
+            "wait.resolved",
             "unknown",
         ]
         | UnknownValue
@@ -335,12 +344,16 @@ class SwarmEvent(ResponseBase):
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
     observed_at: AwareDatetime | None = None
+    # SYN-4547/4650: the approval or wait (interaction) the event is about.
+    approval_id: ResponseIdentifier | None = None
 
     @model_serializer(mode="wrap")
     def omit_event_time(self, handler):
         value = handler(self)
         if self.observed_at is None:
             value.pop("observed_at", None)
+        if self.approval_id is None:
+            value.pop("approval_id", None)
         return value
 
     @model_validator(mode="after")
@@ -349,6 +362,8 @@ class SwarmEvent(ResponseBase):
             raise ValueError("unknown event requires its original discriminant")
         if (self.kind == "usage_updated") != (self.usage is not None):
             raise ValueError("only usage_updated carries usage")
+        if (self.kind in INTERACTION_EVENT_KINDS) != (self.approval_id is not None):
+            raise ValueError("only approval and wait events carry approval_id")
         return self
 
 

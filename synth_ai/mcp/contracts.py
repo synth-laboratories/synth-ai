@@ -164,6 +164,15 @@ class ApprovalDecide(RunMutation):
     reason: str | None = Field(default=None, min_length=1, max_length=4096)
 
 
+class WaitAnswer(RunMutation):
+    approval_id: Identifier
+    decision: str = Field(min_length=1, max_length=4096)
+    expected_revision: StrictInt = Field(ge=1)
+    answer_scope: Literal["once", "session", "policy"] | None = None
+    answer_schema: str | None = Field(default=None, min_length=1, max_length=4096)
+    answerer: str | None = Field(default=None, min_length=1, max_length=4096)
+
+
 class OutputIdentity(RunIdentity):
     output_id: Identifier
 
