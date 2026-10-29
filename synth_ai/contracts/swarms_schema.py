@@ -44,6 +44,13 @@ from synth_ai.sdk.swarms.types.outputs import (
     TextContent,
     TransferTiming,
 )
+from synth_ai.sdk.swarms.types.overrides import (
+    ModelEffortChoice,
+    ProfileOverrideReadback,
+    ProfileOverrideResolution,
+    ProfileOverrides,
+    ResolvedProfileActor,
+)
 from synth_ai.sdk.swarms.types.programs import (
     ProgramChoice,
     ProgramFamily,
@@ -79,6 +86,11 @@ MODELS: tuple[type[BaseModel], ...] = (
     ProgramChoice,
     ProgramFamily,
     ProgramFamilyList,
+    ModelEffortChoice,
+    ProfileOverrides,
+    ResolvedProfileActor,
+    ProfileOverrideResolution,
+    ProfileOverrideReadback,
     Approval,
     ApprovalList,
     ApprovalDecisionRequest,

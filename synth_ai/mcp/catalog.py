@@ -56,6 +56,7 @@ from synth_ai.sdk.swarms.types.approvals import (
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
 from synth_ai.sdk.swarms.types.outputs import Output, TextContent
+from synth_ai.sdk.swarms.types.programs import ProgramFamilyList
 from synth_ai.sdk.swarms.types.runs import (
     ResolvedConfiguration,
     RunSnapshot,
@@ -63,7 +64,6 @@ from synth_ai.sdk.swarms.types.runs import (
     SwarmResult,
     TaskOutcome,
 )
-from synth_ai.sdk.swarms.types.programs import ProgramFamilyList
 from synth_ai.types.account import AccountEntitlements
 from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
@@ -77,7 +77,6 @@ from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
     JSON_OBJECT,
     ApprovalDecide,
-    WaitAnswer,
     ContentArguments,
     ContributionIdentity,
     EmptyArguments,
@@ -111,6 +110,7 @@ from .contracts import (
     SearchMutation,
     SearchPage,
     StrictSearchDelivery,
+    WaitAnswer,
 )
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
@@ -369,6 +369,7 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
         resources=args.resources,
         method=args.method,
         program=args.program,
+        profile_overrides=args.profile_overrides,
     )
     return LaunchPreflightResult.of(result)
 
@@ -388,6 +389,7 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
         resources=args.resources,
         method=args.method,
         program=args.program,
+        profile_overrides=args.profile_overrides,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
     return RunCreated(run_id=run.run_id, rate_limits=run.rate_limits)

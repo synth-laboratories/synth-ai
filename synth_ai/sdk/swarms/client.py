@@ -31,8 +31,9 @@ from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
 from .types.methods import ForkFlushMethod
-from .types.programs import ProgramChoice, ProgramFamilyList
 from .types.objectives import Guidance
+from .types.overrides import ProfileOverrides
+from .types.programs import ProgramChoice, ProgramFamilyList
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
 from .types.runs import LaunchPreflight, RunSnapshot
@@ -63,6 +64,7 @@ def launch_request(
     repo: RepoSelector | None = None,
     method: ForkFlushMethod | None = None,
     program: ProgramChoice | None = None,
+    profile_overrides: ProfileOverrides | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -89,6 +91,7 @@ def launch_request(
         repo=repo,
         method=method,
         program=program,
+        profile_overrides=profile_overrides,
     )
 
 
@@ -113,6 +116,21 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
         or (
             request.method is not None
             and (configuration.method is None or not configuration.method.satisfies(request.method))
+        )
+        or (
+            request.profile_overrides is not None
+            and configuration.profile_overrides is not None
+            and not configuration.profile_overrides.satisfies(request.profile_overrides)
+        )
+        or (request.profile_overrides is None and configuration.profile_overrides is not None)
+        or (
+            # A ready preview must echo the resolution it will freeze.
+            result.ready
+            and request.profile_overrides is not None
+            and (
+                configuration.profile_overrides is None
+                or configuration.profile_overrides.resolution is None
+            )
         )
         or (not same_inputs)
         or (request.repo is not None and configuration.repo != request.repo)
@@ -190,6 +208,7 @@ class SwarmsClient:
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
         program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -207,6 +226,7 @@ class SwarmsClient:
             repo,
             method,
             program,
+            profile_overrides,
         )
         options, metadata = metered(request, ReadOptions)
         result = self._transport.request(
@@ -234,6 +254,7 @@ class SwarmsClient:
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
         program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -251,6 +272,7 @@ class SwarmsClient:
             repo,
             method,
             program,
+            profile_overrides,
         )
 
         def send(options: MutationOptions | None) -> RunSnapshot:
@@ -267,6 +289,13 @@ class SwarmsClient:
                     and (
                         method is None
                         or (result.method is not None and result.method.satisfies(method))
+                    )
+                    and (
+                        profile_overrides is None
+                        or (
+                            result.profile_overrides is not None
+                            and result.profile_overrides.satisfies(profile_overrides)
+                        )
                     ),
                     "Admitted project or requested override mismatch",
                 ),
@@ -286,8 +315,7 @@ class SwarmsClient:
             options=request,
             validate=lambda result: verified(
                 result,
-                len({(item.id, item.version) for item in result.families})
-                == len(result.families),
+                len({(item.id, item.version) for item in result.families}) == len(result.families),
                 "Duplicate program family version",
             ),
         )
@@ -413,6 +441,7 @@ class AsyncSwarmsClient:
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
         program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -430,6 +459,7 @@ class AsyncSwarmsClient:
             repo,
             method,
             program,
+            profile_overrides,
         )
         options, metadata = metered(request, ReadOptions)
         result = await self._transport.request(
@@ -457,6 +487,7 @@ class AsyncSwarmsClient:
         repo: RepoSelector | None = None,
         method: ForkFlushMethod | None = None,
         program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -474,6 +505,7 @@ class AsyncSwarmsClient:
             repo,
             method,
             program,
+            profile_overrides,
         )
 
         async def send(options: MutationOptions | None) -> RunSnapshot:
@@ -490,6 +522,13 @@ class AsyncSwarmsClient:
                     and (
                         method is None
                         or (result.method is not None and result.method.satisfies(method))
+                    )
+                    and (
+                        profile_overrides is None
+                        or (
+                            result.profile_overrides is not None
+                            and result.profile_overrides.satisfies(profile_overrides)
+                        )
                     ),
                     "Admitted project or requested override mismatch",
                 ),
@@ -509,8 +548,7 @@ class AsyncSwarmsClient:
             options=request,
             validate=lambda result: verified(
                 result,
-                len({(item.id, item.version) for item in result.families})
-                == len(result.families),
+                len({(item.id, item.version) for item in result.families}) == len(result.families),
                 "Duplicate program family version",
             ),
         )

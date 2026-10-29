@@ -3008,6 +3008,46 @@
           "title": "Limits",
           "type": "object"
         },
+        "ModelEffortChoice": {
+          "additionalProperties": true,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        },
         "Money": {
           "additionalProperties": true,
           "properties": {
@@ -3035,6 +3075,108 @@
             "scale"
           ],
           "title": "Money",
+          "type": "object"
+        },
+        "ProfileOverrideReadback": {
+          "additionalProperties": true,
+          "description": "The frozen request and, once resolved, its resolution.\n\nPreflight resolves against the project's admitted program; a run snapshot\ncarries the request frozen at create and the resolution recorded when the\nrun was prepared (absent before preparation).",
+          "properties": {
+            "requested": {
+              "$ref": "#/$defs/ProfileOverrides"
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProfileOverrideResolution"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "requested"
+          ],
+          "title": "ProfileOverrideReadback",
+          "type": "object"
+        },
+        "ProfileOverrideResolution": {
+          "additionalProperties": true,
+          "description": "The server's single pre-execution resolution of a launch's overrides.",
+          "properties": {
+            "actors": {
+              "items": {
+                "$ref": "#/$defs/ResolvedProfileActor"
+              },
+              "maxItems": 256,
+              "title": "Actors",
+              "type": "array"
+            },
+            "declaration_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Declaration Digest",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Digest",
+              "type": "string"
+            },
+            "evaluated_system_changed": {
+              "title": "Evaluated System Changed",
+              "type": "boolean"
+            },
+            "request_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Request Digest",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.profile-override-resolution.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schema_version",
+            "declaration_digest",
+            "request_digest",
+            "actors",
+            "evaluated_system_changed",
+            "digest"
+          ],
+          "title": "ProfileOverrideResolution",
+          "type": "object"
+        },
+        "ProfileOverrides": {
+          "additionalProperties": true,
+          "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+          "properties": {
+            "launch": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "roles": {
+              "maxProperties": 64,
+              "patternProperties": {
+                "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                }
+              },
+              "title": "Roles",
+              "type": "object"
+            }
+          },
+          "title": "ProfileOverrides",
           "type": "object"
         },
         "RepoSelector": {
@@ -3100,6 +3242,17 @@
               "minLength": 1,
               "title": "Profile Id",
               "type": "string"
+            },
+            "profile_overrides": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProfileOverrideReadback"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "project_id": {
               "maxLength": 512,
@@ -3186,6 +3339,86 @@
             "default"
           ],
           "title": "ResolvedModels",
+          "type": "object"
+        },
+        "ResolvedProfileActor": {
+          "additionalProperties": true,
+          "description": "One actor's effective model/effort, its provenance and immutable pins.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "actor_type": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Type",
+              "type": "string"
+            },
+            "base_profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Base Profile Digest",
+              "type": "string"
+            },
+            "canonical_model": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Canonical Model",
+              "type": "string"
+            },
+            "effort": {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "title": "Effort",
+              "type": "string"
+            },
+            "effort_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Effort Source",
+              "type": "string"
+            },
+            "evaluated": {
+              "title": "Evaluated",
+              "type": "boolean"
+            },
+            "model_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Model Source",
+              "type": "string"
+            },
+            "profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "actor_id",
+            "actor_type",
+            "base_profile_digest",
+            "profile_digest",
+            "canonical_model",
+            "effort",
+            "model_source",
+            "effort_source",
+            "evaluated"
+          ],
+          "title": "ResolvedProfileActor",
           "type": "object"
         },
         "ResolvedProviders": {
@@ -3756,6 +3989,46 @@
           "title": "Limits",
           "type": "object"
         },
+        "ModelEffortChoice": {
+          "additionalProperties": false,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        },
         "Models": {
           "additionalProperties": false,
           "properties": {
@@ -3819,6 +4092,35 @@
             "pool_ids"
           ],
           "title": "PoolSelection",
+          "type": "object"
+        },
+        "ProfileOverrides": {
+          "additionalProperties": false,
+          "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+          "properties": {
+            "launch": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "roles": {
+              "maxProperties": 64,
+              "patternProperties": {
+                "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                }
+              },
+              "title": "Roles",
+              "type": "object"
+            }
+          },
+          "title": "ProfileOverrides",
           "type": "object"
         },
         "ProgramChoice": {
@@ -4193,6 +4495,17 @@
           "default": null,
           "title": "Objective"
         },
+        "profile_overrides": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileOverrides"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "program": {
           "anyOf": [
             {
@@ -4313,6 +4626,46 @@
         "maximum_parallel_tasks"
       ],
       "title": "Limits",
+      "type": "object"
+    },
+    "ModelEffortChoice": {
+      "additionalProperties": false,
+      "description": "A fixed model, a fixed effort, or both.",
+      "properties": {
+        "canonical_model": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Model"
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort"
+        }
+      },
+      "title": "ModelEffortChoice",
       "type": "object"
     },
     "Models": {
@@ -6643,6 +6996,46 @@
           "type": "object"
         },
         "JsonValue": {},
+        "ModelEffortChoice": {
+          "additionalProperties": true,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        },
         "ObjectiveAnswer": {
           "additionalProperties": true,
           "properties": {
@@ -7061,6 +7454,108 @@
           "title": "Problem",
           "type": "object"
         },
+        "ProfileOverrideReadback": {
+          "additionalProperties": true,
+          "description": "The frozen request and, once resolved, its resolution.\n\nPreflight resolves against the project's admitted program; a run snapshot\ncarries the request frozen at create and the resolution recorded when the\nrun was prepared (absent before preparation).",
+          "properties": {
+            "requested": {
+              "$ref": "#/$defs/ProfileOverrides"
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProfileOverrideResolution"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "requested"
+          ],
+          "title": "ProfileOverrideReadback",
+          "type": "object"
+        },
+        "ProfileOverrideResolution": {
+          "additionalProperties": true,
+          "description": "The server's single pre-execution resolution of a launch's overrides.",
+          "properties": {
+            "actors": {
+              "items": {
+                "$ref": "#/$defs/ResolvedProfileActor"
+              },
+              "maxItems": 256,
+              "title": "Actors",
+              "type": "array"
+            },
+            "declaration_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Declaration Digest",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Digest",
+              "type": "string"
+            },
+            "evaluated_system_changed": {
+              "title": "Evaluated System Changed",
+              "type": "boolean"
+            },
+            "request_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Request Digest",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.profile-override-resolution.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schema_version",
+            "declaration_digest",
+            "request_digest",
+            "actors",
+            "evaluated_system_changed",
+            "digest"
+          ],
+          "title": "ProfileOverrideResolution",
+          "type": "object"
+        },
+        "ProfileOverrides": {
+          "additionalProperties": true,
+          "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+          "properties": {
+            "launch": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "roles": {
+              "maxProperties": 64,
+              "patternProperties": {
+                "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                }
+              },
+              "title": "Roles",
+              "type": "object"
+            }
+          },
+          "title": "ProfileOverrides",
+          "type": "object"
+        },
         "ReasonLink": {
           "additionalProperties": true,
           "properties": {
@@ -7107,6 +7602,86 @@
             "cause"
           ],
           "title": "ReasonLink",
+          "type": "object"
+        },
+        "ResolvedProfileActor": {
+          "additionalProperties": true,
+          "description": "One actor's effective model/effort, its provenance and immutable pins.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "actor_type": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Type",
+              "type": "string"
+            },
+            "base_profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Base Profile Digest",
+              "type": "string"
+            },
+            "canonical_model": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Canonical Model",
+              "type": "string"
+            },
+            "effort": {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "title": "Effort",
+              "type": "string"
+            },
+            "effort_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Effort Source",
+              "type": "string"
+            },
+            "evaluated": {
+              "title": "Evaluated",
+              "type": "boolean"
+            },
+            "model_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Model Source",
+              "type": "string"
+            },
+            "profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "actor_id",
+            "actor_type",
+            "base_profile_digest",
+            "profile_digest",
+            "canonical_model",
+            "effort",
+            "model_source",
+            "effort_source",
+            "evaluated"
+          ],
+          "title": "ResolvedProfileActor",
           "type": "object"
         },
         "ResolvedResearchMethod": {
@@ -7456,6 +8031,17 @@
               "default": false,
               "title": "Problems Observed",
               "type": "boolean"
+            },
+            "profile_overrides": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProfileOverrideReadback"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "project_id": {
               "maxLength": 512,
@@ -8794,6 +9380,431 @@
         "complete"
       ],
       "title": "Page[TaskOutcome, NewType]",
+      "type": "object"
+    },
+    "ProfileOverrideReadback": {
+      "$defs": {
+        "ModelEffortChoice": {
+          "additionalProperties": true,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        },
+        "ProfileOverrideResolution": {
+          "additionalProperties": true,
+          "description": "The server's single pre-execution resolution of a launch's overrides.",
+          "properties": {
+            "actors": {
+              "items": {
+                "$ref": "#/$defs/ResolvedProfileActor"
+              },
+              "maxItems": 256,
+              "title": "Actors",
+              "type": "array"
+            },
+            "declaration_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Declaration Digest",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Digest",
+              "type": "string"
+            },
+            "evaluated_system_changed": {
+              "title": "Evaluated System Changed",
+              "type": "boolean"
+            },
+            "request_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Request Digest",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.profile-override-resolution.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schema_version",
+            "declaration_digest",
+            "request_digest",
+            "actors",
+            "evaluated_system_changed",
+            "digest"
+          ],
+          "title": "ProfileOverrideResolution",
+          "type": "object"
+        },
+        "ProfileOverrides": {
+          "additionalProperties": true,
+          "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+          "properties": {
+            "launch": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "roles": {
+              "maxProperties": 64,
+              "patternProperties": {
+                "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                }
+              },
+              "title": "Roles",
+              "type": "object"
+            }
+          },
+          "title": "ProfileOverrides",
+          "type": "object"
+        },
+        "ResolvedProfileActor": {
+          "additionalProperties": true,
+          "description": "One actor's effective model/effort, its provenance and immutable pins.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "actor_type": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Type",
+              "type": "string"
+            },
+            "base_profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Base Profile Digest",
+              "type": "string"
+            },
+            "canonical_model": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Canonical Model",
+              "type": "string"
+            },
+            "effort": {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "title": "Effort",
+              "type": "string"
+            },
+            "effort_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Effort Source",
+              "type": "string"
+            },
+            "evaluated": {
+              "title": "Evaluated",
+              "type": "boolean"
+            },
+            "model_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Model Source",
+              "type": "string"
+            },
+            "profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "actor_id",
+            "actor_type",
+            "base_profile_digest",
+            "profile_digest",
+            "canonical_model",
+            "effort",
+            "model_source",
+            "effort_source",
+            "evaluated"
+          ],
+          "title": "ResolvedProfileActor",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "description": "The frozen request and, once resolved, its resolution.\n\nPreflight resolves against the project's admitted program; a run snapshot\ncarries the request frozen at create and the resolution recorded when the\nrun was prepared (absent before preparation).",
+      "properties": {
+        "requested": {
+          "$ref": "#/$defs/ProfileOverrides"
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileOverrideResolution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requested"
+      ],
+      "title": "ProfileOverrideReadback",
+      "type": "object"
+    },
+    "ProfileOverrideResolution": {
+      "$defs": {
+        "ResolvedProfileActor": {
+          "additionalProperties": true,
+          "description": "One actor's effective model/effort, its provenance and immutable pins.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "actor_type": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Type",
+              "type": "string"
+            },
+            "base_profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Base Profile Digest",
+              "type": "string"
+            },
+            "canonical_model": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Canonical Model",
+              "type": "string"
+            },
+            "effort": {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "title": "Effort",
+              "type": "string"
+            },
+            "effort_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Effort Source",
+              "type": "string"
+            },
+            "evaluated": {
+              "title": "Evaluated",
+              "type": "boolean"
+            },
+            "model_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Model Source",
+              "type": "string"
+            },
+            "profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "actor_id",
+            "actor_type",
+            "base_profile_digest",
+            "profile_digest",
+            "canonical_model",
+            "effort",
+            "model_source",
+            "effort_source",
+            "evaluated"
+          ],
+          "title": "ResolvedProfileActor",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "description": "The server's single pre-execution resolution of a launch's overrides.",
+      "properties": {
+        "actors": {
+          "items": {
+            "$ref": "#/$defs/ResolvedProfileActor"
+          },
+          "maxItems": 256,
+          "title": "Actors",
+          "type": "array"
+        },
+        "declaration_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Declaration Digest",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "evaluated_system_changed": {
+          "title": "Evaluated System Changed",
+          "type": "boolean"
+        },
+        "request_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Digest",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "synth.profile-override-resolution.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "declaration_digest",
+        "request_digest",
+        "actors",
+        "evaluated_system_changed",
+        "digest"
+      ],
+      "title": "ProfileOverrideResolution",
+      "type": "object"
+    },
+    "ProfileOverrides": {
+      "$defs": {
+        "ModelEffortChoice": {
+          "additionalProperties": false,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+      "properties": {
+        "launch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelEffortChoice"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "roles": {
+          "maxProperties": 64,
+          "patternProperties": {
+            "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+              "$ref": "#/$defs/ModelEffortChoice"
+            }
+          },
+          "title": "Roles",
+          "type": "object"
+        }
+      },
+      "title": "ProfileOverrides",
       "type": "object"
     },
     "ProgramChoice": {
@@ -10191,6 +11202,46 @@
           "title": "Limits",
           "type": "object"
         },
+        "ModelEffortChoice": {
+          "additionalProperties": true,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        },
         "Money": {
           "additionalProperties": true,
           "properties": {
@@ -10218,6 +11269,108 @@
             "scale"
           ],
           "title": "Money",
+          "type": "object"
+        },
+        "ProfileOverrideReadback": {
+          "additionalProperties": true,
+          "description": "The frozen request and, once resolved, its resolution.\n\nPreflight resolves against the project's admitted program; a run snapshot\ncarries the request frozen at create and the resolution recorded when the\nrun was prepared (absent before preparation).",
+          "properties": {
+            "requested": {
+              "$ref": "#/$defs/ProfileOverrides"
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProfileOverrideResolution"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "requested"
+          ],
+          "title": "ProfileOverrideReadback",
+          "type": "object"
+        },
+        "ProfileOverrideResolution": {
+          "additionalProperties": true,
+          "description": "The server's single pre-execution resolution of a launch's overrides.",
+          "properties": {
+            "actors": {
+              "items": {
+                "$ref": "#/$defs/ResolvedProfileActor"
+              },
+              "maxItems": 256,
+              "title": "Actors",
+              "type": "array"
+            },
+            "declaration_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Declaration Digest",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Digest",
+              "type": "string"
+            },
+            "evaluated_system_changed": {
+              "title": "Evaluated System Changed",
+              "type": "boolean"
+            },
+            "request_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Request Digest",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.profile-override-resolution.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schema_version",
+            "declaration_digest",
+            "request_digest",
+            "actors",
+            "evaluated_system_changed",
+            "digest"
+          ],
+          "title": "ProfileOverrideResolution",
+          "type": "object"
+        },
+        "ProfileOverrides": {
+          "additionalProperties": true,
+          "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+          "properties": {
+            "launch": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "roles": {
+              "maxProperties": 64,
+              "patternProperties": {
+                "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                }
+              },
+              "title": "Roles",
+              "type": "object"
+            }
+          },
+          "title": "ProfileOverrides",
           "type": "object"
         },
         "RepoSelector": {
@@ -10256,6 +11409,86 @@
             "default"
           ],
           "title": "ResolvedModels",
+          "type": "object"
+        },
+        "ResolvedProfileActor": {
+          "additionalProperties": true,
+          "description": "One actor's effective model/effort, its provenance and immutable pins.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "actor_type": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Type",
+              "type": "string"
+            },
+            "base_profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Base Profile Digest",
+              "type": "string"
+            },
+            "canonical_model": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Canonical Model",
+              "type": "string"
+            },
+            "effort": {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "title": "Effort",
+              "type": "string"
+            },
+            "effort_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Effort Source",
+              "type": "string"
+            },
+            "evaluated": {
+              "title": "Evaluated",
+              "type": "boolean"
+            },
+            "model_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Model Source",
+              "type": "string"
+            },
+            "profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "actor_id",
+            "actor_type",
+            "base_profile_digest",
+            "profile_digest",
+            "canonical_model",
+            "effort",
+            "model_source",
+            "effort_source",
+            "evaluated"
+          ],
+          "title": "ResolvedProfileActor",
           "type": "object"
         },
         "ResolvedProviders": {
@@ -10507,6 +11740,17 @@
           "title": "Profile Id",
           "type": "string"
         },
+        "profile_overrides": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileOverrideReadback"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "project_id": {
           "maxLength": 512,
           "minLength": 1,
@@ -10592,6 +11836,86 @@
         "default"
       ],
       "title": "ResolvedModels",
+      "type": "object"
+    },
+    "ResolvedProfileActor": {
+      "additionalProperties": true,
+      "description": "One actor's effective model/effort, its provenance and immutable pins.",
+      "properties": {
+        "actor_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Actor Type",
+          "type": "string"
+        },
+        "base_profile_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Base Profile Digest",
+          "type": "string"
+        },
+        "canonical_model": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Canonical Model",
+          "type": "string"
+        },
+        "effort": {
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "title": "Effort",
+          "type": "string"
+        },
+        "effort_source": {
+          "enum": [
+            "template_default",
+            "launch",
+            "role"
+          ],
+          "title": "Effort Source",
+          "type": "string"
+        },
+        "evaluated": {
+          "title": "Evaluated",
+          "type": "boolean"
+        },
+        "model_source": {
+          "enum": [
+            "template_default",
+            "launch",
+            "role"
+          ],
+          "title": "Model Source",
+          "type": "string"
+        },
+        "profile_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Profile Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor_id",
+        "actor_type",
+        "base_profile_digest",
+        "profile_digest",
+        "canonical_model",
+        "effort",
+        "model_source",
+        "effort_source",
+        "evaluated"
+      ],
+      "title": "ResolvedProfileActor",
       "type": "object"
     },
     "ResolvedProviders": {
@@ -10813,6 +12137,46 @@
           "type": "object"
         },
         "JsonValue": {},
+        "ModelEffortChoice": {
+          "additionalProperties": true,
+          "description": "A fixed model, a fixed effort, or both.",
+          "properties": {
+            "canonical_model": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Canonical Model"
+            },
+            "effort": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Effort"
+            }
+          },
+          "title": "ModelEffortChoice",
+          "type": "object"
+        },
         "ObjectiveAnswer": {
           "additionalProperties": true,
           "properties": {
@@ -11231,6 +12595,108 @@
           "title": "Problem",
           "type": "object"
         },
+        "ProfileOverrideReadback": {
+          "additionalProperties": true,
+          "description": "The frozen request and, once resolved, its resolution.\n\nPreflight resolves against the project's admitted program; a run snapshot\ncarries the request frozen at create and the resolution recorded when the\nrun was prepared (absent before preparation).",
+          "properties": {
+            "requested": {
+              "$ref": "#/$defs/ProfileOverrides"
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProfileOverrideResolution"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "requested"
+          ],
+          "title": "ProfileOverrideReadback",
+          "type": "object"
+        },
+        "ProfileOverrideResolution": {
+          "additionalProperties": true,
+          "description": "The server's single pre-execution resolution of a launch's overrides.",
+          "properties": {
+            "actors": {
+              "items": {
+                "$ref": "#/$defs/ResolvedProfileActor"
+              },
+              "maxItems": 256,
+              "title": "Actors",
+              "type": "array"
+            },
+            "declaration_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Declaration Digest",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Digest",
+              "type": "string"
+            },
+            "evaluated_system_changed": {
+              "title": "Evaluated System Changed",
+              "type": "boolean"
+            },
+            "request_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Request Digest",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "synth.profile-override-resolution.v1",
+              "title": "Schema Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schema_version",
+            "declaration_digest",
+            "request_digest",
+            "actors",
+            "evaluated_system_changed",
+            "digest"
+          ],
+          "title": "ProfileOverrideResolution",
+          "type": "object"
+        },
+        "ProfileOverrides": {
+          "additionalProperties": true,
+          "description": "Launch-wide and named-role choices; at least one is required.\n\n``launch`` reaches declared coordinator roles only; the evaluated system\nchanges only through a named role choice.",
+          "properties": {
+            "launch": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "roles": {
+              "maxProperties": 64,
+              "patternProperties": {
+                "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$": {
+                  "$ref": "#/$defs/ModelEffortChoice"
+                }
+              },
+              "title": "Roles",
+              "type": "object"
+            }
+          },
+          "title": "ProfileOverrides",
+          "type": "object"
+        },
         "ReasonLink": {
           "additionalProperties": true,
           "properties": {
@@ -11277,6 +12743,86 @@
             "cause"
           ],
           "title": "ReasonLink",
+          "type": "object"
+        },
+        "ResolvedProfileActor": {
+          "additionalProperties": true,
+          "description": "One actor's effective model/effort, its provenance and immutable pins.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "actor_type": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Actor Type",
+              "type": "string"
+            },
+            "base_profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Base Profile Digest",
+              "type": "string"
+            },
+            "canonical_model": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Canonical Model",
+              "type": "string"
+            },
+            "effort": {
+              "enum": [
+                "none",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "title": "Effort",
+              "type": "string"
+            },
+            "effort_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Effort Source",
+              "type": "string"
+            },
+            "evaluated": {
+              "title": "Evaluated",
+              "type": "boolean"
+            },
+            "model_source": {
+              "enum": [
+                "template_default",
+                "launch",
+                "role"
+              ],
+              "title": "Model Source",
+              "type": "string"
+            },
+            "profile_digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "actor_id",
+            "actor_type",
+            "base_profile_digest",
+            "profile_digest",
+            "canonical_model",
+            "effort",
+            "model_source",
+            "effort_source",
+            "evaluated"
+          ],
+          "title": "ResolvedProfileActor",
           "type": "object"
         },
         "ResolvedResearchMethod": {
@@ -11694,6 +13240,17 @@
           "default": false,
           "title": "Problems Observed",
           "type": "boolean"
+        },
+        "profile_overrides": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileOverrideReadback"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "project_id": {
           "maxLength": 512,
