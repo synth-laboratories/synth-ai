@@ -174,10 +174,59 @@
       "description": "One parked approval-gated call as Orchestra retains it.",
       "properties": {
         "actor_id": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Actor Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Actor Id"
+        },
+        "answer_schema": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Schema"
+        },
+        "answer_scope": {
+          "anyOf": [
+            {
+              "enum": [
+                "once",
+                "session",
+                "policy"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Scope"
+        },
+        "answerers": {
+          "default": [],
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Answerers",
+          "type": "array"
         },
         "approval_id": {
           "maxLength": 512,
@@ -186,22 +235,43 @@
           "type": "string"
         },
         "argument_digest": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Argument Digest",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Argument Digest"
         },
         "attempt_id": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Attempt Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Attempt Id"
         },
         "capability": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Capability",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Capability"
         },
         "deadline_at": {
           "anyOf": [
@@ -220,7 +290,10 @@
           "type": "boolean"
         },
         "kind": {
-          "const": "tool_call",
+          "enum": [
+            "tool_call",
+            "wait"
+          ],
           "title": "Kind",
           "type": "string"
         },
@@ -243,13 +316,41 @@
           ],
           "title": "On Timeout"
         },
+        "options": {
+          "default": [],
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Options",
+          "type": "array"
+        },
         "parked_at": {
           "format": "date-time",
           "title": "Parked At",
           "type": "string"
         },
+        "posture": {
+          "anyOf": [
+            {
+              "enum": [
+                "pause_actor",
+                "pause_run",
+                "continue_other_work"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Posture"
+        },
         "question": {
-          "maxLength": 1024,
+          "maxLength": 4096,
           "minLength": 1,
           "title": "Question",
           "type": "string"
@@ -279,10 +380,39 @@
           "type": "string"
         },
         "tool": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Tool",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tool"
+        },
+        "wait_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "approval",
+                "permission",
+                "question",
+                "form",
+                "steer",
+                "interrupt",
+                "notice",
+                "blocker"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wait Kind"
         }
       },
       "required": [
@@ -574,10 +704,59 @@
           "description": "One parked approval-gated call as Orchestra retains it.",
           "properties": {
             "actor_id": {
-              "maxLength": 512,
-              "minLength": 1,
-              "title": "Actor Id",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Id"
+            },
+            "answer_schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Answer Schema"
+            },
+            "answer_scope": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "once",
+                    "session",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Answer Scope"
+            },
+            "answerers": {
+              "default": [],
+              "items": {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Answerers",
+              "type": "array"
             },
             "approval_id": {
               "maxLength": 512,
@@ -586,22 +765,43 @@
               "type": "string"
             },
             "argument_digest": {
-              "maxLength": 512,
-              "minLength": 1,
-              "title": "Argument Digest",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Argument Digest"
             },
             "attempt_id": {
-              "maxLength": 512,
-              "minLength": 1,
-              "title": "Attempt Id",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attempt Id"
             },
             "capability": {
-              "maxLength": 512,
-              "minLength": 1,
-              "title": "Capability",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability"
             },
             "deadline_at": {
               "anyOf": [
@@ -620,7 +820,10 @@
               "type": "boolean"
             },
             "kind": {
-              "const": "tool_call",
+              "enum": [
+                "tool_call",
+                "wait"
+              ],
               "title": "Kind",
               "type": "string"
             },
@@ -643,13 +846,41 @@
               ],
               "title": "On Timeout"
             },
+            "options": {
+              "default": [],
+              "items": {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Options",
+              "type": "array"
+            },
             "parked_at": {
               "format": "date-time",
               "title": "Parked At",
               "type": "string"
             },
+            "posture": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pause_actor",
+                    "pause_run",
+                    "continue_other_work"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Posture"
+            },
             "question": {
-              "maxLength": 1024,
+              "maxLength": 4096,
               "minLength": 1,
               "title": "Question",
               "type": "string"
@@ -679,10 +910,39 @@
               "type": "string"
             },
             "tool": {
-              "maxLength": 512,
-              "minLength": 1,
-              "title": "Tool",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tool"
+            },
+            "wait_kind": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "approval",
+                    "permission",
+                    "question",
+                    "form",
+                    "steer",
+                    "interrupt",
+                    "notice",
+                    "blocker"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Wait Kind"
             }
           },
           "required": [
@@ -7613,6 +7873,20 @@
         "SwarmEvent": {
           "additionalProperties": true,
           "properties": {
+            "approval_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approval Id"
+            },
             "event_id": {
               "maxLength": 512,
               "minLength": 1,
@@ -7642,6 +7916,10 @@
                     "resumed",
                     "cancel_requested",
                     "usage_updated",
+                    "approval.parked",
+                    "approval.decided",
+                    "wait.opened",
+                    "wait.resolved",
                     "unknown"
                   ],
                   "type": "string"
@@ -11579,6 +11857,20 @@
       },
       "additionalProperties": true,
       "properties": {
+        "approval_id": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Id"
+        },
         "event_id": {
           "maxLength": 512,
           "minLength": 1,
@@ -11608,6 +11900,10 @@
                 "resumed",
                 "cancel_requested",
                 "usage_updated",
+                "approval.parked",
+                "approval.decided",
+                "wait.opened",
+                "wait.resolved",
                 "unknown"
               ],
               "type": "string"
@@ -11985,6 +12281,20 @@
         "SwarmEvent": {
           "additionalProperties": true,
           "properties": {
+            "approval_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approval Id"
+            },
             "event_id": {
               "maxLength": 512,
               "minLength": 1,
@@ -12014,6 +12324,10 @@
                     "resumed",
                     "cancel_requested",
                     "usage_updated",
+                    "approval.parked",
+                    "approval.decided",
+                    "wait.opened",
+                    "wait.resolved",
                     "unknown"
                   ],
                   "type": "string"
@@ -14185,6 +14499,330 @@
       ],
       "title": "TransferTiming",
       "type": "object"
+    },
+    "WaitAnswerReceipt": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "description": "Orchestra's journaled answer; a replay returns the original receipt.",
+      "properties": {
+        "answer_schema": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Answer Schema",
+          "type": "string"
+        },
+        "answer_scope": {
+          "enum": [
+            "once",
+            "session",
+            "policy"
+          ],
+          "title": "Answer Scope",
+          "type": "string"
+        },
+        "answered_at": {
+          "format": "date-time",
+          "title": "Answered At",
+          "type": "string"
+        },
+        "answered_revision": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Answered Revision",
+          "type": "integer"
+        },
+        "answerer": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Answerer",
+          "type": "string"
+        },
+        "approval_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Approval Id",
+          "type": "string"
+        },
+        "decision": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Decision",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "operation_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "run_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metadata",
+        "run_id",
+        "approval_id",
+        "operation_id",
+        "decision",
+        "answered_revision",
+        "revision",
+        "answerer",
+        "answer_scope",
+        "answer_schema",
+        "answered_at"
+      ],
+      "title": "WaitAnswerReceipt",
+      "type": "object"
+    },
+    "WaitAnswerRequest": {
+      "additionalProperties": false,
+      "description": "One answer to an open wait at ``expected_revision``.\n\n``answer_scope`` defaults to ``\"once\"``; ``answer_schema`` and ``answerer``\ndefault to the open wait's schema and the first of its ``answerers`` the\ncaller holds. Pass the receipt's values to replay after the wait resolved.",
+      "properties": {
+        "answer_schema": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Schema"
+        },
+        "answer_scope": {
+          "anyOf": [
+            {
+              "enum": [
+                "once",
+                "session",
+                "policy"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Scope"
+        },
+        "answerer": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answerer"
+        },
+        "decision": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Decision",
+          "type": "string"
+        },
+        "expected_revision": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "decision",
+        "expected_revision"
+      ],
+      "title": "WaitAnswerRequest",
+      "type": "object"
     }
   },
   "operations": [
@@ -14486,6 +15124,16 @@
       "method": "POST",
       "mutation": true,
       "path": "/api/v1/swarms/runs/{run_id}/approvals/{approval_id}/decision",
+      "required_scope": "swarms:control"
+    },
+    {
+      "id": "swarms.approvals.answer",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/swarms/runs/{run_id}/approvals/{approval_id}/answer",
       "required_scope": "swarms:control"
     }
   ],

@@ -34,6 +34,9 @@ from .types.approvals import (
     ApprovalDecisionReceipt,
     ApprovalDecisionRequest,
     ApprovalList,
+    WaitAnswerReceipt,
+    WaitAnswerRequest,
+    WaitAnswerScope,
 )
 from .types.programs import ProgramRunView
 from .types.runs import (
@@ -243,6 +246,49 @@ class SwarmRun(RunIdentity):
                 and result.decision == decision
                 and result.decided_revision == expected_revision,
                 "Approval decision identity mismatch",
+            ),
+        )
+
+    def answer_wait(
+        self,
+        approval_id: str,
+        *,
+        decision: str,
+        expected_revision: int,
+        answer_scope: WaitAnswerScope | None = None,
+        answer_schema: str | None = None,
+        answerer: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> WaitAnswerReceipt:
+        """Answer one open human-in-the-loop wait (``kind="wait"``) at ``expected_revision``.
+
+        A stale revision is refused as ``wait_revision_stale``; a wait another
+        answer resolved is ``wait_already_resolved``; replaying the same answer
+        (same decision, scope, schema and answerer) returns the original receipt.
+        """
+        selected = identifier(approval_id)
+        return self._transport.request(
+            operations.ANSWER_WAIT,
+            WaitAnswerReceipt,
+            body=WaitAnswerRequest(
+                decision=decision,
+                expected_revision=expected_revision,
+                answer_scope=answer_scope,
+                answer_schema=answer_schema,
+                answerer=answerer,
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/answer",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.answered_revision == expected_revision
+                and (answer_scope is None or result.answer_scope == answer_scope)
+                and (answer_schema is None or result.answer_schema == answer_schema)
+                and (answerer is None or result.answerer == answerer),
+                "Wait answer identity mismatch",
             ),
         )
 
@@ -618,6 +664,49 @@ class AsyncSwarmRun(RunIdentity):
                 and result.decision == decision
                 and result.decided_revision == expected_revision,
                 "Approval decision identity mismatch",
+            ),
+        )
+
+    async def answer_wait(
+        self,
+        approval_id: str,
+        *,
+        decision: str,
+        expected_revision: int,
+        answer_scope: WaitAnswerScope | None = None,
+        answer_schema: str | None = None,
+        answerer: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> WaitAnswerReceipt:
+        """Answer one open human-in-the-loop wait (``kind="wait"``) at ``expected_revision``.
+
+        A stale revision is refused as ``wait_revision_stale``; a wait another
+        answer resolved is ``wait_already_resolved``; replaying the same answer
+        (same decision, scope, schema and answerer) returns the original receipt.
+        """
+        selected = identifier(approval_id)
+        return await self._transport.request(
+            operations.ANSWER_WAIT,
+            WaitAnswerReceipt,
+            body=WaitAnswerRequest(
+                decision=decision,
+                expected_revision=expected_revision,
+                answer_scope=answer_scope,
+                answer_schema=answer_schema,
+                answerer=answerer,
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/answer",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.answered_revision == expected_revision
+                and (answer_scope is None or result.answer_scope == answer_scope)
+                and (answer_schema is None or result.answer_schema == answer_schema)
+                and (answerer is None or result.answerer == answerer),
+                "Wait answer identity mismatch",
             ),
         )
 

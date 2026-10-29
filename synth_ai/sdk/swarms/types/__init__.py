@@ -99,6 +99,8 @@ from .approvals import Approval as Approval
 from .approvals import ApprovalDecisionReceipt as ApprovalDecisionReceipt
 from .approvals import ApprovalDecisionRequest as ApprovalDecisionRequest
 from .approvals import ApprovalList as ApprovalList
+from .approvals import WaitAnswerReceipt as WaitAnswerReceipt
+from .approvals import WaitAnswerRequest as WaitAnswerRequest
 from .methods import (
     ForkFlushMethod,
     ForkFlushOverrides,
