@@ -147,6 +147,8 @@ temp/
 # Allow GitHub configuration to be tracked
 !.github/
 !.github/**
+.github/**/__pycache__/
+.github/**/*.pyc
 .env.bak
 
 # Ignore generic text and markdown files (except the ones named below)
