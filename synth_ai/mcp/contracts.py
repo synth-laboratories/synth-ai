@@ -246,6 +246,15 @@ class RunCreated(ResponseBase):
     rate_limits: tuple[RateLimitSnapshot, ...] = ()
 
 
+class QuotaFacts(ResponseBase):
+    """SYN-4844: the typed fields of a quota refusal, mirrored from the SDK error."""
+
+    scope: Annotated[str, Field(max_length=32)]
+    limit: Annotated[StrictInt, Field(ge=0)] | None
+    used: Annotated[StrictInt, Field(ge=0)]
+    remedy: Annotated[str, Field(max_length=512)] | None = None
+
+
 class ToolFailure(ResponseBase):
     refusal: Refusal | None = None
     code: Annotated[str, Field(max_length=128)]
@@ -263,6 +272,8 @@ class ToolFailure(ResponseBase):
     outcome: Literal["not_accepted", "unknown"] | None = None
     # retention_mode_not_allowed: the modes the organization permits.
     allowed_modes: tuple[str, ...] = ()
+    # quota_exceeded: the ceiling, the consumed count and the scope (SYN-4844).
+    quota: QuotaFacts | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_refusal(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
@@ -271,4 +282,6 @@ class ToolFailure(ResponseBase):
         data: dict[str, object] = handler(self)
         if self.refusal is None:
             data.pop("refusal", None)
+        if self.quota is None:
+            data.pop("quota", None)
         return data
