@@ -377,6 +377,17 @@ def _decode_response(
             except ValidationError:
                 tolerant = None
             if tolerant is None or tolerant.code not in _TOLERANT_REFUSAL_CODES:
+                from .quota import decode_quota_refusal, quota_code
+
+                if quota_code(body) is not None:
+                    # SYN-4844: a typed SMR quota refusal (403/409) is definite;
+                    # a malformed one raises the typed ContractError.
+                    raise decode_quota_refusal(
+                        response.status_code,
+                        body,
+                        operation=operation,
+                        request_id=response.headers.get("X-Request-Id"),
+                    ) from cause
                 if mutation and response.status_code >= 500:
                     raise OutcomeUncertainError(
                         "Mutation outcome is uncertain",

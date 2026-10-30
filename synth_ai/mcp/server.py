@@ -31,6 +31,7 @@ from synth_ai.errors import (
     NotFoundError,
     OutcomeUncertainError,
     PermissionDeniedError,
+    QuotaExceededError,
     RateLimitError,
     RequestTimeoutError,
     ResultNotReadyError,
@@ -43,7 +44,7 @@ from synth_ai.types.base import Identifier
 from synth_ai.types.identity import MutationIdentity
 
 from .catalog import BY_NAME, TOOLS
-from .contracts import JSON_OBJECT, JsonObject, ToolFailure
+from .contracts import JSON_OBJECT, JsonObject, QuotaFacts, ToolFailure
 from .runtime import Executor, PolicyDiscoveryExecutor
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ def error_code(error: SynthError) -> str:
 def error_category(error: SynthError) -> str:
     for kind, name in (
         (UnsupportedOperationError, "operation_unavailable"),
+        (QuotaExceededError, "quota_exceeded"),
         (AuthenticationError, "authentication_required"),
         (PermissionDeniedError, "permission_denied"),
         (OutcomeUncertainError, "outcome_uncertain"),
@@ -96,6 +98,17 @@ def error_category(error: SynthError) -> str:
         if isinstance(error, kind):
             return name
     return "operation_refused"
+
+
+def quota_facts(error: SynthError) -> QuotaFacts | None:
+    if not isinstance(error, QuotaExceededError):
+        return None
+    try:
+        return QuotaFacts(
+            scope=error.scope, limit=error.limit, used=error.used, remedy=error.remedy
+        )
+    except ValidationError:
+        return None  # Out-of-bound facts never replace the typed category.
 
 
 def retained_key(arguments: JsonObject) -> str | None:
@@ -330,6 +343,7 @@ def create_server(
                     allowed_modes=error.allowed_modes
                     if isinstance(error, RetentionModeNotAllowed)
                     else (),
+                    quota=quota_facts(error),
                 ),
                 scope_challenge=effective_scope if error.code == "insufficient_scope" else None,
             )

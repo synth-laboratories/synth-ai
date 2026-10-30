@@ -193,8 +193,9 @@ decision="approve" | "refuse", expected_revision=...)` relays one decision to
 Orchestra, which journals the verdict. A stale `expected_revision` is refused
 with `approval_revision_stale` (re-list and decide again); replaying the same
 decision for the same revision returns the original verdict. Hosted and stdio
-MCP expose the same operations as `swarms_approvals` and
-`swarms_approval_decide`.
+MCP expose the same operations as `swarms_approvals` (optional
+`kind`: `"tool_call"`, `"wait"` or `"gate"`, the same closed values as
+`run.approvals(kind=...)`) and `swarms_approval_decide`.
 
 The same list carries the run's open human-in-the-loop waits (`kind="wait"`,
 with `wait_kind`, `options`, `answer_schema`, `answer_scope`, `answerers`,
