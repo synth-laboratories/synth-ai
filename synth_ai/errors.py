@@ -14,6 +14,11 @@ from synth_ai.types.refusal import Refusal
 
 
 class SynthError(Exception):
+    # Reattach facts from the synchronous DEEP cap refusal (SYN-4999): the
+    # ``X-Synth-Durable-Search-Id`` / ``X-Synth-Deep-Sync-Cap-Seconds`` headers.
+    durable_search_id: str | None = None
+    sync_cap_seconds: float | None = None
+
     def __init__(
         self,
         message: str,
