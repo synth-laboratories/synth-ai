@@ -3,6 +3,2417 @@
   "status": "sdk_first_pending_backend_and_protocol_qualification",
   "tools": [
     {
+      "description": "Reserve an exact private archive manifest and retain its retry key. Returns no transfer credentials.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_size": {
+            "maximum": 33554432,
+            "minimum": 1,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "application/zip",
+              "application/gzip"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "byte_size",
+          "digest_sha256",
+          "media_type",
+          "idempotency_key"
+        ],
+        "title": "UploadPrepare",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_contribution_upload_prepare",
+      "operation": "index.contributions.uploads.prepare",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ContributionUploadManifest": {
+            "additionalProperties": true,
+            "properties": {
+              "byte_size": {
+                "maximum": 33554432,
+                "minimum": 1,
+                "title": "Byte Size",
+                "type": "integer"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "media_type": {
+                "enum": [
+                  "application/zip",
+                  "application/gzip"
+                ],
+                "title": "Media Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "byte_size",
+              "digest_sha256",
+              "media_type"
+            ],
+            "title": "ContributionUploadManifest",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "manifest": {
+            "$ref": "#/$defs/ContributionUploadManifest"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "state": {
+            "enum": [
+              "prepared",
+              "received",
+              "finalized",
+              "expired",
+              "refused"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "upload_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "upload_id",
+          "contribution_id",
+          "state",
+          "manifest",
+          "expires_at"
+        ],
+        "title": "UploadProgress",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
+      "description": "Inspect an owned upload by exact ID without repeating byte work or revealing transfer credentials.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "upload_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id"
+        ],
+        "title": "UploadRead",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "index_contribution_upload_get",
+      "operation": "index.contributions.uploads.get",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ContributionUploadManifest": {
+            "additionalProperties": true,
+            "properties": {
+              "byte_size": {
+                "maximum": 33554432,
+                "minimum": 1,
+                "title": "Byte Size",
+                "type": "integer"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "media_type": {
+                "enum": [
+                  "application/zip",
+                  "application/gzip"
+                ],
+                "title": "Media Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "byte_size",
+              "digest_sha256",
+              "media_type"
+            ],
+            "title": "ContributionUploadManifest",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "manifest": {
+            "$ref": "#/$defs/ContributionUploadManifest"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "state": {
+            "enum": [
+              "prepared",
+              "received",
+              "finalized",
+              "expired",
+              "refused"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "upload_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "upload_id",
+          "contribution_id",
+          "state",
+          "manifest",
+          "expires_at"
+        ],
+        "title": "UploadProgress",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
+      "description": "Finalize an exact prepared private upload with its retry key. Optional canonical base64 archive is bounded to 4 MiB for programmatic transfer; never submits or attests rights.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_base64": {
+            "anyOf": [
+              {
+                "maxLength": 5592408,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Archive Base64"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "upload_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "idempotency_key"
+        ],
+        "title": "UploadFinalize",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_contribution_upload_finalize",
+      "operation": "index.uploads.finalize",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ContributionPackageRef": {
+            "additionalProperties": true,
+            "properties": {
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "package_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Package Id",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "package_id",
+              "digest_sha256"
+            ],
+            "title": "ContributionPackageRef",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "reference": {
+            "$ref": "#/$defs/ContributionPackageRef"
+          },
+          "state": {
+            "const": "finalized",
+            "title": "State",
+            "type": "string"
+          },
+          "upload_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "upload_id",
+          "reference",
+          "state"
+        ],
+        "title": "UploadReceipt",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
+      "description": "Create an owned private Contribution draft with an explicit retry key.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "ContributionCreate",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_contribution_create",
+      "operation": "index.contributions.create",
+      "output_schema": {
+        "$defs": {
+          "AuthorAnnotations": {
+            "additionalProperties": true,
+            "properties": {
+              "keywords": {
+                "default": [],
+                "items": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Keywords",
+                "type": "array"
+              },
+              "metadata": {
+                "$ref": "#/$defs/ContributionMetadata"
+              }
+            },
+            "title": "AuthorAnnotations",
+            "type": "object"
+          },
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
+          "ContributionAnnotations": {
+            "additionalProperties": true,
+            "properties": {
+              "annotation_version": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Annotation Version",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "keywords": {
+                "default": [],
+                "items": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Keywords",
+                "type": "array"
+              },
+              "metadata": {
+                "$ref": "#/$defs/ContributionMetadata"
+              },
+              "review": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ContributionReview"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "revision_digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Revision Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "revision_digest_sha256",
+              "annotation_version",
+              "review"
+            ],
+            "title": "ContributionAnnotations",
+            "type": "object"
+          },
+          "ContributionDraft": {
+            "additionalProperties": true,
+            "properties": {
+              "annotations": {
+                "$ref": "#/$defs/AuthorAnnotations"
+              },
+              "expected_revision_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Expected Revision Id"
+              },
+              "summary": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "title": "Summary",
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 200,
+                "minLength": 1,
+                "title": "Title",
+                "type": "string"
+              }
+            },
+            "required": [
+              "expected_revision_id",
+              "title",
+              "summary"
+            ],
+            "title": "ContributionDraft",
+            "type": "object"
+          },
+          "ContributionMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "research_areas": {
+                "default": [],
+                "items": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Research Areas",
+                "type": "array"
+              },
+              "topics": {
+                "default": [],
+                "items": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Topics",
+                "type": "array"
+              },
+              "workflow_stages": {
+                "default": [],
+                "items": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Workflow Stages",
+                "type": "array"
+              }
+            },
+            "title": "ContributionMetadata",
+            "type": "object"
+          },
+          "ContributionReview": {
+            "additionalProperties": true,
+            "properties": {
+              "authority": {
+                "const": "synth",
+                "title": "Authority",
+                "type": "string"
+              },
+              "confidence": {
+                "enum": [
+                  "low",
+                  "med",
+                  "high"
+                ],
+                "title": "Confidence",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "correctness": {
+                "enum": [
+                  "low",
+                  "med",
+                  "high"
+                ],
+                "title": "Correctness",
+                "type": "string"
+              },
+              "evidence_references": {
+                "items": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "minItems": 1,
+                "title": "Evidence References",
+                "type": "array"
+              },
+              "quality": {
+                "enum": [
+                  "low",
+                  "med",
+                  "high"
+                ],
+                "title": "Quality",
+                "type": "string"
+              },
+              "review_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Review Id",
+                "type": "string"
+              },
+              "reviewed_at": {
+                "format": "date-time",
+                "title": "Reviewed At",
+                "type": "string"
+              },
+              "reviewer_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Reviewer Id",
+                "type": "string"
+              },
+              "revision_digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Revision Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              },
+              "rubric_version": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Rubric Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "revision_digest_sha256",
+              "review_id",
+              "rubric_version",
+              "reviewed_at",
+              "reviewer_id",
+              "authority",
+              "quality",
+              "confidence",
+              "correctness",
+              "evidence_references"
+            ],
+            "title": "ContributionReview",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContributionAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "content_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ContentRef"
+            },
+            "maxItems": 1024,
+            "title": "Content Refs",
+            "type": "array"
+          },
+          "contents_readable": {
+            "title": "Contents Readable",
+            "type": "boolean"
+          },
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContributionDraft"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "submitted",
+              "changes_requested",
+              "rejected",
+              "qualified",
+              "published",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "metadata",
+          "contribution_id",
+          "revision_id",
+          "title",
+          "status",
+          "contents_readable"
+        ],
+        "title": "Contribution",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
+      "description": "Create a private draft revision using its expected current revision and retry key.",
+      "idempotent": true,
+      "input_schema": {
+        "$defs": {
+          "AuthorAnnotations": {
+            "additionalProperties": false,
+            "properties": {
+              "keywords": {
+                "default": [],
+                "items": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Keywords",
+                "type": "array"
+              },
+              "metadata": {
+                "$ref": "#/$defs/ContributionMetadata"
+              }
+            },
+            "title": "AuthorAnnotations",
+            "type": "object"
+          },
+          "ContributionMetadata": {
+            "additionalProperties": false,
+            "properties": {
+              "research_areas": {
+                "default": [],
+                "items": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Research Areas",
+                "type": "array"
+              },
+              "topics": {
+                "default": [],
+                "items": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Topics",
+                "type": "array"
+              },
+              "workflow_stages": {
+                "default": [],
+                "items": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "title": "Workflow Stages",
+                "type": "array"
+              }
+            },
+            "title": "ContributionMetadata",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "annotations": {
+            "$ref": "#/$defs/AuthorAnnotations"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "expected_revision_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision Id"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "expected_revision_id",
+          "title",
+          "summary",
+          "idempotency_key"
+        ],
+        "title": "ContributionUpdate",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_contribution_update",
+      "operation": "index.contributions.update",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest Sha256"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Revision Id"
+          },
+          "revision_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "contribution_id",
+          "revision_id",
+          "digest_sha256"
+        ],
+        "title": "ContributionRevision",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
+      "description": "Attest exact revision rights with the existing rights-holder checks. Does not publish.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "authorized_to_contribute": {
+            "const": true,
+            "title": "Authorized To Contribute",
+            "type": "boolean"
+          },
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "license_expressions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "License Expressions",
+            "type": "array"
+          },
+          "notices_digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Notices Digest Sha256",
+            "type": "string"
+          },
+          "revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "rights_decision_reference": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Rights Decision Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "revision_id",
+          "digest_sha256",
+          "license_expressions",
+          "notices_digest_sha256",
+          "rights_decision_reference",
+          "authorized_to_contribute",
+          "idempotency_key"
+        ],
+        "title": "ContributionAttest",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_contribution_attest",
+      "operation": "index.contributions.attest",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "revision_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending_submission",
+              "attested"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "contribution_id",
+          "revision_id",
+          "accepted",
+          "state",
+          "reason"
+        ],
+        "title": "AttestationReceipt",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
+      "description": "Record an exact source/replacement correction with owner authority and a retry key.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "replacement_revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Replacement Revision Id",
+            "type": "string"
+          },
+          "source_revision_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Source Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution_id",
+          "source_revision_id",
+          "replacement_revision_id",
+          "reason",
+          "idempotency_key"
+        ],
+        "title": "ContributionCorrect",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "index_contribution_correct",
+      "operation": "index.contributions.correct",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "contribution_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "revision_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "recorded",
+              "refused"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "contribution_id",
+          "revision_id",
+          "state",
+          "reason"
+        ],
+        "title": "CorrectionReceipt",
+        "type": "object"
+      },
+      "required_scope": "index:intake"
+    },
+    {
       "additional_required_scopes": [
         "account:usage:read"
       ],
@@ -1352,6 +3763,42 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
           "ContributionAnnotations": {
             "additionalProperties": true,
             "properties": {
@@ -1745,6 +4192,15 @@
               }
             ],
             "default": null
+          },
+          "content_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ContentRef"
+            },
+            "maxItems": 1024,
+            "title": "Content Refs",
+            "type": "array"
           },
           "contents_readable": {
             "title": "Contents Readable",
@@ -30841,6 +33297,42 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
           "Contribution": {
             "additionalProperties": true,
             "properties": {
@@ -30854,6 +33346,15 @@
                   }
                 ],
                 "default": null
+              },
+              "content_refs": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ContentRef"
+                },
+                "maxItems": 1024,
+                "title": "Content Refs",
+                "type": "array"
               },
               "contents_readable": {
                 "title": "Contents Readable",
@@ -31432,6 +33933,42 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
           "ContributionAnnotations": {
             "additionalProperties": true,
             "properties": {
@@ -31825,6 +34362,15 @@
               }
             ],
             "default": null
+          },
+          "content_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ContentRef"
+            },
+            "maxItems": 1024,
+            "title": "Content Refs",
+            "type": "array"
           },
           "contents_readable": {
             "title": "Contents Readable",

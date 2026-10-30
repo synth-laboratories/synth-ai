@@ -344,12 +344,17 @@ def create_http_app(
         account_capability_provider,
     )
     server = create_server(executor)
+    # Private archive transfer is an explicitly enabled, bounded programmatic
+    # tool. Keep the smaller admission limit on every other deployment.
+    maximum_request_bytes = (
+        6 * 1024 * 1024 if "index_contribution_upload_finalize" in enabled_tools else 128 * 1024
+    )
     host = urlsplit(resource_url).netloc
     manager = StreamableHTTPSessionManager(
         app=server,
         json_response=True,
         stateless=True,
-        max_request_body_size=128 * 1024,
+        max_request_body_size=maximum_request_bytes,
         security_settings=TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
             allowed_hosts=[host],
@@ -360,7 +365,7 @@ def create_http_app(
         app=server,
         json_response=False,
         stateless=True,
-        max_request_body_size=128 * 1024,
+        max_request_body_size=maximum_request_bytes,
         security_settings=TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
             allowed_hosts=[host],
