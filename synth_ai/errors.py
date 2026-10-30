@@ -183,6 +183,30 @@ class RefusedError(SynthError):
     refused condition will fail the same way."""
 
 
+class QuotaExceededError(RefusedError):
+    """A definite quota refusal (SYN-4844): a ceiling in ``scope`` is reached.
+
+    ``limit`` is the ceiling that refused the request (``None`` only when the
+    server's plan provider reported none); ``used`` is the count already
+    consumed in ``scope``. Nothing was created or charged."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        scope: str,
+        limit: int | None,
+        used: int,
+        remedy: str | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)  # type: ignore[arg-type]
+        self.scope = scope
+        self.limit = limit
+        self.used = used
+        self.remedy = remedy
+
+
 class RequestTimeoutError(SynthError):
     """Local observation/request deadline expired."""
 
