@@ -1,8 +1,8 @@
 {
   "consumer": {
-    "decoder": "synth_ai.sdk.swarms.types.approvals.Approval",
+    "decoder": "synth_ai.sdk.swarms.types.approvals.GateApproval",
     "repo": "synth-ai",
-    "status": "pending: ApprovalKind lacks gate"
+    "status": "adopted: synth-ai#587 (0.24.0.dev202610300530)"
   },
   "fixtures": {
     "gate.milestone-acceptance-no-opened-at.accepted.json": {
