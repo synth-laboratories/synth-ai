@@ -120,3 +120,10 @@ def test_document_retryable_stays_uncertain_under_unknown_outcome():
 def test_ambiguous_status_document_stays_uncertain(status):
     with pytest.raises(OutcomeUncertainError):
         _decode(status, _document(status=status))
+
+
+@pytest.mark.parametrize("code", ["contribution_outcome_unavailable", "ledger_outcome_unavailable"])
+def test_outcome_unavailable_stays_uncertain_even_when_in_doubt_false(code):
+    # Older/prod backends emit in_doubt=false here, but the outcome is uncertain.
+    with pytest.raises(OutcomeUncertainError):
+        _decode(409, _document(code=code, in_doubt=False))
