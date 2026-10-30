@@ -33,6 +33,7 @@ from .types.approvals import (
     ApprovalDecision,
     ApprovalDecisionReceipt,
     ApprovalDecisionRequest,
+    ApprovalKind,
     ApprovalList,
     WaitAnswerReceipt,
     WaitAnswerRequest,
@@ -65,6 +66,27 @@ def _recovery_read(deadline: float, error: OutcomeUncertainError) -> ReadOptions
     if remaining <= 0:
         raise error
     return ReadOptions(timeout_seconds=remaining, read_retry_count=0)
+
+
+def _approval_kind_query(kind: ApprovalKind | None) -> dict[str, str] | None:
+    """``?kind=`` for ``swarms.approvals.list`` (SYN-4650); ``None`` lists every kind."""
+    if kind is None:
+        return None
+    if kind not in get_args(ApprovalKind):
+        raise ContractError(f"Unsupported approval kind {kind!r}", code="approval_kind_invalid")
+    return {"kind": kind}
+
+
+def _verified_approvals(
+    result: ApprovalList, run_id: str, kind: ApprovalKind | None
+) -> ApprovalList:
+    return verified(
+        result,
+        result.run_id == run_id
+        and all(item.run_id == run_id for item in result.items)
+        and (kind is None or all(item.kind == kind for item in result.items)),
+        "Approval list identity mismatch",
+    )
 
 
 def _target_states(value: RunState | tuple[RunState, ...]) -> frozenset[RunState]:
@@ -201,19 +223,21 @@ class SwarmRun(RunIdentity):
         Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
         return RunWatch(self, self._transport, observation, last_event_id)
 
-    def approvals(self, *, request: ReadOptions | None = None) -> ApprovalList:
-        """List the run's parked approval-gated calls with typed state and revision."""
+    def approvals(
+        self, *, kind: ApprovalKind | None = None, request: ReadOptions | None = None
+    ) -> ApprovalList:
+        """List the run's open approvals (tool calls, waits, gates) with typed state.
+
+        ``kind`` (``"tool_call"``, ``"wait"`` or ``"gate"``) asks the backend
+        for that kind only; an item of another kind is a ``ContractError``.
+        """
         return self._transport.request(
             operations.APPROVALS,
             ApprovalList,
             path=f"/swarms/runs/{self.run_id}/approvals",
+            query=_approval_kind_query(kind),
             options=request,
-            validate=lambda result: verified(
-                result,
-                result.run_id == self.run_id
-                and all(item.run_id == self.run_id for item in result.items),
-                "Approval list identity mismatch",
-            ),
+            validate=lambda result: _verified_approvals(result, self.run_id, kind),
         )
 
     def decide_approval(
@@ -619,19 +643,21 @@ class AsyncSwarmRun(RunIdentity):
         Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
         return AsyncRunWatch(self, self._transport, observation, last_event_id)
 
-    async def approvals(self, *, request: ReadOptions | None = None) -> ApprovalList:
-        """List the run's parked approval-gated calls with typed state and revision."""
+    async def approvals(
+        self, *, kind: ApprovalKind | None = None, request: ReadOptions | None = None
+    ) -> ApprovalList:
+        """List the run's open approvals (tool calls, waits, gates) with typed state.
+
+        ``kind`` (``"tool_call"``, ``"wait"`` or ``"gate"``) asks the backend
+        for that kind only; an item of another kind is a ``ContractError``.
+        """
         return await self._transport.request(
             operations.APPROVALS,
             ApprovalList,
             path=f"/swarms/runs/{self.run_id}/approvals",
+            query=_approval_kind_query(kind),
             options=request,
-            validate=lambda result: verified(
-                result,
-                result.run_id == self.run_id
-                and all(item.run_id == self.run_id for item in result.items),
-                "Approval list identity mismatch",
-            ),
+            validate=lambda result: _verified_approvals(result, self.run_id, kind),
         )
 
     async def decide_approval(
