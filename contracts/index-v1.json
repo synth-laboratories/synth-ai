@@ -2308,6 +2308,42 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ContentRef": {
+          "additionalProperties": true,
+          "properties": {
+            "asset_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "asset_id",
+            "digest_sha256"
+          ],
+          "title": "ContentRef",
+          "type": "object"
+        },
         "ContributionAnnotations": {
           "additionalProperties": true,
           "properties": {
@@ -2701,6 +2737,15 @@
             }
           ],
           "default": null
+        },
+        "content_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContentRef"
+          },
+          "maxItems": 1024,
+          "title": "Content Refs",
+          "type": "array"
         },
         "contents_readable": {
           "title": "Contents Readable",
@@ -5381,6 +5426,42 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ContentRef": {
+          "additionalProperties": true,
+          "properties": {
+            "asset_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "asset_id",
+            "digest_sha256"
+          ],
+          "title": "ContentRef",
+          "type": "object"
+        },
         "Contribution": {
           "additionalProperties": true,
           "properties": {
@@ -5394,6 +5475,15 @@
                 }
               ],
               "default": null
+            },
+            "content_refs": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ContentRef"
+              },
+              "maxItems": 1024,
+              "title": "Content Refs",
+              "type": "array"
             },
             "contents_readable": {
               "title": "Contents Readable",
