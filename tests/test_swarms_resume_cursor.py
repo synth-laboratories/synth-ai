@@ -9,10 +9,14 @@ from synth_ai.sdk.swarms.types.runs import AdmittedResourceGrant, SwarmEventPage
 def test_tail_cursor_is_retained_and_older_pages_still_decode():
     page = {
         "metadata": {
-            "contract": "swarms.v1", "request_id": "request-1",
-            "operation_id": None, "observed_at": "2026-10-28T00:00:00Z",
+            "contract": "swarms.v1",
+            "request_id": "request-1",
+            "operation_id": None,
+            "observed_at": "2026-10-28T00:00:00Z",
         },
-        "items": [], "complete": True, "next_cursor": None,
+        "items": [],
+        "complete": True,
+        "next_cursor": None,
         "resume_cursor": "opaque-position",
     }
     parsed = SwarmEventPage.model_validate_json(json.dumps(page))
@@ -24,11 +28,22 @@ def test_tail_cursor_is_retained_and_older_pages_still_decode():
 
 
 def test_admitted_grant_summary_keeps_resources_and_ignores_credential_fields():
-    grant = AdmittedResourceGrant.model_validate_json(json.dumps({
-        "grant_id": "grant-1", "plugin": "index.search", "version": 1,
-        "roles": ["worker"], "limits": {"calls": 2}, "role_limits": {},
-        "models": [], "collections": [], "selection": None, "funding_lane": "platform",
-        "credential_refs": ["private-credential"],
-    }))
+    grant = AdmittedResourceGrant.model_validate_json(
+        json.dumps(
+            {
+                "grant_id": "grant-1",
+                "plugin": "index.search",
+                "version": 1,
+                "roles": ["worker"],
+                "limits": {"calls": 2},
+                "role_limits": {},
+                "models": [],
+                "collections": [],
+                "selection": None,
+                "funding_lane": "platform",
+                "credential_refs": ["private-credential"],
+            }
+        )
+    )
     assert grant.limits == {"calls": 2}
     assert "private-credential" not in grant.model_dump_json()

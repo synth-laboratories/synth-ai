@@ -7,7 +7,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, TypeVar
+from typing import Literal, TypedDict, TypeVar
 from uuid import UUID
 
 import httpx
@@ -126,7 +126,14 @@ def _decode_error(
     return error
 
 
-def _cause_fields(error: ErrorDetail) -> dict[str, object]:
+class _CauseFields(TypedDict, total=False):
+    service: str | None
+    stage: str | None
+    cause: str | None
+    upstream_status: int | None
+
+
+def _cause_fields(error: ErrorDetail) -> _CauseFields:
     """Typed v2 cause fields for the exception; empty for a v1 body."""
     if not isinstance(error, ErrorDetailV2):
         return {}

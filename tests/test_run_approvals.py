@@ -81,9 +81,7 @@ def test_list_reads_typed_state_and_revision():
 
 def test_list_refuses_a_foreign_run_identity():
     def respond(request):
-        return httpx.Response(
-            200, headers={"X-Synth-Contract": "swarms.v1"}, json=listing("run-2")
-        )
+        return httpx.Response(200, headers={"X-Synth-Contract": "swarms.v1"}, json=listing("run-2"))
 
     with sync_client(respond) as client, pytest.raises(ContractError):
         SwarmRun(client._transport, "run-1").approvals()

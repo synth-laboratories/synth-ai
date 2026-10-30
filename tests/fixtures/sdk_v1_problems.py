@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import Annotated, Literal, Self
 
 from pydantic import AwareDatetime, Field, JsonValue, StrictInt, model_validator
-
 from synth_ai.types.base import ResponseBase, ResponseIdentifier
 from synth_ai.types.unknown import UnknownValue
 

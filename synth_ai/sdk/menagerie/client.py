@@ -48,7 +48,7 @@ def _model_call(operation: Operation, model, identifier: str) -> _Call:
     return operation, model, operation.path_for(identifier=identifier), None
 
 
-def _check(result: T, expected: str, actual: str) -> T:
+def _check(result: T, expected: str | None, actual: str) -> T:
     if expected != actual:
         raise ContractError("Menagerie receipt names another subject than requested")
     return result

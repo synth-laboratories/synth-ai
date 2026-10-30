@@ -359,9 +359,8 @@ def test_project_reader_lineage_status_and_availability():
 def test_lineage_status_for_another_version_is_refused():
     transport, _ = wire(lineage=lineage_status(CORRECTION))
     network, client = client_for(transport)
-    with network, client:
-        with pytest.raises(ContractError):
-            client.forge.reports.open(PROJECT, BASE)
+    with network, client, pytest.raises(ContractError):
+        client.forge.reports.open(PROJECT, BASE)
 
 
 def test_availability_tool_is_a_read_needing_your_key():

@@ -141,11 +141,10 @@ def test_no_public_or_unlisted_audience_exists_in_the_client(audience):
 def test_expiry_must_be_timezone_aware():
     transport, calls = wire()
     network, client = client_for(transport)
-    with network, client:
-        with pytest.raises(ValueError):
-            client.forge.reports.share(
-                PROJECT, DIGEST, audience="organization", expires_at=datetime(2030, 1, 1)
-            )
+    with network, client, pytest.raises(ValueError):
+        client.forge.reports.share(
+            PROJECT, DIGEST, audience="organization", expires_at=datetime(2030, 1, 1)
+        )
     assert calls == []
     with pytest.raises(ValueError):
         BY_NAME["forge_report_share"].validate_arguments(

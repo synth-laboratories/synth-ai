@@ -7,7 +7,6 @@ import asyncio
 import pytest
 from synth_ai.errors import ConflictError, OutcomeUncertainError, RefusedError
 from synth_ai.options import MutationOptions
-from synth_ai.types.refusal import Refusal
 from synth_ai.sdk.swarms.create_retry import (
     CREATE_RETRY_ATTEMPTS,
     DEFAULT_RETRY_AFTER_SECONDS,
@@ -17,6 +16,7 @@ from synth_ai.sdk.swarms.create_retry import (
     async_create_with_retry,
     create_with_retry,
 )
+from synth_ai.types.refusal import Refusal
 
 pytestmark = pytest.mark.unit
 

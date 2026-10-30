@@ -72,7 +72,7 @@ def checked_page(result, after, limit):
         and len({item.organization_id for item in projects}) <= 1
         and (
             result.page.next_cursor is None
-            or (identities and result.page.next_cursor == identities[-1])
+            or (bool(identities) and result.page.next_cursor == identities[-1])
         ),
         "Forge returned an invalid project page",
     )

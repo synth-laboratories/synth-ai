@@ -78,12 +78,6 @@ identity remains bound to its original synchronous route.
   `cause`, `stage`, and `error.durable_search_id is None`. Reconcile its identity
   before repeating work. FAST searches and other 504 causes are unaffected.
 
-```python
-result = client.index.search("q", options=KeyedSearchOptions(mode="deep", ...), mutation=legacy)
-if result.sync_cap_reattached is not None:
-    print("reattached to", result.sync_cap_reattached.search_id)
-```
-
 Create a Swarms project, launch bounded work, wait, and download its results:
 
 ```python
