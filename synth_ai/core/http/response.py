@@ -206,15 +206,10 @@ def refusal_document_is_definite(status: int, refusal: Refusal | None) -> bool:
     """A versioned ``synth.refusal.v1`` that says not retryable and not in doubt is
     definite, even when the legacy ``outcome`` field says ``unknown`` (SYN-5273).
 
-    Only a 4xx other than 408/429 qualifies: a 5xx document stays ambiguous for
+    The backend derives ``in_doubt`` from the route outcome (backend#3595), so the
+    document's own ``in_doubt`` is trusted for every code; no code is exempt. Only
+    a 4xx other than 408/429 qualifies: a 5xx document stays ambiguous for
     mutations because older backends synthesize ``in_doubt=false`` on outages."""
-    if refusal is not None and (
-        refusal.code == "contribution_outcome_unavailable"
-        or refusal.code.endswith("_outcome_unavailable")
-    ):
-        # Backend follow-on: older/prod backends emit in_doubt=false here although the
-        # outcome is uncertain; the backend must derive in_doubt from the outcome.
-        return False
     return (
         refusal is not None
         and refusal.retryable is False

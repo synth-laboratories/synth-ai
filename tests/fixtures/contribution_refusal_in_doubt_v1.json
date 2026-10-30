@@ -1,0 +1,94 @@
+{
+  "cases": {
+    "outcome_unavailable_after_dispatch": {
+      "body": {
+        "error": {
+          "code": "contribution_outcome_unavailable",
+          "outcome": "unknown",
+          "refusal": {
+            "code": "contribution_outcome_unavailable",
+            "detail": {},
+            "in_doubt": true,
+            "operation_id": null,
+            "request_id": "fixture-request",
+            "retryable": false,
+            "schema_version": "synth.refusal.v1",
+            "service": "backend",
+            "stage": "customer_api",
+            "status": 409,
+            "upstream": null
+          },
+          "request_id": "fixture-request",
+          "retry_after_seconds": null
+        }
+      },
+      "headers": {
+        "x-synth-contract": "index.v1",
+        "x-synth-refusal-contract": "synth.refusal.v1"
+      },
+      "status": 409
+    },
+    "pre_dispatch_digest_mismatch": {
+      "body": {
+        "error": {
+          "code": "mutation_digest_mismatch",
+          "outcome": "not_accepted",
+          "refusal": {
+            "code": "mutation_digest_mismatch",
+            "detail": {},
+            "in_doubt": false,
+            "operation_id": null,
+            "request_id": "fixture-request",
+            "retryable": false,
+            "schema_version": "synth.refusal.v1",
+            "service": "backend",
+            "stage": "customer_api",
+            "status": 422,
+            "upstream": null
+          },
+          "request_id": "fixture-request",
+          "retry_after_seconds": null
+        }
+      },
+      "headers": {
+        "x-synth-contract": "index.v1",
+        "x-synth-refusal-contract": "synth.refusal.v1"
+      },
+      "status": 422
+    },
+    "transition_refused_in_transaction": {
+      "body": {
+        "error": {
+          "code": "contribution_transition_refused",
+          "outcome": "not_accepted",
+          "refusal": {
+            "code": "contribution_transition_refused",
+            "detail": {
+              "cause": "rights_holder_required",
+              "cause_kind": "standing_mismatch",
+              "operation": "index.contributions.attest",
+              "standing": "holds_qa_capability"
+            },
+            "in_doubt": false,
+            "operation_id": null,
+            "request_id": "fixture-request",
+            "retryable": false,
+            "schema_version": "synth.refusal.v1",
+            "service": "backend",
+            "stage": "index_contribution_attest",
+            "status": 409,
+            "upstream": null
+          },
+          "request_id": "fixture-request",
+          "retry_after_seconds": null
+        }
+      },
+      "headers": {
+        "x-synth-contract": "index.v1",
+        "x-synth-refusal-contract": "synth.refusal.v1"
+      },
+      "status": 409
+    }
+  },
+  "source": "backend e12028672e tests/customer_api/test_contribution_refusal_in_doubt.py post() harness (SYN-5273)"
+}
