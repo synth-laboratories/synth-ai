@@ -125,3 +125,127 @@ def test_private_tools_require_intake_and_forbid_caller_or_rights_arguments():
     ):
         with pytest.raises(ValueError):
             BY_NAME["index_contribution_submit"].validate_arguments({**ARGS, field: "injected"})
+
+
+@pytest.mark.parametrize(
+    "name,arguments,method,suffix,result",
+    [
+        (
+            "create",
+            {},
+            "POST",
+            "",
+            {
+                "contribution_id": "draft",
+                "revision_id": "revision",
+                "title": None,
+                "status": "draft",
+                "contents_readable": False,
+            },
+        ),
+        (
+            "update",
+            {
+                "contribution_id": "draft",
+                "expected_revision_id": "revision",
+                "title": "Experiment",
+                "summary": "Retained public evidence",
+            },
+            "PATCH",
+            "/draft",
+            {"contribution_id": "draft", "revision_id": "next", "digest_sha256": None},
+        ),
+        (
+            "attest",
+            {
+                "contribution_id": "draft",
+                "revision_id": "revision",
+                "digest_sha256": "a" * 64,
+                "license_expressions": ["MIT"],
+                "notices_digest_sha256": "b" * 64,
+                "rights_decision_reference": "owned-rights-receipt",
+                "authorized_to_contribute": True,
+            },
+            "POST",
+            "/draft/attest",
+            {
+                "contribution_id": "draft",
+                "revision_id": "revision",
+                "accepted": True,
+                "state": "attested",
+                "reason": None,
+            },
+        ),
+        (
+            "correct",
+            {
+                "contribution_id": "draft",
+                "source_revision_id": "old",
+                "replacement_revision_id": "revision",
+                "reason": "Correct the recorded measurement",
+            },
+            "POST",
+            "/draft/corrections",
+            {
+                "contribution_id": "draft",
+                "revision_id": "revision",
+                "state": "recorded",
+                "reason": None,
+            },
+        ),
+    ],
+)
+def test_author_protocol_preserves_exact_intent_scope_and_retry_key(
+    name, arguments, method, suffix, result
+):
+    async def run():
+        requests = []
+        capability, _ = receipt_and_headers()
+        observed = {
+            **capability["metadata"],
+            "contract": "index.v1",
+            "operation_id": "author-operation",
+        }
+
+        def respond(request):
+            requests.append(request)
+            assert request.method == method
+            assert request.url.path == "/api/v1/index/contributions" + suffix
+            assert request.headers["Idempotency-Key"] == "retained-author-key"
+            assert (
+                request.headers["X-Synth-Intent-SHA256"]
+                == hashlib.sha256(request.content).hexdigest()
+            )
+            if name == "create":
+                assert request.content == b""
+            else:
+                body = json.loads(request.content)
+                assert "contribution_id" not in body and "idempotency_key" not in body
+                assert all(
+                    body[key] == value
+                    for key, value in arguments.items()
+                    if key != "contribution_id"
+                )
+            return httpx.Response(
+                200, headers={"X-Synth-Contract": "index.v1"}, json={**result, "metadata": observed}
+            )
+
+        async with AsyncSynthClient(api_key="fixture", base_url="https://backend.test") as client:
+            await client._transport.client.aclose()
+            client._transport.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+
+            async def negotiated(operation, deadline):
+                return None
+
+            client._transport._negotiate = negotiated
+            tool = BY_NAME["index_contribution_" + name]
+            assert tool.scope == "index:intake" and tool.mutates and tool.keyed and not tool.paid
+            selected = {**arguments, "idempotency_key": "retained-author-key"}
+            for _ in range(2):
+                response = await tool.invoke(client, tool.validate_arguments(selected))
+                assert response["contribution_id"] == "draft"
+            assert requests[0].content == requests[1].content
+            with pytest.raises(ValueError):
+                tool.validate_arguments({**selected, "subject_id": "another-author"})
+
+    asyncio.run(run())

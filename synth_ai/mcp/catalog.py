@@ -49,7 +49,13 @@ from synth_ai.sdk.forge.types import (
 )
 from synth_ai.sdk.index.search import validate_search_retention
 from synth_ai.sdk.index.types.contents import ContentResponse
-from synth_ai.sdk.index.types.contributions import Contribution, SubmissionReceipt
+from synth_ai.sdk.index.types.contributions import (
+    AttestationReceipt,
+    Contribution,
+    ContributionRevision,
+    CorrectionReceipt,
+    SubmissionReceipt,
+)
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
@@ -81,9 +87,11 @@ from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import EventCursor, Page, PageCursor
 from synth_ai.types.receipts import ControlReceipt, MutationResolution
 from synth_ai.types.response_values import response_schema
+from synth_ai.types.uploads import UploadReceipt
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from . import contribution_owner as owner_tools
+from . import contribution_upload as upload_tools
 from . import evaluation_evidence as evidence_tools
 from . import forge as forge_tools
 from .account import AccountUsageSnapshot, account_usage_snapshot
@@ -617,6 +625,62 @@ TOOLS: tuple[ToolSpec, ...] = (
         evidence_tools.Comparison,
         ComparisonResponse,
         evidence_tools.compare,
+    ),
+    ToolDefinition(
+        "index_contribution_upload_prepare",
+        index_operations.PREPARE_UPLOAD,
+        "Reserve an exact private archive manifest and retain its retry key. Returns no transfer credentials.",
+        upload_tools.UploadPrepare,
+        upload_tools.UploadProgress,
+        upload_tools.prepare,
+    ),
+    ToolDefinition(
+        "index_contribution_upload_get",
+        index_operations.GET_UPLOAD,
+        "Inspect an owned upload by exact ID without repeating byte work or revealing transfer credentials.",
+        upload_tools.UploadRead,
+        upload_tools.UploadProgress,
+        upload_tools.get,
+    ),
+    ToolDefinition(
+        "index_contribution_upload_finalize",
+        index_operations.FINALIZE_UPLOAD,
+        "Finalize an exact prepared private upload with its retry key. Optional canonical base64 archive is bounded to 4 MiB for programmatic transfer; never submits or attests rights.",
+        upload_tools.UploadFinalize,
+        UploadReceipt,
+        upload_tools.finalize,
+    ),
+    ToolDefinition(
+        "index_contribution_create",
+        index_operations.CREATE_CONTRIBUTION,
+        "Create an owned private Contribution draft with an explicit retry key.",
+        owner_tools.ContributionCreate,
+        Contribution,
+        owner_tools.create,
+    ),
+    ToolDefinition(
+        "index_contribution_update",
+        index_operations.UPDATE_CONTRIBUTION,
+        "Create a private draft revision using its expected current revision and retry key.",
+        owner_tools.ContributionUpdate,
+        ContributionRevision,
+        owner_tools.update,
+    ),
+    ToolDefinition(
+        "index_contribution_attest",
+        index_operations.ATTEST,
+        "Attest exact revision rights with the existing rights-holder checks. Does not publish.",
+        owner_tools.ContributionAttest,
+        AttestationReceipt,
+        owner_tools.attest,
+    ),
+    ToolDefinition(
+        "index_contribution_correct",
+        index_operations.CORRECT,
+        "Record an exact source/replacement correction with owner authority and a retry key.",
+        owner_tools.ContributionCorrect,
+        CorrectionReceipt,
+        owner_tools.correct,
     ),
     ToolDefinition(
         "account_usage_snapshot",

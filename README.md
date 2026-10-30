@@ -287,3 +287,20 @@ remain required. Correct a frozen export under a new identity and record its
 exact typed source notice through admitted scientific authoring. The original
 sealed package bytes, Index qualification and public notice consent remain
 under their existing owners. Packaged research skill revision8 covers this path.
+
+
+### Private Contribution authoring (local candidate)
+
+Native author tools require `index:intake`; public reads require `index:read`.
+Creation, expected-revision editing, upload preparation, finalization, rights
+attestation, submission and correction remain separate operations with retained
+retry keys. No tool grants review or publication authority.
+
+Upload prepare/get return credential-free progress, exact manifest and upload ID.
+Programmatic finalization may supply a canonical base64 archive up to 4 MiB; the
+server verifies the prepared size/digest and current owner before storing bytes.
+The hosted body limit is 6 MiB only when that upload tool is explicitly enabled;
+other hosted deployments retain 128 KiB. Archive arguments belong in code, not
+model-generated prose. No caller filesystem path is resolved by the hosted server.
+An uncertain mutation retains its original identity; inspect status/recovery before
+repeating. Finalization seals bytes; it never attests rights or submits research.
