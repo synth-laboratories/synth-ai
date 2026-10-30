@@ -49664,11 +49664,30 @@
       "required_scope": "swarms:control"
     },
     {
-      "description": "List the run's parked approval-gated calls with typed state, revision and deadline.",
+      "description": "List the run's open approvals (tool calls, waits, gates) with typed state, revision and deadline; kind=tool_call|wait|gate lists only that kind.",
       "idempotent": true,
       "input_schema": {
         "additionalProperties": false,
+        "description": "One run's open approvals, optionally of one kind; any other kind is refused.",
         "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tool_call",
+                  "wait",
+                  "gate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "List only approvals of this kind: \"tool_call\" (parked approval-gated calls), \"wait\" (human-in-the-loop waits) or \"gate\" (program gates). Omit to list every open approval.",
+            "title": "Kind"
+          },
           "run_id": {
             "maxLength": 128,
             "minLength": 1,
@@ -49680,7 +49699,7 @@
         "required": [
           "run_id"
         ],
-        "title": "RunIdentity",
+        "title": "ApprovalListArguments",
         "type": "object"
       },
       "keyed": true,

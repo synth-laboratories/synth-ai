@@ -26,6 +26,7 @@ from synth_ai.sdk.index.types.search import (
     SearchResponse,
     StrictSearchEventRequest,
 )
+from synth_ai.sdk.swarms.types.approvals import ApprovalKind
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import LaunchPreflight, ResolvedConfiguration
@@ -131,6 +132,19 @@ class ProjectIdentity(Model):
 
 class RunIdentity(Model):
     run_id: Identifier
+
+
+class ApprovalListArguments(RunIdentity):
+    """One run's open approvals, optionally of one kind; any other kind is refused."""
+
+    kind: ApprovalKind | None = Field(
+        default=None,
+        description=(
+            'List only approvals of this kind: "tool_call" (parked approval-gated '
+            'calls), "wait" (human-in-the-loop waits) or "gate" (program gates). '
+            "Omit to list every open approval."
+        ),
+    )
 
 
 class RunControl(RunIdentity):

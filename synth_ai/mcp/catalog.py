@@ -77,6 +77,7 @@ from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
     JSON_OBJECT,
     ApprovalDecide,
+    ApprovalListArguments,
     ContentArguments,
     ContributionIdentity,
     EmptyArguments,
@@ -455,8 +456,8 @@ async def run_resume(client: AsyncSynthClient, args: RunMutation) -> ControlRece
     )
 
 
-async def run_approvals(client: AsyncSynthClient, args: RunIdentity) -> ApprovalList:
-    return await (await client.swarms.get(args.run_id)).approvals()
+async def run_approvals(client: AsyncSynthClient, args: ApprovalListArguments) -> ApprovalList:
+    return await (await client.swarms.get(args.run_id)).approvals(kind=args.kind)
 
 
 async def run_decide_approval(
@@ -1123,8 +1124,9 @@ TOOLS: tuple[ToolSpec, ...] = (
     ToolDefinition(
         "swarms_approvals",
         swarm_operations.APPROVALS,
-        "List the run's parked approval-gated calls with typed state, revision and deadline.",
-        RunIdentity,
+        "List the run's open approvals (tool calls, waits, gates) with typed state, revision"
+        " and deadline; kind=tool_call|wait|gate lists only that kind.",
+        ApprovalListArguments,
         ApprovalList,
         run_approvals,
     ),
