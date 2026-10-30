@@ -999,6 +999,91 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "GateApproval": {
+          "additionalProperties": true,
+          "description": "One open Orchestra approval gate as a ``kind=\"gate\"`` approval item.",
+          "properties": {
+            "approval_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Approval Id",
+              "type": "string"
+            },
+            "decidable": {
+              "const": true,
+              "title": "Decidable",
+              "type": "boolean"
+            },
+            "gate_kind": {
+              "enum": [
+                "milestone_acceptance",
+                "release"
+              ],
+              "title": "Gate Kind",
+              "type": "string"
+            },
+            "kind": {
+              "const": "gate",
+              "title": "Kind",
+              "type": "string"
+            },
+            "parked_at": {
+              "format": "date-time",
+              "title": "Parked At",
+              "type": "string"
+            },
+            "question": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "Question",
+              "type": "string"
+            },
+            "revision": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revision",
+              "type": "integer"
+            },
+            "run_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Run Id",
+              "type": "string"
+            },
+            "state": {
+              "const": "awaiting",
+              "title": "State",
+              "type": "string"
+            },
+            "target_task_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Task Id"
+            }
+          },
+          "required": [
+            "approval_id",
+            "run_id",
+            "revision",
+            "state",
+            "kind",
+            "question",
+            "gate_kind",
+            "target_task_id",
+            "parked_at",
+            "decidable"
+          ],
+          "title": "GateApproval",
+          "type": "object"
+        },
         "ResponseMetadata": {
           "additionalProperties": true,
           "properties": {
@@ -1139,7 +1224,22 @@
       "properties": {
         "items": {
           "items": {
-            "$ref": "#/$defs/Approval"
+            "discriminator": {
+              "mapping": {
+                "gate": "#/$defs/GateApproval",
+                "tool_call": "#/$defs/Approval",
+                "wait": "#/$defs/Approval"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Approval"
+              },
+              {
+                "$ref": "#/$defs/GateApproval"
+              }
+            ]
           },
           "maxItems": 1000,
           "title": "Items",
