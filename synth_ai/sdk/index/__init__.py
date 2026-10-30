@@ -19,6 +19,7 @@ from .types.search import (
     SearchSnapshot,
     StrictSearchEventRequest,
     StrictSearchProgress,
+    SyncCapReattached,
 )
 from .types.uploads import ContributionUploadManifest, LocalContributionPackage, UploadSource
 from .uploads import AsyncUploadSession, UploadSession
@@ -42,6 +43,7 @@ __all__ = [
     "PublicSearchOptions",
     "SearchFilters",
     "SearchResponse",
+    "SyncCapReattached",
     "ContributionDraft",
     "ContributionFilter",
     "ResearchCorrection",
