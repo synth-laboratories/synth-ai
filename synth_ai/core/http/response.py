@@ -202,6 +202,21 @@ def is_definite_refusal(status: int, outcome: str | None) -> bool:
     return 400 <= status < 500 and status not in UNCERTAIN_CLIENT_STATUSES
 
 
+def refusal_document_is_definite(status: int, refusal: Refusal | None) -> bool:
+    """A versioned ``synth.refusal.v1`` that says not retryable and not in doubt is
+    definite, even when the legacy ``outcome`` field says ``unknown`` (SYN-5273).
+
+    Only a 4xx other than 408/429 qualifies: a 5xx document stays ambiguous for
+    mutations because older backends synthesize ``in_doubt=false`` on outages."""
+    return (
+        refusal is not None
+        and refusal.retryable is False
+        and refusal.in_doubt is False
+        and 400 <= status < 500
+        and status not in UNCERTAIN_CLIENT_STATUSES
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class RefusalDetail:
     """Allowlisted refusal headers (backend SYN-4730 / SYN-4763); nothing else is read."""
@@ -372,7 +387,9 @@ def _decode_response(
                 request_id=tolerant.request_id,
                 retry_after_seconds=tolerant.retry_after_seconds,
             )
-        definite = is_definite_refusal(response.status_code, sent_outcome)
+        definite = is_definite_refusal(
+            response.status_code, sent_outcome
+        ) or refusal_document_is_definite(response.status_code, getattr(error, "refusal", None))
         if mutation and not definite:
             uncertain = (
                 LifecycleWriteRefusedError
