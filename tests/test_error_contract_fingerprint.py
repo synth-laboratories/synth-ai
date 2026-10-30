@@ -19,7 +19,9 @@ pytestmark = pytest.mark.contract
 # Existing dev rollout-usage DTOs have a different reviewed export. Curated
 # v0.23.8 promotion retains its deployed Index DTOs and corresponding pin.
 # SYN-5019 adds the optional SearchSnapshot creation timestamp.
-INDEX_V1_SCHEMA_SHA256 = "503e43c8967d7645789183a8d9e4c620e1ff8958cc2a127c612d11cdab6494d5"
+# SYN-5220 (PR #592) adds ContentRef and Contribution.content_refs; e5caec17 moved
+# fingerprints.json to this value but left the test pin at 503e43c8... (stale).
+INDEX_V1_SCHEMA_SHA256 = "75563ddda18894c5cf10c18d3ce20a828a779772288c7f08b2007db7050b0f93"
 
 
 def test_index_v1_fingerprint_matches_the_candidate_export():

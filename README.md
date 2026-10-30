@@ -48,6 +48,42 @@ does not cancel a durable Search and includes its ID for reattachment when the
 retention policy permits. An explicitly supplied legacy `index.search` mutation
 identity remains bound to its original synchronous route.
 
+### DEEP search: durable by default, 90 s synchronous cap
+
+- **Default (durable).** A keyed `index.search(query, options=KeyedSearchOptions(mode="deep", ...))`
+  is `searches.create(...)` followed by `run.wait(...)` on the same Search. The
+  observation budget is the admitted `deadline_seconds` (180 s when unset) plus
+  90 s for reviewed delivery, unless you set `MutationOptions.timeout_seconds` or a
+  non-default client timeout. Prefer this path; nothing holds one HTTP request open.
+- **Synchronous cap.** The synchronous route (`POST /api/v1/index/search`, used only
+  when you pass a legacy `index.search` mutation identity) waits at most **90 s**
+  server-side. It stays below the 300 s admitted maximum on purpose: a rolling
+  deploy drains in-flight requests within 55 s, so a long synchronous request
+  cannot be relied on. When the cap ends the wait, the backend answers HTTP 504
+  with `reason` `index_deep_sync_wait_cap_exceeded` (or
+  `index_deep_sync_wait_deadline_elapsed`) and these headers:
+  - `X-Synth-Durable-Search-Id`: the admitted Search, which keeps running
+  - `X-Synth-Deep-Sync-Cap-Seconds`: the cap (`90`)
+  - `X-Synth-Refusal-Stage: index_deep_sync_wait`
+  - `X-Synth-Refusal-Cause`: the `reason` above
+- **Reattach, never silent.** On that 504 the SDK reads `X-Synth-Durable-Search-Id`
+  and observes the same Search with `searches.get(id).wait(...)` for the rest of
+  the admitted deadline (measured from the original request). It does not
+  resubmit or charge twice. The returned `SearchResponse` has
+  `result.sync_cap_reattached`, a `SyncCapReattached(search_id, cap_seconds, cause,
+  request_id)`. It is `None` on a result the synchronous route delivered itself.
+- **Missing header.** Without a valid `X-Synth-Durable-Search-Id` (for example,
+  from an older backend or a proxy 504), there is nothing to reattach to. The
+  original typed error propagates: `OutcomeUncertainError` with `status=504`,
+  `cause`, `stage`, and `error.durable_search_id is None`. Reconcile its identity
+  before repeating work. FAST searches and other 504 causes are unaffected.
+
+```python
+result = client.index.search("q", options=KeyedSearchOptions(mode="deep", ...), mutation=legacy)
+if result.sync_cap_reattached is not None:
+    print("reattached to", result.sync_cap_reattached.search_id)
+```
+
 Create a Swarms project, launch bounded work, wait, and download its results:
 
 ```python

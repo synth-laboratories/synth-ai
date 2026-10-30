@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Annotated, Literal, Self
 
 from pydantic import (
     AwareDatetime,
     ConfigDict,
     Field,
+    PrivateAttr,
     SerializerFunctionWrapHandler,
     StrictInt,
     field_validator,
@@ -119,6 +121,22 @@ class SearchFailure(ResponseBase):
     retryable: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SyncCapReattached:
+    """The synchronous DEEP wait hit the server cap and the SDK reattached (SYN-4999).
+
+    The backend ended the synchronous wait with a 504 (``reason`` starting with
+    ``index_deep_sync_wait_``) after admitting the Search, which kept running. The
+    SDK read ``X-Synth-Durable-Search-Id`` and observed that same durable Search to
+    its terminal result instead of raising; nothing was resubmitted or charged
+    twice. ``cap_seconds`` is ``X-Synth-Deep-Sync-Cap-Seconds`` (``None`` if absent)."""
+
+    search_id: str
+    cap_seconds: float | None
+    cause: str
+    request_id: str | None = None
+
+
 class SearchResponse(ResponseModel):
     search_id: ResponseIdentifier | None
     mode: Mode
@@ -133,6 +151,13 @@ class SearchResponse(ResponseModel):
     accounting_final: bool
     cleanup_complete: bool
     retention: SearchRetention | None = None
+    # Client-side observation, never part of the wire schema (SYN-4999).
+    _sync_cap_reattached: SyncCapReattached | None = PrivateAttr(default=None)
+
+    @property
+    def sync_cap_reattached(self) -> SyncCapReattached | None:
+        """Set when this result came from reattaching after the synchronous DEEP cap."""
+        return self._sync_cap_reattached
 
     @model_validator(mode="after")
     def validate_outcome(self) -> Self:

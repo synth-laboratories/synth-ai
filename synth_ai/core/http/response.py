@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, TypeVar
+from uuid import UUID
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -206,15 +207,10 @@ def refusal_document_is_definite(status: int, refusal: Refusal | None) -> bool:
     """A versioned ``synth.refusal.v1`` that says not retryable and not in doubt is
     definite, even when the legacy ``outcome`` field says ``unknown`` (SYN-5273).
 
-    Only a 4xx other than 408/429 qualifies: a 5xx document stays ambiguous for
+    The backend derives ``in_doubt`` from the route outcome (backend#3595), so the
+    document's own ``in_doubt`` is trusted for every code; no code is exempt. Only
+    a 4xx other than 408/429 qualifies: a 5xx document stays ambiguous for
     mutations because older backends synthesize ``in_doubt=false`` on outages."""
-    if refusal is not None and (
-        refusal.code == "contribution_outcome_unavailable"
-        or refusal.code.endswith("_outcome_unavailable")
-    ):
-        # Backend follow-on: older/prod backends emit in_doubt=false here although the
-        # outcome is uncertain; the backend must derive in_doubt from the outcome.
-        return False
     return (
         refusal is not None
         and refusal.retryable is False
@@ -232,6 +228,28 @@ class RefusalDetail:
     cause: str | None = None
     closure_pending: str | None = None
     closure_expected_by: datetime | None = None
+    durable_search_id: str | None = None
+    sync_cap_seconds: float | None = None
+
+
+def _durable_search_id(value: str | None) -> str | None:
+    """A canonical UUID only; anything else is dropped (SYN-4999)."""
+    if value is None or len(value) > 64:
+        return None
+    try:
+        return str(UUID(value.strip()))
+    except ValueError:
+        return None
+
+
+def _cap_seconds(value: str | None) -> float | None:
+    if value is None or len(value) > 16:
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        return None
+    return seconds if math.isfinite(seconds) and seconds > 0 else None
 
 
 def _token(value: str | None) -> str | None:
@@ -262,6 +280,8 @@ def parse_refusal_detail(headers: Mapping[str, str]) -> RefusalDetail:
         cause=_token(headers.get("X-Synth-Refusal-Cause")),
         closure_pending=pending,
         closure_expected_by=expected_by,
+        durable_search_id=_durable_search_id(headers.get("X-Synth-Durable-Search-Id")),
+        sync_cap_seconds=_cap_seconds(headers.get("X-Synth-Deep-Sync-Cap-Seconds")),
     )
 
 
@@ -303,6 +323,8 @@ def annotate_response_error(response: httpx.Response, error: SynthError) -> Synt
     error.cause = detail.cause or error.cause
     error.closure_pending = detail.closure_pending
     error.closure_expected_by = detail.closure_expected_by
+    error.durable_search_id = detail.durable_search_id or error.durable_search_id
+    error.sync_cap_seconds = detail.sync_cap_seconds or error.sync_cap_seconds
     if error.retry_after_seconds is None:
         delay = retry_delay(response, float("nan"))
         if math.isfinite(delay):

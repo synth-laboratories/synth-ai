@@ -8,10 +8,13 @@ legacy ``outcome`` said ``unknown``; the SDK raised ``OutcomeUncertainError``.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 from synth_ai.core.http.response import decode_response
-from synth_ai.errors import ConflictError, OutcomeUncertainError
+from synth_ai.errors import ConflictError, OutcomeUncertainError, RefusedError
 from synth_ai.types.base import ClientTiming, ResponseModel
 from synth_ai.types.identity import MutationIdentity
 
@@ -122,8 +125,47 @@ def test_ambiguous_status_document_stays_uncertain(status):
         _decode(status, _document(status=status))
 
 
+FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures/contribution_refusal_in_doubt_v1.json").read_text()
+)["cases"]
+
+
+def _recorded(name: str) -> None:
+    case = FIXTURE[name]
+    error = case["body"]["error"]
+    _decode(case["status"], error["refusal"], outcome=error["outcome"])
+
+
+def test_recorded_outcome_unavailable_surfaces_in_doubt_from_the_body():
+    # Recorded from backend#3595: in_doubt=true because the route outcome is unknown.
+    with pytest.raises(OutcomeUncertainError) as caught:
+        _recorded("outcome_unavailable_after_dispatch")
+    error = caught.value
+    assert (error.status, error.code) == (409, "contribution_outcome_unavailable")
+    assert error.refusal is not None and error.refusal.in_doubt is True
+
+
+@pytest.mark.parametrize(
+    ("name", "kind", "code"),
+    [
+        ("transition_refused_in_transaction", ConflictError, "contribution_transition_refused"),
+        ("pre_dispatch_digest_mismatch", RefusedError, "mutation_digest_mismatch"),
+    ],
+)
+def test_recorded_definite_refusals_surface_in_doubt_false(name, kind, code):
+    with pytest.raises(kind) as caught:
+        _recorded(name)
+    error = caught.value
+    assert not isinstance(error, OutcomeUncertainError)
+    assert error.code == code
+    assert error.refusal is not None and error.refusal.in_doubt is False
+
+
 @pytest.mark.parametrize("code", ["contribution_outcome_unavailable", "ledger_outcome_unavailable"])
-def test_outcome_unavailable_stays_uncertain_even_when_in_doubt_false(code):
-    # Older/prod backends emit in_doubt=false here, but the outcome is uncertain.
-    with pytest.raises(OutcomeUncertainError):
+def test_outcome_unavailable_is_not_exempt_the_document_decides(code):
+    # SYN-5273: no code exemption; a not-in-doubt 409 document is definite.
+    with pytest.raises(ConflictError) as caught:
         _decode(409, _document(code=code, in_doubt=False))
+    assert not isinstance(caught.value, OutcomeUncertainError)
+    with pytest.raises(OutcomeUncertainError):
+        _decode(409, _document(code=code, in_doubt=True))
