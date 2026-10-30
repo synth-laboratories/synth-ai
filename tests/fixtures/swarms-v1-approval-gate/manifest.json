@@ -1,0 +1,47 @@
+{
+  "consumer": {
+    "decoder": "synth_ai.sdk.swarms.types.approvals.Approval",
+    "repo": "synth-ai",
+    "status": "pending: ApprovalKind lacks gate"
+  },
+  "fixtures": {
+    "gate.milestone-acceptance-no-opened-at.accepted.json": {
+      "expect": "accepted",
+      "refusal": null,
+      "sha256": "sha256:7806bc7a6545250e261e82bb1814b4c377d31fd81225b674c903ffba76a87e0d"
+    },
+    "gate.not-decidable.refused.json": {
+      "expect": "refused",
+      "refusal": "decidable",
+      "sha256": "sha256:20550a22783cb8446d1507d7e8ada910eb4977fbae1b2f4e9a2d7398f233a87e"
+    },
+    "gate.release.accepted.json": {
+      "expect": "accepted",
+      "refusal": null,
+      "sha256": "sha256:dca6c68ebc1d4edc8846775bb745ffa5869db63dfefac816e09bc5614863e70b"
+    },
+    "gate.revision-2.refused.json": {
+      "expect": "refused",
+      "refusal": "approval_gate_revision_invalid",
+      "sha256": "sha256:d8f590f8a499315f5c143fc63c33a26749009c152631b96c77ae28d9133c44f6"
+    },
+    "gate.unknown-gate-kind.refused.json": {
+      "expect": "refused",
+      "refusal": "gate_kind",
+      "sha256": "sha256:ecbb160648bbbea0619a79e2407d32d69f2fb78967186ceb3a7c66182bafce54"
+    },
+    "gate.wait-field.refused.json": {
+      "expect": "refused",
+      "refusal": "extra_forbidden",
+      "sha256": "sha256:bcee22c869bb53108df39b5b198306bbd45cc8953bc67221918dea166a4327a4"
+    }
+  },
+  "model": "packages.customer_api.swarms.approval_gates.GateApproval",
+  "producer_input": {
+    "orchestra_revision": "7a1a7122",
+    "path": "tests/fixtures/orchestra/projection_pending_approvals.7a1a7122.json",
+    "sha256": "sha256:43274774b26deba19467f408b2115080f468bd7c405351a329cba2636889931f"
+  },
+  "schema_version": "synth.swarms-approval-gate.v1",
+  "ticket": "SYN-4650"
+}

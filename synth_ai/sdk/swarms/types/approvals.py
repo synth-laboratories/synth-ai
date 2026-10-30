@@ -11,13 +11,22 @@ SYN-4650: the list also carries the run's open human-in-the-loop waits
 its ``options`` (free-form when ``options`` is empty) at its ``revision``;
 ``wait_kind``, ``answer_schema``, ``answer_scope``, ``answerers`` and
 ``posture`` are the wait as Orchestra journaled it.
+
+SYN-4650 W4: the list also carries the run's open Orchestra approval gates
+(``kind="gate"``, :class:`GateApproval`): a single-shot ``revision`` of 1,
+``gate_kind`` (``milestone_acceptance`` or ``release``) and the gated
+``target_task_id``; no tool-call or wait fields. A gate is decided with
+``swarms.approvals.decide`` (``approve``/``refuse`` at ``expected_revision=1``);
+Orchestra journals exactly one answer. ``ApprovalList.items`` is discriminated
+on ``kind``. Wire bytes: ``tests/fixtures/swarms-v1-approval-gate/`` (frozen by
+the backend, ``synth.swarms-approval-gate.v1``).
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import AwareDatetime, Field, StrictInt, StringConstraints
+from pydantic import AwareDatetime, Field, StrictInt, StringConstraints, model_validator
 
-from synth_ai.types.base import Model, ResponseIdentifier, ResponseModel
+from synth_ai.types.base import Model, ResponseBase, ResponseIdentifier, ResponseModel
 
 ApprovalState = Literal[
     "awaiting",
@@ -30,7 +39,14 @@ ApprovalState = Literal[
 ApprovalDecision = Literal["approve", "refuse"]
 ApprovalOnTimeout = Literal["decline", "cancel", "escalate"]
 ApprovalVerdict = Literal["enacted", "refused"]
-ApprovalKind = Literal["tool_call", "wait"]
+ApprovalKind = Literal["tool_call", "wait", "gate"]
+# The kinds an :class:`Approval` (tool call or wait) item carries.
+CallOrWaitKind = Literal["tool_call", "wait"]
+# Orchestra ``PendingApprovalView.kind`` (``CreateApprovalGate``).
+GateKind = Literal["milestone_acceptance", "release"]
+GATE_SCHEMA_VERSION = "synth.swarms-approval-gate.v1"
+# A gate is single-shot: Orchestra answers it once and journals no revision.
+GATE_REVISION = 1
 WaitKind = Literal[
     "approval",
     "permission",
@@ -55,7 +71,7 @@ class Approval(ResponseModel):
     run_id: ResponseIdentifier
     revision: ApprovalRevision
     state: ApprovalState
-    kind: ApprovalKind
+    kind: CallOrWaitKind
     question: Annotated[str, Field(min_length=1, max_length=4096)]
     tool: ResponseIdentifier | None
     capability: ResponseIdentifier | None
@@ -74,11 +90,35 @@ class Approval(ResponseModel):
     posture: WaitPosture | None = None
 
 
+class GateApproval(ResponseBase):
+    """One open Orchestra approval gate as a ``kind="gate"`` approval item."""
+
+    approval_id: ResponseIdentifier
+    run_id: ResponseIdentifier
+    revision: ApprovalRevision
+    state: Literal["awaiting"]
+    kind: Literal["gate"]
+    question: Annotated[str, Field(min_length=1, max_length=4096)]
+    gate_kind: GateKind
+    target_task_id: ResponseIdentifier | None
+    parked_at: AwareDatetime
+    decidable: Literal[True]
+
+    @model_validator(mode="after")
+    def validate_single_shot(self) -> Self:
+        if self.revision != GATE_REVISION:
+            raise ValueError("approval_gate_revision_invalid")
+        return self
+
+
+ApprovalItem = Annotated[Approval | GateApproval, Field(discriminator="kind")]
+
+
 class ApprovalList(ResponseModel):
     """Every approval Orchestra holds open for the run (bounded by the owner)."""
 
     run_id: ResponseIdentifier
-    items: tuple[Approval, ...] = Field(max_length=1000)
+    items: tuple[ApprovalItem, ...] = Field(max_length=1000)
 
 
 class ApprovalDecisionRequest(Model):
@@ -128,15 +168,21 @@ class WaitAnswerReceipt(ResponseModel):
 
 
 __all__ = [
+    "GATE_REVISION",
+    "GATE_SCHEMA_VERSION",
     "Approval",
     "ApprovalDecision",
     "ApprovalDecisionReceipt",
     "ApprovalDecisionRequest",
+    "ApprovalItem",
     "ApprovalKind",
     "ApprovalList",
     "ApprovalOnTimeout",
     "ApprovalState",
     "ApprovalVerdict",
+    "CallOrWaitKind",
+    "GateApproval",
+    "GateKind",
     "WaitAnswerReceipt",
     "WaitAnswerRequest",
     "WaitAnswerScope",
