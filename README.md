@@ -191,6 +191,18 @@ manifest qualification. Native issuer, installed-package and deployed-cohort
 acceptance remain required before release.
 ## Forge research workspaces (v0.24 candidate)
 
+Mnemosyne's candidate project evidence reader is available through
+`client.mnemosyne.evaluation_evidence`: `capabilities(project_id)`,
+`list(project_id)`, `get(project_id, evidence_id)` and
+`measurements(project_id, evidence_id)`. The async client exposes the same
+methods. The corresponding `mnemosyne_evaluation_evidence_*` MCP read tools
+are discoverable only when the backend advertises them and the caller has the
+required scope. Exact project and Artifact permissions are checked by the
+backend on every call. Evidence receipts reference existing Artifact custody;
+they do not pin bytes against deletion or turn producer-supplied associations
+into verified scientific foreign keys. Deployment remains subject to owner and
+database qualification.
+
 Forge workspaces organize scientific work independently of executable Swarms
 projects. The selected backend must admit these operations and the credential
 must carry explicit `forge:read`/`forge:write` scopes.

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from synth_ai import AsyncSynthClient
 from synth_ai.contracts import forge as forge_operations
+from synth_ai.contracts import mnemosyne as evidence_operations
 from synth_ai.contracts import operations as index_operations
 from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
@@ -48,6 +49,12 @@ from synth_ai.sdk.index.types.contributions import Contribution, SubmissionRecei
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
+from synth_ai.sdk.mnemosyne.evidence import (
+    CapabilitiesResponse,
+    EvidencePage,
+    MeasurementsResponse,
+    ReceiptResponse,
+)
 from synth_ai.sdk.swarms.types.approvals import (
     ApprovalDecisionReceipt,
     ApprovalList,
@@ -72,6 +79,7 @@ from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from . import contribution_owner as owner_tools
+from . import evaluation_evidence as evidence_tools
 from . import forge as forge_tools
 from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
@@ -558,6 +566,38 @@ ACCOUNT_SNAPSHOT = Operation(
 
 
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_capabilities",
+        evidence_operations.CAPABILITIES,
+        "Check current project evidence read and publish availability.",
+        evidence_tools.Project,
+        CapabilitiesResponse,
+        evidence_tools.capabilities,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_list",
+        evidence_operations.LIST,
+        "List project evaluation evidence under current Artifact access.",
+        evidence_tools.Page,
+        EvidencePage,
+        evidence_tools.list_evidence,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_get",
+        evidence_operations.GET,
+        "Read a project evidence receipt; producer associations are not verified foreign keys.",
+        evidence_tools.Identity,
+        ReceiptResponse,
+        evidence_tools.get,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_measurements",
+        evidence_operations.MEASUREMENTS,
+        "Recompute retained evaluation measurements under current Artifact access.",
+        evidence_tools.Identity,
+        MeasurementsResponse,
+        evidence_tools.measurements,
+    ),
     ToolDefinition(
         "account_usage_snapshot",
         ACCOUNT_SNAPSHOT,
