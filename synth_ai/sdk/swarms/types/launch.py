@@ -22,7 +22,7 @@ from .methods import ForkFlushMethod
 from .objectives import Guidance
 from .overrides import ProfileOverrides
 from .programs import ProgramChoice
-from .resources import ResourceRequest
+from .resources import ResourceRequest, TraceSelection
 
 
 class Limits(Model):
@@ -153,7 +153,7 @@ class LaunchRequest(Model):
     labels: Labels | None = None
     repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
-    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=4)
+    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=5)
 
     @property
     def objective(self) -> str:
@@ -189,6 +189,12 @@ class LaunchRequest(Model):
             raise ValueError("Select message or the deprecated objective alias")
         if len({item.plugin for item in self.resources}) != len(self.resources):
             raise ValueError("Resource plugins may be granted once")
+        if any(
+            isinstance(item.selection, TraceSelection)
+            and item.selection.project_ids != (self.project_id,)
+            for item in self.resources
+        ):
+            raise ValueError("Trace resource project must match the selected project")
         if len({item.id for item in self.guidance}) != len(self.guidance):
             raise ValueError("Guidance ids must be unique")
         if (
