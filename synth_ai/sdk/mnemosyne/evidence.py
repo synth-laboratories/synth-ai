@@ -74,6 +74,7 @@ class ReceiptResponse(ResponseModel):
 
 class EvidencePageData(Model):
     schema_version: Literal["synth.mnemosyne.evaluation-evidence-page.v1"]
+    scope: Scope
     items: tuple[Receipt, ...] = Field(max_length=100)
     next_cursor: str | None
 
@@ -126,6 +127,7 @@ class MeasurementSummary(Model):
 class MeasurementsData(Model):
     evidence_id: str
     request_digest: Digest
+    scope: Scope
     source_association: SourceAssociation
     summary: MeasurementSummary
 
@@ -185,18 +187,21 @@ def check_page(result, project_id):
         ids.append(item.evidence_id)
     return verified(
         result,
-        ids == sorted(set(ids))
+        result.data.scope.project_id == project_id
+        and all(item.scope == result.data.scope for item in result.data.items)
+        and ids == sorted(set(ids))
         and (result.data.next_cursor is None or (ids and result.data.next_cursor == ids[-1])),
         "Mnemosyne returned an invalid evidence page",
     )
 
 
-def check_measurements(result, evidence_id):
+def check_measurements(result, project_id, evidence_id):
     data = result.data
     source = data.source_association
     return verified(
         result,
-        data.evidence_id == evidence_id
+        data.scope.project_id == project_id
+        and data.evidence_id == evidence_id
         and data.summary.producer_run_id == source.producer_run_id
         and data.summary.attempt_id == source.attempt_id,
         "Mnemosyne returned different measurement identity",
@@ -257,7 +262,7 @@ class EvaluationEvidence:
             MeasurementsResponse,
             path=operations.MEASUREMENTS.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
-            validate=lambda r: check_measurements(r, evidence_id),
+            validate=lambda r: check_measurements(r, project_id, evidence_id),
         )
 
 
@@ -303,5 +308,5 @@ class AsyncEvaluationEvidence:
             MeasurementsResponse,
             path=operations.MEASUREMENTS.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
-            validate=lambda r: check_measurements(r, evidence_id),
+            validate=lambda r: check_measurements(r, project_id, evidence_id),
         )

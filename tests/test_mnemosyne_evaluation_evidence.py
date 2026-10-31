@@ -62,6 +62,7 @@ def mock_wire(*, advertise=True, changed=False):
         elif path.endswith("evaluation-evidence"):
             data = {
                 "schema_version": "synth.mnemosyne.evaluation-evidence-page.v1",
+                "scope": {"organization_id": ORG, "project_id": PROJECT},
                 "items": [],
                 "next_cursor": None,
             }
@@ -69,6 +70,7 @@ def mock_wire(*, advertise=True, changed=False):
             data = {
                 "evidence_id": EVIDENCE,
                 "request_digest": "a" * 64,
+                "scope": {"organization_id": ORG, "project_id": PROJECT},
                 "source_association": {
                     "source_kind": "resinbench",
                     "verification": "producer_asserted",
