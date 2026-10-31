@@ -2,6 +2,24 @@
 
 from .operations import Operation
 
+OBSERVATION_RECOVERY = Operation(
+    "swarms.observations.recover",
+    "POST",
+    "/swarms/runs/{run_id}/observation-recovery",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+OBSERVATION_RECOVERY_PREVIEW = Operation(
+    "swarms.observations.preview",
+    "GET",
+    "/swarms/runs/{run_id}/observation-recovery/{sequence}",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+
 PROJECT = Operation(
     "swarms.projects.get",
     "GET",
@@ -37,7 +55,12 @@ GET = Operation(
     required_scope="swarms:read",
 )
 LIST = Operation(
-    "swarms.list", "GET", "/swarms/runs", True, contract="swarms.v1", required_scope="swarms:read"
+    "swarms.list",
+    "GET",
+    "/swarms/runs",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
 )
 CONFIGURATION = Operation(
     "swarms.configuration",
@@ -123,7 +146,12 @@ USAGE_ITEMS = Operation(
     required_scope="swarms:read",
 )
 RESOLVE = Operation(
-    "swarms.resolve", "GET", "/mutations/resolve", True, contract="swarms.v1", required_scope=None
+    "swarms.resolve",
+    "GET",
+    "/mutations/resolve",
+    True,
+    contract="swarms.v1",
+    required_scope=None,
 )
 ALL_OPERATIONS = (
     PROJECT,
@@ -143,7 +171,6 @@ ALL_OPERATIONS = (
     USAGE_ITEMS,
     RESOLVE,
 )
-
 OUTPUTS = Operation(
     "swarms.outputs.list",
     "GET",
@@ -169,6 +196,7 @@ OUTPUT_CONTENT = Operation(
     required_scope="swarms:read",
 )
 ALL_OPERATIONS += (OUTPUTS, OUTPUT, OUTPUT_CONTENT)
+ALL_OPERATIONS += (OBSERVATION_RECOVERY, OBSERVATION_RECOVERY_PREVIEW)
 
 FILES = Operation(
     "swarms.files.list",

@@ -18795,6 +18795,26 @@
       "required_scope": "swarms:read"
     },
     {
+      "id": "swarms.observations.recover",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/swarms/runs/{run_id}/observation-recovery",
+      "required_scope": "swarms:control"
+    },
+    {
+      "id": "swarms.observations.preview",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/swarms/runs/{run_id}/observation-recovery/{sequence}",
+      "required_scope": "swarms:control"
+    },
+    {
       "id": "swarms.files.list",
       "idempotent": true,
       "keyed": true,
