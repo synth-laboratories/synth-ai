@@ -20,7 +20,7 @@ ACCOUNT_MCP_OPERATION = "account.snapshot"
 ACCOUNT_MCP_SCOPES = ("account:billing:read", "account:usage:read")
 # Generated with the SDK's qualified pydantic version (2.12.5). Runtime
 # negotiation must not generate schemas concurrently or depend on local versions.
-ACCOUNT_MCP_SCHEMA_SHA256 = "9c2627cddaf4c2920da71ef08e878661c312c3513c941c0a7fae45e699621f00"
+ACCOUNT_MCP_SCHEMA_SHA256 = "efe29c7f7c78d11529fb20a13cb6041b4dd812f6e17c94536df6e1c0e9aac0c7"
 
 
 def export_account_mcp_schema() -> str:
