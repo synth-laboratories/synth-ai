@@ -27,6 +27,11 @@ from synth_ai.sdk.core.types import (
 from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
 from synth_ai.sdk.forge.contracts.projects import ProjectOperation
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
+from synth_ai.sdk.forge.contracts.workspace_transfer_public import (
+    ImportPreview,
+    NativeImportReceipt,
+    PublicImportRequest,
+)
 from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftNoticesResponse,
     ForgeIndexDraftRequest,
@@ -34,6 +39,10 @@ from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftUploadRequest,
     ForgeIndexDraftUploadResponse,
     ForgeIndexNoticePage,
+)
+from synth_ai.sdk.forge.transfer_wire import (
+    NativeTransferPreviewResponse,
+    NativeTransferReceiptResponse,
 )
 from synth_ai.sdk.forge.types import (
     ProjectListResponse,
@@ -57,15 +66,23 @@ from synth_ai.sdk.forge.types import (
     ScientificReceiptResponse,
     ScientificRecordResponse,
 )
+from synth_ai.sdk.mnemosyne.contracts import EvaluationEvidenceResponse
 from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
 from synth_ai.types.response_values import response_schema
 
 from .core import ALL_OPERATIONS
 from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
+from .mnemosyne import ALL_OPERATIONS as MNEMOSYNE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    EvaluationEvidenceResponse,
+    PublicImportRequest,
+    ImportPreview,
+    NativeImportReceipt,
+    NativeTransferPreviewResponse,
+    NativeTransferReceiptResponse,
     ForgeIndexDraftNoticesResponse,
     ForgeIndexNoticePage,
     ForgeIndexDraftRequest,
@@ -165,7 +182,7 @@ def export_contract() -> str:
                         "may_charge": op.may_charge,
                         "idempotent": op.idempotent,
                     }
-                    for op in (*ALL_OPERATIONS, *FORGE_OPERATIONS)
+                    for op in (*ALL_OPERATIONS, *FORGE_OPERATIONS, *MNEMOSYNE_OPERATIONS)
                 ],
             },
             sort_keys=True,

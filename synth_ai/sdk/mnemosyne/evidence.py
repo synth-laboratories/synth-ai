@@ -11,10 +11,12 @@ from typing import Annotated, Literal
 from pydantic import Field, StrictInt
 
 from synth_ai.contracts import mnemosyne as operations
+from synth_ai.contracts.operations import AUTH_CONTEXT
 from synth_ai.core.parameters import verified
 from synth_ai.sdk.forge.contracts.contracts import Digest, ExactReference, Scope
 from synth_ai.sdk.forge.contracts.records import ArtifactDeliveryBinding
 from synth_ai.sdk.forge.records import project_identity
+from synth_ai.types.auth import AuthContext
 from synth_ai.types.base import Model, ResponseModel
 
 
@@ -144,7 +146,7 @@ class MeasurementsResponse(ResponseModel):
     data: MeasurementsData
 
 
-def check_receipt(receipt, project_id, evidence_id=None):
+def check_receipt(receipt, project_id, organization_id, evidence_id=None):
     encoded = json.dumps(
         [receipt.scope.organization_id, project_id, receipt.operation_id],
         sort_keys=True,
@@ -156,6 +158,7 @@ def check_receipt(receipt, project_id, evidence_id=None):
     return verified(
         receipt,
         receipt.scope.project_id == project_id
+        and receipt.scope.organization_id == organization_id
         and receipt.evidence_id == expected
         and (evidence_id is None or evidence_id == expected)
         and "report" in roles
@@ -169,25 +172,27 @@ def check_receipt(receipt, project_id, evidence_id=None):
     )
 
 
-def check_capabilities(result, project_id):
+def check_capabilities(result, project_id, organization_id):
     data = result.data
     return verified(
         result,
         data.scope.project_id == project_id
+        and data.scope.organization_id == organization_id
         and data.can_read
         and (data.intake == "available") == data.can_publish,
         "Mnemosyne returned different evidence capabilities",
     )
 
 
-def check_page(result, project_id):
+def check_page(result, project_id, organization_id):
     ids = []
     for item in result.data.items:
-        check_receipt(item, project_id)
+        check_receipt(item, project_id, organization_id)
         ids.append(item.evidence_id)
     return verified(
         result,
         result.data.scope.project_id == project_id
+        and result.data.scope.organization_id == organization_id
         and all(item.scope == result.data.scope for item in result.data.items)
         and ids == sorted(set(ids))
         and (result.data.next_cursor is None or (ids and result.data.next_cursor == ids[-1])),
@@ -195,12 +200,13 @@ def check_page(result, project_id):
     )
 
 
-def check_measurements(result, project_id, evidence_id):
+def check_measurements(result, project_id, organization_id, evidence_id):
     data = result.data
     source = data.source_association
     return verified(
         result,
         data.scope.project_id == project_id
+        and data.scope.organization_id == organization_id
         and data.evidence_id == evidence_id
         and data.summary.producer_run_id == source.producer_run_id
         and data.summary.attempt_id == source.attempt_id,
@@ -224,45 +230,55 @@ class EvaluationEvidence:
     def __init__(self, transport):
         self._transport = transport
 
+    def _organization(self, request):
+        return self._transport.request(AUTH_CONTEXT, AuthContext, options=request).tenant_id
+
     def capabilities(self, project_id, *, request=None):
         project_id = project_identity(project_id)
+        organization_id = self._organization(request)
         return self._transport.request(
             operations.CAPABILITIES,
             CapabilitiesResponse,
             path=operations.CAPABILITIES.path_for(project_id=project_id),
             options=request,
-            validate=lambda r: check_capabilities(r, project_id),
+            validate=lambda r: check_capabilities(r, project_id, organization_id),
         )
 
     def list(self, project_id, *, after=None, limit=50, request=None):
         project_id = project_identity(project_id)
+        query = page_query(after, limit)
+        organization_id = self._organization(request)
         return self._transport.request(
             operations.LIST,
             EvidencePage,
             path=operations.LIST.path_for(project_id=project_id),
-            query=page_query(after, limit),
+            query=query,
             options=request,
-            validate=lambda r: check_page(r, project_id),
+            validate=lambda r: check_page(r, project_id, organization_id),
         )
 
     def get(self, project_id, evidence_id, *, request=None):
         project_id, evidence_id = project_identity(project_id), evidence_identifier(evidence_id)
+        organization_id = self._organization(request)
         return self._transport.request(
             operations.GET,
             ReceiptResponse,
             path=operations.GET.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
-            validate=lambda r: (check_receipt(r.data, project_id, evidence_id), r)[1],
+            validate=lambda r: (check_receipt(r.data, project_id, organization_id, evidence_id), r)[
+                1
+            ],
         )
 
     def measurements(self, project_id, evidence_id, *, request=None):
         project_id, evidence_id = project_identity(project_id), evidence_identifier(evidence_id)
+        organization_id = self._organization(request)
         return self._transport.request(
             operations.MEASUREMENTS,
             MeasurementsResponse,
             path=operations.MEASUREMENTS.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
-            validate=lambda r: check_measurements(r, project_id, evidence_id),
+            validate=lambda r: check_measurements(r, project_id, organization_id, evidence_id),
         )
 
 
@@ -270,43 +286,53 @@ class AsyncEvaluationEvidence:
     def __init__(self, transport):
         self._transport = transport
 
+    async def _organization(self, request):
+        return (await self._transport.request(AUTH_CONTEXT, AuthContext, options=request)).tenant_id
+
     async def capabilities(self, project_id, *, request=None):
         project_id = project_identity(project_id)
+        organization_id = await self._organization(request)
         return await self._transport.request(
             operations.CAPABILITIES,
             CapabilitiesResponse,
             path=operations.CAPABILITIES.path_for(project_id=project_id),
             options=request,
-            validate=lambda r: check_capabilities(r, project_id),
+            validate=lambda r: check_capabilities(r, project_id, organization_id),
         )
 
     async def list(self, project_id, *, after=None, limit=50, request=None):
         project_id = project_identity(project_id)
+        query = page_query(after, limit)
+        organization_id = await self._organization(request)
         return await self._transport.request(
             operations.LIST,
             EvidencePage,
             path=operations.LIST.path_for(project_id=project_id),
-            query=page_query(after, limit),
+            query=query,
             options=request,
-            validate=lambda r: check_page(r, project_id),
+            validate=lambda r: check_page(r, project_id, organization_id),
         )
 
     async def get(self, project_id, evidence_id, *, request=None):
         project_id, evidence_id = project_identity(project_id), evidence_identifier(evidence_id)
+        organization_id = await self._organization(request)
         return await self._transport.request(
             operations.GET,
             ReceiptResponse,
             path=operations.GET.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
-            validate=lambda r: (check_receipt(r.data, project_id, evidence_id), r)[1],
+            validate=lambda r: (check_receipt(r.data, project_id, organization_id, evidence_id), r)[
+                1
+            ],
         )
 
     async def measurements(self, project_id, evidence_id, *, request=None):
         project_id, evidence_id = project_identity(project_id), evidence_identifier(evidence_id)
+        organization_id = await self._organization(request)
         return await self._transport.request(
             operations.MEASUREMENTS,
             MeasurementsResponse,
             path=operations.MEASUREMENTS.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
-            validate=lambda r: check_measurements(r, project_id, evidence_id),
+            validate=lambda r: check_measurements(r, project_id, organization_id, evidence_id),
         )

@@ -22,8 +22,22 @@ EVIDENCE = (
 )
 
 
-def mock_wire(*, advertise=True, changed=False):
+def mock_wire(*, advertise=True, changed=False, wrong_org=False):
+    from synth_ai.contracts.fingerprint import schema_sha256
+
     capability, headers = receipt_and_headers()
+    capability["contracts"].append(
+        {"contract": "index.v1", "schema_sha256": schema_sha256("index.v1")}
+    )
+    capability["operations"].append(
+        {
+            "operation_id": "auth.context",
+            "contract": "index.v1",
+            "state": "enabled",
+            "surfaces": ["http", "mcp"],
+            "reason": None,
+        }
+    )
     if advertise:
         for suffix in ("capabilities", "list", "get", "measurements"):
             capability["operations"].append(
@@ -35,18 +49,31 @@ def mock_wire(*, advertise=True, changed=False):
                     "reason": None,
                 }
             )
-        capability["operations"].sort(key=lambda x: (x["contract"], x["operation_id"]))
-        snapshot = {
-            k: v for k, v in capability.items() if k not in {"metadata", "capability_sha256"}
-        }
-        capability["capability_sha256"] = headers["X-Synth-Capabilities-SHA256"] = snapshot_sha256(
-            CapabilitySnapshot.model_validate_json(json.dumps(snapshot))
-        )
+    capability["operations"].sort(key=lambda x: x["operation_id"])
+    snapshot = {k: v for k, v in capability.items() if k not in {"metadata", "capability_sha256"}}
+    capability["capability_sha256"] = headers["X-Synth-Capabilities-SHA256"] = snapshot_sha256(
+        CapabilitySnapshot.model_validate_json(json.dumps(snapshot))
+    )
     calls = []
 
     def respond(request):
         if request.url.path == "/api/v1/capabilities":
             return httpx.Response(200, headers={"X-Synth-Contract": "index.v1"}, json=capability)
+        if request.url.path == "/api/v1/auth/context":
+            return httpx.Response(
+                200,
+                headers={"X-Synth-Contract": "index.v1"},
+                json={
+                    "metadata": capability["metadata"],
+                    "tenant_id": "other-org" if wrong_org else ORG,
+                    "subject_id": "user",
+                    "credential_id": "credential",
+                    "credential_kind": "api_key",
+                    "oauth_client_id": None,
+                    "subject_kind": "user",
+                    "scopes": ["forge:read"],
+                },
+            )
         calls.append(request)
         assert request.headers["Authorization"] == "Bearer fixture"
         path = request.url.path
@@ -218,6 +245,20 @@ def test_changed_project_refuses_receipt():
         client.mnemosyne.evaluation_evidence.get(PROJECT, EVIDENCE)
 
 
+def test_receipt_must_match_current_authenticated_tenant():
+    transport, _ = mock_wire(wrong_org=True)
+    with (
+        httpx.Client(transport=transport) as network,
+        SynthClient(
+            api_key="fixture",
+            base_url="https://backend.test",
+            options=ClientOptions(http_client=network),
+        ) as client,
+        pytest.raises(ContractError),
+    ):
+        client.mnemosyne.evaluation_evidence.get(PROJECT, EVIDENCE)
+
+
 @pytest.mark.parametrize("changed", [False, True])
 def test_measurements_preserve_partial_coverage_and_source_identity(changed):
     from decimal import Decimal
@@ -280,3 +321,33 @@ def test_mcp_discovery_needs_backend_capability_and_caller_scope(advertise, scop
     selected = frozenset({"mnemosyne_evaluation_evidence_get"})
     result = asyncio.run(SDKExecutor(Client(), Client(), selected).available_tools())
     assert ("mnemosyne_evaluation_evidence_get" in result) is expected
+
+
+@pytest.mark.parametrize(
+    "advertise,scope,allowed,expected",
+    [
+        (False, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+        (True, True, True, True),
+    ],
+)
+def test_hosted_mcp_discovery_needs_backend_scope_and_principal(
+    monkeypatch, advertise, scope, allowed, expected
+):
+    from types import SimpleNamespace
+
+    pytest.importorskip("mcp")
+    from synth_ai.mcp.hosted import HostedExecutor
+    from synth_ai.types.capabilities import Capabilities
+
+    network, _ = mock_wire(advertise=advertise)
+    response = network.handler(httpx.Request("GET", "https://backend.test/api/v1/capabilities"))
+    receipt = Capabilities.model_validate_json(response.content)
+    tool = "mnemosyne_evaluation_evidence_get"
+    principal = SimpleNamespace(
+        scopes=("forge:read",) if scope else (), allowed_tools={tool} if allowed else set()
+    )
+    monkeypatch.setattr(HostedExecutor, "principal", lambda self: principal)
+    executor = HostedExecutor(None, frozenset({tool}), lambda: receipt, None)
+    assert (tool in asyncio.run(executor.available_tools())) is expected

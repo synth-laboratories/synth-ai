@@ -2067,6 +2067,197 @@
       "title": "CloneTokenRequest",
       "type": "object"
     },
+    "EvaluationEvidenceResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "JsonValue": {},
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "data": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Data",
+          "type": "object"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        }
+      },
+      "required": [
+        "metadata",
+        "data"
+      ],
+      "title": "EvaluationEvidenceResponse",
+      "type": "object"
+    },
     "ExactReference": {
       "additionalProperties": false,
       "properties": {
@@ -3889,6 +4080,80 @@
       "title": "ForgeIndexNoticePage",
       "type": "object"
     },
+    "ImportPreview": {
+      "$defs": {
+        "Scope": {
+          "additionalProperties": false,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "bundle_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Bundle Digest Sha256",
+          "type": "string"
+        },
+        "declared_cut": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Declared Cut",
+          "type": "integer"
+        },
+        "operation_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "revision_count": {
+          "maximum": 100000,
+          "minimum": 0,
+          "title": "Revision Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "forge.transfer-preview.v1",
+          "default": "forge.transfer-preview.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "source_owner_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Source Owner Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "source_owner_id",
+        "scope",
+        "declared_cut",
+        "bundle_digest_sha256",
+        "revision_count"
+      ],
+      "title": "ImportPreview",
+      "type": "object"
+    },
     "Link": {
       "$defs": {
         "ExactReference": {
@@ -4060,6 +4325,786 @@
         "created_at"
       ],
       "title": "Link",
+      "type": "object"
+    },
+    "NativeImportReceipt": {
+      "$defs": {
+        "ActorBinding": {
+          "additionalProperties": false,
+          "properties": {
+            "attempt_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Attempt Id",
+              "type": "string"
+            },
+            "run_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Run Id",
+              "type": "string"
+            },
+            "workload_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Workload Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "workload_id",
+            "run_id",
+            "attempt_id"
+          ],
+          "title": "ActorBinding",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ProgramActorBinding": {
+          "additionalProperties": false,
+          "description": "Original program-attempt coordinates; no inferred workload identity.",
+          "properties": {
+            "actor_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Actor Id",
+              "type": "string"
+            },
+            "admission": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "attempt_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Attempt Id",
+              "type": "string"
+            },
+            "execution_actor_id": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Execution Actor Id",
+              "type": "string"
+            },
+            "execution_attempt_id": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Execution Attempt Id",
+              "type": "string"
+            },
+            "execution_project_id": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Execution Project Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Project Id",
+              "type": "string"
+            },
+            "run_id": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "project_id",
+            "execution_project_id",
+            "run_id",
+            "actor_id",
+            "attempt_id",
+            "execution_actor_id",
+            "execution_attempt_id",
+            "admission"
+          ],
+          "title": "ProgramActorBinding",
+          "type": "object"
+        },
+        "ProjectPrincipal": {
+          "additionalProperties": false,
+          "description": "Host-supplied identity, revalidated by the current credential authority.",
+          "properties": {
+            "actor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ActorBinding"
+                },
+                {
+                  "$ref": "#/$defs/ProgramActorBinding"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Actor"
+            },
+            "credential_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Credential Id",
+              "type": "string"
+            },
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "required_scope": {
+              "enum": [
+                "forge:read",
+                "forge:write"
+              ],
+              "title": "Required Scope",
+              "type": "string"
+            },
+            "subject_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Subject Id",
+              "type": "string"
+            },
+            "subject_kind": {
+              "enum": [
+                "human",
+                "service",
+                "actor"
+              ],
+              "title": "Subject Kind",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "subject_id",
+            "subject_kind",
+            "credential_id",
+            "required_scope"
+          ],
+          "title": "ProjectPrincipal",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": false,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Exact retained importer custody; its historical credential is not a grant.",
+      "properties": {
+        "authorization_context_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Authorization Context Sha256",
+          "type": "string"
+        },
+        "custody_owner_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Custody Owner Id",
+          "type": "string"
+        },
+        "destination_inventory_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Destination Inventory Sha256",
+          "type": "string"
+        },
+        "importer": {
+          "$ref": "#/$defs/ProjectPrincipal"
+        },
+        "importer_evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Importer Evidence Sha256",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "operation_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "producer_admission_renewed": {
+          "const": false,
+          "title": "Producer Admission Renewed",
+          "type": "boolean"
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "revision_count": {
+          "maximum": 100000,
+          "minimum": 0,
+          "title": "Revision Count",
+          "type": "integer"
+        },
+        "schema": {
+          "const": "forge.native-import-custody.v1",
+          "title": "Schema",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "source_cut": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Source Cut",
+          "type": "integer"
+        },
+        "source_inventory_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Inventory Sha256",
+          "type": "string"
+        },
+        "source_owner_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Source Owner Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "scope",
+        "operation_id",
+        "manifest_sha256",
+        "authorization_context_sha256",
+        "source_owner_id",
+        "source_cut",
+        "custody_owner_id",
+        "source_inventory_sha256",
+        "importer",
+        "revision_count",
+        "destination_inventory_sha256",
+        "recorded_at",
+        "producer_admission_renewed",
+        "importer_evidence_sha256"
+      ],
+      "title": "NativeImportReceipt",
+      "type": "object"
+    },
+    "NativeTransferPreviewResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ImportPreview": {
+          "additionalProperties": true,
+          "properties": {
+            "bundle_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Bundle Digest Sha256",
+              "type": "string"
+            },
+            "declared_cut": {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "Declared Cut",
+              "type": "integer"
+            },
+            "operation_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Operation Id",
+              "type": "string"
+            },
+            "revision_count": {
+              "maximum": 100000,
+              "minimum": 0,
+              "title": "Revision Count",
+              "type": "integer"
+            },
+            "schema_version": {
+              "const": "forge.transfer-preview.v1",
+              "default": "forge.transfer-preview.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "source_owner_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Source Owner Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation_id",
+            "source_owner_id",
+            "scope",
+            "declared_cut",
+            "bundle_digest_sha256",
+            "revision_count"
+          ],
+          "title": "ImportPreview",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "preview": {
+          "$ref": "#/$defs/ImportPreview"
+        }
+      },
+      "required": [
+        "metadata",
+        "preview"
+      ],
+      "title": "NativeTransferPreviewResponse",
+      "type": "object"
+    },
+    "NativeTransferReceiptResponse": {
+      "$defs": {
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "JsonValue": {},
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        },
+        "receipt": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Receipt",
+          "type": "object"
+        }
+      },
+      "required": [
+        "metadata",
+        "receipt"
+      ],
+      "title": "NativeTransferReceiptResponse",
       "type": "object"
     },
     "Page[Artifact, NewType]": {
@@ -6695,6 +7740,54 @@
         "project"
       ],
       "title": "ProjectResponse",
+      "type": "object"
+    },
+    "PublicImportRequest": {
+      "additionalProperties": false,
+      "description": "Integrity-only public selection; current principal and proof are server-owned.",
+      "properties": {
+        "bundle_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Bundle Digest Sha256",
+          "type": "string"
+        },
+        "declared_cut": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Declared Cut",
+          "type": "integer"
+        },
+        "operation_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "forge.public-transfer-import.v1",
+          "default": "forge.public-transfer-import.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_manifest_header_json": {
+          "maxLength": 16384,
+          "minLength": 2,
+          "title": "Source Manifest Header Json",
+          "type": "string"
+        },
+        "source_owner_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Source Owner Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "source_owner_id",
+        "declared_cut",
+        "bundle_digest_sha256",
+        "source_manifest_header_json"
+      ],
+      "title": "PublicImportRequest",
       "type": "object"
     },
     "PublicWriteV2": {
@@ -20541,6 +21634,36 @@
       "required_scope": "forge:write"
     },
     {
+      "id": "forge.transfers.preview",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/transfers/preview",
+      "required_scope": "forge:write"
+    },
+    {
+      "id": "forge.transfers.import",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/forge/projects/{project_id}/transfers/import",
+      "required_scope": "forge:write"
+    },
+    {
+      "id": "forge.transfers.receipt",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": false,
+      "path": "/api/v1/forge/projects/{project_id}/transfers/receipt",
+      "required_scope": "forge:write"
+    },
+    {
       "id": "forge.records.get",
       "idempotent": true,
       "keyed": true,
@@ -20768,6 +21891,46 @@
       "method": "GET",
       "mutation": false,
       "path": "/api/v1/forge/projects/{project_id}/report-reader/versions/{digest}/artifacts/{artifact_id}/content",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.evidence.capabilities",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/evaluation-evidence-capabilities",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.evidence.list",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/evaluation-evidence",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.evidence.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/evaluation-evidence/{identifier}",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.evidence.measurements",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/evaluation-evidence/{identifier}/measurements",
       "required_scope": "forge:read"
     }
   ],
