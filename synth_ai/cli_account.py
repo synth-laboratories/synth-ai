@@ -266,7 +266,7 @@ def add_account_commands(commands) -> None:
             )
             command.add_argument("--from", dest="period_start")
             command.add_argument("--to", dest="period_end")
-            command.add_argument("--product", choices=("index", "swarms", "monitor"))
+            command.add_argument("--product", choices=("index", "swarms", "monitor", "inference"))
         if name == "logs":
             command.add_argument(
                 "--limit", type=int, choices=range(1, 201), default=50, metavar="1..200"
