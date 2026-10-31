@@ -51,6 +51,7 @@ from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
 from synth_ai.sdk.mnemosyne.evidence import (
     CapabilitiesResponse,
+    ComparisonResponse,
     EvidencePage,
     MeasurementsResponse,
     ReceiptResponse,
@@ -597,6 +598,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         evidence_tools.Identity,
         MeasurementsResponse,
         evidence_tools.measurements,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_compare",
+        evidence_operations.COMPARE,
+        "Compare project evidence and retained measurements without inferring a ranking.",
+        evidence_tools.Comparison,
+        ComparisonResponse,
+        evidence_tools.compare,
     ),
     ToolDefinition(
         "account_usage_snapshot",

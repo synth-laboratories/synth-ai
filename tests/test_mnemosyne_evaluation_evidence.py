@@ -39,7 +39,7 @@ def mock_wire(*, advertise=True, changed=False, wrong_org=False):
         }
     )
     if advertise:
-        for suffix in ("capabilities", "list", "get", "measurements"):
+        for suffix in ("capabilities", "list", "get", "measurements", "compare"):
             capability["operations"].append(
                 {
                     "operation_id": f"mnemosyne.evidence.{suffix}",
@@ -77,7 +77,29 @@ def mock_wire(*, advertise=True, changed=False, wrong_org=False):
         calls.append(request)
         assert request.headers["Authorization"] == "Bearer fixture"
         path = request.url.path
-        if path.endswith("evaluation-evidence-capabilities"):
+        if path.endswith("evaluation-evidence-comparison"):
+            identifiers = request.url.params.get_list("evidence_id")
+            data = {
+                "schema_version": "synth.mnemosyne.evidence-comparison.v1",
+                "scope": {"organization_id": ORG, "project_id": "other" if changed else PROJECT},
+                "asserted_benchmark_task_match": "unknown",
+                "items": [
+                    {
+                        "evidence_id": identifier,
+                        "request_digest": "a" * 64,
+                        "source_association": {
+                            "source_kind": "rhodes",
+                            "verification": "producer_asserted",
+                        },
+                        "objects": [
+                            {"role": "report", "digest_sha256": "d" * 64, "byte_count": 17}
+                        ],
+                        "measurements": None,
+                    }
+                    for identifier in identifiers
+                ],
+            }
+        elif path.endswith("evaluation-evidence-capabilities"):
             data = {
                 "schema_version": "synth.mnemosyne.evaluation-evidence-capabilities.v1",
                 "scope": {"organization_id": ORG, "project_id": PROJECT},
@@ -292,6 +314,60 @@ def test_mcp_inputs_refuse_authority_and_validate_cursor():
 
     with pytest.raises(ValueError):
         page_query("wrong", 10)
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+def test_comparison_preserves_project_scope_and_exact_order(async_mode):
+    second = "mev_" + "f" * 64
+    transport, calls = mock_wire()
+
+    async def run():
+        async with (
+            httpx.AsyncClient(transport=transport) as network,
+            AsyncSynthClient(
+                api_key="fixture",
+                base_url="https://backend.test",
+                options=ClientOptions(async_http_client=network),
+            ) as client,
+        ):
+            tool = BY_NAME["mnemosyne_evaluation_evidence_compare"]
+            response = await tool.invoke(
+                client, {"project_id": PROJECT, "evidence_ids": [EVIDENCE, second]}
+            )
+            assert response["data"]["asserted_benchmark_task_match"] == "unknown"
+
+    if async_mode:
+        asyncio.run(run())
+    else:
+        with (
+            httpx.Client(transport=transport) as network,
+            SynthClient(
+                api_key="fixture",
+                base_url="https://backend.test",
+                options=ClientOptions(http_client=network),
+            ) as client,
+        ):
+            result = client.mnemosyne.evaluation_evidence.compare(PROJECT, [EVIDENCE, second])
+            assert [i.evidence_id for i in result.data.items] == [EVIDENCE, second]
+    assert calls[-1].url.params.get_list("evidence_id") == [EVIDENCE, second]
+    with pytest.raises(ValueError):
+        BY_NAME["mnemosyne_evaluation_evidence_compare"].validate_arguments(
+            {"project_id": PROJECT, "evidence_ids": [EVIDENCE, EVIDENCE]}
+        )
+
+
+def test_comparison_rejects_wrong_owner_scope():
+    transport, _ = mock_wire(changed=True)
+    with (
+        httpx.Client(transport=transport) as network,
+        SynthClient(
+            api_key="fixture",
+            base_url="https://backend.test",
+            options=ClientOptions(http_client=network),
+        ) as client,
+        pytest.raises(ContractError),
+    ):
+        client.mnemosyne.evaluation_evidence.compare(PROJECT, [EVIDENCE, "mev_" + "f" * 64])
 
 
 @pytest.mark.parametrize(

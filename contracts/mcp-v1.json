@@ -2122,6 +2122,565 @@
       "required_scope": "forge:read"
     },
     {
+      "description": "Compare project evidence and retained measurements without inferring a ranking.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Evidence Ids",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "evidence_ids"
+        ],
+        "title": "Comparison",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "mnemosyne_evaluation_evidence_compare",
+      "operation": "mnemosyne.evidence.compare",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ComparisonData": {
+            "additionalProperties": true,
+            "properties": {
+              "asserted_benchmark_task_match": {
+                "enum": [
+                  "same",
+                  "different",
+                  "unknown"
+                ],
+                "title": "Asserted Benchmark Task Match",
+                "type": "string"
+              },
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/ComparisonItem"
+                },
+                "maxItems": 8,
+                "minItems": 2,
+                "title": "Items",
+                "type": "array"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.evidence-comparison.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              }
+            },
+            "required": [
+              "schema_version",
+              "scope",
+              "asserted_benchmark_task_match",
+              "items"
+            ],
+            "title": "ComparisonData",
+            "type": "object"
+          },
+          "ComparisonItem": {
+            "additionalProperties": true,
+            "properties": {
+              "evidence_id": {
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "measurements": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ComparisonMeasurements"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "objects": {
+                "items": {
+                  "$ref": "#/$defs/ComparisonObject"
+                },
+                "title": "Objects",
+                "type": "array"
+              },
+              "request_digest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Request Digest",
+                "type": "string"
+              },
+              "source_association": {
+                "$ref": "#/$defs/SourceAssociation"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "request_digest",
+              "source_association",
+              "objects",
+              "measurements"
+            ],
+            "title": "ComparisonItem",
+            "type": "object"
+          },
+          "ComparisonMeasurements": {
+            "additionalProperties": true,
+            "properties": {
+              "canonical_measurements_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Canonical Measurements Sha256",
+                "type": "string"
+              },
+              "coverage": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "unknown"
+                ],
+                "title": "Coverage",
+                "type": "string"
+              },
+              "limitations": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Limitations",
+                "type": "array"
+              },
+              "recipe_version": {
+                "const": "evaluation-measurements.v1",
+                "title": "Recipe Version",
+                "type": "string"
+              },
+              "run_wall_seconds": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Run Wall Seconds"
+              },
+              "subtotals": {
+                "items": {
+                  "$ref": "#/$defs/CostSubtotal"
+                },
+                "title": "Subtotals",
+                "type": "array"
+              }
+            },
+            "required": [
+              "recipe_version",
+              "canonical_measurements_sha256",
+              "coverage",
+              "run_wall_seconds",
+              "subtotals",
+              "limitations"
+            ],
+            "title": "ComparisonMeasurements",
+            "type": "object"
+          },
+          "ComparisonObject": {
+            "additionalProperties": true,
+            "properties": {
+              "byte_count": {
+                "minimum": 0,
+                "title": "Byte Count",
+                "type": "integer"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "digest_sha256",
+              "byte_count"
+            ],
+            "title": "ComparisonObject",
+            "type": "object"
+          },
+          "CostSubtotal": {
+            "additionalProperties": true,
+            "properties": {
+              "complete": {
+                "title": "Complete",
+                "type": "boolean"
+              },
+              "component": {
+                "title": "Component",
+                "type": "string"
+              },
+              "currency": {
+                "title": "Currency",
+                "type": "string"
+              },
+              "known_amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Known Amount"
+              },
+              "known_line_count": {
+                "title": "Known Line Count",
+                "type": "integer"
+              },
+              "line_count": {
+                "title": "Line Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "currency",
+              "component",
+              "known_amount",
+              "line_count",
+              "known_line_count",
+              "complete"
+            ],
+            "title": "CostSubtotal",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "SourceAssociation": {
+            "additionalProperties": true,
+            "properties": {
+              "attempt_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Attempt Id"
+              },
+              "benchmark_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Benchmark Id"
+              },
+              "candidate_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Candidate Id"
+              },
+              "producer_run_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Producer Run Id"
+              },
+              "rollout_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Rollout Id"
+              },
+              "source_kind": {
+                "title": "Source Kind",
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Task Id"
+              },
+              "verification": {
+                "const": "producer_asserted",
+                "title": "Verification",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_kind",
+              "verification"
+            ],
+            "title": "SourceAssociation",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/ComparisonData"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "data"
+        ],
+        "title": "ComparisonResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
       "additional_required_scopes": [
         "account:usage:read"
       ],

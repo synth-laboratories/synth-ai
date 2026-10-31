@@ -146,6 +146,76 @@ class MeasurementsResponse(ResponseModel):
     data: MeasurementsData
 
 
+class ComparisonObject(Model):
+    role: str
+    digest_sha256: Digest
+    byte_count: Annotated[StrictInt, Field(ge=0)]
+
+
+class ComparisonMeasurements(Model):
+    recipe_version: Literal["evaluation-measurements.v1"]
+    canonical_measurements_sha256: Digest
+    coverage: Literal["complete", "partial", "unknown"]
+    run_wall_seconds: Decimal | None
+    subtotals: tuple[CostSubtotal, ...]
+    limitations: tuple[str, ...]
+
+
+class ComparisonItem(Model):
+    evidence_id: str
+    request_digest: Digest
+    source_association: SourceAssociation
+    objects: tuple[ComparisonObject, ...]
+    measurements: ComparisonMeasurements | None
+
+
+class ComparisonData(Model):
+    schema_version: Literal["synth.mnemosyne.evidence-comparison.v1"]
+    scope: Scope
+    asserted_benchmark_task_match: Literal["same", "different", "unknown"]
+    items: tuple[ComparisonItem, ...] = Field(min_length=2, max_length=8)
+
+
+class ComparisonResponse(ResponseModel):
+    data: ComparisonData
+
+
+def check_comparison(result, project_id, organization_id, evidence_ids):
+    data = result.data
+    associations = [item.source_association for item in data.items]
+    fields = ("source_kind", "benchmark_id", "task_id")
+    complete = all(
+        getattr(source, field) is not None for source in associations for field in fields
+    )
+    same = all(
+        all(getattr(source, field) == getattr(associations[0], field) for field in fields)
+        for source in associations[1:]
+    )
+    expected_match = "unknown" if not complete else "same" if same else "different"
+    return verified(
+        result,
+        data.scope.project_id == project_id
+        and data.scope.organization_id == organization_id
+        and tuple(item.evidence_id for item in data.items) == tuple(evidence_ids)
+        and data.asserted_benchmark_task_match == expected_match
+        and all(
+            "report" in [obj.role for obj in item.objects]
+            and len({obj.role for obj in item.objects}) == len(item.objects)
+            for item in data.items
+        ),
+        "Mnemosyne returned different comparison scope or evidence IDs",
+    )
+
+
+def comparison_query(values):
+    if isinstance(values, (str, bytes)):
+        raise ValueError("select 2 to 8 distinct evidence IDs")
+    ids = tuple(evidence_identifier(value) for value in values)
+    if not 2 <= len(ids) <= 8 or len(ids) != len(set(ids)):
+        raise ValueError("select 2 to 8 distinct evidence IDs")
+    return {"evidence_id": ids}
+
+
 def check_receipt(receipt, project_id, organization_id, evidence_id=None):
     encoded = json.dumps(
         [receipt.scope.organization_id, project_id, receipt.operation_id],
@@ -281,6 +351,21 @@ class EvaluationEvidence:
             validate=lambda r: check_measurements(r, project_id, organization_id, evidence_id),
         )
 
+    def compare(self, project_id, evidence_ids, *, request=None):
+        project_id = project_identity(project_id)
+        query = comparison_query(evidence_ids)
+        organization_id = self._organization(request)
+        return self._transport.request(
+            operations.COMPARE,
+            ComparisonResponse,
+            path=operations.COMPARE.path_for(project_id=project_id),
+            query=query,
+            options=request,
+            validate=lambda r: check_comparison(
+                r, project_id, organization_id, query["evidence_id"]
+            ),
+        )
+
 
 class AsyncEvaluationEvidence:
     def __init__(self, transport):
@@ -335,4 +420,19 @@ class AsyncEvaluationEvidence:
             path=operations.MEASUREMENTS.path_for(project_id=project_id, identifier=evidence_id),
             options=request,
             validate=lambda r: check_measurements(r, project_id, organization_id, evidence_id),
+        )
+
+    async def compare(self, project_id, evidence_ids, *, request=None):
+        project_id = project_identity(project_id)
+        query = comparison_query(evidence_ids)
+        organization_id = await self._organization(request)
+        return await self._transport.request(
+            operations.COMPARE,
+            ComparisonResponse,
+            path=operations.COMPARE.path_for(project_id=project_id),
+            query=query,
+            options=request,
+            validate=lambda r: check_comparison(
+                r, project_id, organization_id, query["evidence_id"]
+            ),
         )

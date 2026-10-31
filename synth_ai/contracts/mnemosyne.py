@@ -30,4 +30,12 @@ MEASUREMENTS = Operation(
     contract="core.v1",
     required_scope="forge:read",
 )
-ALL_OPERATIONS = (CAPABILITIES, LIST, GET, MEASUREMENTS)
+COMPARE = Operation(
+    "mnemosyne.evidence.compare",
+    "GET",
+    _PREFIX + "-comparison",
+    True,
+    contract="core.v1",
+    required_scope="forge:read",
+)
+ALL_OPERATIONS = (CAPABILITIES, LIST, GET, MEASUREMENTS, COMPARE)
