@@ -32,7 +32,7 @@ def _window(
         "period_end": period_end.isoformat(),
     }
     if product is not None:
-        if product not in {"index", "swarms", "monitor"}:
+        if product not in {"index", "swarms", "monitor", "inference"}:
             raise ValueError("Unknown usage product")
         query["product"] = product
     if actor_id is not None:

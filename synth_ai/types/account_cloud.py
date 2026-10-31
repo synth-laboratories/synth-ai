@@ -15,11 +15,18 @@ from .base import Model
 from .funding import FundingSource
 from .money import Money
 
-Product = Literal["index", "swarms", "monitor"]
+Product = Literal["index", "swarms", "monitor", "inference"]
 BalanceClass = Literal["included", "sponsored", "purchased", "unattributed"]
 EVENT_FACT_KEYS = frozenset(
     {
         "event_id",
+        "request_id",
+        "reservation_id",
+        "model_id",
+        "tariff_version",
+        "kind",
+        "charge_micros",
+        "provider_response_id",
         "search_id",
         "parent_search_id",
         "operation_id",
@@ -229,6 +236,7 @@ class AccountUsageEvent(Model):
     sequence: str = Field(pattern=r"^[0-9]{1,19}$")
     product: Product
     source: Literal[
+        "inference.execution",
         "index.usage",
         "index.execution",
         "index.settlement",
