@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import httpx
+import pydantic
 import pytest
 from synth_ai import SynthClient
 from synth_ai.contracts.fingerprint import (
@@ -23,11 +24,14 @@ pytestmark = pytest.mark.unit
 BACKEND_RETAINED_SHA = "a1a1c821c60a1c939e79c52bf017d6246b960f1f2d84feab84508fde393d2a43"
 
 
+@pytest.mark.skipif(
+    pydantic.__version__ != "2.12.5", reason="qualified exporter requires pydantic 2.12.5"
+)
 def test_observation_operations_are_generated_and_match_retained_reviewed_descriptors():
     root = Path(__file__).parents[1]
     retained = json.loads((root / "contracts/swarms-v1.json").read_text())
     live = json.loads(export_contract_json("swarms.v1"))
-    assert retained["operations"] == live["operations"]
+    assert retained == live
     operations = {op["id"]: op for op in retained["operations"]}
     for operation, method, path, mutation in (
         (
