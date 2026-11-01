@@ -21,7 +21,10 @@ pytestmark = pytest.mark.contract
 # SYN-5019 adds the optional SearchSnapshot creation timestamp.
 # SYN-5220 (PR #592) adds ContentRef and Contribution.content_refs; e5caec17 moved
 # fingerprints.json to this value but left the test pin at 503e43c8... (stale).
-INDEX_V1_SCHEMA_SHA256 = "75563ddda18894c5cf10c18d3ce20a828a779772288c7f08b2007db7050b0f93"
+# PR #596 widened AccountEntitlements (inference product and subproducts, tokens
+# dimension, minute window, 13 subproducts) but left the Index identity at 75563ddd...
+# SYN-5351 adopts that intentional change; the backend mirrors it atomically.
+INDEX_V1_SCHEMA_SHA256 = "728161599799b93eb2fc6e0f1b58e2ed5b6d9370afdcea062c70af4ce28f4ef3"
 
 
 def test_index_v1_fingerprint_matches_the_candidate_export():

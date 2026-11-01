@@ -83,7 +83,8 @@
               "enum": [
                 "index",
                 "swarms",
-                "monitor"
+                "monitor",
+                "inference"
               ],
               "title": "Product",
               "type": "string"
@@ -108,6 +109,8 @@
             },
             "subproduct": {
               "enum": [
+                "inference.glm-5.3-flash",
+                "inference.deepseek-v4.1-flash-1017",
                 "index.fast",
                 "index.deep",
                 "index.private",
@@ -206,7 +209,8 @@
               "enum": [
                 "requests",
                 "concurrent",
-                "spend_cents"
+                "spend_cents",
+                "tokens"
               ],
               "title": "Dimension",
               "type": "string"
@@ -249,7 +253,8 @@
             "product": {
               "enum": [
                 "index",
-                "swarms"
+                "swarms",
+                "inference"
               ],
               "title": "Product",
               "type": "string"
@@ -334,7 +339,8 @@
                 "token_bucket",
                 "concurrent",
                 "day",
-                "month"
+                "month",
+                "minute"
               ],
               "title": "Window",
               "type": "string"
@@ -604,7 +610,7 @@
           "items": {
             "$ref": "#/$defs/AccountEntitlement"
           },
-          "maxItems": 11,
+          "maxItems": 13,
           "minItems": 10,
           "title": "Subproducts",
           "type": "array"
