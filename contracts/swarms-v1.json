@@ -4699,7 +4699,8 @@
                 "openrouter.inference",
                 "index.search",
                 "rhodes.pool",
-                "forge.research"
+                "forge.research",
+                "mnemosyne.trace"
               ],
               "title": "Plugin",
               "type": "string"
@@ -4761,6 +4762,9 @@
                   "$ref": "#/$defs/ProjectSelection"
                 },
                 {
+                  "$ref": "#/$defs/TraceSelection"
+                },
+                {
                   "type": "null"
                 }
               ],
@@ -4781,6 +4785,68 @@
             "limits"
           ],
           "title": "ResourceRequest",
+          "type": "object"
+        },
+        "TraceSelection": {
+          "additionalProperties": false,
+          "description": "Project and role operation limits; availability is determined by the backend.",
+          "properties": {
+            "operations": {
+              "items": {
+                "enum": [
+                  "read",
+                  "retain",
+                  "compare"
+                ],
+                "type": "string"
+              },
+              "maxItems": 3,
+              "minItems": 1,
+              "title": "Operations",
+              "type": "array"
+            },
+            "project_ids": {
+              "items": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "title": "Project Ids",
+              "type": "array"
+            },
+            "role_operations": {
+              "additionalProperties": {
+                "items": {
+                  "enum": [
+                    "read",
+                    "retain",
+                    "compare"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "maxProperties": 4,
+              "minProperties": 1,
+              "propertyNames": {
+                "enum": [
+                  "planner",
+                  "worker",
+                  "reviewer",
+                  "run_assessor"
+                ]
+              },
+              "title": "Role Operations",
+              "type": "object"
+            }
+          },
+          "required": [
+            "project_ids",
+            "operations",
+            "role_operations"
+          ],
+          "title": "TraceSelection",
           "type": "object"
         }
       },
@@ -4938,7 +5004,7 @@
           "items": {
             "$ref": "#/$defs/ResourceRequest"
           },
-          "maxItems": 4,
+          "maxItems": 5,
           "title": "Resources",
           "type": "array"
         }

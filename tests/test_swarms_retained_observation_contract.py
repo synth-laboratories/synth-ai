@@ -12,13 +12,15 @@ from synth_ai.contracts.fingerprint import (
     schema_sha256,
 )
 from synth_ai.options import ClientOptions, MutationOptions
+from synth_ai.sdk.swarms.types.resources import ResourceRequest
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
 from tests.artifact_fixtures import snapshot_body
 from tests.http_fixtures import capabilities_body
+from tests.test_resource_mnemosyne_trace import PROJECT, declaration
 from tests.test_swarms_rate_limits import LIMITS
 
 pytestmark = pytest.mark.unit
-BACKEND_RETAINED_SHA = "076b4d6b77783a3017c9fd2b460eb4d33d550af1eb638afbfc8902a34f236ae9"
+BACKEND_RETAINED_SHA = "a1a1c821c60a1c939e79c52bf017d6246b960f1f2d84feab84508fde393d2a43"
 
 
 def test_observation_operations_are_generated_and_match_retained_reviewed_descriptors():
@@ -88,7 +90,7 @@ def test_strict_launch_negotiates_reviewed_backend_identity():
                 "X-Synth-Capabilities-SHA256": receipt["capability_sha256"],
                 "X-Synth-Release-Manifest-SHA256": receipt["release"]["manifest_sha256"],
             },
-            json=snapshot_body(state="queued", result_available=False),
+            json={**snapshot_body(state="queued", result_available=False), "project_id": PROJECT},
         )
 
     with (
@@ -101,10 +103,12 @@ def test_strict_launch_negotiates_reviewed_backend_identity():
     ):
         run = client.swarms.create(
             message="m",
-            project_id="project-test",
+            project_id=PROJECT,
             limits=LIMITS,
+            resources=(ResourceRequest.model_validate_json(json.dumps(declaration())),),
             mutation=MutationOptions(idempotency_key="strict-launch"),
         )
     assert run.run_id == "run-1"
     assert [r.url.path for r in requests] == ["/api/v1/capabilities", "/api/v1/swarms/runs"]
     assert requests[-1].headers["X-Synth-Schema-SHA256"] == BACKEND_RETAINED_SHA
+    assert json.loads(requests[-1].content)["resources"][0]["plugin"] == "mnemosyne.trace"
