@@ -74,6 +74,7 @@ from synth_ai.types.response_values import response_schema
 from .core import ALL_OPERATIONS
 from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .mnemosyne import ALL_OPERATIONS as MNEMOSYNE_OPERATIONS
+from .mnemosyne_native import ALL_OPERATIONS as MNEMOSYNE_NATIVE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
@@ -182,7 +183,12 @@ def export_contract() -> str:
                         "may_charge": op.may_charge,
                         "idempotent": op.idempotent,
                     }
-                    for op in (*ALL_OPERATIONS, *FORGE_OPERATIONS, *MNEMOSYNE_OPERATIONS)
+                    for op in (
+                        *ALL_OPERATIONS,
+                        *FORGE_OPERATIONS,
+                        *MNEMOSYNE_OPERATIONS,
+                        *MNEMOSYNE_NATIVE_OPERATIONS,
+                    )
                 ],
             },
             sort_keys=True,

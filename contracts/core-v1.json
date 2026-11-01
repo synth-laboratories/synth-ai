@@ -21942,6 +21942,36 @@
       "mutation": false,
       "path": "/api/v1/mnemosyne/projects/{project_id}/evaluation-evidence-comparison",
       "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.native_traces.list",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/native-traces",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.native_traces.get",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/native-traces/{identifier}",
+      "required_scope": "forge:read"
+    },
+    {
+      "id": "mnemosyne.native_traces.content",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "GET",
+      "mutation": false,
+      "path": "/api/v1/mnemosyne/projects/{project_id}/native-traces/{identifier}/content",
+      "required_scope": "forge:read"
     }
   ],
   "repository_identity": "repo_ plus SHA-256 of the UTF-8 internal immutable repo identity; internal registry IDs are not public Ref IDs",
