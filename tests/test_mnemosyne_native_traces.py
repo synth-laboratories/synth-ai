@@ -46,9 +46,13 @@ def fixture(corruption=None, advertise=True):
                 }
             )
     capability["operations"].sort(key=lambda x: x["operation_id"])
-    snap = {k: v for k, v in capability.items() if k not in {"metadata", "capability_sha256"}}
-    capability["capability_sha256"] = headers["X-Synth-Capabilities-SHA256"] = snapshot_sha256(
-        CapabilitySnapshot.model_validate_json(json.dumps(snap))
+    snap = {
+        k: v
+        for k, v in capability.items()
+        if k not in {"metadata", "capability_sha256"}
+    }
+    capability["capability_sha256"] = headers["X-Synth-Capabilities-SHA256"] = (
+        snapshot_sha256(CapabilitySnapshot.model_validate_json(json.dumps(snap)))
     )
     item = {
         "association_id": IDENTIFIER,
@@ -66,7 +70,9 @@ def fixture(corruption=None, advertise=True):
     def respond(request):
         path = request.url.path
         if path == "/api/v1/capabilities":
-            return httpx.Response(200, headers={"X-Synth-Contract": "index.v1"}, json=capability)
+            return httpx.Response(
+                200, headers={"X-Synth-Contract": "index.v1"}, json=capability
+            )
         if path == "/api/v1/auth/context":
             return httpx.Response(
                 200,
@@ -101,7 +107,9 @@ def fixture(corruption=None, advertise=True):
                 if corruption == name:
                     result_headers[key] = "wrong"
             payload = BODY + (b"wrong" if corruption == "body" else b"")
-            return httpx.Response(200, headers=result_headers, stream=httpx.ByteStream(payload))
+            return httpx.Response(
+                200, headers=result_headers, stream=httpx.ByteStream(payload)
+            )
         if path.endswith("/native-traces"):
             data = {
                 "schema_version": "synth.mnemosyne.native-trace-page.v1",
@@ -121,7 +129,10 @@ def fixture(corruption=None, advertise=True):
         return httpx.Response(
             200,
             headers=headers,
-            json={"metadata": {**capability["metadata"], "contract": "core.v1"}, "data": data},
+            json={
+                "metadata": {**capability["metadata"], "contract": "core.v1"},
+                "data": data,
+            },
         )
 
     return httpx.MockTransport(respond), calls
@@ -142,7 +153,9 @@ def test_native_trace_list_get_and_verified_download(async_mode):
         ):
             native = client.mnemosyne.native_traces
             assert (await native.list(PROJECT)).data.items[0].run_id is None
-            assert (await native.get(PROJECT, IDENTIFIER)).data.association_id == IDENTIFIER
+            assert (
+                await native.get(PROJECT, IDENTIFIER)
+            ).data.association_id == IDENTIFIER
             assert await native.download(PROJECT, IDENTIFIER) == BODY
 
     if async_mode:
@@ -163,7 +176,9 @@ def test_native_trace_list_get_and_verified_download(async_mode):
     assert calls[-1].endswith("/content")
 
 
-@pytest.mark.parametrize("corruption", ["metadata", "org", "project", "id", "digest", "body"])
+@pytest.mark.parametrize(
+    "corruption", ["metadata", "org", "project", "id", "digest", "body"]
+)
 def test_download_refuses_misbound_or_changed_content(corruption):
     transport, _ = fixture(corruption)
     with (
@@ -191,3 +206,22 @@ def test_missing_capability_refuses_before_owner_call():
     ):
         client.mnemosyne.native_traces.list(PROJECT)
     assert calls == []
+
+
+def test_program_source_requires_actual_run_identity():
+    from synth_ai.sdk.mnemosyne.native_traces import NativeTraceItem
+    from pydantic import ValidationError
+
+    value = {
+        "association_id": IDENTIFIER,
+        "source_kind": "swarm_program",
+        "rollout_id": "rollout_1",
+        "execution_epoch": "epoch_1",
+        "run_id": "00000000-0000-0000-0000-000000000001",
+        "created_at": "2026-10-31T00:00:00Z",
+        "archive_sha256": "a" * 64,
+        "archive_size_bytes": 1,
+    }
+    assert NativeTraceItem.model_validate_json(json.dumps(value)).source_kind == "swarm_program"
+    with pytest.raises(ValidationError):
+        NativeTraceItem.model_validate_json(json.dumps(value | {"run_id": None}))

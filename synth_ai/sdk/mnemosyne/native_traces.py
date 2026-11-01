@@ -33,7 +33,7 @@ _ID = re.compile(r"^mna_[0-9a-f]{64}$")
 
 class NativeTraceItem(Model):
     association_id: str = Field(pattern=r"^mna_[0-9a-f]{64}$")
-    source_kind: Literal["swarm_aa1", "configured_customer"]
+    source_kind: Literal["swarm_aa1", "configured_customer", "swarm_program"]
     rollout_id: str = Field(min_length=1, max_length=128)
     execution_epoch: str = Field(min_length=1, max_length=128)
     run_id: str | None = Field(
@@ -45,7 +45,7 @@ class NativeTraceItem(Model):
 
     @model_validator(mode="after")
     def actual_source(self):
-        if self.source_kind == "swarm_aa1" and self.run_id is None:
+        if self.source_kind in {"swarm_aa1", "swarm_program"} and self.run_id is None:
             raise ValueError("Swarm source requires its original run")
         return self
 
@@ -79,7 +79,10 @@ def native_identifier(value):
 def _query(after, limit):
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
-    return {"limit": limit, **({"after": native_identifier(after)} if after is not None else {})}
+    return {
+        "limit": limit,
+        **({"after": native_identifier(after)} if after is not None else {}),
+    }
 
 
 def _scope(scope, project_id, organization_id):
@@ -142,7 +145,8 @@ def _headers(response, item):
         raise ContractError("Native trace delivery has an unexpected media type")
     length = response.headers.get("Content-Length")
     if length is not None and (
-        re.fullmatch(r"[0-9]{1,20}", length) is None or int(length) != item.archive_size_bytes
+        re.fullmatch(r"[0-9]{1,20}", length) is None
+        or int(length) != item.archive_size_bytes
     ):
         raise ContractError("Native trace delivery changed its size")
 
@@ -164,9 +168,9 @@ def _remaining(deadline):
 
 
 def _deadline(transport, request):
-    timeout = getattr(request, "timeout_seconds", None) or transport._options.request_timeout(
-        operations.CONTENT.id
-    )
+    timeout = getattr(
+        request, "timeout_seconds", None
+    ) or transport._options.request_timeout(operations.CONTENT.id)
     return time.monotonic() + timeout
 
 
@@ -175,7 +179,9 @@ class NativeTraces:
         self._transport = transport
 
     def _organization(self, request):
-        return self._transport.request(AUTH_CONTEXT, AuthContext, options=request).tenant_id
+        return self._transport.request(
+            AUTH_CONTEXT, AuthContext, options=request
+        ).tenant_id
 
     def list(self, project_id, *, after=None, limit=50, request=None):
         project_id = project_identity(project_id)
@@ -191,12 +197,17 @@ class NativeTraces:
         )
 
     def get(self, project_id, association_id, *, request=None):
-        project_id, association_id = project_identity(project_id), native_identifier(association_id)
+        project_id, association_id = (
+            project_identity(project_id),
+            native_identifier(association_id),
+        )
         organization = self._organization(request)
         return self._transport.request(
             operations.GET,
             NativeTraceResponse,
-            path=operations.GET.path_for(project_id=project_id, identifier=association_id),
+            path=operations.GET.path_for(
+                project_id=project_id, identifier=association_id
+            ),
             options=request,
             validate=lambda r: _record(r, project_id, organization, association_id),
         )
@@ -242,7 +253,9 @@ class NativeTraces:
                 try:
                     self._transport._release_response(response)
                 except Exception as cause:
-                    handle_cleanup_failure(cause, primary, mutation=False, identity=None)
+                    handle_cleanup_failure(
+                        cause, primary, mutation=False, identity=None
+                    )
 
 
 class AsyncNativeTraces:
@@ -250,7 +263,9 @@ class AsyncNativeTraces:
         self._transport = transport
 
     async def _organization(self, request):
-        return (await self._transport.request(AUTH_CONTEXT, AuthContext, options=request)).tenant_id
+        return (
+            await self._transport.request(AUTH_CONTEXT, AuthContext, options=request)
+        ).tenant_id
 
     async def list(self, project_id, *, after=None, limit=50, request=None):
         project_id = project_identity(project_id)
@@ -266,12 +281,17 @@ class AsyncNativeTraces:
         )
 
     async def get(self, project_id, association_id, *, request=None):
-        project_id, association_id = project_identity(project_id), native_identifier(association_id)
+        project_id, association_id = (
+            project_identity(project_id),
+            native_identifier(association_id),
+        )
         organization = await self._organization(request)
         return await self._transport.request(
             operations.GET,
             NativeTraceResponse,
-            path=operations.GET.path_for(project_id=project_id, identifier=association_id),
+            path=operations.GET.path_for(
+                project_id=project_id, identifier=association_id
+            ),
             options=request,
             validate=lambda r: _record(r, project_id, organization, association_id),
         )
@@ -295,11 +315,15 @@ class AsyncNativeTraces:
                 )
                 _headers(response, item)
                 data = bytearray()
-                bound = item.archive_size_bytes if response.status_code == 200 else 65536
+                bound = (
+                    item.archive_size_bytes if response.status_code == 200 else 65536
+                )
                 async for chunk in response.aiter_raw(65536):
                     _remaining(deadline)
                     if len(data) + len(chunk) > bound:
-                        raise ContractError("Native trace response exceeded its byte bound")
+                        raise ContractError(
+                            "Native trace response exceeded its byte bound"
+                        )
                     data.extend(chunk)
                 if response.status_code != 200:
                     error_response(response, bytes(data), operations.CONTENT)
@@ -318,4 +342,6 @@ class AsyncNativeTraces:
                 try:
                     await self._transport._release_response(response)
                 except (Exception, asyncio.CancelledError) as cause:
-                    handle_cleanup_failure(cause, primary, mutation=False, identity=None)
+                    handle_cleanup_failure(
+                        cause, primary, mutation=False, identity=None
+                    )
