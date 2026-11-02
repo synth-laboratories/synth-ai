@@ -6,8 +6,6 @@
 These contracts deliberately carry logical identities only. Storage provider
 locators and credentials are server-side implementation details and are never
 valid contract fields.
-
-See: notes/specifications/tanha/current/systems/platform/artifact_platform.md
 """
 
 from __future__ import annotations

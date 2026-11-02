@@ -22,6 +22,7 @@ from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.forge.client import AsyncForgeClient, ForgeClient
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
 from synth_ai.sdk.menagerie.client import AsyncMenagerieClient, MenagerieClient
+from synth_ai.sdk.mnemosyne import AsyncMnemosyneClient, MnemosyneClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
 from synth_ai.types.auth import AuthContext
@@ -78,6 +79,7 @@ class SynthClient:
     links: Links
     artifacts: Artifacts
     forge: ForgeClient
+    mnemosyne: MnemosyneClient
 
     def __init__(
         self,
@@ -103,6 +105,7 @@ class SynthClient:
         self.links = Links(self._transport)
         self.artifacts = Artifacts(self._transport)
         self.forge = ForgeClient(self._transport)
+        self.mnemosyne = MnemosyneClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -127,6 +130,7 @@ class SynthClient:
         client.links = Links(client._transport)
         client.artifacts = Artifacts(client._transport)
         client.forge = ForgeClient(client._transport)
+        client.mnemosyne = MnemosyneClient(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -206,6 +210,7 @@ class AsyncSynthClient:
     links: AsyncLinks
     artifacts: AsyncArtifacts
     forge: AsyncForgeClient
+    mnemosyne: AsyncMnemosyneClient
 
     def __init__(
         self,
@@ -227,6 +232,7 @@ class AsyncSynthClient:
         self.links = AsyncLinks(self._transport)
         self.artifacts = AsyncArtifacts(self._transport)
         self.forge = AsyncForgeClient(self._transport)
+        self.mnemosyne = AsyncMnemosyneClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -247,6 +253,7 @@ class AsyncSynthClient:
         client.links = AsyncLinks(client._transport)
         client.artifacts = AsyncArtifacts(client._transport)
         client.forge = AsyncForgeClient(client._transport)
+        client.mnemosyne = AsyncMnemosyneClient(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:

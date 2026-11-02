@@ -3,6 +3,2684 @@
   "status": "sdk_first_pending_backend_and_protocol_qualification",
   "tools": [
     {
+      "description": "Check current project evidence read and publish availability.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "Project",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "mnemosyne_evaluation_evidence_capabilities",
+      "operation": "mnemosyne.evidence.capabilities",
+      "output_schema": {
+        "$defs": {
+          "CapabilitiesData": {
+            "additionalProperties": true,
+            "properties": {
+              "can_publish": {
+                "title": "Can Publish",
+                "type": "boolean"
+              },
+              "can_read": {
+                "title": "Can Read",
+                "type": "boolean"
+              },
+              "intake": {
+                "enum": [
+                  "available",
+                  "unavailable"
+                ],
+                "title": "Intake",
+                "type": "string"
+              },
+              "request_schema_version": {
+                "const": "synth.mnemosyne.evaluation-evidence-request.v1",
+                "title": "Request Schema Version",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.evaluation-evidence-capabilities.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              }
+            },
+            "required": [
+              "schema_version",
+              "intake",
+              "can_read",
+              "can_publish",
+              "request_schema_version",
+              "scope"
+            ],
+            "title": "CapabilitiesData",
+            "type": "object"
+          },
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/CapabilitiesData"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "data"
+        ],
+        "title": "CapabilitiesResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "description": "List project evaluation evidence under current Artifact access.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "After"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "Page",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "mnemosyne_evaluation_evidence_list",
+      "operation": "mnemosyne.evidence.list",
+      "output_schema": {
+        "$defs": {
+          "ArtifactDeliveryBinding": {
+            "additionalProperties": true,
+            "properties": {
+              "logical_path": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "title": "Logical Path",
+                "type": "string"
+              },
+              "publication_id": {
+                "format": "uuid",
+                "title": "Publication Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publication_id",
+              "logical_path"
+            ],
+            "title": "ArtifactDeliveryBinding",
+            "type": "object"
+          },
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "EvidenceLocator": {
+            "additionalProperties": true,
+            "properties": {
+              "delivery": {
+                "$ref": "#/$defs/ArtifactDeliveryBinding"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "manifest": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "media_type": {
+                "title": "Media Type",
+                "type": "string"
+              },
+              "object": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "result": {
+                "const": "present",
+                "title": "Result",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.evidence.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "size_bytes": {
+                "minimum": 0,
+                "title": "Size Bytes",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "schema_version",
+              "result",
+              "scope",
+              "digest_sha256",
+              "size_bytes",
+              "media_type",
+              "manifest",
+              "object",
+              "delivery"
+            ],
+            "title": "EvidenceLocator",
+            "type": "object"
+          },
+          "EvidenceObject": {
+            "additionalProperties": true,
+            "properties": {
+              "locator": {
+                "$ref": "#/$defs/EvidenceLocator"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "locator"
+            ],
+            "title": "EvidenceObject",
+            "type": "object"
+          },
+          "EvidencePageData": {
+            "additionalProperties": true,
+            "properties": {
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/Receipt"
+                },
+                "maxItems": 100,
+                "title": "Items",
+                "type": "array"
+              },
+              "next_cursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Next Cursor"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.evaluation-evidence-page.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              }
+            },
+            "required": [
+              "schema_version",
+              "scope",
+              "items",
+              "next_cursor"
+            ],
+            "title": "EvidencePageData",
+            "type": "object"
+          },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "Receipt": {
+            "additionalProperties": true,
+            "properties": {
+              "custody": {
+                "const": "artifact_reference",
+                "title": "Custody",
+                "type": "string"
+              },
+              "evidence_id": {
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "imported_by": {
+                "title": "Imported By",
+                "type": "string"
+              },
+              "objects": {
+                "items": {
+                  "$ref": "#/$defs/EvidenceObject"
+                },
+                "title": "Objects",
+                "type": "array"
+              },
+              "operation_id": {
+                "title": "Operation Id",
+                "type": "string"
+              },
+              "replayed": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Replayed"
+              },
+              "request_digest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Request Digest",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.evaluation-evidence-receipt.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "source_association": {
+                "$ref": "#/$defs/SourceAssociation"
+              }
+            },
+            "required": [
+              "schema_version",
+              "evidence_id",
+              "scope",
+              "operation_id",
+              "request_digest",
+              "source_association",
+              "objects",
+              "imported_by",
+              "custody"
+            ],
+            "title": "Receipt",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "SourceAssociation": {
+            "additionalProperties": true,
+            "properties": {
+              "attempt_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Attempt Id"
+              },
+              "benchmark_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Benchmark Id"
+              },
+              "candidate_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Candidate Id"
+              },
+              "producer_run_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Producer Run Id"
+              },
+              "rollout_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Rollout Id"
+              },
+              "source_kind": {
+                "title": "Source Kind",
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Task Id"
+              },
+              "verification": {
+                "const": "producer_asserted",
+                "title": "Verification",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_kind",
+              "verification"
+            ],
+            "title": "SourceAssociation",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/EvidencePageData"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "data"
+        ],
+        "title": "EvidencePage",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "description": "Read a project evidence receipt; producer associations are not verified foreign keys.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "evidence_id"
+        ],
+        "title": "Identity",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "mnemosyne_evaluation_evidence_get",
+      "operation": "mnemosyne.evidence.get",
+      "output_schema": {
+        "$defs": {
+          "ArtifactDeliveryBinding": {
+            "additionalProperties": true,
+            "properties": {
+              "logical_path": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "title": "Logical Path",
+                "type": "string"
+              },
+              "publication_id": {
+                "format": "uuid",
+                "title": "Publication Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publication_id",
+              "logical_path"
+            ],
+            "title": "ArtifactDeliveryBinding",
+            "type": "object"
+          },
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "EvidenceLocator": {
+            "additionalProperties": true,
+            "properties": {
+              "delivery": {
+                "$ref": "#/$defs/ArtifactDeliveryBinding"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "manifest": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "media_type": {
+                "title": "Media Type",
+                "type": "string"
+              },
+              "object": {
+                "$ref": "#/$defs/ExactReference"
+              },
+              "result": {
+                "const": "present",
+                "title": "Result",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.forge.evidence.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "size_bytes": {
+                "minimum": 0,
+                "title": "Size Bytes",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "schema_version",
+              "result",
+              "scope",
+              "digest_sha256",
+              "size_bytes",
+              "media_type",
+              "manifest",
+              "object",
+              "delivery"
+            ],
+            "title": "EvidenceLocator",
+            "type": "object"
+          },
+          "EvidenceObject": {
+            "additionalProperties": true,
+            "properties": {
+              "locator": {
+                "$ref": "#/$defs/EvidenceLocator"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "locator"
+            ],
+            "title": "EvidenceObject",
+            "type": "object"
+          },
+          "ExactReference": {
+            "additionalProperties": true,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "record_id": {
+                      "pattern": "^intern-exec:"
+                    }
+                  },
+                  "required": [
+                    "record_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "authority": {
+                      "const": "mloky"
+                    },
+                    "kind": {
+                      "const": "mloky_execution"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "authority": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Authority",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "kind": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Kind",
+                "type": "string"
+              },
+              "record_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+                "title": "Record Id",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Revision",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authority",
+              "kind",
+              "record_id",
+              "revision",
+              "digest_sha256"
+            ],
+            "title": "ExactReference",
+            "type": "object"
+          },
+          "Receipt": {
+            "additionalProperties": true,
+            "properties": {
+              "custody": {
+                "const": "artifact_reference",
+                "title": "Custody",
+                "type": "string"
+              },
+              "evidence_id": {
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "imported_by": {
+                "title": "Imported By",
+                "type": "string"
+              },
+              "objects": {
+                "items": {
+                  "$ref": "#/$defs/EvidenceObject"
+                },
+                "title": "Objects",
+                "type": "array"
+              },
+              "operation_id": {
+                "title": "Operation Id",
+                "type": "string"
+              },
+              "replayed": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Replayed"
+              },
+              "request_digest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Request Digest",
+                "type": "string"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.evaluation-evidence-receipt.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "source_association": {
+                "$ref": "#/$defs/SourceAssociation"
+              }
+            },
+            "required": [
+              "schema_version",
+              "evidence_id",
+              "scope",
+              "operation_id",
+              "request_digest",
+              "source_association",
+              "objects",
+              "imported_by",
+              "custody"
+            ],
+            "title": "Receipt",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "SourceAssociation": {
+            "additionalProperties": true,
+            "properties": {
+              "attempt_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Attempt Id"
+              },
+              "benchmark_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Benchmark Id"
+              },
+              "candidate_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Candidate Id"
+              },
+              "producer_run_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Producer Run Id"
+              },
+              "rollout_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Rollout Id"
+              },
+              "source_kind": {
+                "title": "Source Kind",
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Task Id"
+              },
+              "verification": {
+                "const": "producer_asserted",
+                "title": "Verification",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_kind",
+              "verification"
+            ],
+            "title": "SourceAssociation",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/Receipt"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "data"
+        ],
+        "title": "ReceiptResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "description": "Recompute retained evaluation measurements under current Artifact access.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "evidence_id"
+        ],
+        "title": "Identity",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "mnemosyne_evaluation_evidence_measurements",
+      "operation": "mnemosyne.evidence.measurements",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ComputedCost": {
+            "additionalProperties": true,
+            "properties": {
+              "accounting_role": {
+                "enum": [
+                  "charge",
+                  "reference"
+                ],
+                "title": "Accounting Role",
+                "type": "string"
+              },
+              "component": {
+                "title": "Component",
+                "type": "string"
+              },
+              "coverage": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "unknown"
+                ],
+                "title": "Coverage",
+                "type": "string"
+              },
+              "currency": {
+                "title": "Currency",
+                "type": "string"
+              },
+              "implied_amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Implied Amount"
+              },
+              "record_id": {
+                "title": "Record Id",
+                "type": "string"
+              },
+              "reported_amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Reported Amount"
+              },
+              "reported_basis": {
+                "title": "Reported Basis",
+                "type": "string"
+              },
+              "resource_id": {
+                "title": "Resource Id",
+                "type": "string"
+              },
+              "selected_amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Selected Amount"
+              },
+              "selected_basis": {
+                "enum": [
+                  "provider_reported",
+                  "settled",
+                  "estimated",
+                  "rate_derived",
+                  "unknown"
+                ],
+                "title": "Selected Basis",
+                "type": "string"
+              }
+            },
+            "required": [
+              "record_id",
+              "resource_id",
+              "component",
+              "currency",
+              "reported_amount",
+              "reported_basis",
+              "implied_amount",
+              "selected_amount",
+              "selected_basis",
+              "coverage",
+              "accounting_role"
+            ],
+            "title": "ComputedCost",
+            "type": "object"
+          },
+          "ComputedSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "basis": {
+                "title": "Basis",
+                "type": "string"
+              },
+              "elapsed_seconds": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Elapsed Seconds"
+              },
+              "phase": {
+                "title": "Phase",
+                "type": "string"
+              },
+              "resource_id": {
+                "title": "Resource Id",
+                "type": "string"
+              },
+              "span_id": {
+                "title": "Span Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "span_id",
+              "resource_id",
+              "phase",
+              "elapsed_seconds",
+              "basis"
+            ],
+            "title": "ComputedSpan",
+            "type": "object"
+          },
+          "CostSubtotal": {
+            "additionalProperties": true,
+            "properties": {
+              "complete": {
+                "title": "Complete",
+                "type": "boolean"
+              },
+              "component": {
+                "title": "Component",
+                "type": "string"
+              },
+              "currency": {
+                "title": "Currency",
+                "type": "string"
+              },
+              "known_amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Known Amount"
+              },
+              "known_line_count": {
+                "title": "Known Line Count",
+                "type": "integer"
+              },
+              "line_count": {
+                "title": "Line Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "currency",
+              "component",
+              "known_amount",
+              "line_count",
+              "known_line_count",
+              "complete"
+            ],
+            "title": "CostSubtotal",
+            "type": "object"
+          },
+          "MeasurementSummary": {
+            "additionalProperties": true,
+            "properties": {
+              "attempt_id": {
+                "title": "Attempt Id",
+                "type": "string"
+              },
+              "canonical_measurements_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Canonical Measurements Sha256",
+                "type": "string"
+              },
+              "costs": {
+                "items": {
+                  "$ref": "#/$defs/ComputedCost"
+                },
+                "title": "Costs",
+                "type": "array"
+              },
+              "coverage": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "unknown"
+                ],
+                "title": "Coverage",
+                "type": "string"
+              },
+              "limitations": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Limitations",
+                "type": "array"
+              },
+              "producer_run_id": {
+                "title": "Producer Run Id",
+                "type": "string"
+              },
+              "recipe_version": {
+                "const": "evaluation-measurements.v1",
+                "title": "Recipe Version",
+                "type": "string"
+              },
+              "run_wall_seconds": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Run Wall Seconds"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.measurement-summary.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "spans": {
+                "items": {
+                  "$ref": "#/$defs/ComputedSpan"
+                },
+                "title": "Spans",
+                "type": "array"
+              },
+              "subtotals": {
+                "items": {
+                  "$ref": "#/$defs/CostSubtotal"
+                },
+                "title": "Subtotals",
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "recipe_version",
+              "canonical_measurements_sha256",
+              "producer_run_id",
+              "attempt_id",
+              "coverage",
+              "costs",
+              "subtotals",
+              "spans",
+              "run_wall_seconds",
+              "limitations"
+            ],
+            "title": "MeasurementSummary",
+            "type": "object"
+          },
+          "MeasurementsData": {
+            "additionalProperties": true,
+            "properties": {
+              "evidence_id": {
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "request_digest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Request Digest",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              },
+              "source_association": {
+                "$ref": "#/$defs/SourceAssociation"
+              },
+              "summary": {
+                "$ref": "#/$defs/MeasurementSummary"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "request_digest",
+              "scope",
+              "source_association",
+              "summary"
+            ],
+            "title": "MeasurementsData",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "SourceAssociation": {
+            "additionalProperties": true,
+            "properties": {
+              "attempt_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Attempt Id"
+              },
+              "benchmark_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Benchmark Id"
+              },
+              "candidate_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Candidate Id"
+              },
+              "producer_run_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Producer Run Id"
+              },
+              "rollout_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Rollout Id"
+              },
+              "source_kind": {
+                "title": "Source Kind",
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Task Id"
+              },
+              "verification": {
+                "const": "producer_asserted",
+                "title": "Verification",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_kind",
+              "verification"
+            ],
+            "title": "SourceAssociation",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/MeasurementsData"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "data"
+        ],
+        "title": "MeasurementsResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
+      "description": "Compare project evidence and retained measurements without inferring a ranking.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Evidence Ids",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "project_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "evidence_ids"
+        ],
+        "title": "Comparison",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "mnemosyne_evaluation_evidence_compare",
+      "operation": "mnemosyne.evidence.compare",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ComparisonData": {
+            "additionalProperties": true,
+            "properties": {
+              "asserted_benchmark_task_match": {
+                "enum": [
+                  "same",
+                  "different",
+                  "unknown"
+                ],
+                "title": "Asserted Benchmark Task Match",
+                "type": "string"
+              },
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/ComparisonItem"
+                },
+                "maxItems": 8,
+                "minItems": 2,
+                "title": "Items",
+                "type": "array"
+              },
+              "schema_version": {
+                "const": "synth.mnemosyne.evidence-comparison.v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "scope": {
+                "$ref": "#/$defs/Scope"
+              }
+            },
+            "required": [
+              "schema_version",
+              "scope",
+              "asserted_benchmark_task_match",
+              "items"
+            ],
+            "title": "ComparisonData",
+            "type": "object"
+          },
+          "ComparisonItem": {
+            "additionalProperties": true,
+            "properties": {
+              "evidence_id": {
+                "title": "Evidence Id",
+                "type": "string"
+              },
+              "measurements": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ComparisonMeasurements"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "objects": {
+                "items": {
+                  "$ref": "#/$defs/ComparisonObject"
+                },
+                "title": "Objects",
+                "type": "array"
+              },
+              "request_digest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Request Digest",
+                "type": "string"
+              },
+              "source_association": {
+                "$ref": "#/$defs/SourceAssociation"
+              }
+            },
+            "required": [
+              "evidence_id",
+              "request_digest",
+              "source_association",
+              "objects",
+              "measurements"
+            ],
+            "title": "ComparisonItem",
+            "type": "object"
+          },
+          "ComparisonMeasurements": {
+            "additionalProperties": true,
+            "properties": {
+              "canonical_measurements_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Canonical Measurements Sha256",
+                "type": "string"
+              },
+              "coverage": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "unknown"
+                ],
+                "title": "Coverage",
+                "type": "string"
+              },
+              "limitations": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Limitations",
+                "type": "array"
+              },
+              "recipe_version": {
+                "const": "evaluation-measurements.v1",
+                "title": "Recipe Version",
+                "type": "string"
+              },
+              "run_wall_seconds": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Run Wall Seconds"
+              },
+              "subtotals": {
+                "items": {
+                  "$ref": "#/$defs/CostSubtotal"
+                },
+                "title": "Subtotals",
+                "type": "array"
+              }
+            },
+            "required": [
+              "recipe_version",
+              "canonical_measurements_sha256",
+              "coverage",
+              "run_wall_seconds",
+              "subtotals",
+              "limitations"
+            ],
+            "title": "ComparisonMeasurements",
+            "type": "object"
+          },
+          "ComparisonObject": {
+            "additionalProperties": true,
+            "properties": {
+              "byte_count": {
+                "minimum": 0,
+                "title": "Byte Count",
+                "type": "integer"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "role": {
+                "title": "Role",
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "digest_sha256",
+              "byte_count"
+            ],
+            "title": "ComparisonObject",
+            "type": "object"
+          },
+          "CostSubtotal": {
+            "additionalProperties": true,
+            "properties": {
+              "complete": {
+                "title": "Complete",
+                "type": "boolean"
+              },
+              "component": {
+                "title": "Component",
+                "type": "string"
+              },
+              "currency": {
+                "title": "Currency",
+                "type": "string"
+              },
+              "known_amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Known Amount"
+              },
+              "known_line_count": {
+                "title": "Known Line Count",
+                "type": "integer"
+              },
+              "line_count": {
+                "title": "Line Count",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "currency",
+              "component",
+              "known_amount",
+              "line_count",
+              "known_line_count",
+              "complete"
+            ],
+            "title": "CostSubtotal",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "Scope": {
+            "additionalProperties": true,
+            "properties": {
+              "organization_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Organization Id",
+                "type": "string"
+              },
+              "project_id": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                "title": "Project Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "organization_id",
+              "project_id"
+            ],
+            "title": "Scope",
+            "type": "object"
+          },
+          "SourceAssociation": {
+            "additionalProperties": true,
+            "properties": {
+              "attempt_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Attempt Id"
+              },
+              "benchmark_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Benchmark Id"
+              },
+              "candidate_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Candidate Id"
+              },
+              "producer_run_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Producer Run Id"
+              },
+              "rollout_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Rollout Id"
+              },
+              "source_kind": {
+                "title": "Source Kind",
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Task Id"
+              },
+              "verification": {
+                "const": "producer_asserted",
+                "title": "Verification",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_kind",
+              "verification"
+            ],
+            "title": "SourceAssociation",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/ComparisonData"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          }
+        },
+        "required": [
+          "metadata",
+          "data"
+        ],
+        "title": "ComparisonResponse",
+        "type": "object"
+      },
+      "required_scope": "forge:read"
+    },
+    {
       "additional_required_scopes": [
         "account:usage:read"
       ],
@@ -164,7 +2842,8 @@
                 "enum": [
                   "index",
                   "swarms",
-                  "monitor"
+                  "monitor",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -466,7 +3145,8 @@
                 "enum": [
                   "index",
                   "swarms",
-                  "monitor"
+                  "monitor",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -632,7 +3312,8 @@
                 "enum": [
                   "index",
                   "swarms",
-                  "monitor"
+                  "monitor",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -689,7 +3370,8 @@
                 "enum": [
                   "index",
                   "swarms",
-                  "monitor"
+                  "monitor",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -812,7 +3494,8 @@
                 "enum": [
                   "index",
                   "swarms",
-                  "monitor"
+                  "monitor",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -1352,6 +4035,42 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
           "ContributionAnnotations": {
             "additionalProperties": true,
             "properties": {
@@ -1745,6 +4464,15 @@
               }
             ],
             "default": null
+          },
+          "content_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ContentRef"
+            },
+            "maxItems": 1024,
+            "title": "Content Refs",
+            "type": "array"
           },
           "contents_readable": {
             "title": "Contents Readable",
@@ -22814,7 +25542,8 @@
                 "enum": [
                   "index",
                   "swarms",
-                  "monitor"
+                  "monitor",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -22839,6 +25568,8 @@
               },
               "subproduct": {
                 "enum": [
+                  "inference.glm-5.3-flash",
+                  "inference.deepseek-v4.1-flash-1017",
                   "index.fast",
                   "index.deep",
                   "index.private",
@@ -22937,7 +25668,8 @@
                 "enum": [
                   "requests",
                   "concurrent",
-                  "spend_cents"
+                  "spend_cents",
+                  "tokens"
                 ],
                 "title": "Dimension",
                 "type": "string"
@@ -22980,7 +25712,8 @@
               "product": {
                 "enum": [
                   "index",
-                  "swarms"
+                  "swarms",
+                  "inference"
                 ],
                 "title": "Product",
                 "type": "string"
@@ -23065,7 +25798,8 @@
                   "token_bucket",
                   "concurrent",
                   "day",
-                  "month"
+                  "month",
+                  "minute"
                 ],
                 "title": "Window",
                 "type": "string"
@@ -23335,7 +26069,7 @@
             "items": {
               "$ref": "#/$defs/AccountEntitlement"
             },
-            "maxItems": 11,
+            "maxItems": 13,
             "minItems": 10,
             "title": "Subproducts",
             "type": "array"
@@ -30841,6 +33575,42 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
           "Contribution": {
             "additionalProperties": true,
             "properties": {
@@ -30854,6 +33624,15 @@
                   }
                 ],
                 "default": null
+              },
+              "content_refs": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/ContentRef"
+                },
+                "maxItems": 1024,
+                "title": "Content Refs",
+                "type": "array"
               },
               "contents_readable": {
                 "title": "Contents Readable",
@@ -31432,6 +34211,42 @@
             "title": "ClientTiming",
             "type": "object"
           },
+          "ContentRef": {
+            "additionalProperties": true,
+            "properties": {
+              "asset_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Asset Id",
+                "type": "string"
+              },
+              "contribution_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Contribution Id",
+                "type": "string"
+              },
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "Digest Sha256",
+                "type": "string"
+              },
+              "revision_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Revision Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contribution_id",
+              "revision_id",
+              "asset_id",
+              "digest_sha256"
+            ],
+            "title": "ContentRef",
+            "type": "object"
+          },
           "ContributionAnnotations": {
             "additionalProperties": true,
             "properties": {
@@ -31825,6 +34640,15 @@
               }
             ],
             "default": null
+          },
+          "content_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/ContentRef"
+            },
+            "maxItems": 1024,
+            "title": "Content Refs",
+            "type": "array"
           },
           "contents_readable": {
             "title": "Contents Readable",
@@ -38236,7 +41060,8 @@
                   "openrouter.inference",
                   "index.search",
                   "rhodes.pool",
-                  "forge.research"
+                  "forge.research",
+                  "mnemosyne.trace"
                 ],
                 "title": "Plugin",
                 "type": "string"
@@ -38298,6 +41123,9 @@
                     "$ref": "#/$defs/ProjectSelection"
                   },
                   {
+                    "$ref": "#/$defs/TraceSelection"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
@@ -38318,6 +41146,68 @@
               "limits"
             ],
             "title": "ResourceRequest",
+            "type": "object"
+          },
+          "TraceSelection": {
+            "additionalProperties": false,
+            "description": "Project and role operation limits; availability is determined by the backend.",
+            "properties": {
+              "operations": {
+                "items": {
+                  "enum": [
+                    "read",
+                    "retain",
+                    "compare"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 3,
+                "minItems": 1,
+                "title": "Operations",
+                "type": "array"
+              },
+              "project_ids": {
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "maxItems": 1,
+                "minItems": 1,
+                "title": "Project Ids",
+                "type": "array"
+              },
+              "role_operations": {
+                "additionalProperties": {
+                  "items": {
+                    "enum": [
+                      "read",
+                      "retain",
+                      "compare"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "maxProperties": 4,
+                "minProperties": 1,
+                "propertyNames": {
+                  "enum": [
+                    "planner",
+                    "worker",
+                    "reviewer",
+                    "run_assessor"
+                  ]
+                },
+                "title": "Role Operations",
+                "type": "object"
+              }
+            },
+            "required": [
+              "project_ids",
+              "operations",
+              "role_operations"
+            ],
+            "title": "TraceSelection",
             "type": "object"
           }
         },
@@ -38475,7 +41365,7 @@
             "items": {
               "$ref": "#/$defs/ResourceRequest"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Resources",
             "type": "array"
           }
@@ -40254,7 +43144,8 @@
                   "openrouter.inference",
                   "index.search",
                   "rhodes.pool",
-                  "forge.research"
+                  "forge.research",
+                  "mnemosyne.trace"
                 ],
                 "title": "Plugin",
                 "type": "string"
@@ -40316,6 +43207,9 @@
                     "$ref": "#/$defs/ProjectSelection"
                   },
                   {
+                    "$ref": "#/$defs/TraceSelection"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
@@ -40336,6 +43230,68 @@
               "limits"
             ],
             "title": "ResourceRequest",
+            "type": "object"
+          },
+          "TraceSelection": {
+            "additionalProperties": false,
+            "description": "Project and role operation limits; availability is determined by the backend.",
+            "properties": {
+              "operations": {
+                "items": {
+                  "enum": [
+                    "read",
+                    "retain",
+                    "compare"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 3,
+                "minItems": 1,
+                "title": "Operations",
+                "type": "array"
+              },
+              "project_ids": {
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "maxItems": 1,
+                "minItems": 1,
+                "title": "Project Ids",
+                "type": "array"
+              },
+              "role_operations": {
+                "additionalProperties": {
+                  "items": {
+                    "enum": [
+                      "read",
+                      "retain",
+                      "compare"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "maxProperties": 4,
+                "minProperties": 1,
+                "propertyNames": {
+                  "enum": [
+                    "planner",
+                    "worker",
+                    "reviewer",
+                    "run_assessor"
+                  ]
+                },
+                "title": "Role Operations",
+                "type": "object"
+              }
+            },
+            "required": [
+              "project_ids",
+              "operations",
+              "role_operations"
+            ],
+            "title": "TraceSelection",
             "type": "object"
           }
         },
@@ -40500,7 +43456,7 @@
             "items": {
               "$ref": "#/$defs/ResourceRequest"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Resources",
             "type": "array"
           }

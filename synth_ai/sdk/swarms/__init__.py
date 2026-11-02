@@ -49,7 +49,13 @@ from .types.programs import (
     ResearchBinding,
     ResearchMethodChoice,
 )
-from .types.resources import ResourceGrant, ResourceGrantSet, ResourceRequest, ResourceUsage
+from .types.resources import (
+    ResourceGrant,
+    ResourceGrantSet,
+    ResourceRequest,
+    ResourceUsage,
+    TraceSelection,
+)
 from .types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -149,4 +155,4 @@ __all__ += [
 from .create_retry import LaunchRetryExhausted  # noqa: E402
 
 __all__ += ["LaunchRetryExhausted"]
-__all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage"]
+__all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage", "TraceSelection"]

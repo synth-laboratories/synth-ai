@@ -56,6 +56,7 @@ from synth_ai.sdk.core.types import (
     RepositoryRef,
     RepositorySnapshot,
 )
+from synth_ai.sdk.mnemosyne.contracts import EvaluationEvidenceResponse
 from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
 from synth_ai.types.response_values import response_schema
@@ -71,8 +72,11 @@ from synth_ai.sdk.forge.contracts.workspace_transfer import (
 from .core import ALL_OPERATIONS
 from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
+from .mnemosyne import ALL_OPERATIONS as MNEMOSYNE_OPERATIONS
+from .mnemosyne_native import ALL_OPERATIONS as MNEMOSYNE_NATIVE_OPERATIONS
 
 MODELS = (
+    EvaluationEvidenceResponse,
     PublicImportRequest,
     ImportPreview,
     NativeImportReceipt,
@@ -177,7 +181,12 @@ def export_contract() -> str:
                         "may_charge": op.may_charge,
                         "idempotent": op.idempotent,
                     }
-                    for op in (*ALL_OPERATIONS, *FORGE_OPERATIONS)
+                    for op in (
+                        *ALL_OPERATIONS,
+                        *FORGE_OPERATIONS,
+                        *MNEMOSYNE_OPERATIONS,
+                        *MNEMOSYNE_NATIVE_OPERATIONS,
+                    )
                 ],
             },
             sort_keys=True,
