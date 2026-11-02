@@ -261,6 +261,32 @@ REPORT_OPERATIONS = (
     *REPORT_READER_OPERATIONS,
 )
 
+TRANSFER_PREVIEW = Operation(
+    "forge.transfers.preview",
+    "POST",
+    "/forge/projects/{project_id}/transfers/preview",
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+TRANSFER_IMPORT = Operation(
+    "forge.transfers.import",
+    "POST",
+    "/forge/projects/{project_id}/transfers/import",
+    True,
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+TRANSFER_RECEIPT = Operation(
+    "forge.transfers.receipt",
+    "POST",
+    "/forge/projects/{project_id}/transfers/receipt",
+    True,
+    contract="core.v1",
+    required_scope="forge:write",
+)
+TRANSFER_OPERATIONS = (TRANSFER_PREVIEW, TRANSFER_IMPORT, TRANSFER_RECEIPT)
 PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)
 SCIENCE_OPERATIONS = (
     RECORD_GET,
@@ -272,6 +298,7 @@ SCIENCE_OPERATIONS = (
 )
 ALL_OPERATIONS = (
     *PROJECT_OPERATIONS,
+    *TRANSFER_OPERATIONS,
     *SCIENCE_OPERATIONS,
     *INDEX_DRAFT_OPERATIONS,
     *INDEX_DRAFT_UPLOAD_OPERATIONS,

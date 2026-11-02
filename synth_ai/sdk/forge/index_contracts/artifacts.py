@@ -7,7 +7,7 @@ These contracts deliberately carry logical identities only. Storage provider
 locators and credentials are server-side implementation details and are never
 valid contract fields.
 
-See: contracts/core-v1.json
+See: notes/specifications/tanha/current/systems/platform/artifact_platform.md
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ class ArtifactAuthorizationReason(StrEnum):
 class ArtifactPrincipal(ArtifactContract):
     """Normalized identity and capabilities presented to artifact policy."""
 
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     authentication_kind: ArtifactAuthenticationKind
@@ -190,7 +190,7 @@ class ArtifactPrincipal(ArtifactContract):
 class ArtifactResourceScope(ArtifactContract):
     """Stored tenancy and product-owner identity used for every decision."""
 
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     tenant_kind: ArtifactTenantKind
@@ -206,13 +206,14 @@ class ArtifactResourceScope(ArtifactContract):
             raise ValueError("org tenant requires org_id")
         if self.tenant_kind == ArtifactTenantKind.PLATFORM and self.org_id is not None:
             raise ValueError("platform tenant forbids org_id")
-        if self.visibility == ArtifactVisibility.ORG and self.tenant_kind != ArtifactTenantKind.ORG:
-            raise ValueError("org visibility requires an org tenant")
+        if self.visibility == ArtifactVisibility.ORG:
+            if self.tenant_kind != ArtifactTenantKind.ORG:
+                raise ValueError("org visibility requires an org tenant")
         return self
 
 
 class ArtifactCollectionCreate(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     collection_id: ArtifactUuid
@@ -220,7 +221,7 @@ class ArtifactCollectionCreate(ArtifactContract):
 
 
 class ArtifactCollectionResponse(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     collection_id: ArtifactUuid
@@ -259,7 +260,7 @@ class ArtifactObjectDeclaration(ArtifactContract):
 
 
 class ArtifactPublicationPrepare(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     publication_id: ArtifactUuid
@@ -316,7 +317,7 @@ class ArtifactUploadTarget(ArtifactContract):
 
 
 class ArtifactPublicationPrepareResponse(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     publication_id: ArtifactUuid
@@ -327,14 +328,14 @@ class ArtifactPublicationPrepareResponse(ArtifactContract):
 
 
 class ArtifactPublicationFinalize(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     publication_id: ArtifactUuid
 
 
 class ArtifactPublicationResponse(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     publication_id: ArtifactUuid
@@ -347,7 +348,7 @@ class ArtifactPublicationResponse(ArtifactContract):
 class ArtifactManifest(ArtifactContract):
     """Canonical, sorted, self-digested immutable publication manifest."""
 
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     manifest_schema_version: ArtifactIdentifier
@@ -370,7 +371,7 @@ class ArtifactManifest(ArtifactContract):
 class ArtifactAccessReceiptCreate(ArtifactContract):
     """Safe audit evidence for one authorized logical artifact read."""
 
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     publication_id: ArtifactUuid
@@ -414,7 +415,7 @@ class ArtifactPublicationReceiptDetails(ArtifactContract):
 class ArtifactPublicationReceiptCreate(ArtifactContract):
     """One truthful lifecycle receipt to append in the transition transaction."""
 
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     publication_id: ArtifactUuid
@@ -558,7 +559,7 @@ class ArtifactAccessGrant(ArtifactContract):
 
 
 class ArtifactAuthorizationRequest(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     principal: ArtifactPrincipal
@@ -571,7 +572,7 @@ class ArtifactAuthorizationRequest(ArtifactContract):
 
 
 class ArtifactAuthorizationDecision(ArtifactContract):
-    schema_version: Literal["synth.artifact-platform.v1"] = (
+    schema_version: Literal[ARTIFACT_CONTRACT_SCHEMA_VERSION] = (
         ARTIFACT_CONTRACT_SCHEMA_VERSION
     )
     outcome: ArtifactAuthorizationOutcome

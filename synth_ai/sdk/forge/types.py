@@ -6,16 +6,29 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime, Field, JsonValue, field_validator
 
 from synth_ai.types.base import ResponseModel
 from .contracts.contracts import Contract, Digest, Identifier, Scope
 from .contracts.operations import Event, Receipt
 from .contracts.operations_v2 import ScientificRevision
 from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
-from .contracts.report_lineages import ReportLineage, ReportVersionAvailability
-from .contracts.report_manifests import CitationStatus, ManifestSource, MissingEvidence, ReportVersion, ReportVersionLink
+from .contracts.report_lineages import (
+    ReportLineage,
+    ReportVersionAvailability,
+)
+from .contracts.report_manifests import (
+    CitationStatus,
+    ManifestSource,
+    MissingEvidence,
+    ReportVersion,
+    ReportVersionLink,
+)
 from .contracts.workspace_artifacts import WorkspaceArtifactView
+from .contracts.workspace_transfer import (
+    ImportPreview,
+    NativeImportReceipt,
+)
 
 
 class ProjectResponse(ResponseModel):
@@ -488,3 +501,18 @@ class ReportVersionAvailabilityResponse(ResponseModel):
     """Per-artifact availability of one version as the caller sees it now."""
 
     availability: ReportVersionAvailability
+
+
+class NativeTransferPreviewResponse(ResponseModel):
+    preview: ImportPreview
+
+
+class NativeTransferReceiptResponse(ResponseModel):
+    # Keep accepted original receipt JSON unchanged (including optional absence).
+    receipt: dict[str, JsonValue]
+
+    @field_validator("receipt")
+    @classmethod
+    def validate_original_receipt(cls, value):
+        NativeImportReceipt.model_validate(value)
+        return value

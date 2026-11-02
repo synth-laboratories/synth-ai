@@ -16,26 +16,9 @@ from synth_ai.sdk.core.artifact_types import (
     ArtifactUploadRequest,
     ArtifactUploadStatus,
 )
-from synth_ai.sdk.core.types import (
-    CloneToken,
-    CloneTokenRequest,
-    RepositoryCommit,
-    RepositoryDiff,
-    RepositoryRef,
-    RepositorySnapshot,
-)
-from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
-from synth_ai.sdk.forge.contracts.projects import ProjectOperation
-from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
-from synth_ai.sdk.forge.index_types import (
-    ForgeIndexDraftNoticesResponse,
-    ForgeIndexDraftRequest,
-    ForgeIndexDraftResponse,
-    ForgeIndexDraftUploadRequest,
-    ForgeIndexDraftUploadResponse,
-    ForgeIndexNoticePage,
-)
 from synth_ai.sdk.forge.types import (
+    NativeTransferPreviewResponse,
+    NativeTransferReceiptResponse,
     ProjectListResponse,
     ProjectMutationResponse,
     ProjectResponse,
@@ -57,15 +40,44 @@ from synth_ai.sdk.forge.types import (
     ScientificReceiptResponse,
     ScientificRecordResponse,
 )
+from synth_ai.sdk.forge.index_types import (
+    ForgeIndexDraftNoticesResponse,
+    ForgeIndexDraftRequest,
+    ForgeIndexDraftResponse,
+    ForgeIndexDraftUploadRequest,
+    ForgeIndexDraftUploadResponse,
+    ForgeIndexNoticePage,
+)
+from synth_ai.sdk.core.types import (
+    CloneToken,
+    CloneTokenRequest,
+    RepositoryCommit,
+    RepositoryDiff,
+    RepositoryRef,
+    RepositorySnapshot,
+)
 from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
 from synth_ai.types.response_values import response_schema
+from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
+from synth_ai.sdk.forge.contracts.projects import ProjectOperation
+from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
+from synth_ai.sdk.forge.contracts.workspace_transfer import (
+    ImportPreview,
+    NativeImportReceipt,
+    PublicImportRequest,
+)
 
 from .core import ALL_OPERATIONS
 from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
 
 MODELS = (
+    PublicImportRequest,
+    ImportPreview,
+    NativeImportReceipt,
+    NativeTransferPreviewResponse,
+    NativeTransferReceiptResponse,
     ForgeIndexDraftNoticesResponse,
     ForgeIndexNoticePage,
     ForgeIndexDraftRequest,
