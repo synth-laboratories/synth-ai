@@ -1,0 +1,316 @@
+# Generated from Forge producer source; see scripts/export_capture_contracts.py.
+"""Per-attempt capture integrity, independent of scientific/scorer/rerun claims.
+
+See docs/capture.md. Large bytes stay with Artifact Platform or Mnemosyne.
+An executor inventory is an exact external observation, never an author claim
+that a final sandbox snapshot happened to contain everything executed.
+"""
+
+from typing import Annotated, Literal
+
+from pydantic import AwareDatetime, Field, model_validator
+
+from .artifact_declaration import ArtifactObjectDeclaration
+from .contracts import Contract, Digest, ExactReference, Identifier, Scope, Text
+from .projects import ActorBinding
+
+CaptureRole = Literal[
+    "source",
+    "generated_source",
+    "dependencies",
+    "environment",
+    "input_data",
+    "protocol",
+    "evaluator",
+    "analysis",
+    "configuration",
+    "raw_output",
+    "log",
+    "usage",
+]
+
+
+class CaptureProfile(Contract):
+    schema_version: Literal["forge.capture-profile.v1"] = "forge.capture-profile.v1"
+    profile_id: Identifier
+    revision: Identifier
+    required_roles: Annotated[
+        tuple[CaptureRole, ...], Field(min_length=1, max_length=12)
+    ]
+    required_trace_kinds: Annotated[
+        tuple[Literal["trace", "reward", "annotation"], ...], Field(max_length=3)
+    ] = ()
+    maximum_objects: Annotated[int, Field(strict=True, ge=1, le=100000)]
+    maximum_total_bytes: Annotated[int, Field(strict=True, ge=1, le=2**63 - 1)]
+
+    @model_validator(mode="after")
+    def unique_requirements(self):
+        if len(set(self.required_roles)) != len(self.required_roles) or len(
+            set(self.required_trace_kinds)
+        ) != len(self.required_trace_kinds):
+            raise ValueError("duplicate capture requirement")
+        return self
+
+
+class CaptureObject(Contract):
+    object_id: Identifier
+    role: CaptureRole
+    # The declaration binds the bytes inside this exact committed manifest.
+    manifest: ExactReference
+    object: ArtifactObjectDeclaration
+
+    @model_validator(mode="after")
+    def artifact_custody(self):
+        if self.manifest.authority != "artifact-platform":
+            raise ValueError("capture files retain Artifact Platform custody")
+        return self
+
+
+class CaptureTrace(Contract):
+    trace_id: Identifier
+    kind: Literal["trace", "reward", "annotation"]
+    # The semantic category above is Forge-owned; this reference stays opaque.
+    reference: ExactReference
+    body_digest_sha256: Digest
+    size_bytes: Annotated[int, Field(strict=True, ge=0, le=2**63 - 1)]
+
+    @model_validator(mode="after")
+    def trace_custody(self):
+        if self.reference.authority != "mnemosyne":
+            raise ValueError("capture traces require the unified Mnemosyne owner")
+        return self
+
+
+class CaptureInventory(Contract):
+    """Forge's scientific projection of a verified per-attempt owner observation.
+
+    Configuration includes sanitized commands, seeds, model/hardware selection
+    and credential references; the actual bytes are captured as declared files.
+    Required content that the executor could not observe is an explicit gap.
+    """
+
+    schema_version: Literal["forge.capture-inventory.v1"] = "forge.capture-inventory.v1"
+    scope: Scope
+    trial: ExactReference
+    execution: ExactReference
+    # Opaque producer-owned observation; do not mirror an executor's DTO here.
+    execution_inventory: ExactReference
+    attempt: ActorBinding
+    profile: ExactReference
+    observed_at: AwareDatetime
+    objects: Annotated[tuple[CaptureObject, ...], Field(max_length=100000)]
+    traces: Annotated[tuple[CaptureTrace, ...], Field(max_length=100000)] = ()
+    gaps: Annotated[tuple[Text, ...], Field(max_length=256)] = ()
+    limitations: Annotated[tuple[Text, ...], Field(max_length=256)] = ()
+
+    @model_validator(mode="after")
+    def exact_identity(self):
+        if (self.trial.authority, self.trial.kind) != ("forge", "trial"):
+            raise ValueError("capture requires an exact scientific trial")
+        if self.execution.authority not in {"orchestra", "rhodes", "mloky"}:
+            raise ValueError("capture execution belongs to an execution owner")
+        if self.execution_inventory.authority != self.execution.authority:
+            raise ValueError("capture inventory observation belongs to the executor")
+        if (self.profile.authority, self.profile.kind) != ("forge", "capture_profile"):
+            raise ValueError("capture profile must be versioned by Forge")
+        for values in (
+            tuple(item.object_id for item in self.objects),
+            tuple((item.manifest, item.object.logical_path) for item in self.objects),
+            tuple(item.trace_id for item in self.traces),
+            tuple(item.reference for item in self.traces),
+        ):
+            if len(values) != len(set(values)):
+                raise ValueError("duplicate capture inventory identity")
+        return self
+
+
+class CaptureGap(Contract):
+    item_id: Identifier
+    code: Literal[
+        "executor_gap",
+        "required_role_missing",
+        "required_trace_missing",
+        "not_committed",
+        "not_protected",
+        "unavailable",
+        "corrupt",
+    ]
+
+
+class CaptureVerification(Contract):
+    schema_version: Literal["forge.capture-verification.v1"] = (
+        "forge.capture-verification.v1"
+    )
+    inventory: ExactReference
+    inventory_digest_sha256: Digest
+    verified_object_ids: tuple[Identifier, ...]
+    verified_trace_ids: tuple[Identifier, ...]
+    verified_bytes: Annotated[int, Field(strict=True, ge=0)]
+    retention: tuple[ExactReference, ...]
+    status: Literal["complete", "incomplete"]
+    gaps: tuple[CaptureGap, ...]
+
+    @model_validator(mode="after")
+    def integrity_only(self):
+        if (self.status == "incomplete") != bool(self.gaps):
+            raise ValueError("incomplete capture requires gaps")
+        return self
+
+
+# -- Pre-execution admission, reproduction and observed rerun (SYN-4846) -----
+
+CaptureAdmissionRefusal = Literal[
+    "profile_bounds_exceeded",
+    "input_access_denied",
+    "input_unavailable",
+    "storage_capacity_insufficient",
+    "trace_capacity_insufficient",
+    "trace_custody_unavailable",
+    "retention_unprotected",
+    "retention_bound_to_sandbox",
+    "retention_expired",
+]
+
+
+class CaptureAdmissionInput(Contract):
+    """A declared input. Retained immutable inputs are reused, never copied."""
+
+    reference: ExactReference
+    size_bytes: Annotated[int, Field(strict=True, ge=0, le=2**63 - 1)]
+    retained: bool
+
+
+class CaptureAdmissionRequest(Contract):
+    schema_version: Literal["forge.capture-admission-request.v1"] = (
+        "forge.capture-admission-request.v1"
+    )
+    scope: Scope
+    trial: ExactReference
+    profile: ExactReference
+    inputs: Annotated[tuple[CaptureAdmissionInput, ...], Field(max_length=100000)]
+    expected_objects: Annotated[int, Field(strict=True, ge=0, le=100000)]
+    expected_output_bytes: Annotated[int, Field(strict=True, ge=0, le=2**63 - 1)]
+    expected_trace_bytes: Annotated[int, Field(strict=True, ge=0, le=2**63 - 1)]
+    retain_until: AwareDatetime
+    # Execution cleanup time; capture retention must outlive it independently.
+    sandbox_expires_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def exact_identity(self):
+        if (self.trial.authority, self.trial.kind) != ("forge", "trial"):
+            raise ValueError("capture admission requires an exact scientific trial")
+        if (self.profile.authority, self.profile.kind) != ("forge", "capture_profile"):
+            raise ValueError("capture admission requires a Forge capture profile")
+        references = tuple(item.reference for item in self.inputs)
+        if len(references) != len(set(references)):
+            raise ValueError("duplicate capture admission input")
+        return self
+
+
+class CaptureAdmission(Contract):
+    """Owner reservations held before execution; not a capture result."""
+
+    schema_version: Literal["forge.capture-admission.v1"] = "forge.capture-admission.v1"
+    # Logical admission reserves Forge's bounded planned-byte budget. Actual
+    # custody remains unproven until every object has an active owner hold.
+    capacity_guarantee: Literal["owner_reserved", "logical_budget"] = "owner_reserved"
+    retention_status: Literal["owner_protected", "planned"] = "owner_protected"
+    request_digest_sha256: Digest
+    input_grants: tuple[ExactReference, ...]
+    reused_inputs: tuple[ExactReference, ...]
+    storage_reservation: ExactReference
+    admitted_storage_bytes: Annotated[int, Field(strict=True, ge=0)]
+    trace_reservation: ExactReference | None
+    admitted_trace_bytes: Annotated[int, Field(strict=True, ge=0)]
+    retention: ExactReference
+    retain_until: AwareDatetime
+
+    @model_validator(mode="after")
+    def owner_custody(self):
+        if self.capacity_guarantee == "logical_budget":
+            if (self.storage_reservation.authority, self.storage_reservation.kind) != (
+                "forge", "capture_budget_reservation"
+            ):
+                raise ValueError("logical capacity requires a Forge budget reservation")
+            if self.retention_status != "planned" or (
+                self.retention.authority, self.retention.kind
+            ) != ("forge", "capture_retention_plan"):
+                raise ValueError("logical admission must declare planned retention")
+            if self.trace_reservation is not None and (
+                self.trace_reservation.authority, self.trace_reservation.kind
+            ) != ("forge", "capture_budget_reservation"):
+                raise ValueError("logical traces require a Forge budget reservation")
+            if (self.trace_reservation is None) != (self.admitted_trace_bytes == 0):
+                raise ValueError("trace bytes require a reservation")
+            return self
+        if self.retention_status != "owner_protected":
+            raise ValueError("owner capacity requires owner retention")
+        if self.storage_reservation.authority != "artifact-platform":
+            raise ValueError("capture storage is reserved with Artifact Platform")
+        if self.retention.authority != "artifact-platform":
+            raise ValueError("capture retention is held by Artifact Platform")
+        if self.trace_reservation is not None and (
+            self.trace_reservation.authority != "mnemosyne"
+        ):
+            raise ValueError("trace capacity is reserved with Mnemosyne")
+        if (self.trace_reservation is None) != (self.admitted_trace_bytes == 0):
+            raise ValueError("trace bytes require a Mnemosyne reservation")
+        return self
+
+
+class RerunTolerance(Contract):
+    """Declared comparison; stochastic reruns never claim bit-identical results."""
+
+    metric: Identifier
+    absolute: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    stochastic: bool
+
+
+class ReproductionPackage(Contract):
+    """Runnable reproduce entrypoint pinned to a complete, verified capture."""
+
+    schema_version: Literal["forge.reproduction-package.v1"] = (
+        "forge.reproduction-package.v1"
+    )
+    scope: Scope
+    trial: ExactReference
+    execution: ExactReference
+    inventory: ExactReference
+    verification_digest_sha256: Digest
+    profile: ExactReference
+    entrypoint: Annotated[tuple[Text, ...], Field(min_length=1, max_length=256)]
+    configuration_object_ids: Annotated[
+        tuple[Identifier, ...], Field(min_length=1, max_length=1024)
+    ]
+    original_value: Annotated[float, Field(allow_inf_nan=False)]
+    tolerance: RerunTolerance
+    limitations: Annotated[tuple[Text, ...], Field(max_length=512)] = ()
+
+
+class ObservedRerun(Contract):
+    """A new, linked, attributed trial; the original evidence is never rewritten."""
+
+    schema_version: Literal["forge.observed-rerun.v1"] = "forge.observed-rerun.v1"
+    package_digest_sha256: Digest
+    original_trial: ExactReference
+    original_execution: ExactReference
+    rerun_trial: ExactReference
+    rerun_execution: ExactReference
+    attempt: ActorBinding
+    retrieval: CaptureVerification
+    rerun_value: Annotated[float, Field(allow_inf_nan=False)]
+    tolerance: RerunTolerance
+    outcome: Literal["within_tolerance", "outside_tolerance"]
+    limitations: Annotated[tuple[Text, ...], Field(max_length=512)]
+
+    @model_validator(mode="after")
+    def distinct_trial(self):
+        if self.rerun_trial == self.original_trial or (
+            self.rerun_execution == self.original_execution
+        ):
+            raise ValueError("a rerun is a distinct trial and execution")
+        if (self.rerun_trial.authority, self.rerun_trial.kind) != ("forge", "trial"):
+            raise ValueError("a rerun is an exact scientific trial")
+        if self.retrieval.status != "complete":
+            raise ValueError("a rerun requires complete post-cleanup retrieval")
+        return self

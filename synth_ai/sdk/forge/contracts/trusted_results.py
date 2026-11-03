@@ -1,0 +1,172 @@
+# Generated from Forge producer source; see scripts/export_capture_contracts.py.
+"""Trusted scorer/evaluator receipts and actor/service write authority. SYN-4832.
+
+A ``Result`` is an author claim (``verification="unverified"``) unless a
+trusted scorer service issued an exact, digest-bound receipt that agrees with
+it. The receipt's owner is unified Mnemosyne (rewards/scorer associations);
+Forge keeps the scientific interpretation and never stores scores itself.
+
+Write authority is a closed code constant: which producer authority may author
+which Forge record kinds. A valid service bearer or admission never widens it.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Literal
+
+from pydantic import AwareDatetime, Field
+
+from .contracts import Contract, Digest, ExactReference, ForgeError, Identifier, Scope
+from .records import Measurement
+
+SCORER_RECEIPT_SCHEMA = "forge.scorer-receipt.v1"
+SCORER_RECEIPT_AUTHORITY = "mnemosyne"
+SCORER_RECEIPT_KIND = "scorer_receipt"
+MAX_SCORER_RECEIPT_BYTES = 4 * 1024 * 1024
+
+
+class ScorerIdentity(Contract):
+    """A service identity, never a human or an admitted actor."""
+
+    authority: Identifier
+    subject_id: Identifier
+
+
+class ScorerReceipt(Contract):
+    """What a trusted scorer observed: exact inputs, raw evidence and values."""
+
+    schema_version: Literal["forge.scorer-receipt.v1"] = SCORER_RECEIPT_SCHEMA
+    scope: Scope
+    scorer: ScorerIdentity
+    evaluator: ExactReference
+    trial: ExactReference
+    outcome: Literal[
+        "measured",
+        "failed",
+        "negative",
+        "null",
+        "inconclusive",
+        "interrupted",
+        "rejected",
+    ]
+    inputs: tuple[ExactReference, ...] = Field(min_length=1, max_length=1024)
+    raw_evidence: tuple[ExactReference, ...] = Field(min_length=1, max_length=1024)
+    measurements: tuple[Measurement, ...] = Field(default=(), max_length=256)
+    issued_at: AwareDatetime
+
+
+class TrustedScorer(Contract):
+    """One admitted scorer service and the evaluator kinds it may vouch for."""
+
+    scorer: ScorerIdentity
+    evaluators: tuple[tuple[Identifier, Identifier], ...] = Field(min_length=1)
+
+
+class ScorerVerificationKey(Contract):
+    """A deployment-pinned Ed25519 public key, never supplied by evidence."""
+
+    key_id: Identifier
+    public_key_base64url: str = Field(min_length=43, max_length=44)
+
+
+class ScorerEnrollment(Contract):
+    cohort_id: Identifier
+    trusted: tuple[TrustedScorer, ...]
+    public_keys: tuple[ScorerVerificationKey, ...] = ()
+
+
+class ScorerAttestation(Contract):
+    schema_version: Literal["synth.mnemosyne.scorer-attestation.v1"]
+    scope: Scope
+    evidence_id: Identifier
+    receipt_digest_sha256: Digest
+    scorer: ScorerIdentity
+    key_id: Identifier
+    signature: str = Field(min_length=86, max_length=88)
+
+
+# Enrollment and verifier trust are reviewed deployment-cohort source data.
+# No public keys have been qualified for this source-only cohort. Until the
+# integration owner pins its authenticated publisher key, verification refuses.
+SCORER_ENROLLMENTS: Mapping[str, ScorerEnrollment] = {
+    "rhodes-forge-20261103": ScorerEnrollment(
+        cohort_id="rhodes-forge-20261103",
+        trusted=(TrustedScorer(
+            scorer=ScorerIdentity(
+                authority="mnemosyne", subject_id="evaluation-evidence-producer"
+            ),
+            evaluators=(("rhodes", "grader"), ("rhodes", "rhodes_grader")),
+        ),),
+    ),
+}
+SCORER_COHORT = SCORER_ENROLLMENTS["rhodes-forge-20261103"]
+TRUSTED_SCORERS: tuple[TrustedScorer, ...] = SCORER_COHORT.trusted
+
+
+class TrustedResultRefusal(ForgeError):
+    """Typed, non-retryable refusal of an untrusted or mismatched grade."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(code, message)
+        self.refusal_code = code
+        # Pending owner authority is a cutover state, not a transient fault.
+        self.retryable = False
+        self.mutation_applied = False
+
+
+# Record kinds an admitted actor (Intern/mloky, Orchestra program/Swarm
+# attempts) may author. Workspace/resource bindings, exports, notices and
+# snapshots remain human/workspace decisions; efforts are folded into projects.
+ACTOR_RECORD_KINDS = frozenset(
+    {
+        "hypothesis",
+        "protocol",
+        "experiment",
+        "trial",
+        "result",
+        "research_log",
+        "log_entry",
+        "report",
+        "review",
+        "artifact",
+        "execution_link",
+    }
+)
+ALL_RECORD_KINDS = ACTOR_RECORD_KINDS | frozenset(
+    {
+        "effort",
+        "snapshot",
+        "scientific_export",
+        "source_notice",
+        "resource_binding",
+        "workspace_binding",
+    }
+)
+# Live write routes only. Fenced legacy imports, archive restores and scope
+# transfers keep each record's original declared producer (historical truth,
+# not current authority) and are gated by their own fence/custody checks.
+WRITE_AUTHORITY: Mapping[str, frozenset[str]] = {
+    "human": ALL_RECORD_KINDS,
+    "mloky": ACTOR_RECORD_KINDS,
+    "orchestra": ACTOR_RECORD_KINDS,
+}
+
+
+def authorize_record_kind(producer_authority: str, record_kind: str) -> None:
+    """Refuse a producer writing a record kind outside its closed authority.
+
+    Chronology and inventory provenance stay with the existing import/restore
+    checks; this gate only closes who may author which kind.
+    """
+    allowed = WRITE_AUTHORITY.get(producer_authority)
+    if allowed is None:
+        raise ForgeError(
+            "producer_authority_unsupported",
+            f"producer authority {producer_authority} may not author Forge records",
+        )
+    if record_kind not in allowed:
+        raise ForgeError(
+            "producer_kind_forbidden",
+            f"{producer_authority} may not author {record_kind} records",
+        )
