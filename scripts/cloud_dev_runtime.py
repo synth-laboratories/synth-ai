@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Finite native Python profile controller; see Backend unity-work-admission.md.
 
-The native owner supplies only its retained source and lease IDs. No network,
-provider API, project installation, tests, services or additional allocator.
+The native owner supplies only its retained source and lease IDs. Preparation
+and resume do not run tests. Explicit verification runs one offline contract
+file within 120 seconds; no provider API, services or additional allocator.
 """
 
 from __future__ import annotations
 
 import argparse
 import contextlib
+import functools
 import hashlib
 import json
 import os
@@ -17,6 +19,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,14 +33,19 @@ class RuntimeRefusedError(Exception):
         self.code = code
 
 
-def command(argv: list[str], *, environment: dict[str, str] | None = None) -> str:
+def command(
+    argv: list[str], *, environment: dict[str, str] | None = None, deadline: float | None = None
+) -> str:
+    remaining = 540 if deadline is None else deadline - time.monotonic()
+    if remaining <= 0:
+        raise RuntimeRefusedError("runtime_verification_deadline")
     result = subprocess.run(
         argv,
         cwd=ROOT,
         env=environment,
         capture_output=True,
         text=True,
-        timeout=540,
+        timeout=remaining,
     )
     if result.returncode:
         # Dependency/auth details and command output are not receipt content.
@@ -99,6 +107,9 @@ def seed_cache(destination: Path) -> None:
 
 
 def prepare(operation: str) -> dict:
+    verifying = operation == "verify"
+    deadline = time.monotonic() + 115 if verifying else None
+    execute = functools.partial(command, deadline=deadline)
     source = os.environ.get("SYNTH_ENVIRONMENT_SOURCE_COMMIT", "")
     lease = os.environ.get("SYNTH_ENVIRONMENT_LEASE_ID", "")
     if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", source) or not re.fullmatch(
@@ -107,19 +118,19 @@ def prepare(operation: str) -> dict:
         raise RuntimeRefusedError("runtime_owner_binding_missing")
     if sys.version_info < (3, 11):  # noqa: UP036 - invoked by the guest image system Python
         raise RuntimeRefusedError("runtime_python_version_refused")
-    head = command(["git", "rev-parse", "HEAD"])
+    head = execute(["git", "rev-parse", "HEAD"])
     protected = ["pyproject.toml", "uv.lock", "scripts/cloud_dev_runtime.py"]
-    command(
+    execute(
         ["git", "diff", "--no-ext-diff", "--no-textconv", "--exit-code", source, "--", *protected]
     )
     if operation == "prepare" and (
-        head != source or command(["git", "status", "--porcelain", "--untracked-files=normal"])
+        head != source or execute(["git", "status", "--porcelain", "--untracked-files=normal"])
     ):
         raise RuntimeRefusedError("runtime_source_mismatch")
     if (ROOT / ".venv").is_symlink():
         raise RuntimeRefusedError("runtime_venv_path_refused")
     uv = shutil.which("uv")
-    if uv is None or command([uv, "--version"]).split(" (", 1)[0] != UV_VERSION:
+    if uv is None or execute([uv, "--version"]).split(" (", 1)[0] != UV_VERSION:
         raise RuntimeRefusedError("runtime_uv_version_refused")
     digest = hashlib.sha256()
     for name in ("pyproject.toml", "uv.lock", "scripts/cloud_dev_runtime.py"):
@@ -145,14 +156,14 @@ def prepare(operation: str) -> dict:
             "UV_NO_PROGRESS": "1",
         }
     )
-    command(
+    execute(
         [
             uv,
             "--no-config",
             "sync",
             "--offline",
             "--frozen",
-            "--no-dev",
+            *(["--group", "dev"] if verifying else ["--no-dev"]),
             "--no-default-groups",
             "--no-install-project",
         ],
@@ -160,7 +171,7 @@ def prepare(operation: str) -> dict:
     )
     python = ROOT / ".venv/bin/python"
     # These are production readiness observations, not a test suite or API call.
-    command(
+    execute(
         [
             str(python),
             "-c",
@@ -168,8 +179,23 @@ def prepare(operation: str) -> dict:
         ],
         environment=environment,
     )
-    command([str(python), "-m", "synth_ai.cli_auth", "--help"], environment=environment)
-    return {
+    execute([str(python), "-m", "synth_ai.cli_auth", "--help"], environment=environment)
+    verification = None
+    if verifying:
+        argv = [str(python), "-m", "pytest", "-q", "tests/test_core_references.py"]
+        output = execute(argv, environment=environment)
+        # An empty or entirely skipped collection cannot qualify the Python rung.
+        passed = re.search(r"\b([1-9][0-9]*) passed\b", output)
+        if passed is None:
+            raise RuntimeRefusedError("runtime_verification_no_tests_passed")
+        verification = {
+            "argv": argv,
+            "exit_code": 0,
+            "passed": int(passed.group(1)),
+            "timeout_seconds": 120,
+            "candidate_commit": head,
+        }
+    receipt = {
         "schema": SCHEMA,
         "profile": "python-uv-v1",
         "environment": "synth-ai-exe-dev",
@@ -187,11 +213,18 @@ def prepare(operation: str) -> dict:
         },
         "observation": {"sdk_imported": True, "cli_help_exit_code": 0},
     }
+    if verifying:
+        receipt.update(
+            schema="synth.unity.python-verification.v1",
+            tests_executed=True,
+            verification=verification,
+        )
+    return receipt
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("prepare", "resume"))
+    parser.add_argument("operation", choices=("prepare", "resume", "verify"))
     parser.add_argument("--json", action="store_true", required=True)
     args = parser.parse_args()
     try:
@@ -211,7 +244,7 @@ def main() -> int:
             "source_commit": os.environ.get("SYNTH_ENVIRONMENT_SOURCE_COMMIT", ""),
             "phase": "refused",
             "code": code,
-            "stage": "python_prepare",
+            "stage": "python_verify" if args.operation == "verify" else "python_prepare",
             "cause": code,
         }
         print(json.dumps(receipt, sort_keys=True))
