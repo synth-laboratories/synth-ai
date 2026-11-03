@@ -7,6 +7,7 @@ from typing import Any, Literal, Self
 from pydantic import (
     AwareDatetime,
     Field,
+    PrivateAttr,
     SerializerFunctionWrapHandler,
     StrictInt,
     model_serializer,
@@ -15,7 +16,15 @@ from pydantic import (
 
 from synth_ai.errors import OperationFailedError
 from synth_ai.sdk.core.artifact_types import ResponseLabels
-from synth_ai.types.base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
+from synth_ai.types.base import (
+    Digest,
+    EventCursor,
+    Page,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
+from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.receipts import ControlCommand, ControlState
 from synth_ai.types.refs import Ref
 from synth_ai.types.unknown import UnknownValue
@@ -29,8 +38,11 @@ from .launch import (
     ResolvedModels,
     ResolvedProviders,
 )
+from .methods import ResolvedResearchMethod
 from .objectives import GuidanceCoverage, ObjectiveResult
+from .overrides import ProfileOverrideReadback
 from .problems import Problem, ReasonLink
+from .status_facets import RunStatusFacets
 
 KnownRunState = Literal[
     "queued",
@@ -61,7 +73,23 @@ KnownTaskState = Literal[
 TaskState = KnownTaskState | UnknownValue
 
 
+class AdmittedResourceGrant(ResponseBase):
+    """Secret-free summary of one frozen resource grant."""
+
+    grant_id: str
+    plugin: str
+    version: StrictInt
+    roles: tuple[str, ...]
+    limits: dict[str, StrictInt]
+    role_limits: dict[str, dict[str, StrictInt]]
+    models: tuple[str, ...]
+    collections: tuple[str, ...]
+    selection: dict[str, Any] | None
+    funding_lane: str
+
+
 class ResolvedConfiguration(ResponseModel):
+    method: ResolvedResearchMethod | None = None
     run_id: ResponseIdentifier | None
     project_id: ResponseIdentifier
     configuration_id: ResponseIdentifier
@@ -73,6 +101,16 @@ class ResolvedConfiguration(ResponseModel):
     providers: ResolvedProviders
     models: ResolvedModels
     repo: RepoSelector | None = None
+    resource_grants: tuple[AdmittedResourceGrant, ...] | None = None
+    # SYN-4848: echoed only when the launch selects profile overrides.
+    profile_overrides: ProfileOverrideReadback | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_overrides(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = handler(self)
+        if self.profile_overrides is None:
+            value.pop("profile_overrides", None)
+        return value
 
 
 class LaunchPreflight(ResponseModel):
@@ -81,6 +119,17 @@ class LaunchPreflight(ResponseModel):
     configuration: ResolvedConfiguration | None
     expires_at: AwareDatetime | None
     reservation_created: Literal[False] = False
+    # Response-header capacity (SYN-4680); not part of the JSON body or schema.
+    _rate_limits: tuple[RateLimitSnapshot, ...] = PrivateAttr(default=())
+
+    @property
+    def rate_limits(self) -> tuple[RateLimitSnapshot, ...]:
+        """``x-ratelimit-*`` capacity the server reported on this preflight response."""
+        return self._rate_limits
+
+    def with_rate_limits(self, rate_limits: tuple[RateLimitSnapshot, ...]) -> Self:
+        self._rate_limits = rate_limits
+        return self
 
     @model_validator(mode="after")
     def validate_preview(self) -> Self:
@@ -107,6 +156,7 @@ class RunControlSummary(ResponseBase):
 
 
 class RunSnapshot(ResponseModel):
+    method: ResolvedResearchMethod | None = None
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
     ref: Ref | None = None
@@ -134,11 +184,25 @@ class RunSnapshot(ResponseModel):
     # Set for a failed run, and for a run whose cancel was accepted but is not
     # terminal: the root cause, not a generic code.
     failure: RunFailure | None = None
+    # SYN-4848: the frozen model/effort overrides and, once prepared, their resolution.
+    profile_overrides: ProfileOverrideReadback | None = None
+    # SYN-4849: execution, publication, settlement and cleanup read independently.
+    # Absent from servers that predate it; ``state`` is unchanged.
+    status_facets: RunStatusFacets | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_controls(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         value = handler(self)
-        for name in ("ref", "control", "paused_at", "resume_by", "deadline_at", "pause_count"):
+        for name in (
+            "ref",
+            "control",
+            "paused_at",
+            "resume_by",
+            "deadline_at",
+            "pause_count",
+            "profile_overrides",
+            "status_facets",
+        ):
             if getattr(self, name) is None:
                 value.pop(name, None)
         return value
@@ -264,6 +328,11 @@ class TaskOutcome(ResponseModel):
         return self
 
 
+INTERACTION_EVENT_KINDS = frozenset(
+    ("approval.parked", "approval.decided", "wait.opened", "wait.resolved")
+)
+
+
 class SwarmEvent(ResponseBase):
     event_id: ResponseIdentifier
     run_id: ResponseIdentifier
@@ -289,6 +358,10 @@ class SwarmEvent(ResponseBase):
             "resumed",
             "cancel_requested",
             "usage_updated",
+            "approval.parked",
+            "approval.decided",
+            "wait.opened",
+            "wait.resolved",
             "unknown",
         ]
         | UnknownValue
@@ -296,12 +369,16 @@ class SwarmEvent(ResponseBase):
     original_kind: str | None = Field(default=None, max_length=128)
     usage: UsageSummary | None = None
     observed_at: AwareDatetime | None = None
+    # SYN-4547/4650: the approval or wait (interaction) the event is about.
+    approval_id: ResponseIdentifier | None = None
 
     @model_serializer(mode="wrap")
     def omit_event_time(self, handler):
         value = handler(self)
         if self.observed_at is None:
             value.pop("observed_at", None)
+        if self.approval_id is None:
+            value.pop("approval_id", None)
         return value
 
     @model_validator(mode="after")
@@ -310,4 +387,12 @@ class SwarmEvent(ResponseBase):
             raise ValueError("unknown event requires its original discriminant")
         if (self.kind == "usage_updated") != (self.usage is not None):
             raise ValueError("only usage_updated carries usage")
+        if (self.kind in INTERACTION_EVENT_KINDS) != (self.approval_id is not None):
+            raise ValueError("only approval and wait events carry approval_id")
         return self
+
+
+class SwarmEventPage(Page[SwarmEvent, EventCursor]):
+    """A bounded page with an optional reusable observation position."""
+
+    resume_cursor: EventCursor | None = None

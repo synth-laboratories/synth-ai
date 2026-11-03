@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from synth_ai import AsyncSynthClient
 from synth_ai.contracts import forge as forge_operations
+from synth_ai.contracts import mnemosyne as evidence_operations
 from synth_ai.contracts import operations as index_operations
 from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
@@ -28,6 +29,16 @@ from synth_ai.sdk.forge.types import (
     ProjectListResponse,
     ProjectMutationResponse,
     ProjectResponse,
+    ReportArtifactContentResponse,
+    ReportExportResponse,
+    ReportPublicationResponse,
+    ReportShareListResponse,
+    ReportShareResponse,
+    ReportShareRevocationResponse,
+    ReportVersionAvailabilityResponse,
+    ReportVersionBrowseResponse,
+    ReportVersionComparisonResponse,
+    ReportVersionDocumentResponse,
     ScientificArtifactEvidenceResponse,
     ScientificReceiptResponse,
     ScientificRecordResponse,
@@ -38,14 +49,26 @@ from synth_ai.sdk.index.types.contributions import Contribution, SubmissionRecei
 from synth_ai.sdk.index.types.history import SearchHistoryDeletionReceipt, SearchHistoryPage
 from synth_ai.sdk.index.types.retention_policy import RetentionPolicy
 from synth_ai.sdk.index.types.search import SearchEvent, SearchResponse, SearchSnapshot
+from synth_ai.sdk.mnemosyne.evidence import (
+    CapabilitiesResponse,
+    ComparisonResponse,
+    EvidencePage,
+    MeasurementsResponse,
+    ReceiptResponse,
+)
+from synth_ai.sdk.swarms.types.approvals import (
+    ApprovalDecisionReceipt,
+    ApprovalList,
+    WaitAnswerReceipt,
+)
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
 from synth_ai.sdk.swarms.types.outputs import Output, TextContent
+from synth_ai.sdk.swarms.types.programs import ProgramFamilyList
 from synth_ai.sdk.swarms.types.runs import (
-    LaunchPreflight,
     ResolvedConfiguration,
     RunSnapshot,
-    SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
 )
@@ -57,14 +80,19 @@ from synth_ai.types.response_values import response_schema
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from . import contribution_owner as owner_tools
+from . import evaluation_evidence as evidence_tools
 from . import forge as forge_tools
+from .account import AccountUsageSnapshot, account_usage_snapshot
 from .contracts import (
     JSON_OBJECT,
+    ApprovalDecide,
+    ApprovalListArguments,
     ContentArguments,
     ContributionIdentity,
     EmptyArguments,
     FileIdentity,
     JsonObject,
+    LaunchPreflightResult,
     OutputIdentity,
     OutputText,
     PageArguments,
@@ -92,6 +120,7 @@ from .contracts import (
     SearchMutation,
     SearchPage,
     StrictSearchDelivery,
+    WaitAnswer,
 )
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
@@ -331,8 +360,12 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
     )
 
 
-async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflight:
-    return await client.swarms.preflight(
+async def program_families(client: AsyncSynthClient, args: EmptyArguments) -> ProgramFamilyList:
+    return await client.swarms.families()
+
+
+async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflightResult:
+    result = await client.swarms.preflight(
         args.legacy_objective,
         message=args.message,
         project_id=args.project_id,
@@ -344,7 +377,11 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
         repo=args.repo,
         guidance=args.guidance,
         resources=args.resources,
+        method=args.method,
+        program=args.program,
+        profile_overrides=args.profile_overrides,
     )
+    return LaunchPreflightResult.of(result)
 
 
 async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
@@ -360,9 +397,12 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
         repo=args.repo,
         guidance=args.guidance,
         resources=args.resources,
+        method=args.method,
+        program=args.program,
+        profile_overrides=args.profile_overrides,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
-    return RunCreated(run_id=run.run_id)
+    return RunCreated(run_id=run.run_id, rate_limits=run.rate_limits)
 
 
 async def runs(client: AsyncSynthClient, args: RunList) -> Page[RunSnapshot]:
@@ -385,7 +425,7 @@ async def run_result(client: AsyncSynthClient, args: RunIdentity) -> SwarmResult
     return await (await client.swarms.get(args.run_id)).result()
 
 
-async def run_events(client: AsyncSynthClient, args: RunPage) -> Page[SwarmEvent, EventCursor]:
+async def run_events(client: AsyncSynthClient, args: RunPage) -> SwarmEventPage:
     return await (await client.swarms.get(args.run_id)).event_page(
         limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
     )
@@ -422,6 +462,34 @@ async def run_pause(client: AsyncSynthClient, args: RunMutation) -> ControlRecei
 async def run_resume(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
     return await (await client.swarms.get(args.run_id)).resume(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
+    )
+
+
+async def run_approvals(client: AsyncSynthClient, args: ApprovalListArguments) -> ApprovalList:
+    return await (await client.swarms.get(args.run_id)).approvals(kind=args.kind)
+
+
+async def run_decide_approval(
+    client: AsyncSynthClient, args: ApprovalDecide
+) -> ApprovalDecisionReceipt:
+    return await (await client.swarms.get(args.run_id)).decide_approval(
+        args.approval_id,
+        decision=args.decision,
+        expected_revision=args.expected_revision,
+        reason=args.reason,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def run_answer_wait(client: AsyncSynthClient, args: WaitAnswer) -> WaitAnswerReceipt:
+    return await (await client.swarms.get(args.run_id)).answer_wait(
+        args.approval_id,
+        decision=args.decision,
+        expected_revision=args.expected_revision,
+        answer_scope=args.answer_scope,
+        answer_schema=args.answer_schema,
+        answerer=args.answerer,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
 
 
@@ -488,7 +556,66 @@ async def deliver_search_events(
         )
 
 
+ACCOUNT_SNAPSHOT = Operation(
+    "account.snapshot",
+    "GET",
+    "/account/usage/snapshot",
+    True,
+    contract="account.v1",
+    required_scope="account:billing:read",
+)
+
+
 TOOLS: tuple[ToolSpec, ...] = (
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_capabilities",
+        evidence_operations.CAPABILITIES,
+        "Check current project evidence read and publish availability.",
+        evidence_tools.Project,
+        CapabilitiesResponse,
+        evidence_tools.capabilities,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_list",
+        evidence_operations.LIST,
+        "List project evaluation evidence under current Artifact access.",
+        evidence_tools.Page,
+        EvidencePage,
+        evidence_tools.list_evidence,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_get",
+        evidence_operations.GET,
+        "Read a project evidence receipt; producer associations are not verified foreign keys.",
+        evidence_tools.Identity,
+        ReceiptResponse,
+        evidence_tools.get,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_measurements",
+        evidence_operations.MEASUREMENTS,
+        "Recompute retained evaluation measurements under current Artifact access.",
+        evidence_tools.Identity,
+        MeasurementsResponse,
+        evidence_tools.measurements,
+    ),
+    ToolDefinition(
+        "mnemosyne_evaluation_evidence_compare",
+        evidence_operations.COMPARE,
+        "Compare project evidence and retained measurements without inferring a ranking.",
+        evidence_tools.Comparison,
+        ComparisonResponse,
+        evidence_tools.compare,
+    ),
+    ToolDefinition(
+        "account_usage_snapshot",
+        ACCOUNT_SNAPSHOT,
+        "Read the connected account's plan, wallet and monthly usage.",
+        EmptyArguments,
+        AccountUsageSnapshot,
+        account_usage_snapshot,
+        additional_scopes=("account:usage:read",),
+    ),
     ToolDefinition(
         "index_contribution_submit",
         index_operations.SUBMIT,
@@ -581,6 +708,107 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.ForgeReceiptRead,
         ScientificReceiptResponse,
         forge_tools.receipt_get,
+    ),
+    ToolDefinition(
+        "forge_report_version_publish",
+        forge_operations.REPORT_VERSION_PUBLISH,
+        "Publish one exact report version as the caller; needs the caller's own API key.",
+        forge_tools.ForgeReportPublish,
+        ReportPublicationResponse,
+        forge_tools.report_publish,
+    ),
+    ToolDefinition(
+        "forge_report_shares_revoke_inactive",
+        forge_operations.REPORT_SHARES_REVOKE_INACTIVE,
+        "Return shares of superseded or retracted report versions to private.",
+        forge_tools.ForgeReportRevokeInactive,
+        ReportShareRevocationResponse,
+        forge_tools.report_revoke_inactive,
+    ),
+    ToolDefinition(
+        "forge_report_share",
+        forge_operations.REPORT_SHARE_PUT,
+        "Share one exact report version with the organization or invited members, "
+        "optionally until expires_at.",
+        forge_tools.ForgeReportShareCreate,
+        ReportShareResponse,
+        forge_tools.report_share,
+    ),
+    ToolDefinition(
+        "forge_report_share_get",
+        forge_operations.REPORT_SHARE_GET,
+        "Read the share state of one report version you own.",
+        forge_tools.ForgeReportShareRead,
+        ReportShareResponse,
+        forge_tools.report_share_get,
+    ),
+    ToolDefinition(
+        "forge_report_shares_list",
+        forge_operations.REPORT_SHARES_LIST,
+        "List shares you own of this project's report versions.",
+        forge_tools.ForgeReportShareList,
+        ReportShareListResponse,
+        forge_tools.report_share_list,
+    ),
+    ToolDefinition(
+        "forge_report_share_revoke",
+        forge_operations.REPORT_SHARE_REVOKE,
+        "Return one report version's share to private.",
+        forge_tools.ForgeReportShareRevoke,
+        ReportShareResponse,
+        forge_tools.report_share_revoke,
+    ),
+    ToolDefinition(
+        "forge_reports_browse",
+        forge_operations.REPORT_READER_BROWSE,
+        "List report versions you own or that are shared with you in a project.",
+        forge_tools.ForgeReportBrowse,
+        ReportVersionBrowseResponse,
+        forge_tools.report_browse,
+    ),
+    ToolDefinition(
+        "forge_report_open",
+        forge_operations.REPORT_READER_OPEN,
+        "Open one exact, digest-verified report version with its provenance; text is plain data.",
+        forge_tools.ForgeReportShareRead,
+        ReportVersionDocumentResponse,
+        forge_tools.report_open,
+    ),
+    ToolDefinition(
+        "forge_report_compare",
+        forge_operations.REPORT_READER_COMPARE,
+        "Compare two report versions: fields, claims, limitations, sources, "
+        "artifacts and missing evidence.",
+        forge_tools.ForgeReportCompare,
+        ReportVersionComparisonResponse,
+        forge_tools.report_compare,
+    ),
+    ToolDefinition(
+        "forge_report_export",
+        forge_operations.REPORT_READER_EXPORT,
+        "Export selected report versions with a provenance manifest.",
+        forge_tools.ForgeReportExport,
+        ReportExportResponse,
+        forge_tools.report_export,
+    ),
+    ToolDefinition(
+        "forge_report_availability",
+        forge_operations.REPORT_READER_AVAILABILITY,
+        "Per-artifact availability of one report version as you see it now: "
+        "available, retained, expired or missing.",
+        forge_tools.ForgeReportShareRead,
+        ReportVersionAvailabilityResponse,
+        forge_tools.report_availability,
+    ),
+    ToolDefinition(
+        "forge_report_artifact",
+        forge_operations.REPORT_READER_DOWNLOAD,
+        "Exact bytes of one artifact a report version pins, as data (plain text, "
+        "never rendered), for a project reader or a live share grantee. Bounded "
+        "at 16 MiB; use the SDK download for larger artifacts.",
+        forge_tools.ForgeReportArtifactRead,
+        ReportArtifactContentResponse,
+        forge_tools.report_artifact,
     ),
     ToolDefinition(
         "forge_project_list",
@@ -831,11 +1059,19 @@ TOOLS: tuple[ToolSpec, ...] = (
         create_project,
     ),
     ToolDefinition(
+        "swarms_families",
+        swarm_operations.FAMILIES,
+        "List the exact program family versions (general, research) a launch may select.",
+        EmptyArguments,
+        ProgramFamilyList,
+        program_families,
+    ),
+    ToolDefinition(
         "swarms_preflight",
         swarm_operations.PREFLIGHT,
         "Preview resolved launch configuration and blockers without starting execution or reserving budget.",
         LaunchRequest,
-        LaunchPreflight,
+        LaunchPreflightResult,
         preflight,
     ),
     ToolDefinition(
@@ -883,7 +1119,7 @@ TOOLS: tuple[ToolSpec, ...] = (
         swarm_operations.EVENTS,
         "Read one bounded event page. Closing observation never cancels work.",
         RunPage,
-        Page[SwarmEvent, EventCursor],
+        SwarmEventPage,
         run_events,
     ),
     ToolDefinition(
@@ -933,6 +1169,31 @@ TOOLS: tuple[ToolSpec, ...] = (
         RunMutation,
         ControlReceipt,
         run_cancel,
+    ),
+    ToolDefinition(
+        "swarms_approvals",
+        swarm_operations.APPROVALS,
+        "List the run's open approvals (tool calls, waits, gates) with typed state, revision"
+        " and deadline; kind=tool_call|wait|gate lists only that kind.",
+        ApprovalListArguments,
+        ApprovalList,
+        run_approvals,
+    ),
+    ToolDefinition(
+        "swarms_approval_decide",
+        swarm_operations.DECIDE_APPROVAL,
+        "Approve or refuse one parked call at its expected revision; a stale revision is a typed conflict.",
+        ApprovalDecide,
+        ApprovalDecisionReceipt,
+        run_decide_approval,
+    ),
+    ToolDefinition(
+        "swarms_wait_answer",
+        swarm_operations.ANSWER_WAIT,
+        "Answer one open human-in-the-loop wait at its expected revision; a stale revision is a typed conflict.",
+        WaitAnswer,
+        WaitAnswerReceipt,
+        run_answer_wait,
     ),
     ToolDefinition(
         "swarms_outputs",

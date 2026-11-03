@@ -35,7 +35,12 @@ def test_error_text_repr_and_pickle_preserve_safe_details(kind, details):
         if details
         else {}
     )
-    error = kind("Useful failure message", **fields)
+    quota = (
+        {"scope": "organization", "limit": 1, "used": 1}
+        if issubclass(kind, errors.QuotaExceededError)
+        else {}
+    )
+    error = kind("Useful failure message", **fields, **quota)
     restored = pickle.loads(pickle.dumps(error))
     assert type(restored) is kind and restored.args == error.args
     assert restored.__dict__ == error.__dict__

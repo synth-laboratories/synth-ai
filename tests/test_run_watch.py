@@ -359,7 +359,9 @@ def test_swarms_contract_exports_the_stream_operation():
             "idempotent": True,
         }
     ]
-    assert exported["operations"][-1]["id"] == "swarms.stream"
+    # Operations append in declaration order; later surfaces (approvals,
+    # waits) follow the stream, so assert it is exported exactly once.
+    assert [op["id"] for op in exported["operations"]].count("swarms.stream") == 1
     assert operations.STREAM.matches_resource_path("/api/v1/swarms/runs/run-1/stream")
     retained = (Path(__file__).parents[1] / "contracts/swarms-v1.json").read_text()
     assert digest_exported_contract(retained) == schema_sha256("swarms.v1")

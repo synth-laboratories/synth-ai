@@ -16,11 +16,11 @@ from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.parameters import identifier, page_parameters, verified
 from synth_ai.errors import OutputIntegrityError
 from synth_ai.options import ReadOptions, TransferOptions
-from synth_ai.types.base import Page, PageCursor
+from synth_ai.types.base import PageCursor
 
 from .deprecated import artifact_alias
 from .output_stream import AsyncOutputStream, OutputStream
-from .types.outputs import DownloadReceipt, Output, TextContent
+from .types.outputs import DownloadReceipt, Output, OutputPage, TextContent
 
 
 def text_transfer(
@@ -67,11 +67,11 @@ class Outputs:
     @artifact_alias
     def list(
         self, *, limit: int, cursor: PageCursor | None = None, request: ReadOptions | None = None
-    ) -> Page[Output]:
+    ) -> OutputPage:
         """Read one bounded page of current authorized descriptors."""
         return self._transport.request(
             operations.OUTPUTS,
-            Page[Output],
+            OutputPage,
             path=f"/swarms/runs/{self.run_id}/outputs",
             query=page_parameters(limit, cursor),
             options=request,
@@ -156,11 +156,11 @@ class AsyncOutputs:
     @artifact_alias
     async def list(
         self, *, limit: int, cursor: PageCursor | None = None, request: ReadOptions | None = None
-    ) -> Page[Output]:
+    ) -> OutputPage:
         """Read one bounded page of current authorized descriptors."""
         return await self._transport.request(
             operations.OUTPUTS,
-            Page[Output],
+            OutputPage,
             path=f"/swarms/runs/{self.run_id}/outputs",
             query=page_parameters(limit, cursor),
             options=request,

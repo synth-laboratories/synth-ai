@@ -1,11 +1,12 @@
 """Typed workspace tools; host identity and authority never enter tool arguments."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field
 
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
+from synth_ai.sdk.forge.contracts.report_manifests import ReportVersion
 from synth_ai.sdk.forge.contracts.scientific_v2 import RecordV2
 from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceRecord
 from synth_ai.sdk.forge.index_types import (
@@ -183,3 +184,127 @@ async def index_draft_upload_get(client, args):
     return await client.forge.index_drafts.upload_get(
         args.project_id, args.draft_operation_id, args.operation_id
     )
+
+
+class ForgeReportPublish(ForgeProjectIdentity):
+    version: ReportVersion
+    idempotency_key: Identifier
+
+
+class ForgeReportRevokeInactive(ForgeProjectIdentity):
+    lineage_id: Identifier
+    idempotency_key: Identifier
+
+
+async def report_publish(client, args):
+    return await client.forge.reports.publish(
+        args.project_id,
+        args.version,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def report_revoke_inactive(client, args):
+    return await client.forge.reports.revoke_inactive(
+        args.project_id,
+        args.lineage_id,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+VersionDigest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class ForgeReportShareRead(ForgeProjectIdentity):
+    digest: VersionDigest
+
+
+class ForgeReportArtifactRead(ForgeReportShareRead):
+    """One artifact the version's manifest pins (SYN-5158 gap 3)."""
+
+    artifact_id: Identifier
+
+
+class ForgeReportShareCreate(ForgeReportShareRead):
+    """Named principals only; there is no public/unlisted audience."""
+
+    audience: Literal["organization", "invited"]
+    invited: Annotated[tuple[Identifier, ...], Field(max_length=256)] = ()
+    expires_at: AwareDatetime | None = None
+    idempotency_key: Identifier
+
+
+class ForgeReportShareRevoke(ForgeReportShareRead):
+    idempotency_key: Identifier
+
+
+class ForgeReportShareList(ForgeProjectIdentity):
+    after: VersionDigest | None = None
+    limit: Annotated[int, Field(strict=True, ge=1, le=1000)] = 100
+
+
+async def report_share(client, args):
+    return await client.forge.reports.share(
+        args.project_id,
+        args.digest,
+        audience=args.audience,
+        invited=args.invited,
+        expires_at=args.expires_at,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+async def report_share_get(client, args):
+    return await client.forge.reports.get_share(args.project_id, args.digest)
+
+
+async def report_share_list(client, args):
+    return await client.forge.reports.list_shares(
+        args.project_id, after=args.after, limit=args.limit
+    )
+
+
+async def report_share_revoke(client, args):
+    return await client.forge.reports.revoke_share(
+        args.project_id,
+        args.digest,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key),
+    )
+
+
+# SYN-5158: report reader. Reads only; content returns as data (plain text).
+class ForgeReportBrowse(ForgeProjectIdentity):
+    after: VersionDigest | None = None
+    limit: Annotated[int, Field(strict=True, ge=1, le=1000)] = 100
+
+
+class ForgeReportCompare(ForgeReportShareRead):
+    other_digest: VersionDigest
+
+
+class ForgeReportExport(ForgeProjectIdentity):
+    digests: Annotated[tuple[VersionDigest, ...], Field(min_length=1, max_length=32)]
+
+
+async def report_browse(client, args):
+    return await client.forge.reports.browse(args.project_id, after=args.after, limit=args.limit)
+
+
+async def report_open(client, args):
+    return await client.forge.reports.open(args.project_id, args.digest)
+
+
+async def report_compare(client, args):
+    return await client.forge.reports.compare(args.project_id, args.digest, args.other_digest)
+
+
+async def report_export(client, args):
+    return await client.forge.reports.export(args.project_id, args.digests)
+
+
+async def report_availability(client, args):
+    return await client.forge.reports.availability(args.project_id, args.digest)
+
+
+async def report_artifact(client, args):
+    return await client.forge.reports.read_artifact(args.project_id, args.digest, args.artifact_id)

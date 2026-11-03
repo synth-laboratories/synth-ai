@@ -7,6 +7,8 @@ from pydantic import AwareDatetime, Field, model_validator
 from .base import Digest, ResponseBase, ResponseIdentifier, ResponseModel
 
 Subproduct = Literal[
+    "inference.glm-5.3-flash",
+    "inference.deepseek-v4.1-flash-1017",
     "index.fast",
     "index.deep",
     "index.private",
@@ -30,14 +32,14 @@ Condition = Literal[
 
 class AccountPolicyLimit(ResponseBase):
     limit_id: ResponseIdentifier
-    product: Literal["index", "swarms"]
+    product: Literal["index", "swarms", "inference"]
     value: Annotated[int, Field(ge=0)] | None
     default_value: Annotated[int, Field(ge=0)] | None
     source: ResponseIdentifier
     revision: ResponseIdentifier | None
     expires_at: AwareDatetime | None
-    dimension: Literal["requests", "concurrent", "spend_cents"]
-    window: Literal["token_bucket", "concurrent", "day", "month"]
+    dimension: Literal["requests", "concurrent", "spend_cents", "tokens"]
+    window: Literal["token_bucket", "concurrent", "day", "month", "minute"]
     observed_at: AwareDatetime
     state: Literal["ready", "unavailable"]
     code: ResponseIdentifier | None
@@ -51,7 +53,7 @@ class AccountPolicyLimit(ResponseBase):
 
 class AccountEntitlement(ResponseBase):
     subproduct: Subproduct
-    product: Literal["index", "swarms", "monitor"]
+    product: Literal["index", "swarms", "monitor", "inference"]
     stage: Literal["available", "planned", "unavailable"]
     kind: Literal["search", "content", "compute", "provider", "monitor"]
     supply: Literal["platform", "customer", "mixed"]
@@ -90,7 +92,7 @@ class AccountEntitlements(ResponseModel):
     capability_sha256: Digest | None
     limits_observed_at: AwareDatetime
     request_limits: AccountRequestLimits
-    subproducts: tuple[AccountEntitlement, ...] = Field(min_length=10, max_length=11)
+    subproducts: tuple[AccountEntitlement, ...] = Field(min_length=10, max_length=13)
 
     @model_validator(mode="after")
     def complete(self) -> Self:
@@ -101,6 +103,9 @@ class AccountEntitlements(ResponseModel):
         if len(actual) != len(self.subproducts) or actual not in (
             current,
             current - {"swarms.openai"},
+            current - {"inference.glm-5.3-flash", "inference.deepseek-v4.1-flash-1017"},
+            current
+            - {"swarms.openai", "inference.glm-5.3-flash", "inference.deepseek-v4.1-flash-1017"},
         ):
             raise ValueError("account policy must cover every subproduct exactly once")
         return self

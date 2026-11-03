@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 from synth_ai.mcp.catalog import create_run, preflight
-from synth_ai.mcp.contracts import RunCreate
+from synth_ai.mcp.contracts import LaunchPreflightResult, RunCreate
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
+from synth_ai.sdk.swarms.types.runs import LaunchPreflight
 
 
 @pytest.mark.parametrize("message_field", ["message", "objective"])
@@ -42,14 +43,30 @@ def test_preflight_and_launch_forward_explicit_forge_and_rhodes_grants(message_f
     create_args = RunCreate.model_validate_json(
         json.dumps({**body, "idempotency_key": "original-key"})
     )
+    preview = LaunchPreflight.model_validate_json(
+        json.dumps(
+            {
+                "metadata": {
+                    "contract": "swarms.v1",
+                    "request_id": "fixture-server",
+                    "operation_id": None,
+                    "observed_at": "2026-10-19T20:00:00Z",
+                },
+                "ready": False,
+                "blockers": [],
+                "configuration": None,
+                "expires_at": None,
+            }
+        )
+    )
     swarm = SimpleNamespace(
-        preflight=AsyncMock(return_value="preview"),
-        create=AsyncMock(return_value=SimpleNamespace(run_id="run-1")),
+        preflight=AsyncMock(return_value=preview),
+        create=AsyncMock(return_value=SimpleNamespace(run_id="run-1", rate_limits=())),
     )
     client = SimpleNamespace(swarms=swarm)
 
     async def run():
-        assert await preflight(client, preflight_args) == "preview"
+        assert await preflight(client, preflight_args) == LaunchPreflightResult.of(preview)
         assert (await create_run(client, create_args)).run_id == "run-1"
 
     asyncio.run(run())

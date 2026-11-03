@@ -83,7 +83,8 @@
               "enum": [
                 "index",
                 "swarms",
-                "monitor"
+                "monitor",
+                "inference"
               ],
               "title": "Product",
               "type": "string"
@@ -108,6 +109,8 @@
             },
             "subproduct": {
               "enum": [
+                "inference.glm-5.3-flash",
+                "inference.deepseek-v4.1-flash-1017",
                 "index.fast",
                 "index.deep",
                 "index.private",
@@ -206,7 +209,8 @@
               "enum": [
                 "requests",
                 "concurrent",
-                "spend_cents"
+                "spend_cents",
+                "tokens"
               ],
               "title": "Dimension",
               "type": "string"
@@ -249,7 +253,8 @@
             "product": {
               "enum": [
                 "index",
-                "swarms"
+                "swarms",
+                "inference"
               ],
               "title": "Product",
               "type": "string"
@@ -334,7 +339,8 @@
                 "token_bucket",
                 "concurrent",
                 "day",
-                "month"
+                "month",
+                "minute"
               ],
               "title": "Window",
               "type": "string"
@@ -604,7 +610,7 @@
           "items": {
             "$ref": "#/$defs/AccountEntitlement"
           },
-          "maxItems": 11,
+          "maxItems": 13,
           "minItems": 10,
           "title": "Subproducts",
           "type": "array"
@@ -2308,6 +2314,42 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ContentRef": {
+          "additionalProperties": true,
+          "properties": {
+            "asset_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "asset_id",
+            "digest_sha256"
+          ],
+          "title": "ContentRef",
+          "type": "object"
+        },
         "ContributionAnnotations": {
           "additionalProperties": true,
           "properties": {
@@ -2701,6 +2743,15 @@
             }
           ],
           "default": null
+        },
+        "content_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContentRef"
+          },
+          "maxItems": 1024,
+          "title": "Content Refs",
+          "type": "array"
         },
         "contents_readable": {
           "title": "Contents Readable",
@@ -5381,6 +5432,42 @@
           "title": "ClientTiming",
           "type": "object"
         },
+        "ContentRef": {
+          "additionalProperties": true,
+          "properties": {
+            "asset_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Asset Id",
+              "type": "string"
+            },
+            "contribution_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "revision_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contribution_id",
+            "revision_id",
+            "asset_id",
+            "digest_sha256"
+          ],
+          "title": "ContentRef",
+          "type": "object"
+        },
         "Contribution": {
           "additionalProperties": true,
           "properties": {
@@ -5394,6 +5481,15 @@
                 }
               ],
               "default": null
+            },
+            "content_refs": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ContentRef"
+              },
+              "maxItems": 1024,
+              "title": "Content Refs",
+              "type": "array"
             },
             "contents_readable": {
               "title": "Contents Readable",
@@ -7977,6 +8073,19 @@
             "cleanup_complete": {
               "title": "Cleanup Complete",
               "type": "boolean"
+            },
+            "created_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created At"
             },
             "execution_closed": {
               "title": "Execution Closed",
@@ -13964,6 +14073,19 @@
         "cleanup_complete": {
           "title": "Cleanup Complete",
           "type": "boolean"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
         },
         "execution_closed": {
           "title": "Execution Closed",

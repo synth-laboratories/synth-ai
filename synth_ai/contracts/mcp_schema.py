@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 
 from synth_ai.contracts.registry import ALL_OPERATIONS
+from synth_ai.mcp.account_capability import ACCOUNT_MCP_OPERATION
 from synth_ai.mcp.catalog import TOOLS
 
 
 def export_catalog() -> str:
     """Build a deterministic provisional schema artifact, without starting a server."""
-    operation_ids = {operation.id for operation in ALL_OPERATIONS}
+    operation_ids = {operation.id for operation in ALL_OPERATIONS} | {ACCOUNT_MCP_OPERATION}
     names = [tool.name for tool in TOOLS]
     if len(names) != len(set(names)) or any(tool.operation not in operation_ids for tool in TOOLS):
         raise ValueError("MCP catalog has duplicate names or unknown SDK operations")

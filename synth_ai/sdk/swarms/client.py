@@ -1,4 +1,4 @@
-"""First Swarms implementation slice: one model, explicit finite launch and durable identity.
+"""Swarms launches with explicit limits and durable identity.
 
 See the public contract snapshots in contracts/ Provider credentials,
 harness and profile selection remain backend-owned; no client fallback routing.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import builtins
 import warnings
+from typing import TypeVar
 
 from synth_ai.contracts import swarms as operations
 from synth_ai.core.http.async_client import AsyncHttpTransport
@@ -21,6 +22,7 @@ from synth_ai.sdk.core.artifact_types import Labels
 from synth_ai.sdk.core.artifacts import list_query
 from synth_ai.types.base import Page, PageCursor
 from synth_ai.types.identity import MutationIdentity
+from synth_ai.types.rate_limits import ResponseMetadata
 from synth_ai.types.receipts import CreationResolution
 from synth_ai.types.refs import Ref
 
@@ -28,10 +30,24 @@ from .create_retry import async_create_with_retry, create_with_retry
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
+from .types.methods import ForkFlushMethod
 from .types.objectives import Guidance
+from .types.overrides import ProfileOverrides
+from .types.programs import ProgramChoice, ProgramFamilyList
 from .types.projects import CodeValidation, ProjectCreateRequest, ProjectTemplate
 from .types.resources import ResourceRequest
 from .types.runs import LaunchPreflight, RunSnapshot
+
+OptionsT = TypeVar("OptionsT", ReadOptions, MutationOptions)
+
+
+def metered(options: OptionsT | None, kind: type[OptionsT]) -> tuple[OptionsT, ResponseMetadata]:
+    """Capture response rate-limit headers; reuse a caller-supplied ResponseMetadata."""
+    base = options if options is not None else kind()
+    if base.response_metadata is not None:
+        return base, base.response_metadata
+    metadata = ResponseMetadata()
+    return base.model_copy(update={"response_metadata": metadata}), metadata
 
 
 def launch_request(
@@ -46,6 +62,9 @@ def launch_request(
     guidance: tuple[Guidance, ...] = (),
     resources: tuple[ResourceRequest, ...] = (),
     repo: RepoSelector | None = None,
+    method: ForkFlushMethod | None = None,
+    program: ProgramChoice | None = None,
+    profile_overrides: ProfileOverrides | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -70,6 +89,9 @@ def launch_request(
         models=models,
         labels=labels,
         repo=repo,
+        method=method,
+        program=program,
+        profile_overrides=profile_overrides,
     )
 
 
@@ -82,7 +104,14 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
     requested = request.limits
     amount = resolved.maximum_charge
     ceiling = requested.maximum_charge
-    within_budget = amount.coefficient * 10**ceiling.scale <= ceiling.coefficient * 10**amount.scale
+    within_budget = (
+        ceiling is None
+        or (
+            amount is not None
+            and amount.coefficient * 10**ceiling.scale
+            <= ceiling.coefficient * 10**amount.scale
+        )
+    )
     same_inputs = request.inputs is None or configuration.inputs == request.inputs
     if (
         configuration.project_id != request.project_id
@@ -90,6 +119,25 @@ def validate_preflight(result: LaunchPreflight, request: LaunchRequest) -> Launc
         or (
             request.providers is not None
             and configuration.providers.default != request.providers.default
+        )
+        or (
+            request.method is not None
+            and (configuration.method is None or not configuration.method.satisfies(request.method))
+        )
+        or (
+            request.profile_overrides is not None
+            and configuration.profile_overrides is not None
+            and not configuration.profile_overrides.satisfies(request.profile_overrides)
+        )
+        or (request.profile_overrides is None and configuration.profile_overrides is not None)
+        or (
+            # A ready preview must echo the resolution it will freeze.
+            result.ready
+            and request.profile_overrides is not None
+            and (
+                configuration.profile_overrides is None
+                or configuration.profile_overrides.resolution is None
+            )
         )
         or (not same_inputs)
         or (request.repo is not None and configuration.repo != request.repo)
@@ -165,6 +213,9 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -180,14 +231,19 @@ class SwarmsClient:
             guidance,
             resources,
             repo,
+            method,
+            program,
+            profile_overrides,
         )
-        return self._transport.request(
+        options, metadata = metered(request, ReadOptions)
+        result = self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
             body=body,
-            options=request,
+            options=options,
             validate=lambda result: validate_preflight(result, body),
         )
+        return result.with_rate_limits(metadata.rate_limits)
 
     def create(
         self,
@@ -203,6 +259,9 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -218,6 +277,9 @@ class SwarmsClient:
             guidance,
             resources,
             repo,
+            method,
+            program,
+            profile_overrides,
         )
 
         def send(options: MutationOptions | None) -> RunSnapshot:
@@ -230,13 +292,40 @@ class SwarmsClient:
                     result,
                     result.project_id == project_id
                     and (models is None or result.model == models.default)
-                    and (providers is None or result.provider == providers.default),
+                    and (providers is None or result.provider == providers.default)
+                    and (
+                        method is None
+                        or (result.method is not None and result.method.satisfies(method))
+                    )
+                    and (
+                        profile_overrides is None
+                        or (
+                            result.profile_overrides is not None
+                            and result.profile_overrides.satisfies(profile_overrides)
+                        )
+                    ),
                     "Admitted project or requested override mismatch",
                 ),
             )
 
+        mutation, metadata = metered(mutation, MutationOptions)
         result = create_with_retry(send, mutation)
-        return SwarmRun(self._transport, result.run_id, snapshot=result)
+        run = SwarmRun(self._transport, result.run_id, snapshot=result)
+        run.rate_limits = metadata.rate_limits
+        return run
+
+    def families(self, *, request: ReadOptions | None = None) -> ProgramFamilyList:
+        """The exact program family versions a launch may select (SYN-4849)."""
+        return self._transport.request(
+            operations.FAMILIES,
+            ProgramFamilyList,
+            options=request,
+            validate=lambda result: verified(
+                result,
+                len({(item.id, item.version) for item in result.families}) == len(result.families),
+                "Duplicate program family version",
+            ),
+        )
 
     def get(self, run_id: str, *, request: ReadOptions | None = None) -> SwarmRun:
         """Reattach to an authorized durable run without restarting it."""
@@ -357,6 +446,9 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -372,14 +464,19 @@ class AsyncSwarmsClient:
             guidance,
             resources,
             repo,
+            method,
+            program,
+            profile_overrides,
         )
-        return await self._transport.request(
+        options, metadata = metered(request, ReadOptions)
+        result = await self._transport.request(
             operations.PREFLIGHT,
             LaunchPreflight,
             body=body,
-            options=request,
+            options=options,
             validate=lambda result: validate_preflight(result, body),
         )
+        return result.with_rate_limits(metadata.rate_limits)
 
     async def create(
         self,
@@ -395,6 +492,9 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
+        method: ForkFlushMethod | None = None,
+        program: ProgramChoice | None = None,
+        profile_overrides: ProfileOverrides | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -410,6 +510,9 @@ class AsyncSwarmsClient:
             guidance,
             resources,
             repo,
+            method,
+            program,
+            profile_overrides,
         )
 
         async def send(options: MutationOptions | None) -> RunSnapshot:
@@ -422,13 +525,40 @@ class AsyncSwarmsClient:
                     result,
                     result.project_id == project_id
                     and (models is None or result.model == models.default)
-                    and (providers is None or result.provider == providers.default),
+                    and (providers is None or result.provider == providers.default)
+                    and (
+                        method is None
+                        or (result.method is not None and result.method.satisfies(method))
+                    )
+                    and (
+                        profile_overrides is None
+                        or (
+                            result.profile_overrides is not None
+                            and result.profile_overrides.satisfies(profile_overrides)
+                        )
+                    ),
                     "Admitted project or requested override mismatch",
                 ),
             )
 
+        mutation, metadata = metered(mutation, MutationOptions)
         result = await async_create_with_retry(send, mutation)
-        return AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
+        run = AsyncSwarmRun(self._transport, result.run_id, snapshot=result)
+        run.rate_limits = metadata.rate_limits
+        return run
+
+    async def families(self, *, request: ReadOptions | None = None) -> ProgramFamilyList:
+        """The exact program family versions a launch may select (SYN-4849)."""
+        return await self._transport.request(
+            operations.FAMILIES,
+            ProgramFamilyList,
+            options=request,
+            validate=lambda result: verified(
+                result,
+                len({(item.id, item.version) for item in result.families}) == len(result.families),
+                "Duplicate program family version",
+            ),
+        )
 
     async def get(self, run_id: str, *, request: ReadOptions | None = None) -> AsyncSwarmRun:
         """Reattach to an authorized durable run without restarting it."""

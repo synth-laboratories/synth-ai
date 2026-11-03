@@ -136,11 +136,17 @@ def build_request(
         request.headers["X-Synth-Schema-SHA256"] = negotiated.schema_sha256
         request.headers["X-Synth-Capabilities-SHA256"] = negotiated.capability_sha256
         request.headers["X-Synth-Release-Manifest-SHA256"] = negotiated.release_manifest_sha256
-    if operation.contract == "tunnels.v2":
+    if operation.contract in {"tunnels.v2", "menagerie.v1"}:
         request.headers.pop("X-Synth-Contract", None)
     else:
         request.headers["X-Synth-Contract"] = operation.contract
     request.headers["X-Synth-Accept-Refusal"] = "synth.refusal.v1"
+    # This SDK decodes v2 problem origins (unknown ones as UnknownOrigin); a
+    # backend serves v1 origins to any caller that does not ask (SYN-4551).
+    request.headers["X-Synth-Accept-Problems"] = "synth.problems.v2"
+    # Rich error bodies (service, stage, cause_code, upstream_status); the
+    # decoder falls back to v1 when the backend does not mark the body v2.
+    request.headers["X-Synth-Accept-Errors"] = "synth.errors.v2"
     request.headers["Accept-Encoding"] = "identity"
     request.headers["X-Synth-Request-Timeout-Ms"] = str(max(1, int(remaining_seconds * 1000)))
     if body:

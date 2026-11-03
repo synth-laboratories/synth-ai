@@ -1,0 +1,57 @@
+{
+  "cases": {
+    "active_cap_409": {
+      "body": {
+        "detail": {
+          "cause": "active_project_cap_reached",
+          "error_code": "smr_project_active_limit_reached",
+          "limit": 10,
+          "message": "Active project limit reached (10). Archive a project before creating a new one.",
+          "remedy": "Archive a project before creating a new one.",
+          "scope": "organization",
+          "service": "smr",
+          "stage": "project_create_admission",
+          "used": 10
+        }
+      },
+      "status": 409
+    },
+    "nonterminal_run_cap_409": {
+      "body": {
+        "detail": {
+          "cause": "nonterminal_run_cap_reached",
+          "code": "smr_project_nonterminal_run_limit_reached",
+          "error_code": "smr_project_nonterminal_run_limit_reached",
+          "limit": 10,
+          "max_nonterminal_runs_per_project": 10,
+          "message": "Project already has 10 nonterminal runs (the per-project cap). Wait for one to finish or stop it before starting another run.",
+          "nonterminal_run_count": 3,
+          "project_id": "proj-1",
+          "remedy": "Wait for a nonterminal run to finish or stop one before starting another.",
+          "scope": "project",
+          "service": "smr",
+          "stage": "run_create_admission",
+          "used": 3
+        }
+      },
+      "status": 409
+    },
+    "plan_active_limit_403": {
+      "body": {
+        "detail": {
+          "cause": "plan_active_projects_exhausted",
+          "error_code": "smr_project_plan_active_limit_reached",
+          "limit": 4,
+          "message": "Active project limit reached for your plan. At least 2 active projects are included.",
+          "remedy": "Archive an active project or upgrade the plan.",
+          "scope": "organization",
+          "service": "smr",
+          "stage": "plan_entitlement_check",
+          "used": 4
+        }
+      },
+      "status": 403
+    }
+  },
+  "source": "backend http_exception_structured_409_handler @ claude/v02x-quota-403-20261030 (backend#3588)"
+}

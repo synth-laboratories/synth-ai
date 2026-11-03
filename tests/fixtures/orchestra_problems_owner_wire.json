@@ -112,6 +112,66 @@
     ],
     "schema_version": "synth.problems.v1"
   },
+  "docker-sandbox-unreachable": {
+    "problems": [
+      {
+        "code": "sandbox_unreachable",
+        "count": 2,
+        "evidence_refs": [
+          {
+            "kind": "session",
+            "ref": "7f3c2a10-5b4e-4c1d-9a8e-2d6f0b1c3e57",
+            "service": "agents"
+          },
+          {
+            "kind": "attempt",
+            "ref": "0c9e4d21-8a7b-4f36-b512-6e3a9d0f7c48",
+            "service": "orchestra"
+          }
+        ],
+        "headline": "The Docker sandbox for this attempt stopped answering; the attempt cannot reach its workspace.",
+        "id": "sandbox_unreachable.docker.container_unreachable",
+        "in_doubt": true,
+        "last_seen_unix_ms": 1792163491000,
+        "next": "Check the attempt's container on the Docker host (docker ps / docker logs); stop the attempt and relaunch the task.",
+        "origin": "docker",
+        "owner_hint": "sandbox provider (Docker) and agents sandbox-host owner",
+        "reason_chain": [
+          {
+            "cause": {
+              "container_state": "exited",
+              "exit_code": 137
+            },
+            "code": "container_unreachable",
+            "service": "docker",
+            "stage": "exec"
+          },
+          {
+            "cause": {
+              "age_ms": 60000,
+              "last_tool": "shell"
+            },
+            "code": "agent_session_silent",
+            "service": "agents",
+            "stage": "turn"
+          },
+          {
+            "cause": {
+              "live_attempts": 0
+            },
+            "code": "scope_dormant",
+            "service": "orchestra",
+            "stage": "scope_service"
+          }
+        ],
+        "retryable": true,
+        "severity": "error",
+        "since_unix_ms": 1792163371000,
+        "state": "open"
+      }
+    ],
+    "schema_version": "synth.problems.v1"
+  },
   "f40b6a07-c2c9-4221-b24c-ed763cb81d00": {
     "problems": [
       {

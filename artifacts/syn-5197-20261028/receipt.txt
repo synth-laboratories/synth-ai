@@ -1,0 +1,6 @@
+SYN-5197 receipt 2026-10-28
+base origin/dev edcc8104f1d94f3a388ac6d356b297d5248a5d66
+forge-research SKILL.md sha256 8e8fe1a3e5d32896745ede213d7a74bf0e733b4e92efb8769a8860f6e6e0d0bf (rev 9 candidate bytes from workspaces/synth-sdk-research-notebook-20261027, restored from verified Wasabi archive sha256 9f712504...)
+
+..............................                                           [100%]
+30 passed in 0.57s

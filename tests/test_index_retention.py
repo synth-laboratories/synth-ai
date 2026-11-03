@@ -376,6 +376,14 @@ def test_legacy_retention_block_still_parses():
     parsed = SearchSnapshot.model_validate_json(json.dumps(snapshot_body(retention=LEGACY_ZDR)))
     assert parsed.retention is not None and parsed.retention.mode == "zdr"
     assert parsed.inline_result is None
+    assert parsed.created_at is None
+
+
+def test_search_snapshot_preserves_creation_time():
+    parsed = SearchSnapshot.model_validate_json(
+        json.dumps(snapshot_body(created_at="2026-10-28T17:00:00Z"))
+    )
+    assert parsed.created_at.isoformat() == "2026-10-28T17:00:00+00:00"
 
 
 def test_retention_block_with_every_field_absent_parses():

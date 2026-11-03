@@ -12,13 +12,16 @@ from synth_ai.types.usage import ResourceUsage
 __all__ = [
     "ProjectSelection",
     "PoolSelection",
+    "TraceSelection",
     "ResourceGrant",
     "ResourceGrantSet",
     "ResourceRequest",
     "ResourceUsage",
 ]
 
-ResourcePluginId = Literal["openrouter.inference", "index.search", "rhodes.pool", "forge.research"]
+ResourcePluginId = Literal[
+    "openrouter.inference", "index.search", "rhodes.pool", "forge.research", "mnemosyne.trace"
+]
 ResourceRole = Literal["planner", "worker", "reviewer", "run_assessor"]
 ResourceDimension = Literal[
     "spend_micros",
@@ -65,6 +68,37 @@ class ProjectSelection(Model):
         return self
 
 
+TraceOperation = Literal["read", "retain", "compare"]
+
+
+class TraceSelection(Model):
+    """Project and role operation limits; availability is determined by the backend."""
+
+    project_ids: tuple[
+        Annotated[
+            str, Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        ],
+        ...,
+    ] = Field(min_length=1, max_length=1)
+    operations: tuple[TraceOperation, ...] = Field(min_length=1, max_length=3)
+    role_operations: dict[ResourceRole, tuple[TraceOperation, ...]] = Field(
+        min_length=1, max_length=4
+    )
+
+    @model_validator(mode="after")
+    def narrow_roles(self) -> Self:
+        if len(set(self.operations)) != len(self.operations):
+            raise ValueError("Trace operations must be distinct")
+        for operations in self.role_operations.values():
+            if (
+                not operations
+                or len(operations) != len(set(operations))
+                or not set(operations) <= set(self.operations)
+            ):
+                raise ValueError("Trace role operations must be distinct nonempty subsets")
+        return self
+
+
 class ResourceRequest(Model):
     plugin: ResourcePluginId
     version: StrictInt = Field(default=1, ge=1, le=1)
@@ -76,7 +110,7 @@ class ResourceRequest(Model):
     models: tuple[str, ...] = Field(default=(), max_length=16)
     collections: tuple[str, ...] = Field(default=(), max_length=16)
     credential_ref: Ref | None = None
-    selection: PoolSelection | ProjectSelection | None = None
+    selection: PoolSelection | ProjectSelection | TraceSelection | None = None
 
     @model_validator(mode="after")
     def validate_selection(self) -> Self:
@@ -91,18 +125,24 @@ class ResourceRequest(Model):
             raise ValueError("Index grants carry collection scope and no provider credentials")
         if self.plugin == "openrouter.inference" and (not self.models or self.collections):
             raise ValueError("Inference grants require models and no Index collections")
-        selection_type = {"rhodes.pool": PoolSelection, "forge.research": ProjectSelection}.get(
-            self.plugin
-        )
+        selection_type = {
+            "rhodes.pool": PoolSelection,
+            "forge.research": ProjectSelection,
+            "mnemosyne.trace": TraceSelection,
+        }.get(self.plugin)
         if selection_type is None:
             if self.selection is not None:
-                raise ValueError("Only pool and Forge grants carry selections")
+                raise ValueError("Only pool, Forge and trace grants carry selections")
         elif not isinstance(self.selection, selection_type):
             raise ValueError("Resource plugin requires its own selection type")
+        if isinstance(self.selection, TraceSelection) and set(self.selection.role_operations) != set(
+            self.roles
+        ):
+            raise ValueError("Every trace role must have explicit operations")
         if selection_type is not None and (
             self.models or self.collections or self.credential_ref is not None
         ):
-            raise ValueError("Pool and Forge grants carry selected ids and no credentials")
+            raise ValueError("Pool, Forge and trace grants carry selected ids and no credentials")
         if any(not value or len(value) > 256 for value in (*self.models, *self.collections)):
             raise ValueError("Resource selections must be nonempty bounded identifiers")
         return self
@@ -134,7 +174,7 @@ class ResourceGrant(ResponseBase):
     models: tuple[str, ...] = Field(default=())
     collections: tuple[str, ...] = Field(default=())
     credential_ref: Ref | None = None
-    selection: PoolSelection | ProjectSelection | None = None
+    selection: PoolSelection | ProjectSelection | TraceSelection | None = None
     funding_lane: Literal["platform", "user_connected"] | UnknownValue
     credential_refs: tuple[Ref, ...] = Field(default=())
     registry_digest: str = Field(pattern="^[0-9a-f]{64}$")

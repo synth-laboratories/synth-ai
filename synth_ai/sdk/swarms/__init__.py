@@ -8,6 +8,13 @@ from .output_stream import AsyncOutputStream, OutputStream
 from .run import AsyncSwarmRun, SwarmRun
 from .types.files import File, FileManifest, FileSource, FileUploadReceipt, FileUploadStatus
 from .types.launch import FileRef, Inputs, Limits, Models, Providers, RepoSelector
+from .types.methods import (
+    ForkFlushMethod,
+    ForkFlushOverrides,
+    ForkFlushParameters,
+    ForkFlushRound,
+    ResolvedResearchMethod,
+)
 from .types.objectives import (
     Guidance,
     GuidanceCoverage,
@@ -16,9 +23,39 @@ from .types.objectives import (
     ObjectiveResult,
     ObjectiveVerdict,
 )
-from .types.outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
-from .types.problems import EvidenceRef, Problem, ReasonLink
-from .types.resources import ResourceGrant, ResourceGrantSet, ResourceRequest, ResourceUsage
+from .types.outputs import (
+    DownloadReceipt,
+    Output,
+    OutputPage,
+    OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    TextContent,
+    TransferTiming,
+)
+from .types.overrides import (
+    ModelEffortChoice,
+    ProfileOverrideReadback,
+    ProfileOverrideResolution,
+    ProfileOverrides,
+    ResolvedProfileActor,
+)
+from .types.problems import EvidenceRef, Problem, ReasonLink, UnknownOrigin
+from .types.programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramFamilyRef,
+    ResearchBinding,
+    ResearchMethodChoice,
+)
+from .types.resources import (
+    ResourceGrant,
+    ResourceGrantSet,
+    ResourceRequest,
+    ResourceUsage,
+    TraceSelection,
+)
 from .types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -28,12 +65,45 @@ from .types.runs import (
     SwarmResult,
     TaskOutcome,
 )
+from .types.status_facets import (
+    CleanupFacet,
+    ExecutionFacet,
+    FacetCause,
+    PublicationCounts,
+    PublicationFacet,
+    RunStatusFacets,
+    SettlementFacet,
+)
 from .watch import AsyncRunWatch, RunWatch
 
 __all__ = [
+    "CleanupFacet",
+    "ExecutionFacet",
+    "FacetCause",
+    "PublicationCounts",
+    "PublicationFacet",
+    "RunStatusFacets",
+    "SettlementFacet",
+    "ModelEffortChoice",
+    "ProfileOverrideReadback",
+    "ProfileOverrideResolution",
+    "ProfileOverrides",
+    "ResolvedProfileActor",
+    "ProgramChoice",
+    "ProgramFamily",
+    "ProgramFamilyList",
+    "ProgramFamilyRef",
+    "ResearchBinding",
+    "ResearchMethodChoice",
+    "ForkFlushMethod",
+    "ForkFlushOverrides",
+    "ForkFlushParameters",
+    "ForkFlushRound",
+    "ResolvedResearchMethod",
     "EvidenceRef",
     "Problem",
     "ReasonLink",
+    "UnknownOrigin",
     "RunFailure",
     "SwarmEvent",
     "TaskOutcome",
@@ -48,6 +118,9 @@ __all__ = [
     "FileUploadStatus",
     "DownloadReceipt",
     "Output",
+    "OutputPage",
+    "OutputVerification",
+    "OutputVerificationError",
     "OutputRef",
     "TextContent",
     "TransferTiming",
@@ -82,4 +155,4 @@ __all__ += [
 from .create_retry import LaunchRetryExhausted  # noqa: E402
 
 __all__ += ["LaunchRetryExhausted"]
-__all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage"]
+__all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage", "TraceSelection"]

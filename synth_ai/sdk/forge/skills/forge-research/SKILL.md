@@ -32,6 +32,36 @@ returned project ID and original receipt. Do not add caller or credential fields
 
 ## Scientific work
 
+### Research notebook
+
+Treat the research log as the working lab notebook for the investigation. Use
+the admitted project and an existing exact log reference when one is provided;
+otherwise, if the run's grants and tool catalogue permit it, create a
+`research_log` with `forge_record_write`, a new record ID, expected revision
+zero and a retained idempotency key. Keep the returned exact reference. Do not
+pretend that a log exists or that a write succeeded when creation is denied or
+the outcome is unknown.
+
+Append a new `log_entry` through the same admitted `forge_record_write` tool.
+Give each entry its own record ID and idempotency key, expected revision zero,
+the exact log reference, an aware `occurred_at`, one of `observation`,
+`rationale`, `attempt`, `failure`, `decision` or `correction`, and the actual
+research note. Include exact available sources. Record the question, intended
+method, actual conditions, deviations, measurements and uncertainty as useful
+to this investigation. Include null results, failed attempts and next steps.
+When known, link the actual code, model/checkpoint, dataset and split, seed,
+configuration, evaluator, run, trial, trace and artifacts; mark unknown,
+unavailable or unverified details instead of inferring them. An authored note
+is not an evaluator receipt, proof of evidence custody or billing truth.
+
+Write concise notes as work happens rather than waiting for the final report.
+Distinguish observations from interpretations, and mark later reconstruction
+as retrospective. A correction is a new entry with category `correction` and
+the exact original `correction_of` reference from the same log. Never rewrite
+or delete the prior entry. Retain each receipt and use the original key to
+reconcile an uncertain outcome. If a log operation is unavailable or denied,
+report the gap; do not invent a journal or change identity to obtain access.
+
 Register a typed protocol with declared arms, metrics/decision rules, sampling,
 analysis, stopping and deviation policies. Mark prospective specification and
 retrospective reconstruction explicitly. A hypothesis is optional when the work

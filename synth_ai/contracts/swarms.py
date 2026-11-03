@@ -2,6 +2,24 @@
 
 from .operations import Operation
 
+OBSERVATION_RECOVERY = Operation(
+    "swarms.observations.recover",
+    "POST",
+    "/swarms/runs/{run_id}/observation-recovery",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+OBSERVATION_RECOVERY_PREVIEW = Operation(
+    "swarms.observations.preview",
+    "GET",
+    "/swarms/runs/{run_id}/observation-recovery/{sequence}",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+
 PROJECT = Operation(
     "swarms.projects.get",
     "GET",
@@ -169,6 +187,7 @@ OUTPUT_CONTENT = Operation(
     required_scope="swarms:read",
 )
 ALL_OPERATIONS += (OUTPUTS, OUTPUT, OUTPUT_CONTENT)
+ALL_OPERATIONS += (OBSERVATION_RECOVERY, OBSERVATION_RECOVERY_PREVIEW)
 
 FILES = Operation(
     "swarms.files.list",
@@ -254,3 +273,46 @@ STREAM = Operation(
     required_scope="swarms:read",
 )
 ALL_OPERATIONS += (STREAM,)
+
+# SYN-4547: customer approval surface for approval-gated capabilities.
+APPROVALS = Operation(
+    "swarms.approvals.list",
+    "GET",
+    "/swarms/runs/{run_id}/approvals",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
+DECIDE_APPROVAL = Operation(
+    "swarms.approvals.decide",
+    "POST",
+    "/swarms/runs/{run_id}/approvals/{approval_id}/decision",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+ALL_OPERATIONS += (APPROVALS, DECIDE_APPROVAL)
+
+# SYN-4650: answer one open human-in-the-loop wait listed by swarms.approvals.list.
+ANSWER_WAIT = Operation(
+    "swarms.approvals.answer",
+    "POST",
+    "/swarms/runs/{run_id}/approvals/{approval_id}/answer",
+    True,
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:control",
+)
+ALL_OPERATIONS += (ANSWER_WAIT,)
+
+# SYN-4849: the exact program family versions a launch may select.
+FAMILIES = Operation(
+    "swarms.families.list",
+    "GET",
+    "/swarms/families",
+    True,
+    contract="swarms.v1",
+    required_scope="swarms:read",
+)
+ALL_OPERATIONS += (FAMILIES,)

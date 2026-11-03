@@ -23,11 +23,22 @@ from synth_ai.errors import (
 from synth_ai.options import MutationOptions, ObservationOptions, ReadOptions
 from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.types.base import EventCursor, Page, PageCursor
+from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.receipts import ControlCommand, ControlReceipt, MutationResolution
 from synth_ai.types.refs import Link, Ref, Relation
 from synth_ai.types.usage import UsageOperation, UsageSummary
 
 from .outputs import AsyncOutputs, Outputs
+from .types.approvals import (
+    ApprovalDecision,
+    ApprovalDecisionReceipt,
+    ApprovalDecisionRequest,
+    ApprovalKind,
+    ApprovalList,
+    WaitAnswerReceipt,
+    WaitAnswerRequest,
+    WaitAnswerScope,
+)
 from .types.programs import ProgramRunView
 from .types.runs import (
     KnownRunState,
@@ -35,6 +46,7 @@ from .types.runs import (
     RunSnapshot,
     RunState,
     SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
 )
@@ -56,6 +68,27 @@ def _recovery_read(deadline: float, error: OutcomeUncertainError) -> ReadOptions
     return ReadOptions(timeout_seconds=remaining, read_retry_count=0)
 
 
+def _approval_kind_query(kind: ApprovalKind | None) -> dict[str, str] | None:
+    """``?kind=`` for ``swarms.approvals.list`` (SYN-4650); ``None`` lists every kind."""
+    if kind is None:
+        return None
+    if kind not in get_args(ApprovalKind):
+        raise ContractError(f"Unsupported approval kind {kind!r}", code="approval_kind_invalid")
+    return {"kind": kind}
+
+
+def _verified_approvals(
+    result: ApprovalList, run_id: str, kind: ApprovalKind | None
+) -> ApprovalList:
+    return verified(
+        result,
+        result.run_id == run_id
+        and all(item.run_id == run_id for item in result.items)
+        and (kind is None or all(item.kind == kind for item in result.items)),
+        "Approval list identity mismatch",
+    )
+
+
 def _target_states(value: RunState | tuple[RunState, ...]) -> frozenset[RunState]:
     values = (value,) if isinstance(value, str) else value
     if (
@@ -72,6 +105,9 @@ class RunIdentity:
     _reference: Ref | None = None
     _project_id: str | None = None
     _identity_lock: threading.Lock
+    # x-ratelimit-* capacity reported on the create response that admitted this run
+    # (SYN-4680); empty for a run reattached by get() or resolve_creation().
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
 
     @property
     def ref(self) -> Ref:
@@ -187,6 +223,99 @@ class SwarmRun(RunIdentity):
         Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
         return RunWatch(self, self._transport, observation, last_event_id)
 
+    def approvals(
+        self, *, kind: ApprovalKind | None = None, request: ReadOptions | None = None
+    ) -> ApprovalList:
+        """List the run's open approvals (tool calls, waits, gates) with typed state.
+
+        ``kind`` (``"tool_call"``, ``"wait"`` or ``"gate"``) asks the backend
+        for that kind only; an item of another kind is a ``ContractError``.
+        """
+        return self._transport.request(
+            operations.APPROVALS,
+            ApprovalList,
+            path=f"/swarms/runs/{self.run_id}/approvals",
+            query=_approval_kind_query(kind),
+            options=request,
+            validate=lambda result: _verified_approvals(result, self.run_id, kind),
+        )
+
+    def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        decision: ApprovalDecision,
+        expected_revision: int,
+        reason: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> ApprovalDecisionReceipt:
+        """Approve or refuse one parked call at ``expected_revision``.
+
+        A stale revision is refused as ``approval_revision_stale``; replaying
+        the same decision for the same revision returns the original verdict.
+        """
+        selected = identifier(approval_id)
+        return self._transport.request(
+            operations.DECIDE_APPROVAL,
+            ApprovalDecisionReceipt,
+            body=ApprovalDecisionRequest(
+                decision=decision, expected_revision=expected_revision, reason=reason
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/decision",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.decided_revision == expected_revision,
+                "Approval decision identity mismatch",
+            ),
+        )
+
+    def answer_wait(
+        self,
+        approval_id: str,
+        *,
+        decision: str,
+        expected_revision: int,
+        answer_scope: WaitAnswerScope | None = None,
+        answer_schema: str | None = None,
+        answerer: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> WaitAnswerReceipt:
+        """Answer one open human-in-the-loop wait (``kind="wait"``) at ``expected_revision``.
+
+        A stale revision is refused as ``wait_revision_stale``; a wait another
+        answer resolved is ``wait_already_resolved``; replaying the same answer
+        (same decision, scope, schema and answerer) returns the original receipt.
+        """
+        selected = identifier(approval_id)
+        return self._transport.request(
+            operations.ANSWER_WAIT,
+            WaitAnswerReceipt,
+            body=WaitAnswerRequest(
+                decision=decision,
+                expected_revision=expected_revision,
+                answer_scope=answer_scope,
+                answer_schema=answer_schema,
+                answerer=answerer,
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/answer",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.answered_revision == expected_revision
+                and (answer_scope is None or result.answer_scope == answer_scope)
+                and (answer_schema is None or result.answer_schema == answer_schema)
+                and (answerer is None or result.answerer == answerer),
+                "Wait answer identity mismatch",
+            ),
+        )
+
     def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""
         return self._transport.request(
@@ -234,11 +363,11 @@ class SwarmRun(RunIdentity):
 
     def event_page(
         self, *, limit: int, cursor: EventCursor | None = None, request: ReadOptions | None = None
-    ) -> Page[SwarmEvent, EventCursor]:
+    ) -> SwarmEventPage:
         """Read a bounded page; cursors never transfer authority."""
         return self._transport.request(
             operations.EVENTS,
-            Page[SwarmEvent, EventCursor],
+            SwarmEventPage,
             path=f"/swarms/runs/{self.run_id}/events",
             query=page_parameters(limit, cursor),
             options=request,
@@ -514,6 +643,99 @@ class AsyncSwarmRun(RunIdentity):
         Reconnects with Last-Event-ID on rotation and on bounded transient failures."""
         return AsyncRunWatch(self, self._transport, observation, last_event_id)
 
+    async def approvals(
+        self, *, kind: ApprovalKind | None = None, request: ReadOptions | None = None
+    ) -> ApprovalList:
+        """List the run's open approvals (tool calls, waits, gates) with typed state.
+
+        ``kind`` (``"tool_call"``, ``"wait"`` or ``"gate"``) asks the backend
+        for that kind only; an item of another kind is a ``ContractError``.
+        """
+        return await self._transport.request(
+            operations.APPROVALS,
+            ApprovalList,
+            path=f"/swarms/runs/{self.run_id}/approvals",
+            query=_approval_kind_query(kind),
+            options=request,
+            validate=lambda result: _verified_approvals(result, self.run_id, kind),
+        )
+
+    async def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        decision: ApprovalDecision,
+        expected_revision: int,
+        reason: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> ApprovalDecisionReceipt:
+        """Approve or refuse one parked call at ``expected_revision``.
+
+        A stale revision is refused as ``approval_revision_stale``; replaying
+        the same decision for the same revision returns the original verdict.
+        """
+        selected = identifier(approval_id)
+        return await self._transport.request(
+            operations.DECIDE_APPROVAL,
+            ApprovalDecisionReceipt,
+            body=ApprovalDecisionRequest(
+                decision=decision, expected_revision=expected_revision, reason=reason
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/decision",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.decided_revision == expected_revision,
+                "Approval decision identity mismatch",
+            ),
+        )
+
+    async def answer_wait(
+        self,
+        approval_id: str,
+        *,
+        decision: str,
+        expected_revision: int,
+        answer_scope: WaitAnswerScope | None = None,
+        answer_schema: str | None = None,
+        answerer: str | None = None,
+        mutation: MutationOptions | None = None,
+    ) -> WaitAnswerReceipt:
+        """Answer one open human-in-the-loop wait (``kind="wait"``) at ``expected_revision``.
+
+        A stale revision is refused as ``wait_revision_stale``; a wait another
+        answer resolved is ``wait_already_resolved``; replaying the same answer
+        (same decision, scope, schema and answerer) returns the original receipt.
+        """
+        selected = identifier(approval_id)
+        return await self._transport.request(
+            operations.ANSWER_WAIT,
+            WaitAnswerReceipt,
+            body=WaitAnswerRequest(
+                decision=decision,
+                expected_revision=expected_revision,
+                answer_scope=answer_scope,
+                answer_schema=answer_schema,
+                answerer=answerer,
+            ),
+            path=f"/swarms/runs/{self.run_id}/approvals/{selected}/answer",
+            options=mutation,
+            validate=lambda result: verified(
+                result,
+                result.run_id == self.run_id
+                and result.approval_id == selected
+                and result.decision == decision
+                and result.answered_revision == expected_revision
+                and (answer_scope is None or result.answer_scope == answer_scope)
+                and (answer_schema is None or result.answer_schema == answer_schema)
+                and (answerer is None or result.answerer == answerer),
+                "Wait answer identity mismatch",
+            ),
+        )
+
     async def program(self, *, request: ReadOptions | None = None) -> ProgramRunView:
         """Inspect the admitted program and its projection without changing it."""
         return await self._transport.request(
@@ -561,11 +783,11 @@ class AsyncSwarmRun(RunIdentity):
 
     async def event_page(
         self, *, limit: int, cursor: EventCursor | None = None, request: ReadOptions | None = None
-    ) -> Page[SwarmEvent, EventCursor]:
+    ) -> SwarmEventPage:
         """Read a bounded page; cursors never transfer authority."""
         return await self._transport.request(
             operations.EVENTS,
-            Page[SwarmEvent, EventCursor],
+            SwarmEventPage,
             path=f"/swarms/runs/{self.run_id}/events",
             query=page_parameters(limit, cursor),
             options=request,

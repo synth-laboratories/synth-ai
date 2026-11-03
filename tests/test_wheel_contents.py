@@ -29,3 +29,8 @@ def test_wheel_has_only_sdk_and_distribution_metadata():
         assert "synth_ai/contracts/fingerprints.json" in names
         for contract in ("index-v1.json", "swarms-v1.json", "core-v1.json", "mcp-v1.json"):
             assert f"synth_ai/contracts/{contract}" in names
+            with zipfile.ZipFile(path) as wheel:
+                assert (
+                    wheel.read(f"synth_ai/contracts/{contract}")
+                    == (root / "contracts" / contract).read_bytes()
+                )
