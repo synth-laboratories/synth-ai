@@ -20,6 +20,10 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.forge.capture_types import (
+    CaptureAdmittedResponse, CaptureRetainedResponse, CaptureRetainedListResponse,
+    CaptureCollectedResponse,
+)
 from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftNoticesResponse,
     ForgeIndexDraftResponse,
@@ -64,7 +68,7 @@ from synth_ai.sdk.swarms.types.approvals import (
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
 from synth_ai.sdk.swarms.types.outputs import Output, TextContent
-from synth_ai.sdk.swarms.types.programs import ProgramFamilyList
+from synth_ai.sdk.swarms.types.programs import ProgramFamilyList, ProgramRunView
 from synth_ai.sdk.swarms.types.runs import (
     ResolvedConfiguration,
     RunSnapshot,
@@ -419,6 +423,11 @@ async def run_status(client: AsyncSynthClient, args: RunIdentity) -> RunSnapshot
 
 async def run_configuration(client: AsyncSynthClient, args: RunIdentity) -> ResolvedConfiguration:
     return await (await client.swarms.get(args.run_id)).configuration()
+
+
+async def run_program(client: AsyncSynthClient, args: RunIdentity) -> ProgramRunView:
+    """Read the retained program projection; reattachment never recreates a run."""
+    return await (await client.swarms.get(args.run_id)).program()
 
 
 async def run_result(client: AsyncSynthClient, args: RunIdentity) -> SwarmResult:
@@ -811,6 +820,48 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.report_artifact,
     ),
     ToolDefinition(
+        "forge_capture_admit",
+        forge_operations.CAPTURE_ADMIT,
+        "Reserve capture quota and retention before execution as the current caller. "
+        "The returned intent reference is a locator, not an access grant.",
+        forge_tools.ForgeCaptureAdmit,
+        CaptureAdmittedResponse,
+        forge_tools.capture_admit,
+    ),
+    ToolDefinition(
+        "forge_capture_get",
+        forge_operations.CAPTURE_GET,
+        "Read one exact retained capture admission and its current owner protection.",
+        forge_tools.ForgeCaptureRead,
+        CaptureRetainedResponse,
+        forge_tools.capture_get,
+    ),
+    ToolDefinition(
+        "forge_capture_collect",
+        forge_operations.CAPTURE_COLLECT,
+        "Collect an exact admitted execution's observed bytes and retain owner holds. "
+        "Missing content remains an explicit inventory gap.",
+        forge_tools.ForgeCaptureCollect,
+        CaptureCollectedResponse,
+        forge_tools.capture_collect,
+    ),
+    ToolDefinition(
+        "forge_capture_retained",
+        forge_operations.CAPTURE_RETAINED,
+        "List bounded retained capture admissions visible in a research workspace.",
+        forge_tools.ForgeCapturePage,
+        CaptureRetainedListResponse,
+        forge_tools.capture_retained,
+    ),
+    ToolDefinition(
+        "forge_capture_release",
+        forge_operations.CAPTURE_RELEASE,
+        "Release one capture admission through its byte owners with a stable retry key.",
+        forge_tools.ForgeCaptureRelease,
+        CaptureRetainedResponse,
+        forge_tools.capture_release,
+    ),
+    ToolDefinition(
         "forge_project_list",
         forge_operations.PROJECT_LIST,
         "List accessible research workspaces in bounded pages.",
@@ -1105,6 +1156,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         RunIdentity,
         ResolvedConfiguration,
         run_configuration,
+    ),
+    ToolDefinition(
+        "swarms_program",
+        swarm_operations.PROGRAM,
+        "Read the admitted program, its recorded projection and terminal facts without changing the run.",
+        RunIdentity,
+        ProgramRunView,
+        run_program,
     ),
     ToolDefinition(
         "swarms_result",

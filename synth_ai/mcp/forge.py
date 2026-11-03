@@ -5,6 +5,8 @@ from typing import Annotated, Literal
 from pydantic import AwareDatetime, Field
 
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.forge.contracts.capture import CaptureAdmissionRequest, CaptureProfile
+from synth_ai.sdk.forge.contracts.contracts import Digest, ExactReference
 from synth_ai.sdk.forge.contracts.projects import ProjectId, ProjectMember
 from synth_ai.sdk.forge.contracts.report_manifests import ReportVersion
 from synth_ai.sdk.forge.contracts.scientific_v2 import RecordV2
@@ -19,6 +21,61 @@ from synth_ai.types.base import Identifier, Model
 
 class ForgeProjectIdentity(Model):
     project_id: ProjectId
+
+
+class ForgeCaptureAdmit(ForgeProjectIdentity):
+    request: CaptureAdmissionRequest
+    profile: CaptureProfile
+    require_owner_protection: bool = True
+    idempotency_key: Identifier
+
+
+class ForgeCaptureRead(ForgeProjectIdentity):
+    digest: Digest
+
+
+class ForgeCapturePage(ForgeProjectIdentity):
+    after: Digest | None = None
+    limit: Annotated[int, Field(strict=True, ge=1, le=128)] = 50
+
+
+class ForgeCaptureRelease(ForgeCaptureRead):
+    reason: Literal["capture_verified_elsewhere", "trial_abandoned", "retention_superseded"]
+    idempotency_key: Identifier
+
+
+class ForgeCaptureCollect(ForgeCaptureRead):
+    execution: ExactReference
+    orchestra_run_id: Identifier | None = None
+    orchestra_program_scope: dict[str, str] | None = None
+    mloky_relay_sha256: Digest | None = None
+    idempotency_key: Identifier
+
+
+async def capture_collect(client, args):
+    return await client.forge.captures.collect(args.project_id, args.digest, args.execution,
+        orchestra_run_id=args.orchestra_run_id, orchestra_program_scope=args.orchestra_program_scope,
+        mloky_relay_sha256=args.mloky_relay_sha256,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key))
+
+
+async def capture_admit(client, args):
+    return await client.forge.captures.admit(args.project_id, args.request, args.profile,
+        require_owner_protection=args.require_owner_protection,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key))
+
+
+async def capture_get(client, args):
+    return await client.forge.captures.get(args.project_id, args.digest)
+
+
+async def capture_retained(client, args):
+    return await client.forge.captures.retained(args.project_id, after=args.after, limit=args.limit)
+
+
+async def capture_release(client, args):
+    return await client.forge.captures.release(args.project_id, args.digest, args.reason,
+        mutation=MutationOptions(idempotency_key=args.idempotency_key))
 
 
 class ForgeProjectPage(Model):

@@ -48,6 +48,11 @@ from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftUploadResponse,
     ForgeIndexNoticePage,
 )
+from synth_ai.sdk.forge.capture_types import (
+    CaptureCollectIntent, CaptureCollectedResponse,
+    CaptureAdmitIntent, CaptureReleaseIntent, CaptureAdmittedResponse,
+    CaptureRetainedResponse, CaptureRetainedListResponse,
+)
 from synth_ai.sdk.core.types import (
     CloneToken,
     CloneTokenRequest,
@@ -76,6 +81,9 @@ from .mnemosyne import ALL_OPERATIONS as MNEMOSYNE_OPERATIONS
 from .mnemosyne_native import ALL_OPERATIONS as MNEMOSYNE_NATIVE_OPERATIONS
 
 MODELS = (
+    CaptureCollectIntent, CaptureCollectedResponse,
+    CaptureAdmitIntent, CaptureReleaseIntent, CaptureAdmittedResponse,
+    CaptureRetainedResponse, CaptureRetainedListResponse,
     EvaluationEvidenceResponse,
     PublicImportRequest,
     ImportPreview,

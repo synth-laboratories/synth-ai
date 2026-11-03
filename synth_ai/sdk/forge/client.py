@@ -8,6 +8,7 @@ from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.parameters import verified
 from synth_ai.options import MutationOptions, ReadOptions
 
+from .captures import AsyncCaptures, Captures
 from .contracts.projects import (
     ProjectArchive,
     ProjectCreate,
@@ -230,6 +231,7 @@ class ForgeClient:
         self.receipts = Receipts(transport)
         self.index_drafts = IndexDrafts(transport)
         self.reports = Reports(transport)
+        self.captures = Captures(transport)
 
 
 class AsyncForgeClient:
@@ -239,3 +241,4 @@ class AsyncForgeClient:
         self.receipts = AsyncReceipts(transport)
         self.index_drafts = AsyncIndexDrafts(transport)
         self.reports = AsyncReports(transport)
+        self.captures = AsyncCaptures(transport)

@@ -30,7 +30,7 @@ from .create_retry import async_create_with_retry, create_with_retry
 from .files import AsyncFiles, Files
 from .run import AsyncSwarmRun, SwarmRun
 from .types.launch import Inputs, LaunchRequest, Limits, Models, Project, Providers, RepoSelector
-from .types.methods import ForkFlushMethod
+from .types.methods import ResearchMethod
 from .types.objectives import Guidance
 from .types.overrides import ProfileOverrides
 from .types.programs import ProgramChoice, ProgramFamilyList
@@ -62,7 +62,7 @@ def launch_request(
     guidance: tuple[Guidance, ...] = (),
     resources: tuple[ResourceRequest, ...] = (),
     repo: RepoSelector | None = None,
-    method: ForkFlushMethod | None = None,
+    method: ResearchMethod | None = None,
     program: ProgramChoice | None = None,
     profile_overrides: ProfileOverrides | None = None,
 ) -> LaunchRequest:
@@ -213,7 +213,7 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
-        method: ForkFlushMethod | None = None,
+        method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
         request: ReadOptions | None = None,
@@ -259,7 +259,7 @@ class SwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
-        method: ForkFlushMethod | None = None,
+        method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
         mutation: MutationOptions | None = None,
@@ -446,7 +446,7 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
-        method: ForkFlushMethod | None = None,
+        method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
         request: ReadOptions | None = None,
@@ -492,7 +492,7 @@ class AsyncSwarmsClient:
         providers: Providers | None = None,
         models: Models | None = None,
         repo: RepoSelector | None = None,
-        method: ForkFlushMethod | None = None,
+        method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
         mutation: MutationOptions | None = None,

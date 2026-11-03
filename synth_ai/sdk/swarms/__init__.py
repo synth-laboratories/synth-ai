@@ -10,6 +10,16 @@ from .types.files import File, FileManifest, FileSource, FileUploadReceipt, File
 from .types.launch import FileRef, Inputs, Limits, Models, Providers, RepoSelector
 from .types.methods import (
     ForkFlushMethod,
+    ForgettingMethod,
+    ForgettingOverrides,
+    ForgettingParameters,
+    MiraMethod,
+    MiraOverrides,
+    MiraParameters,
+    ScaleMasMethod,
+    ScaleMasOverrides,
+    ScaleMasParameters,
+    ResearchMethod,
     ForkFlushOverrides,
     ForkFlushParameters,
     ForkFlushRound,
@@ -96,6 +106,19 @@ __all__ = [
     "ResearchBinding",
     "ResearchMethodChoice",
     "ForkFlushMethod",
+    "ForgettingMethod",
+    "ForgettingOverrides",
+    "ForgettingParameters",
+    "MiraMethod",
+    "MiraOverrides",
+    "MiraParameters",
+    "ScaleMasMethod",
+    "ScaleMasOverrides",
+    "ScaleMasParameters",
+    "ResearchMethod",
+    "ScientificDelivery",
+    "ScientificRecordReceipt",
+    "EffectiveLimits",
     "ForkFlushOverrides",
     "ForkFlushParameters",
     "ForkFlushRound",
@@ -156,3 +179,6 @@ from .create_retry import LaunchRetryExhausted  # noqa: E402
 
 __all__ += ["LaunchRetryExhausted"]
 __all__ += ["ResourceRequest", "ResourceGrant", "ResourceGrantSet", "ResourceUsage", "TraceSelection"]
+
+from .types.scientific_delivery import ScientificDelivery, ScientificRecordReceipt
+from .types.effective_limits import EffectiveLimits

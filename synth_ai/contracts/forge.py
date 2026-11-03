@@ -287,6 +287,17 @@ TRANSFER_RECEIPT = Operation(
     required_scope="forge:write",
 )
 TRANSFER_OPERATIONS = (TRANSFER_PREVIEW, TRANSFER_IMPORT, TRANSFER_RECEIPT)
+CAPTURE_ADMIT = Operation("forge.captures.admit", "POST", "/forge/projects/{project_id}/captures",
+    True, True, contract="core.v1", required_scope="forge:write")
+CAPTURE_RETAINED = Operation("forge.captures.retained", "GET", "/forge/projects/{project_id}/captures",
+    True, contract="core.v1", required_scope="forge:read")
+CAPTURE_GET = Operation("forge.captures.get", "GET", "/forge/projects/{project_id}/captures/{digest}",
+    True, contract="core.v1", required_scope="forge:read")
+CAPTURE_RELEASE = Operation("forge.captures.release", "POST", "/forge/projects/{project_id}/captures/{digest}/release",
+    True, True, contract="core.v1", required_scope="forge:write")
+CAPTURE_COLLECT = Operation("forge.captures.collect", "POST", "/forge/projects/{project_id}/captures/{digest}/collect",
+    True, True, contract="core.v1", required_scope="forge:write")
+CAPTURE_OPERATIONS = (CAPTURE_ADMIT, CAPTURE_RETAINED, CAPTURE_GET, CAPTURE_RELEASE, CAPTURE_COLLECT)
 PROJECT_OPERATIONS = (PROJECT_LIST, PROJECT_GET, PROJECT_APPLY)
 SCIENCE_OPERATIONS = (
     RECORD_GET,
@@ -297,6 +308,7 @@ SCIENCE_OPERATIONS = (
     ARTIFACT_EVIDENCE_GET,
 )
 ALL_OPERATIONS = (
+    *CAPTURE_OPERATIONS,
     *PROJECT_OPERATIONS,
     *TRANSFER_OPERATIONS,
     *SCIENCE_OPERATIONS,
