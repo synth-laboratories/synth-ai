@@ -6,7 +6,26 @@
 from typing import Annotated, Literal
 from pydantic import AwareDatetime, Field
 from .capture import CaptureAdmissionRequest, CaptureProfile, CaptureObject, CaptureTrace
-from .contracts import Contract, Digest, ExactReference, Scope
+from .contracts import Contract, Digest, ExactReference, ForgeError, Scope
+
+
+def require_capture_owner_protection(owners, *, at, expected_traces=False,
+                                     require_trace_bytes=False):
+    """Distinguish admitted trace capacity from collected byte protection.
+
+    Mnemosyne reserves capacity before execution and protects actual bytes on
+    consumption. Artifact protects retained inputs during admission. A reserved
+    trace owner can therefore support admission reads/replay and collection
+    preparation; collection ACK still requires protected trace bytes.
+    """
+    artifact, trace = owners
+    if artifact is None or expected_traces and trace is None:
+        raise ForgeError("capture_protection_lost", "required capture owner protection is absent")
+    if artifact.state != "protected" or artifact.retain_until <= at:
+        raise ForgeError("capture_protection_lost", "Artifact owner protection unavailable")
+    trace_states = {"protected"} if require_trace_bytes else {"reserved", "protected"}
+    if trace is not None and (trace.state not in trace_states or trace.retain_until <= at):
+        raise ForgeError("capture_protection_lost", "Mnemosyne owner reservation/protection unavailable")
 
 
 class CaptureOwnerRequest(Contract):
