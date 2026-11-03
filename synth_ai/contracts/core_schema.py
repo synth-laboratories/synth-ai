@@ -16,17 +16,30 @@ from synth_ai.sdk.core.artifact_types import (
     ArtifactUploadRequest,
     ArtifactUploadStatus,
 )
-from synth_ai.sdk.core.types import (
-    CloneToken,
-    CloneTokenRequest,
-    RepositoryCommit,
-    RepositoryDiff,
-    RepositoryRef,
-    RepositorySnapshot,
+from synth_ai.sdk.forge.types import (
+    NativeTransferPreviewResponse,
+    NativeTransferReceiptResponse,
+    ProjectListResponse,
+    ProjectMutationResponse,
+    ProjectResponse,
+    ReportExportResponse,
+    ReportPublicationResponse,
+    ReportPublishIntent,
+    ReportShareIntent,
+    ReportShareListResponse,
+    ReportShareResponse,
+    ReportShareRevocationResponse,
+    ReportShareRevokeIntent,
+    ReportShareRevokeOneIntent,
+    ReportVersionAvailabilityResponse,
+    ReportVersionBrowseResponse,
+    ReportVersionComparisonResponse,
+    ReportVersionDocumentResponse,
+    ScientificArtifactEvidenceResponse,
+    ScientificEventsResponse,
+    ScientificReceiptResponse,
+    ScientificRecordResponse,
 )
-from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
-from synth_ai.sdk.forge.contracts.projects import ProjectOperation
-from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
 from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftNoticesResponse,
     ForgeIndexDraftRequest,
@@ -35,23 +48,40 @@ from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftUploadResponse,
     ForgeIndexNoticePage,
 )
-from synth_ai.sdk.forge.types import (
-    ProjectListResponse,
-    ProjectMutationResponse,
-    ProjectResponse,
-    ScientificArtifactEvidenceResponse,
-    ScientificReceiptResponse,
-    ScientificRecordResponse,
+from synth_ai.sdk.core.types import (
+    CloneToken,
+    CloneTokenRequest,
+    RepositoryCommit,
+    RepositoryDiff,
+    RepositoryRef,
+    RepositorySnapshot,
 )
+from synth_ai.sdk.mnemosyne.contracts import EvaluationEvidenceResponse
 from synth_ai.types.base import Page
 from synth_ai.types.refs import Link, Producer, Ref
 from synth_ai.types.response_values import response_schema
+from synth_ai.sdk.forge.contracts.operations_v2 import PublicWriteV2
+from synth_ai.sdk.forge.contracts.projects import ProjectOperation
+from synth_ai.sdk.forge.contracts.workspace_science import WorkspaceIntent
+from synth_ai.sdk.forge.contracts.workspace_transfer import (
+    ImportPreview,
+    NativeImportReceipt,
+    PublicImportRequest,
+)
 
 from .core import ALL_OPERATIONS
 from .forge import ALL_OPERATIONS as FORGE_OPERATIONS
 from .operations import PREFIX
+from .mnemosyne import ALL_OPERATIONS as MNEMOSYNE_OPERATIONS
+from .mnemosyne_native import ALL_OPERATIONS as MNEMOSYNE_NATIVE_OPERATIONS
 
 MODELS = (
+    EvaluationEvidenceResponse,
+    PublicImportRequest,
+    ImportPreview,
+    NativeImportReceipt,
+    NativeTransferPreviewResponse,
+    NativeTransferReceiptResponse,
     ForgeIndexDraftNoticesResponse,
     ForgeIndexNoticePage,
     ForgeIndexDraftRequest,
@@ -63,10 +93,24 @@ MODELS = (
     ScientificRecordResponse,
     ScientificReceiptResponse,
     ScientificArtifactEvidenceResponse,
+    ScientificEventsResponse,
     ProjectOperation,
     ProjectListResponse,
     ProjectResponse,
     ProjectMutationResponse,
+    ReportPublishIntent,
+    ReportPublicationResponse,
+    ReportShareRevokeIntent,
+    ReportShareRevocationResponse,
+    ReportShareIntent,
+    ReportShareRevokeOneIntent,
+    ReportShareResponse,
+    ReportShareListResponse,
+    ReportVersionBrowseResponse,
+    ReportVersionDocumentResponse,
+    ReportVersionComparisonResponse,
+    ReportExportResponse,
+    ReportVersionAvailabilityResponse,
     Artifact,
     ArtifactAlias,
     ArtifactAliasSet,
@@ -137,7 +181,12 @@ def export_contract() -> str:
                         "may_charge": op.may_charge,
                         "idempotent": op.idempotent,
                     }
-                    for op in (*ALL_OPERATIONS, *FORGE_OPERATIONS)
+                    for op in (
+                        *ALL_OPERATIONS,
+                        *FORGE_OPERATIONS,
+                        *MNEMOSYNE_OPERATIONS,
+                        *MNEMOSYNE_NATIVE_OPERATIONS,
+                    )
                 ],
             },
             sort_keys=True,

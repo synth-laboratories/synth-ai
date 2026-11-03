@@ -21,6 +21,8 @@ from synth_ai.sdk.core.links import AsyncLinks, Links
 from synth_ai.sdk.core.repos import AsyncRepositories, Repositories
 from synth_ai.sdk.forge.client import AsyncForgeClient, ForgeClient
 from synth_ai.sdk.index.client import AsyncIndexClient, IndexClient
+from synth_ai.sdk.menagerie.client import AsyncMenagerieClient, MenagerieClient
+from synth_ai.sdk.mnemosyne import AsyncMnemosyneClient, MnemosyneClient
 from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.sdk.tunnels.client import AsyncTunnelsClient, TunnelsClient
 from synth_ai.types.auth import AuthContext
@@ -72,10 +74,12 @@ class SynthClient:
     swarms: SwarmsClient
     account: AccountClient
     tunnels: TunnelsClient
+    menagerie: MenagerieClient
     repos: Repositories
     links: Links
     artifacts: Artifacts
     forge: ForgeClient
+    mnemosyne: MnemosyneClient
 
     def __init__(
         self,
@@ -96,10 +100,12 @@ class SynthClient:
         self.swarms = SwarmsClient(self._transport)
         self.account = AccountClient(self._transport)
         self.tunnels = TunnelsClient(self._transport)
+        self.menagerie = MenagerieClient(self._transport)
         self.repos = Repositories(self._transport)
         self.links = Links(self._transport)
         self.artifacts = Artifacts(self._transport)
         self.forge = ForgeClient(self._transport)
+        self.mnemosyne = MnemosyneClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -119,10 +125,12 @@ class SynthClient:
         client.swarms = SwarmsClient(client._transport)
         client.account = AccountClient(client._transport)
         client.tunnels = TunnelsClient(client._transport)
+        client.menagerie = MenagerieClient(client._transport)
         client.repos = Repositories(client._transport)
         client.links = Links(client._transport)
         client.artifacts = Artifacts(client._transport)
         client.forge = ForgeClient(client._transport)
+        client.mnemosyne = MnemosyneClient(client._transport)
         return client
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
@@ -197,10 +205,12 @@ class AsyncSynthClient:
     swarms: AsyncSwarmsClient
     account: AsyncAccountClient
     tunnels: AsyncTunnelsClient
+    menagerie: AsyncMenagerieClient
     repos: AsyncRepositories
     links: AsyncLinks
     artifacts: AsyncArtifacts
     forge: AsyncForgeClient
+    mnemosyne: AsyncMnemosyneClient
 
     def __init__(
         self,
@@ -217,10 +227,12 @@ class AsyncSynthClient:
         self.swarms = AsyncSwarmsClient(self._transport)
         self.account = AsyncAccountClient(self._transport)
         self.tunnels = AsyncTunnelsClient(self._transport)
+        self.menagerie = AsyncMenagerieClient(self._transport)
         self.repos = AsyncRepositories(self._transport)
         self.links = AsyncLinks(self._transport)
         self.artifacts = AsyncArtifacts(self._transport)
         self.forge = AsyncForgeClient(self._transport)
+        self.mnemosyne = AsyncMnemosyneClient(self._transport)
 
     @classmethod
     def anonymous(
@@ -236,10 +248,12 @@ class AsyncSynthClient:
         client.swarms = AsyncSwarmsClient(client._transport)
         client.account = AsyncAccountClient(client._transport)
         client.tunnels = AsyncTunnelsClient(client._transport)
+        client.menagerie = AsyncMenagerieClient(client._transport)
         client.repos = AsyncRepositories(client._transport)
         client.links = AsyncLinks(client._transport)
         client.artifacts = AsyncArtifacts(client._transport)
         client.forge = AsyncForgeClient(client._transport)
+        client.mnemosyne = AsyncMnemosyneClient(client._transport)
         return client
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:

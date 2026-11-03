@@ -3,12 +3,32 @@
 # ruff: noqa: I001
 """Public workspace envelopes; see docs/forge-projects.md and SYN-4844."""
 
-from synth_ai.types.base import ResponseModel
+from datetime import datetime
+from typing import Annotated, Literal
 
-from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
-from .contracts.operations import Receipt
+from pydantic import AwareDatetime, Field, JsonValue, field_validator
+
+from synth_ai.types.base import ResponseModel
+from .contracts.contracts import Contract, Digest, Identifier, Scope
+from .contracts.operations import Event, Receipt
 from .contracts.operations_v2 import ScientificRevision
+from .contracts.projects import ProjectPage, ProjectReceipt, ProjectState
+from .contracts.report_lineages import (
+    ReportLineage,
+    ReportVersionAvailability,
+)
+from .contracts.report_manifests import (
+    CitationStatus,
+    ManifestSource,
+    MissingEvidence,
+    ReportVersion,
+    ReportVersionLink,
+)
 from .contracts.workspace_artifacts import WorkspaceArtifactView
+from .contracts.workspace_transfer import (
+    ImportPreview,
+    NativeImportReceipt,
+)
 
 
 class ProjectResponse(ResponseModel):
@@ -31,5 +51,468 @@ class ScientificReceiptResponse(ResponseModel):
     receipt: Receipt
 
 
+class ScientificEventsResponse(ResponseModel):
+    events: tuple[Event, ...]
+
+
 class ScientificArtifactEvidenceResponse(ResponseModel):
     artifact_evidence: WorkspaceArtifactView
+
+
+class ReportPublishIntent(Contract):
+    """Publish one exact report version as the calling user (SYN-5157).
+
+    The producer is never caller supplied: B01 admission stamps it. The
+    caller's own API key reaches Forge only as the acting credential, so
+    evidence custody and share calls stay within that user's grants.
+    """
+
+    schema_version: Literal["forge.report-publish-intent.v1"] = (
+        "forge.report-publish-intent.v1"
+    )
+    operation_id: Identifier
+    version: ReportVersion
+
+
+class ReportShareRevokeIntent(Contract):
+    """Retry returning a lineage's inactive versions' shares to private."""
+
+    schema_version: Literal["forge.report-share-revoke-intent.v1"] = (
+        "forge.report-share-revoke-intent.v1"
+    )
+    operation_id: Identifier
+    lineage_id: Identifier
+
+
+class ShareRevocation(Contract):
+    version_sha256: Digest
+    version: int
+    status: Literal["revoked", "not_visible", "pending"]
+    refusal_code: str | None = None
+    retryable: bool | None = None
+
+
+class ShareRevocationReport(Contract):
+    schema_version: Literal["forge.report-share-revocation.v1"] = (
+        "forge.report-share-revocation.v1"
+    )
+    scope: Scope
+    lineage_id: str
+    head_sha256: Digest
+    revocations: tuple[ShareRevocation, ...]
+
+
+class ReportPublication(Contract):
+    schema_version: Literal["forge.report-publication.v1"] = (
+        "forge.report-publication.v1"
+    )
+    version_sha256: Digest
+    revocation: ShareRevocationReport | None = None
+
+
+class ReportPublicationResponse(ResponseModel):
+    publication: ReportPublication
+
+
+class ReportShareRevocationResponse(ResponseModel):
+    revocation: ShareRevocationReport
+
+
+class ReportShareIntent(Contract):
+    """Share one exact report version with named principals (SYN-5157).
+
+    Owner decision 2026-10-28: only the organization or invited members; there
+    is no public/unlisted audience. ``expires_at`` is optional, caller-set and
+    timezone-aware; access ends at that instant (owner grants never expire).
+    """
+
+    schema_version: Literal["forge.report-share-intent.v1"] = (
+        "forge.report-share-intent.v1"
+    )
+    operation_id: Identifier
+    audience: Literal["organization", "invited"]
+    invited: Annotated[tuple[Identifier, ...], Field(max_length=256)] = ()
+    expires_at: AwareDatetime | None = None
+
+
+class ReportShareRevokeOneIntent(Contract):
+    """Return one exact version's share to private (share or lineage owner)."""
+
+    schema_version: Literal["forge.report-share-revoke-one-intent.v1"] = (
+        "forge.report-share-revoke-one-intent.v1"
+    )
+    operation_id: Identifier
+
+
+class ReportShare(Contract):
+    schema_version: Literal["synth.forge.report-share.v1"] = (
+        "synth.forge.report-share.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    audience: Literal["private", "organization", "invited"]
+    invited: tuple[str, ...] = ()
+    policy_version: int
+    publication_id: str
+    # Caller-set end of the share; None = until revoked.
+    expires_at: datetime | None = None
+    expired: bool = False
+
+
+class ReportShareResponse(ResponseModel):
+    share: ReportShare
+
+
+class ReportShareListResponse(ResponseModel):
+    shares: tuple[ReportShare, ...]
+
+
+# --- SYN-5158: report reader (browse / open / compare / export) -------------
+#
+# Safe rendering: every reader response carries report content as data with a
+# declared media type. Manifest text (title, methodology, claims, limitations,
+# missing-evidence descriptions) is plain text: renderers escape it and never
+# interpret it as HTML, Markdown-with-HTML or script. Exact version bytes travel
+# base64-encoded so a reader can re-hash them against ``version_sha256``.
+# Reading or sharing a version is never an Index contribution.
+
+REPORT_VERSION_MEDIA_TYPE = "application/vnd.synth.forge.report-version.v1+json"
+REPORT_EXPORT_MAX_VERSIONS = 32
+ReportAccess = Literal["project", "owner", "organization", "invited"]
+# SYN-5158: Forge lineage state of a version, from the lineage index. Present
+# only where the caller has Forge project ``read`` (``access == "project"``);
+# share-only readers have no project ACL and see ``None``.
+LineageState = Literal["current", "stale", "retracted"]
+Disposition = Literal["initial", "correction", "supersession", "retraction"]
+
+
+class ReportVersionEntry(Contract):
+    """One report version the caller may open, from browse (no content)."""
+
+    schema_version: Literal["synth.forge.report-version-entry.v1"] = (
+        "synth.forge.report-version-entry.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    # project: a Forge project member (every indexed version, shared or not);
+    # owner: the caller owns its share; organization/invited: shared with them.
+    access: ReportAccess
+    # The version's share publication; None for a never-shared project version.
+    publication_id: str | None = None
+    expires_at: datetime | None = None
+    expired: bool = False
+    lineage_id: Identifier | None = None
+    version: int | None = Field(default=None, ge=1)
+    disposition: Disposition | None = None
+    head: ReportVersionLink | None = None
+    state: LineageState | None = None
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportVersionDocument(Contract):
+    """One exact, digest-verified report version opened as the caller."""
+
+    schema_version: Literal["synth.forge.report-version-document.v1"] = (
+        "synth.forge.report-version-document.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    # project: read from project evidence custody; else through a share.
+    access: ReportAccess
+    media_type: Literal["application/vnd.synth.forge.report-version.v1+json"] = (
+        REPORT_VERSION_MEDIA_TYPE
+    )
+    rendering: Literal["plain_text"] = "plain_text"
+    size_bytes: int = Field(ge=1)
+    content_base64: str
+    version: ReportVersion
+    # Lineage status (project readers only): cited/head/state, the version
+    # that superseded this one, and the whole lineage.
+    citation: CitationStatus | None = None
+    superseded_by: ReportVersionLink | None = None
+    lineage: ReportLineage | None = None
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportVersionSummary(Contract):
+    version_sha256: Digest
+    lineage_id: Identifier
+    version: int
+    disposition: Literal["initial", "correction", "supersession", "retraction"]
+    published_at: AwareDatetime
+    manifest_sha256: Digest
+    access: ReportAccess
+    state: LineageState | None = None
+
+
+class ReportFieldChange(Contract):
+    field: Literal["title", "methodology", "body_sha256", "disclosure_audience"]
+    base: str
+    head: str
+
+
+class ReportTextChanges(Contract):
+    added: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+
+
+class ReportArtifactChange(Contract):
+    artifact_id: Identifier
+    change: Literal["added", "removed", "changed"]
+    base_sha256: Digest | None = None
+    head_sha256: Digest | None = None
+    base_role: str | None = None
+    head_role: str | None = None
+
+
+class ReportSourceChanges(Contract):
+    added: tuple[ManifestSource, ...] = ()
+    removed: tuple[ManifestSource, ...] = ()
+
+
+class ReportEvidenceChanges(Contract):
+    added: tuple[MissingEvidence, ...] = ()
+    removed: tuple[MissingEvidence, ...] = ()
+
+
+class ReportVersionComparison(Contract):
+    """Structured diff between two exact versions; content stays plain data."""
+
+    schema_version: Literal["synth.forge.report-version-comparison.v1"] = (
+        "synth.forge.report-version-comparison.v1"
+    )
+    scope: Scope
+    base: ReportVersionSummary
+    head: ReportVersionSummary
+    relation: Literal[
+        "identical", "successor", "predecessor", "same_lineage", "unrelated"
+    ]
+    manifest_changed: bool
+    fields: tuple[ReportFieldChange, ...] = ()
+    claims: ReportTextChanges = ReportTextChanges()
+    limitations: ReportTextChanges = ReportTextChanges()
+    sources: ReportSourceChanges = ReportSourceChanges()
+    artifacts: tuple[ReportArtifactChange, ...] = ()
+    missing_evidence: ReportEvidenceChanges = ReportEvidenceChanges()
+
+
+def report_version_summary(version, digest, access, state=None) -> ReportVersionSummary:
+    return ReportVersionSummary(
+        version_sha256=digest,
+        lineage_id=version.lineage_id,
+        version=version.version,
+        disposition=version.disposition,
+        published_at=version.published_at,
+        manifest_sha256=version.manifest_sha256,
+        access=access,
+        state=state,
+    )
+
+
+def _ordered_difference(left, right):
+    present = set(right)
+    return tuple(item for item in dict.fromkeys(left) if item not in present)
+
+
+def compare_report_versions(
+    base,
+    base_digest,
+    base_access,
+    head,
+    head_digest,
+    head_access,
+    *,
+    base_state=None,
+    head_state=None,
+) -> ReportVersionComparison:
+    """Pure structured diff of two already digest-verified versions."""
+    if base.manifest.scope != head.manifest.scope:
+        raise ValueError("compared versions must share one project scope")
+    if base_digest == head_digest:
+        relation = "identical"
+    elif head.previous is not None and head.previous.version_sha256 == base_digest:
+        relation = "successor"
+    elif base.previous is not None and base.previous.version_sha256 == head_digest:
+        relation = "predecessor"
+    elif base.lineage_id == head.lineage_id:
+        relation = "same_lineage"
+    else:
+        relation = "unrelated"
+    old, new = base.manifest, head.manifest
+    fields = tuple(
+        ReportFieldChange(field=name, base=before, head=after)
+        for name, before, after in (
+            ("title", old.title, new.title),
+            ("methodology", old.methodology, new.methodology),
+            ("body_sha256", old.body_sha256, new.body_sha256),
+            (
+                "disclosure_audience",
+                old.disclosure.audience,
+                new.disclosure.audience,
+            ),
+        )
+        if before != after
+    )
+    before = {item.artifact_id: item for item in old.artifacts}
+    after = {item.artifact_id: item for item in new.artifacts}
+    artifacts = []
+    for artifact_id in sorted(before.keys() | after.keys()):
+        prior, current = before.get(artifact_id), after.get(artifact_id)
+        if prior is not None and current is not None and prior == current:
+            continue
+        artifacts.append(
+            ReportArtifactChange(
+                artifact_id=artifact_id,
+                change="added"
+                if prior is None
+                else "removed"
+                if current is None
+                else "changed",
+                base_sha256=None if prior is None else prior.content_sha256,
+                head_sha256=None if current is None else current.content_sha256,
+                base_role=None if prior is None else prior.role,
+                head_role=None if current is None else current.role,
+            )
+        )
+    return ReportVersionComparison(
+        scope=old.scope,
+        base=report_version_summary(base, base_digest, base_access, base_state),
+        head=report_version_summary(head, head_digest, head_access, head_state),
+        relation=relation,
+        manifest_changed=base.manifest_sha256 != head.manifest_sha256,
+        fields=fields,
+        claims=ReportTextChanges(
+            added=_ordered_difference(new.claims, old.claims),
+            removed=_ordered_difference(old.claims, new.claims),
+        ),
+        limitations=ReportTextChanges(
+            added=_ordered_difference(new.limitations, old.limitations),
+            removed=_ordered_difference(old.limitations, new.limitations),
+        ),
+        sources=ReportSourceChanges(
+            added=_ordered_difference(new.sources, old.sources),
+            removed=_ordered_difference(old.sources, new.sources),
+        ),
+        artifacts=tuple(artifacts),
+        missing_evidence=ReportEvidenceChanges(
+            added=_ordered_difference(new.missing_evidence, old.missing_evidence),
+            removed=_ordered_difference(old.missing_evidence, new.missing_evidence),
+        ),
+    )
+
+
+class ReportExportEntry(Contract):
+    path: str
+    version_sha256: Digest
+    lineage_id: Identifier
+    version: int
+    disposition: Literal["initial", "correction", "supersession", "retraction"]
+    media_type: Literal["application/vnd.synth.forge.report-version.v1+json"] = (
+        REPORT_VERSION_MEDIA_TYPE
+    )
+    size_bytes: int = Field(ge=1)
+    access: ReportAccess
+    state: LineageState | None = None
+    head: ReportVersionLink | None = None
+
+
+class ReportExportManifest(Contract):
+    """Provenance of an explicit, caller-selected export; grants nothing."""
+
+    schema_version: Literal["synth.forge.report-export-manifest.v1"] = (
+        "synth.forge.report-export-manifest.v1"
+    )
+    scope: Scope
+    exported_by: str
+    exported_at: AwareDatetime
+    selection: tuple[Digest, ...] = Field(
+        min_length=1, max_length=REPORT_EXPORT_MAX_VERSIONS
+    )
+    entries: tuple[ReportExportEntry, ...]
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportExportFile(Contract):
+    path: str
+    version_sha256: Digest
+    content_base64: str
+
+
+class ReportExportBundle(Contract):
+    """Portable export: provenance manifest, its digest and exact version bytes."""
+
+    schema_version: Literal["synth.forge.report-export.v1"] = (
+        "synth.forge.report-export.v1"
+    )
+    manifest: ReportExportManifest
+    manifest_sha256: Digest
+    files: tuple[ReportExportFile, ...]
+
+
+def report_export_path(digest: str) -> str:
+    return f"report-versions/{digest}.json"
+
+
+class ReportVersionBrowseResponse(ResponseModel):
+    versions: tuple[ReportVersionEntry, ...]
+
+
+class ReportVersionDocumentResponse(ResponseModel):
+    document: ReportVersionDocument
+
+
+class ReportVersionComparisonResponse(ResponseModel):
+    comparison: ReportVersionComparison
+
+
+class ReportExportResponse(ResponseModel):
+    export: ReportExportBundle
+
+
+# SYN-5158 gap 3: inline (hosted/stdio MCP) artifact bytes are bounded; larger
+# artifacts stream through ``forge.report_reader.download`` to a file.
+REPORT_ARTIFACT_INLINE_MAX_BYTES = 16 * 1024 * 1024
+
+
+class ReportArtifactContent(Contract):
+    """One manifest artifact of one exact version, digest-verified, as data."""
+
+    schema_version: Literal["synth.forge.report-artifact-content.v1"] = (
+        "synth.forge.report-artifact-content.v1"
+    )
+    scope: Scope
+    version_sha256: Digest
+    artifact_id: Identifier
+    role: Literal["input", "intermediate", "output", "evidence"]
+    access: ReportAccess
+    content_sha256: Digest
+    size_bytes: int = Field(ge=1, le=REPORT_ARTIFACT_INLINE_MAX_BYTES)
+    media_type: str = Field(min_length=1, max_length=255)
+    rendering: Literal["plain_text"] = "plain_text"
+    content_base64: str
+    index_contribution: Literal["none"] = "none"
+
+
+class ReportArtifactContentResponse(ResponseModel):
+    artifact: ReportArtifactContent
+
+
+class ReportVersionAvailabilityResponse(ResponseModel):
+    """Per-artifact availability of one version as the caller sees it now."""
+
+    availability: ReportVersionAvailability
+
+
+class NativeTransferPreviewResponse(ResponseModel):
+    preview: ImportPreview
+
+
+class NativeTransferReceiptResponse(ResponseModel):
+    # Keep accepted original receipt JSON unchanged (including optional absence).
+    receipt: dict[str, JsonValue]
+
+    @field_validator("receipt")
+    @classmethod
+    def validate_original_receipt(cls, value):
+        NativeImportReceipt.model_validate(value)
+        return value

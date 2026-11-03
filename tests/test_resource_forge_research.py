@@ -55,8 +55,8 @@ def test_other_plugins_refuse_forge_project_selection(plugin):
         request(plugin=plugin)
 
 
-def test_launch_admits_four_resource_requests():
-    assert 4 in [
+def test_launch_admits_five_resource_requests():
+    assert 5 in [
         getattr(item, "max_length", None)
         for item in LaunchRequest.model_fields["resources"].metadata
     ]

@@ -14,6 +14,11 @@ from synth_ai.types.refusal import Refusal
 
 
 class SynthError(Exception):
+    # Reattach facts from the synchronous DEEP cap refusal (SYN-4999): the
+    # ``X-Synth-Durable-Search-Id`` / ``X-Synth-Deep-Sync-Cap-Seconds`` headers.
+    durable_search_id: str | None = None
+    sync_cap_seconds: float | None = None
+
     def __init__(
         self,
         message: str,
@@ -30,6 +35,8 @@ class SynthError(Exception):
         retryable: bool | None = None,
         stage: str | None = None,
         cause: str | None = None,
+        service: str | None = None,
+        upstream_status: int | None = None,
         closure_pending: str | None = None,
         closure_expected_by: datetime | None = None,
         reason: Literal[
@@ -46,6 +53,8 @@ class SynthError(Exception):
         self.retryable = retryable
         self.stage = stage
         self.cause = cause
+        self.service = service
+        self.upstream_status = upstream_status
         self.closure_pending = closure_pending
         self.closure_expected_by = closure_expected_by
         self.code = code
@@ -87,8 +96,10 @@ class SynthError(Exception):
             ("status", self.status),
             ("request_id", self.request_id),
             ("operation", self.operation),
+            ("service", self.service),
             ("stage", self.stage),
             ("cause", self.cause),
+            ("upstream_status", self.upstream_status),
             ("closure_pending", self.closure_pending),
             (
                 "closure_expected_by",
@@ -102,7 +113,16 @@ class SynthError(Exception):
 
     def __repr__(self) -> str:
         parts = [repr(Exception.__str__(self))]
-        for name in ("code", "status", "request_id", "operation", "stage", "cause"):
+        for name in (
+            "code",
+            "status",
+            "request_id",
+            "operation",
+            "service",
+            "stage",
+            "cause",
+            "upstream_status",
+        ):
             value = getattr(self, name)
             if value is not None:
                 parts.append(f"{name}={value!r}")
@@ -166,6 +186,35 @@ class RefusedError(SynthError):
 
     ``retryable`` is False; repeating the identical request without changing the
     refused condition will fail the same way."""
+
+
+class QuotaExceededError(RefusedError):
+    """A definite quota refusal (SYN-4844): a ceiling in ``scope`` is reached.
+
+    ``limit`` is the ceiling that refused the request (``None`` only when the
+    server's plan provider reported none); ``used`` is the count already
+    consumed in ``scope``. Nothing was created or charged."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        scope: str,
+        limit: int | None,
+        used: int,
+        remedy: str | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)  # type: ignore[arg-type]
+        self.scope = scope
+        self.limit = limit
+        self.used = used
+        self.remedy = remedy
+
+    def __reduce__(self):  # type: ignore[override]
+        # Exception's default reduce re-calls __init__ with args only, which
+        # lacks the required keyword-only fields; restore the instance state.
+        return (type(self).__new__, (type(self), *self.args), self.__dict__)
 
 
 class RequestTimeoutError(SynthError):
@@ -253,6 +302,20 @@ class ResultNotReadyError(SynthError):
 
 class OutcomeUncertainError(SynthError):
     """Retain identity and reconcile before repeating work."""
+
+
+class LifecycleWriteRefusedError(OutcomeUncertainError):
+    """The backend refused to write an Orchestra-owned run's lifecycle (SYN-4642).
+
+    Orchestra owns stop/cancel/pause/resume for these runs. The owner command
+    may already have been dispatched, so the outcome stays uncertain: resolve
+    ``identity`` and read the run before repeating the control.
+    """
+
+
+LIFECYCLE_WRITE_REFUSAL_CODES = frozenset(
+    {"orchestra_lifecycle_write_refused", "lifecycle_write_not_owner"}
+)
 
 
 class OperationFailedError(SynthError):

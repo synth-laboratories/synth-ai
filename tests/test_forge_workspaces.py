@@ -184,7 +184,22 @@ def test_forge_mcp_inputs_cannot_select_original_identity_and_skill_is_exact():
     skill = research_skill()
     assert skill.sha256 == hashlib.sha256(skill.content.encode()).hexdigest()
     assert skill.uri.endswith(skill.sha256)
+    assert skill.revision == "9"
+    assert "working lab notebook" in skill.content
+    assert "`correction_of`" in skill.content
+    assert "mark unknown" in skill.content
     assert tool.scope == "forge:write" and not tool.paid
+
+
+def test_research_notebook_actor_examples_use_the_actual_mcp_contract():
+    tool = BY_NAME["forge_record_write"]
+    project = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    log_ref = {"authority": "forge", "kind": "research_log", "record_id": "log", "revision": "1", "digest_sha256": "a" * 64}
+    entry_ref = {"authority": "forge", "kind": "log_entry", "record_id": "entry", "revision": "1", "digest_sha256": "b" * 64}
+    base = {"project_id": project, "record_id": "log", "expected_revision": 0, "idempotency_key": "create-log"}
+    assert tool.validate_arguments({**base, "payload": {"kind": "research_log", "title": "Notebook"}})["payload"]["kind"] == "research_log"
+    correction = {"kind": "log_entry", "log": log_ref, "category": "correction", "text": "Seed 3 failed", "occurred_at": "2026-10-27T12:00:00Z", "correction_of": entry_ref}
+    assert tool.validate_arguments({**base, "record_id": "correction", "idempotency_key": "correct-entry", "payload": correction})["payload"]["correction_of"]["record_id"] == "entry"
 
 
 @pytest.mark.parametrize("async_mode", [False, True])

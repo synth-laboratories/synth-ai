@@ -41,6 +41,55 @@ with SynthClient() as client:
     print(result.response)
 ```
 
+For keyed DEEP searches, `index.search` creates a durable Search and observes its
+result. With strict ZDR it consumes the original request-owned event stream;
+strict content cannot be replayed after a disconnect. An observation timeout
+does not cancel a durable Search and includes its ID for reattachment when the
+retention policy permits. An explicitly supplied legacy `index.search` mutation
+identity remains bound to its original synchronous route.
+
+### DEEP search: durable by default, 90 s synchronous cap
+
+- **Default (durable).** A keyed `index.search(query, options=KeyedSearchOptions(mode="deep", ...))`
+  is `searches.create(...)` followed by `run.wait(...)` on the same Search. The
+  observation budget is the admitted `deadline_seconds` (180 s when unset) plus
+  90 s for reviewed delivery, unless you set `MutationOptions.timeout_seconds` or a
+  non-default client timeout. Prefer this path; nothing holds one HTTP request open.
+- **Synchronous cap.** The synchronous route (`POST /api/v1/index/search`, used only
+  when you pass a legacy `index.search` mutation identity) waits at most **90 s**
+  server-side. It stays below the 300 s admitted maximum on purpose: a rolling
+  deploy drains in-flight requests within 55 s, so a long synchronous request
+  cannot be relied on. When the cap ends the wait, the backend answers HTTP 504
+  with `reason` `index_deep_sync_wait_cap_exceeded` (or
+  `index_deep_sync_wait_deadline_elapsed`) and these headers:
+  - `X-Synth-Durable-Search-Id`: the admitted Search, which keeps running
+  - `X-Synth-Deep-Sync-Cap-Seconds`: the cap (`90`)
+  - `X-Synth-Refusal-Stage: index_deep_sync_wait`
+  - `X-Synth-Refusal-Cause`: the `reason` above
+- **Reattach, never silent.** On that 504 the SDK reads `X-Synth-Durable-Search-Id`
+  and observes the same Search with `searches.get(id).wait(...)` for the rest of
+  the admitted deadline (measured from the original request). It does not
+  resubmit or charge twice. The returned `SearchResponse` has
+  `result.sync_cap_reattached`, a `SyncCapReattached(search_id, cap_seconds, cause,
+  request_id)`. It is `None` on a result the synchronous route delivered itself.
+- **Missing header.** Without a valid `X-Synth-Durable-Search-Id` (for example,
+  from an older backend or a proxy 504), there is nothing to reattach to. The
+  original typed error propagates: `OutcomeUncertainError` with `status=504`,
+  `cause`, `stage`, and `error.durable_search_id is None`. Reconcile its identity
+  before repeating work. FAST searches and other 504 causes are unaffected.
+
+```python
+from synth_ai.options import MutationOptions
+from synth_ai.sdk.index import KeyedSearchOptions
+from synth_ai.types.money import Money
+
+options = KeyedSearchOptions(mode="deep", maximum_charge=Money(coefficient=5, scale=2))
+legacy = MutationOptions(idempotency_key="search-1")
+result = client.index.search("q", options=options, mutation=legacy)
+if result.sync_cap_reattached is not None:
+    print("reattached to", result.sync_cap_reattached.search_id)
+```
+
 Create a Swarms project, launch bounded work, wait, and download its results:
 
 ```python
@@ -128,6 +177,11 @@ credentials do not gain these grants automatically. Fresh OAuth consent names
 the account permissions. The existing `account limits` discovery command keeps
 its negotiated product-policy contract.
 
+SDK integrations can use `account_read_scopes(operation)` from
+`synth_ai.contracts.account` to inspect the complete explicit scope set. The
+operation's single `required_scope` field alone does not represent both grants
+required by usage, events and limits. The backend remains the live authority.
+
 SDK sync/async clients expose `account.context()`, `plan()`, `balance()`,
 `alerts()`, `limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
 bounded page and an explicit cursor. Dates must be timezone-aware; windows are
@@ -142,6 +196,18 @@ use their own observational protocol and do not claim Index/Swarms execution
 manifest qualification. Native issuer, installed-package and deployed-cohort
 acceptance remain required before release.
 ## Forge research workspaces (v0.24 candidate)
+
+Mnemosyne's candidate project evidence reader is available through
+`client.mnemosyne.evaluation_evidence`: `capabilities(project_id)`,
+`list(project_id)`, `get(project_id, evidence_id)` and
+`measurements(project_id, evidence_id)`. The async client exposes the same
+methods. The corresponding `mnemosyne_evaluation_evidence_*` MCP read tools
+are discoverable only when the backend advertises them and the caller has the
+required scope. Exact project and Artifact permissions are checked by the
+backend on every call. Evidence receipts reference existing Artifact custody;
+they do not pin bytes against deletion or turn producer-supplied associations
+into verified scientific foreign keys. Deployment remains subject to owner and
+database qualification.
 
 Forge workspaces organize scientific work independently of executable Swarms
 projects. The selected backend must admit these operations and the credential

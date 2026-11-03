@@ -18,19 +18,31 @@ from synth_ai.types.base import (
 from synth_ai.types.money import Money
 from synth_ai.types.refs import Ref
 
+from .methods import ForkFlushMethod
 from .objectives import Guidance
-from .resources import ResourceRequest
+from .overrides import ProfileOverrides
+from .programs import ProgramChoice
+from .resources import ResourceRequest, TraceSelection
 
 
 class Limits(Model):
-    maximum_charge: Money
+    # Explicit null requests operator-funded local execution; backend authority
+    # decides whether the selected target and project permit it.
+    maximum_charge: Money | None
     wall_time_seconds: StrictInt = Field(ge=1, le=86400)
     maximum_tasks: StrictInt = Field(ge=1, le=1000)
     maximum_parallel_tasks: StrictInt = Field(ge=1, le=1000)
 
+    @model_serializer(mode="wrap")
+    def serialize_limits(self, handler):
+        body = handler(self)
+        if self.maximum_charge is None:
+            body["maximum_charge"] = None
+        return body
+
     @model_validator(mode="after")
     def validate_limits(self) -> Self:
-        if self.maximum_charge.coefficient < 0:
+        if self.maximum_charge is not None and self.maximum_charge.coefficient < 0:
             raise ValueError("maximum charge must be nonnegative")
         if self.maximum_parallel_tasks > self.maximum_tasks:
             raise ValueError("parallel tasks cannot exceed total tasks")
@@ -135,10 +147,13 @@ class LaunchRequest(Model):
     inputs: Inputs | None = None
     providers: Providers | None = None
     models: Models | None = None
+    method: ForkFlushMethod | None = None
+    program: ProgramChoice | None = None
+    profile_overrides: ProfileOverrides | None = None
     labels: Labels | None = None
     repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
-    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=4)
+    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=5)
 
     @property
     def objective(self) -> str:
@@ -147,7 +162,16 @@ class LaunchRequest(Model):
     @model_serializer(mode="wrap")
     def omit_absent_labels(self, handler):
         result = handler(self)
-        for name in ("labels", "inputs", "providers", "models", "repo"):
+        for name in (
+            "labels",
+            "inputs",
+            "providers",
+            "models",
+            "repo",
+            "method",
+            "program",
+            "profile_overrides",
+        ):
             if getattr(self, name) is None:
                 result.pop(name, None)
         if not self.guidance:
@@ -165,6 +189,12 @@ class LaunchRequest(Model):
             raise ValueError("Select message or the deprecated objective alias")
         if len({item.plugin for item in self.resources}) != len(self.resources):
             raise ValueError("Resource plugins may be granted once")
+        if any(
+            isinstance(item.selection, TraceSelection)
+            and item.selection.project_ids != (self.project_id,)
+            for item in self.resources
+        ):
+            raise ValueError("Trace resource project must match the selected project")
         if len({item.id for item in self.guidance}) != len(self.guidance):
             raise ValueError("Guidance ids must be unique")
         if (

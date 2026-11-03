@@ -6,9 +6,16 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from synth_ai.types.base import Digest, Identifier, Model, ResponseIdentifier, ResponseModel
+from synth_ai.types.base import (
+    Digest,
+    Identifier,
+    Model,
+    ResponseIdentifier,
+    ResponseModel,
+)
 
 from .annotations import AuthorAnnotations, ContributionAnnotations
+from .contents import ContentRef
 
 
 class ContributionFilter(Model):
@@ -21,8 +28,15 @@ class Contribution(ResponseModel):
     revision_id: ResponseIdentifier | None
     title: str | None = Field(max_length=256)
     status: Literal[
-        "draft", "submitted", "changes_requested", "rejected", "qualified", "published", "withdrawn"
+        "draft",
+        "submitted",
+        "changes_requested",
+        "rejected",
+        "qualified",
+        "published",
+        "withdrawn",
     ]
+    content_refs: tuple[ContentRef, ...] = Field(default=(), max_length=1024)
     contents_readable: bool
     annotations: ContributionAnnotations | None = None
     draft: ContributionDraft | None = None
@@ -30,7 +44,8 @@ class Contribution(ResponseModel):
     @model_validator(mode="after")
     def validate_annotations(self) -> Self:
         if self.draft is not None and (
-            self.status != "draft" or self.draft.expected_revision_id != self.revision_id
+            self.status != "draft"
+            or self.draft.expected_revision_id != self.revision_id
         ):
             raise ValueError("draft metadata requires the exact current draft revision")
         if self.annotations is not None and (
@@ -38,6 +53,17 @@ class Contribution(ResponseModel):
             or self.annotations.revision_id != self.revision_id
         ):
             raise ValueError("annotations belong to another contribution revision")
+        if self.content_refs:
+            if not self.contents_readable:
+                raise ValueError("unreadable contribution cannot disclose content references")
+            if any(
+                ref.contribution_id != self.contribution_id
+                or ref.revision_id != self.revision_id
+                for ref in self.content_refs
+            ):
+                raise ValueError("content references belong to another contribution revision")
+            if len({ref.asset_id for ref in self.content_refs}) != len(self.content_refs):
+                raise ValueError("content references require unique asset identities")
         return self
 
 

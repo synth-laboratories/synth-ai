@@ -25,12 +25,16 @@ from synth_ai.auth.storage import (
     require_private_file_support,
 )
 from synth_ai.cli_account import add_account_commands, run_account
+from synth_ai.cli_swarms import add_swarms_commands, run_swarms
 from synth_ai.client import SynthClient, resolve_key, resolve_url
 from synth_ai.core.environment import environment_value
 from synth_ai.errors import AuthenticationError, SynthError
 from synth_ai.options import ClientOptions
 from synth_ai.types.account_cloud import AccountContext
 from synth_ai.types.auth import AuthContext
+
+# Commands whose refusals are reported against their own route, not auth.
+OPERATION_ROUTES = frozenset({"account", "swarms"})
 
 
 def private_login_file(text: str) -> Path:
@@ -164,6 +168,8 @@ def verify_principal(
 def run(args: argparse.Namespace, *, store: CredentialStore | None = None) -> int:
     if args.command == "account":
         return run_account(args)
+    if args.command == "swarms":
+        return run_swarms(args)
     if args.command == "login" and args.device_auth:
         raise AuthRefusalError(
             "device_authorization_unavailable",
@@ -308,6 +314,7 @@ def parser() -> argparse.ArgumentParser:
     status.add_argument("--json", action="store_true")
     status.add_argument("--candidate-manifest-sha256")
     add_account_commands(commands)
+    add_swarms_commands(commands)
     return root
 
 
@@ -331,27 +338,29 @@ def main() -> int:
                 "authentication_required"
                 if isinstance(error, AuthenticationError)
                 else "operation_refused"
-                if args is not None and args.command == "account"
+                if args is not None and args.command in OPERATION_ROUTES
                 else "authentication_refused"
             ),
             "service": "backend",
-            "route": "account" if args is not None and args.command == "account" else "auth",
+            "route": args.command
+            if args is not None and args.command in OPERATION_ROUTES
+            else "auth",
             "status": error.status or (401 if isinstance(error, AuthenticationError) else 503),
             "cause": type(error).__name__,
         }
-        if args is not None and args.command == "account":
+        if args is not None and args.command in OPERATION_ROUTES:
             if error.retry_after_seconds is not None:
                 refusal["retry_after_seconds"] = error.retry_after_seconds
             if error.request_id:
                 refusal["request_id"] = error.request_id
     except ValueError as error:
-        if args is not None and args.command == "account":
+        if args is not None and args.command in OPERATION_ROUTES:
             print(
                 json.dumps(
                     {
-                        "code": "account_request_invalid",
+                        "code": f"{args.command}_request_invalid",
                         "service": "synth-ai",
-                        "route": "account",
+                        "route": args.command,
                         "status": 400,
                         "cause": type(error).__name__,
                     }

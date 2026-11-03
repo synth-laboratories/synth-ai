@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    AwareDatetime,
     Field,
     JsonValue,
     SerializerFunctionWrapHandler,
@@ -25,9 +26,19 @@ from synth_ai.sdk.index.types.search import (
     SearchResponse,
     StrictSearchEventRequest,
 )
+from synth_ai.sdk.swarms.types.approvals import ApprovalKind
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
-from synth_ai.types.base import Cursor, Digest, Identifier, Model, ResponseBase, ResponseIdentifier
+from synth_ai.sdk.swarms.types.runs import LaunchPreflight, ResolvedConfiguration
+from synth_ai.types.base import (
+    Cursor,
+    Digest,
+    Identifier,
+    Model,
+    ResponseBase,
+    ResponseIdentifier,
+    ResponseModel,
+)
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.refusal import Refusal
@@ -123,6 +134,19 @@ class RunIdentity(Model):
     run_id: Identifier
 
 
+class ApprovalListArguments(RunIdentity):
+    """One run's open approvals, optionally of one kind; any other kind is refused."""
+
+    kind: ApprovalKind | None = Field(
+        default=None,
+        description=(
+            'List only approvals of this kind: "tool_call" (parked approval-gated '
+            'calls), "wait" (human-in-the-loop waits) or "gate" (program gates). '
+            "Omit to list every open approval."
+        ),
+    )
+
+
 class RunControl(RunIdentity):
     operation_id: Identifier
 
@@ -145,6 +169,22 @@ class ProjectCreate(ProjectCreateRequest):
 
 class RunMutation(RunIdentity):
     idempotency_key: Identifier
+
+
+class ApprovalDecide(RunMutation):
+    approval_id: Identifier
+    decision: Literal["approve", "refuse"]
+    expected_revision: StrictInt = Field(ge=1)
+    reason: str | None = Field(default=None, min_length=1, max_length=4096)
+
+
+class WaitAnswer(RunMutation):
+    approval_id: Identifier
+    decision: str = Field(min_length=1, max_length=4096)
+    expected_revision: StrictInt = Field(ge=1)
+    answer_scope: Literal["once", "session", "policy"] | None = None
+    answer_schema: str | None = Field(default=None, min_length=1, max_length=4096)
+    answerer: str | None = Field(default=None, min_length=1, max_length=4096)
 
 
 class OutputIdentity(RunIdentity):
@@ -184,8 +224,35 @@ class SearchCreated(ResponseBase):
         return data
 
 
+class LaunchPreflightResult(ResponseModel):
+    """swarms_preflight result: the preflight body plus response-header capacity (SYN-4680)."""
+
+    ready: bool
+    blockers: tuple[str, ...] = Field(max_length=32)
+    configuration: ResolvedConfiguration | None
+    expires_at: AwareDatetime | None
+    reservation_created: Literal[False] = False
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
+
+    @classmethod
+    def of(cls, preflight: LaunchPreflight) -> Self:
+        fields = {name: getattr(preflight, name) for name in LaunchPreflight.model_fields}
+        return cls(**fields, rate_limits=preflight.rate_limits)
+
+
 class RunCreated(ResponseBase):
     run_id: ResponseIdentifier
+    # x-ratelimit-* capacity reported on the admitting create response (SYN-4680).
+    rate_limits: tuple[RateLimitSnapshot, ...] = ()
+
+
+class QuotaFacts(ResponseBase):
+    """SYN-4844: the typed fields of a quota refusal, mirrored from the SDK error."""
+
+    scope: Annotated[str, Field(max_length=32)]
+    limit: Annotated[StrictInt, Field(ge=0)] | None
+    used: Annotated[StrictInt, Field(ge=0)]
+    remedy: Annotated[str, Field(max_length=512)] | None = None
 
 
 class ToolFailure(ResponseBase):
@@ -205,6 +272,8 @@ class ToolFailure(ResponseBase):
     outcome: Literal["not_accepted", "unknown"] | None = None
     # retention_mode_not_allowed: the modes the organization permits.
     allowed_modes: tuple[str, ...] = ()
+    # quota_exceeded: the ceiling, the consumed count and the scope (SYN-4844).
+    quota: QuotaFacts | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_refusal(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
@@ -213,4 +282,6 @@ class ToolFailure(ResponseBase):
         data: dict[str, object] = handler(self)
         if self.refusal is None:
             data.pop("refusal", None)
+        if self.quota is None:
+            data.pop("quota", None)
         return data

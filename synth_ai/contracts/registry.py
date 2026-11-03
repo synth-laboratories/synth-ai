@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from synth_ai.types.identity import MutationIdentity
 
-from . import core, forge, operations, swarms
+from . import core, forge, mnemosyne, mnemosyne_native, operations, swarms
 from .operations import Operation
 
 ALL_OPERATIONS = (
@@ -12,6 +12,8 @@ ALL_OPERATIONS = (
     *swarms.ALL_OPERATIONS,
     *core.ALL_OPERATIONS,
     *forge.ALL_OPERATIONS,
+    *mnemosyne.ALL_OPERATIONS,
+    *mnemosyne_native.ALL_OPERATIONS,
 )
 OPERATIONS_BY_ID = {operation.id: operation for operation in ALL_OPERATIONS}
 if len(OPERATIONS_BY_ID) != len(ALL_OPERATIONS):

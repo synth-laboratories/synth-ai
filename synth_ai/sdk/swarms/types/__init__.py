@@ -21,8 +21,17 @@ from .launch import (
     ResolvedProviders,
 )
 from .objectives import ObjectiveClaim
-from .outputs import DownloadReceipt, Output, OutputRef, TextContent, TransferTiming
-from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink
+from .outputs import (
+    DownloadReceipt,
+    Output,
+    OutputPage,
+    OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    TextContent,
+    TransferTiming,
+)
+from .problems import PROBLEMS_SCHEMA, EvidenceRef, Problem, ReasonLink, UnknownOrigin
 from .runs import (
     LaunchPreflight,
     ResolvedConfiguration,
@@ -38,10 +47,34 @@ from .runs import (
 )
 
 __all__ = [
+    "CleanupFacet",
+    "ExecutionFacet",
+    "FacetCause",
+    "PublicationCounts",
+    "PublicationFacet",
+    "RunStatusFacets",
+    "SettlementFacet",
+    "ModelEffortChoice",
+    "ProfileOverrideReadback",
+    "ProfileOverrideResolution",
+    "ProfileOverrides",
+    "ResolvedProfileActor",
+    "ProgramChoice",
+    "ProgramFamily",
+    "ProgramFamilyList",
+    "ProgramFamilyRef",
+    "ResearchBinding",
+    "ResearchMethodChoice",
+    "ForkFlushMethod",
+    "ForkFlushOverrides",
+    "ForkFlushParameters",
+    "ForkFlushRound",
+    "ResolvedResearchMethod",
     "PROBLEMS_SCHEMA",
     "EvidenceRef",
     "Problem",
     "ReasonLink",
+    "UnknownOrigin",
     "File",
     "FileManifest",
     "FileMediaType",
@@ -60,6 +93,9 @@ __all__ = [
     "ResolvedProviders",
     "DownloadReceipt",
     "Output",
+    "OutputPage",
+    "OutputVerification",
+    "OutputVerificationError",
     "OutputRef",
     "TextContent",
     "TransferTiming",
@@ -77,4 +113,41 @@ __all__ = [
     "TaskState",
 ]
 
+from .approvals import Approval as Approval
+from .approvals import ApprovalDecisionReceipt as ApprovalDecisionReceipt
+from .approvals import ApprovalDecisionRequest as ApprovalDecisionRequest
+from .approvals import ApprovalList as ApprovalList
+from .approvals import WaitAnswerReceipt as WaitAnswerReceipt
+from .approvals import WaitAnswerRequest as WaitAnswerRequest
+from .methods import (
+    ForkFlushMethod,
+    ForkFlushOverrides,
+    ForkFlushParameters,
+    ForkFlushRound,
+    ResolvedResearchMethod,
+)
+from .overrides import (
+    ModelEffortChoice,
+    ProfileOverrideReadback,
+    ProfileOverrideResolution,
+    ProfileOverrides,
+    ResolvedProfileActor,
+)
+from .programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramFamilyRef,
+    ResearchBinding,
+    ResearchMethodChoice,
+)
 from .programs import ProgramRunView as ProgramRunView
+from .status_facets import (
+    CleanupFacet,
+    ExecutionFacet,
+    FacetCause,
+    PublicationCounts,
+    PublicationFacet,
+    RunStatusFacets,
+    SettlementFacet,
+)

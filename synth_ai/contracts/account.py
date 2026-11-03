@@ -4,6 +4,8 @@ These observational account routes have their own version. They neither
 negotiate nor claim Index/Swarms execution qualification or release pins.
 """
 
+from types import MappingProxyType
+
 from synth_ai.contracts.operations import Operation
 from synth_ai.errors import UnsupportedOperationError
 from synth_ai.options import ClientOptions
@@ -65,6 +67,28 @@ ALERTS = Operation(
     required_scope="account:billing:read",
 )
 ACCOUNT_READ_OPERATIONS = (CONTEXT, PLAN, BALANCE, USAGE, EVENTS, LIMITS, ALERTS)
+
+# Operation.required_scope is a single scope and is not a complete authority
+# description for these account reads. Backend account.v1 requires both scopes
+# for usage and limits. Never infer an account grant from a product grant.
+ACCOUNT_READ_SCOPES = MappingProxyType(
+    {
+        CONTEXT.id: frozenset(),
+        PLAN.id: frozenset({"account:billing:read"}),
+        BALANCE.id: frozenset({"account:billing:read"}),
+        USAGE.id: frozenset({"account:billing:read", "account:usage:read"}),
+        EVENTS.id: frozenset({"account:billing:read", "account:usage:read"}),
+        LIMITS.id: frozenset({"account:billing:read", "account:read"}),
+        ALERTS.id: frozenset({"account:billing:read"}),
+    }
+)
+
+
+def account_read_scopes(operation: Operation) -> frozenset[str]:
+    """Return the explicit complete account.v1 scope set for a known read."""
+    if operation not in ACCOUNT_READ_OPERATIONS:
+        raise UnsupportedOperationError("Unknown account read operation")
+    return ACCOUNT_READ_SCOPES[operation.id]
 
 
 def require_account_read(operation: Operation, options: ClientOptions) -> None:

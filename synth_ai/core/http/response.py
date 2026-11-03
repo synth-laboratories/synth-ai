@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, TypeVar
+from uuid import UUID
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -15,10 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from synth_ai.contracts.fingerprint import schema_sha256
 from synth_ai.core.version_skew import schema_error
 from synth_ai.errors import (
+    LIFECYCLE_WRITE_REFUSAL_CODES,
     POLICY_ERROR_TYPES,
     AuthenticationError,
     ConflictError,
     ContractError,
+    LifecycleWriteRefusedError,
     NotFoundError,
     OutcomeUncertainError,
     PaymentRequiredError,
@@ -64,7 +67,33 @@ class ErrorResponse(ResponseBase):
     error: ErrorDetail
 
 
-class RefusalErrorDetail(ErrorDetail):
+# SYN-4551: rich error bodies are negotiated per request, never by environment.
+# This SDK sends ``X-Synth-Accept-Errors: synth.errors.v2``; a backend that
+# honours it marks the body with ``X-Synth-Error-Contract: synth.errors.v2``.
+# Without that response header the body is decoded as v1 (older backends).
+ACCEPT_ERRORS_HEADER = "X-Synth-Accept-Errors"
+ERROR_CONTRACT_HEADER = "X-Synth-Error-Contract"
+ERRORS_V2 = "synth.errors.v2"
+_CAUSE_TOKEN = r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+
+
+class ErrorDetailV2(ErrorDetail):
+    """``ErrorDetail`` plus the typed cause fields; each is omitted when unknown.
+
+    Not part of the fingerprinted ``index.v1`` export: v2 is a separately
+    negotiated error contract, so old SDKs keep their pinned schema."""
+
+    service: str | None = Field(default=None, max_length=32, pattern=_CAUSE_TOKEN)
+    stage: str | None = Field(default=None, max_length=64, pattern=_CAUSE_TOKEN)
+    cause_code: str | None = Field(default=None, max_length=64, pattern=_CAUSE_TOKEN)
+    upstream_status: int | None = Field(default=None, ge=100, le=599)
+
+
+class ErrorResponseV2(ResponseBase):
+    error: ErrorDetailV2
+
+
+class RefusalErrorDetail(ErrorDetailV2):
     model_config = ConfigDict(extra="forbid")
     refusal: Refusal
 
@@ -74,9 +103,16 @@ class RefusalErrorResponse(BaseModel):
     error: RefusalErrorDetail
 
 
-def _decode_error(response: httpx.Response, body: bytes) -> ErrorDetail | RefusalErrorDetail:
+def _decode_error(
+    response: httpx.Response, body: bytes
+) -> ErrorDetail | ErrorDetailV2 | RefusalErrorDetail:
+    error_contract = response.headers.get(ERROR_CONTRACT_HEADER)
+    if error_contract is not None and error_contract != ERRORS_V2:
+        raise ContractError("Unsupported error contract", status=response.status_code)
     contract = response.headers.get("X-Synth-Refusal-Contract")
     if contract is None:
+        if error_contract == ERRORS_V2:
+            return ErrorResponseV2.model_validate_json(body).error
         return ErrorResponse.model_validate_json(body).error
     if contract != "synth.refusal.v1":
         raise ContractError("Unsupported refusal contract", status=response.status_code)
@@ -88,6 +124,18 @@ def _decode_error(response: httpx.Response, body: bytes) -> ErrorDetail | Refusa
     if error.code != error.refusal.code:
         raise ContractError("Refusal code does not match error code", status=response.status_code)
     return error
+
+
+def _cause_fields(error: ErrorDetail) -> dict[str, object]:
+    """Typed v2 cause fields for the exception; empty for a v1 body."""
+    if not isinstance(error, ErrorDetailV2):
+        return {}
+    return {
+        "service": error.service,
+        "stage": error.stage,
+        "cause": error.cause_code,
+        "upstream_status": error.upstream_status,
+    }
 
 
 class _TolerantErrorDetail(BaseModel):
@@ -155,6 +203,23 @@ def is_definite_refusal(status: int, outcome: str | None) -> bool:
     return 400 <= status < 500 and status not in UNCERTAIN_CLIENT_STATUSES
 
 
+def refusal_document_is_definite(status: int, refusal: Refusal | None) -> bool:
+    """A versioned ``synth.refusal.v1`` that says not retryable and not in doubt is
+    definite, even when the legacy ``outcome`` field says ``unknown`` (SYN-5273).
+
+    The backend derives ``in_doubt`` from the route outcome (backend#3595), so the
+    document's own ``in_doubt`` is trusted for every code; no code is exempt. Only
+    a 4xx other than 408/429 qualifies: a 5xx document stays ambiguous for
+    mutations because older backends synthesize ``in_doubt=false`` on outages."""
+    return (
+        refusal is not None
+        and refusal.retryable is False
+        and refusal.in_doubt is False
+        and 400 <= status < 500
+        and status not in UNCERTAIN_CLIENT_STATUSES
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class RefusalDetail:
     """Allowlisted refusal headers (backend SYN-4730 / SYN-4763); nothing else is read."""
@@ -163,6 +228,28 @@ class RefusalDetail:
     cause: str | None = None
     closure_pending: str | None = None
     closure_expected_by: datetime | None = None
+    durable_search_id: str | None = None
+    sync_cap_seconds: float | None = None
+
+
+def _durable_search_id(value: str | None) -> str | None:
+    """A canonical UUID only; anything else is dropped (SYN-4999)."""
+    if value is None or len(value) > 64:
+        return None
+    try:
+        return str(UUID(value.strip()))
+    except ValueError:
+        return None
+
+
+def _cap_seconds(value: str | None) -> float | None:
+    if value is None or len(value) > 16:
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        return None
+    return seconds if math.isfinite(seconds) and seconds > 0 else None
 
 
 def _token(value: str | None) -> str | None:
@@ -193,6 +280,8 @@ def parse_refusal_detail(headers: Mapping[str, str]) -> RefusalDetail:
         cause=_token(headers.get("X-Synth-Refusal-Cause")),
         closure_pending=pending,
         closure_expected_by=expected_by,
+        durable_search_id=_durable_search_id(headers.get("X-Synth-Durable-Search-Id")),
+        sync_cap_seconds=_cap_seconds(headers.get("X-Synth-Deep-Sync-Cap-Seconds")),
     )
 
 
@@ -234,6 +323,8 @@ def annotate_response_error(response: httpx.Response, error: SynthError) -> Synt
     error.cause = detail.cause or error.cause
     error.closure_pending = detail.closure_pending
     error.closure_expected_by = detail.closure_expected_by
+    error.durable_search_id = detail.durable_search_id or error.durable_search_id
+    error.sync_cap_seconds = detail.sync_cap_seconds or error.sync_cap_seconds
     if error.retry_after_seconds is None:
         delay = retry_delay(response, float("nan"))
         if math.isfinite(delay):
@@ -258,6 +349,10 @@ def _decode_response(
         from .tunnel_control import decode_control_response
 
         return decode_control_response(response, body, model, identity, mutation)
+    if contract == "menagerie.v1":
+        from .menagerie import decode_menagerie_response
+
+        return decode_menagerie_response(response, body, model, identity, mutation)
     if contract == "account.v1":
         from .account import decode_account_read
 
@@ -304,6 +399,17 @@ def _decode_response(
             except ValidationError:
                 tolerant = None
             if tolerant is None or tolerant.code not in _TOLERANT_REFUSAL_CODES:
+                from .quota import decode_quota_refusal, quota_code
+
+                if quota_code(body) is not None:
+                    # SYN-4844: a typed SMR quota refusal (403/409) is definite;
+                    # a malformed one raises the typed ContractError.
+                    raise decode_quota_refusal(
+                        response.status_code,
+                        body,
+                        operation=operation,
+                        request_id=response.headers.get("X-Request-Id"),
+                    ) from cause
                 if mutation and response.status_code >= 500:
                     raise OutcomeUncertainError(
                         "Mutation outcome is uncertain",
@@ -321,9 +427,16 @@ def _decode_response(
                 request_id=tolerant.request_id,
                 retry_after_seconds=tolerant.retry_after_seconds,
             )
-        definite = is_definite_refusal(response.status_code, sent_outcome)
+        definite = is_definite_refusal(
+            response.status_code, sent_outcome
+        ) or refusal_document_is_definite(response.status_code, getattr(error, "refusal", None))
         if mutation and not definite:
-            raise OutcomeUncertainError(
+            uncertain = (
+                LifecycleWriteRefusedError
+                if error.code in LIFECYCLE_WRITE_REFUSAL_CODES
+                else OutcomeUncertainError
+            )
+            raise uncertain(
                 "Mutation outcome is uncertain",
                 code=error.code,
                 refusal=getattr(error, "refusal", None),
@@ -331,6 +444,7 @@ def _decode_response(
                 status=response.status_code,
                 identity=identity,
                 retry_after_seconds=error.retry_after_seconds,
+                **_cause_fields(error),
             )
         kind: type[SynthError] = RefusedError if definite else SynthError
         if (response.status_code, error.code) in POLICY_ERROR_TYPES:
@@ -369,6 +483,7 @@ def _decode_response(
             status=response.status_code,
             identity=identity,
             retry_after_seconds=error.retry_after_seconds,
+            **_cause_fields(error),
         )
         if isinstance(refusal, RetentionModeNotAllowed):
             refusal.allowed_modes = allowed_modes or _header_modes(response.headers)
@@ -429,7 +544,7 @@ def classify_exchange(
     compressed content; a matching identity response needs its bounded body.
     Tunnel control keeps its separately versioned decoder.
     """
-    if contract in {"tunnels.v2", "account.v1"}:
+    if contract in {"tunnels.v2", "account.v1", "menagerie.v1"}:
         return Exchange("decode")
     negotiated = response.headers.get("X-Synth-Contract") == contract
     if response.status_code in TRANSIENT_STATUSES:

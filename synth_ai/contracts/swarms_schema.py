@@ -7,6 +7,14 @@ import json
 from pydantic import BaseModel
 
 from synth_ai.sdk.core.artifact_types import ArtifactLabelsUpdate
+from synth_ai.sdk.swarms.types.approvals import (
+    Approval,
+    ApprovalDecisionReceipt,
+    ApprovalDecisionRequest,
+    ApprovalList,
+    WaitAnswerReceipt,
+    WaitAnswerRequest,
+)
 from synth_ai.sdk.swarms.types.files import File, FileManifest, FileUploadReceipt, FileUploadStatus
 from synth_ai.sdk.swarms.types.launch import (
     FileRef,
@@ -27,16 +35,46 @@ from synth_ai.sdk.swarms.types.objectives import (
     ObjectiveResult,
     ObjectiveVerdict,
 )
-from synth_ai.sdk.swarms.types.outputs import Output, OutputRef, TextContent, TransferTiming
-from synth_ai.sdk.swarms.types.programs import ProgramRunView
+from synth_ai.sdk.swarms.types.outputs import (
+    Output,
+    OutputPage,
+    OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    TextContent,
+    TransferTiming,
+)
+from synth_ai.sdk.swarms.types.overrides import (
+    ModelEffortChoice,
+    ProfileOverrideReadback,
+    ProfileOverrideResolution,
+    ProfileOverrides,
+    ResolvedProfileActor,
+)
+from synth_ai.sdk.swarms.types.programs import (
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ProgramRunView,
+)
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import (
     LaunchPreflight,
     ResolvedConfiguration,
     RunSnapshot,
     SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
+)
+from synth_ai.sdk.swarms.types.status_facets import (
+    CleanupFacet,
+    ExecutionFacet,
+    FacetCause,
+    PublicationCounts,
+    PublicationFacet,
+    RunStatusFacets,
+    SettlementFacet,
 )
 from synth_ai.types.base import EventCursor, Page
 from synth_ai.types.receipts import ControlReceipt
@@ -54,6 +92,27 @@ MODELS: tuple[type[BaseModel], ...] = (
     ArtifactLabelsUpdate,
     ControlReceipt,
     ProgramRunView,
+    ProgramChoice,
+    ProgramFamily,
+    ProgramFamilyList,
+    ModelEffortChoice,
+    ProfileOverrides,
+    ResolvedProfileActor,
+    ProfileOverrideResolution,
+    ProfileOverrideReadback,
+    FacetCause,
+    ExecutionFacet,
+    PublicationCounts,
+    PublicationFacet,
+    SettlementFacet,
+    CleanupFacet,
+    RunStatusFacets,
+    Approval,
+    ApprovalList,
+    ApprovalDecisionRequest,
+    ApprovalDecisionReceipt,
+    WaitAnswerRequest,
+    WaitAnswerReceipt,
     FileRef,
     File,
     FileManifest,
@@ -61,6 +120,9 @@ MODELS: tuple[type[BaseModel], ...] = (
     FileUploadStatus,
     Output,
     OutputRef,
+    OutputVerification,
+    OutputVerificationError,
+    OutputPage,
     TextContent,
     TransferTiming,
     Page[File],
@@ -78,6 +140,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     ResolvedConfiguration,
     RunSnapshot,
     SwarmEvent,
+    SwarmEventPage,
     SwarmResult,
     TaskOutcome,
     Page[RunSnapshot],
