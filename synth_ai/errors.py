@@ -6,11 +6,42 @@ import asyncio
 from collections.abc import Mapping
 from datetime import datetime
 from types import MappingProxyType
-from typing import Literal
+from typing import Literal, TypedDict, Unpack
 
 from synth_ai.types.identity import MutationIdentity
 from synth_ai.types.rate_limits import RateLimitSnapshot
 from synth_ai.types.refusal import Refusal
+
+
+class ErrorOptions(TypedDict, total=False):
+    """Typed keyword options accepted by :class:`SynthError` constructors."""
+
+    code: str | None
+    refusal: Refusal | None
+    request_id: str | None
+    operation: str | None
+    client_request_id: str | None
+    status: int | None
+    identity: MutationIdentity | None
+    retry_after_seconds: float | None
+    rate_limits: tuple[RateLimitSnapshot, ...]
+    retryable: bool | None
+    stage: str | None
+    cause: str | None
+    service: str | None
+    upstream_status: int | None
+    closure_pending: str | None
+    closure_expected_by: datetime | None
+    reason: (
+        Literal[
+            "request_not_sent",
+            "response_lost",
+            "response_invalid",
+            "infrastructure_status",
+            "contract_header_missing",
+        ]
+        | None
+    )
 
 
 class SynthError(Exception):
@@ -203,9 +234,9 @@ class QuotaExceededError(RefusedError):
         limit: int | None,
         used: int,
         remedy: str | None = None,
-        **kwargs: object,
+        **kwargs: Unpack[ErrorOptions],
     ) -> None:
-        super().__init__(message, **kwargs)  # type: ignore[arg-type]
+        super().__init__(message, **kwargs)
         self.scope = scope
         self.limit = limit
         self.used = used
