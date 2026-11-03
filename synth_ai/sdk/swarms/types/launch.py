@@ -18,7 +18,7 @@ from synth_ai.types.base import (
 from synth_ai.types.money import Money
 from synth_ai.types.refs import Ref
 
-from .methods import ForkFlushMethod
+from .methods import ResearchMethod
 from .objectives import Guidance
 from .overrides import ProfileOverrides
 from .programs import ProgramChoice
@@ -147,7 +147,7 @@ class LaunchRequest(Model):
     inputs: Inputs | None = None
     providers: Providers | None = None
     models: Models | None = None
-    method: ForkFlushMethod | None = None
+    method: ResearchMethod | None = None
     program: ProgramChoice | None = None
     profile_overrides: ProfileOverrides | None = None
     labels: Labels | None = None

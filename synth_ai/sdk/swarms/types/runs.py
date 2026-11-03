@@ -39,6 +39,8 @@ from .launch import (
     ResolvedProviders,
 )
 from .methods import ResolvedResearchMethod
+from .scientific_delivery import ScientificDelivery
+from .effective_limits import EffectiveLimits
 from .objectives import GuidanceCoverage, ObjectiveResult
 from .overrides import ProfileOverrideReadback
 from .problems import Problem, ReasonLink
@@ -89,6 +91,7 @@ class AdmittedResourceGrant(ResponseBase):
 
 
 class ResolvedConfiguration(ResponseModel):
+    effective_limits: EffectiveLimits | None = None
     method: ResolvedResearchMethod | None = None
     run_id: ResponseIdentifier | None
     project_id: ResponseIdentifier
@@ -110,10 +113,21 @@ class ResolvedConfiguration(ResponseModel):
         value = handler(self)
         if self.profile_overrides is None:
             value.pop("profile_overrides", None)
+        if self.effective_limits is None:
+            value.pop("effective_limits", None)
         return value
 
 
 class LaunchPreflight(ResponseModel):
+    effective_limits: EffectiveLimits | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_effective_limits(self, handler):
+        value = handler(self)
+        if self.effective_limits is None:
+            value.pop("effective_limits", None)
+        return value
+
     ready: bool
     blockers: tuple[str, ...] = Field(max_length=32)
     configuration: ResolvedConfiguration | None
@@ -156,6 +170,7 @@ class RunControlSummary(ResponseBase):
 
 
 class RunSnapshot(ResponseModel):
+    scientific_delivery: ScientificDelivery | None = None
     method: ResolvedResearchMethod | None = None
     run_id: ResponseIdentifier
     project_id: ResponseIdentifier
@@ -202,6 +217,7 @@ class RunSnapshot(ResponseModel):
             "pause_count",
             "profile_overrides",
             "status_facets",
+            "scientific_delivery",
         ):
             if getattr(self, name) is None:
                 value.pop(name, None)
@@ -220,6 +236,15 @@ class RunSnapshot(ResponseModel):
 
 
 class SwarmResult(ResponseModel):
+    scientific_delivery: ScientificDelivery | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_scientific_delivery(self, handler):
+        value = handler(self)
+        if self.scientific_delivery is None:
+            value.pop("scientific_delivery", None)
+        return value
+
     objectives: tuple[ObjectiveResult, ...] = Field(default=(), max_length=64)
     guidance_coverage: tuple[GuidanceCoverage, ...] = Field(default=(), max_length=32)
     run_id: ResponseIdentifier

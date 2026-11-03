@@ -66,6 +66,14 @@ __all__ = [
     "ResearchBinding",
     "ResearchMethodChoice",
     "ForkFlushMethod",
+    "ForgettingMethod",
+    "ForgettingOverrides",
+    "ForgettingParameters",
+    "MiraMethod",
+    "ScaleMasMethod",
+    "ResearchMethod",
+    "ScientificDelivery",
+    "EffectiveLimits",
     "ForkFlushOverrides",
     "ForkFlushParameters",
     "ForkFlushRound",
@@ -121,6 +129,12 @@ from .approvals import WaitAnswerReceipt as WaitAnswerReceipt
 from .approvals import WaitAnswerRequest as WaitAnswerRequest
 from .methods import (
     ForkFlushMethod,
+    ForgettingMethod,
+    ForgettingOverrides,
+    ForgettingParameters,
+    MiraMethod,
+    ScaleMasMethod,
+    ResearchMethod,
     ForkFlushOverrides,
     ForkFlushParameters,
     ForkFlushRound,
@@ -151,3 +165,6 @@ from .status_facets import (
     RunStatusFacets,
     SettlementFacet,
 )
+
+from .scientific_delivery import ScientificDelivery
+from .effective_limits import EffectiveLimits
