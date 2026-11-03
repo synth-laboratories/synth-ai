@@ -2537,6 +2537,643 @@
       "title": "CaptureAdmittedResponse",
       "type": "object"
     },
+    "CaptureCollectIntent": {
+      "$defs": {
+        "ExactReference": {
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "pattern": "^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "execution": {
+          "$ref": "#/$defs/ExactReference"
+        },
+        "mloky_relay_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mloky Relay Sha256"
+        },
+        "operation_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "orchestra_program_scope": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orchestra Program Scope"
+        },
+        "orchestra_run_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orchestra Run Id"
+        },
+        "request_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Digest Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "request_digest_sha256",
+        "execution"
+      ],
+      "title": "CaptureCollectIntent",
+      "type": "object"
+    },
+    "CaptureCollectedResponse": {
+      "$defs": {
+        "ActorBinding": {
+          "additionalProperties": true,
+          "properties": {
+            "attempt_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Attempt Id",
+              "type": "string"
+            },
+            "run_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Run Id",
+              "type": "string"
+            },
+            "workload_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Workload Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "workload_id",
+            "run_id",
+            "attempt_id"
+          ],
+          "title": "ActorBinding",
+          "type": "object"
+        },
+        "ArtifactObjectDeclaration": {
+          "additionalProperties": true,
+          "description": "One immutable manifest object addressed only by logical path and digest.",
+          "properties": {
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "logical_path": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Logical Path",
+              "type": "string"
+            },
+            "media_type": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Media Type",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "Size Bytes",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "logical_path",
+            "digest_sha256",
+            "size_bytes",
+            "media_type"
+          ],
+          "title": "ArtifactObjectDeclaration",
+          "type": "object"
+        },
+        "CaptureInventory": {
+          "additionalProperties": true,
+          "description": "Forge's scientific projection of a verified per-attempt owner observation.\n\nConfiguration includes sanitized commands, seeds, model/hardware selection\nand credential references; the actual bytes are captured as declared files.\nRequired content that the executor could not observe is an explicit gap.",
+          "properties": {
+            "attempt": {
+              "$ref": "#/$defs/ActorBinding"
+            },
+            "execution": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "execution_inventory": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "gaps": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Gaps",
+              "type": "array"
+            },
+            "limitations": {
+              "default": [],
+              "items": {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "title": "Limitations",
+              "type": "array"
+            },
+            "objects": {
+              "items": {
+                "$ref": "#/$defs/CaptureObject"
+              },
+              "maxItems": 100000,
+              "title": "Objects",
+              "type": "array"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "profile": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "schema_version": {
+              "const": "forge.capture-inventory.v1",
+              "default": "forge.capture-inventory.v1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "traces": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/CaptureTrace"
+              },
+              "maxItems": 100000,
+              "title": "Traces",
+              "type": "array"
+            },
+            "trial": {
+              "$ref": "#/$defs/ExactReference"
+            }
+          },
+          "required": [
+            "scope",
+            "trial",
+            "execution",
+            "execution_inventory",
+            "attempt",
+            "profile",
+            "observed_at",
+            "objects"
+          ],
+          "title": "CaptureInventory",
+          "type": "object"
+        },
+        "CaptureObject": {
+          "additionalProperties": true,
+          "properties": {
+            "manifest": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "object": {
+              "$ref": "#/$defs/ArtifactObjectDeclaration"
+            },
+            "object_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Object Id",
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "source",
+                "generated_source",
+                "dependencies",
+                "environment",
+                "input_data",
+                "protocol",
+                "evaluator",
+                "analysis",
+                "configuration",
+                "raw_output",
+                "log",
+                "usage"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "object_id",
+            "role",
+            "manifest",
+            "object"
+          ],
+          "title": "CaptureObject",
+          "type": "object"
+        },
+        "CaptureTrace": {
+          "additionalProperties": true,
+          "properties": {
+            "body_digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Body Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "trace",
+                "reward",
+                "annotation"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "reference": {
+              "$ref": "#/$defs/ExactReference"
+            },
+            "size_bytes": {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "Size Bytes",
+              "type": "integer"
+            },
+            "trace_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Trace Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id",
+            "kind",
+            "reference",
+            "body_digest_sha256",
+            "size_bytes"
+          ],
+          "title": "CaptureTrace",
+          "type": "object"
+        },
+        "ClientTiming": {
+          "additionalProperties": true,
+          "properties": {
+            "attempts": {
+              "minimum": 1,
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "first_byte_ms": {
+              "minimum": 0,
+              "title": "First Byte Ms",
+              "type": "number"
+            },
+            "source": {
+              "const": "sdk_monotonic",
+              "default": "sdk_monotonic",
+              "title": "Source",
+              "type": "string"
+            },
+            "total_ms": {
+              "minimum": 0,
+              "title": "Total Ms",
+              "type": "number"
+            }
+          },
+          "required": [
+            "total_ms",
+            "first_byte_ms",
+            "attempts"
+          ],
+          "title": "ClientTiming",
+          "type": "object"
+        },
+        "ExactReference": {
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "record_id": {
+                    "pattern": "^intern-exec:"
+                  }
+                },
+                "required": [
+                  "record_id"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "authority": {
+                    "const": "mloky"
+                  },
+                  "kind": {
+                    "const": "mloky_execution"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "authority": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Authority",
+              "type": "string"
+            },
+            "digest_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Digest Sha256",
+              "type": "string"
+            },
+            "kind": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Kind",
+              "type": "string"
+            },
+            "record_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^(?:[^:]{1,512}|intern-exec:[0-9a-f]{64})$",
+              "title": "Record Id",
+              "type": "string"
+            },
+            "revision": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "authority",
+            "kind",
+            "record_id",
+            "revision",
+            "digest_sha256"
+          ],
+          "title": "ExactReference",
+          "type": "object"
+        },
+        "ResponseMetadata": {
+          "additionalProperties": true,
+          "properties": {
+            "client_timing": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClientTiming"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "contract": {
+              "enum": [
+                "index.v1",
+                "swarms.v1",
+                "core.v1"
+              ],
+              "title": "Contract",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "title": "Observed At",
+              "type": "string"
+            },
+            "operation_id": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Id"
+            },
+            "request_id": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Request Id",
+              "type": "string"
+            },
+            "server_timing": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TimingSpan"
+              },
+              "maxItems": 32,
+              "title": "Server Timing",
+              "type": "array"
+            }
+          },
+          "required": [
+            "contract",
+            "request_id",
+            "operation_id",
+            "observed_at"
+          ],
+          "title": "ResponseMetadata",
+          "type": "object"
+        },
+        "Scope": {
+          "additionalProperties": true,
+          "properties": {
+            "organization_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Organization Id",
+              "type": "string"
+            },
+            "project_id": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization_id",
+            "project_id"
+          ],
+          "title": "Scope",
+          "type": "object"
+        },
+        "TimingSpan": {
+          "additionalProperties": true,
+          "properties": {
+            "clock": {
+              "enum": [
+                "monotonic",
+                "utc",
+                "unknown"
+              ],
+              "title": "Clock",
+              "type": "string"
+            },
+            "duration_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Ms"
+            },
+            "name": {
+              "enum": [
+                "request",
+                "queue",
+                "first_useful",
+                "active",
+                "wall",
+                "settlement"
+              ],
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "server",
+                "worker",
+                "unknown"
+              ],
+              "title": "Source",
+              "type": "string"
+            },
+            "uncertainty_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uncertainty Ms"
+            }
+          },
+          "required": [
+            "name",
+            "duration_ms",
+            "source",
+            "clock",
+            "uncertainty_ms"
+          ],
+          "title": "TimingSpan",
+          "type": "object"
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "inventory": {
+          "$ref": "#/$defs/CaptureInventory"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ResponseMetadata"
+        }
+      },
+      "required": [
+        "metadata",
+        "inventory"
+      ],
+      "title": "CaptureCollectedResponse",
+      "type": "object"
+    },
     "CaptureReleaseIntent": {
       "additionalProperties": false,
       "properties": {
@@ -3124,6 +3761,19 @@
         },
         "metadata": {
           "$ref": "#/$defs/ResponseMetadata"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
         }
       },
       "required": [
@@ -23681,6 +24331,16 @@
       "method": "POST",
       "mutation": true,
       "path": "/api/v1/forge/projects/{project_id}/captures/{digest}/release",
+      "required_scope": "forge:write"
+    },
+    {
+      "id": "forge.captures.collect",
+      "idempotent": true,
+      "keyed": true,
+      "may_charge": false,
+      "method": "POST",
+      "mutation": true,
+      "path": "/api/v1/forge/projects/{project_id}/captures/{digest}/collect",
       "required_scope": "forge:write"
     },
     {

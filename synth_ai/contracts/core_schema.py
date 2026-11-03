@@ -49,6 +49,7 @@ from synth_ai.sdk.forge.index_types import (
     ForgeIndexNoticePage,
 )
 from synth_ai.sdk.forge.capture_types import (
+    CaptureCollectIntent, CaptureCollectedResponse,
     CaptureAdmitIntent, CaptureReleaseIntent, CaptureAdmittedResponse,
     CaptureRetainedResponse, CaptureRetainedListResponse,
 )
@@ -80,6 +81,7 @@ from .mnemosyne import ALL_OPERATIONS as MNEMOSYNE_OPERATIONS
 from .mnemosyne_native import ALL_OPERATIONS as MNEMOSYNE_NATIVE_OPERATIONS
 
 MODELS = (
+    CaptureCollectIntent, CaptureCollectedResponse,
     CaptureAdmitIntent, CaptureReleaseIntent, CaptureAdmittedResponse,
     CaptureRetainedResponse, CaptureRetainedListResponse,
     EvaluationEvidenceResponse,

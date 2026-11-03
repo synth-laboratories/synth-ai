@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field
 
 from synth_ai.types.base import ResponseModel
-from .contracts.capture import CaptureAdmission, CaptureAdmissionRequest, CaptureProfile
+from .contracts.capture import CaptureAdmission, CaptureAdmissionRequest, CaptureInventory, CaptureProfile
 from .contracts.contracts import Contract, Digest, ExactReference, Identifier
 
 
@@ -23,6 +23,19 @@ class CaptureReleaseIntent(Contract):
     operation_id: Identifier
     request_digest_sha256: Digest
     reason: Literal["capture_verified_elsewhere", "trial_abandoned", "retention_superseded"]
+
+
+class CaptureCollectIntent(Contract):
+    operation_id: Identifier
+    request_digest_sha256: Digest
+    execution: ExactReference
+    orchestra_run_id: Identifier | None = None
+    orchestra_program_scope: dict[str, str] | None = None
+    mloky_relay_sha256: Digest | None = None
+
+
+class CaptureCollectedResponse(ResponseModel):
+    inventory: CaptureInventory
 
 
 class CaptureAdmittedResponse(ResponseModel):
@@ -44,3 +57,4 @@ class CaptureRetainedResponse(ResponseModel):
 
 class CaptureRetainedListResponse(ResponseModel):
     captures: tuple[CaptureRetained, ...] = Field(max_length=128)
+    next_cursor: Digest | None = None
