@@ -22,6 +22,7 @@ from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.forge.capture_types import (
     CaptureAdmittedResponse, CaptureRetainedResponse, CaptureRetainedListResponse,
+    CaptureCollectedResponse,
 )
 from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftNoticesResponse,
@@ -836,10 +837,19 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.capture_get,
     ),
     ToolDefinition(
+        "forge_capture_collect",
+        forge_operations.CAPTURE_COLLECT,
+        "Collect an exact admitted execution's observed bytes and retain owner holds. "
+        "Missing content remains an explicit inventory gap.",
+        forge_tools.ForgeCaptureCollect,
+        CaptureCollectedResponse,
+        forge_tools.capture_collect,
+    ),
+    ToolDefinition(
         "forge_capture_retained",
         forge_operations.CAPTURE_RETAINED,
         "List bounded retained capture admissions visible in a research workspace.",
-        forge_tools.ForgeProjectIdentity,
+        forge_tools.ForgeCapturePage,
         CaptureRetainedListResponse,
         forge_tools.capture_retained,
     ),
