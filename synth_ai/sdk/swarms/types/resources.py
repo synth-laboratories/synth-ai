@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 ResourcePluginId = Literal[
-    "openrouter.inference", "index.search", "rhodes.pool", "forge.research", "mnemosyne.trace"
+    "openrouter.inference", "index.search", "rhodes.pool", "forge.research", "mnemosyne.trace", "modal.compute"
 ]
 ResourceRole = Literal["planner", "worker", "reviewer", "run_assessor"]
 ResourceDimension = Literal[
@@ -32,6 +32,8 @@ ResourceDimension = Literal[
     "index_searches",
     "wall_ms",
     "rollouts",
+    "gpu_seconds",
+    "cpu_seconds",
 ]
 ResourceAmount = Annotated[StrictInt, Field(ge=0, le=2**63 - 1)]
 PoolId = Annotated[

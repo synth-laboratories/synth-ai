@@ -153,7 +153,8 @@ class LaunchRequest(Model):
     labels: Labels | None = None
     repo: RepoSelector | None = None
     guidance: tuple[Guidance, ...] = Field(default=(), max_length=32)
-    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=5)
+    parent_hold: dict[str, str] | None = Field(default=None, exclude_if=lambda value: value is None)
+    resources: tuple[ResourceRequest, ...] = Field(default=(), max_length=8)
 
     @property
     def objective(self) -> str:
@@ -187,6 +188,13 @@ class LaunchRequest(Model):
     def validate_intent(self) -> Self:
         if (self.message is None) == (self.legacy_objective is None):
             raise ValueError("Select message or the deprecated objective alias")
+        if self.parent_hold is not None:
+            import re
+
+            if set(self.parent_hold) != {"reservation_ref"} or re.fullmatch(
+                r"rsv_[0-9A-HJKMNP-TV-Z]{26}", self.parent_hold["reservation_ref"]
+            ) is None:
+                raise ValueError("parent_hold must carry only a valid reservation_ref")
         if len({item.plugin for item in self.resources}) != len(self.resources):
             raise ValueError("Resource plugins may be granted once")
         if any(

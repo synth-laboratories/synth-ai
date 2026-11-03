@@ -85,7 +85,7 @@ class CapabilitySnapshot(ResponseBase):
     release: ReleaseIdentity | None
     admission: Literal["candidate", "qualified"] | None
     contracts: tuple[ContractIdentity, ...] = Field(max_length=3)
-    operations: tuple[OperationCapability, ...] = Field(max_length=128)
+    operations: tuple[OperationCapability, ...] = Field(max_length=256)
 
     @model_validator(mode="after")
     def validate_snapshot(self) -> Self:

@@ -207,3 +207,14 @@ def test_mcp_preflight_and_create_payloads_include_rate_limits():
     created_payload = created.model_dump(mode="json")
     assert created_payload["run_id"] == "run-1"
     assert [item["remaining"] for item in created_payload["rate_limits"]] == [59, 3]
+
+
+def test_mcp_preflight_preserves_admitted_effective_limits():
+    from synth_ai.sdk.swarms.types.effective_limits import EffectiveLimits
+    limits = EffectiveLimits(actors=3, branches=2, peers=0, shared_sessions=0, placement="isolated")
+    body = LaunchPreflight.model_validate_json(json.dumps({**PREFLIGHT_BODY,
+        "effective_limits": limits.model_dump(mode="json")}))
+    assert LaunchPreflightResult.of(body).effective_limits == limits
+    assert LaunchPreflightResult.of(body).model_dump(mode="json")["effective_limits"]["actors"] == 3
+    absent = body.model_copy(update={"effective_limits": None})
+    assert "effective_limits" not in LaunchPreflightResult.of(absent).model_dump(mode="json")

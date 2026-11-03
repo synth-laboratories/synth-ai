@@ -30,6 +30,7 @@ from synth_ai.sdk.swarms.types.approvals import ApprovalKind
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.projects import ProjectCreateRequest
 from synth_ai.sdk.swarms.types.runs import LaunchPreflight, ResolvedConfiguration
+from synth_ai.sdk.swarms.types.effective_limits import EffectiveLimits
 from synth_ai.types.base import (
     Cursor,
     Digest,
@@ -226,6 +227,15 @@ class SearchCreated(ResponseBase):
 
 class LaunchPreflightResult(ResponseModel):
     """swarms_preflight result: the preflight body plus response-header capacity (SYN-4680)."""
+
+    effective_limits: EffectiveLimits | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_effective_limits(self, handler):
+        value = handler(self)
+        if self.effective_limits is None:
+            value.pop("effective_limits", None)
+        return value
 
     ready: bool
     blockers: tuple[str, ...] = Field(max_length=32)

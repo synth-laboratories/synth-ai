@@ -21,7 +21,7 @@ from tests.test_resource_mnemosyne_trace import PROJECT, declaration
 from tests.test_swarms_rate_limits import LIMITS
 
 pytestmark = pytest.mark.unit
-BACKEND_RETAINED_SHA = "a1a1c821c60a1c939e79c52bf017d6246b960f1f2d84feab84508fde393d2a43"
+BACKEND_RETAINED_SHA = "c694975f498ec55b8d8a87a45cd2a5f2ad2c89d0ef5d9012b6ad324429a643e9"
 
 
 @pytest.mark.skipif(

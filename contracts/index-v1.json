@@ -1572,7 +1572,7 @@
           "items": {
             "$ref": "#/$defs/OperationCapability"
           },
-          "maxItems": 128,
+          "maxItems": 256,
           "title": "Operations",
           "type": "array"
         },
