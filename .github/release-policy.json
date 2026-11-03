@@ -88,6 +88,21 @@
           "native-monitor"
         ]
       }
+    },
+    "0.24.0": {
+      "deferrable": [],
+      "owner_waivers": {
+        "directive": "Release owner 2026-11-03: publish synth-ai 0.24.0 (stable) from current dev via the qualified pipeline so the backend cohort (source dc8239887d, serving staging) can roll to prod; published 0.23.9 fails capability negotiation against it. Native E2E proofs are not run for this release: they need the backend candidate on prod, which needs this SDK first. sdk-contracts, fresh-install and staging capability negotiation are real checks.",
+        "approved_by": "release owner (2026-11-03 SDK release approval relayed to the SDK release lane by the prod roll coordinator)",
+        "approved_at": "2026-11-03",
+        "ticket": "SYN-4973",
+        "checks": [
+          "native-index-fast",
+          "native-index-deep",
+          "native-monitor",
+          "native-swarms"
+        ]
+      }
     }
   }
 }

@@ -4,7 +4,9 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 # Changelog
 
-## Unreleased
+## 0.24.0
+
+- Contracts: core.v1 b33b2bee, index.v1 72816159, swarms.v1 a1a1c821, re-exported from the backend release candidate (source dc8239887d). Earlier 0.23.x wheels fail capability negotiation against this backend; upgrade before it rolls.
 
 - Mnemosyne actor trace tools (`synth_ai.sdk.mnemosyne.trace_chunks`, `trace_compare`): `download_project_trace` / `adownload_project_trace` fetch a retained project trace (at most 8 MiB) over the actor MCP `mnemosyne_read_project_trace` tool in `range` windows of at most 1 MiB, streaming to a digest-named partial file, verifying every window's `chunk_sha256` and the reassembled `archive_sha256`/size, and resuming from the partial after an interruption. `compare_project_traces` / `acompare_project_traces` send 2–8 distinct digest-pinned associations to `mnemosyne_compare_project_traces` and return a typed result bound to those pins. Both are called only when the actor session advertises the tool (`CapabilityUnavailableError` otherwise); refusals are `ContractError` with `code`, `stage`, `cause`. These are actor MCP tools, not core.v1 operations: core.v1, index.v1 and swarms.v1 fingerprints are unchanged (SYN-5338, SYN-5347).
 - SMR quota refusals (403 `smr_project_plan_active_limit_reached`, 409 `smr_project_active_limit_reached`, 409 `smr_project_nonterminal_run_limit_reached`) decode into the typed `QuotaExceededError` (a `RefusedError`) with `scope`, `limit`, `used`, `remedy`, `service`, `stage` and `cause`; a quota code with any other body shape raises `ContractError`. MCP tool failures carry `category="quota_exceeded"` and a `quota` object (`scope`, `limit`, `used`, `remedy`), omitted for other errors (SYN-4844).

@@ -211,6 +211,11 @@ class QuotaExceededError(RefusedError):
         self.used = used
         self.remedy = remedy
 
+    def __reduce__(self):  # type: ignore[override]
+        # Exception's default reduce re-calls __init__ with args only, which
+        # lacks the required keyword-only fields; restore the instance state.
+        return (type(self).__new__, (type(self), *self.args), self.__dict__)
+
 
 class RequestTimeoutError(SynthError):
     """Local observation/request deadline expired."""

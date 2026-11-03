@@ -79,7 +79,13 @@ identity remains bound to its original synchronous route.
   before repeating work. FAST searches and other 504 causes are unaffected.
 
 ```python
-result = client.index.search("q", options=KeyedSearchOptions(mode="deep", ...), mutation=legacy)
+from synth_ai.options import MutationOptions
+from synth_ai.sdk.index import KeyedSearchOptions
+from synth_ai.types.money import Money
+
+options = KeyedSearchOptions(mode="deep", maximum_charge=Money(coefficient=5, scale=2))
+legacy = MutationOptions(idempotency_key="search-1")
+result = client.index.search("q", options=options, mutation=legacy)
 if result.sync_cap_reattached is not None:
     print("reattached to", result.sync_cap_reattached.search_id)
 ```
