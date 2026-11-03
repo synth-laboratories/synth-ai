@@ -64,7 +64,7 @@ from synth_ai.sdk.swarms.types.approvals import (
 from synth_ai.sdk.swarms.types.files import File
 from synth_ai.sdk.swarms.types.launch import LaunchRequest, Project
 from synth_ai.sdk.swarms.types.outputs import Output, TextContent
-from synth_ai.sdk.swarms.types.programs import ProgramFamilyList
+from synth_ai.sdk.swarms.types.programs import ProgramFamilyList, ProgramRunView
 from synth_ai.sdk.swarms.types.runs import (
     ResolvedConfiguration,
     RunSnapshot,
@@ -419,6 +419,11 @@ async def run_status(client: AsyncSynthClient, args: RunIdentity) -> RunSnapshot
 
 async def run_configuration(client: AsyncSynthClient, args: RunIdentity) -> ResolvedConfiguration:
     return await (await client.swarms.get(args.run_id)).configuration()
+
+
+async def run_program(client: AsyncSynthClient, args: RunIdentity) -> ProgramRunView:
+    """Read the retained program projection; reattachment never recreates a run."""
+    return await (await client.swarms.get(args.run_id)).program()
 
 
 async def run_result(client: AsyncSynthClient, args: RunIdentity) -> SwarmResult:
@@ -1105,6 +1110,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         RunIdentity,
         ResolvedConfiguration,
         run_configuration,
+    ),
+    ToolDefinition(
+        "swarms_program",
+        swarm_operations.PROGRAM,
+        "Read the admitted program, its recorded projection and terminal facts without changing the run.",
+        RunIdentity,
+        ProgramRunView,
+        run_program,
     ),
     ToolDefinition(
         "swarms_result",
