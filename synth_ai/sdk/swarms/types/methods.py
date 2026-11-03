@@ -84,14 +84,81 @@ class ForgettingMethod(Model):
     overrides: ForgettingOverrides | None = None
 
 
-# These names reserve public intent only. They remain unavailable until a
-# published runtime/profile/release pairing exists; no synthetic pins are made.
+class MiraParameters(Model):
+    maximum_cycles: StrictInt = Field(ge=1, le=128)
+    curated_observations: StrictInt = Field(ge=1, le=64)
+    curated_bytes: StrictInt = Field(ge=1024, le=65536)
+    planner_spend_micros: StrictInt = Field(ge=1, le=2**64 - 1)
+    planner_tokens: StrictInt = Field(ge=1, le=2**64 - 1)
+    work_spend_micros: StrictInt = Field(ge=1, le=2**64 - 1)
+    work_tokens: StrictInt = Field(ge=1, le=2**64 - 1)
+    evaluator_spend_micros: StrictInt = Field(ge=1, le=2**64 - 1)
+    evaluator_tokens: StrictInt = Field(ge=1, le=2**64 - 1)
+
+
+class MiraOverrides(Model):
+    maximum_cycles: StrictInt | None = Field(default=None, ge=1, le=128)
+    curated_observations: StrictInt | None = Field(default=None, ge=1, le=64)
+    curated_bytes: StrictInt | None = Field(default=None, ge=1024, le=65536)
+    planner_spend_micros: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    planner_tokens: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    work_spend_micros: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    work_tokens: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    evaluator_spend_micros: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    evaluator_tokens: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+
+
 class MiraMethod(Model):
     release: Literal["research.mira@1"] = "research.mira@1"
+    overrides: MiraOverrides | None = None
+
+
+class ScaleMasParameters(Model):
+    peers: StrictInt = Field(ge=1, le=32)
+    maximum_tasks: StrictInt = Field(ge=1, le=1000)
+    work_spend_micros: StrictInt = Field(ge=1, le=2**64 - 1)
+    work_tokens: StrictInt = Field(ge=1, le=2**64 - 1)
+    evaluator_spend_micros: StrictInt = Field(ge=1, le=2**64 - 1)
+    evaluator_tokens: StrictInt = Field(ge=1, le=2**64 - 1)
+    record_bytes: StrictInt = Field(ge=256, le=16384)
+    retrieval_top_k: StrictInt = Field(ge=1, le=64)
+    retrieval_bytes: StrictInt = Field(ge=4352, le=65536)
+    retrieval_tokens: StrictInt = Field(ge=4352, le=65536)
+    citation_weight: StrictInt = Field(ge=0, le=1000000)
+    term_weight: StrictInt = Field(ge=0, le=1000000)
+    decay_millis: StrictInt = Field(ge=1, le=2**63 - 1)
+
+    @model_validator(mode="after")
+    def validate_retrieval(self) -> Self:
+        if (
+            self.maximum_tasks < self.peers
+            or self.retrieval_bytes < self.record_bytes + 4096
+            or self.retrieval_tokens < self.retrieval_bytes
+            or self.retrieval_tokens > self.work_tokens
+        ):
+            raise ValueError("ScaleMAS task and retrieval budgets are inconsistent")
+        return self
+
+
+class ScaleMasOverrides(Model):
+    peers: StrictInt | None = Field(default=None, ge=1, le=32)
+    maximum_tasks: StrictInt | None = Field(default=None, ge=1, le=1000)
+    work_spend_micros: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    work_tokens: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    evaluator_spend_micros: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    evaluator_tokens: StrictInt | None = Field(default=None, ge=1, le=2**64 - 1)
+    record_bytes: StrictInt | None = Field(default=None, ge=256, le=16384)
+    retrieval_top_k: StrictInt | None = Field(default=None, ge=1, le=64)
+    retrieval_bytes: StrictInt | None = Field(default=None, ge=4352, le=65536)
+    retrieval_tokens: StrictInt | None = Field(default=None, ge=4352, le=65536)
+    citation_weight: StrictInt | None = Field(default=None, ge=0, le=1000000)
+    term_weight: StrictInt | None = Field(default=None, ge=0, le=1000000)
+    decay_millis: StrictInt | None = Field(default=None, ge=1, le=2**63 - 1)
 
 
 class ScaleMasMethod(Model):
     release: Literal["research.scalemas@1"] = "research.scalemas@1"
+    overrides: ScaleMasOverrides | None = None
 
 
 ResearchMethod = Annotated[
@@ -101,20 +168,27 @@ ResearchMethod = Annotated[
 
 
 class ResolvedResearchMethod(ResponseBase):
-    release: Literal["research.fork_flush@1", "research.forgetting@1"]
-    program_id: Literal["research.fork_flush", "research.forgetting"]
+    release: Literal[
+        "research.fork_flush@1", "research.forgetting@1",
+        "research.mira@1", "research.scalemas@1",
+    ]
+    program_id: Literal[
+        "research.fork_flush", "research.forgetting", "research.mira", "research.scalemas",
+    ]
     program_version: Literal[1]
     definition_digest: Digest
     configuration_digest: Digest
     forge_profile_digest: Digest
     context_policy_digest: Digest
-    parameters: ForkFlushParameters | ForgettingParameters
+    parameters: ForkFlushParameters | ForgettingParameters | MiraParameters | ScaleMasParameters
 
     @model_validator(mode="after")
     def validate_pairing(self) -> Self:
         expected = {
             "research.fork_flush@1": ("research.fork_flush", ForkFlushParameters),
             "research.forgetting@1": ("research.forgetting", ForgettingParameters),
+            "research.mira@1": ("research.mira", MiraParameters),
+            "research.scalemas@1": ("research.scalemas", ScaleMasParameters),
         }[self.release]
         if self.program_id != expected[0] or not isinstance(self.parameters, expected[1]):
             raise ValueError("Research release and native program pairing differ")
