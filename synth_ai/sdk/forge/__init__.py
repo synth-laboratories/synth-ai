@@ -1,5 +1,6 @@
 """Forge research workspaces; scientific contracts are producer-owned."""
 
+from .contracts.capture import CaptureAdmissionRequest, CaptureNativeUse, CaptureProfile
 from .contracts.records import (
     Artifact,
     Hypothesis,
@@ -28,6 +29,9 @@ from .contracts.scientific_v2 import (
 )
 
 __all__ = [
+    "CaptureAdmissionRequest",
+    "CaptureNativeUse",
+    "CaptureProfile",
     "Artifact",
     "ExecutedInputs",
     "ExecutedMaterial",

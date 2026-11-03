@@ -20,6 +20,9 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.sdk.forge.capture_types import (
+    CaptureAdmittedResponse, CaptureRetainedResponse, CaptureRetainedListResponse,
+)
 from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftNoticesResponse,
     ForgeIndexDraftResponse,
@@ -814,6 +817,39 @@ TOOLS: tuple[ToolSpec, ...] = (
         forge_tools.ForgeReportArtifactRead,
         ReportArtifactContentResponse,
         forge_tools.report_artifact,
+    ),
+    ToolDefinition(
+        "forge_capture_admit",
+        forge_operations.CAPTURE_ADMIT,
+        "Reserve capture quota and retention before execution as the current caller. "
+        "The returned intent reference is a locator, not an access grant.",
+        forge_tools.ForgeCaptureAdmit,
+        CaptureAdmittedResponse,
+        forge_tools.capture_admit,
+    ),
+    ToolDefinition(
+        "forge_capture_get",
+        forge_operations.CAPTURE_GET,
+        "Read one exact retained capture admission and its current owner protection.",
+        forge_tools.ForgeCaptureRead,
+        CaptureRetainedResponse,
+        forge_tools.capture_get,
+    ),
+    ToolDefinition(
+        "forge_capture_retained",
+        forge_operations.CAPTURE_RETAINED,
+        "List bounded retained capture admissions visible in a research workspace.",
+        forge_tools.ForgeProjectIdentity,
+        CaptureRetainedListResponse,
+        forge_tools.capture_retained,
+    ),
+    ToolDefinition(
+        "forge_capture_release",
+        forge_operations.CAPTURE_RELEASE,
+        "Release one capture admission through its byte owners with a stable retry key.",
+        forge_tools.ForgeCaptureRelease,
+        CaptureRetainedResponse,
+        forge_tools.capture_release,
     ),
     ToolDefinition(
         "forge_project_list",
