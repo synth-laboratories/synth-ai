@@ -48184,6 +48184,328 @@
       "required_scope": "swarms:read"
     },
     {
+      "description": "Read the admitted program, its recorded projection and terminal facts without changing the run.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "RunIdentity",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "swarms_program",
+      "operation": "swarms.program",
+      "output_schema": {
+        "$defs": {
+          "ClientTiming": {
+            "additionalProperties": true,
+            "properties": {
+              "attempts": {
+                "minimum": 1,
+                "title": "Attempts",
+                "type": "integer"
+              },
+              "first_byte_ms": {
+                "minimum": 0,
+                "title": "First Byte Ms",
+                "type": "number"
+              },
+              "source": {
+                "const": "sdk_monotonic",
+                "default": "sdk_monotonic",
+                "title": "Source",
+                "type": "string"
+              },
+              "total_ms": {
+                "minimum": 0,
+                "title": "Total Ms",
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_ms",
+              "first_byte_ms",
+              "attempts"
+            ],
+            "title": "ClientTiming",
+            "type": "object"
+          },
+          "ResponseMetadata": {
+            "additionalProperties": true,
+            "properties": {
+              "client_timing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ClientTiming"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "contract": {
+                "enum": [
+                  "index.v1",
+                  "swarms.v1",
+                  "core.v1"
+                ],
+                "title": "Contract",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "operation_id": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Operation Id"
+              },
+              "request_id": {
+                "maxLength": 512,
+                "minLength": 1,
+                "title": "Request Id",
+                "type": "string"
+              },
+              "server_timing": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TimingSpan"
+                },
+                "maxItems": 32,
+                "title": "Server Timing",
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract",
+              "request_id",
+              "operation_id",
+              "observed_at"
+            ],
+            "title": "ResponseMetadata",
+            "type": "object"
+          },
+          "TimingSpan": {
+            "additionalProperties": true,
+            "properties": {
+              "clock": {
+                "enum": [
+                  "monotonic",
+                  "utc",
+                  "unknown"
+                ],
+                "title": "Clock",
+                "type": "string"
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Duration Ms"
+              },
+              "name": {
+                "enum": [
+                  "request",
+                  "queue",
+                  "first_useful",
+                  "active",
+                  "wall",
+                  "settlement"
+                ],
+                "title": "Name",
+                "type": "string"
+              },
+              "source": {
+                "enum": [
+                  "server",
+                  "worker",
+                  "unknown"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Uncertainty Ms"
+              }
+            },
+            "required": [
+              "name",
+              "duration_ms",
+              "source",
+              "clock",
+              "uncertainty_ms"
+            ],
+            "title": "TimingSpan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "close_holds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Close Holds",
+            "type": "array"
+          },
+          "last_refusal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Refusal"
+          },
+          "metadata": {
+            "$ref": "#/$defs/ResponseMetadata"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "program": {
+            "additionalProperties": true,
+            "title": "Program",
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "projection": {
+            "additionalProperties": true,
+            "title": "Projection",
+            "type": "object"
+          },
+          "resource_extension_ready": {
+            "default": false,
+            "title": "Resource Extension Ready",
+            "type": "boolean"
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resources"
+          },
+          "run_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sequence": {
+            "minimum": 0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "state_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Digest"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "terminal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal"
+          },
+          "usage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Usage",
+            "type": "object"
+          }
+        },
+        "required": [
+          "metadata",
+          "run_id",
+          "project_id",
+          "program",
+          "sequence",
+          "state_digest",
+          "open",
+          "status",
+          "terminal",
+          "projection"
+        ],
+        "title": "ProgramRunView",
+        "type": "object"
+      },
+      "required_scope": "swarms:read"
+    },
+    {
       "description": "Read the canonical result including partial or failed outcomes.",
       "idempotent": true,
       "input_schema": {
