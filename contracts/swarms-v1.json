@@ -10692,7 +10692,9 @@
                 "calls",
                 "index_searches",
                 "wall_ms",
-                "rollouts"
+                "rollouts",
+                "gpu_seconds",
+                "cpu_seconds"
               ],
               "title": "Dimension",
               "type": "string"
@@ -17708,7 +17710,9 @@
                 "calls",
                 "index_searches",
                 "wall_ms",
-                "rollouts"
+                "rollouts",
+                "gpu_seconds",
+                "cpu_seconds"
               ],
               "title": "Dimension",
               "type": "string"
@@ -18350,7 +18354,9 @@
                 "calls",
                 "index_searches",
                 "wall_ms",
-                "rollouts"
+                "rollouts",
+                "gpu_seconds",
+                "cpu_seconds"
               ],
               "title": "Dimension",
               "type": "string"
@@ -19557,7 +19563,9 @@
                 "calls",
                 "index_searches",
                 "wall_ms",
-                "rollouts"
+                "rollouts",
+                "gpu_seconds",
+                "cpu_seconds"
               ],
               "title": "Dimension",
               "type": "string"

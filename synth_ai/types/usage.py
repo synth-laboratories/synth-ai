@@ -50,6 +50,8 @@ class ResourceUsage(ResponseBase):
         "index_searches",
         "wall_ms",
         "rollouts",
+        "gpu_seconds",
+        "cpu_seconds",
     ]
     usage_class: Literal["agent", "workload", "tool"]
     role: str

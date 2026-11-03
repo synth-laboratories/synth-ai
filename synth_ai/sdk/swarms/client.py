@@ -65,6 +65,7 @@ def launch_request(
     method: ResearchMethod | None = None,
     program: ProgramChoice | None = None,
     profile_overrides: ProfileOverrides | None = None,
+    parent_hold: dict[str, str] | None = None,
 ) -> LaunchRequest:
     """Preserve omitted overrides; backend project/profile defaults remain authoritative.
 
@@ -92,6 +93,7 @@ def launch_request(
         method=method,
         program=program,
         profile_overrides=profile_overrides,
+        parent_hold=parent_hold,
     )
 
 
@@ -216,6 +218,7 @@ class SwarmsClient:
         method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
+        parent_hold: dict[str, str] | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -234,6 +237,7 @@ class SwarmsClient:
             method,
             program,
             profile_overrides,
+            parent_hold,
         )
         options, metadata = metered(request, ReadOptions)
         result = self._transport.request(
@@ -262,6 +266,7 @@ class SwarmsClient:
         method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
+        parent_hold: dict[str, str] | None = None,
         mutation: MutationOptions | None = None,
     ) -> SwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -280,6 +285,7 @@ class SwarmsClient:
             method,
             program,
             profile_overrides,
+            parent_hold,
         )
 
         def send(options: MutationOptions | None) -> RunSnapshot:
@@ -449,6 +455,7 @@ class AsyncSwarmsClient:
         method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
+        parent_hold: dict[str, str] | None = None,
         request: ReadOptions | None = None,
     ) -> LaunchPreflight:
         """Preview qualification without reserving budget or starting a run."""
@@ -467,6 +474,7 @@ class AsyncSwarmsClient:
             method,
             program,
             profile_overrides,
+            parent_hold,
         )
         options, metadata = metered(request, ReadOptions)
         result = await self._transport.request(
@@ -495,6 +503,7 @@ class AsyncSwarmsClient:
         method: ResearchMethod | None = None,
         program: ProgramChoice | None = None,
         profile_overrides: ProfileOverrides | None = None,
+        parent_hold: dict[str, str] | None = None,
         mutation: MutationOptions | None = None,
     ) -> AsyncSwarmRun:
         """Admit exactly the submitted single-model intent and retain uncertain identity."""
@@ -513,6 +522,7 @@ class AsyncSwarmsClient:
             method,
             program,
             profile_overrides,
+            parent_hold,
         )
 
         async def send(options: MutationOptions | None) -> RunSnapshot:

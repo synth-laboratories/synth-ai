@@ -24,7 +24,7 @@ pytestmark = pytest.mark.contract
 # PR #596 widened AccountEntitlements (inference product and subproducts, tokens
 # dimension, minute window, 13 subproducts) but left the Index identity at 75563ddd...
 # SYN-5351 adopts that intentional change; the backend mirrors it atomically.
-INDEX_V1_SCHEMA_SHA256 = "a92fc5782bc07e304ec6a4dacc99a8676a74bd2b7daf183bca05dabce3612d14"
+INDEX_V1_SCHEMA_SHA256 = "973d74b553b1cfbeaac9100403f8fc75897aafc3f63d30ed8b6f3a046b4f4289"
 
 
 def test_index_v1_fingerprint_matches_the_candidate_export():

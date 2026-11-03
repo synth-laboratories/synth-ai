@@ -21,7 +21,8 @@ from tests.test_resource_mnemosyne_trace import PROJECT, declaration
 from tests.test_swarms_rate_limits import LIMITS
 
 pytestmark = pytest.mark.unit
-BACKEND_RETAINED_SHA = "c694975f498ec55b8d8a87a45cd2a5f2ad2c89d0ef5d9012b6ad324429a643e9"
+# Paired backend/SDK generation adds measured Modal CPU/GPU usage dimensions.
+BACKEND_RETAINED_SHA = "f65b870cf100e142e6b7740e5084306a7ba5383aeeb0dca192479ca254578a91"
 
 
 @pytest.mark.skipif(

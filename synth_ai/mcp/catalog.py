@@ -384,6 +384,7 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
         method=args.method,
         program=args.program,
         profile_overrides=args.profile_overrides,
+        parent_hold=args.parent_hold,
     )
     return LaunchPreflightResult.of(result)
 
@@ -404,6 +405,7 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
         method=args.method,
         program=args.program,
         profile_overrides=args.profile_overrides,
+        parent_hold=args.parent_hold,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
     return RunCreated(run_id=run.run_id, rate_limits=run.rate_limits)

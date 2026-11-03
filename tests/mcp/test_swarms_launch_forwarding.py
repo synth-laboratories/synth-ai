@@ -24,6 +24,7 @@ def test_preflight_and_launch_forward_explicit_forge_and_rhodes_grants(message_f
             "maximum_parallel_tasks": 1,
         },
         "guidance": [{"id": "goal", "text": "Retain evidence"}],
+        "parent_hold": {"reservation_ref": "rsv_" + "0" * 26},
         "resources": [
             {
                 "plugin": "forge.research",
@@ -78,4 +79,5 @@ def test_preflight_and_launch_forward_explicit_forge_and_rhodes_grants(message_f
         assert kwargs["guidance"] == preflight_args.guidance
         assert kwargs["labels"] == preflight_args.labels
         assert kwargs["repo"] == preflight_args.repo
+        assert kwargs["parent_hold"] == preflight_args.parent_hold
     assert swarm.create.await_args.kwargs["mutation"].idempotency_key == "original-key"
