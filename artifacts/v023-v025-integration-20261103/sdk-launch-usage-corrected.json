@@ -1,0 +1,13 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 10.957179291988723,
+  "provider_usd": 0,
+  "pydantic": "2.12.5"
+}

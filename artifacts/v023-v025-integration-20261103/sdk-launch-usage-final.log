@@ -1,0 +1,55 @@
+........................................................................ [  7%]
+........................................................................ [ 14%]
+........................................................................ [ 21%]
+........................................................................ [ 28%]
+........................................................................ [ 35%]
+........................................................................ [ 42%]
+........................................................................ [ 50%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 71%]
+........................................................................ [ 78%]
+........................................................................ [ 85%]
+........................................................................ [ 93%]
+.................FF..................................................s   [100%]
+=================================== FAILURES ===================================
+_ test_observation_operations_are_generated_and_match_retained_reviewed_descriptors _
+tests/test_swarms_retained_observation_contract.py:60: in test_observation_operations_are_generated_and_match_retained_reviewed_descriptors
+    assert (
+E   AssertionError: assert 'f65b870cf100...79ca254578a91' == 'c694975f498e...d324429a643e9'
+E     
+E     - c694975f498ec55b8d8a87a45cd2a5f2ad2c89d0ef5d9012b6ad324429a643e9
+E     + f65b870cf100e142e6b7740e5084306a7ba5383aeeb0dca192479ca254578a91
+___________ test_strict_launch_negotiates_reviewed_backend_identity ____________
+tests/test_swarms_retained_observation_contract.py:108: in test_strict_launch_negotiates_reviewed_backend_identity
+    run = client.swarms.create(
+synth_ai/sdk/swarms/client.py:318: in create
+    result = create_with_retry(send, mutation)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+synth_ai/sdk/swarms/create_retry.py:149: in create_with_retry
+    return send(options)
+           ^^^^^^^^^^^^^
+synth_ai/sdk/swarms/client.py:292: in send
+    return self._transport.request(
+synth_ai/core/http/client.py:326: in request
+    return self._request(
+synth_ai/core/http/client.py:368: in _request
+    negotiated = self._negotiate(operation, deadline)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+synth_ai/core/http/client.py:198: in _negotiate
+    return require_operation(
+synth_ai/core/capabilities.py:125: in require_operation
+    raise error
+E   synth_ai.errors.ContractError: synth-ai 0.24.0 (swarms.v1 schema f65b870cf100) cannot read this backend (release 0.23.3, schema c694975f498e). Upgrade synth-ai to the latest version: pip install -U synth-ai [code=schema_mismatch request_id=07a00f87a0614a5481397a5d81d46641 operation=swarms.create stage=capability_negotiation cause=operation=swarms.create contract=swarms.v1 sdk_schema_sha256=f65b870cf100e142e6b7740e5084306a7ba5383aeeb0dca192479ca254578a91 backend_schema_sha256=c694975f498ec55b8d8a87a45cd2a5f2ad2c89d0ef5d9012b6ad324429a643e9]
+=============================== warnings summary ===============================
+tests/test_output_verifications.py::test_outputs_list_returns_verifications_from_first_page
+tests/test_output_verifications.py::test_older_server_without_verifications_reads_as_empty
+  /Users/joshuapurtell/GitHub/workspaces/v023-v025-integration-20261103/synth-ai/tests/test_output_verifications.py:35: DeprecationWarning: swarms.files and swarms.outputs are deprecated; use artifacts and run.produced().
+    return Outputs(client._transport, "run-1").list(limit=10)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_wheel_contents.py:17: no local wheel built
+FAILED tests/test_swarms_retained_observation_contract.py::test_observation_operations_are_generated_and_match_retained_reviewed_descriptors
+FAILED tests/test_swarms_retained_observation_contract.py::test_strict_launch_negotiates_reviewed_backend_identity
+2 failed, 1003 passed, 1 skipped, 2 warnings in 9.73s
