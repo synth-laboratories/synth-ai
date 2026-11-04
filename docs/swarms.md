@@ -33,3 +33,34 @@ synth billing checkout --json '{"credit":{"amount":"20.00","currency":"USD"}}'
 
 Task directories must contain one task.md, TASK.md or task.txt file; other files
 are refused because this API has no upload endpoint. Task text is the launch message.
+
+## Providers and owner resources
+
+Choose a provider with `profile_overrides={"launch": {"preset":
+"hosted.openrouter_zdr_us", "effort": "low"}}`. Role-specific choices belong
+under `profile_overrides["roles"]`. Hosted presets are
+`hosted.openrouter_zdr_us` (same-model OpenAI fallback) and
+`hosted.openai_direct`. `test.codex_pool` is restricted to local slots and
+staging; production returns `provider_preset_not_allowed` (403).
+All three currently serve `gpt-6-luna`.
+
+Pass owner resource intents in `resources`, for example:
+
+```python
+resources = [{
+    "plugin": "rhodes.pool",
+    "roles": ["worker"],
+    "limits": {"spend_micros": 100000, "rollouts": 1},
+    "selection": {"pool_ids": ["my-pool"]},
+}]
+```
+
+The core verifies ownership and freezes grants. `role_limits` can narrow a
+resource's run limits; it cannot widen them. `forge.research` uses `calls`
+and `selection.project_ids` instead of `rollouts` and `selection.pool_ids`.
+The pinned launch contract has no top-level `preset` or `max_output_tokens`
+field. Inference sessions return their admitted `max_output_tokens`.
+
+`synth swarms watch RUN_ID --timeout 600` emits JSON events followed by the
+terminal run snapshot. A failed run exits 1; completed and cancelled runs exit 0.
+The timeout bounds both streaming and final polling, and does not cancel the run.

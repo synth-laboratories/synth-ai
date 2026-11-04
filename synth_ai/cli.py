@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from . import auth
 from ._generated.operations import OPERATIONS
 from .aclient import AsyncSynthClient
-from .errors import SwarmsAPIError, SynthError
+from .errors import RunFailedError, SwarmsAPIError, SynthError, WaitTimeoutError
 
 COMMANDS: dict[str, dict[str, str]] = {
     "swarms": {
@@ -74,9 +74,9 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("--idempotency-key")
             if oid == "createInferenceSession":
                 command.add_argument("--project-id")
-                command.add_argument("--preset", default="hosted.openrouter_zdr_us")
-                command.add_argument("--budget", default="2.00")
-                command.add_argument("--ttl", type=int, default=3600)
+                command.add_argument("--preset")
+                command.add_argument("--budget")
+                command.add_argument("--ttl", type=int)
                 command.add_argument("--shell", action="store_true")
             if oid == "createProject":
                 command.add_argument("--name")
@@ -95,10 +95,12 @@ def parser() -> argparse.ArgumentParser:
             command = verbs.add_parser("wait")
             command.add_argument("run_id")
             command.add_argument("--timeout", type=float, default=600)
-            for verb in ["follow", "attach"]:
+            for verb in ["follow", "attach", "watch"]:
                 command = verbs.add_parser(verb)
                 command.add_argument("run_id")
                 command.add_argument("--last-event-id")
+                if verb == "watch":
+                    command.add_argument("--timeout", type=float, default=600)
     groups.add_parser("login")
     groups.add_parser("logout")
     auth_group = groups.add_parser("auth")
@@ -108,11 +110,14 @@ def parser() -> argparse.ArgumentParser:
 
 def emit(value: Any) -> None:
     if isinstance(value, BaseModel):
-        print(value.model_dump_json(exclude_unset=True))
+        print(value.model_dump_json(exclude_unset=True), flush=True)
     elif isinstance(value, bytes):
-        print(json.dumps({"encoding": "base64", "content": base64.b64encode(value).decode()}))
+        print(
+            json.dumps({"encoding": "base64", "content": base64.b64encode(value).decode()}),
+            flush=True,
+        )
     else:
-        print(json.dumps(value))
+        print(json.dumps(value), flush=True)
 
 
 def read_task(path: str) -> str:
@@ -136,12 +141,22 @@ async def execute(args: argparse.Namespace) -> None:
             if getattr(args, "name", None):
                 body = {"name": args.name}
             if args.operation == "createInferenceSession":
-                session = await client.inference.session(
-                    project_id=args.project_id,
-                    preset=args.preset,
-                    budget=args.budget,
-                    ttl=args.ttl,
-                    idempotency_key=args.idempotency_key,
+                if not isinstance(body, dict):
+                    raise ValueError("--json must be a JSON request object")
+                for name, value in {
+                    "project_id": args.project_id,
+                    "preset": args.preset,
+                    "budget": {"amount": args.budget, "currency": "USD"} if args.budget else None,
+                    "ttl": args.ttl,
+                }.items():
+                    if value is not None:
+                        body[name] = value
+                body.setdefault("project_id", client.inference._project_id)
+                body.setdefault("preset", "hosted.openrouter_zdr_us")
+                body.setdefault("budget", {"amount": "2.00", "currency": "USD"})
+                body.setdefault("ttl", 3600)
+                session = await client._transport.invoke(
+                    args.operation, body=body, idempotency_key=args.idempotency_key
                 )
                 if args.shell:
                     print("export SYNTH_INFERENCE_BASE_URL=" + shlex.quote(session.base_url))
@@ -184,6 +199,22 @@ async def execute(args: argparse.Namespace) -> None:
                 emit(await client.swarms.wait(created.run_id, timeout=args.timeout))
         elif args.verb == "wait":
             emit(await client.swarms.wait(args.run_id, timeout=args.timeout))
+        elif args.verb == "watch":
+            if args.timeout <= 0:
+                raise ValueError("timeout must be positive")
+            try:
+                async with asyncio.timeout(args.timeout):
+                    async for event in client.swarms.follow(
+                        args.run_id, last_event_id=args.last_event_id
+                    ):
+                        emit(event)
+                    try:
+                        emit(await client.swarms.wait(args.run_id, timeout=args.timeout))
+                    except RunFailedError:
+                        emit(await client.swarms.get(args.run_id))
+                        raise
+            except TimeoutError:
+                raise WaitTimeoutError("Timed out watching " + args.run_id) from None
         else:
             async for event in client.swarms.follow(args.run_id, last_event_id=args.last_event_id):
                 emit(event)

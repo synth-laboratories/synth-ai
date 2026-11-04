@@ -63,6 +63,22 @@ class ServerError(SwarmsAPIError):
     pass
 
 
+class InvalidInferenceSessionError(InvalidRequestError):
+    pass
+
+
+class ProviderPolicyError(InvalidRequestError):
+    pass
+
+
+class ProviderPresetNotAllowedError(ForbiddenError):
+    pass
+
+
+class ResourceAdmissionError(InvalidRequestError):
+    pass
+
+
 class MalformedErrorResponseError(SwarmsAPIError):
     pass
 
@@ -92,6 +108,26 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
     502: UpstreamUnavailableError,
     503: UpstreamUnavailableError,
     504: UpstreamUnavailableError,
+}
+
+
+_BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "invalid_inference_session": InvalidInferenceSessionError,
+    "provider_preset_not_allowed": ProviderPresetNotAllowedError,
+    **dict.fromkeys(
+        (
+            "provider_model_unavailable",
+            "provider_preset_unavailable",
+            "provider_policy_invalid",
+            "provider_policy_mismatch",
+            "provider_model_mismatch",
+        ),
+        ProviderPolicyError,
+    ),
+    **dict.fromkeys(
+        ("resource_request_invalid", "resource_limits_required", "grant_not_widenable"),
+        ResourceAdmissionError,
+    ),
 }
 
 
@@ -127,7 +163,7 @@ def raise_for_response(response: httpx.Response) -> None:
             request_id=response.headers.get("x-request-id"),
             idempotency_key=response.request.headers.get("idempotency-key"),
         ) from None
-    kind = _BY_STATUS.get(
+    kind = _BY_CODE.get(problem.code) or _BY_STATUS.get(
         response.status_code, ServerError if response.status_code >= 500 else InvalidRequestError
     )
     raise kind(

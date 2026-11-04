@@ -2,6 +2,10 @@
 
 Typed Python 3.11+ client for the Synth public API v1. Version 0.26.0.
 
+1. Install the qualified package: `pip install synth-ai` (0.26.0 publication requires owner GO).
+2. Sign in: `synth login`.
+3. Launch and wait for a run:
+
 ```python
 from synth_ai import SynthClient
 

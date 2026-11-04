@@ -25,13 +25,15 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
     environment = Path(directory) / "venv"
     subprocess.run(["uv", "venv", "--python", sys.executable, str(environment)], check=True)
     python = environment / "bin/python"
-    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel)], check=True)
+    subprocess.run(
+        ["uv", "pip", "install", "--python", str(python), "--no-cache", str(wheel)], check=True
+    )
     subprocess.run(
         [
             str(python),
             "-I",
             "-c",
-            'from synth_ai import SynthClient, AsyncSynthClient; from synth_ai.errors import SwarmsAPIError, ConflictError; from synth_ai.models import Money; assert Money(amount="0.10",currency="USD").amount == "0.10"',
+            'from synth_ai import SynthClient, AsyncSynthClient; from synth_ai.errors import SwarmsAPIError, ConflictError; from synth_ai.models import Money, RunEvent; assert RunEvent.model_fields["observed_at"].annotation == str | None; assert Money(amount="0.10",currency="USD").amount == "0.10"',
         ],
         check=True,
         cwd=directory,
