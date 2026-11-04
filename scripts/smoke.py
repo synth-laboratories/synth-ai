@@ -52,6 +52,62 @@ async def run(output: Path) -> None:
         return "public-sdk-smoke:" + str(uuid4())
 
     async with AsyncSynthClient() as client:
+        session = os.getenv("SYNTH_CLERK_SESSION_TOKEN")
+        if session:
+            async with httpx.AsyncClient(headers={"X-Clerk-Session-Token": session}) as http:
+                async with AsyncSynthClient(http_client=http) as admin:
+                    minted = await call(
+                        admin,
+                        "createApiKey",
+                        body={"name": "public-sdk-smoke"},
+                        idempotency_key=key(),
+                    )
+                    kid = minted.key_id
+                    try:
+                        await call(admin, "listApiKeys", query={"limit": 1})
+                        await call(
+                            admin,
+                            "updateApiKey",
+                            path={"key_id": kid},
+                            body={
+                                "name": "public-sdk-smoke-updated",
+                                "scopes": minted.scopes,
+                                "expected_version": minted.authorization_version,
+                            },
+                        )
+                        await call(
+                            admin, "rotateApiKey", path={"key_id": kid}, idempotency_key=key()
+                        )
+                    finally:
+                        await call(admin, "revokeApiKey", path={"key_id": kid})
+        else:
+            for op in [
+                "createApiKey",
+                "listApiKeys",
+                "updateApiKey",
+                "rotateApiKey",
+                "revokeApiKey",
+            ]:
+                kwargs = {
+                    "path": {
+                        name: "key_AAAAAAAAAAAAAAAAAAAAAQ" for name in OPERATIONS[op]["path_params"]
+                    }
+                }
+                if op == "createApiKey":
+                    kwargs["body"] = {"name": "public-sdk-smoke"}
+                if op == "updateApiKey":
+                    kwargs["body"] = {
+                        "name": "public-sdk-smoke-updated",
+                        "scopes": ["account:read"],
+                        "expected_version": 1,
+                    }
+                try:
+                    await call(client, op, **kwargs)
+                except SwarmsAPIError as error:
+                    if error.status != 403 or error.code != "session_required":
+                        raise
+                else:
+                    raise RuntimeError("session boundary accepted API key: " + op)
         await call(client, "getAccount")
         await call(client, "getBalance")
         await call(client, "listPlans")
@@ -142,62 +198,6 @@ async def run(output: Path) -> None:
         finally:
             await closed(second)
         await call(client, "createCheckout", body={"pack_id": "credits.10"}, idempotency_key=key())
-        session = os.getenv("SYNTH_CLERK_SESSION_TOKEN")
-        if session:
-            async with httpx.AsyncClient(headers={"X-Clerk-Session-Token": session}) as http:
-                async with AsyncSynthClient(http_client=http) as admin:
-                    minted = await call(
-                        admin,
-                        "createApiKey",
-                        body={"name": "public-sdk-smoke"},
-                        idempotency_key=key(),
-                    )
-                    kid = minted.key_id
-                    try:
-                        await call(admin, "listApiKeys", query={"limit": 1})
-                        await call(
-                            admin,
-                            "updateApiKey",
-                            path={"key_id": kid},
-                            body={
-                                "name": "public-sdk-smoke-updated",
-                                "scopes": minted.scopes,
-                                "expected_version": minted.authorization_version,
-                            },
-                        )
-                        await call(
-                            admin, "rotateApiKey", path={"key_id": kid}, idempotency_key=key()
-                        )
-                    finally:
-                        await call(admin, "revokeApiKey", path={"key_id": kid})
-        else:
-            for op in [
-                "createApiKey",
-                "listApiKeys",
-                "updateApiKey",
-                "rotateApiKey",
-                "revokeApiKey",
-            ]:
-                kwargs = {
-                    "path": {
-                        name: "key_AAAAAAAAAAAAAAAAAAAAAQ" for name in OPERATIONS[op]["path_params"]
-                    }
-                }
-                if op == "createApiKey":
-                    kwargs["body"] = {"name": "public-sdk-smoke"}
-                if op == "updateApiKey":
-                    kwargs["body"] = {
-                        "name": "public-sdk-smoke-updated",
-                        "scopes": ["account:read"],
-                        "expected_version": 1,
-                    }
-                try:
-                    await call(client, op, **kwargs)
-                except SwarmsAPIError as error:
-                    if error.status != 403 or error.code != "session_required":
-                        raise
-                else:
-                    raise RuntimeError("session boundary accepted API key: " + op)
         assert set(receipt["operations"]) == set(OPERATIONS)
         receipt["complete"] = True
         receipt["key_crud_positive"] = bool(session)
