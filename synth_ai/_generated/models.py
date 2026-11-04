@@ -31,15 +31,6 @@ class Family(BaseModel):
     required_actor_types: list[str]
 
 
-class InferenceSession(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    session_token: Annotated[str, Field(pattern="^gw_")]
-    base_url: str
-    expires_at: str
-    model: str
-    max_output_tokens: Annotated[int, Field(ge=1)]
-
-
 KeyId: TypeAlias = Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
 
 
@@ -388,14 +379,6 @@ class FamilyList(BaseModel):
     families: list[Family]
 
 
-class InferenceSessionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    project_id: ProjId
-    preset: Literal["hosted.openrouter_zdr_us", "hosted.openai_direct", "test.codex_pool"]
-    budget: Money
-    ttl: Annotated[int, Field(ge=60, le=86400)]
-
-
 class Limits(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     maximum_charge: Money | None
@@ -683,7 +666,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutSession": CheckoutSession,
     "ControlRef": ControlRef,
     "Family": Family,
-    "InferenceSession": InferenceSession,
     "Limit": Limit,
     "McpError": McpError,
     "McpRequest": McpRequest,
@@ -718,7 +700,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "ChargeUsage": ChargeUsage,
     "CheckoutRequest": CheckoutRequest,
     "FamilyList": FamilyList,
-    "InferenceSessionRequest": InferenceSessionRequest,
     "Limits": Limits,
     "McpResponse": McpResponse,
     "MintApiKeyRequest": MintApiKeyRequest,

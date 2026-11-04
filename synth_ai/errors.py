@@ -63,10 +63,6 @@ class ServerError(SwarmsAPIError):
     pass
 
 
-class InvalidInferenceSessionError(InvalidRequestError):
-    pass
-
-
 class ProviderPolicyError(InvalidRequestError):
     pass
 
@@ -112,7 +108,6 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
-    "invalid_inference_session": InvalidInferenceSessionError,
     "provider_preset_not_allowed": ProviderPresetNotAllowedError,
     **dict.fromkeys(
         (

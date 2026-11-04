@@ -99,7 +99,7 @@ def test_hosted_mcp_name_scope_and_argument_parity():
         == tomllib.loads((ROOT / "contracts/SOURCE.toml").read_text())["commit"]
     )
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 14
+    assert len(by_name) == len(hosted["tools"]) == 13
     for tool in hosted["tools"]:
         local = by_name.pop(tool["name"])
         assert local["inputSchema"] == tool["inputSchema"]

@@ -52,18 +52,6 @@ OPERATIONS: dict[str, Operation] = {
         "response_model": "CheckoutSession",
         "scope": "account:billing:read",
     },
-    "createInferenceSession": {
-        "auth": True,
-        "binary": False,
-        "idempotent": True,
-        "method": "POST",
-        "path": "/v1/inference/sessions",
-        "path_params": [],
-        "query_params": [],
-        "request_model": "InferenceSessionRequest",
-        "response_model": "InferenceSession",
-        "scope": "swarms:run",
-    },
     "createProject": {
         "auth": True,
         "binary": False,

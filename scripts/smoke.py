@@ -1,4 +1,4 @@
-"""Bounded live qualification; explicit --execute, $0.30 aggregate reservation caps.
+"""Bounded live qualification; explicit --execute, $0.20 aggregate run caps.
 
 Reads SYNTH_API_KEY / SYNTH_API_BASE_URL. Optional SYNTH_CLERK_SESSION_TOKEN
 qualifies positive session-only key CRUD; otherwise verifies their scoped-key refusal.
@@ -30,75 +30,19 @@ def require_successful_run(snapshot):
         raise RuntimeError("first run did not complete successfully: " + snapshot.state)
 
 
-async def qualify_inference(client, project_id, receipt, save):
-    if receipt.get("inference", {}).get("replay_verified"):
-        return
-    receipt.setdefault("inference_key", "public-sdk-inference:" + str(uuid4()))
-    save()
-    options = dict(
-        project_id=project_id, budget="0.10", ttl=60, idempotency_key=receipt["inference_key"]
-    )
-    session = await client.inference.session(**options)
-    replay = await client.inference.session(**options)
-    if session != replay:
-        raise RuntimeError("inference idempotent replay changed the session")
-    if session.model != "gpt-6-luna" or session.max_output_tokens <= 0:
-        raise RuntimeError("inference catalogue admission differs")
-    receipt["inference"] = {
-        "replay_verified": True,
-        "expires_at": session.expires_at,
-        "model": session.model,
-        "max_output_tokens": session.max_output_tokens,
-        "public_revoke_served": False,
-        "expiry_cleanup": "pending owner proof",
-        "cleanup_complete": False,
-    }
-    receipt["operations"]["createInferenceSession"] = {"status": "passed"}
-    save()
-
-
-def apply_inference_cleanup_proof(receipt, path):
-    proof = json.loads(path.read_text())
-    if (
-        proof.get("schema") != "synth.inference.cleanup-proof.v1"
-        or proof.get("idempotency_key") != receipt["inference_key"]
-    ):
-        raise ValueError("inference cleanup proof identity differs")
-    required = ("gateway_revoked", "core_closed", "hold_released", "charge_final")
-    if not all(proof.get(name) is True for name in required):
-        raise ValueError("inference cleanup proof is incomplete")
-    expiry = datetime.fromisoformat(receipt["inference"]["expires_at"].replace("Z", "+00:00"))
-    observed = datetime.fromisoformat(proof["observed_at"].replace("Z", "+00:00"))
-    if (
-        expiry.tzinfo is None
-        or observed.tzinfo is None
-        or observed < expiry
-        or observed > datetime.now(timezone.utc) + timedelta(seconds=60)
-    ):
-        raise ValueError("inference cleanup proof time is outside the verified expiry window")
-    receipt["inference"].update(
-        cleanup_complete=True,
-        expiry_cleanup="verified",
-        cleanup_proof_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-        cleanup_proof=str(path.resolve()),
-    )
-
-
-async def run(output: Path, resume: bool = False, cleanup_proof: Path | None = None) -> None:
+async def run(output: Path, resume: bool = False) -> None:
     receipt = {
-        "schema": "synth.public-sdk.smoke.v2",
+        "schema": "synth.public-sdk.smoke.v3",
         "base_url": os.environ["SYNTH_API_BASE_URL"],
-        "aggregate_maximum_usd": "0.30",
+        "aggregate_maximum_usd": "0.20",
         "operations": {},
         "runs": [],
         "complete": False,
     }
     if resume:
         receipt = json.loads(output.read_text())
-        if receipt.get("schema") != "synth.public-sdk.smoke.v2":
-            raise ValueError(
-                "receipt predates the inference reservation; retain it and use a new v2 receipt"
-            )
+        if receipt.get("schema") != "synth.public-sdk.smoke.v3":
+            raise ValueError("receipt schema differs; retain it and use a new v3 receipt")
         if receipt["base_url"] != os.environ["SYNTH_API_BASE_URL"]:
             raise ValueError("cannot resume against a different API")
         if len(receipt["runs"]) > 2:
@@ -258,8 +202,6 @@ async def run(output: Path, resume: bool = False, cleanup_proof: Path | None = N
         await call(client, "getProject", path={"project_id": project.project_id})
         await call(client, "listProjects", query={"limit": 1})
 
-        await qualify_inference(client, project.project_id, receipt, save)
-
         async def launch(message, index):
             if len(receipt["runs"]) > index:
                 return receipt["runs"][index]["run_id"]
@@ -381,11 +323,7 @@ async def run(output: Path, resume: bool = False, cleanup_proof: Path | None = N
             and set(receipt["operations"]) == set(OPERATIONS)
             and all(item.get("cleanup_complete") for item in receipt["runs"])
         )
-        if cleanup_proof is not None:
-            apply_inference_cleanup_proof(receipt, cleanup_proof)
-        receipt["complete"] = receipt["api_complete"] and receipt["inference"].get(
-            "cleanup_complete", False
-        )
+        receipt["complete"] = receipt["api_complete"]
         save()
         if not receipt["complete"]:
             raise RuntimeError(
@@ -400,14 +338,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--resume", action="store_true", help="Reuse the receipt's two runs and mutation keys"
     )
-    parser.add_argument(
-        "--inference-cleanup-proof",
-        type=Path,
-        help="Retained owner verification of gateway revoke, core closure, hold release and final charge",
-    )
     args = parser.parse_args()
     try:
-        asyncio.run(run(args.output, args.resume, args.inference_cleanup_proof))
+        asyncio.run(run(args.output, args.resume))
     except SwarmsAPIError as error:
         raise SystemExit(
             f"smoke refused: status={error.status} code={error.code} outcome={error.outcome}"

@@ -17,7 +17,6 @@ expired; it does not cancel the run. The CLI prints one JSON refusal to stderr.
 
 | Code | HTTP | Error class |
 | --- | --- | --- |
-| `invalid_inference_session` | 422 | `InvalidInferenceSessionError` |
 | `provider_model_unavailable` | 422 | `ProviderPolicyError` |
 | `provider_preset_unavailable` | 422 | `ProviderPolicyError` |
 | `provider_policy_invalid` | 422 | `ProviderPolicyError` |

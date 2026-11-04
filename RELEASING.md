@@ -10,14 +10,9 @@ Do not create `v0.26.0` before approval.
 3. Install the exact wheel in a fresh venv with `uv pip install --no-cache`; verify
    `RunEvent.model_fields["observed_at"].annotation == str | None`.
    Run `scripts/smoke.py` against the qualified local slot, then staging; retain
-   redacted statuses. The v2 runner caps two runs at $0.10 each plus one $0.10
-   inference reservation. It verifies same-session replay and requires a completed
-   first run. Retain separate expiry/revocation and final hold-release evidence;
-   full `complete` stays false until the retained owner proof is supplied with
-   `--inference-cleanup-proof PATH` (identity, expiry, gateway revocation, core
-   closure, released hold and final charge must all match).
-   Existing v1 receipts retain their old budget and cannot be reused by the v2
-   runner. Verify the
+   redacted statuses. The v3 runner caps two runs at $0.10 each and requires a
+   completed first run, final accounting and cleanup for both runs. Retain old
+   receipts unchanged; resume only a v3 receipt against its original API. Verify the
    console uses the same contract and its sustained gateway acceptance passed.
 4. After live acceptance, merge the update into dev, then promote dev to main
    per the SDK consolidated handoff (this repository does not auto-deploy). Preserve the

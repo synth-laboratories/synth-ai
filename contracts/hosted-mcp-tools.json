@@ -1,5 +1,5 @@
 {
-  "source_commit": "29ce0c7269a6ec1450b14c0ba9b437982e8003c3",
+  "source_commit": "b24747eff2ee8dc2ffecf0f1a78d746776ff6b32",
   "tools": [
     {
       "name": "account_get",
@@ -702,78 +702,6 @@
         "additionalProperties": false,
         "properties": {},
         "required": [],
-        "type": "object"
-      }
-    },
-    {
-      "name": "inference_session_create",
-      "scope": "swarms:run",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": false,
-            "properties": {
-              "budget": {
-                "additionalProperties": false,
-                "properties": {
-                  "amount": {
-                    "examples": [
-                      "5.00"
-                    ],
-                    "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
-                    "type": "string"
-                  },
-                  "currency": {
-                    "const": "USD",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "amount",
-                  "currency"
-                ],
-                "type": "object"
-              },
-              "preset": {
-                "enum": [
-                  "hosted.openrouter_zdr_us",
-                  "hosted.openai_direct",
-                  "test.codex_pool"
-                ],
-                "type": "string"
-              },
-              "project_id": {
-                "examples": [
-                  "proj_AAAAAAAAAAAAAAAAAAAAAA"
-                ],
-                "pattern": "^proj_[A-Za-z0-9_-]{22}$",
-                "type": "string"
-              },
-              "ttl": {
-                "maximum": 86400,
-                "minimum": 60,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "project_id",
-              "preset",
-              "budget",
-              "ttl"
-            ],
-            "type": "object"
-          },
-          "idempotency_key": {
-            "maxLength": 128,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "body",
-          "idempotency_key"
-        ],
         "type": "object"
       }
     }

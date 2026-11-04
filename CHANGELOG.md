@@ -7,8 +7,7 @@ money, typed Problem Details, cursor pagination, resumable event streams, OAuth
 PKCE, and matching local/hosted MCP tools. Async and synchronous clients share
 one transport. API-key management requires a signed-in session.
 
-Adds budget-admitted inference sessions, the fourteenth MCP tool, shell exports,
-owner resource intents, provider presets through profile overrides, and CLI
+Adds owner resource intents, provider presets through profile overrides, and CLI
 `watch` with terminal snapshots and bounded streaming.
 
 Earlier releases and their changelog remain at tag `legacy/0.24.0`.

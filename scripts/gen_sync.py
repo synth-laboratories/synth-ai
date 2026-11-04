@@ -20,11 +20,10 @@ def generate():
         "from ._generated.models import *  # noqa: F403",
         "from .account import AsyncAccount, AsyncApiKeys",
         "from .billing import AsyncBilling",
-        "from .inference import AsyncInference",
         "from .swarms import AsyncSwarms",
         "",
     ]
-    for module in ["swarms", "account", "billing", "inference"]:
+    for module in ["swarms", "account", "billing"]:
         tree = ast.parse((ROOT / "synth_ai" / f"{module}.py").read_text())
         for cls in tree.body:
             if not isinstance(cls, ast.ClassDef) or not cls.name.startswith("Async"):

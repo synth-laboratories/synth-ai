@@ -47,19 +47,21 @@ All three currently serve `gpt-6-luna`.
 Pass owner resource intents in `resources`, for example:
 
 ```python
-resources = [{
-    "plugin": "rhodes.pool",
-    "roles": ["worker"],
-    "limits": {"spend_micros": 100000, "rollouts": 1},
-    "selection": {"pool_ids": ["my-pool"]},
-}]
+resources = [
+    {
+        "plugin": "rhodes.pool",
+        "roles": ["worker"],
+        "limits": {"spend_micros": 100000, "rollouts": 1},
+        "selection": {"pool_ids": ["my-pool"]},
+    }
+]
 ```
 
 The core verifies ownership and freezes grants. `role_limits` can narrow a
 resource's run limits; it cannot widen them. `forge.research` uses `calls`
 and `selection.project_ids` instead of `rollouts` and `selection.pool_ids`.
 The pinned launch contract has no top-level `preset` or `max_output_tokens`
-field. Inference sessions return their admitted `max_output_tokens`.
+field.
 
 `synth swarms watch RUN_ID --timeout 600` emits JSON events followed by the
 terminal run snapshot. A failed run exits 1; completed and cancelled runs exit 0.

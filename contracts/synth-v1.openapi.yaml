@@ -27,8 +27,6 @@ tags:
   description: Runs
 - name: mcp
   description: Mcp
-- name: inference
-  description: Scoped inference sessions
 paths:
   /v1/account:
     get:
@@ -2529,85 +2527,6 @@ paths:
         schema:
           type: string
           format: uuid
-  /v1/inference/sessions:
-    post:
-      tags:
-      - inference
-      operationId: createInferenceSession
-      summary: Create a project-scoped, budget-admitted inference session.
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/inference/http.go
-      x-synth-scope: swarms:run
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InferenceSessionRequest'
-            example:
-              project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
-              preset: hosted.openrouter_zdr_us
-              budget:
-                amount: '2.00'
-                currency: USD
-              ttl: 3600
-      responses:
-        '401':
-          $ref: '#/components/responses/AuthenticationRequired'
-        '403':
-          $ref: '#/components/responses/InsufficientScope'
-        '422':
-          $ref: '#/components/responses/IdempotencyKeyReused'
-        '429':
-          $ref: '#/components/responses/RateLimitExceeded'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-        '500':
-          $ref: '#/components/responses/Problem'
-        '201':
-          description: Scoped session; the token is returned in this response and encrypted idempotent
-            replays.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InferenceSession'
-              example:
-                session_token: gw_example
-                base_url: https://gateway.example.test/v1
-                expires_at: '2026-11-04T19:00:00Z'
-                model: gpt-6-luna
-                max_output_tokens: 128000
-          headers:
-            X-Request-Id:
-              $ref: '#/components/headers/X-Request-Id'
-            RateLimit-Limit:
-              $ref: '#/components/headers/RateLimit-Limit'
-            RateLimit-Remaining:
-              $ref: '#/components/headers/RateLimit-Remaining'
-            RateLimit-Reset:
-              $ref: '#/components/headers/RateLimit-Reset'
-            Cache-Control:
-              $ref: '#/components/headers/Cache-Control'
-        default:
-          $ref: '#/components/responses/Problem'
-        '400':
-          $ref: '#/components/responses/Problem'
-        '409':
-          $ref: '#/components/responses/Problem'
-        '410':
-          $ref: '#/components/responses/Problem'
-        '413':
-          $ref: '#/components/responses/Problem'
-        '415':
-          $ref: '#/components/responses/Problem'
-        '502':
-          $ref: '#/components/responses/Problem'
-        '504':
-          $ref: '#/components/responses/Problem'
-      x-synth-legacy-path: none
-      x-synth-mcp-name: inference_session_create
 components:
   securitySchemes:
     apiKey:
@@ -4637,53 +4556,6 @@ components:
       - requested
       - resolution
       additionalProperties: false
-    InferenceSessionRequest:
-      type: object
-      additionalProperties: false
-      required:
-      - project_id
-      - preset
-      - budget
-      - ttl
-      properties:
-        project_id:
-          $ref: '#/components/schemas/ProjId'
-        preset:
-          type: string
-          enum:
-          - hosted.openrouter_zdr_us
-          - hosted.openai_direct
-          - test.codex_pool
-        budget:
-          $ref: '#/components/schemas/Money'
-        ttl:
-          type: integer
-          minimum: 60
-          maximum: 86400
-    InferenceSession:
-      type: object
-      additionalProperties: false
-      required:
-      - session_token
-      - base_url
-      - expires_at
-      - model
-      - max_output_tokens
-      properties:
-        session_token:
-          type: string
-          pattern: ^gw_
-        base_url:
-          type: string
-          format: uri
-        expires_at:
-          type: string
-          format: date-time
-        model:
-          type: string
-        max_output_tokens:
-          type: integer
-          minimum: 1
   headers:
     Cache-Control:
       schema:
