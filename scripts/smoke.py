@@ -126,12 +126,7 @@ async def run(output: Path) -> None:
         project = await call(
             client,
             "createProject",
-            body={
-                "name": "public-sdk-smoke",
-                "purpose": "automation",
-                "scopes": ["account:read"],
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-            },
+            body={"name": "public-sdk-smoke"},
             idempotency_key=key(),
         )
         await call(client, "getProject", path={"project_id": project.project_id})

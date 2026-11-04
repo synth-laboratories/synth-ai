@@ -3049,6 +3049,7 @@ components:
           maximum: 1000
     ProjectCreateRequest:
       type: object
+      additionalProperties: false
       required:
       - name
       properties:
@@ -3113,6 +3114,7 @@ components:
             $ref: '#/components/schemas/Family'
     LaunchRequest:
       type: object
+      additionalProperties: false
       required:
       - project_id
       - limits

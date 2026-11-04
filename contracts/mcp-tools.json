@@ -54,6 +54,7 @@
         "additionalProperties": false,
         "properties": {
           "body": {
+            "additionalProperties": false,
             "properties": {
               "inputs": {
                 "properties": {
@@ -423,6 +424,7 @@
         "additionalProperties": false,
         "properties": {
           "body": {
+            "additionalProperties": false,
             "properties": {
               "code_validation": {
                 "additionalProperties": true,

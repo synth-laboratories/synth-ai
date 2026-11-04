@@ -42,6 +42,7 @@ TOOLS: list[dict[str, Any]] = [
             "additionalProperties": False,
             "properties": {
                 "body": {
+                    "additionalProperties": False,
                     "properties": {
                         "inputs": {
                             "properties": {
@@ -293,6 +294,7 @@ TOOLS: list[dict[str, Any]] = [
             "additionalProperties": False,
             "properties": {
                 "body": {
+                    "additionalProperties": False,
                     "properties": {
                         "code_validation": {"additionalProperties": True, "type": "object"},
                         "name": {"maxLength": 256, "minLength": 1, "type": "string"},

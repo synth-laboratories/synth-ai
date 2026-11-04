@@ -254,7 +254,7 @@ ProjId: TypeAlias = Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
 
 
 class ProjectCreateRequest(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
     name: Annotated[str, Field(min_length=1, max_length=256)]
     template: str | None = None
     objective: Annotated[str, Field(max_length=8192)] | None = None
@@ -558,7 +558,7 @@ class EventPage(BaseModel):
 
 
 class LaunchRequest(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
     message: (
         Annotated[str, Field(min_length=1, max_length=8192)]
         | Annotated[None, Field(min_length=1, max_length=8192)]
