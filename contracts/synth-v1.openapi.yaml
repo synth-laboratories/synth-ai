@@ -3178,10 +3178,95 @@ components:
           additionalProperties: false
         profile_overrides:
           $ref: '#/components/schemas/ProfileOverrides'
+        resources:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/OwnerResourceRequest'
         labels:
           type: object
           additionalProperties:
             type: string
+    OwnerResourceRequest:
+      type: object
+      additionalProperties: false
+      required: [plugin, roles, limits, selection]
+      properties:
+        plugin:
+          type: string
+          enum: [rhodes.pool, forge.research]
+        version:
+          type: integer
+          const: 1
+          default: 1
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items:
+            type: string
+            enum: [planner, worker, reviewer, run_assessor]
+        limits:
+          $ref: '#/components/schemas/OwnerResourceLimits'
+        role_limits:
+          type: object
+          maxProperties: 4
+          propertyNames:
+            enum: [planner, worker, reviewer, run_assessor]
+          additionalProperties:
+            $ref: '#/components/schemas/OwnerResourceLimits'
+        selection:
+          type: object
+      oneOf:
+      - properties:
+          plugin:
+            const: rhodes.pool
+          limits:
+            required: [spend_micros, rollouts]
+            propertyNames:
+              enum: [spend_micros, rollouts]
+          selection:
+            additionalProperties: false
+            required: [pool_ids]
+            properties:
+              pool_ids:
+                type: array
+                minItems: 1
+                maxItems: 8
+                uniqueItems: true
+                items:
+                  type: string
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'
+      - properties:
+          plugin:
+            const: forge.research
+          limits:
+            required: [spend_micros, calls]
+            propertyNames:
+              enum: [spend_micros, calls]
+          selection:
+            additionalProperties: false
+            required: [project_ids]
+            properties:
+              project_ids:
+                type: array
+                minItems: 1
+                maxItems: 8
+                uniqueItems: true
+                items:
+                  type: string
+                  pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    OwnerResourceLimits:
+      type: object
+      minProperties: 1
+      maxProperties: 2
+      propertyNames:
+        enum: [spend_micros, rollouts, calls]
+      additionalProperties:
+        type: integer
+        minimum: 0
+        maximum: 9223372036854775807
     ControlRef:
       type: object
       required:
@@ -4363,6 +4448,17 @@ components:
     ProfileChoice:
       type: object
       properties:
+        preset:
+          type: string
+          enum:
+          - hosted.openrouter_zdr_us
+          - hosted.openai_direct
+          - test.codex_pool
+        upstream_model:
+          type: string
+          enum:
+          - gpt-6-luna
+          - openai/gpt-6-luna
         canonical_model:
           type: string
         effort:
@@ -4388,6 +4484,10 @@ components:
     ResolvedActor:
       type: object
       properties:
+        provider_preset:
+          type: string
+        provider_source:
+          type: string
         actor_id:
           type: string
         actor_type:
