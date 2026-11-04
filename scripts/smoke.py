@@ -24,7 +24,7 @@ from synth_ai._generated.operations import OPERATIONS
 from synth_ai.errors import SwarmsAPIError
 
 
-async def run(output: Path) -> None:
+async def run(output: Path, resume: bool = False) -> None:
     receipt = {
         "schema": "synth.public-sdk.smoke.v1",
         "base_url": os.environ["SYNTH_API_BASE_URL"],
@@ -33,6 +33,15 @@ async def run(output: Path) -> None:
         "runs": [],
         "complete": False,
     }
+    if resume:
+        receipt = json.loads(output.read_text())
+        if receipt["base_url"] != os.environ["SYNTH_API_BASE_URL"]:
+            raise ValueError("cannot resume against a different API")
+        if len(receipt["runs"]) > 2:
+            raise ValueError("receipt exceeds the two-run budget")
+    elif output.exists():
+        raise ValueError("receipt already exists; use --resume to preserve the run budget")
+    receipt["failures"] = {}
     output.parent.mkdir(parents=True, exist_ok=True)
 
     def save():
@@ -54,7 +63,7 @@ async def run(output: Path) -> None:
 
     async with AsyncSynthClient() as client:
         session = os.getenv("SYNTH_CLERK_SESSION_TOKEN")
-        if session:
+        if session and not receipt.get("key_crud_positive"):
             async with httpx.AsyncClient(headers={"X-Clerk-Session-Token": session}) as http:
                 async with AsyncSynthClient(http_client=http) as admin:
                     minted = await call(
@@ -89,7 +98,9 @@ async def run(output: Path) -> None:
                         kid = rotated.key_id
                     finally:
                         await call(admin, "revokeApiKey", path={"key_id": kid})
-        else:
+            receipt["key_crud_positive"] = True
+            save()
+        elif not receipt.get("key_crud_positive"):
             for op in [
                 "createApiKey",
                 "listApiKeys",
@@ -123,16 +134,28 @@ async def run(output: Path) -> None:
         await call(client, "listBillingHistory", query={"limit": 1})
         await call(client, "listInvoices", query={"limit": 1})
         await call(client, "listFamilies")
-        project = await call(
-            client,
-            "createProject",
-            body={"name": "public-sdk-smoke"},
-            idempotency_key=key(),
-        )
+        if receipt["runs"]:
+            existing = await client.swarms.get(receipt["runs"][0]["run_id"])
+            project = await call(client, "getProject", path={"project_id": existing.project_id})
+        else:
+            receipt.setdefault("project_key", key())
+            save()
+            project = await call(
+                client,
+                "createProject",
+                body={"name": "public-sdk-smoke"},
+                idempotency_key=receipt["project_key"],
+            )
         await call(client, "getProject", path={"project_id": project.project_id})
         await call(client, "listProjects", query={"limit": 1})
 
-        async def launch(message):
+        async def launch(message, index):
+            if len(receipt["runs"]) > index:
+                return receipt["runs"][index]["run_id"]
+            if index not in (0, 1):
+                raise ValueError("two-run budget exceeded")
+            receipt.setdefault("launch_keys", {}).setdefault(str(index), key())
+            save()
             result = await call(
                 client,
                 "createRun",
@@ -147,7 +170,7 @@ async def run(output: Path) -> None:
                         "maximum_parallel_tasks": 1,
                     },
                 },
-                idempotency_key=key(),
+                idempotency_key=receipt["launch_keys"][str(index)],
             )
             receipt["runs"].append({"run_id": result.run_id})
             save()
@@ -157,7 +180,21 @@ async def run(output: Path) -> None:
             end = time.monotonic() + 240
             while time.monotonic() < end:
                 snapshot = await call(client, "getRun", path={"run_id": run_id})
-                if snapshot.execution_closed and snapshot.accounting_final:
+                for item in receipt["runs"]:
+                    if item["run_id"] == run_id:
+                        item.update(
+                            state=snapshot.state,
+                            execution_closed=snapshot.execution_closed,
+                            accounting_final=snapshot.accounting_final,
+                            cleanup_complete=snapshot.cleanup_complete,
+                            observed_at=datetime.now(timezone.utc).isoformat(),
+                        )
+                save()
+                if (
+                    snapshot.execution_closed
+                    and snapshot.accounting_final
+                    and snapshot.cleanup_complete
+                ):
                     for item in receipt["runs"]:
                         if item["run_id"] == run_id:
                             item.update(
@@ -172,7 +209,7 @@ async def run(output: Path) -> None:
             raise RuntimeError("run closure deadline exceeded: " + run_id)
 
         first = await launch(
-            "Create a file hello.txt containing exactly hello and publish it as the task output."
+            "Create a file hello.txt containing exactly hello and publish it as the task output.", 0
         )
         try:
             await closed(first)
@@ -199,30 +236,57 @@ async def run(output: Path) -> None:
                 query={"revision_id": ref["revision_id"], "digest_sha256": ref["digest_sha256"]},
             )
             assert hashlib.sha256(content).hexdigest() == ref["digest_sha256"]
+        except (RuntimeError, SwarmsAPIError, TimeoutError) as error:
+            receipt["failures"]["first_run"] = type(error).__name__
+            save()
         finally:
             snapshot = await client.swarms.get(first)
             if not snapshot.execution_closed:
                 await client.swarms.cancel(first, idempotency_key=key())
-                await closed(first)
-        second = await launch("Write a short explanation of addition.")
+                try:
+                    await closed(first)
+                except RuntimeError:
+                    receipt["failures"]["first_run_closure"] = "deadline_exceeded"
+                    save()
+        second = await launch("Write a short explanation of addition.", 1)
         try:
             await call(client, "cancelRun", path={"run_id": second}, idempotency_key=key())
         finally:
-            await closed(second)
-        await call(client, "createCheckout", body={"pack_id": "credits.10"}, idempotency_key=key())
-        assert set(receipt["operations"]) == set(OPERATIONS)
-        receipt["complete"] = True
-        receipt["key_crud_positive"] = bool(session)
+            try:
+                await closed(second)
+            except RuntimeError:
+                receipt["failures"]["second_run_closure"] = "deadline_exceeded"
+                save()
+        receipt.setdefault("checkout_key", key())
         save()
+        await call(
+            client,
+            "createCheckout",
+            body={"pack_id": "credits.10"},
+            idempotency_key=receipt["checkout_key"],
+        )
+        receipt["complete"] = (
+            not receipt["failures"]
+            and set(receipt["operations"]) == set(OPERATIONS)
+            and all(item.get("cleanup_complete") for item in receipt["runs"])
+        )
+        save()
+        if not receipt["complete"]:
+            raise RuntimeError(
+                "qualification incomplete; resume the retained receipt after resolving failures"
+            )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--resume", action="store_true", help="Reuse the receipt's two runs and mutation keys"
+    )
     args = parser.parse_args()
     try:
-        asyncio.run(run(args.output))
+        asyncio.run(run(args.output, args.resume))
     except SwarmsAPIError as error:
         raise SystemExit(
             f"smoke refused: status={error.status} code={error.code} outcome={error.outcome}"
