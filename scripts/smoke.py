@@ -12,6 +12,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -61,10 +62,55 @@ async def run(output: Path, resume: bool = False) -> None:
     def key():
         return "public-sdk-smoke:" + str(uuid4())
 
-    async with AsyncSynthClient() as client:
+    async def capture(response: httpx.Response):
+        request = response.request
+        operation = next(
+            (
+                name
+                for name, spec in OPERATIONS.items()
+                if spec["method"] == request.method
+                and re.fullmatch(re.sub(r"\{[^}]+\}", "[^/]+", spec["path"]), request.url.path)
+            ),
+            None,
+        )
+        if operation is None:
+            return
+        entry = {
+            "operation": operation,
+            "status": response.status_code,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "headers_present": {
+                name: name in response.headers
+                for name in (
+                    "x-request-id",
+                    "traceparent",
+                    "ratelimit-limit",
+                    "ratelimit-remaining",
+                    "ratelimit-reset",
+                    "retry-after",
+                    "etag",
+                    "strict-transport-security",
+                    "idempotent-replayed",
+                )
+            },
+        }
+        if response.status_code >= 400 and "application/problem+json" in response.headers.get(
+            "content-type", ""
+        ):
+            await response.aread()
+            entry["problem_code"] = response.json().get("code")
+        receipt.setdefault("responses", []).append(entry)
+        save()
+
+    async with (
+        httpx.AsyncClient(event_hooks={"response": [capture]}) as http,
+        AsyncSynthClient(http_client=http) as client,
+    ):
         session = os.getenv("SYNTH_CLERK_SESSION_TOKEN")
         if session and not receipt.get("key_crud_positive"):
-            async with httpx.AsyncClient(headers={"X-Clerk-Session-Token": session}) as http:
+            async with httpx.AsyncClient(
+                headers={"X-Clerk-Session-Token": session}, event_hooks={"response": [capture]}
+            ) as http:
                 async with AsyncSynthClient(http_client=http) as admin:
                     minted = await call(
                         admin,
