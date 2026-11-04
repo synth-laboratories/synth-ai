@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -59,7 +60,14 @@ async def run(output: Path) -> None:
                     minted = await call(
                         admin,
                         "createApiKey",
-                        body={"name": "public-sdk-smoke"},
+                        body={
+                            "name": "public-sdk-smoke",
+                            "purpose": "automation",
+                            "scopes": ["account:read"],
+                            "expires_at": (
+                                datetime.now(timezone.utc) + timedelta(hours=1)
+                            ).isoformat(),
+                        },
                         idempotency_key=key(),
                     )
                     kid = minted.key_id
@@ -75,9 +83,10 @@ async def run(output: Path) -> None:
                                 "expected_version": minted.authorization_version,
                             },
                         )
-                        await call(
+                        rotated = await call(
                             admin, "rotateApiKey", path={"key_id": kid}, idempotency_key=key()
                         )
+                        kid = rotated.key_id
                     finally:
                         await call(admin, "revokeApiKey", path={"key_id": kid})
         else:
@@ -115,7 +124,15 @@ async def run(output: Path) -> None:
         await call(client, "listInvoices", query={"limit": 1})
         await call(client, "listFamilies")
         project = await call(
-            client, "createProject", body={"name": "public-sdk-smoke"}, idempotency_key=key()
+            client,
+            "createProject",
+            body={
+                "name": "public-sdk-smoke",
+                "purpose": "automation",
+                "scopes": ["account:read"],
+                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            },
+            idempotency_key=key(),
         )
         await call(client, "getProject", path={"project_id": project.project_id})
         await call(client, "listProjects", query={"limit": 1})
