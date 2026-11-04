@@ -13,7 +13,9 @@ Do not create `v0.26.0` before approval.
    redacted statuses. The v2 runner caps two runs at $0.10 each plus one $0.10
    inference reservation. It verifies same-session replay and requires a completed
    first run. Retain separate expiry/revocation and final hold-release evidence;
-   full `complete` stays false until the inference cleanup proof is recorded.
+   full `complete` stays false until the retained owner proof is supplied with
+   `--inference-cleanup-proof PATH` (identity, expiry, gateway revocation, core
+   closure, released hold and final charge must all match).
    Existing v1 receipts retain their old budget and cannot be reused by the v2
    runner. Verify the
    console uses the same contract and its sustained gateway acceptance passed.

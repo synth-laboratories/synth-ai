@@ -57,7 +57,34 @@ async def qualify_inference(client, project_id, receipt, save):
     save()
 
 
-async def run(output: Path, resume: bool = False) -> None:
+def apply_inference_cleanup_proof(receipt, path):
+    proof = json.loads(path.read_text())
+    if (
+        proof.get("schema") != "synth.inference.cleanup-proof.v1"
+        or proof.get("idempotency_key") != receipt["inference_key"]
+    ):
+        raise ValueError("inference cleanup proof identity differs")
+    required = ("gateway_revoked", "core_closed", "hold_released", "charge_final")
+    if not all(proof.get(name) is True for name in required):
+        raise ValueError("inference cleanup proof is incomplete")
+    expiry = datetime.fromisoformat(receipt["inference"]["expires_at"].replace("Z", "+00:00"))
+    observed = datetime.fromisoformat(proof["observed_at"].replace("Z", "+00:00"))
+    if (
+        expiry.tzinfo is None
+        or observed.tzinfo is None
+        or observed < expiry
+        or observed > datetime.now(timezone.utc) + timedelta(seconds=60)
+    ):
+        raise ValueError("inference cleanup proof time is outside the verified expiry window")
+    receipt["inference"].update(
+        cleanup_complete=True,
+        expiry_cleanup="verified",
+        cleanup_proof_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        cleanup_proof=str(path.resolve()),
+    )
+
+
+async def run(output: Path, resume: bool = False, cleanup_proof: Path | None = None) -> None:
     receipt = {
         "schema": "synth.public-sdk.smoke.v2",
         "base_url": os.environ["SYNTH_API_BASE_URL"],
@@ -354,6 +381,8 @@ async def run(output: Path, resume: bool = False) -> None:
             and set(receipt["operations"]) == set(OPERATIONS)
             and all(item.get("cleanup_complete") for item in receipt["runs"])
         )
+        if cleanup_proof is not None:
+            apply_inference_cleanup_proof(receipt, cleanup_proof)
         receipt["complete"] = receipt["api_complete"] and receipt["inference"].get(
             "cleanup_complete", False
         )
@@ -371,9 +400,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--resume", action="store_true", help="Reuse the receipt's two runs and mutation keys"
     )
+    parser.add_argument(
+        "--inference-cleanup-proof",
+        type=Path,
+        help="Retained owner verification of gateway revoke, core closure, hold release and final charge",
+    )
     args = parser.parse_args()
     try:
-        asyncio.run(run(args.output, args.resume))
+        asyncio.run(run(args.output, args.resume, args.inference_cleanup_proof))
     except SwarmsAPIError as error:
         raise SystemExit(
             f"smoke refused: status={error.status} code={error.code} outcome={error.outcome}"

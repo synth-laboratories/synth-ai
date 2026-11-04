@@ -71,3 +71,40 @@ async def test_smoke_budget_preflight(tmp_path, monkeypatch, case):
     )
     with pytest.raises(ValueError):
         await smoke.run(receipt, resume=case != "existing")
+
+
+@pytest.mark.parametrize(
+    "change,accepted",
+    [
+        ({}, True),
+        ({"idempotency_key": "different"}, False),
+        ({"hold_released": False}, False),
+        ({"gateway_revoked": False}, False),
+        ({"charge_final": False}, False),
+        ({"observed_at": "2026-11-04T00:00:00Z"}, False),
+    ],
+)
+def test_inference_cleanup_requires_final_matching_evidence(tmp_path, change, accepted):
+    receipt = {
+        "inference_key": "session-once",
+        "inference": {"expires_at": "2026-11-04T00:01:00Z", "cleanup_complete": False},
+    }
+    proof = {
+        "schema": "synth.inference.cleanup-proof.v1",
+        "idempotency_key": "session-once",
+        "observed_at": "2026-11-04T00:07:00Z",
+        "gateway_revoked": True,
+        "core_closed": True,
+        "hold_released": True,
+        "charge_final": True,
+        **change,
+    }
+    path = tmp_path / "closure.json"
+    path.write_text(json.dumps(proof))
+    if accepted:
+        smoke.apply_inference_cleanup_proof(receipt, path)
+        assert receipt["inference"]["cleanup_complete"] is True
+    else:
+        with pytest.raises(ValueError):
+            smoke.apply_inference_cleanup_proof(receipt, path)
+        assert receipt["inference"]["cleanup_complete"] is False
