@@ -1,48 +1,14 @@
 # MCP
 
-The hosted MCP serves the Swarms, account and billing tools at `/mcp` and signs
-in with OAuth 2.1 (authorization code with PKCE S256, dynamic client
-registration). Clients discover the authorization server from
-`/.well-known/oauth-protected-resource/mcp` and
-`/.well-known/oauth-authorization-server`.
+Install `synth-ai[mcp]` and run `synth-ai-mcp` for stdio transport. Set the same
+credentials and base URL as the Python client. The generated catalog matches the
+core's hosted `/mcp` names, scopes and argument schemas. See [tools](mcp-tools.md).
 
-Tools: one per CLI verb, listed in [mcp-tools.md](mcp-tools.md).
+For hosted OAuth, discover `/.well-known/oauth-protected-resource/mcp` and
+`/.well-known/oauth-authorization-server`. `synth login` dynamically registers a
+public client and uses PKCE S256 with state and issuer validation. Refresh tokens
+are rotated and stored in a mode-0600 file. `SYNTH_AUTH_FILE` overrides that file.
+`synth logout` revokes the grant before deleting the local record.
 
-## Claude Code
-
-```sh
-claude mcp add --transport http synth https://core-api-staging-staging-acef.up.railway.app/mcp
-```
-
-Run `/mcp` in Claude Code and choose `synth` to sign in.
-
-## Cursor
-
-`~/.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "synth": {
-      "url": "https://core-api-staging-staging-acef.up.railway.app/mcp"
-    }
-  }
-}
-```
-
-## Local server
-
-`pip install 'synth-ai[mcp]'`, then run `synth-ai-mcp --profile action` with
-`SYNTH_API_KEY` set (`--profile read` lists only read tools).
-
-```json
-{
-  "mcpServers": {
-    "synth": {
-      "command": "synth-ai-mcp",
-      "args": ["--profile", "action"],
-      "env": {"SYNTH_API_BASE_URL": "https://core-api-staging-staging-acef.up.railway.app"}
-    }
-  }
-}
-```
+API-key management endpoints remain session-only: OAuth and bearer keys cannot
+mint, update, rotate or revoke keys. Use the signed-in console for those actions.

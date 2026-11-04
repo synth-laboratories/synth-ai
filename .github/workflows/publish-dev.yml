@@ -1,154 +1,34 @@
-name: Publish qualified SDK artifact
-
-# Source promotion never uploads newly built packages. A release owner selects
-# immutable, already-qualified bytes after dev -> staging acceptance.
+name: Publish qualified SDK
 on:
-  workflow_dispatch:
-    inputs:
-      channel:
-        type: choice
-        options: [nightly, stable]
-        required: true
-      version:
-        description: Exact version already in the qualified wheel
-        required: true
-      source_sha:
-        description: Full source commit qualified by the artifact
-        required: true
-      artifact_id:
-        description: Immutable same-repository Actions artifact ID
-        required: true
-      artifact_sha256:
-        description: SHA256 of the qualified artifact archive
-        required: true
-
+  push:
+    tags: ['v*']
 permissions:
   contents: read
-
-concurrency:
-  group: publish-pypi-synth-ai
-  cancel-in-progress: false
-
 jobs:
-  verify:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    outputs:
-      receipt_sha256: ${{ steps.verify.outputs.receipt_sha256 }}
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
         with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Fetch the selected immutable artifact and its producer facts
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          CHANNEL: ${{ inputs.channel }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$GITHUB_REF_TYPE" == branch ]]
-          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
-          case "$CHANNEL:$GITHUB_REF_NAME" in
-            nightly:staging|stable:main) ;;
-            *) echo 'Release channel requires staging/nightly or main/stable'; exit 1 ;;
-          esac
-          git merge-base --is-ancestor "$SOURCE_SHA" "refs/remotes/origin/$GITHUB_REF_NAME"
-          git show "$SOURCE_SHA:pyproject.toml" > candidate-pyproject.toml
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" > artifact.json
-          jq -e '(.expired == false) and (.size_in_bytes > 0) and (.size_in_bytes <= 268435456)' artifact.json >/dev/null
-          RUN_ID=$(jq -er '.workflow_run.id | select(type == "number")' artifact.json)
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > qualification-run.json
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > qualified-artifact.zip
-      - name: Verify qualification, source, version and distribution hashes
-        id: verify
-        env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          VERSION: ${{ inputs.version }}
-          CHANNEL: ${{ inputs.channel }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -I .github/verify_qualified_release.py prepare \
-            --archive qualified-artifact.zip --artifact artifact.json \
-            --run qualification-run.json --pyproject candidate-pyproject.toml \
-            --output verified --source "$SOURCE_SHA" --version "$VERSION" \
-            --channel "$CHANNEL" --branch "$GITHUB_REF_NAME" \
-            --repository "$GITHUB_REPOSITORY" --artifact-id "$ARTIFACT_ID" \
-            --archive-sha "$ARTIFACT_SHA256" > verified-result.json
-          jq -r '"receipt_sha256=" + .receipt_sha256' verified-result.json >> "$GITHUB_OUTPUT"
-          cat verified-result.json >> "$GITHUB_STEP_SUMMARY"
+          python-version: '3.11'
+      - run: uv sync --locked --extra mcp
+      - run: uv run python -c 'import os, synth_ai; assert os.environ["GITHUB_REF_NAME"] == "v" + synth_ai.__version__'
+      - run: uv run ruff check synth_ai scripts tests && uv run mypy && uv run pytest -q
+      - run: uv build && uv run twine check dist/* && uv run python scripts/check_package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: verified-sdk-${{ github.run_id }}-${{ github.run_attempt }}
-          path: verified/
-          if-no-files-found: error
-          retention-days: 90
-
+          name: distributions
+          path: dist/
   publish:
-    needs: verify
+    needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/synth-ai/${{ inputs.version }}/
+    environment: pypi
     permissions:
-      contents: read
-      actions: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
-          name: verified-sdk-${{ github.run_id }}-${{ github.run_attempt }}
-          path: verified/
-      - name: Recheck exact prepared bytes and any existing registry version
-        id: registry
-        env:
-          RECEIPT_SHA256: ${{ needs.verify.outputs.receipt_sha256 }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -I .github/verify_qualified_release.py verify \
-            --output verified --receipt-sha "$RECEIPT_SHA256" > registry-before.json
-          jq -r '"already_published=" + (.already_published | tostring)' registry-before.json >> "$GITHUB_OUTPUT"
-      - name: Publish unchanged qualified distributions
-        if: steps.registry.outputs.already_published != 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: verified/dist/
-          skip-existing: false
-      - name: Verify registry hashes for this exact version
-        env:
-          RECEIPT_SHA256: ${{ needs.verify.outputs.receipt_sha256 }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -I .github/verify_qualified_release.py verify \
-            --output verified --receipt-sha "$RECEIPT_SHA256" \
-            --require-published > registry-after.json
-          cat registry-after.json >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sdk-publication-receipt-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            verified/publish-receipt.json
-            registry-before.json
-            registry-after.json
-          if-no-files-found: error
-          retention-days: 90
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,363 +1,137 @@
-"""Safe typed errors. See the public contract snapshots in contracts/"""
+"""Public Problem Details retain the server's refusal and outcome semantics."""
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Mapping
-from datetime import datetime
-from types import MappingProxyType
-from typing import Literal, TypedDict, Unpack
+import httpx
+from pydantic import ValidationError
 
-from synth_ai.types.identity import MutationIdentity
-from synth_ai.types.rate_limits import RateLimitSnapshot
-from synth_ai.types.refusal import Refusal
-
-
-class ErrorOptions(TypedDict, total=False):
-    """Typed keyword options accepted by :class:`SynthError` constructors."""
-
-    code: str | None
-    refusal: Refusal | None
-    request_id: str | None
-    operation: str | None
-    client_request_id: str | None
-    status: int | None
-    identity: MutationIdentity | None
-    retry_after_seconds: float | None
-    rate_limits: tuple[RateLimitSnapshot, ...]
-    retryable: bool | None
-    stage: str | None
-    cause: str | None
-    service: str | None
-    upstream_status: int | None
-    closure_pending: str | None
-    closure_expected_by: datetime | None
-    reason: (
-        Literal[
-            "request_not_sent",
-            "response_lost",
-            "response_invalid",
-            "infrastructure_status",
-            "contract_header_missing",
-        ]
-        | None
-    )
+from ._generated.models import Problem
 
 
 class SynthError(Exception):
-    # Reattach facts from the synchronous DEEP cap refusal (SYN-4999): the
-    # ``X-Synth-Durable-Search-Id`` / ``X-Synth-Deep-Sync-Cap-Seconds`` headers.
-    durable_search_id: str | None = None
-    sync_cap_seconds: float | None = None
+    """Base SDK error."""
 
+
+class SwarmsAPIError(SynthError):
     def __init__(
-        self,
-        message: str,
-        *,
-        code: str | None = None,
-        refusal: Refusal | None = None,
-        request_id: str | None = None,
-        operation: str | None = None,
-        client_request_id: str | None = None,
-        status: int | None = None,
-        identity: MutationIdentity | None = None,
-        retry_after_seconds: float | None = None,
-        rate_limits: tuple[RateLimitSnapshot, ...] = (),
-        retryable: bool | None = None,
-        stage: str | None = None,
-        cause: str | None = None,
-        service: str | None = None,
-        upstream_status: int | None = None,
-        closure_pending: str | None = None,
-        closure_expected_by: datetime | None = None,
-        reason: Literal[
-            "request_not_sent",
-            "response_lost",
-            "response_invalid",
-            "infrastructure_status",
-            "contract_header_missing",
-        ]
-        | None = None,
+        self, problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
     ) -> None:
-        self.refusal = refusal
-        self.reason = reason
-        self.retryable = retryable
-        self.stage = stage
-        self.cause = cause
-        self.service = service
-        self.upstream_status = upstream_status
-        self.closure_pending = closure_pending
-        self.closure_expected_by = closure_expected_by
-        self.code = code
+        super().__init__(f"{problem.code}: {problem.detail}")
+        self.problem = problem
+        self.code = problem.code
+        self.status = problem.status
+        self.service = problem.service
+        self.stage = problem.stage
+        self.outcome = problem.outcome
         self.request_id = request_id
-        self.operation = operation
-        self.client_request_id = client_request_id
-        self.status = status
-        self.identity = identity
-        self.retry_after_seconds = retry_after_seconds
-        self.rate_limits = rate_limits
-        super().__init__(message)
+        self.idempotency_key = idempotency_key
 
-    def __str__(self) -> str:
-        message = super().__str__()
-        capacity = "; ".join(
-            f"{item.dimension}: {item.remaining}/{item.limit} remaining"
-            for item in self.rate_limits
-            if item.remaining is not None and item.limit is not None
-        )
-        detail = self._detail()
-        if self.refusal is not None:
-            leaf = self.refusal
-            request_ids = []
-            while True:
-                if leaf.request_id is not None:
-                    request_ids.append(leaf.request_id)
-                if leaf.upstream is None:
-                    break
-                leaf = leaf.upstream
-            detail += f" [leaf={leaf.service}:{leaf.code} request_ids={','.join(dict.fromkeys(request_ids))}]"
-        if detail:
-            message = detail
-        return f"{message} ({capacity})" if capacity else message
 
-    def _detail(self) -> str:
-        """Render safe identity/refusal facts; never include bodies or headers."""
-        fields = (
-            ("code", self.code),
-            ("status", self.status),
-            ("request_id", self.request_id),
-            ("operation", self.operation),
-            ("service", self.service),
-            ("stage", self.stage),
-            ("cause", self.cause),
-            ("upstream_status", self.upstream_status),
-            ("closure_pending", self.closure_pending),
-            (
-                "closure_expected_by",
-                self.closure_expected_by.isoformat()
-                if self.closure_expected_by is not None
-                else None,
+class InvalidRequestError(SwarmsAPIError):
+    pass
+
+
+class UnauthenticatedError(SwarmsAPIError):
+    pass
+
+
+class PaymentRequiredError(SwarmsAPIError):
+    pass
+
+
+class ForbiddenError(SwarmsAPIError):
+    pass
+
+
+class NotFoundError(SwarmsAPIError):
+    pass
+
+
+class ConflictError(SwarmsAPIError):
+    pass
+
+
+class RateLimitedError(SwarmsAPIError):
+    pass
+
+
+class UpstreamUnavailableError(SwarmsAPIError):
+    pass
+
+
+class ServerError(SwarmsAPIError):
+    pass
+
+
+class MalformedErrorResponseError(SwarmsAPIError):
+    pass
+
+
+class TransportFailureError(SwarmsAPIError):
+    pass
+
+
+class RunFailedError(SynthError):
+    pass
+
+
+class WaitTimeoutError(SynthError):
+    pass
+
+
+_BY_STATUS: dict[int, type[SwarmsAPIError]] = {
+    400: InvalidRequestError,
+    401: UnauthenticatedError,
+    402: PaymentRequiredError,
+    403: ForbiddenError,
+    404: NotFoundError,
+    409: ConflictError,
+    410: NotFoundError,
+    422: InvalidRequestError,
+    429: RateLimitedError,
+    502: UpstreamUnavailableError,
+    503: UpstreamUnavailableError,
+    504: UpstreamUnavailableError,
+}
+
+
+def local_problem(code: str, stage: str, *, status: int = 503, unknown: bool = False) -> Problem:
+    return Problem(
+        type="about:blank",
+        title=code,
+        status=status,
+        detail=code,
+        instance="urn:synth-ai:request",
+        code=code,
+        service="synth-ai",
+        stage=stage,
+        outcome="unknown" if unknown else "not_accepted",
+    )
+
+
+def raise_for_response(response: httpx.Response) -> None:
+    if response.is_success:
+        return
+    try:
+        problem = Problem.model_validate_json(response.content)
+        if problem.status != response.status_code:
+            raise ValueError("status mismatch")
+    except (ValidationError, ValueError):
+        raise MalformedErrorResponseError(
+            local_problem(
+                "malformed_error_response",
+                "decode",
+                status=response.status_code,
+                unknown=response.request.method not in {"GET", "HEAD"},
             ),
-        )
-        parts = [f"{name}={value}" for name, value in fields if value is not None]
-        return f"{Exception.__str__(self)} [{' '.join(parts)}]" if parts else ""
-
-    def __repr__(self) -> str:
-        parts = [repr(Exception.__str__(self))]
-        for name in (
-            "code",
-            "status",
-            "request_id",
-            "operation",
-            "service",
-            "stage",
-            "cause",
-            "upstream_status",
-        ):
-            value = getattr(self, name)
-            if value is not None:
-                parts.append(f"{name}={value!r}")
-        return f"{type(self).__name__}({', '.join(parts)})"
-
-
-class AuthenticationError(SynthError):
-    """No valid selected principal."""
-
-
-class PermissionDeniedError(SynthError):
-    """Current grants refuse the operation."""
-
-
-class EntitlementDeniedError(PermissionDeniedError):
-    """Organization policy refuses the requested sub-product."""
-
-
-class ActivationRequiredError(EntitlementDeniedError):
-    """The requested sub-product requires activation."""
-
-
-class OwnCredentialRequiredError(EntitlementDeniedError):
-    """The organization must supply its own provider credential."""
-
-
-class ByokForbiddenError(EntitlementDeniedError):
-    """The selected sub-product does not permit a customer provider credential."""
-
-
-class PlanRequiredError(EntitlementDeniedError):
-    """The requested sub-product requires an eligible plan."""
-
-
-class PolicyUnavailableError(SynthError):
-    """Authoritative account policy could not be read; no access is inferred."""
-
-
-class NotFoundError(SynthError):
-    """The authorized resource is unavailable."""
-
-
-class ConflictError(SynthError):
-    """Version or retained mutation identity conflicts."""
-
-
-class RateLimitError(SynthError):
-    """Retryable admission limit; no implicit paid retry."""
-
-
-class BudgetExceededError(SynthError):
-    """Customer charge ceiling or allowance refused."""
-
-
-class PaymentRequiredError(BudgetExceededError):
-    """HTTP 402: payment or credit is required; nothing was created or charged."""
-
-
-class RefusedError(SynthError):
-    """Definite typed refusal (4xx with a code): the operation was not accepted.
-
-    ``retryable`` is False; repeating the identical request without changing the
-    refused condition will fail the same way."""
-
-
-class QuotaExceededError(RefusedError):
-    """A definite quota refusal (SYN-4844): a ceiling in ``scope`` is reached.
-
-    ``limit`` is the ceiling that refused the request (``None`` only when the
-    server's plan provider reported none); ``used`` is the count already
-    consumed in ``scope``. Nothing was created or charged."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        scope: str,
-        limit: int | None,
-        used: int,
-        remedy: str | None = None,
-        **kwargs: Unpack[ErrorOptions],
-    ) -> None:
-        super().__init__(message, **kwargs)
-        self.scope = scope
-        self.limit = limit
-        self.used = used
-        self.remedy = remedy
-
-    def __reduce__(self):  # type: ignore[override]
-        # Exception's default reduce re-calls __init__ with args only, which
-        # lacks the required keyword-only fields; restore the instance state.
-        return (type(self).__new__, (type(self), *self.args), self.__dict__)
-
-
-class RequestTimeoutError(SynthError):
-    """Local observation/request deadline expired."""
-
-
-class TransportError(SynthError):
-    """HTTP exchange failed."""
-
-
-class ContractError(SynthError):
-    """Version, shape, identity or bound mismatch."""
-
-
-class UnsupportedOperationError(SynthError):
-    """The selected backend has not enabled a compatible operation surface."""
-
-
-class CapabilityUnavailableError(UnsupportedOperationError):
-    """The requested sub-product has no qualified native capability."""
-
-
-class SearchHistoryDeletedError(SynthError):
-    """The exact customer archive was deleted; it cannot be delivered again."""
-
-
-class SearchHistoryExpiredError(SynthError):
-    """The original archive lifetime ended; a read never renews it."""
-
-
-class SearchHistoryUnavailableError(SynthError):
-    """The selected archive has no authorized deliverable content."""
-
-
-class RetentionModeNotAllowed(PermissionDeniedError):  # noqa: N818
-    """The organization's enforced retention policy refuses the requested mode.
-
-    ``allowed_modes`` lists the modes the organization permits (empty when the
-    backend did not send them). ``retryable`` is False: change the mode."""
-
-    allowed_modes: tuple[str, ...] = ()
-
-
-class SearchContentPurged(SynthError):  # noqa: N818
-    """The search's ZDR content was purged; only metadata remains (HTTP 410).
-
-    ``search_id``, ``purges_at`` and ``purged_at`` come from the
-    ``X-Synth-Search-Id`` / ``X-Synth-Purges-At`` / ``X-Synth-Purged-At`` response
-    headers when the backend sends them (``None`` otherwise)."""
-
-    search_id: str | None = None
-    purges_at: str | None = None
-    purged_at: str | None = None
-
-
-class StrictZdrResultUnavailable(ConflictError):  # noqa: N818
-    """A ``zdr_strict`` search never stores its result.
-
-    Use ``run.inline_result`` (FAST create response) or ``run.events()`` (DEEP)."""
-
-
-POLICY_ERROR_TYPES: Mapping[tuple[int, str], type[SynthError]] = MappingProxyType(
-    {
-        (403, "entitlement_denied"): EntitlementDeniedError,
-        (403, "activation_required"): ActivationRequiredError,
-        (403, "own_credential_required"): OwnCredentialRequiredError,
-        (403, "byok_forbidden"): ByokForbiddenError,
-        (403, "plan_required"): PlanRequiredError,
-        (503, "policy_unavailable"): PolicyUnavailableError,
-        (503, "capability_unavailable"): CapabilityUnavailableError,
-        (403, "retention_mode_not_allowed"): RetentionModeNotAllowed,
-        (410, "search_content_purged"): SearchContentPurged,
-        (409, "result_not_retained_strict_zdr"): StrictZdrResultUnavailable,
-        (410, "search_history_deleted"): SearchHistoryDeletedError,
-        (410, "search_history_expired"): SearchHistoryExpiredError,
-        (409, "search_history_unavailable"): SearchHistoryUnavailableError,
-        (410, "search_history_unavailable"): SearchHistoryUnavailableError,
-    }
-)
-
-
-class ResultNotReadyError(SynthError):
-    """The canonical result is not yet available."""
-
-
-class OutcomeUncertainError(SynthError):
-    """Retain identity and reconcile before repeating work."""
-
-
-class LifecycleWriteRefusedError(OutcomeUncertainError):
-    """The backend refused to write an Orchestra-owned run's lifecycle (SYN-4642).
-
-    Orchestra owns stop/cancel/pause/resume for these runs. The owner command
-    may already have been dispatched, so the outcome stays uncertain: resolve
-    ``identity`` and read the run before repeating the control.
-    """
-
-
-LIFECYCLE_WRITE_REFUSAL_CODES = frozenset(
-    {"orchestra_lifecycle_write_refused", "lifecycle_write_not_owner"}
-)
-
-
-class OperationFailedError(SynthError):
-    """Explicit opt-in failure raising for an inspectable result."""
-
-
-class MutationCancelledError(asyncio.CancelledError):
-    def __init__(self, identity: MutationIdentity | None) -> None:
-        self.identity = identity
-        super().__init__("Local mutation observation cancelled; remote outcome is unknown")
-
-
-class OutputIntegrityError(ContractError):
-    """Output bytes or identity failed verification; never publish the file."""
+            request_id=response.headers.get("x-request-id"),
+            idempotency_key=response.request.headers.get("idempotency-key"),
+        ) from None
+    kind = _BY_STATUS.get(
+        response.status_code, ServerError if response.status_code >= 500 else InvalidRequestError
+    )
+    raise kind(
+        problem,
+        request_id=response.headers.get("x-request-id"),
+        idempotency_key=response.request.headers.get("idempotency-key"),
+    )
