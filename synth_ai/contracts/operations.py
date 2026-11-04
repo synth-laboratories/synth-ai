@@ -169,6 +169,13 @@ CONTRIBUTION = Operation(
     False,
     required_scope=None,
 )
+CONTRIBUTION_REVISION = Operation(
+    "index.contributions.revisions.get",
+    "GET",
+    "/index/contributions/{contribution_id}/revisions/{revision_id}",
+    False,
+    required_scope=None,
+)
 OWNED_CONTRIBUTION = Operation(
     "index.contributions.owner",
     "GET",
@@ -271,6 +278,7 @@ ALL_OPERATIONS: tuple[Operation, ...] = (
     COLLECTION,
     CONTRIBUTIONS,
     CONTRIBUTION,
+    CONTRIBUTION_REVISION,
     OWNED_CONTRIBUTION,
     CREATE_CONTRIBUTION,
     UPDATE_CONTRIBUTION,

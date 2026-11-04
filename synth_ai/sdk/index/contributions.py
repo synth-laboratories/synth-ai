@@ -92,6 +92,29 @@ class Contributions:
         )
         return result
 
+    def get_revision(
+        self,
+        contribution_id: str,
+        revision_id: str,
+        *,
+        request: ReadOptions | None = None,
+    ) -> ContributionRevision:
+        """Read one current public revision under the negotiated contract."""
+        contribution_id = identifier(contribution_id)
+        revision_id = identifier(revision_id)
+        return self._transport.request(
+            operations.CONTRIBUTION_REVISION,
+            ContributionRevision,
+            path=f"/index/contributions/{contribution_id}/revisions/{revision_id}",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id
+                and received.revision_id == revision_id,
+                "Contribution revision read violated identity",
+            ),
+        )
+
     def get_owner(
         self, contribution_id: str, *, request: ReadOptions | None = None
     ) -> Contribution:
@@ -330,6 +353,29 @@ class AsyncContributions:
             ),
         )
         return result
+
+    async def get_revision(
+        self,
+        contribution_id: str,
+        revision_id: str,
+        *,
+        request: ReadOptions | None = None,
+    ) -> ContributionRevision:
+        """Read one current public revision under the negotiated contract."""
+        contribution_id = identifier(contribution_id)
+        revision_id = identifier(revision_id)
+        return await self._transport.request(
+            operations.CONTRIBUTION_REVISION,
+            ContributionRevision,
+            path=f"/index/contributions/{contribution_id}/revisions/{revision_id}",
+            options=request,
+            validate=lambda received: verified(
+                received,
+                received.contribution_id == contribution_id
+                and received.revision_id == revision_id,
+                "Contribution revision read violated identity",
+            ),
+        )
 
     async def get_owner(
         self, contribution_id: str, *, request: ReadOptions | None = None
