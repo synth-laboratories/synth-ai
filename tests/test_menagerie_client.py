@@ -155,7 +155,7 @@ def test_lifecycle_lineage_and_serving_round_trip_without_negotiation():
         }
     )
     with sync_client(recorder) as client:
-        menagerie = client.menagerie
+        menagerie = client.hidden("menagerie")
         exported = menagerie.export()
         assert exported.sections["lineage_edges"] == ({"relation": "export"},)
         edge = menagerie.record_lineage(
@@ -204,7 +204,7 @@ def test_typed_refusals_carry_code_stage_and_cause(status, code, error):
         sync_client(lambda request: refusal(status, code)) as client,
         pytest.raises(error) as raised,
     ):
-        client.menagerie.archive_model(CHECKPOINT)
+        client.hidden("menagerie").archive_model(CHECKPOINT)
     assert raised.value.code == code
     assert raised.value.status == status
     assert raised.value.stage == "lifecycle"
@@ -214,24 +214,24 @@ def test_typed_refusals_carry_code_stage_and_cause(status, code, error):
 def test_uncertain_write_and_contract_violations():
     uncertain = sync_client(lambda request: httpx.Response(502, text="bad gateway"))
     with uncertain as client, pytest.raises(OutcomeUncertainError):
-        client.menagerie.restore_model(CHECKPOINT)
+        client.hidden("menagerie").restore_model(CHECKPOINT)
     other = deployment(deployment_id="someone-else")
     with sync_client(lambda request: httpx.Response(200, json=other)) as client:
         # A write whose receipt names another subject is never accepted.
         with pytest.raises(OutcomeUncertainError) as raised:
-            client.menagerie.retire_deployment("tinker-r1")
+            client.hidden("menagerie").retire_deployment("tinker-r1")
         assert isinstance(raised.value.__cause__, ContractError)
         with pytest.raises(ValueError):
-            client.menagerie.retire_deployment("tinker:r1")
+            client.hidden("menagerie").retire_deployment("tinker:r1")
         with pytest.raises(ValueError):
-            client.menagerie.archive_model("../export")
+            client.hidden("menagerie").archive_model("../export")
     with (
         sync_client(
             lambda request: httpx.Response(200, json={"schema_version": "synth.menagerie.v1"})
         ) as client,
         pytest.raises(ContractError),
     ):
-        client.menagerie.lineage(CHECKPOINT)
+        client.hidden("menagerie").lineage(CHECKPOINT)
 
 
 def test_release_pinned_clients_refuse_menagerie_routes():
@@ -241,7 +241,7 @@ def test_release_pinned_clients_refuse_menagerie_routes():
         ) as client,
         pytest.raises(UnsupportedOperationError) as raised,
     ):
-        client.menagerie.export()
+        client.hidden("menagerie").export()
     assert raised.value.code == "menagerie_release_not_qualified"
     assert len({operation.id for operation in MENAGERIE_OPERATIONS}) == 10
     assert all(operation.contract == "menagerie.v1" for operation in MENAGERIE_OPERATIONS)
@@ -269,5 +269,5 @@ async def _async_restore():
             options=ClientOptions(async_http_client=network),
         ) as client,
     ):
-        restored = await client.menagerie.restore_record("tinker-lora")
+        restored = await client.hidden("menagerie").restore_record("tinker-lora")
     assert (restored.head_revision, restored.replayed) == (2, True)

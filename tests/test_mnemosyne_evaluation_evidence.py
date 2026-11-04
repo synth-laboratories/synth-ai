@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ContractError, UnsupportedOperationError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
 from tests.test_forge_workspaces import receipt_and_headers
@@ -208,12 +208,12 @@ def test_sdk_calls_capabilities_list_and_get_with_caller_auth(async_mode):
             ) as client,
         ):
             assert not (
-                await client.mnemosyne.evaluation_evidence.capabilities(PROJECT)
+                await client.hidden("mnemosyne").evaluation_evidence.capabilities(PROJECT)
             ).data.can_publish
             assert not (
-                await client.mnemosyne.evaluation_evidence.list(PROJECT, limit=7)
+                await client.hidden("mnemosyne").evaluation_evidence.list(PROJECT, limit=7)
             ).data.items
-            tool = BY_NAME["mnemosyne_evaluation_evidence_get"]
+            tool = ALL_BY_NAME["mnemosyne_evaluation_evidence_get"]
             result = await tool.invoke(client, {"project_id": PROJECT, "evidence_id": EVIDENCE})
             assert result["data"]["source_association"]["verification"] == "producer_asserted"
 
@@ -228,10 +228,10 @@ def test_sdk_calls_capabilities_list_and_get_with_caller_auth(async_mode):
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            assert not client.mnemosyne.evaluation_evidence.capabilities(PROJECT).data.can_publish
-            assert not client.mnemosyne.evaluation_evidence.list(PROJECT, limit=7).data.items
+            assert not client.hidden("mnemosyne").evaluation_evidence.capabilities(PROJECT).data.can_publish
+            assert not client.hidden("mnemosyne").evaluation_evidence.list(PROJECT, limit=7).data.items
             assert (
-                client.mnemosyne.evaluation_evidence.get(PROJECT, EVIDENCE).data.evidence_id
+                client.hidden("mnemosyne").evaluation_evidence.get(PROJECT, EVIDENCE).data.evidence_id
                 == EVIDENCE
             )
     assert len(calls) == 3
@@ -249,7 +249,7 @@ def test_capability_absence_refuses_before_evidence_request():
         ) as client,
         pytest.raises(UnsupportedOperationError),
     ):
-        client.mnemosyne.evaluation_evidence.get(PROJECT, EVIDENCE)
+        client.hidden("mnemosyne").evaluation_evidence.get(PROJECT, EVIDENCE)
     assert calls == []
 
 
@@ -264,7 +264,7 @@ def test_changed_project_refuses_receipt():
         ) as client,
         pytest.raises(ContractError),
     ):
-        client.mnemosyne.evaluation_evidence.get(PROJECT, EVIDENCE)
+        client.hidden("mnemosyne").evaluation_evidence.get(PROJECT, EVIDENCE)
 
 
 def test_receipt_must_match_current_authenticated_tenant():
@@ -278,7 +278,7 @@ def test_receipt_must_match_current_authenticated_tenant():
         ) as client,
         pytest.raises(ContractError),
     ):
-        client.mnemosyne.evaluation_evidence.get(PROJECT, EVIDENCE)
+        client.hidden("mnemosyne").evaluation_evidence.get(PROJECT, EVIDENCE)
 
 
 @pytest.mark.parametrize("changed", [False, True])
@@ -296,9 +296,9 @@ def test_measurements_preserve_partial_coverage_and_source_identity(changed):
     ):
         if changed:
             with pytest.raises(ContractError):
-                client.mnemosyne.evaluation_evidence.measurements(PROJECT, EVIDENCE)
+                client.hidden("mnemosyne").evaluation_evidence.measurements(PROJECT, EVIDENCE)
         else:
-            summary = client.mnemosyne.evaluation_evidence.measurements(
+            summary = client.hidden("mnemosyne").evaluation_evidence.measurements(
                 PROJECT, EVIDENCE
             ).data.summary
             assert summary.run_wall_seconds == Decimal("1.234")
@@ -306,7 +306,7 @@ def test_measurements_preserve_partial_coverage_and_source_identity(changed):
 
 
 def test_mcp_inputs_refuse_authority_and_validate_cursor():
-    tool = BY_NAME["mnemosyne_evaluation_evidence_list"]
+    tool = ALL_BY_NAME["mnemosyne_evaluation_evidence_list"]
     assert tool.scope == "forge:read" and not tool.mutates and not tool.paid
     with pytest.raises(ValueError):
         tool.validate_arguments({"project_id": PROJECT, "principal": "invented"})
@@ -330,7 +330,7 @@ def test_comparison_preserves_project_scope_and_exact_order(async_mode):
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            tool = BY_NAME["mnemosyne_evaluation_evidence_compare"]
+            tool = ALL_BY_NAME["mnemosyne_evaluation_evidence_compare"]
             response = await tool.invoke(
                 client, {"project_id": PROJECT, "evidence_ids": [EVIDENCE, second]}
             )
@@ -347,11 +347,11 @@ def test_comparison_preserves_project_scope_and_exact_order(async_mode):
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            result = client.mnemosyne.evaluation_evidence.compare(PROJECT, [EVIDENCE, second])
+            result = client.hidden("mnemosyne").evaluation_evidence.compare(PROJECT, [EVIDENCE, second])
             assert [i.evidence_id for i in result.data.items] == [EVIDENCE, second]
     assert calls[-1].url.params.get_list("evidence_id") == [EVIDENCE, second]
     with pytest.raises(ValueError):
-        BY_NAME["mnemosyne_evaluation_evidence_compare"].validate_arguments(
+        ALL_BY_NAME["mnemosyne_evaluation_evidence_compare"].validate_arguments(
             {"project_id": PROJECT, "evidence_ids": [EVIDENCE, EVIDENCE]}
         )
 
@@ -367,7 +367,7 @@ def test_comparison_rejects_wrong_owner_scope():
         ) as client,
         pytest.raises(ContractError),
     ):
-        client.mnemosyne.evaluation_evidence.compare(PROJECT, [EVIDENCE, "mev_" + "f" * 64])
+        client.hidden("mnemosyne").evaluation_evidence.compare(PROJECT, [EVIDENCE, "mev_" + "f" * 64])
 
 
 @pytest.mark.parametrize(

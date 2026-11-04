@@ -318,10 +318,10 @@ def parser() -> argparse.ArgumentParser:
     return root
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     args = None
     try:
-        args = parser().parse_args()
+        args = parser().parse_args(argv)
         return run(args)
     except AuthRefusalError as error:
         refusal = {

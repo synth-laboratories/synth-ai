@@ -32,24 +32,24 @@ class Comparison(Project):
 
 
 async def capabilities(client, args):
-    return await client.mnemosyne.evaluation_evidence.capabilities(args.project_id)
+    return await client.hidden("mnemosyne").evaluation_evidence.capabilities(args.project_id)
 
 
 async def list_evidence(client, args):
-    return await client.mnemosyne.evaluation_evidence.list(
+    return await client.hidden("mnemosyne").evaluation_evidence.list(
         args.project_id, after=args.after, limit=args.limit
     )
 
 
 async def get(client, args):
-    return await client.mnemosyne.evaluation_evidence.get(args.project_id, args.evidence_id)
+    return await client.hidden("mnemosyne").evaluation_evidence.get(args.project_id, args.evidence_id)
 
 
 async def measurements(client, args):
-    return await client.mnemosyne.evaluation_evidence.measurements(
+    return await client.hidden("mnemosyne").evaluation_evidence.measurements(
         args.project_id, args.evidence_id
     )
 
 
 async def compare(client, args):
-    return await client.mnemosyne.evaluation_evidence.compare(args.project_id, args.evidence_ids)
+    return await client.hidden("mnemosyne").evaluation_evidence.compare(args.project_id, args.evidence_ids)

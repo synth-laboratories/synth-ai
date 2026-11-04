@@ -9,7 +9,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient
 from synth_ai.errors import ContractError, NotFoundError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.contracts.contracts import ExactReference
 from synth_ai.sdk.forge.contracts.report_manifests import (
@@ -108,7 +108,7 @@ def test_download_writes_verified_bytes_and_receipt(tmp_path):
     network, client = client_for(transport)
     destination = tmp_path / "curve.json"
     with network, client:
-        receipt = client.forge.reports.download(PROJECT, DIGEST, "curve", destination)
+        receipt = client.hidden("forge").reports.download(PROJECT, DIGEST, "curve", destination)
     assert destination.read_bytes() == CURVE
     assert (receipt.digest_sha256, receipt.byte_size, receipt.access) == (
         CURVE_SHA,
@@ -128,7 +128,7 @@ def test_artifact_not_in_manifest_is_refused_before_any_byte_request(tmp_path):
     transport, calls = wire()
     network, client = client_for(transport)
     with network, client, pytest.raises(ContractError) as error:
-        client.forge.reports.download(PROJECT, DIGEST, "other", tmp_path / "x")
+        client.hidden("forge").reports.download(PROJECT, DIGEST, "other", tmp_path / "x")
     assert error.value.code == "not_in_manifest"
     assert len(calls) == 1 and not (tmp_path / "x").exists()
 
@@ -142,7 +142,7 @@ def test_short_or_tampered_body_publishes_nothing(tmp_path, body, code):
     transport, _ = wire(body=body)
     network, client = client_for(transport)
     with network, client, pytest.raises(ContractError) as error:
-        client.forge.reports.download(PROJECT, DIGEST, "curve", tmp_path / "curve")
+        client.hidden("forge").reports.download(PROJECT, DIGEST, "curve", tmp_path / "curve")
     assert error.value.code == code
     assert list(tmp_path.iterdir()) == []
 
@@ -151,7 +151,7 @@ def test_typed_server_refusal_surfaces(tmp_path):
     transport, _ = wire(refuse="forge_share_expired")
     network, client = client_for(transport)
     with network, client, pytest.raises(NotFoundError) as error:
-        client.forge.reports.download(PROJECT, DIGEST, "curve", tmp_path / "curve")
+        client.hidden("forge").reports.download(PROJECT, DIGEST, "curve", tmp_path / "curve")
     assert error.value.code == "forge_share_expired"
 
 
@@ -167,7 +167,7 @@ def test_stdio_mcp_artifact_tool_returns_bounded_data():
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            return await BY_NAME["forge_report_artifact"].invoke(
+            return await ALL_BY_NAME["forge_report_artifact"].invoke(
                 client, {"project_id": PROJECT, "digest": DIGEST, "artifact_id": "curve"}
             )
 
@@ -177,6 +177,6 @@ def test_stdio_mcp_artifact_tool_returns_bounded_data():
     assert artifact["rendering"] == "plain_text" and artifact["index_contribution"] == "none"
     assert artifact["content_sha256"] == CURVE_SHA and artifact["access"] == "invited"
     assert len(calls) == 2
-    tool = BY_NAME["forge_report_artifact"]
+    tool = ALL_BY_NAME["forge_report_artifact"]
     assert (tool.scope, tool.mutates, tool.paid) == ("forge:read", False, False)
     assert b64(CURVE) == artifact["content_base64"]

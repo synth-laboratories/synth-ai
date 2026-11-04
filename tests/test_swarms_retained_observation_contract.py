@@ -106,7 +106,7 @@ def test_strict_launch_negotiates_reviewed_backend_identity():
             options=ClientOptions(http_client=network, strict_contract=True),
         ) as client,
     ):
-        run = client.swarms.create(
+        run = client.hidden("swarms_legacy").create(
             message="m",
             project_id=PROJECT,
             limits=LIMITS,

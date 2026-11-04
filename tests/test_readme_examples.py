@@ -86,7 +86,7 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
             stand_in.__enter__.return_value = stand_in
             stand_in.swarms = client.swarms
             stand_in.artifacts = client.artifacts
-            stand_in.index = client.index
+            stand_in.index = client.hidden("index")
         namespace = {"client": client, "project_id": "project_fixture"}
         exec(compile(source, label, "exec"), namespace)  # noqa: S102 - repository docs only
     for labels in LABEL_CALLS:

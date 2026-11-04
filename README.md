@@ -1,306 +1,79 @@
 # Synth Python SDK
 
-A typed Python client for Synth Index search with citations, Swarms research
-runs, account access, and hosted or local MCP. Python 3.11 or newer is required.
-
-Swarms requires organization admission. An unavailable operation raises
-`UnsupportedOperationError` with code `operation_unavailable`. Inspect
-`client.account.entitlements()` for your organization's access conditions.
+A typed Python client, CLI and MCP server for Synth Swarms. Python 3.11 or newer
+is required.
 
 ```sh
 pip install synth-ai
 pip install 'synth-ai[mcp]'
-synth-ai login
+synth login
 ```
 
-Use browser login or set `SYNTH_API_KEY`. Stored login credentials are reloaded
-on every authenticated call. `SYNTH_API_URL` overrides the default API origin,
-`https://api.usesynth.ai`. Anonymous Index search needs no login or API key.
+Use browser login or set `SYNTH_API_KEY`. `SYNTH_API_BASE_URL` overrides the
+default API origin, `https://api.usesynth.ai`. `SYNTH_PROJECT_ID` sets the
+default Swarms project.
+
+## Quickstart
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.sdk.index import PublicSearchOptions
-
-with SynthClient.anonymous() as client:
-    result = client.index.search("reproducible retrieval", options=PublicSearchOptions())
-    print(result.response)
-```
-
-Authenticated search has an explicit maximum charge:
-
-```python
-from synth_ai import SynthClient
-from synth_ai.sdk.index import KeyedSearchOptions
-from synth_ai.types.money import Money
 
 with SynthClient() as client:
-    result = client.index.search(
-        "reproducible retrieval",
-        options=KeyedSearchOptions(maximum_charge=Money(coefficient=5, scale=2)),
-    )
-    print(result.response)
+    result = client.swarms.run("Compare retrieval methods for legal search", budget="5.00")
+    print(result.run.state)
+    for output in result.outputs:
+        print(output.output_id, output.kind)
 ```
 
-For keyed DEEP searches, `index.search` creates a durable Search and observes its
-result. With strict ZDR it consumes the original request-owned event stream;
-strict content cannot be replayed after a disconnect. An observation timeout
-does not cancel a durable Search and includes its ID for reattachment when the
-retention policy permits. An explicitly supplied legacy `index.search` mutation
-identity remains bound to its original synchronous route.
+`swarms.run` launches a run, waits for it to close and returns its outputs.
+`budget` is the maximum charge in USD.
 
-### DEEP search: durable by default, 90 s synchronous cap
-
-- **Default (durable).** A keyed `index.search(query, options=KeyedSearchOptions(mode="deep", ...))`
-  is `searches.create(...)` followed by `run.wait(...)` on the same Search. The
-  observation budget is the admitted `deadline_seconds` (180 s when unset) plus
-  90 s for reviewed delivery, unless you set `MutationOptions.timeout_seconds` or a
-  non-default client timeout. Prefer this path; nothing holds one HTTP request open.
-- **Synchronous cap.** The synchronous route (`POST /api/v1/index/search`, used only
-  when you pass a legacy `index.search` mutation identity) waits at most **90 s**
-  server-side. It stays below the 300 s admitted maximum on purpose: a rolling
-  deploy drains in-flight requests within 55 s, so a long synchronous request
-  cannot be relied on. When the cap ends the wait, the backend answers HTTP 504
-  with `reason` `index_deep_sync_wait_cap_exceeded` (or
-  `index_deep_sync_wait_deadline_elapsed`) and these headers:
-  - `X-Synth-Durable-Search-Id`: the admitted Search, which keeps running
-  - `X-Synth-Deep-Sync-Cap-Seconds`: the cap (`90`)
-  - `X-Synth-Refusal-Stage: index_deep_sync_wait`
-  - `X-Synth-Refusal-Cause`: the `reason` above
-- **Reattach, never silent.** On that 504 the SDK reads `X-Synth-Durable-Search-Id`
-  and observes the same Search with `searches.get(id).wait(...)` for the rest of
-  the admitted deadline (measured from the original request). It does not
-  resubmit or charge twice. The returned `SearchResponse` has
-  `result.sync_cap_reattached`, a `SyncCapReattached(search_id, cap_seconds, cause,
-  request_id)`. It is `None` on a result the synchronous route delivered itself.
-- **Missing header.** Without a valid `X-Synth-Durable-Search-Id` (for example,
-  from an older backend or a proxy 504), there is nothing to reattach to. The
-  original typed error propagates: `OutcomeUncertainError` with `status=504`,
-  `cause`, `stage`, and `error.durable_search_id is None`. Reconcile its identity
-  before repeating work. FAST searches and other 504 causes are unaffected.
+The same steps one at a time:
 
 ```python
-from synth_ai.options import MutationOptions
-from synth_ai.sdk.index import KeyedSearchOptions
-from synth_ai.types.money import Money
-
-options = KeyedSearchOptions(mode="deep", maximum_charge=Money(coefficient=5, scale=2))
-legacy = MutationOptions(idempotency_key="search-1")
-result = client.index.search("q", options=options, mutation=legacy)
-if result.sync_cap_reattached is not None:
-    print("reattached to", result.sync_cap_reattached.search_id)
+run = client.swarms.launch("Compare retrieval methods", budget="5.00")
+client.swarms.events(run.run_id, after=0)
+closed = client.swarms.wait(run.run_id, timeout_seconds=3600)
+outputs = client.swarms.outputs(run.run_id)
+data = client.swarms.output_content(run.run_id, outputs.outputs[0].output_id)
+client.swarms.list(limit=20)
+client.swarms.cancel(run.run_id)
 ```
 
-Create a Swarms project, launch bounded work, wait, and download its results:
+## Account and billing
 
 ```python
-from synth_ai import SynthClient
-from synth_ai.options import ObservationOptions
-from synth_ai.sdk.swarms import Limits
-from synth_ai.types.money import Money
-
-with SynthClient() as client:
-    project = client.swarms.projects.create("Research", objective="Compare retrieval methods")
-    run = client.swarms.create(message="Compare retrieval methods", project_id=project.project_id,
-        limits=Limits(maximum_charge=Money(coefficient=2, scale=0), wall_time_seconds=600,
-                      maximum_tasks=4, maximum_parallel_tasks=2))
-    result = run.wait(observation=ObservationOptions(timeout_seconds=660, idle_timeout_seconds=120,
-        reconnect_deadline_seconds=30, retry_count_max=3, maximum_events=2000, poll_interval_seconds=2))
-    bundle = run.download("research-results")
+client.account.get()       # org, principal, limits
+client.account.keys()      # API keys (session credential)
+client.billing.balance()   # integer microcents
+client.billing.plans()
+client.billing.checkout("credits", amount_microcents=1_000_000_000)
 ```
 
-The download verifies exact repository and artifact digests before publishing a
-new destination directory. Its manifest records the run reference, final commit,
-artifacts, objective verdicts, and answers. Existing destinations are refused.
-See [Swarms](docs/swarms.md) for input artifacts, guidance, resources, controls,
-and usage. Both `SynthClient` and `AsyncSynthClient` expose the same operations;
-async methods are awaited and clients support managed contexts.
-
-Catch `SynthError` for API and transport failures. Common types are
-`AuthenticationError`, `RateLimitError`, `BudgetExceededError`,
-`RequestTimeoutError`, and `OutcomeUncertainError`.
-
-**After `OutcomeUncertainError`, resolve the retained identity before deciding
-whether to submit new work:** `client.resolve_mutation(error.identity)`.
-`MutationCancelledError` derives from `asyncio.CancelledError` and also retains
-its mutation identity. A local timeout or closing a client does not cancel a run.
-
-Requests have total deadlines. Reads retry transient failures with bounded
-jitter and honor `Retry-After`. Mutations are never automatically replayed.
-Call `run.cancel()`, `run.pause()`, or `run.resume()` for remote controls.
-Use a stable `MutationOptions(idempotency_key=...)` for recoverable writes.
-
-Errors carry operation and request identifiers. Responses accept additive
-fields; unknown enum values remain visible. `ClientOptions(strict_contract=True)`
-requires exact schema hashes. Client options can borrow caller-owned HTTPX
-clients; closing the SDK leaves a borrowed client open. File-based login requires
-POSIX ownership and permissions; explicit API keys work on other platforms.
-
-- [Documentation](https://docs.usesynth.ai)
-- [Swarms guide](docs/swarms.md)
-- [Changelog and migration](CHANGELOG.md)
-- [Release policy](RELEASING.md)
-- [Issues](https://github.com/synth-laboratories/synth-ai/issues)
-
-## Account companion
-
-The source candidate extends the existing `synth-ai` CLI with read-only cloud
-account commands. Its version follows the SDK and MCP package:
+## CLI
 
 ```sh
-synth-ai --version
-synth-ai login
-synth-ai auth status --json
-synth-ai account context --json
-synth-ai account plan
-synth-ai account balance
-synth-ai account alerts
-synth-ai account usage --days 7 --json
-synth-ai account logs --days 7 --limit 50 --json
-synth-ai account billing
-synth-ai account keys
-synth-ai account apps
+synth swarms run "Compare retrieval methods" --budget 5.00
+synth swarms launch|get|wait|events|cancel|outputs|list
+synth account
+synth billing balance
+synth billing plans
 ```
 
-Billing, API-key lifecycle and connected-app management open the dashboard;
-these commands never purchase, change subscriptions or run workloads. Use
-`--no-browser` for a URL. Set `SYNTH_DASHBOARD_URL` to the dashboard origin when
-using a custom API origin. API-key setup also supports the existing
-`synth-ai login --with-token` stdin flow. Private-file storage and canonical
-`SYNTH_API_KEY` / `SYNTH_API_URL` precedence remain unchanged.
+## Errors
 
-The new account reads require a backend serving `account.v1` and explicit
-account scopes for financial data. Self-identity/context inspection is available
-to every valid customer credential, without workload capability discovery.
-`account:read` permits limits together with billing-read; `account:billing:read` permits
-plan/balance/alert settings, and usage/logs require both usage-read and billing-read. Existing
-credentials do not gain these grants automatically. Fresh OAuth consent names
-the account permissions. The existing `account limits` discovery command keeps
-its negotiated product-policy contract.
+Every refusal is `{"error": {code, message, service, stage, upstream_status, cause}}`
+and raises a subclass of `synth_ai.public.errors.SwarmsAPIError`:
+`InvalidRequestError`, `UnauthenticatedError`, `PaymentRequiredError`,
+`ForbiddenError`, `NotFoundError`, `ConflictError`, `RateLimitedError`,
+`UpstreamUnavailableError`, `ServerError`. `swarms.run` raises `RunFailedError`
+when a run fails.
 
-SDK integrations can use `account_read_scopes(operation)` from
-`synth_ai.contracts.account` to inspect the complete explicit scope set. The
-operation's single `required_scope` field alone does not represent both grants
-required by usage, events and limits. The backend remains the live authority.
+## MCP
 
-SDK sync/async clients expose `account.context()`, `plan()`, `balance()`,
-`alerts()`, `limits()`, `usage(start, end)` and `events(start, end)`. Event reads return one
-bounded page and an explicit cursor. Dates must be timezone-aware; windows are
-bounded to 366 days. The CLI also accepts matching `--from` / `--to` timestamps
-and an optional `--product` filter for usage/logs.
+`synth-ai-mcp` serves the Swarms and account tools locally; the hosted MCP at
+`mcp.usesynth.ai` serves the same catalog.
 
-JSON retains exact money coefficients/scales, original event IDs and string
-sequence numbers, pending/unknown values, source coverage and observation times.
-Successful reads exit 0, including explicitly partial observations; refused or
-unavailable operations exit 1, and invalid command/input exits 2. Account reads
-use their own observational protocol and do not claim Index/Swarms execution
-manifest qualification. Native issuer, installed-package and deployed-cohort
-acceptance remain required before release.
-## Forge research workspaces (v0.24 candidate)
-
-Mnemosyne's candidate project evidence reader is available through
-`client.mnemosyne.evaluation_evidence`: `capabilities(project_id)`,
-`list(project_id)`, `get(project_id, evidence_id)` and
-`measurements(project_id, evidence_id)`. The async client exposes the same
-methods. The corresponding `mnemosyne_evaluation_evidence_*` MCP read tools
-are discoverable only when the backend advertises them and the caller has the
-required scope. Exact project and Artifact permissions are checked by the
-backend on every call. Evidence receipts reference existing Artifact custody;
-they do not pin bytes against deletion or turn producer-supplied associations
-into verified scientific foreign keys. Deployment remains subject to owner and
-database qualification.
-
-Forge workspaces organize scientific work independently of executable Swarms
-projects. The selected backend must admit these operations and the credential
-must carry explicit `forge:read`/`forge:write` scopes.
-
-```python
-from synth_ai import SynthClient
-from synth_ai.options import MutationOptions
-
-with SynthClient() as client:
-    created = client.forge.projects.create(
-        title="Craftax comparison",
-        objective="Compare the two approaches using the pinned evaluation protocol",
-        mutation=MutationOptions(idempotency_key="craftax-study-1"),
-    )
-    project = client.forge.projects.get(created.receipt.project_id)
-```
-
-Async clients expose the same methods. Retain the project ID, original mutation
-identity and expected revision for retries and edits. Archive/unarchive preserves
-research history; membership changes require current workspace ownership.
-
-The MCP catalogue includes `forge_project_get`, `forge_project_create`,
-`forge_project_update`, `forge_project_archive` and `forge_project_members`.
-Scientific tools are `forge_record_get`, `forge_record_write` and
-`forge_receipt_get`; sync and async clients expose `client.forge.records.get`,
-`client.forge.records.write` and `client.forge.receipts.get`. Writes accept typed
-canonical records with an expected revision and stable mutation key. Recover
-the original receipt after response loss or admission expiry before another
-attempt. Manual results retain unverified status.
-Typed inputs are available from `synth_ai.sdk.forge`, including `Protocol`,
-`Experiment`, `Trial`, `Review`, and protocol/input observation types. Register a
-trial before execution; v2 state observations append immutable revisions with
-the registered parameters fixed. A rerun uses a new trial and exact `parent_trial`.
-Legacy records keep their original versions; native records carry explicit v2
-envelopes, and execution-bound input claims need their owning verifier.
-Connections with admitted Forge tools can discover the packaged `forge-research`
-skill as a content-addressed MCP resource. Research runs pin that skill together
-with their admitted scientific tools and method/program versions. Workspace
-operations alone do not qualify a complete scientific Swarm or evaluator path.
-
-
-Private Index handoff uses `client.forge.index_drafts.create(project_id,
-export_revision, mutation=...)` to allocate custody for an exact frozen export.
-Retain the original draft operation ID. Then call
-`client.forge.index_drafts.upload(project_id, draft_operation_id, descriptor,
-mutation=...)`, or the `forge_index_draft_upload` MCP tool. The author supplies
-research metadata and an asset ID/role/path layout; the backend resolves frozen
-native Artifact bytes, digests, licenses and full credit. Current `forge:read`,
-`index:intake` and private Artifact grants are required. Transfer credentials
-stay inside the native upload service.
-
-Preserve each mutation key on retry. Recover allocation with `index_drafts.get`
-and upload custody with `index_drafts.upload_get(project_id,
-draft_operation_id, upload_operation_id)`. MCP exposes matching create/get and
-upload/upload_get tools. `prepared`, `received` and `finalized` distinguish
-reservation, received bytes and an exact native package reference. Finalized
-packaging leaves the Contribution private and in draft state; validation,
-scientific qualification, rights attestation and publication remain separate.
-
-
-Explicit MCP validation can use `index_contribution_submit` with the finalized
-Contribution/revision IDs and its own retained mutation key. It calls the same
-existing Index submission operation as `client.index.contributions.submit`;
-new Forge workspace-source validation retains original source policy. Recover
-an uncertain submission by retrying its exact revision/key. Inspect current
-private owner state with `index_contribution_owner_get`, equivalent to
-`client.index.contributions.get_owner`. These tools require `index:intake`;
-current native ownership and source policy still apply. Submission, scientific
-qualification, rights attestation and publication remain separate operations.
-
-Read private source corrections with `client.forge.index_drafts.notices` or
-`forge_index_draft_notices`, using the original project and draft operation IDs.
-Retain the exact Index `release` reference and scanned `next_cursor`; page with
-bounded `after` and `limit`. Current Forge read and Index intake/owner access
-remain required. Correct a frozen export under a new identity and record its
-exact typed source notice through admitted scientific authoring. The original
-sealed package bytes, Index qualification and public notice consent remain
-under their existing owners. Packaged research skill revision8 covers this path.
-
-
-### Private Contribution authoring (local candidate)
-
-Native author tools require `index:intake`; public reads require `index:read`.
-Creation, expected-revision editing, upload preparation, finalization, rights
-attestation, submission and correction remain separate operations with retained
-retry keys. No tool grants review or publication authority.
-
-Upload prepare/get return credential-free progress, exact manifest and upload ID.
-Programmatic finalization may supply a canonical base64 archive up to 4 MiB; the
-server verifies the prepared size/digest and current owner before storing bytes.
-The hosted body limit is 6 MiB only when that upload tool is explicitly enabled;
-other hosted deployments retain 128 KiB. Archive arguments belong in code, not
-model-generated prose. No caller filesystem path is resolved by the hosted server.
-An uncertain mutation retains its original identity; inspect status/recovery before
-repeating. Finalization seals bytes; it never attests rights or submits research.
+- [Documentation](https://docs.usesynth.ai)
+- [Changelog](CHANGELOG.md)
+- [Issues](https://github.com/synth-laboratories/synth-ai/issues)

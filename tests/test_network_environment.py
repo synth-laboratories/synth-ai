@@ -87,10 +87,10 @@ async def test_owned_requests_honor_proxy_ca_and_never_netrc(
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", exchange)
     if async_mode:
         async with AsyncSynthClient(api_key="fixture", base_url="https://backend.test") as client:
-            result = await client.index.searches.list(limit=1)
+            result = await client.hidden("index").searches.list(limit=1)
     else:
         with SynthClient(api_key="fixture", base_url="https://backend.test") as client:
-            result = client.index.searches.list(limit=1)
+            result = client.hidden("index").searches.list(limit=1)
     assert result.complete and len(routes) == 2
     assert set(routes) == {"AsyncConnectionPool" if bypass else "AsyncHTTPProxy"}
     expected = {"cafile": str(certificate)} if ca != "dir" else {"capath": str(directory)}
@@ -111,7 +111,7 @@ async def test_borrowed_auth_does_not_replace_sdk_key(async_mode):
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            await client.index.searches.list(limit=1)
+            await client.hidden("index").searches.list(limit=1)
     else:
         with (
             httpx.Client(
@@ -123,7 +123,7 @@ async def test_borrowed_auth_does_not_replace_sdk_key(async_mode):
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            client.index.searches.list(limit=1)
+            client.hidden("index").searches.list(limit=1)
     assert all("Authorization" not in request.headers for request in handler.capability_requests)
     assert all(request.headers["Authorization"] == "Bearer fixture" for request in handler.requests)
 

@@ -123,7 +123,7 @@ def test_families_reads_the_typed_catalogue():
         return httpx.Response(200, headers={"X-Synth-Contract": "swarms.v1"}, json=FAMILIES)
 
     with sync_client(respond) as client:
-        result = client.swarms.families()
+        result = client.hidden("swarms_legacy").families()
     assert [(r.method, r.url.path) for r in requests] == [("GET", "/api/v1/swarms/families")]
     assert [(f.id, f.version, f.research_binding) for f in result.families] == [
         ("swarms.general", 1, "forbidden"),
@@ -138,7 +138,7 @@ def test_families_refuses_a_duplicate_family_version():
         return httpx.Response(200, headers={"X-Synth-Contract": "swarms.v1"}, json=duplicate)
 
     with sync_client(respond) as client, pytest.raises(ContractError):
-        client.swarms.families()
+        client.hidden("swarms_legacy").families()
 
 
 def test_mcp_lists_families_and_forwards_the_program_choice():

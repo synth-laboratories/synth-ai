@@ -84,10 +84,10 @@ def test_sdk_preflight_and_create_carry_typed_rate_limits(async_mode):
 
     async def steps(client, wait):
         preview = await wait(
-            client.swarms.preflight(message="m", project_id="project-test", limits=LIMITS)
+            client.hidden("swarms_legacy").preflight(message="m", project_id="project-test", limits=LIMITS)
         )
         run = await wait(
-            client.swarms.create(
+            client.hidden("swarms_legacy").create(
                 message="m",
                 project_id="project-test",
                 limits=LIMITS,
@@ -111,10 +111,10 @@ def test_sdk_preflight_and_create_carry_typed_rate_limits(async_mode):
 def test_absent_headers_give_empty_rate_limits(async_mode):
     async def steps(client, wait):
         preview = await wait(
-            client.swarms.preflight(message="m", project_id="project-test", limits=LIMITS)
+            client.hidden("swarms_legacy").preflight(message="m", project_id="project-test", limits=LIMITS)
         )
         run = await wait(
-            client.swarms.create(message="m", project_id="project-test", limits=LIMITS)
+            client.hidden("swarms_legacy").create(message="m", project_id="project-test", limits=LIMITS)
         )
         return preview, run
 
@@ -127,7 +127,7 @@ def test_caller_supplied_response_metadata_is_filled_and_reused():
     caller = ResponseMetadata()
 
     async def steps(client, wait):
-        return client.swarms.preflight(
+        return client.hidden("swarms_legacy").preflight(
             message="m",
             project_id="project-test",
             limits=LIMITS,

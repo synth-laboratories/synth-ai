@@ -9,7 +9,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.index_types import ForgeIndexDraftUploadResponse
@@ -126,19 +126,19 @@ def test_upload_retry_and_get_preserve_custody(async_mode):
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            first = await client.forge.index_drafts.upload(
+            first = await client.hidden("forge").index_drafts.upload(
                 PROJECT,
                 DRAFT,
                 DESCRIPTOR,
                 mutation=MutationOptions(idempotency_key="original-upload"),
             )
-            again = await client.forge.index_drafts.upload(
+            again = await client.hidden("forge").index_drafts.upload(
                 PROJECT,
                 DRAFT,
                 DESCRIPTOR,
                 mutation=MutationOptions(idempotency_key="original-upload"),
             )
-            found = await client.forge.index_drafts.upload_get(PROJECT, DRAFT, OPERATION)
+            found = await client.hidden("forge").index_drafts.upload_get(PROJECT, DRAFT, OPERATION)
             assert first.package == again.package == found.package
 
     if async_mode:
@@ -152,25 +152,25 @@ def test_upload_retry_and_get_preserve_custody(async_mode):
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            first = client.forge.index_drafts.upload(
+            first = client.hidden("forge").index_drafts.upload(
                 PROJECT,
                 DRAFT,
                 DESCRIPTOR,
                 mutation=MutationOptions(idempotency_key="original-upload"),
             )
-            again = client.forge.index_drafts.upload(
+            again = client.hidden("forge").index_drafts.upload(
                 PROJECT,
                 DRAFT,
                 DESCRIPTOR,
                 mutation=MutationOptions(idempotency_key="original-upload"),
             )
-            found = client.forge.index_drafts.upload_get(PROJECT, DRAFT, OPERATION)
+            found = client.hidden("forge").index_drafts.upload_get(PROJECT, DRAFT, OPERATION)
             assert first.package == again.package == found.package
     assert len(calls) == 3 and calls[0].content == calls[1].content
 
 
 def test_upload_mcp_grants_and_author_only_contract():
-    tool = BY_NAME["forge_index_draft_upload"]
+    tool = ALL_BY_NAME["forge_index_draft_upload"]
     args = {
         "project_id": PROJECT,
         "draft_operation_id": DRAFT,
@@ -212,4 +212,4 @@ def test_upload_receipt_rejects_foreign_draft():
         ) as client,
         pytest.raises(ContractError, match="different private upload receipt"),
     ):
-        client.forge.index_drafts.upload_get(PROJECT, DRAFT, OPERATION)
+        client.hidden("forge").index_drafts.upload_get(PROJECT, DRAFT, OPERATION)

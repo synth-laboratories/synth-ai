@@ -53,28 +53,28 @@ class ForgeCaptureCollect(ForgeCaptureRead):
 
 
 async def capture_collect(client, args):
-    return await client.forge.captures.collect(args.project_id, args.digest, args.execution,
+    return await client.hidden("forge").captures.collect(args.project_id, args.digest, args.execution,
         orchestra_run_id=args.orchestra_run_id, orchestra_program_scope=args.orchestra_program_scope,
         mloky_relay_sha256=args.mloky_relay_sha256,
         mutation=MutationOptions(idempotency_key=args.idempotency_key))
 
 
 async def capture_admit(client, args):
-    return await client.forge.captures.admit(args.project_id, args.request, args.profile,
+    return await client.hidden("forge").captures.admit(args.project_id, args.request, args.profile,
         require_owner_protection=args.require_owner_protection,
         mutation=MutationOptions(idempotency_key=args.idempotency_key))
 
 
 async def capture_get(client, args):
-    return await client.forge.captures.get(args.project_id, args.digest)
+    return await client.hidden("forge").captures.get(args.project_id, args.digest)
 
 
 async def capture_retained(client, args):
-    return await client.forge.captures.retained(args.project_id, after=args.after, limit=args.limit)
+    return await client.hidden("forge").captures.retained(args.project_id, after=args.after, limit=args.limit)
 
 
 async def capture_release(client, args):
-    return await client.forge.captures.release(args.project_id, args.digest, args.reason,
+    return await client.hidden("forge").captures.release(args.project_id, args.digest, args.reason,
         mutation=MutationOptions(idempotency_key=args.idempotency_key))
 
 
@@ -133,7 +133,7 @@ class ForgeIndexDraftCreate(ForgeIndexDraftRequest, ForgeProjectIdentity):
 
 
 async def index_draft_create(client, args):
-    return await client.forge.index_drafts.create(
+    return await client.hidden("forge").index_drafts.create(
         args.project_id,
         args.export_revision,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -141,27 +141,27 @@ async def index_draft_create(client, args):
 
 
 async def index_draft_get(client, args):
-    return await client.forge.index_drafts.get(args.project_id, args.operation_id)
+    return await client.hidden("forge").index_drafts.get(args.project_id, args.operation_id)
 
 
 async def index_draft_notices(client, args):
-    return await client.forge.index_drafts.notices(
+    return await client.hidden("forge").index_drafts.notices(
         args.project_id, args.operation_id, after=args.after, limit=args.limit
     )
 
 
 async def record_get(client, args):
-    return await client.forge.records.get(args.project_id, args.record_id, revision=args.revision)
+    return await client.hidden("forge").records.get(args.project_id, args.record_id, revision=args.revision)
 
 
 async def artifact_evidence_get(client, args):
-    return await client.forge.records.artifact_evidence(
+    return await client.hidden("forge").records.artifact_evidence(
         args.project_id, args.record_id, revision=args.revision
     )
 
 
 async def record_write(client, args):
-    return await client.forge.records.write(
+    return await client.hidden("forge").records.write(
         args.project_id,
         args.record_id,
         args.payload,
@@ -171,19 +171,19 @@ async def record_write(client, args):
 
 
 async def receipt_get(client, args):
-    return await client.forge.receipts.get(args.project_id, args.operation_id)
+    return await client.hidden("forge").receipts.get(args.project_id, args.operation_id)
 
 
 async def list_projects(client, args):
-    return await client.forge.projects.list(after=args.after, limit=args.limit)
+    return await client.hidden("forge").projects.list(after=args.after, limit=args.limit)
 
 
 async def get(client, args):
-    return await client.forge.projects.get(args.project_id)
+    return await client.hidden("forge").projects.get(args.project_id)
 
 
 async def create(client, args):
-    return await client.forge.projects.create(
+    return await client.hidden("forge").projects.create(
         project_id=args.project_id,
         title=args.title,
         objective=args.objective,
@@ -192,7 +192,7 @@ async def create(client, args):
 
 
 async def update(client, args):
-    return await client.forge.projects.update(
+    return await client.hidden("forge").projects.update(
         args.project_id,
         title=args.title,
         objective=args.objective,
@@ -202,7 +202,7 @@ async def update(client, args):
 
 
 async def archive(client, args):
-    return await client.forge.projects.archive(
+    return await client.hidden("forge").projects.archive(
         args.project_id,
         archived=args.archived,
         expected_revision=args.expected_revision,
@@ -211,7 +211,7 @@ async def archive(client, args):
 
 
 async def members(client, args):
-    return await client.forge.projects.members(
+    return await client.hidden("forge").projects.members(
         args.project_id,
         members=args.members,
         expected_revision=args.expected_revision,
@@ -229,7 +229,7 @@ class ForgeIndexDraftUploadRead(ForgeReceiptRead):
 
 
 async def index_draft_upload(client, args):
-    return await client.forge.index_drafts.upload(
+    return await client.hidden("forge").index_drafts.upload(
         args.project_id,
         args.draft_operation_id,
         args.descriptor,
@@ -238,7 +238,7 @@ async def index_draft_upload(client, args):
 
 
 async def index_draft_upload_get(client, args):
-    return await client.forge.index_drafts.upload_get(
+    return await client.hidden("forge").index_drafts.upload_get(
         args.project_id, args.draft_operation_id, args.operation_id
     )
 
@@ -254,7 +254,7 @@ class ForgeReportRevokeInactive(ForgeProjectIdentity):
 
 
 async def report_publish(client, args):
-    return await client.forge.reports.publish(
+    return await client.hidden("forge").reports.publish(
         args.project_id,
         args.version,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -262,7 +262,7 @@ async def report_publish(client, args):
 
 
 async def report_revoke_inactive(client, args):
-    return await client.forge.reports.revoke_inactive(
+    return await client.hidden("forge").reports.revoke_inactive(
         args.project_id,
         args.lineage_id,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -301,7 +301,7 @@ class ForgeReportShareList(ForgeProjectIdentity):
 
 
 async def report_share(client, args):
-    return await client.forge.reports.share(
+    return await client.hidden("forge").reports.share(
         args.project_id,
         args.digest,
         audience=args.audience,
@@ -312,17 +312,17 @@ async def report_share(client, args):
 
 
 async def report_share_get(client, args):
-    return await client.forge.reports.get_share(args.project_id, args.digest)
+    return await client.hidden("forge").reports.get_share(args.project_id, args.digest)
 
 
 async def report_share_list(client, args):
-    return await client.forge.reports.list_shares(
+    return await client.hidden("forge").reports.list_shares(
         args.project_id, after=args.after, limit=args.limit
     )
 
 
 async def report_share_revoke(client, args):
-    return await client.forge.reports.revoke_share(
+    return await client.hidden("forge").reports.revoke_share(
         args.project_id,
         args.digest,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -344,24 +344,24 @@ class ForgeReportExport(ForgeProjectIdentity):
 
 
 async def report_browse(client, args):
-    return await client.forge.reports.browse(args.project_id, after=args.after, limit=args.limit)
+    return await client.hidden("forge").reports.browse(args.project_id, after=args.after, limit=args.limit)
 
 
 async def report_open(client, args):
-    return await client.forge.reports.open(args.project_id, args.digest)
+    return await client.hidden("forge").reports.open(args.project_id, args.digest)
 
 
 async def report_compare(client, args):
-    return await client.forge.reports.compare(args.project_id, args.digest, args.other_digest)
+    return await client.hidden("forge").reports.compare(args.project_id, args.digest, args.other_digest)
 
 
 async def report_export(client, args):
-    return await client.forge.reports.export(args.project_id, args.digests)
+    return await client.hidden("forge").reports.export(args.project_id, args.digests)
 
 
 async def report_availability(client, args):
-    return await client.forge.reports.availability(args.project_id, args.digest)
+    return await client.hidden("forge").reports.availability(args.project_id, args.digest)
 
 
 async def report_artifact(client, args):
-    return await client.forge.reports.read_artifact(args.project_id, args.digest, args.artifact_id)
+    return await client.hidden("forge").reports.read_artifact(args.project_id, args.digest, args.artifact_id)

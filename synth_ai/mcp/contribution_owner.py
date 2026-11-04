@@ -33,7 +33,7 @@ class ContributionCorrect(ResearchCorrection, ContributionIdentity):
 
 
 async def create(client, args):
-    return await client.index.contributions.create(
+    return await client.hidden("index").contributions.create(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
     )
 
@@ -43,7 +43,7 @@ def intent(args, model):
 
 
 async def update(client, args):
-    return await client.index.contributions.update(
+    return await client.hidden("index").contributions.update(
         args.contribution_id,
         draft=intent(args, ContributionDraft),
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -51,7 +51,7 @@ async def update(client, args):
 
 
 async def attest(client, args):
-    return await client.index.contributions.attest(
+    return await client.hidden("index").contributions.attest(
         args.contribution_id,
         attestation=intent(args, RightsAttestation),
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -59,7 +59,7 @@ async def attest(client, args):
 
 
 async def correct(client, args):
-    return await client.index.contributions.correct(
+    return await client.hidden("index").contributions.correct(
         args.contribution_id,
         correction=intent(args, ResearchCorrection),
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -67,7 +67,7 @@ async def correct(client, args):
 
 
 async def submit(client, args):
-    return await client.index.contributions.submit(
+    return await client.hidden("index").contributions.submit(
         args.contribution_id,
         revision=args.revision_id,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -75,4 +75,4 @@ async def submit(client, args):
 
 
 async def get(client, args):
-    return await client.index.contributions.get_owner(args.contribution_id)
+    return await client.hidden("index").contributions.get_owner(args.contribution_id)

@@ -7,7 +7,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
 from tests.test_forge_workspaces import receipt_and_headers
@@ -82,9 +82,9 @@ def test_artifact_evidence_exact_identity_and_legacy_absence(async_mode, changed
         ):
             if changed:
                 with pytest.raises(ContractError):
-                    await client.forge.records.artifact_evidence(PROJECT, "material", revision=1)
+                    await client.hidden("forge").records.artifact_evidence(PROJECT, "material", revision=1)
             else:
-                tool = BY_NAME["forge_artifact_evidence_get"]
+                tool = ALL_BY_NAME["forge_artifact_evidence_get"]
                 result = await tool.invoke(
                     client, {"project_id": PROJECT, "record_id": "material", "revision": 1}
                 )
@@ -103,9 +103,9 @@ def test_artifact_evidence_exact_identity_and_legacy_absence(async_mode, changed
         ):
             if changed:
                 with pytest.raises(ContractError):
-                    client.forge.records.artifact_evidence(PROJECT, "material", revision=1)
+                    client.hidden("forge").records.artifact_evidence(PROJECT, "material", revision=1)
             else:
-                result = client.forge.records.artifact_evidence(PROJECT, "material", revision=1)
+                result = client.hidden("forge").records.artifact_evidence(PROJECT, "material", revision=1)
                 assert result.artifact_evidence.verification_reference is None
     assert len(calls) == 1
     assert calls[0].url.path.endswith("/records/material/artifact-evidence")
@@ -114,7 +114,7 @@ def test_artifact_evidence_exact_identity_and_legacy_absence(async_mode, changed
 
 
 def test_mcp_evidence_read_cannot_supply_authority_or_past_receipt():
-    tool = BY_NAME["forge_artifact_evidence_get"]
+    tool = ALL_BY_NAME["forge_artifact_evidence_get"]
     assert tool.scope == "forge:read" and not tool.paid
     for field in ("principal", "authorization", "evidence", "credential_id"):
         with pytest.raises(ValueError):

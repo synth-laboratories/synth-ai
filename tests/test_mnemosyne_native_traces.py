@@ -151,7 +151,7 @@ def test_native_trace_list_get_and_verified_download(async_mode):
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            native = client.mnemosyne.native_traces
+            native = client.hidden("mnemosyne").native_traces
             assert (await native.list(PROJECT)).data.items[0].run_id is None
             assert (
                 await native.get(PROJECT, IDENTIFIER)
@@ -169,7 +169,7 @@ def test_native_trace_list_get_and_verified_download(async_mode):
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            native = client.mnemosyne.native_traces
+            native = client.hidden("mnemosyne").native_traces
             assert native.list(PROJECT).data.items[0].run_id is None
             assert native.get(PROJECT, IDENTIFIER).data.association_id == IDENTIFIER
             assert native.download(PROJECT, IDENTIFIER) == BODY
@@ -190,7 +190,7 @@ def test_download_refuses_misbound_or_changed_content(corruption):
         ) as client,
         pytest.raises(ContractError),
     ):
-        client.mnemosyne.native_traces.download(PROJECT, IDENTIFIER)
+        client.hidden("mnemosyne").native_traces.download(PROJECT, IDENTIFIER)
 
 
 def test_missing_capability_refuses_before_owner_call():
@@ -204,7 +204,7 @@ def test_missing_capability_refuses_before_owner_call():
         ) as client,
         pytest.raises(UnsupportedOperationError),
     ):
-        client.mnemosyne.native_traces.list(PROJECT)
+        client.hidden("mnemosyne").native_traces.list(PROJECT)
     assert calls == []
 
 

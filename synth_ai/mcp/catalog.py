@@ -20,9 +20,12 @@ from synth_ai.contracts import swarms as swarm_operations
 from synth_ai.contracts.operations import Operation
 from synth_ai.contracts.registry import mutation_scope
 from synth_ai.options import MutationOptions
+from synth_ai.products import PUBLIC_PRODUCTS, tool_product
 from synth_ai.sdk.forge.capture_types import (
-    CaptureAdmittedResponse, CaptureRetainedResponse, CaptureRetainedListResponse,
+    CaptureAdmittedResponse,
     CaptureCollectedResponse,
+    CaptureRetainedListResponse,
+    CaptureRetainedResponse,
 )
 from synth_ai.sdk.forge.index_types import (
     ForgeIndexDraftNoticesResponse,
@@ -243,13 +246,13 @@ async def account_entitlements(
 
 
 async def retention_get(client: AsyncSynthClient, args: EmptyArguments) -> RetentionPolicy:
-    return await client.index.retention.get()
+    return await client.hidden("index").retention.get()
 
 
 async def retention_update(
     client: AsyncSynthClient, args: RetentionPolicyMutation
 ) -> RetentionPolicy:
-    return await client.index.retention.update(
+    return await client.hidden("index").retention.update(
         default_mode=args.default_mode,
         allowed_modes=args.allowed_modes,
         enforced=args.enforced,
@@ -259,11 +262,11 @@ async def retention_update(
 
 
 async def public_search(client: AsyncSynthClient, args: PublicSearchArguments) -> SearchResponse:
-    return await client.index.search(args.query, options=args.options)
+    return await client.hidden("index").search(args.query, options=args.options)
 
 
 async def search(client: AsyncSynthClient, args: SearchArguments) -> SearchResponse:
-    return await client.index.search(
+    return await client.hidden("index").search(
         args.query,
         options=args.options,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -271,7 +274,7 @@ async def search(client: AsyncSynthClient, args: SearchArguments) -> SearchRespo
 
 
 async def create_search(client: AsyncSynthClient, args: SearchCreate) -> SearchCreated:
-    run = await client.index.searches.create(
+    run = await client.hidden("index").searches.create(
         args.query,
         options=args.options,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -280,15 +283,15 @@ async def create_search(client: AsyncSynthClient, args: SearchCreate) -> SearchC
 
 
 async def search_status(client: AsyncSynthClient, args: SearchIdentity) -> SearchSnapshot:
-    return await (await client.index.searches.get(args.search_id)).status()
+    return await (await client.hidden("index").searches.get(args.search_id)).status()
 
 
 async def search_result(client: AsyncSynthClient, args: SearchIdentity) -> SearchResponse:
-    return await (await client.index.searches.get(args.search_id)).result()
+    return await (await client.hidden("index").searches.get(args.search_id)).result()
 
 
 async def search_list(client: AsyncSynthClient, args: PageArguments) -> Page[SearchSnapshot]:
-    return await client.index.searches.list(
+    return await client.hidden("index").searches.list(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
     )
 
@@ -296,7 +299,7 @@ async def search_list(client: AsyncSynthClient, args: PageArguments) -> Page[Sea
 async def public_contributions(
     client: AsyncSynthClient, args: PublicContributionsArguments
 ) -> Page[Contribution]:
-    return await client.index.contributions.list(
+    return await client.hidden("index").contributions.list(
         limit=args.limit,
         cursor=PageCursor(args.cursor) if args.cursor else None,
         filter=args.filter,
@@ -304,13 +307,13 @@ async def public_contributions(
 
 
 async def public_contribution(client: AsyncSynthClient, args: ContributionIdentity) -> Contribution:
-    return await client.index.contributions.get(args.contribution_id)
+    return await client.hidden("index").contributions.get(args.contribution_id)
 
 
 async def search_history(
     client: AsyncSynthClient, args: SearchHistoryArguments
 ) -> SearchHistoryPage:
-    return await client.index.searches.history(
+    return await client.hidden("index").searches.history(
         limit=args.limit,
         cursor=PageCursor(args.cursor) if args.cursor else None,
         filter=args.filter,
@@ -320,7 +323,7 @@ async def search_history(
 async def delete_search_history(
     client: AsyncSynthClient, args: SearchHistoryMutation
 ) -> SearchHistoryDeletionReceipt:
-    return await (await client.index.searches.get(args.search_id)).delete_history(
+    return await (await client.hidden("index").searches.get(args.search_id)).delete_history(
         expected_archive_digest_sha256=args.expected_archive_digest_sha256,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
     )
@@ -329,29 +332,29 @@ async def delete_search_history(
 async def search_events(
     client: AsyncSynthClient, args: SearchPage
 ) -> Page[SearchEvent, EventCursor]:
-    return await (await client.index.searches.get(args.search_id)).event_page(
+    return await (await client.hidden("index").searches.get(args.search_id)).event_page(
         limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
     )
 
 
 async def search_usage(client: AsyncSynthClient, args: SearchIdentity) -> UsageSummary:
-    return await (await client.index.searches.get(args.search_id)).usage()
+    return await (await client.hidden("index").searches.get(args.search_id)).usage()
 
 
 async def search_usage_items(client: AsyncSynthClient, args: SearchPage) -> Page[UsageOperation]:
-    return await (await client.index.searches.get(args.search_id)).usage_operations(
+    return await (await client.hidden("index").searches.get(args.search_id)).usage_operations(
         limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
     )
 
 
 async def search_cancel(client: AsyncSynthClient, args: SearchMutation) -> ControlReceipt:
-    return await (await client.index.searches.get(args.search_id)).cancel(
+    return await (await client.hidden("index").searches.get(args.search_id)).cancel(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
     )
 
 
 async def content(client: AsyncSynthClient, args: ContentArguments) -> ContentResponse:
-    return await client.index.contents.get(args.reference, options=args.options)
+    return await client.hidden("index").contents.get(args.reference, options=args.options)
 
 
 async def recovery(client: AsyncSynthClient, args: Recovery) -> MutationResolution:
@@ -539,7 +542,7 @@ async def file(client: AsyncSynthClient, args: FileIdentity) -> File:
 
 
 async def search_control(client: AsyncSynthClient, args: SearchControl) -> ControlReceipt:
-    return await (await client.index.searches.get(args.search_id)).control(args.operation_id)
+    return await (await client.hidden("index").searches.get(args.search_id)).control(args.operation_id)
 
 
 async def run_control(client: AsyncSynthClient, args: RunControl) -> ControlReceipt:
@@ -554,7 +557,7 @@ async def deliver_search_events(
 
     from .progress import publish_progress
 
-    run = AsyncSearchRun(client.index._transport, args.search_id, expected_retention="zdr_strict")
+    run = AsyncSearchRun(client.hidden("index")._transport, args.search_id, expected_retention="zdr_strict")
     async with run.deliver_events(
         original_request=args.request,
         creation_key=args.creation_key,
@@ -585,7 +588,7 @@ ACCOUNT_SNAPSHOT = Operation(
 )
 
 
-TOOLS: tuple[ToolSpec, ...] = (
+ALL_TOOLS: tuple[ToolSpec, ...] = (
     ToolDefinition(
         "mnemosyne_evaluation_evidence_capabilities",
         evidence_operations.CAPABILITIES,
@@ -1361,4 +1364,10 @@ TOOLS: tuple[ToolSpec, ...] = (
         file,
     ),
 )
+# Public catalog: only tools whose product is in PUBLIC_PRODUCTS. The hosted MCP
+# admits operations by BY_NAME, so this also trims the hosted catalog.
+TOOLS: tuple[ToolSpec, ...] = tuple(
+    tool for tool in ALL_TOOLS if tool_product(tool.name) in PUBLIC_PRODUCTS
+)
 BY_NAME = {tool.name: tool for tool in TOOLS}
+ALL_BY_NAME = {tool.name: tool for tool in ALL_TOOLS}

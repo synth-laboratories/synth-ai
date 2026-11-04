@@ -8,7 +8,7 @@ import pytest
 
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts.forge import CAPTURE_OPERATIONS
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.captures import intent_reference
 from synth_ai.sdk.forge.contracts.capture import CaptureAdmissionRequest
@@ -79,7 +79,7 @@ def test_admit_read_page_release_preserves_exact_intent_and_retry_body(async_mod
         async def run():
             async with httpx.AsyncClient(transport=transport) as network, AsyncSynthClient(
                 api_key="fixture", base_url="https://backend.test", options=ClientOptions(async_http_client=network)) as client:
-                captures = client.forge.captures
+                captures = client.hidden("forge").captures
                 await captures.admit(PROJECT, request, profile, mutation=mutation)
                 await captures.admit(PROJECT, request, profile, mutation=mutation)
                 assert (await captures.get(PROJECT, digest)).capture.released is False
@@ -89,7 +89,7 @@ def test_admit_read_page_release_preserves_exact_intent_and_retry_body(async_mod
     else:
         with httpx.Client(transport=transport) as network, SynthClient(api_key="fixture", base_url="https://backend.test",
                 options=ClientOptions(http_client=network)) as client:
-            captures = client.forge.captures
+            captures = client.hidden("forge").captures
             captures.admit(PROJECT, request, profile, mutation=mutation)
             captures.admit(PROJECT, request, profile, mutation=mutation)
             assert captures.get(PROJECT, digest).capture.released is False
@@ -119,9 +119,9 @@ def test_async_and_mcp_collect_forward_same_execution_context_and_identity():
     async def run():
         async with httpx.AsyncClient(transport=transport) as network, AsyncSynthClient(
             api_key="fixture", base_url="https://backend.test", options=ClientOptions(async_http_client=network)) as client:
-            first = await client.forge.captures.collect(PROJECT, digest, execution,
+            first = await client.hidden("forge").captures.collect(PROJECT, digest, execution,
                 orchestra_run_id="run-1", mutation=MutationOptions(idempotency_key="stable-capture"))
-            tool = BY_NAME["forge_capture_collect"]
+            tool = ALL_BY_NAME["forge_capture_collect"]
             second = await tool.execute(client, tool.request.model_validate(dict(project_id=PROJECT,
                 digest=digest, execution=execution, orchestra_run_id="run-1", idempotency_key="stable-capture")))
             assert first.inventory == second.inventory

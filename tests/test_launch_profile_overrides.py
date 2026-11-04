@@ -220,7 +220,7 @@ def test_create_sends_the_overrides_and_requires_the_frozen_readback():
         )
 
     with sync_client(respond) as client:
-        run = client.swarms.create(
+        run = client.hidden("swarms_legacy").create(
             message="m", project_id="p", limits=LIMITS, profile_overrides=OVERRIDES
         )
     assert sent[0]["profile_overrides"] == OVERRIDES.model_dump(mode="json")
@@ -231,7 +231,7 @@ def test_create_sends_the_overrides_and_requires_the_frozen_readback():
 
     # An older server that ignores the field is a mismatch, never a silent default.
     with sync_client(ignored) as client, pytest.raises(OutcomeUncertainError):
-        client.swarms.create(
+        client.hidden("swarms_legacy").create(
             message="m", project_id="p", limits=LIMITS, profile_overrides=OVERRIDES
         )
 

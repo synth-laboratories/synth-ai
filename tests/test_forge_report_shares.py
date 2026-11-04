@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import OutcomeUncertainError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.types import ReportShareIntent
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
@@ -93,14 +93,14 @@ def test_sync_share_get_list_revoke_round_trip_with_expiry():
     transport, calls = wire()
     network, client = client_for(transport)
     with network, client:
-        created = client.forge.reports.share(
+        created = client.hidden("forge").reports.share(
             PROJECT, DIGEST, audience="invited", invited=[INVITED], expires_at=EXPIRES
         )
         assert created.share.expires_at == EXPIRES and created.share.expired is False
-        assert client.forge.reports.get_share(PROJECT, DIGEST).share.audience == "invited"
-        page = client.forge.reports.list_shares(PROJECT, limit=10)
+        assert client.hidden("forge").reports.get_share(PROJECT, DIGEST).share.audience == "invited"
+        page = client.hidden("forge").reports.list_shares(PROJECT, limit=10)
         assert [item.expired for item in page.shares] == [False, True]
-        assert client.forge.reports.revoke_share(PROJECT, DIGEST).share.version_sha256 == DIGEST
+        assert client.hidden("forge").reports.revoke_share(PROJECT, DIGEST).share.version_sha256 == DIGEST
     put, get, listed, revoke = calls
     assert (put.method, put.url.path) == (
         "PUT",
@@ -123,9 +123,9 @@ def test_a_different_share_in_the_response_is_uncertain():
     network, client = client_for(transport)
     with network, client:
         with pytest.raises(OutcomeUncertainError):
-            client.forge.reports.share(PROJECT, DIGEST, audience="organization")
+            client.hidden("forge").reports.share(PROJECT, DIGEST, audience="organization")
         with pytest.raises(OutcomeUncertainError):
-            client.forge.reports.revoke_share(PROJECT, DIGEST)
+            client.hidden("forge").reports.revoke_share(PROJECT, DIGEST)
 
 
 @pytest.mark.parametrize("audience", ["public", "unlisted", "link", "anyone"])
@@ -133,7 +133,7 @@ def test_no_public_or_unlisted_audience_exists_in_the_client(audience):
     with pytest.raises(ValueError):
         ReportShareIntent(operation_id="k", audience=audience)
     with pytest.raises(ValueError):
-        BY_NAME["forge_report_share"].validate_arguments(
+        ALL_BY_NAME["forge_report_share"].validate_arguments(
             {"project_id": PROJECT, "digest": DIGEST, "audience": audience, "idempotency_key": "k"}
         )
 
@@ -143,12 +143,12 @@ def test_expiry_must_be_timezone_aware():
     network, client = client_for(transport)
     with network, client:
         with pytest.raises(ValueError):
-            client.forge.reports.share(
+            client.hidden("forge").reports.share(
                 PROJECT, DIGEST, audience="organization", expires_at=datetime(2030, 1, 1)
             )
     assert calls == []
     with pytest.raises(ValueError):
-        BY_NAME["forge_report_share"].validate_arguments(
+        ALL_BY_NAME["forge_report_share"].validate_arguments(
             {
                 "project_id": PROJECT,
                 "digest": DIGEST,
@@ -173,15 +173,15 @@ def test_stdio_mcp_share_tools_call_the_public_routes():
             ) as client,
         ):
             base = {"project_id": PROJECT, "digest": DIGEST}
-            created = await BY_NAME["forge_report_share"].invoke(
+            created = await ALL_BY_NAME["forge_report_share"].invoke(
                 client,
                 {**base, "audience": "organization", "expires_at": later, "idempotency_key": "s1"},
             )
-            got = await BY_NAME["forge_report_share_get"].invoke(client, base)
-            listed = await BY_NAME["forge_report_shares_list"].invoke(
+            got = await ALL_BY_NAME["forge_report_share_get"].invoke(client, base)
+            listed = await ALL_BY_NAME["forge_report_shares_list"].invoke(
                 client, {"project_id": PROJECT}
             )
-            revoked = await BY_NAME["forge_report_share_revoke"].invoke(
+            revoked = await ALL_BY_NAME["forge_report_share_revoke"].invoke(
                 client, {**base, "idempotency_key": "r1"}
             )
             return created, got, listed, revoked
@@ -206,4 +206,4 @@ def test_share_tools_carry_no_authority_fields():
     base = {"project_id": PROJECT, "digest": DIGEST, "idempotency_key": "k"}
     for field in ("principal", "owner", "authorization", "acting_credential", "visibility"):
         with pytest.raises(ValueError):
-            BY_NAME["forge_report_share_revoke"].validate_arguments({**base, field: "invented"})
+            ALL_BY_NAME["forge_report_share_revoke"].validate_arguments({**base, field: "invented"})

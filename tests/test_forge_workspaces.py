@@ -9,7 +9,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts.fingerprint import schema_sha256
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.contracts.contracts import contract_digest
 from synth_ai.sdk.forge.contracts.projects import (
@@ -133,12 +133,12 @@ def test_both_clients_keep_original_create_identity_and_normalized_body(async_mo
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            first = await client.forge.projects.create(
+            first = await client.hidden("forge").projects.create(
                 title="Study",
                 objective="Compare",
                 mutation=MutationOptions(idempotency_key="original-create"),
             )
-            again = await client.forge.projects.create(
+            again = await client.hidden("forge").projects.create(
                 title="Study",
                 objective="Compare",
                 mutation=MutationOptions(idempotency_key="original-create"),
@@ -156,12 +156,12 @@ def test_both_clients_keep_original_create_identity_and_normalized_body(async_mo
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            first = client.forge.projects.create(
+            first = client.hidden("forge").projects.create(
                 title="Study",
                 objective="Compare",
                 mutation=MutationOptions(idempotency_key="original-create"),
             )
-            again = client.forge.projects.create(
+            again = client.hidden("forge").projects.create(
                 title="Study",
                 objective="Compare",
                 mutation=MutationOptions(idempotency_key="original-create"),
@@ -171,7 +171,7 @@ def test_both_clients_keep_original_create_identity_and_normalized_body(async_mo
 
 
 def test_forge_mcp_inputs_cannot_select_original_identity_and_skill_is_exact():
-    tool = BY_NAME["forge_project_create"]
+    tool = ALL_BY_NAME["forge_project_create"]
     with pytest.raises(ValueError):
         tool.validate_arguments(
             {
@@ -192,7 +192,7 @@ def test_forge_mcp_inputs_cannot_select_original_identity_and_skill_is_exact():
 
 
 def test_research_notebook_actor_examples_use_the_actual_mcp_contract():
-    tool = BY_NAME["forge_record_write"]
+    tool = ALL_BY_NAME["forge_record_write"]
     project = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     log_ref = {"authority": "forge", "kind": "research_log", "record_id": "log", "revision": "1", "digest_sha256": "a" * 64}
     entry_ref = {"authority": "forge", "kind": "log_entry", "record_id": "entry", "revision": "1", "digest_sha256": "b" * 64}
@@ -215,7 +215,7 @@ def test_project_discovery_uses_negotiated_read_only_api(async_mode):
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            return await client.forge.projects.list(limit=2)
+            return await client.hidden("forge").projects.list(limit=2)
 
     if async_mode:
         response = asyncio.run(run_async())
@@ -228,9 +228,9 @@ def test_project_discovery_uses_negotiated_read_only_api(async_mode):
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            response = client.forge.projects.list(limit=2)
+            response = client.hidden("forge").projects.list(limit=2)
     assert response.page.projects[0].title == "Research"
     assert response.page.next_cursor is None
     assert len(calls) == 1 and calls[0].method == "GET"
     assert calls[0].url.params["limit"] == "2"
-    assert BY_NAME["forge_project_list"].operation == "forge.projects.list"
+    assert ALL_BY_NAME["forge_project_list"].operation == "forge.projects.list"

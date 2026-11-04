@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import OutcomeUncertainError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.contracts.contracts import ExactReference, Producer, Scope, contract_digest
 from synth_ai.sdk.forge.contracts.operations import RecordRevision
@@ -114,13 +114,13 @@ def test_sync_client_treats_a_different_digest_or_lineage_as_uncertain(changed):
     ):
         if changed:
             with pytest.raises(OutcomeUncertainError):
-                client.forge.reports.publish(PROJECT, RETRACTION)
+                client.hidden("forge").reports.publish(PROJECT, RETRACTION)
             with pytest.raises(OutcomeUncertainError):
-                client.forge.reports.revoke_inactive(PROJECT, FIRST.lineage_id)
+                client.hidden("forge").reports.revoke_inactive(PROJECT, FIRST.lineage_id)
         else:
-            result = client.forge.reports.publish(PROJECT, RETRACTION)
+            result = client.hidden("forge").reports.publish(PROJECT, RETRACTION)
             assert result.publication.version_sha256 == version_digest(RETRACTION)
-            report = client.forge.reports.revoke_inactive(PROJECT, FIRST.lineage_id)
+            report = client.hidden("forge").reports.revoke_inactive(PROJECT, FIRST.lineage_id)
             assert report.revocation.revocations[0].status == "pending"
     publish = calls[0]
     assert publish.url.path == f"/api/v1/forge/projects/{PROJECT}/report-versions"
@@ -142,7 +142,7 @@ def test_stdio_mcp_tools_call_the_public_routes_with_stable_keys():
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            published = await BY_NAME["forge_report_version_publish"].invoke(
+            published = await ALL_BY_NAME["forge_report_version_publish"].invoke(
                 client,
                 {
                     "project_id": PROJECT,
@@ -150,7 +150,7 @@ def test_stdio_mcp_tools_call_the_public_routes_with_stable_keys():
                     "idempotency_key": "publish-1",
                 },
             )
-            revoked = await BY_NAME["forge_report_shares_revoke_inactive"].invoke(
+            revoked = await ALL_BY_NAME["forge_report_shares_revoke_inactive"].invoke(
                 client,
                 {"project_id": PROJECT, "lineage_id": FIRST.lineage_id, "idempotency_key": "rev-1"},
             )
@@ -169,6 +169,6 @@ def test_mcp_report_tools_cannot_supply_authority_or_producer():
     base = {"project_id": PROJECT, "lineage_id": FIRST.lineage_id, "idempotency_key": "k"}
     for field in ("principal", "producer", "authorization", "acting_credential"):
         with pytest.raises(ValueError):
-            BY_NAME["forge_report_shares_revoke_inactive"].validate_arguments(
+            ALL_BY_NAME["forge_report_shares_revoke_inactive"].validate_arguments(
                 {**base, field: "invented"}
             )

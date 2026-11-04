@@ -70,7 +70,7 @@ async def prepare(client, args):
     manifest = ContributionUploadManifest.model_validate(
         args.model_dump(exclude={"contribution_id", "idempotency_key"})
     )
-    session = await client.index.uploads.prepare(
+    session = await client.hidden("index").uploads.prepare(
         args.contribution_id,
         manifest=manifest,
         mutation=MutationOptions(idempotency_key=args.idempotency_key),
@@ -79,12 +79,12 @@ async def prepare(client, args):
 
 
 async def get(client, args):
-    session = await client.index.uploads.get(args.upload_id)
+    session = await client.hidden("index").uploads.get(args.upload_id)
     return progress(await session.status())
 
 
 async def finalize(client, args):
-    session = await client.index.uploads.get(args.upload_id)
+    session = await client.hidden("index").uploads.get(args.upload_id)
     if args.archive_base64 is not None:
         content = archive_bytes(args.archive_base64)
         status = await session.status()

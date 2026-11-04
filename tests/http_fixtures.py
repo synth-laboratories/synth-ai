@@ -112,10 +112,10 @@ async def invoke(
                 configure(client._transport)
             try:
                 if mutation:
-                    return await client.index.search(
+                    return await client.hidden("index").search(
                         "query", options=options(), mutation=MutationOptions(idempotency_key="key")
                     )
-                return await client.index.searches.list(limit=1, request=read_options)
+                return await client.hidden("index").searches.list(limit=1, request=read_options)
             finally:
                 await client.aclose()
                 assert not network.is_closed
@@ -129,10 +129,10 @@ async def invoke(
             configure(client._transport)
         try:
             if mutation:
-                return client.index.search(
+                return client.hidden("index").search(
                     "query", options=options(), mutation=MutationOptions(idempotency_key="key")
                 )
-            return client.index.searches.list(limit=1, request=read_options)
+            return client.hidden("index").searches.list(limit=1, request=read_options)
         finally:
             client.close()
             assert not network.is_closed

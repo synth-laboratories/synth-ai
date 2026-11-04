@@ -1,9 +1,13 @@
-"""Explicit authenticated/anonymous composition. See backend SDK index_contract.md."""
+"""Public client composition: Swarms, account and billing (``PUBLIC_PRODUCTS``)."""
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from types import TracebackType
+from typing import Any
+
+import httpx
 
 from synth_ai.auth.provider import StoredCredentialProvider
 from synth_ai.contracts.operations import AUTH_CONTEXT, CAPABILITIES
@@ -15,6 +19,7 @@ from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
+from synth_ai.public.client import Account, Billing, PublicTransport, Swarms
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
 from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
 from synth_ai.sdk.core.links import AsyncLinks, Links
@@ -48,9 +53,37 @@ def resolve_url(base_url: str | None) -> str:
     selected = (
         base_url
         if base_url is not None
-        else environment_value("SYNTH_API_URL", "SYNTH_BACKEND_URL", "SYNTH_API_BASE_URL")
+        else environment_value("SYNTH_API_BASE_URL", "SYNTH_API_URL", "SYNTH_BACKEND_URL")
     )
     return validate_base_url(DEFAULT_BASE_URL if selected is None else selected)
+
+
+def resolve_project(project_id: str | None) -> str | None:
+    """Default Swarms project: explicit argument, else the SYNTH_PROJECT_ID config value."""
+    selected = project_id if project_id is not None else environment_value("SYNTH_PROJECT_ID")
+    return selected.strip() if selected and selected.strip() else None
+
+
+# Hidden products: importable and constructible from code, absent from the public client.
+_ASYNC_HIDDEN_FACTORIES: dict[str, Callable[[AsyncHttpTransport], object]] = {
+    "index": lambda transport: AsyncIndexClient(transport, True),
+    "forge": AsyncForgeClient,
+    "mnemosyne": AsyncMnemosyneClient,
+    "menagerie": AsyncMenagerieClient,
+    "tunnels": AsyncTunnelsClient,
+    "swarms_legacy": AsyncSwarmsClient,
+    "account_legacy": AsyncAccountClient,
+}
+
+_HIDDEN_FACTORIES: dict[str, Callable[[HttpTransport], object]] = {
+    "index": lambda transport: IndexClient(transport, True),
+    "forge": ForgeClient,
+    "mnemosyne": MnemosyneClient,
+    "menagerie": MenagerieClient,
+    "tunnels": TunnelsClient,
+    "swarms_legacy": SwarmsClient,
+    "account_legacy": AccountClient,
+}
 
 
 def _credentials(
@@ -67,19 +100,16 @@ def _credentials(
 
 
 class SynthClient:
-    """An owned SDK lifetime with cancellable network IO."""
+    """An owned SDK lifetime for the public Swarms, account and billing surface."""
 
     _transport: HttpTransport
-    index: IndexClient
-    swarms: SwarmsClient
-    account: AccountClient
-    tunnels: TunnelsClient
-    menagerie: MenagerieClient
+    _public: PublicTransport
+    swarms: Swarms
+    account: Account
+    billing: Billing
     repos: Repositories
     links: Links
     artifacts: Artifacts
-    forge: ForgeClient
-    mnemosyne: MnemosyneClient
 
     def __init__(
         self,
@@ -87,6 +117,9 @@ class SynthClient:
         api_key: str | None = None,
         base_url: str | None = None,
         options: ClientOptions | None = None,
+        session_token: str | None = None,
+        project_id: str | None = None,
+        http_client: httpx.Client | None = None,
     ) -> None:
         selected = options or ClientOptions()
         if selected.async_http_client is not None:
@@ -94,44 +127,32 @@ class SynthClient:
                 "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
             )
         origin = resolve_url(base_url)
-        key, provider = _credentials(api_key, origin)
+        key, provider = _credentials(api_key, origin) if session_token is None else (api_key, None)
         self._transport = HttpTransport(origin, key, selected, credential_provider=provider)
-        self.index = IndexClient(self._transport, True)
-        self.swarms = SwarmsClient(self._transport)
-        self.account = AccountClient(self._transport)
-        self.tunnels = TunnelsClient(self._transport)
-        self.menagerie = MenagerieClient(self._transport)
+        self._public = PublicTransport(
+            origin,
+            api_key=key,
+            credential_provider=provider,
+            session_token=session_token,
+            http_client=http_client or selected.http_client,
+        )
+        self.swarms = Swarms(self._public, project_id=resolve_project(project_id))
+        self.account = Account(self._public)
+        self.billing = Billing(self._public)
         self.repos = Repositories(self._transport)
         self.links = Links(self._transport)
         self.artifacts = Artifacts(self._transport)
-        self.forge = ForgeClient(self._transport)
-        self.mnemosyne = MnemosyneClient(self._transport)
+        self._hidden: dict[str, object] = {}
 
-    @classmethod
-    def anonymous(
-        cls, *, base_url: str | None = None, options: ClientOptions | None = None
-    ) -> SynthClient:
-        """Construct a public client without reading ambient credentials or doing network IO.
+    def hidden(self, product: str) -> object:
+        """Construct a client for a product outside ``PUBLIC_PRODUCTS``.
 
-        See: the public contract snapshots in contracts/"""
-        selected = options or ClientOptions()
-        if selected.async_http_client is not None:
-            raise ValueError(
-                "async_http_client requires AsyncSynthClient; use http_client with SynthClient"
-            )
-        client = cls.__new__(cls)
-        client._transport = HttpTransport(resolve_url(base_url), None, selected)
-        client.index = IndexClient(client._transport, False)
-        client.swarms = SwarmsClient(client._transport)
-        client.account = AccountClient(client._transport)
-        client.tunnels = TunnelsClient(client._transport)
-        client.menagerie = MenagerieClient(client._transport)
-        client.repos = Repositories(client._transport)
-        client.links = Links(client._transport)
-        client.artifacts = Artifacts(client._transport)
-        client.forge = ForgeClient(client._transport)
-        client.mnemosyne = MnemosyneClient(client._transport)
-        return client
+        Hidden products keep their modules; they are not part of the public surface."""
+        if product not in _HIDDEN_FACTORIES:
+            raise KeyError(product)
+        if product not in self._hidden:
+            self._hidden[product] = _HIDDEN_FACTORIES[product](self._transport)
+        return self._hidden[product]
 
     def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
         """Read nonsecret deployment facts; these do not grant resource access.
@@ -180,6 +201,7 @@ class SynthClient:
         """Close owned network resources without cancelling durable remote work.
 
         See: the public contract snapshots in contracts/"""
+        self._public.close()
         self._transport.close()
 
     def __enter__(self) -> SynthClient:
@@ -198,19 +220,16 @@ class SynthClient:
 
 
 class AsyncSynthClient:
-    """Native async client; construction and anonymous factory do no IO."""
+    """Native async client for repos, links and artifacts; construction does no IO.
+
+    The Swarms v1 run, account and billing calls are on :class:`SynthClient`."""
 
     _transport: AsyncHttpTransport
-    index: AsyncIndexClient
     swarms: AsyncSwarmsClient
     account: AsyncAccountClient
-    tunnels: AsyncTunnelsClient
-    menagerie: AsyncMenagerieClient
     repos: AsyncRepositories
     links: AsyncLinks
     artifacts: AsyncArtifacts
-    forge: AsyncForgeClient
-    mnemosyne: AsyncMnemosyneClient
 
     def __init__(
         self,
@@ -223,38 +242,20 @@ class AsyncSynthClient:
         origin = resolve_url(base_url)
         key, provider = _credentials(api_key, origin)
         self._transport = AsyncHttpTransport(origin, key, selected, credential_provider=provider)
-        self.index = AsyncIndexClient(self._transport, True)
         self.swarms = AsyncSwarmsClient(self._transport)
         self.account = AsyncAccountClient(self._transport)
-        self.tunnels = AsyncTunnelsClient(self._transport)
-        self.menagerie = AsyncMenagerieClient(self._transport)
         self.repos = AsyncRepositories(self._transport)
         self.links = AsyncLinks(self._transport)
         self.artifacts = AsyncArtifacts(self._transport)
-        self.forge = AsyncForgeClient(self._transport)
-        self.mnemosyne = AsyncMnemosyneClient(self._transport)
+        self._hidden: dict[str, Any] = {}
 
-    @classmethod
-    def anonymous(
-        cls, *, base_url: str | None = None, options: ClientOptions | None = None
-    ) -> AsyncSynthClient:
-        """Construct a public client without reading ambient credentials or doing network IO.
-
-        See: the public contract snapshots in contracts/"""
-        selected = options or ClientOptions()
-        client = cls.__new__(cls)
-        client._transport = AsyncHttpTransport(resolve_url(base_url), None, selected)
-        client.index = AsyncIndexClient(client._transport, False)
-        client.swarms = AsyncSwarmsClient(client._transport)
-        client.account = AsyncAccountClient(client._transport)
-        client.tunnels = AsyncTunnelsClient(client._transport)
-        client.menagerie = AsyncMenagerieClient(client._transport)
-        client.repos = AsyncRepositories(client._transport)
-        client.links = AsyncLinks(client._transport)
-        client.artifacts = AsyncArtifacts(client._transport)
-        client.forge = AsyncForgeClient(client._transport)
-        client.mnemosyne = AsyncMnemosyneClient(client._transport)
-        return client
+    def hidden(self, product: str) -> Any:
+        """Construct an async client for a product outside ``PUBLIC_PRODUCTS``."""
+        if product not in _ASYNC_HIDDEN_FACTORIES:
+            raise KeyError(product)
+        if product not in self._hidden:
+            self._hidden[product] = _ASYNC_HIDDEN_FACTORIES[product](self._transport)
+        return self._hidden[product]
 
     async def capabilities(self, *, request: ReadOptions | None = None) -> Capabilities:
         """Read nonsecret deployment facts; these do not grant resource access.

@@ -12,7 +12,7 @@ pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
 from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest  # noqa: E402
 from synth_ai import AsyncSynthClient
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.mcp.server import create_server
 from tests.test_forge_workspaces import receipt_and_headers
@@ -124,7 +124,7 @@ def test_private_tools_require_intake_and_forbid_caller_or_rights_arguments():
         "package_id",
     ):
         with pytest.raises(ValueError):
-            BY_NAME["index_contribution_submit"].validate_arguments({**ARGS, field: "injected"})
+            ALL_BY_NAME["index_contribution_submit"].validate_arguments({**ARGS, field: "injected"})
 
 
 @pytest.mark.parametrize(
@@ -238,7 +238,7 @@ def test_author_protocol_preserves_exact_intent_scope_and_retry_key(
                 return None
 
             client._transport._negotiate = negotiated
-            tool = BY_NAME["index_contribution_" + name]
+            tool = ALL_BY_NAME["index_contribution_" + name]
             assert tool.scope == "index:intake" and tool.mutates and tool.keyed and not tool.paid
             selected = {**arguments, "idempotency_key": "retained-author-key"}
             for _ in range(2):

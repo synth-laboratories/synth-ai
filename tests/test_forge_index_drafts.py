@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse
@@ -93,13 +93,13 @@ def test_clients_preserve_exact_pin_retry_key_and_original_operation(async_mode)
                 options=ClientOptions(async_http_client=network),
             ) as client,
         ):
-            first = await client.forge.index_drafts.create(
+            first = await client.hidden("forge").index_drafts.create(
                 PROJECT, PIN, mutation=MutationOptions(idempotency_key="original-private-draft")
             )
-            again = await client.forge.index_drafts.create(
+            again = await client.hidden("forge").index_drafts.create(
                 PROJECT, PIN, mutation=MutationOptions(idempotency_key="original-private-draft")
             )
-            found = await client.forge.index_drafts.get(PROJECT, OPERATION)
+            found = await client.hidden("forge").index_drafts.get(PROJECT, OPERATION)
             assert (
                 first.model_dump(exclude={"metadata"})
                 == again.model_dump(exclude={"metadata"})
@@ -120,13 +120,13 @@ def test_clients_preserve_exact_pin_retry_key_and_original_operation(async_mode)
                 options=ClientOptions(http_client=network),
             ) as client,
         ):
-            first = client.forge.index_drafts.create(
+            first = client.hidden("forge").index_drafts.create(
                 PROJECT, PIN, mutation=MutationOptions(idempotency_key="original-private-draft")
             )
-            again = client.forge.index_drafts.create(
+            again = client.hidden("forge").index_drafts.create(
                 PROJECT, PIN, mutation=MutationOptions(idempotency_key="original-private-draft")
             )
-            found = client.forge.index_drafts.get(PROJECT, OPERATION)
+            found = client.hidden("forge").index_drafts.get(PROJECT, OPERATION)
             assert (
                 first.model_dump(exclude={"metadata"})
                 == again.model_dump(exclude={"metadata"})
@@ -139,7 +139,7 @@ def test_clients_preserve_exact_pin_retry_key_and_original_operation(async_mode)
 
 
 def test_mcp_uses_both_grants_and_forbids_identity_or_public_rights_arguments():
-    tool = BY_NAME["forge_index_draft_create"]
+    tool = ALL_BY_NAME["forge_index_draft_create"]
     args = {
         "project_id": PROJECT,
         "export_revision": PIN,

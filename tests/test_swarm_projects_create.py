@@ -1,4 +1,4 @@
-"""`client.swarms.projects.create` is a typed, keyed, scoped mutation present in every surface (SYN-4509)."""
+"""`client.hidden("swarms_legacy").projects.create` is a typed, keyed, scoped mutation present in every surface (SYN-4509)."""
 
 import inspect
 import json

@@ -4,6 +4,15 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 # Changelog
 
+## 0.26.0
+
+- Swarms is the public product. `SynthClient` exposes `swarms`, `account` and `billing` against the Swarms v1 contract, plus `repos`, `links` and `artifacts`. `client.swarms.run(message, budget)` launches, waits and returns outputs; `launch`, `get`, `wait`, `events`, `cancel`, `outputs`, `output_content` and `list` are the individual steps. `client.account.get()`/`keys()` and `client.billing.balance()`/`plans()`/`checkout()` read the account and wallet.
+- One error shape, `{error:{code,message,service,stage,upstream_status,cause}}`, raised as `synth_ai.public.errors.SwarmsAPIError` subclasses chosen by HTTP status.
+- `synth` CLI: `swarms run|launch|get|wait|events|cancel|outputs|list`, `account`, `billing balance|plans`, plus `login`, `logout` and `auth status`. `synth-ai` runs the same CLI.
+- The MCP catalog (local and hosted) lists only Swarms and account tools.
+- Index, Forge, Mnemosyne, Menagerie and Tunnels are no longer part of the public client, CLI or MCP catalog (`synth_ai.products.PUBLIC_PRODUCTS`). `SynthClient.anonymous()` is removed.
+- `SYNTH_API_BASE_URL` is the canonical API origin setting; `SYNTH_API_URL` and `SYNTH_BACKEND_URL` are deprecated aliases.
+
 ## 0.24.0
 
 - Contracts: core.v1 b33b2bee, index.v1 72816159, swarms.v1 a1a1c821, re-exported from the backend release candidate (source dc8239887d). Earlier 0.23.x wheels fail capability negotiation against this backend; upgrade before it rolls.

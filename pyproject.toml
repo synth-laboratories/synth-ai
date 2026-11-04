@@ -1,8 +1,8 @@
 [project]
 name = "synth-ai"
-version = "0.24.1.dev202611032000"
-description = "Synth SDK for Index, Swarms, account access, and hosted MCP"
-keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
+version = "0.26.0"
+description = "Synth Swarms SDK, CLI and MCP server"
+keywords = ["synth", "swarms", "agents", "mcp", "sdk"]
 authors = [{name = "Synth AI", email = "sdk@usesynth.ai"}]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -29,7 +29,8 @@ dependencies = [
 ]
 
 [project.scripts]
-synth-ai = "synth_ai.cli_auth:main"
+synth = "synth_ai.cli_public:main"
+synth-ai = "synth_ai.cli_public:main"
 synth-ai-mcp = "synth_ai.mcp_entrypoint:main"
 
 [project.urls]
@@ -73,7 +74,6 @@ include-package-data = true
     "py.typed",
 ]
 "synth_ai.contracts" = ["fingerprints.json"]
-"synth_ai.sdk.forge" = ["skills/forge-research/SKILL.md"]
 
 [tool.ruff]
 # Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].

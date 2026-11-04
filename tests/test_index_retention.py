@@ -169,7 +169,7 @@ def test_create_sends_no_retention_key_when_unset_and_the_mode_when_set():
     assert second["retention"] == "zdr_strict"
 
 
-# --- client.index.retention -----------------------------------------------------
+# --- client.hidden("index").retention -----------------------------------------------------
 
 
 def test_retention_get_and_update_sync():
@@ -444,9 +444,9 @@ def test_inline_result_is_exposed_when_the_create_response_carries_one():
 
 
 def test_mcp_search_create_passes_retention_through_and_omits_it_when_unset():
-    from synth_ai.mcp.catalog import BY_NAME
+    from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 
-    spec = BY_NAME["index_search_create"]
+    spec = ALL_BY_NAME["index_search_create"]
     base = {
         "query": "q",
         "idempotency_key": "k1",

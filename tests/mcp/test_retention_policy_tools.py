@@ -11,7 +11,7 @@ pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
 from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest  # noqa: E402
 from synth_ai import AsyncSynthClient
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.mcp.server import create_server
 
 pytestmark = pytest.mark.mcp
@@ -92,9 +92,9 @@ def test_protocol_discovery_and_calls_use_keyed_idempotent_sdk_operations():
         assert json.loads(put.content) == {
             k: v for k, v in UPDATE.items() if k != "idempotency_key"
         }
-        assert BY_NAME["index_retention_get"].keyed
-        assert BY_NAME["index_retention_update"].keyed
-        assert not BY_NAME["index_retention_update"].paid
+        assert ALL_BY_NAME["index_retention_get"].keyed
+        assert ALL_BY_NAME["index_retention_update"].keyed
+        assert not ALL_BY_NAME["index_retention_update"].paid
 
     asyncio.run(run())
 
@@ -112,4 +112,4 @@ def test_protocol_discovery_and_calls_use_keyed_idempotent_sdk_operations():
 )
 def test_invalid_or_unbound_policy_changes_cannot_dispatch(change):
     with pytest.raises(ValidationError):
-        BY_NAME["index_retention_update"].validate_arguments({**UPDATE, **change})
+        ALL_BY_NAME["index_retention_update"].validate_arguments({**UPDATE, **change})

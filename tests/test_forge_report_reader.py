@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.contracts.contracts import Scope, canonical_bytes, contract_digest
 from synth_ai.sdk.forge.contracts.report_manifests import (
@@ -242,16 +242,16 @@ def test_sync_browse_open_compare_export_round_trip():
     transport, calls = wire()
     network, client = client_for(transport)
     with network, client:
-        page = client.forge.reports.browse(PROJECT, limit=5)
+        page = client.hidden("forge").reports.browse(PROJECT, limit=5)
         assert [entry.access for entry in page.versions] == [
             {BASE: "owner", HEAD: "organization"}[item] for item in sorted((BASE, HEAD))
         ]
-        opened = client.forge.reports.open(PROJECT, BASE).document
+        opened = client.hidden("forge").reports.open(PROJECT, BASE).document
         assert opened.rendering == "plain_text" and opened.index_contribution == "none"
         assert opened.version.manifest.provenance.producer.subject_id == "user-1"
-        compared = client.forge.reports.compare(PROJECT, BASE, HEAD).comparison
+        compared = client.hidden("forge").reports.compare(PROJECT, BASE, HEAD).comparison
         assert compared.relation == "successor"
-        exported = client.forge.reports.export(PROJECT, [HEAD, BASE]).export
+        exported = client.hidden("forge").reports.export(PROJECT, [HEAD, BASE]).export
     files = export_files(exported)
     assert set(files) == {
         EXPORT_MANIFEST_PATH,
@@ -275,9 +275,9 @@ def test_tampered_version_bytes_or_export_manifest_are_refused():
     network, client = client_for(transport)
     with network, client:
         with pytest.raises(ContractError):
-            client.forge.reports.open(PROJECT, BASE)
+            client.hidden("forge").reports.open(PROJECT, BASE)
         with pytest.raises(ContractError):
-            client.forge.reports.export(PROJECT, [BASE])
+            client.hidden("forge").reports.export(PROJECT, [BASE])
 
 
 def test_export_selection_is_explicit_and_bounded():
@@ -286,7 +286,7 @@ def test_export_selection_is_explicit_and_bounded():
     with network, client:
         for selection in ([], [BASE, BASE], [BASE] * 33, BASE, ["not-a-digest"]):
             with pytest.raises(ValueError):
-                client.forge.reports.export(PROJECT, selection)
+                client.hidden("forge").reports.export(PROJECT, selection)
     assert calls == []
 
 
@@ -304,12 +304,12 @@ def test_stdio_mcp_reader_tools_call_the_public_routes():
         ):
             base = {"project_id": PROJECT, "digest": BASE}
             return (
-                await BY_NAME["forge_reports_browse"].invoke(client, {"project_id": PROJECT}),
-                await BY_NAME["forge_report_open"].invoke(client, base),
-                await BY_NAME["forge_report_compare"].invoke(
+                await ALL_BY_NAME["forge_reports_browse"].invoke(client, {"project_id": PROJECT}),
+                await ALL_BY_NAME["forge_report_open"].invoke(client, base),
+                await ALL_BY_NAME["forge_report_compare"].invoke(
                     client, {**base, "other_digest": HEAD}
                 ),
-                await BY_NAME["forge_report_export"].invoke(
+                await ALL_BY_NAME["forge_report_export"].invoke(
                     client, {"project_id": PROJECT, "digests": [BASE]}
                 ),
             )
@@ -331,9 +331,9 @@ def test_reader_tools_are_reads_without_authority_fields():
     base = {"project_id": PROJECT, "digest": BASE}
     for field in ("principal", "access", "authorization", "acting_credential", "audience"):
         with pytest.raises(ValueError):
-            BY_NAME["forge_report_open"].validate_arguments({**base, field: "invented"})
+            ALL_BY_NAME["forge_report_open"].validate_arguments({**base, field: "invented"})
     with pytest.raises(ValueError):
-        BY_NAME["forge_report_export"].validate_arguments(
+        ALL_BY_NAME["forge_report_export"].validate_arguments(
             {"project_id": PROJECT, "digests": [BASE] * 33}
         )
 
@@ -342,16 +342,16 @@ def test_project_reader_lineage_status_and_availability():
     transport, calls = wire(lineage=lineage_status(FIRST))
     network, client = client_for(transport)
     with network, client:
-        opened = client.forge.reports.open(PROJECT, BASE).document
+        opened = client.hidden("forge").reports.open(PROJECT, BASE).document
         assert opened.citation.state == "stale"
         assert opened.superseded_by.version_sha256 == HEAD
         assert opened.lineage.head.version_sha256 == HEAD
-        report = client.forge.reports.availability(PROJECT, BASE).availability
+        report = client.hidden("forge").reports.availability(PROJECT, BASE).availability
         assert [(item.artifact_id, item.state) for item in report.artifacts] == [
             ("curve", "expired")
         ]
         with pytest.raises(ValueError):
-            client.forge.reports.availability(PROJECT, "not-a-digest")
+            client.hidden("forge").reports.availability(PROJECT, "not-a-digest")
     assert calls[-1].url.path.endswith(f"/report-reader/versions/{BASE}/availability")
     assert calls[-1].method == "GET"
 
@@ -361,11 +361,11 @@ def test_lineage_status_for_another_version_is_refused():
     network, client = client_for(transport)
     with network, client:
         with pytest.raises(ContractError):
-            client.forge.reports.open(PROJECT, BASE)
+            client.hidden("forge").reports.open(PROJECT, BASE)
 
 
 def test_availability_tool_is_a_read_needing_your_key():
-    tool = BY_NAME["forge_report_availability"]
+    tool = ALL_BY_NAME["forge_report_availability"]
     assert (tool.scope, tool.mutates, tool.paid) == ("forge:read", False, False)
     with pytest.raises(ValueError):
         tool.validate_arguments({"project_id": PROJECT, "digest": BASE, "acting_credential": "x"})

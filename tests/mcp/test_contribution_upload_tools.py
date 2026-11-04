@@ -6,7 +6,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.mcp.contribution_upload import MAXIMUM_ARCHIVE_BYTES, archive_bytes, progress
 from synth_ai.types.uploads import ContributionUploadManifest
 from tests.test_forge_workspaces import receipt_and_headers
@@ -51,12 +51,12 @@ def test_archive_strict_encoding_bound_and_closed_authority():
         with pytest.raises(ValueError):
             archive_bytes(value)
     for name in ["prepare", "get", "finalize"]:
-        tool = BY_NAME["index_contribution_upload_" + name]
+        tool = ALL_BY_NAME["index_contribution_upload_" + name]
         assert tool.scope == "index:intake" and not tool.paid
         assert not any(
             key in str(tool.output_schema()) for key in ["transfer_url", "transfer_headers"]
         )
     with pytest.raises(ValueError):
-        BY_NAME["index_contribution_upload_finalize"].validate_arguments(
+        ALL_BY_NAME["index_contribution_upload_finalize"].validate_arguments(
             {"upload_id": "upload", "idempotency_key": "key", "path": "/private/file"}
         )

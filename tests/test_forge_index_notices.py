@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.options import ClientOptions
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
@@ -92,9 +92,9 @@ def test_private_notices_identity_and_read_only_mcp(async_mode, changed):
         ):
             if changed:
                 with pytest.raises(ContractError, match="different private notice page"):
-                    await client.forge.index_drafts.notices(PROJECT, OPERATION, after=7, limit=2)
+                    await client.hidden("forge").index_drafts.notices(PROJECT, OPERATION, after=7, limit=2)
             else:
-                tool = BY_NAME["forge_index_draft_notices"]
+                tool = ALL_BY_NAME["forge_index_draft_notices"]
                 result = await tool.invoke(
                     client,
                     {"project_id": PROJECT, "operation_id": OPERATION, "after": 7, "limit": 2},
@@ -114,15 +114,15 @@ def test_private_notices_identity_and_read_only_mcp(async_mode, changed):
         ):
             if changed:
                 with pytest.raises(ContractError, match="different private notice page"):
-                    client.forge.index_drafts.notices(PROJECT, OPERATION, after=7, limit=2)
+                    client.hidden("forge").index_drafts.notices(PROJECT, OPERATION, after=7, limit=2)
             else:
-                page = client.forge.index_drafts.notices(PROJECT, OPERATION, after=7, limit=2)
+                page = client.hidden("forge").index_drafts.notices(PROJECT, OPERATION, after=7, limit=2)
                 assert page.after == 7 and page.next_cursor == 9 and not page.items
     assert len(calls) == 1
 
 
 def test_private_notice_tool_requires_both_original_grants_and_closed_arguments():
-    tool = BY_NAME["forge_index_draft_notices"]
+    tool = ALL_BY_NAME["forge_index_draft_notices"]
     values = {"project_id": PROJECT, "operation_id": OPERATION}
     for extra in (
         {"after": True},
