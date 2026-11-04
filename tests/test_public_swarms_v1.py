@@ -170,6 +170,15 @@ def test_error_code_mapping(status: int, kind: type[errors.SwarmsAPIError]) -> N
     assert error.message == "Refused."
 
 
+def test_error_body_with_outcome_is_typed() -> None:
+    body = {"error": {"code": "invalid_launch_request", "service": "synth-backend",
+                      "stage": "swarms"}, "outcome": "not_accepted"}
+    with make_client(lambda _r: httpx.Response(422, json=body)) as client:
+        with pytest.raises(errors.InvalidRequestError) as caught:
+            client.swarms.launch("x", 1)
+    assert caught.value.error.code == "invalid_launch_request"
+
+
 def test_malformed_error_body() -> None:
     with make_client(lambda _r: httpx.Response(500, text="<html>")) as client:
         with pytest.raises(errors.MalformedErrorResponseError) as caught:

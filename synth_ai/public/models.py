@@ -38,8 +38,11 @@ class ErrorDetail(_Response):
 
 
 class ErrorBody(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # The contract says additionalProperties: false, but the core also sends a
+    # top-level ``outcome`` (e.g. on 422 launch refusals); read it, tolerate others.
+    model_config = ConfigDict(extra="allow", frozen=True)
     error: ErrorDetail
+    outcome: str | None = None
 
 
 # Account

@@ -29,18 +29,22 @@ AUTH_COMMANDS = frozenset({"login", "logout", "auth"})
 def _swarms(group: argparse._SubParsersAction) -> None:
     swarms = group.add_parser("swarms").add_subparsers(dest="swarms_command", required=True)
 
-    run = swarms.add_parser("run")
-    run.add_argument("message")
-    run.add_argument("--budget", required=True, help="maximum charge in USD")
-    run.add_argument("--project-id")
-    run.add_argument("--timeout", type=float)
+    run = swarms.add_parser(
+        "run", help="launch, wait and print outputs",
+        description="Launch a run, wait for it to close and print the run and its outputs as JSON.",
+    )
+    run.add_argument("message", help="what the run should do")
+    run.add_argument("--budget", required=True, metavar="USD", help="maximum charge in USD")
+    run.add_argument("--project-id", help="default: SYNTH_PROJECT_ID")
+    run.add_argument("--timeout", type=float, metavar="SECONDS",
+                     help="stop waiting after SECONDS; the run keeps going")
     run.set_defaults(handler=lambda c, a: c.swarms.run(
         a.message, a.budget, project_id=a.project_id, timeout_seconds=a.timeout))
 
-    launch = swarms.add_parser("launch")
-    launch.add_argument("message")
-    launch.add_argument("--budget", required=True, help="maximum charge in USD")
-    launch.add_argument("--project-id")
+    launch = swarms.add_parser("launch", help="launch and print the run")
+    launch.add_argument("message", help="what the run should do")
+    launch.add_argument("--budget", required=True, metavar="USD", help="maximum charge in USD")
+    launch.add_argument("--project-id", help="default: SYNTH_PROJECT_ID")
     launch.set_defaults(handler=lambda c, a: c.swarms.launch(
         a.message, a.budget, project_id=a.project_id))
 
@@ -53,7 +57,7 @@ def _swarms(group: argparse._SubParsersAction) -> None:
 
     wait = swarms.add_parser("wait")
     wait.add_argument("run_id")
-    wait.add_argument("--timeout", type=float)
+    wait.add_argument("--timeout", type=float, metavar="SECONDS")
     wait.set_defaults(handler=lambda c, a: c.swarms.wait(a.run_id, timeout_seconds=a.timeout))
 
     events = swarms.add_parser("events")

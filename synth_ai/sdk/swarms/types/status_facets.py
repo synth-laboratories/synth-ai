@@ -1,4 +1,4 @@
-"""Independent run status facets (SYN-4849). See docs/swarms.md "Status facets".
+"""Independent run status facets (SYN-4849). See docs/legacy/swarms.md "Status facets".
 
 The top-level ``RunSnapshot.state`` is unchanged. ``status_facets`` splits the
 run into four independent facts, each read from its own authority, so a

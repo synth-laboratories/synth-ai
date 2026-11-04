@@ -1,4 +1,4 @@
-"""Offline check that README (0.26 public surface) and docs/swarms.md (hidden legacy
+"""Offline check that README and docs/*.md (0.26 public surface) and docs/legacy/ (hidden legacy
 Swarms client) python examples execute.
 
 Resource methods are replaced with signature-checking autospecs, so every call in a
@@ -24,7 +24,7 @@ from synth_ai.sdk.swarms.run import SwarmRun
 from synth_ai.types.refs import ExactReference
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS = ("README.md", "docs/swarms.md")
+DOCUMENTS = ("README.md", "docs/swarms.md", "docs/mcp.md", "docs/legacy/swarms.md")
 RESERVED = {"role", "task_id", "logical_output_id"}
 
 
@@ -75,7 +75,7 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
     public = [
         mock.patch.object(cls, name, autospec=True)
         for cls, names in (
-            (Swarms, ("run", "launch", "get", "wait", "events", "cancel", "outputs",
+            (Swarms, ("run", "launch", "get", "wait", "events", "iter_events", "cancel", "outputs",
                       "output_content", "list")),
             (Account, ("get", "keys")),
             (Billing, ("balance", "plans", "checkout")),
@@ -94,8 +94,8 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
         for patcher in public:
             patcher.start()
         try:
-            legacy = label.startswith("docs/swarms.md")
-            # README documents the public client; docs/swarms.md the hidden legacy client.
+            legacy = label.startswith("docs/legacy/")
+            # README and docs/*.md document the public client; docs/legacy/ the hidden legacy client.
             view = mock.NonCallableMock(spec=["swarms", "account", "billing", "artifacts"])
             view.swarms = client.hidden("swarms_legacy") if legacy else client.swarms
             view.account = client.account

@@ -76,5 +76,7 @@ when a run fails.
 `mcp.usesynth.ai` serves the same catalog.
 
 - [Documentation](https://docs.usesynth.ai)
+- [Swarms](docs/swarms.md)
+- [MCP](docs/mcp.md)
 - [Changelog](CHANGELOG.md)
 - [Issues](https://github.com/synth-laboratories/synth-ai/issues)

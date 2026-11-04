@@ -68,9 +68,9 @@ async def serve(
 
 def main() -> None:
     require_mcp()
-    parser = argparse.ArgumentParser(description="Synth Index and Swarms MCP")
+    parser = argparse.ArgumentParser(description="Synth Swarms MCP")
     parser.add_argument("--profile", choices=("public", "read", "action"), default="read")
-    parser.add_argument("--base-url", default=None, help="API origin (default: SYNTH_API_URL)")
+    parser.add_argument("--base-url", default=None, help="API origin (default: SYNTH_API_BASE_URL)")
     parser.add_argument("--candidate-manifest-sha256")
     parser.add_argument(
         "--local-development-retention",

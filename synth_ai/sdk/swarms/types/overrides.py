@@ -1,4 +1,4 @@
-"""Model/effort profile overrides on a Swarms launch (SYN-4848). See docs/swarms.md.
+"""Model/effort profile overrides on a Swarms launch (SYN-4848). See docs/legacy/swarms.md.
 
 A launch may fix the model and/or reasoning effort of the program's declared
 roles. Per field, precedence is template default (the admitted authored
