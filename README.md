@@ -47,7 +47,8 @@ client.account.get()       # org, principal, limits
 client.account.keys()      # API keys (session credential)
 client.billing.balance()   # integer microcents
 client.billing.plans()
-client.billing.checkout("credits", amount_microcents=1_000_000_000)
+client.billing.checkout(plan_id="standard.monthly")
+client.billing.checkout(credit_cents=2000)
 ```
 
 ## CLI

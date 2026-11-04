@@ -10,7 +10,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class _Response(BaseModel):
@@ -231,32 +231,48 @@ class RunResult(_Response):
     outputs: list[RunOutput]
 
 
-# Billing
+# Billing (core/internal/billing and core/internal/stripe on synth-backend main)
 
 
 class Balance(_Response):
+    org_id: str
+    ledger_microcents: int
+    held_microcents: int
+    headroom_microcents: int
     available_microcents: int
-    included_microcents: int
-    purchased_microcents: int
-    period_ends_at: datetime | None = None
+    available_usd_cents: int
 
 
 class Plan(_Response):
     plan_id: str
-    monthly_price_microcents: int = Field(ge=0)
-    weekly_included_microcents: int = Field(ge=0)
+    name: str
+    kind: str  # free | recurring | credit_pack | internal; unknown values forwarded
+    price_cents: int
+    weekly_included_microcents: int
+    interval: str | None = None
 
 
 class PlanCatalog(_Response):
+    policy_version: str
     plans: list[Plan]
 
 
+# The core decodes checkout bodies strictly: exactly one of plan_id or credit_cents.
+MIN_CREDIT_CENTS = 500
+MAX_CREDIT_CENTS = 1_000_000
+
+
 class CheckoutRequest(_Request):
-    kind: Literal["plan", "credits"]
     plan_id: str | None = None
-    amount_microcents: int | None = Field(default=None, ge=1)
+    credit_cents: int | None = Field(default=None, ge=MIN_CREDIT_CENTS, le=MAX_CREDIT_CENTS)
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> CheckoutRequest:
+        if (self.plan_id is None) == (self.credit_cents is None):
+            raise ValueError("checkout takes exactly one of plan_id or credit_cents")
+        return self
 
 
 class CheckoutSession(_Response):
-    checkout_url: str
-    expires_at: datetime
+    session_id: str
+    url: str

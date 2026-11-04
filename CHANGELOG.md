@@ -6,7 +6,7 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 
 ## 0.26.0
 
-- Swarms is the public product. `SynthClient` exposes `swarms`, `account` and `billing` against the Swarms v1 contract, plus `repos`, `links` and `artifacts`. `client.swarms.run(message, budget)` launches, waits and returns outputs; `launch`, `get`, `wait`, `events`, `cancel`, `outputs`, `output_content` and `list` are the individual steps. `client.account.get()`/`keys()` and `client.billing.balance()`/`plans()`/`checkout()` read the account and wallet.
+- Swarms is the public product. `SynthClient` exposes `swarms`, `account` and `billing` against the Swarms v1 contract, plus `repos`, `links` and `artifacts`. `client.swarms.run(message, budget)` launches, waits and returns outputs; `launch`, `get`, `wait`, `events`, `cancel`, `outputs`, `output_content` and `list` are the individual steps. `client.account.get()`/`keys()` and `client.billing.balance()`/`plans()`/`checkout(plan_id=|credit_cents=)` use `/v1/billing/*`.
 - One error shape, `{error:{code,message,service,stage,upstream_status,cause}}`, raised as `synth_ai.public.errors.SwarmsAPIError` subclasses chosen by HTTP status.
 - `synth` CLI: `swarms run|launch|get|wait|events|cancel|outputs|list`, `account`, `billing balance|plans`, plus `login`, `logout` and `auth status`. `synth-ai` runs the same CLI.
 - The MCP catalog (local and hosted) lists only Swarms and account tools.

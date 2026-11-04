@@ -80,13 +80,24 @@ class Contract:
             return httpx.Response(
                 200, json={"outputs": [{"output_id": "o1", "kind": "report", "size_bytes": 3}]}
             )
-        if path == "/v1/account":
+        if path == "/api/v1/account":
             return httpx.Response(200, json=ACCOUNT)
-        if path == "/api/v1/account/billing/catalog":
+        if path == "/v1/billing/plans":
             assert "Authorization" not in request.headers
-            return httpx.Response(200, json={"plans": [
-                {"plan_id": "pro", "monthly_price_microcents": 2_000_000_000,
-                 "weekly_included_microcents": 500_000_000}]})
+            return httpx.Response(200, json={"policy_version": "v023.20261014.weekly-signup",
+                "plans": [{"plan_id": "standard.monthly", "name": "Standard", "kind": "recurring",
+                           "price_cents": 2000, "interval": "month",
+                           "weekly_included_microcents": 6_000_000_000}]})
+        if path == "/v1/billing/balance":
+            assert request.headers["Authorization"] == f"Bearer {KEY}"
+            return httpx.Response(200, json={"org_id": "o", "ledger_microcents": 10,
+                "held_microcents": 2, "headroom_microcents": 0, "available_microcents": 8,
+                "available_usd_cents": 0})
+        if path == "/v1/billing/checkout" and method == "POST":
+            body = json.loads(request.content)
+            assert body in ({"plan_id": "standard.monthly"}, {"credit_cents": 500})
+            return httpx.Response(201, json={"session_id": "cs_1",
+                                             "url": "https://checkout.stripe.com/c/cs_1"})
         return httpx.Response(404, json={"error": {"code": "not_found", "service": "synth-backend",
                                                     "stage": "route"}})
 
@@ -179,7 +190,14 @@ def test_transport_failure() -> None:
 def test_account_and_billing() -> None:
     with make_client(Contract()) as client:
         assert client.account.get().org.plan == "free"
-        assert client.billing.plans().plans[0].plan_id == "pro"
+        assert client.billing.plans().plans[0].plan_id == "standard.monthly"
+        assert client.billing.balance().available_microcents == 8
+        assert client.billing.checkout(plan_id="standard.monthly").session_id == "cs_1"
+        assert client.billing.checkout(credit_cents=500).url.startswith("https://")
+        with pytest.raises(ValueError):
+            client.billing.checkout(plan_id="standard.monthly", credit_cents=500)
+        with pytest.raises(ValueError):
+            client.billing.checkout(credit_cents=499)
 
 
 def test_public_client_surface_only() -> None:

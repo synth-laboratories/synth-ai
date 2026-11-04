@@ -48,6 +48,13 @@ from .models import (
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 SERVICE = "synth-ai"
+# Route constants. Swarms and account keep the legacy /api/v1 prefixes; billing is
+# served by the core at /v1/billing/* (coordinator correction 2026-11-04).
+RUNS_PATH = "/api/v1/swarms/runs"
+ACCOUNT_PATH = "/api/v1/account"
+API_KEYS_PATH = "/v1/api-keys"
+BILLING_PATH = "/v1/billing"
+
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_POLL_SECONDS = 2.0
 # Contract maxima: the budget is the bound that matters for one-call runs.
@@ -231,12 +238,12 @@ class Swarms:
             **launch_fields,
         )
         return self._t.json(
-            RunSnapshot, "POST", "/api/v1/swarms/runs", stage="swarms.launch",
+            RunSnapshot, "POST", RUNS_PATH, stage="swarms.launch",
             body=request, idempotency_key=_key(idempotency_key),
         )
 
     def get(self, run_id: str) -> RunSnapshot:
-        return self._t.json(RunSnapshot, "GET", f"/api/v1/swarms/runs/{run_id}",
+        return self._t.json(RunSnapshot, "GET", f"{RUNS_PATH}/{run_id}",
                             stage="swarms.get")
 
     def wait(
@@ -260,7 +267,7 @@ class Swarms:
     def events(self, run_id: str, *, after: int | None = None,
                limit: int | None = None) -> RunEventPage:
         return self._t.json(
-            RunEventPage, "GET", f"/api/v1/swarms/runs/{run_id}/events",
+            RunEventPage, "GET", f"{RUNS_PATH}/{run_id}/events",
             stage="swarms.events", params={"after": after, "limit": limit},
         )
 
@@ -276,22 +283,22 @@ class Swarms:
 
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlSummary:
         return self._t.json(
-            RunControlSummary, "POST", f"/api/v1/swarms/runs/{run_id}/cancel",
+            RunControlSummary, "POST", f"{RUNS_PATH}/{run_id}/cancel",
             stage="swarms.cancel", idempotency_key=_key(idempotency_key),
         )
 
     def outputs(self, run_id: str) -> RunOutputList:
-        return self._t.json(RunOutputList, "GET", f"/api/v1/swarms/runs/{run_id}/outputs",
+        return self._t.json(RunOutputList, "GET", f"{RUNS_PATH}/{run_id}/outputs",
                             stage="swarms.outputs")
 
     def output_content(self, run_id: str, output_id: str) -> bytes:
         return self._t.send(
-            "GET", f"/api/v1/swarms/runs/{run_id}/outputs/{output_id}/content",
+            "GET", f"{RUNS_PATH}/{run_id}/outputs/{output_id}/content",
             stage="swarms.output_content",
         ).content
 
     def list(self, *, cursor: str | None = None, limit: int | None = None) -> RunPage:
-        return self._t.json(RunPage, "GET", "/api/v1/swarms/runs", stage="swarms.list",
+        return self._t.json(RunPage, "GET", RUNS_PATH, stage="swarms.list",
                             params={"cursor": cursor, "limit": limit})
 
 
@@ -302,12 +309,12 @@ class Account:
         self._t = transport
 
     def get(self) -> AccountModel:
-        return self._t.json(AccountModel, "GET", "/v1/account", stage="account.get")
+        return self._t.json(AccountModel, "GET", ACCOUNT_PATH, stage="account.get")
 
     def keys(self, *, purpose: str | None = None, offset: int | None = None,
              limit: int | None = None) -> ApiKeyList:
         return self._t.json(
-            ApiKeyList, "GET", "/v1/api-keys", stage="account.keys",
+            ApiKeyList, "GET", API_KEYS_PATH, stage="account.keys",
             params={"purpose": purpose, "offset": offset, "limit": limit},
         )
 
@@ -320,16 +327,15 @@ class Billing:
         self._t = transport
 
     def balance(self) -> Balance:
-        return self._t.json(Balance, "GET", "/api/v1/account/billing/balance",
-                            stage="billing.balance")
+        return self._t.json(Balance, "GET", f"{BILLING_PATH}/balance", stage="billing.balance")
 
     def plans(self) -> PlanCatalog:
-        return self._t.json(PlanCatalog, "GET", "/api/v1/account/billing/catalog",
-                            stage="billing.plans", authenticated=False)
+        return self._t.json(PlanCatalog, "GET", f"{BILLING_PATH}/plans", stage="billing.plans",
+                            authenticated=False)
 
-    def checkout(self, kind: str, *, plan_id: str | None = None,
-                 amount_microcents: int | None = None) -> CheckoutSession:
-        body = CheckoutRequest(kind=kind, plan_id=plan_id,  # type: ignore[arg-type]
-                               amount_microcents=amount_microcents)
-        return self._t.json(CheckoutSession, "POST", "/api/v1/account/billing/checkout",
+    def checkout(self, *, plan_id: str | None = None,
+                 credit_cents: int | None = None) -> CheckoutSession:
+        """Hosted checkout for a plan or a custom credit amount (exactly one)."""
+        body = CheckoutRequest(plan_id=plan_id, credit_cents=credit_cents)
+        return self._t.json(CheckoutSession, "POST", f"{BILLING_PATH}/checkout",
                             stage="billing.checkout", body=body)
