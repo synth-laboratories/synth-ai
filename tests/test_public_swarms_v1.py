@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
@@ -9,9 +10,8 @@ import sys
 
 import httpx
 import pytest
-
 from synth_ai import cli_public
-from synth_ai.client import SynthClient
+from synth_ai.client import AsyncSynthClient, SynthClient
 from synth_ai.products import PUBLIC_PRODUCTS
 from synth_ai.public import errors
 from synth_ai.public.models import Money
@@ -246,10 +246,82 @@ def test_cli_smoke(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_mcp_catalog_public_only() -> None:
-    from synth_ai.mcp.catalog import ALL_TOOLS, BY_NAME, TOOLS
+    from synth_ai.mcp.catalog import ALL_BY_NAME, ALL_TOOLS, BY_NAME, TOOLS
     from synth_ai.products import tool_product
 
-    assert {tool_product(tool.name) for tool in TOOLS} == {"swarms", "account"}
-    assert len(ALL_TOOLS) > len(TOOLS)
+    assert [tool.name for tool in TOOLS] == [
+        "swarms_run", "swarms_launch", "swarms_get", "swarms_wait", "swarms_events",
+        "swarms_cancel", "swarms_outputs", "swarms_list", "account_get", "billing_balance",
+        "billing_plans",
+    ]
+    assert {tool_product(tool.name) for tool in TOOLS} <= set(PUBLIC_PRODUCTS)
+    assert len(ALL_TOOLS) == 95
     assert "index_search" not in BY_NAME and "forge_project_get" not in BY_NAME
-    assert "swarms_create" in BY_NAME and "auth_context" in BY_NAME
+    assert "swarms_create" not in BY_NAME and "swarms_create" in ALL_BY_NAME
+    assert BY_NAME["swarms_run"].paid and BY_NAME["swarms_run"].mutates
+    assert not BY_NAME["billing_plans"].keyed
+
+
+def test_hosted_scopes_are_the_contract_scopes() -> None:
+    from synth_ai.mcp.hosted import AUTHORIZATION_SCOPES
+
+    assert AUTHORIZATION_SCOPES == (
+        "account:billing:read", "account:read", "account:usage:read", "swarms:control",
+        "swarms:read", "swarms:run", "swarms:write",
+    )
+
+
+def make_async_client(handler) -> AsyncSynthClient:
+    return AsyncSynthClient(
+        api_key=KEY,
+        base_url=BASE,
+        project_id="proj_1",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+
+def test_async_run_and_namespaces() -> None:
+    async def scenario() -> None:
+        async with make_async_client(Contract()) as client:
+            result = await client.swarms.run("Compare", "2.50", poll_seconds=0)
+            assert result.run.state == "completed"
+            assert [o.output_id for o in result.outputs] == ["o1"]
+            assert (await client.account.get()).org.plan == "free"
+            assert (await client.billing.plans()).plans[0].plan_id == "standard.monthly"
+            assert (await client.billing.balance()).available_microcents == 8
+            with pytest.raises(errors.NotFoundError):
+                await client.swarms.get("missing")
+
+    asyncio.run(scenario())
+
+
+def test_mcp_swarms_run_through_public_client() -> None:
+    pytest.importorskip("mcp")
+    from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
+    from synth_ai.mcp.catalog import TOOLS
+    from synth_ai.mcp.runtime import SDKExecutor
+    from synth_ai.mcp.server import create_server
+
+    server_state = Contract(polls_until_done=1)
+
+    async def scenario() -> None:
+        async with make_async_client(server_state) as client:
+            executor = SDKExecutor(client, client, frozenset(tool.name for tool in TOOLS))
+            server = create_server(executor)
+            listed = (await server.request_handlers[ListToolsRequest](
+                ListToolsRequest(method="tools/list"))).root
+            assert {tool.name for tool in listed.tools} == {tool.name for tool in TOOLS}
+            request = CallToolRequest(method="tools/call", params=CallToolRequestParams(
+                name="swarms_run", arguments={"message": "Compare", "budget_usd": "2.50"}))
+            result = (await server.request_handlers[CallToolRequest](request)).root
+            assert not result.isError
+            assert result.structuredContent["run"]["state"] == "completed"
+            missing = CallToolRequest(method="tools/call", params=CallToolRequestParams(
+                name="swarms_get", arguments={"run_id": "missing"}))
+            refused = (await server.request_handlers[CallToolRequest](missing)).root
+            assert refused.isError
+
+    asyncio.run(scenario())
+    # No capability negotiation: every request is a contract path.
+    assert all(r.url.path.startswith(("/api/v1/", "/v1/")) for r in server_state.requests)
+    assert not any("capabilities" in r.url.path for r in server_state.requests)

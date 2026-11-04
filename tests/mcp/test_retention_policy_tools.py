@@ -1,6 +1,7 @@
 """MCP retention policy tools reach the existing keyed SDK routes (SYN-4571)."""
 
 import asyncio
+from synth_ai.mcp.catalog import ALL_TOOLS
 import json
 
 import httpx
@@ -11,7 +12,7 @@ pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
 from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest  # noqa: E402
 from synth_ai import AsyncSynthClient
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.mcp.server import create_server
 
 pytestmark = pytest.mark.mcp
@@ -61,7 +62,7 @@ def test_protocol_discovery_and_calls_use_keyed_idempotent_sdk_operations():
                 async def invoke(self, tool, arguments):
                     return await tool.invoke(client, arguments)
 
-            server = create_server(Executor())
+            server = create_server(Executor(), catalog=ALL_TOOLS)
             listed = (
                 await server.request_handlers[ListToolsRequest](
                     ListToolsRequest(method="tools/list")

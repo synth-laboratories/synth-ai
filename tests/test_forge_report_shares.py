@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import OutcomeUncertainError
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.types import ReportShareIntent
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
@@ -201,7 +201,7 @@ def test_share_tools_carry_no_authority_fields():
         (True, False, False, True),
         strict=True,
     ):
-        tool = BY_NAME[name]
+        tool = ALL_BY_NAME[name]
         assert (tool.scope, tool.mutates, tool.paid) == (scope, mutates, False)
     base = {"project_id": PROJECT, "digest": DIGEST, "idempotency_key": "k"}
     for field in ("principal", "owner", "authorization", "acting_credential", "visibility"):

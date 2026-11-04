@@ -47,7 +47,7 @@ def test_download_writes_artifacts_objectives_and_manifest_atomically(tmp_path, 
     destination = tmp_path / "bundle"
 
     async def steps(client, w):
-        run = await w(client.swarms.get("run-1"))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         return await w(run.download(destination))
 
     receipt = drive(async_mode, server, steps)
@@ -77,7 +77,7 @@ def test_download_with_code_selects_the_exact_branch_across_pages(tmp_path, asyn
     destination = tmp_path / "bundle"
 
     async def steps(client, w):
-        run = await w(client.swarms.get("run-1"))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         return await w(run.download(destination))
 
     receipt = drive(async_mode, server, steps)
@@ -93,7 +93,7 @@ def test_download_refuses_when_only_a_colliding_branch_exists(tmp_path, async_mo
     server.refs_pages = [[{"name": TIP + "x", "commit_sha": REF.revision, "ref": REF.model_dump()}]]
 
     async def steps(client, w):
-        run = await w(client.swarms.get("run-1"))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         return await w(run.download(tmp_path / "bundle"))
 
     with pytest.raises(ResultNotReadyError) as caught:
@@ -119,7 +119,7 @@ def test_download_waits_on_real_finality_not_a_terminal_looking_state(
     server = ready(Fake(), **changes)
 
     async def steps(client, w):
-        run = await w(client.swarms.get("run-1"))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         return await w(run.download(tmp_path / "bundle"))
 
     with pytest.raises(ResultNotReadyError) as caught:
@@ -135,7 +135,7 @@ def test_download_refuses_case_colliding_objective_ids(tmp_path, async_mode):
     server.snapshot["objectives"] = [objective("Same"), objective("same")]
 
     async def steps(client, w):
-        run = await w(client.swarms.get("run-1"))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         return await w(run.download(tmp_path / "bundle"))
 
     with pytest.raises(ContractError) as caught:
@@ -151,8 +151,8 @@ def test_run_labels_decode_tolerantly_and_filter_and_update(async_mode):
     server.run_list_items = [server.snapshot]
 
     async def steps(client, w):
-        page = await w(client.swarms.list(limit=10, label={"score": "0.9"}))
-        run = await w(client.swarms.get("run-1"))
+        page = await w(client.hidden("swarms_legacy").list(limit=10, label={"score": "0.9"}))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         current = await w(run.labels.get())
         updated = await w(
             run.labels.update(set={"tier": "gold"}, remove=("score",), expected_revision=1)
@@ -181,7 +181,7 @@ def test_run_objectives_decode_answers_and_ignore_future_fields(async_mode):
     server = ready(Fake())
 
     async def steps(client, w):
-        run = await w(client.swarms.get("run-1"))
+        run = await w(client.hidden("swarms_legacy").get("run-1"))
         return await w(run.objectives())
 
     results = drive(async_mode, server, steps)

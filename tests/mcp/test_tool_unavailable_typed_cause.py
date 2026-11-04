@@ -11,7 +11,7 @@ pytestmark = pytest.mark.mcp
 pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
 from mcp.types import CallToolRequest, CallToolRequestParams  # noqa: E402
-from synth_ai.mcp.catalog import BY_NAME, ToolSpec  # noqa: E402
+from synth_ai.mcp.catalog import ALL_BY_NAME, ALL_TOOLS, ToolSpec  # noqa: E402
 from synth_ai.mcp.server import create_server  # noqa: E402
 
 
@@ -27,13 +27,13 @@ class _NoTools:
 
 
 def test_unavailable_tool_names_its_code_cause_and_request_id():
-    server = create_server(_NoTools())
+    server = create_server(_NoTools(), catalog=ALL_TOOLS)
     handler = server.request_handlers[CallToolRequest]
     request = CallToolRequest(
         method="tools/call",
         params=CallToolRequestParams(name="index_search_list", arguments={"limit": 1}),
     )
-    assert "index_search_list" in BY_NAME
+    assert "index_search_list" in ALL_BY_NAME
     result = asyncio.run(handler(request)).root
     error = result.structuredContent["error"]
     assert result.isError

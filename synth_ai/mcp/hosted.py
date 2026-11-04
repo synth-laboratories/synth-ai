@@ -48,11 +48,20 @@ from .account_capability import (
 from .catalog import TOOLS, ToolSpec
 from .contracts import JSON_OBJECT, JsonObject
 from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
+from .public_tools import is_negotiated
 from .server import create_server
 
-# Clerk OAuth consent scopes and per-operation resource grants are different
-# authorities. Advertise the issuer's consent scopes; tool gates stay granular.
-AUTHORIZATION_SCOPES = ("user:org:read", "synth:read")
+# Advertised OAuth scopes: the Swarms v1 contract scope set (Swarms, account and
+# billing). Tool gates stay per-operation.
+AUTHORIZATION_SCOPES = (
+    "account:billing:read",
+    "account:read",
+    "account:usage:read",
+    "swarms:control",
+    "swarms:read",
+    "swarms:run",
+    "swarms:write",
+)
 
 
 class AuthorizationScopeChallengeMiddleware:
@@ -65,7 +74,7 @@ class AuthorizationScopeChallengeMiddleware:
                 message = {
                     **message,
                     "headers": [
-                        (name, value + b', scope="user:org:read synth:read"')
+                        (name, value + b', scope="' + " ".join(AUTHORIZATION_SCOPES).encode() + b'"')
                         if name.lower() == b"www-authenticate"
                         and value.startswith(b"Bearer ")
                         and b'scope="' not in value
@@ -184,14 +193,20 @@ class HostedExecutor:
         capability_provider: Callable[[], Capabilities] | None,
         candidate_manifest_sha256: str | None,
         account_capability_provider: Callable[[], AccountMcpCapability | None] | None = None,
+        catalog: tuple[ToolSpec, ...] = TOOLS,
     ) -> None:
+        self.catalog = catalog
         self._backend = backend
         self._enabled = enabled_tools
         self._capability_provider = capability_provider
         self._candidate_manifest_sha256 = candidate_manifest_sha256
         self._account_capability_provider = account_capability_provider
 
-    def _require_tool(self, tool: ToolSpec, receipt: Capabilities) -> None:
+    def _require_tool(self, tool: ToolSpec, receipt: Capabilities | None) -> None:
+        if not is_negotiated(tool):
+            return
+        if receipt is None:
+            receipt = self._capabilities()
         if tool.operation == ACCOUNT_MCP_OPERATION:
             account = (
                 self._account_capability_provider() if self._account_capability_provider else None
@@ -207,7 +222,7 @@ class HostedExecutor:
                 candidate_manifest_sha256=self._candidate_manifest_sha256,
             )
 
-    def _supports_tool(self, tool: ToolSpec, receipt: Capabilities) -> bool:
+    def _supports_tool(self, tool: ToolSpec, receipt: Capabilities | None) -> bool:
         try:
             self._require_tool(tool, receipt)
         except SynthError:
@@ -231,10 +246,13 @@ class HostedExecutor:
 
     async def available_tools(self) -> frozenset[str]:
         principal = self.principal()
-        receipt = self._capabilities()
+        negotiated = any(
+            is_negotiated(tool) and tool.name in self._enabled for tool in self.catalog
+        )
+        receipt = self._capabilities() if negotiated else None
         return frozenset(
             tool.name
-            for tool in TOOLS
+            for tool in self.catalog
             if tool.name in self._enabled
             and self._supports_tool(tool, receipt)
             and tool.name in principal.allowed_tools
@@ -248,7 +266,7 @@ class HostedExecutor:
         if tool.name not in self._enabled:
             return "tool_not_enabled"
         try:
-            self._require_tool(tool, self._capabilities())
+            self._require_tool(tool, None)
         except SynthError as error:
             return f"capability:{error.code or type(error).__name__}"
         if tool.name not in principal.allowed_tools:
@@ -282,7 +300,7 @@ class HostedExecutor:
         principal = self.principal()
         if tool.name not in self._enabled or tool.name not in principal.allowed_tools:
             raise PermissionDeniedError("Tool is outside the active authorization")
-        self._require_tool(tool, self._capabilities())
+        self._require_tool(tool, None)
         scope = tool.scope_for(arguments)
         if (scope is not None and scope not in principal.scopes) or any(
             required not in principal.scopes for required in tool.additional_scopes
@@ -306,6 +324,7 @@ def create_http_app(
     allowed_origins: tuple[str, ...] = (),
     legacy_issuer_urls: tuple[str, ...] = (),
     streaming_tools: frozenset[str] | None = None,
+    catalog: tuple[ToolSpec, ...] = TOOLS,
 ) -> Starlette:
     """Create one stateless protected MCP endpoint; backend supplies live authorization.
 
@@ -323,7 +342,7 @@ def create_http_app(
             or parsed.fragment
         ):
             raise ValueError("Hosted resource and issuer must be explicit HTTPS URLs")
-    known = {tool.name for tool in TOOLS}
+    known = {tool.name for tool in catalog}
     if not enabled_tools <= known:
         raise ValueError("Hosted allowlist contains an unknown tool")
     if account_oauth_scopes_supported and (
@@ -342,6 +361,7 @@ def create_http_app(
         capability_provider,
         candidate_manifest_sha256,
         account_capability_provider,
+        catalog,
     )
     server = create_server(executor)
     # Private archive transfer is an explicitly enabled, bounded programmatic
@@ -393,7 +413,7 @@ def create_http_app(
             if account_oauth_scopes_supported
             else AUTHORIZATION_SCOPES
         ),
-        resource_name="Synth Index and Swarms",
+        resource_name="Synth Swarms",
     )
     routes.append(
         Route(

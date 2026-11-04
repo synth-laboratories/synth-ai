@@ -48,7 +48,7 @@ def test_sync_and_async_clients_expose_create():
 
 
 def test_mcp_tool_is_registered_with_an_idempotency_key():
-    tool = next(t for t in catalog.TOOLS if t.name == "swarms_project_create")
+    tool = next(t for t in catalog.ALL_TOOLS if t.name == "swarms_project_create")
     assert tool.definition is operations.CREATE_PROJECT
     assert "idempotency_key" in ProjectCreate.model_fields
     assert tool.request is ProjectCreate
@@ -58,8 +58,11 @@ def test_shipped_contracts_include_the_operation_and_tool():
     swarms = json.loads((CONTRACTS / "swarms-v1.json").read_text())
     assert "swarms.projects.create" in {op["id"] for op in swarms["operations"]}
     assert "ProjectCreateRequest" in swarms["models"]
+    # The legacy tool is hidden: retained in the full catalog, absent from the shipped
+    # public export, which lists exactly the public catalog.
     mcp = json.loads((CONTRACTS / "mcp-v1.json").read_text())
-    assert "swarms_project_create" in {tool["name"] for tool in mcp["tools"]}
+    assert "swarms_project_create" in catalog.ALL_BY_NAME
+    assert [tool["name"] for tool in mcp["tools"]] == [tool.name for tool in catalog.TOOLS]
 
 
 def code_validation():
@@ -150,7 +153,7 @@ async def test_code_project_async_and_mcp_forward_the_same_contract():
         idempotency_key="code-once",
     )
     result = await catalog.create_project(
-        SimpleNamespace(swarms=SimpleNamespace(projects=SimpleNamespace(create=create))), args
+        SimpleNamespace(hidden={"swarms_legacy": SimpleNamespace(projects=SimpleNamespace(create=create))}.__getitem__), args
     )
     assert result == "project"
     assert captured[0][1]["code_validation"] == validation

@@ -64,7 +64,7 @@ def test_preflight_and_launch_forward_explicit_forge_and_rhodes_grants(message_f
         preflight=AsyncMock(return_value=preview),
         create=AsyncMock(return_value=SimpleNamespace(run_id="run-1", rate_limits=())),
     )
-    client = SimpleNamespace(swarms=swarm)
+    client = SimpleNamespace(hidden={"swarms_legacy": swarm}.__getitem__)
 
     async def run():
         assert await preflight(client, preflight_args) == LaunchPreflightResult.of(preview)

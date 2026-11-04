@@ -5,10 +5,9 @@ import json
 
 import httpx
 import pytest
-
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts.forge import CAPTURE_OPERATIONS
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.captures import intent_reference
 from synth_ai.sdk.forge.contracts.capture import CaptureAdmissionRequest
@@ -101,7 +100,7 @@ def test_admit_read_page_release_preserves_exact_intent_and_retry_body(async_mod
 
 @pytest.mark.parametrize("name", ["forge_capture_admit", "forge_capture_get", "forge_capture_collect", "forge_capture_retained", "forge_capture_release"])
 def test_capture_mcp_arguments_cannot_choose_principal_or_authority(name):
-    tool = BY_NAME[name]
+    tool = ALL_BY_NAME[name]
     assert tool.request.model_config.get("extra") == "forbid"
     assert not {"principal", "authorization", "bearer", "scorer_identity"} & tool.request.model_fields.keys()
 

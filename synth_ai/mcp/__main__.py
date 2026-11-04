@@ -49,7 +49,7 @@ async def serve(
         candidate_manifest_sha256=candidate_manifest_sha256,
         local_development_retention=local_development_retention,
     )
-    async with AsyncSynthClient.anonymous(
+    async with AsyncSynthClient.unauthenticated(
         base_url=base_url, options=public_options
     ) as public_client:
         client = (

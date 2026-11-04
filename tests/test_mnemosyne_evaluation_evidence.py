@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ContractError, UnsupportedOperationError
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME, ALL_TOOLS
 from synth_ai.options import ClientOptions
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256
 from tests.test_forge_workspaces import receipt_and_headers
@@ -395,7 +395,7 @@ def test_mcp_discovery_needs_backend_capability_and_caller_scope(advertise, scop
             return SimpleNamespace(scopes=("forge:read",) if scope else ())
 
     selected = frozenset({"mnemosyne_evaluation_evidence_get"})
-    result = asyncio.run(SDKExecutor(Client(), Client(), selected).available_tools())
+    result = asyncio.run(SDKExecutor(Client(), Client(), selected, catalog=ALL_TOOLS).available_tools())
     assert ("mnemosyne_evaluation_evidence_get" in result) is expected
 
 
@@ -425,5 +425,5 @@ def test_hosted_mcp_discovery_needs_backend_scope_and_principal(
         scopes=("forge:read",) if scope else (), allowed_tools={tool} if allowed else set()
     )
     monkeypatch.setattr(HostedExecutor, "principal", lambda self: principal)
-    executor = HostedExecutor(None, frozenset({tool}), lambda: receipt, None)
+    executor = HostedExecutor(None, frozenset({tool}), lambda: receipt, None, catalog=ALL_TOOLS)
     assert (tool in asyncio.run(executor.available_tools())) is expected

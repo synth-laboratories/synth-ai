@@ -154,8 +154,28 @@ class PublicTransport:
             self._provider.close()
 
 
-def _key(idempotency_key: str | None) -> str:
+def idempotency(idempotency_key: str | None) -> str:
     return idempotency_key or str(uuid.uuid4())
+
+
+def project_or_refuse(project_id: str | None) -> str:
+    if not project_id:
+        raise client_error("project_id_required", "swarms.launch",
+                           cause="pass project_id or set SYNTH_PROJECT_ID")
+    return project_id
+
+
+def run_failure(closed: RunSnapshot) -> RunFailedError:
+    failure = closed.failure
+    return RunFailedError(
+        0,
+        ErrorDetail(
+            code=failure.code if failure else "run_failed",
+            service=SERVICE,
+            stage="swarms.run",
+            cause=closed.run_id,
+        ),
+    )
 
 
 def default_limits(budget: Decimal | int | str | Money | None) -> Limits:
@@ -174,13 +194,6 @@ class Swarms:
     def __init__(self, transport: PublicTransport, *, project_id: str | None = None) -> None:
         self._t = transport
         self._project_id = project_id
-
-    def _project(self, project_id: str | None) -> str:
-        selected = project_id or self._project_id
-        if not selected:
-            raise client_error("project_id_required", "swarms.launch",
-                               cause="pass project_id or set SYNTH_PROJECT_ID")
-        return selected
 
     def run(
         self,
@@ -209,16 +222,7 @@ class Swarms:
         )
         closed = self.wait(run.run_id, timeout_seconds=timeout_seconds, poll_seconds=poll_seconds)
         if closed.state == "failed":
-            failure = closed.failure
-            raise RunFailedError(
-                0,
-                ErrorDetail(
-                    code=failure.code if failure else "run_failed",
-                    service=SERVICE,
-                    stage="swarms.run",
-                    cause=closed.run_id,
-                ),
-            )
+            raise run_failure(closed)
         return RunResult(run=closed, outputs=self.outputs(closed.run_id).outputs)
 
     def launch(
@@ -232,14 +236,14 @@ class Swarms:
         **launch_fields: Any,
     ) -> RunSnapshot:
         request = LaunchRequest(
-            project_id=self._project(project_id),
+            project_id=project_or_refuse(project_id or self._project_id),
             limits=limits or default_limits(budget),
             message=message,
             **launch_fields,
         )
         return self._t.json(
             RunSnapshot, "POST", RUNS_PATH, stage="swarms.launch",
-            body=request, idempotency_key=_key(idempotency_key),
+            body=request, idempotency_key=idempotency(idempotency_key),
         )
 
     def get(self, run_id: str) -> RunSnapshot:
@@ -284,7 +288,7 @@ class Swarms:
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlSummary:
         return self._t.json(
             RunControlSummary, "POST", f"{RUNS_PATH}/{run_id}/cancel",
-            stage="swarms.cancel", idempotency_key=_key(idempotency_key),
+            stage="swarms.cancel", idempotency_key=idempotency(idempotency_key),
         )
 
     def outputs(self, run_id: str) -> RunOutputList:

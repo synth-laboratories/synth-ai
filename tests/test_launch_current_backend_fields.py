@@ -4,9 +4,9 @@ import inspect
 
 import pytest
 from pydantic import ValidationError
+from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.sdk.swarms.types.launch import LaunchRequest
 from synth_ai.sdk.swarms.types.resources import ResourceRequest
-from synth_ai.sdk.swarms.client import AsyncSwarmsClient, SwarmsClient
 from synth_ai.types.usage import ResourceUsage
 
 

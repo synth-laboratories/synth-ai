@@ -12,7 +12,7 @@ pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
 from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest  # noqa: E402
 from synth_ai import AsyncSynthClient
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME, ALL_TOOLS
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.mcp.server import create_server
 from tests.test_forge_workspaces import receipt_and_headers
@@ -77,7 +77,7 @@ def test_protocol_uses_exact_revision_key_and_dedicated_owner_route():
                 async def invoke(self, tool, arguments):
                     return await tool.invoke(client, arguments)
 
-            server = create_server(Executor())
+            server = create_server(Executor(), catalog=ALL_TOOLS)
             listed = (
                 await server.request_handlers[ListToolsRequest](
                     ListToolsRequest(method="tools/list")
@@ -112,7 +112,7 @@ def test_private_tools_require_intake_and_forbid_caller_or_rights_arguments():
     executor = SDKExecutor.__new__(SDKExecutor)
     executor._enabled = frozenset({"index_contribution_submit", "index_contribution_owner_get"})
     for name in executor._enabled:
-        tool = BY_NAME[name]
+        tool = ALL_BY_NAME[name]
         assert tool.scope == "index:intake"
         assert not executor._permitted(tool, SimpleNamespace(scopes=("index:read",)), tool.scope)
         assert executor._permitted(tool, SimpleNamespace(scopes=("index:intake",)), tool.scope)

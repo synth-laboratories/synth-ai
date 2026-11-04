@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 from synth_ai import AsyncSynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.mcp.contracts import ApprovalListArguments
 from synth_ai.sdk.swarms.run import AsyncSwarmRun
 from synth_ai.sdk.swarms.types.approvals import ApprovalKind, GateApproval
@@ -25,7 +25,7 @@ METADATA = {
     "operation_id": None,
     "observed_at": "2026-10-29T12:00:00Z",
 }
-TOOL = BY_NAME["swarms_approvals"]
+TOOL = ALL_BY_NAME["swarms_approvals"]
 
 
 def recorded_gate() -> dict:
@@ -61,7 +61,7 @@ def call(arguments: dict, body: dict) -> tuple[list[httpx.Request], object]:
             async def get(run_id):
                 return AsyncSwarmRun(client._transport, run_id)
 
-            facade = SimpleNamespace(swarms=SimpleNamespace(get=get))
+            facade = SimpleNamespace(hidden={"swarms_legacy": SimpleNamespace(get=get)}.__getitem__)
             result = await TOOL.execute(facade, TOOL.request.model_validate(arguments))
         return requests, result
 

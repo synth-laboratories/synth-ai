@@ -129,7 +129,7 @@ def test_sdk_status_and_mcp_readback_carry_the_facets():
     client._transport.client = httpx.Client(transport=httpx.MockTransport(respond))
     client._transport._negotiate = lambda *args: None
     with client:
-        status = client.swarms.get("run-1").status()
+        status = client.hidden("swarms_legacy").get("run-1").status()
     assert status.status_facets.execution.state == "never_started"
 
     class Run:
@@ -142,7 +142,7 @@ def test_sdk_status_and_mcp_readback_carry_the_facets():
 
     mcp = asyncio.run(
         run_status(
-            SimpleNamespace(swarms=SimpleNamespace(get=get)),
+            SimpleNamespace(hidden={"swarms_legacy": SimpleNamespace(get=get)}.__getitem__),
             RunIdentity.model_validate({"run_id": "run-1"}),
         )
     )

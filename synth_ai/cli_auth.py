@@ -162,7 +162,7 @@ def verify_principal(
         # Ordinary account setup never waits on workload capability discovery.
         if args.candidate_manifest_sha256 is not None:
             return client.auth_context()
-        return client.account.context()
+        return client.hidden("account_legacy").context()
 
 
 def run(args: argparse.Namespace, *, store: CredentialStore | None = None) -> int:

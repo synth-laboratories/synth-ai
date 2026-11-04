@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts import swarms as operations
 from synth_ai.errors import ContractError, OutcomeUncertainError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.swarms.run import AsyncSwarmRun, SwarmRun
 from synth_ai.sdk.swarms.types.approvals import ApprovalDecisionRequest, ApprovalList
@@ -173,8 +173,8 @@ def test_request_and_operations_are_closed():
     assert operations.APPROVALS.required_scope == "swarms:read"
     assert operations.DECIDE_APPROVAL.mutation and operations.DECIDE_APPROVAL.idempotent
     assert operations.DECIDE_APPROVAL.required_scope == "swarms:control"
-    assert BY_NAME["swarms_approvals"].definition is operations.APPROVALS
-    assert BY_NAME["swarms_approval_decide"].definition is operations.DECIDE_APPROVAL
+    assert ALL_BY_NAME["swarms_approvals"].definition is operations.APPROVALS
+    assert ALL_BY_NAME["swarms_approval_decide"].definition is operations.DECIDE_APPROVAL
 
 
 # ---- SYN-4650: human-in-the-loop waits on the same surface ----
@@ -332,7 +332,7 @@ def test_wait_answer_contract_and_event_kinds_are_closed():
         )
     assert operations.ANSWER_WAIT.mutation and operations.ANSWER_WAIT.idempotent
     assert operations.ANSWER_WAIT.required_scope == "swarms:control"
-    assert BY_NAME["swarms_wait_answer"].definition is operations.ANSWER_WAIT
+    assert ALL_BY_NAME["swarms_wait_answer"].definition is operations.ANSWER_WAIT
     event = SwarmEvent.model_validate(
         {
             "event_id": "run-1.f17.0",

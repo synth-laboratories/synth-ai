@@ -444,7 +444,7 @@ def test_inline_result_is_exposed_when_the_create_response_carries_one():
 
 
 def test_mcp_search_create_passes_retention_through_and_omits_it_when_unset():
-    from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+    from synth_ai.mcp.catalog import ALL_BY_NAME
 
     spec = ALL_BY_NAME["index_search_create"]
     base = {

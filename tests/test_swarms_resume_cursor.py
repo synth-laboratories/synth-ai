@@ -2,7 +2,7 @@
 
 import json
 
-from synth_ai.mcp.catalog import TOOLS
+from synth_ai.mcp.catalog import ALL_TOOLS
 from synth_ai.sdk.swarms.types.runs import AdmittedResourceGrant, SwarmEventPage
 
 
@@ -17,7 +17,7 @@ def test_tail_cursor_is_retained_and_older_pages_still_decode():
     }
     parsed = SwarmEventPage.model_validate_json(json.dumps(page))
     assert parsed.resume_cursor == "opaque-position"
-    spec = next(tool for tool in TOOLS if tool.name == "swarms_events")
+    spec = next(tool for tool in ALL_TOOLS if tool.name == "swarms_events")
     assert spec.validate_result(page)["resume_cursor"] == "opaque-position"
     del page["resume_cursor"]
     assert SwarmEventPage.model_validate_json(json.dumps(page)).resume_cursor is None

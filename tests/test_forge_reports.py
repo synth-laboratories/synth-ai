@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import OutcomeUncertainError
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.contracts.contracts import ExactReference, Producer, Scope, contract_digest
 from synth_ai.sdk.forge.contracts.operations import RecordRevision
@@ -164,7 +164,7 @@ def test_stdio_mcp_tools_call_the_public_routes_with_stable_keys():
 
 def test_mcp_report_tools_cannot_supply_authority_or_producer():
     for name in ("forge_report_version_publish", "forge_report_shares_revoke_inactive"):
-        tool = BY_NAME[name]
+        tool = ALL_BY_NAME[name]
         assert tool.scope == "forge:write" and tool.mutates and tool.keyed and not tool.paid
     base = {"project_id": PROJECT, "lineage_id": FIRST.lineage_id, "idempotency_key": "k"}
     for field in ("principal", "producer", "authorization", "acting_credential"):

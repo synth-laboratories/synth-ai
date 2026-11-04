@@ -68,11 +68,11 @@ async def account_usage_snapshot(client, _arguments) -> AccountUsageSnapshot:
     async def usage():
         if start == now:
             return Unavailable()
-        return await observe(lambda: client.account.usage(start, now, request=options), UsageReady)
+        return await observe(lambda: client.hidden("account_legacy").usage(start, now, request=options), UsageReady)
 
     plan, balance, current_usage = await asyncio.gather(
-        observe(lambda: client.account.plan(request=options), PlanReady),
-        observe(lambda: client.account.balance(request=options), BalanceReady),
+        observe(lambda: client.hidden("account_legacy").plan(request=options), PlanReady),
+        observe(lambda: client.hidden("account_legacy").balance(request=options), BalanceReady),
         usage(),
     )
     return AccountUsageSnapshot(plan=plan, balance=balance, usage=current_usage)

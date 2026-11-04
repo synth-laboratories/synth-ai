@@ -255,7 +255,7 @@ def test_mcp_forwards_the_overrides_on_preflight_and_create():
         preflight=AsyncMock(return_value=_preflight(_readback(OVERRIDES))),
         create=AsyncMock(return_value=SimpleNamespace(run_id="run-1", rate_limits=())),
     )
-    client = SimpleNamespace(swarms=swarm)
+    client = SimpleNamespace(hidden={"swarms_legacy": swarm}.__getitem__)
 
     async def run():
         await preflight(client, LaunchRequest.model_validate_json(json.dumps(body)))

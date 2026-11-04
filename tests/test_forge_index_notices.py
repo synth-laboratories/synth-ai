@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.options import ClientOptions
 from synth_ai.types.capabilities import CapabilitySnapshot, snapshot_sha256

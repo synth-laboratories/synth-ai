@@ -9,7 +9,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts.fingerprint import schema_sha256
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.contracts.contracts import contract_digest
 from synth_ai.sdk.forge.contracts.projects import (

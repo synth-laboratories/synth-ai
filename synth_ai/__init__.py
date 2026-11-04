@@ -1,4 +1,4 @@
-"""Synth Python SDK: typed clients for Index, Swarms and hosted MCP."""
+"""Synth Python SDK: typed clients for Swarms, account and billing, and hosted MCP."""
 
 from __future__ import annotations
 

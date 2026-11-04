@@ -10,7 +10,7 @@ import pytest
 from pydantic import ValidationError
 from synth_ai import SynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME, create_run, preflight
+from synth_ai.mcp.catalog import ALL_BY_NAME, create_run, preflight
 from synth_ai.mcp.contracts import RunCreate
 from synth_ai.sdk.swarms import (
     Limits,
@@ -142,7 +142,7 @@ def test_families_refuses_a_duplicate_family_version():
 
 
 def test_mcp_lists_families_and_forwards_the_program_choice():
-    assert "swarms_families" in BY_NAME
+    assert "swarms_families" in ALL_BY_NAME
     body = {
         "message": "Study the selected protocol",
         "project_id": "execution-project",
@@ -165,7 +165,7 @@ def test_mcp_lists_families_and_forwards_the_program_choice():
         ),
         create=AsyncMock(return_value=SimpleNamespace(run_id="run-1", rate_limits=())),
     )
-    client = SimpleNamespace(swarms=swarm)
+    client = SimpleNamespace(hidden={"swarms_legacy": swarm}.__getitem__)
 
     async def run():
         await preflight(client, LaunchRequest.model_validate_json(json.dumps(body)))

@@ -8,7 +8,7 @@ import httpx
 import pytest
 from synth_ai import AsyncSynthClient
 from synth_ai.errors import ContractError
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import ClientOptions
 from synth_ai.sdk.forge.contracts.contracts import Scope, canonical_bytes, contract_digest
 from synth_ai.sdk.forge.contracts.report_manifests import (
@@ -326,7 +326,7 @@ def test_stdio_mcp_reader_tools_call_the_public_routes():
 
 def test_reader_tools_are_reads_without_authority_fields():
     for name in READER_TOOLS:
-        tool = BY_NAME[name]
+        tool = ALL_BY_NAME[name]
         assert (tool.scope, tool.mutates, tool.paid) == ("forge:read", False, False)
     base = {"project_id": PROJECT, "digest": BASE}
     for field in ("principal", "access", "authorization", "acting_credential", "audience"):

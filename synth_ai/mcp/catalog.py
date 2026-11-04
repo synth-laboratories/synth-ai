@@ -137,6 +137,7 @@ from .contracts import (
     StrictSearchDelivery,
     WaitAnswer,
 )
+from .public_tools import PUBLIC_TOOLS
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
 ResultT = TypeVar("ResultT", bound=BaseModel)
@@ -242,7 +243,7 @@ async def auth_context(client: AsyncSynthClient, args: EmptyArguments) -> AuthCo
 async def account_entitlements(
     client: AsyncSynthClient, args: EmptyArguments
 ) -> AccountEntitlements:
-    return await client.account.entitlements()
+    return await client.hidden("account_legacy").entitlements()
 
 
 async def retention_get(client: AsyncSynthClient, args: EmptyArguments) -> RetentionPolicy:
@@ -362,11 +363,11 @@ async def recovery(client: AsyncSynthClient, args: Recovery) -> MutationResoluti
 
 
 async def project(client: AsyncSynthClient, args: ProjectIdentity) -> Project:
-    return await client.swarms.projects.get(args.project_id)
+    return await client.hidden("swarms_legacy").projects.get(args.project_id)
 
 
 async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Project:
-    return await client.swarms.projects.create(
+    return await client.hidden("swarms_legacy").projects.create(
         args.name,
         objective=args.objective,
         template=args.template,
@@ -376,11 +377,11 @@ async def create_project(client: AsyncSynthClient, args: ProjectCreate) -> Proje
 
 
 async def program_families(client: AsyncSynthClient, args: EmptyArguments) -> ProgramFamilyList:
-    return await client.swarms.families()
+    return await client.hidden("swarms_legacy").families()
 
 
 async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPreflightResult:
-    result = await client.swarms.preflight(
+    result = await client.hidden("swarms_legacy").preflight(
         args.legacy_objective,
         message=args.message,
         project_id=args.project_id,
@@ -401,7 +402,7 @@ async def preflight(client: AsyncSynthClient, args: LaunchRequest) -> LaunchPref
 
 
 async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
-    run = await client.swarms.create(
+    run = await client.hidden("swarms_legacy").create(
         args.legacy_objective,
         message=args.message,
         project_id=args.project_id,
@@ -423,7 +424,7 @@ async def create_run(client: AsyncSynthClient, args: RunCreate) -> RunCreated:
 
 
 async def runs(client: AsyncSynthClient, args: RunList) -> Page[RunSnapshot]:
-    return await client.swarms.list(
+    return await client.hidden("swarms_legacy").list(
         limit=args.limit,
         cursor=PageCursor(args.cursor) if args.cursor else None,
         project_id=args.project_id,
@@ -431,70 +432,70 @@ async def runs(client: AsyncSynthClient, args: RunList) -> Page[RunSnapshot]:
 
 
 async def run_status(client: AsyncSynthClient, args: RunIdentity) -> RunSnapshot:
-    return await (await client.swarms.get(args.run_id)).status()
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).status()
 
 
 async def run_configuration(client: AsyncSynthClient, args: RunIdentity) -> ResolvedConfiguration:
-    return await (await client.swarms.get(args.run_id)).configuration()
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).configuration()
 
 
 async def run_program(client: AsyncSynthClient, args: RunIdentity) -> ProgramRunView:
     """Read the retained program projection; reattachment never recreates a run."""
-    return await (await client.swarms.get(args.run_id)).program()
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).program()
 
 
 async def run_result(client: AsyncSynthClient, args: RunIdentity) -> SwarmResult:
-    return await (await client.swarms.get(args.run_id)).result()
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).result()
 
 
 async def run_events(client: AsyncSynthClient, args: RunPage) -> SwarmEventPage:
-    return await (await client.swarms.get(args.run_id)).event_page(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).event_page(
         limit=args.limit, cursor=EventCursor(args.cursor) if args.cursor else None
     )
 
 
 async def run_tasks(client: AsyncSynthClient, args: RunPage) -> Page[TaskOutcome]:
-    return await (await client.swarms.get(args.run_id)).tasks(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).tasks(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
     )
 
 
 async def run_usage(client: AsyncSynthClient, args: RunIdentity) -> UsageSummary:
-    return await (await client.swarms.get(args.run_id)).usage()
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).usage()
 
 
 async def run_usage_items(client: AsyncSynthClient, args: RunPage) -> Page[UsageOperation]:
-    return await (await client.swarms.get(args.run_id)).usage_operations(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).usage_operations(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
     )
 
 
 async def run_cancel(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
-    return await (await client.swarms.get(args.run_id)).cancel(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).cancel(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
     )
 
 
 async def run_pause(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
-    return await (await client.swarms.get(args.run_id)).pause(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).pause(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
     )
 
 
 async def run_resume(client: AsyncSynthClient, args: RunMutation) -> ControlReceipt:
-    return await (await client.swarms.get(args.run_id)).resume(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).resume(
         mutation=MutationOptions(idempotency_key=args.idempotency_key)
     )
 
 
 async def run_approvals(client: AsyncSynthClient, args: ApprovalListArguments) -> ApprovalList:
-    return await (await client.swarms.get(args.run_id)).approvals(kind=args.kind)
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).approvals(kind=args.kind)
 
 
 async def run_decide_approval(
     client: AsyncSynthClient, args: ApprovalDecide
 ) -> ApprovalDecisionReceipt:
-    return await (await client.swarms.get(args.run_id)).decide_approval(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).decide_approval(
         args.approval_id,
         decision=args.decision,
         expected_revision=args.expected_revision,
@@ -504,7 +505,7 @@ async def run_decide_approval(
 
 
 async def run_answer_wait(client: AsyncSynthClient, args: WaitAnswer) -> WaitAnswerReceipt:
-    return await (await client.swarms.get(args.run_id)).answer_wait(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).answer_wait(
         args.approval_id,
         decision=args.decision,
         expected_revision=args.expected_revision,
@@ -516,29 +517,29 @@ async def run_answer_wait(client: AsyncSynthClient, args: WaitAnswer) -> WaitAns
 
 
 async def outputs(client: AsyncSynthClient, args: RunPage) -> Page[Output]:
-    return await (await client.swarms.get(args.run_id)).outputs.list(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).outputs.list(
         limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
     )
 
 
 async def output(client: AsyncSynthClient, args: OutputIdentity) -> Output:
-    return await (await client.swarms.get(args.run_id)).outputs.get(args.output_id)
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).outputs.get(args.output_id)
 
 
 async def output_text(client: AsyncSynthClient, args: OutputText) -> TextContent:
-    return await (await client.swarms.get(args.run_id)).outputs.read_text(
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).outputs.read_text(
         args.output_id, maximum_bytes=args.maximum_bytes
     )
 
 
 async def files(client: AsyncSynthClient, args: ProjectPage) -> Page[File]:
-    return await client.swarms.files.list(
+    return await client.hidden("swarms_legacy").files.list(
         args.project_id, limit=args.limit, cursor=PageCursor(args.cursor) if args.cursor else None
     )
 
 
 async def file(client: AsyncSynthClient, args: FileIdentity) -> File:
-    return await client.swarms.files.get(args.project_id, args.file_id)
+    return await client.hidden("swarms_legacy").files.get(args.project_id, args.file_id)
 
 
 async def search_control(client: AsyncSynthClient, args: SearchControl) -> ControlReceipt:
@@ -546,7 +547,7 @@ async def search_control(client: AsyncSynthClient, args: SearchControl) -> Contr
 
 
 async def run_control(client: AsyncSynthClient, args: RunControl) -> ControlReceipt:
-    return await (await client.swarms.get(args.run_id)).control(args.operation_id)
+    return await (await client.hidden("swarms_legacy").get(args.run_id)).control(args.operation_id)
 
 
 async def deliver_search_events(
@@ -1364,10 +1365,12 @@ ALL_TOOLS: tuple[ToolSpec, ...] = (
         file,
     ),
 )
-# Public catalog: only tools whose product is in PUBLIC_PRODUCTS. The hosted MCP
-# admits operations by BY_NAME, so this also trims the hosted catalog.
+# Public catalog: the Swarms v1 contract tools (PUBLIC_PRODUCTS), executed through
+# the public client. The hosted MCP admits operations by BY_NAME, so this also
+# trims the hosted catalog. ALL_TOOLS keeps the capability-negotiated tools of
+# hidden products and the legacy swarms.v1 tools; servers accept it explicitly.
 TOOLS: tuple[ToolSpec, ...] = tuple(
-    tool for tool in ALL_TOOLS if tool_product(tool.name) in PUBLIC_PRODUCTS
+    tool for tool in PUBLIC_TOOLS if tool_product(tool.name) in PUBLIC_PRODUCTS
 )
 BY_NAME = {tool.name: tool for tool in TOOLS}
 ALL_BY_NAME = {tool.name: tool for tool in ALL_TOOLS}

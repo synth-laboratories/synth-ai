@@ -498,7 +498,7 @@ def test_run_get_retains_exact_launch_ref_and_provenance_refuses_identity_change
                     base_url="https://backend.test",
                     options=ClientOptions(async_http_client=network),
                 ) as client:
-                    handle = await client.swarms.get("run-1")
+                    handle = await client.hidden("swarms_legacy").get("run-1")
                     assert handle.ref == Ref.run("run-1", "d" * 64)
                     assert (await handle.produced()).items[0].object == REF
                     server.variant = "run_changed"
@@ -511,7 +511,7 @@ def test_run_get_retains_exact_launch_ref_and_provenance_refuses_identity_change
                     base_url="https://backend.test",
                     options=ClientOptions(http_client=network),
                 ) as client:
-                    handle = client.swarms.get("run-1")
+                    handle = client.hidden("swarms_legacy").get("run-1")
                     assert handle.ref == Ref.run("run-1", "d" * 64)
                     assert handle.produced().items[0].object == REF
                     server.variant = "run_changed"

@@ -94,19 +94,19 @@ def run_account(args: argparse.Namespace) -> int:
     read = ReadOptions(read_retry_count=0)
     with SynthClient() as client:
         if command == "context":
-            value = client.account.context(request=read)
+            value = client.hidden("account_legacy").context(request=read)
         elif command == "limits":
-            value = client.account.limits(request=read)
+            value = client.hidden("account_legacy").limits(request=read)
         elif command == "plan":
-            value = client.account.plan(request=read)
+            value = client.hidden("account_legacy").plan(request=read)
         elif command == "alerts":
-            value = client.account.alerts(request=read)
+            value = client.hidden("account_legacy").alerts(request=read)
         elif command == "balance":
-            value = client.account.balance(request=read)
+            value = client.hidden("account_legacy").balance(request=read)
         elif command == "usage":
-            value = client.account.usage(*_window(args), product=args.product, request=read)
+            value = client.hidden("account_legacy").usage(*_window(args), product=args.product, request=read)
         elif command == "logs":
-            value = client.account.events(
+            value = client.hidden("account_legacy").events(
                 *_window(args),
                 product=args.product,
                 cursor=args.cursor,

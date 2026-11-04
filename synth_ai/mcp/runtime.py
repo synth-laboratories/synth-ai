@@ -15,6 +15,7 @@ from synth_ai.types.capabilities import Capabilities
 from .catalog import TOOLS, ToolSpec
 from .contracts import JsonObject
 from .policy import POLICY_ACTION_TOOLS, visible_policy_tools
+from .public_tools import is_negotiated
 
 
 class Executor(Protocol):
@@ -35,6 +36,8 @@ class SDKExecutor:
         client: AsyncSynthClient,
         public_client: AsyncSynthClient,
         enabled_tools: frozenset[str],
+        *,
+        catalog: tuple[ToolSpec, ...] = TOOLS,
     ) -> None:
         if (
             client.base_url != public_client.base_url
@@ -43,7 +46,8 @@ class SDKExecutor:
             raise ValueError(
                 "MCP public and keyed clients must share one backend origin and candidate policy"
             )
-        known = {tool.name for tool in TOOLS}
+        self.catalog = catalog
+        known = {tool.name for tool in catalog}
         if not enabled_tools <= known:
             raise ValueError("MCP profile contains an unknown tool")
         self._client = client
@@ -62,7 +66,7 @@ class SDKExecutor:
                 candidate_manifest_sha256=self._client.candidate_manifest_sha256,
                 strict_contract=self._client._transport.strict_contract,
             )
-            for tool in TOOLS
+            for tool in self.catalog
         ):
             return None
         return await self._client.auth_context(
@@ -78,13 +82,23 @@ class SDKExecutor:
         )
 
     async def _current_tools(self) -> tuple[frozenset[str], AuthContext | None]:
+        # Public v1 tools are not negotiated: the core is the authority.
+        public = frozenset(
+            tool.name
+            for tool in self.catalog
+            if not is_negotiated(tool) and tool.name in self._enabled
+        )
+        if not any(
+            is_negotiated(tool) and tool.name in self._enabled for tool in self.catalog
+        ):
+            return public, None
         receipt = await self._public_client.capabilities(
             request=ReadOptions(timeout_seconds=10, read_retry_count=0)
         )
         context = await self._authorization(receipt)
-        available = frozenset(
+        available = public | frozenset(
             tool.name
-            for tool in TOOLS
+            for tool in self.catalog
             if self._permitted(tool, context, tool.scope)
             and tool.operation in OPERATIONS_BY_ID
             and supports_operation(
@@ -110,7 +124,7 @@ class SDKExecutor:
         if "account_entitlements" not in available or context is None:
             return visible_policy_tools(available, None)
         try:
-            policy = await self._client.account.entitlements(
+            policy = await self._client.hidden("account_legacy").entitlements(
                 request=ReadOptions(timeout_seconds=10, read_retry_count=0)
             )
         except AuthenticationError:
@@ -124,6 +138,12 @@ class SDKExecutor:
         return visible_policy_tools(available, policy)
 
     async def invoke(self, tool: ToolSpec, arguments: JsonObject) -> JsonObject:
+        if not is_negotiated(tool):
+            if tool.name not in self._enabled:
+                raise PermissionDeniedError(
+                    "Tool is disabled for this connection", code="tool_disabled"
+                )
+            return await tool.invoke(self._client if tool.keyed else self._public_client, arguments)
         if tool.name not in self._enabled or tool.operation not in OPERATIONS_BY_ID:
             raise PermissionDeniedError(
                 "Tool is disabled for this connection", code="tool_disabled"

@@ -1,4 +1,5 @@
-"""Offline check that README and docs/swarms.md python examples execute.
+"""Offline check that README (0.26 public surface) and docs/swarms.md (hidden legacy
+Swarms client) python examples execute.
 
 Resource methods are replaced with signature-checking autospecs, so every call in a
 documented example must bind to the real SDK signature. Artifact labels must also
@@ -18,6 +19,7 @@ from synth_ai.options import ClientOptions
 from synth_ai.sdk.core.artifacts import Artifacts
 from synth_ai.sdk.index.client import IndexClient
 from synth_ai.sdk.swarms.client import Projects, SwarmsClient
+from synth_ai.public.client import Account, Billing, Swarms
 from synth_ai.sdk.swarms.run import SwarmRun
 from synth_ai.types.refs import ExactReference
 
@@ -70,6 +72,16 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
         )
         return fake
 
+    public = [
+        mock.patch.object(cls, name, autospec=True)
+        for cls, names in (
+            (Swarms, ("run", "launch", "get", "wait", "events", "cancel", "outputs",
+                      "output_content", "list")),
+            (Account, ("get", "keys")),
+            (Billing, ("balance", "plans", "checkout")),
+        )
+        for name in names
+    ]
     with (
         mock.patch.object(Artifacts, "upload", autospec=True, side_effect=upload),
         mock.patch.object(IndexClient, "search", autospec=True),
@@ -79,16 +91,24 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
         mock.patch.object(SwarmRun, "download", autospec=True),
         mock.patch("synth_ai.SynthClient", return_value=mock.MagicMock()) as patched,
     ):
-        if "with SynthClient" in source:
-            # Examples that open their own client run against a recording stand-in
-            # whose swarms/artifacts attributes are the real, autospecced classes.
-            stand_in = patched.return_value
-            stand_in.__enter__.return_value = stand_in
-            stand_in.swarms = client.swarms
-            stand_in.artifacts = client.artifacts
-            stand_in.index = client.hidden("index")
-        namespace = {"client": client, "project_id": "project_fixture"}
-        exec(compile(source, label, "exec"), namespace)  # noqa: S102 - repository docs only
+        for patcher in public:
+            patcher.start()
+        try:
+            legacy = label.startswith("docs/swarms.md")
+            # README documents the public client; docs/swarms.md the hidden legacy client.
+            view = mock.NonCallableMock(spec=["swarms", "account", "billing", "artifacts"])
+            view.swarms = client.hidden("swarms_legacy") if legacy else client.swarms
+            view.account = client.account
+            view.billing = client.billing
+            view.artifacts = client.artifacts
+            if "with SynthClient" in source:
+                stand_in = patched.return_value
+                stand_in.__enter__.return_value = view
+            namespace = {"client": view, "project_id": "project_fixture"}
+            exec(compile(source, label, "exec"), namespace)  # noqa: S102 - repository docs only
+        finally:
+            for patcher in public:
+                patcher.stop()
     for labels in LABEL_CALLS:
         reserved = {key for key in labels if key in RESERVED or key.startswith("legacy_")}
         assert not reserved, f"{label}: reserved artifact label keys {sorted(reserved)}"

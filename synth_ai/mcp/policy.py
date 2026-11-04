@@ -1,7 +1,8 @@
-"""Advisory tool discovery; native admission remains authoritative.
+"""Advisory discovery for the capability-negotiated (hidden) tool catalog.
 
-See backend deployment/release/ACCOUNT_POLICY_ENGINE.md. Hiding a new-work tool
-must not block retained mutation recovery or turn a replay into a fresh launch.
+The public Swarms, account and billing tools are not filtered here: synth-backend
+core admits or refuses each call. Hiding a new-work tool must not block retained
+mutation recovery or turn a replay into a fresh launch.
 """
 
 from synth_ai.types.account import AccountEntitlements

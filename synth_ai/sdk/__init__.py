@@ -1,1 +1,1 @@
-"""Typed Index resources; Swarms implementation remains pending."""
+"""Typed product resources; the public surface is synth_ai.public (Swarms, account, billing)."""

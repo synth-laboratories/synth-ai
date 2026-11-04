@@ -209,8 +209,8 @@ def test_missing_capability_refuses_before_owner_call():
 
 
 def test_program_source_requires_actual_run_identity():
-    from synth_ai.sdk.mnemosyne.native_traces import NativeTraceItem
     from pydantic import ValidationError
+    from synth_ai.sdk.mnemosyne.native_traces import NativeTraceItem
 
     value = {
         "association_id": IDENTIFIER,

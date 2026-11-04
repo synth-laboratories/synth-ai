@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.contracts import swarms as operations
 from synth_ai.errors import RefusedError
-from synth_ai.mcp.catalog import BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.options import MutationOptions
 from synth_ai.sdk.swarms.run import AsyncSwarmRun, SwarmRun
 from synth_ai.sdk.swarms.types.runs import RunSnapshot, SwarmEvent
@@ -156,7 +156,7 @@ def test_ops_tools_and_shipped_contract_preserve_control_scopes():
         op = getattr(operations, command.upper())
         assert op.id == f"swarms.{command}" and op.keyed and op.mutation and not op.may_charge
         assert op.required_scope == "swarms:control" and op in operations.ALL_OPERATIONS
-        assert BY_NAME[f"swarms_{command}"].definition is op
+        assert ALL_BY_NAME[f"swarms_{command}"].definition is op
         assert op.id in {row["id"] for row in contract["operations"]}
     assert "ControlReceipt" in contract["models"]
     with pytest.raises(ValidationError):

@@ -1,6 +1,7 @@
 """MCP keeps specific server codes alongside coarse typed categories."""
 
 import pytest
+from synth_ai.mcp.catalog import ALL_TOOLS
 
 pytest.importorskip("mcp.types", reason="requires the synth-ai[mcp] extra")
 
@@ -26,7 +27,7 @@ async def test_tool_failure_passes_server_code_and_safe_diagnostic_fields():
                 retryable=True,
             )
 
-    server = create_server(Executor())
+    server = create_server(Executor(), catalog=ALL_TOOLS)
     request = CallToolRequest(
         method="tools/call",
         params=CallToolRequestParams(

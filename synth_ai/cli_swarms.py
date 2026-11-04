@@ -32,7 +32,7 @@ def read_launch_request(path: str) -> LaunchRequest:
 
 
 def preflight(client: SynthClient, request: LaunchRequest) -> LaunchPreflight:
-    return client.swarms.preflight(
+    return client.hidden("swarms_legacy").preflight(
         request.legacy_objective,
         message=request.message,
         project_id=request.project_id,

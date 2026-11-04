@@ -4,6 +4,7 @@ import asyncio
 
 import httpx
 import pytest
+from synth_ai.mcp.catalog import ALL_TOOLS
 from synth_ai.mcp.hosted import AUTHORIZATION_SCOPES, create_http_app
 
 
@@ -15,6 +16,7 @@ def metadata(*, account):
         enabled_tools=frozenset({"account_usage_snapshot"}) if account else frozenset(),
         account_capability_provider=(lambda: None) if account else None,
         account_oauth_scopes_supported=account,
+        catalog=ALL_TOOLS,
     )
 
     async def read():

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from synth_ai import AsyncSynthClient, SynthClient
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.mcp.runtime import SDKExecutor
 from synth_ai.options import ClientOptions, MutationOptions
 from synth_ai.sdk.forge.index_types import ForgeIndexDraftResponse

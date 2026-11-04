@@ -19,6 +19,7 @@ from synth_ai.core.http.client import HttpTransport
 from synth_ai.core.http.request import validate_base_url
 from synth_ai.errors import AuthenticationError, ContractError
 from synth_ai.options import ClientOptions, ReadOptions
+from synth_ai.public.aclient import AsyncAccount, AsyncBilling, AsyncPublicTransport, AsyncSwarms
 from synth_ai.public.client import Account, Billing, PublicTransport, Swarms
 from synth_ai.sdk.account.client import AccountClient, AsyncAccountClient
 from synth_ai.sdk.core.artifacts import Artifacts, AsyncArtifacts
@@ -142,9 +143,9 @@ class SynthClient:
         self.repos = Repositories(self._transport)
         self.links = Links(self._transport)
         self.artifacts = Artifacts(self._transport)
-        self._hidden: dict[str, object] = {}
+        self._hidden: dict[str, Any] = {}
 
-    def hidden(self, product: str) -> object:
+    def hidden(self, product: str) -> Any:
         """Construct a client for a product outside ``PUBLIC_PRODUCTS``.
 
         Hidden products keep their modules; they are not part of the public surface."""
@@ -220,13 +221,13 @@ class SynthClient:
 
 
 class AsyncSynthClient:
-    """Native async client for repos, links and artifacts; construction does no IO.
-
-    The Swarms v1 run, account and billing calls are on :class:`SynthClient`."""
+    """Native async client for the public Swarms, account and billing surface."""
 
     _transport: AsyncHttpTransport
-    swarms: AsyncSwarmsClient
-    account: AsyncAccountClient
+    _public: AsyncPublicTransport
+    swarms: AsyncSwarms
+    account: AsyncAccount
+    billing: AsyncBilling
     repos: AsyncRepositories
     links: AsyncLinks
     artifacts: AsyncArtifacts
@@ -237,17 +238,51 @@ class AsyncSynthClient:
         api_key: str | None = None,
         base_url: str | None = None,
         options: ClientOptions | None = None,
+        session_token: str | None = None,
+        project_id: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         selected = options or ClientOptions()
         origin = resolve_url(base_url)
-        key, provider = _credentials(api_key, origin)
+        key, provider = _credentials(api_key, origin) if session_token is None else (api_key, None)
+        self._setup(origin, key, provider, selected, session_token, project_id, http_client)
+
+    def _setup(
+        self,
+        origin: str,
+        key: str | None,
+        provider: StoredCredentialProvider | None,
+        selected: ClientOptions,
+        session_token: str | None,
+        project_id: str | None,
+        http_client: httpx.AsyncClient | None,
+    ) -> None:
         self._transport = AsyncHttpTransport(origin, key, selected, credential_provider=provider)
-        self.swarms = AsyncSwarmsClient(self._transport)
-        self.account = AsyncAccountClient(self._transport)
+        self._public = AsyncPublicTransport(
+            origin,
+            api_key=key,
+            credential_provider=provider,
+            session_token=session_token,
+            http_client=http_client or selected.async_http_client,
+        )
+        self.swarms = AsyncSwarms(self._public, project_id=resolve_project(project_id))
+        self.account = AsyncAccount(self._public)
+        self.billing = AsyncBilling(self._public)
         self.repos = AsyncRepositories(self._transport)
         self.links = AsyncLinks(self._transport)
         self.artifacts = AsyncArtifacts(self._transport)
         self._hidden: dict[str, Any] = {}
+
+    @classmethod
+    def unauthenticated(
+        cls, *, base_url: str | None = None, options: ClientOptions | None = None
+    ) -> AsyncSynthClient:
+        """A client that never reads ambient credentials; for credential-free calls."""
+        client = cls.__new__(cls)
+        client._setup(
+            resolve_url(base_url), None, None, options or ClientOptions(), None, None, None
+        )
+        return client
 
     def hidden(self, product: str) -> Any:
         """Construct an async client for a product outside ``PUBLIC_PRODUCTS``."""
@@ -304,6 +339,7 @@ class AsyncSynthClient:
         """End async local ownership without cancelling durable work or closing borrowed clients.
 
         See: the public contract snapshots in contracts/"""
+        await self._public.aclose()
         await self._transport.aclose()
 
     async def __aenter__(self) -> AsyncSynthClient:

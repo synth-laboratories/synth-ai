@@ -116,7 +116,7 @@ def test_snapshot_preserves_partial_observations_without_error_details():
         async def usage(self, *args, **kwargs):
             raise PermissionDeniedError("private", code="other")
 
-    client = type("Client", (), {"account": Account()})()
+    client = type("Client", (), {"hidden": lambda self, name, _a=Account(): {"account_legacy": _a}[name]})()
     value = asyncio.run(account_usage_snapshot(client, None)).model_dump(mode="json", by_alias=True)
     assert value["plan"]["state"] == "ready"
     assert value["balance"]["state"] == "unavailable"
@@ -136,6 +136,6 @@ def test_revoked_credential_is_not_downgraded_to_partial_success():
         async def usage(self, *args, **kwargs):
             raise PermissionDeniedError("unavailable")
 
-    client = type("Client", (), {"account": Account()})()
+    client = type("Client", (), {"hidden": lambda self, name, _a=Account(): {"account_legacy": _a}[name]})()
     with pytest.raises(AuthenticationError):
         asyncio.run(account_usage_snapshot(client, None))

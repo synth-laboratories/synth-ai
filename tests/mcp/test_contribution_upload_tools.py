@@ -6,7 +6,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from synth_ai.mcp.catalog import BY_NAME, ALL_BY_NAME
+from synth_ai.mcp.catalog import ALL_BY_NAME
 from synth_ai.mcp.contribution_upload import MAXIMUM_ARCHIVE_BYTES, archive_bytes, progress
 from synth_ai.types.uploads import ContributionUploadManifest
 from tests.test_forge_workspaces import receipt_and_headers
