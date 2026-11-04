@@ -2,8 +2,8 @@ openapi: 3.1.0
 info:
   title: Synth API
   version: 1.0.0
-  description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own protocols.
-    Source implementation and deployment qualification are tracked separately.
+  description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
+    protocols. Source implementation and deployment qualification are tracked separately.
   license:
     name: Proprietary
     url: https://usesynth.ai/terms
@@ -27,6 +27,8 @@ tags:
   description: Runs
 - name: mcp
   description: Mcp
+- name: inference
+  description: Scoped inference sessions
 paths:
   /v1/account:
     get:
@@ -919,8 +921,8 @@ paths:
       operationId: mcpJsonRpc
       x-synth-status: implemented
       x-synth-legacy-path: /mcp
-      summary: Streamable-HTTP MCP (JSON-RPC 2.0) - initialize, ping, tools/list, tools/call over the Swarms and
-        account tools.
+      summary: Streamable-HTTP MCP (JSON-RPC 2.0) - initialize, ping, tools/list, tools/call over the
+        Swarms and account tools.
       security:
       - apiKey: []
       - clerkSession: []
@@ -1339,9 +1341,9 @@ paths:
       - runs
       operationId: listRunEvents
       summary: Ordered run events, one cursor page at a time.
-      description: 'Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes SSE after
-        a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling later events. Only native
-        runs are exposed.'
+      description: 'Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes
+        SSE after a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling
+        later events. Only native runs are exposed.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:read
@@ -1666,9 +1668,9 @@ paths:
       - runs
       operationId: getRunOutputContent
       summary: The output's bytes at the revision and digest read from its record.
-      description: Served as an attachment under the artifact policy (declared type, `nosniff`, sandbox CSP). `422
-        output_revision_required` unless exactly `revision_id` and `digest_sha256` are given; `409 output_revision_changed`
-        when they no longer name the published revision; `404 output_not_found`.
+      description: Served as an attachment under the artifact policy (declared type, `nosniff`, sandbox
+        CSP). `422 output_revision_required` unless exactly `revision_id` and `digest_sha256` are given;
+        `409 output_revision_changed` when they no longer name the published revision; `404 output_not_found`.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:read
@@ -2034,7 +2036,8 @@ paths:
       x-synth-source: core/internal/public/billing/http.go
       security: []
       summary: The code-constant plan catalog (public) with each plan's live Stripe price state.
-      description: 'price_state is read from Stripe by lookup key (cached 60 s; a failed lookup is not cached).
+      description: 'price_state is read from Stripe by lookup key (cached 60 s; a failed lookup is not
+        cached).
 
         checkout_available is true only when POST /v1/billing/checkout can succeed for that plan:
 
@@ -2181,8 +2184,8 @@ paths:
 
         restores. `delta_microcents` moves the ledger; `held_delta_microcents` moves held value.
 
-        Refusals: `invalid_cursor` (422), `invalid_limit` (422), `invalid_history_filter` (422, detail names the
-        parameter).
+        Refusals: `invalid_cursor` (422), `invalid_limit` (422), `invalid_history_filter` (422, detail
+        names the parameter).
 
         '
       parameters:
@@ -2274,18 +2277,23 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       x-synth-scope: account:billing:read
-      summary: Monthly statements of the caller's org (UTC calendar months), derived from the ledger, newest first.
+      summary: Monthly statements of the caller's org (UTC calendar months), derived from the ledger,
+        newest first.
       description: 'One row per month that has ledger entries. Movements are sums of entry deltas by kind:
 
         purchases (purchased grants), allowance (included grants), credits (promotional and operator grants),
 
-        conversion (legacy carry-over grants), charges (settlements, negative), refunds (Stripe/operator refunds
+        conversion (legacy carry-over grants), charges (settlements, negative), refunds (Stripe/operator
+        refunds
 
-        and clawbacks), adjustments and expirations. `closing_ledger_microcents` = opening + the month''s deltas;
+        and clawbacks), adjustments and expirations. `closing_ledger_microcents` = opening + the month''s
+        deltas;
 
-        the latest closing equals the balance''s `ledger_microcents`. `unspent_returned_microcents` is held value
+        the latest closing equals the balance''s `ledger_microcents`. `unspent_returned_microcents` is
+        held value
 
-        returned to available by cancel/failure refunds (it moves held, not the ledger). Usage columns sum the
+        returned to available by cancel/failure refunds (it moves held, not the ledger). Usage columns
+        sum the
 
         month''s charged usage lines. Refusal: `invalid_limit` (422) when `months` is outside 1..36.
 
@@ -2367,8 +2375,8 @@ paths:
         or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown`
         (422),
 
-        `plan_not_purchasable` (422), `malformed_request` (422), `config_missing` (503, names the variable), `stripe_price_missing`
-        (503, names the lookup key),
+        `plan_not_purchasable` (422), `malformed_request` (422), `config_missing` (503, names the variable),
+        `stripe_price_missing` (503, names the lookup key),
 
         `stripe_checkout_failed` (502, `upstream_kind: stripe`).
 
@@ -2521,6 +2529,85 @@ paths:
         schema:
           type: string
           format: uuid
+  /v1/inference/sessions:
+    post:
+      tags:
+      - inference
+      operationId: createInferenceSession
+      summary: Create a project-scoped, budget-admitted inference session.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/inference/http.go
+      x-synth-scope: swarms:run
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceSessionRequest'
+            example:
+              project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+              preset: hosted.openrouter_zdr_us
+              budget:
+                amount: '2.00'
+                currency: USD
+              ttl: 3600
+      responses:
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        '201':
+          description: Scoped session; the token is returned in this response and encrypted idempotent
+            replays.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceSession'
+              example:
+                session_token: gw_example
+                base_url: https://gateway.example.test/v1
+                expires_at: '2026-11-04T19:00:00Z'
+                model: gpt-6-luna
+                max_output_tokens: 128000
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: none
+      x-synth-mcp-name: inference_session_create
 components:
   securitySchemes:
     apiKey:
@@ -2542,8 +2629,8 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: Required on creating and charging POSTs. Scoped to the caller and operation for 24 hours; body
-        mismatch returns 422 idempotency_key_reused.
+      description: Required on creating and charging POSTs. Scoped to the caller and operation for 24
+        hours; body mismatch returns 422 idempotency_key_reused.
       schema:
         type: string
         maxLength: 128
@@ -2781,8 +2868,8 @@ components:
       properties:
         resource:
           type: string
-          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 5, max 50, internal -1, credits/free
-            1), included_usage.'
+          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 5, max 50, internal
+            -1, credits/free 1), included_usage.'
         metric:
           type: string
         window:
@@ -2975,8 +3062,8 @@ components:
     MintApiKeyRequest:
       type: object
       additionalProperties: false
-      description: Automation keys require name, scopes, expires_at (at most one year) and request_id. One active
-        personal key per user and org.
+      description: Automation keys require name, scopes, expires_at (at most one year) and request_id.
+        One active personal key per user and org.
       properties:
         purpose:
           type: string
@@ -3028,8 +3115,8 @@ components:
       - wall_time_seconds
       - maximum_tasks
       - maximum_parallel_tasks
-      description: maximum_charge is required; explicit null requests operator-funded local execution. maximum_parallel_tasks
-        cannot exceed maximum_tasks.
+      description: maximum_charge is required; explicit null requests operator-funded local execution.
+        maximum_parallel_tasks cannot exceed maximum_tasks.
       properties:
         maximum_charge:
           oneOf:
@@ -3556,14 +3643,14 @@ components:
           type: string
           format: date-time
         refund:
-          description: Unspent-hold refund of a canceled/failed run (cause refund with a typed refund_cause); null
-            otherwise.
+          description: Unspent-hold refund of a canceled/failed run (cause refund with a typed refund_cause);
+            null otherwise.
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/RefundDetail'
         usage:
-          description: Usage behind this charge (usage and charge are first class); null for movements without metered
-            usage.
+          description: Usage behind this charge (usage and charge are first class); null for movements
+            without metered usage.
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/ChargeUsage'
@@ -4450,6 +4537,51 @@ components:
       - requested
       - resolution
       additionalProperties: false
+    InferenceSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - project_id
+      - preset
+      - budget
+      - ttl
+      properties:
+        project_id:
+          $ref: '#/components/schemas/ProjId'
+        preset:
+          type: string
+          enum:
+          - hosted.openrouter_zdr_us
+        budget:
+          $ref: '#/components/schemas/Money'
+        ttl:
+          type: integer
+          minimum: 60
+          maximum: 86400
+    InferenceSession:
+      type: object
+      additionalProperties: false
+      required:
+      - session_token
+      - base_url
+      - expires_at
+      - model
+      - max_output_tokens
+      properties:
+        session_token:
+          type: string
+          pattern: ^gw_
+        base_url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+        model:
+          type: string
+        max_output_tokens:
+          type: integer
+          minimum: 1
   headers:
     Cache-Control:
       schema:

@@ -10,6 +10,7 @@ from ._blocking import Runner
 from ._generated.models import *  # noqa: F403
 from .account import AsyncAccount, AsyncApiKeys
 from .billing import AsyncBilling
+from .inference import AsyncInference
 from .swarms import AsyncSwarms
 
 
@@ -235,4 +236,29 @@ class BillingClient:
     ) -> CheckoutSession:
         return self._runner.call(
             self._async.checkout(plan_id=plan_id, credit=credit, idempotency_key=idempotency_key)
+        )
+
+
+class InferenceClient:
+    def __init__(self, runner: Runner, source: AsyncInference) -> None:
+        self._runner = runner
+        self._async = source
+
+    def session(
+        self,
+        *,
+        project_id: str | None = None,
+        preset: str = "hosted.openrouter_zdr_us",
+        budget: str = "2.00",
+        ttl: int = 3600,
+        idempotency_key: str | None = None,
+    ) -> InferenceSession:
+        return self._runner.call(
+            self._async.session(
+                project_id=project_id,
+                preset=preset,
+                budget=budget,
+                ttl=ttl,
+                idempotency_key=idempotency_key,
+            )
         )

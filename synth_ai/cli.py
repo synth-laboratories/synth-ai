@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import base64
 import json
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,7 @@ COMMANDS: dict[str, dict[str, str]] = {
         "rotate": "rotateApiKey",
         "revoke": "revokeApiKey",
     },
+    "inference": {"session": "createInferenceSession"},
     "billing": {
         "balance": "getBalance",
         "history": "listBillingHistory",
@@ -70,6 +72,12 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("--json", default="{}", help="JSON request object")
             if op["idempotent"]:
                 command.add_argument("--idempotency-key")
+            if oid == "createInferenceSession":
+                command.add_argument("--project-id")
+                command.add_argument("--preset", default="hosted.openrouter_zdr_us")
+                command.add_argument("--budget", default="2.00")
+                command.add_argument("--ttl", type=int, default=3600)
+                command.add_argument("--shell", action="store_true")
             if oid == "createProject":
                 command.add_argument("--name")
             if op["binary"]:
@@ -127,6 +135,22 @@ async def execute(args: argparse.Namespace) -> None:
             body = json.loads(args.json) if hasattr(args, "json") else None
             if getattr(args, "name", None):
                 body = {"name": args.name}
+            if args.operation == "createInferenceSession":
+                session = await client.inference.session(
+                    project_id=args.project_id,
+                    preset=args.preset,
+                    budget=args.budget,
+                    ttl=args.ttl,
+                    idempotency_key=args.idempotency_key,
+                )
+                if args.shell:
+                    print("export SYNTH_INFERENCE_BASE_URL=" + shlex.quote(session.base_url))
+                    print(
+                        "export SYNTH_INFERENCE_SESSION_TOKEN=" + shlex.quote(session.session_token)
+                    )
+                else:
+                    emit(session)
+                return
             result = await client._transport.invoke(
                 args.operation,
                 path={name: getattr(args, name) for name in op["path_params"]},
